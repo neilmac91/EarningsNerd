@@ -180,7 +180,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
                 // Bold: at 12px regular's stroke is 0.75px, under a device pixel (DESIGN.md › Icons).
                 <CheckIcon weight="bold" className="h-3 w-3" aria-hidden="true" />
               ) : status === 'active' ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-bright-dark" />
               ) : null}
             </span>
             <span
@@ -531,7 +531,7 @@ export default function StreamingSummaryDisplay({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
             {isGenerating && (
               // The one surviving pulse — signals the text is still streaming in.
-              <span className="ml-1 inline-block h-5 w-0.5 align-middle bg-brand-strong dark:bg-brand-strong-dark animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+              <span className="ml-1 inline-block h-5 w-0.5 align-middle bg-brand-strong dark:bg-brand-bright-dark animate-pulse motion-reduce:animate-none" aria-hidden="true" />
             )}
           </div>
           {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —

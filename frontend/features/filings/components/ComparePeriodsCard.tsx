@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useId, useRef } from 'react'
-import { ArrowRightIcon } from '@/lib/icons'
-import { Card, Notice, Skeleton, cx } from '@/components/ui'
+import { Card, Notice, Skeleton, TrailingArrowLabel, cx } from '@/components/ui'
 import { RetryButton } from '@/hooks/useRetainedFailure'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { useWhatChanged } from '@/features/summaries/hooks/useWhatChanged'
@@ -116,17 +115,18 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
             </p>
           )}
           {wordingLine && <p className={cx('mt-2 text-xs tnum', MUTED)}>{wordingLine}</p>}
+          {/* A link that stands alone: one box that grows with its lines where its label wraps under 200% text
+              (min-h-9, not h-9), its arrow kept with its last word (E275; DESIGN_SYSTEM.md §4, Trailing arrow). */}
           <Link
             href={`/filing/${filing.id}#${WHAT_CHANGED_ID}`}
             className={cx(
-              '-ml-2 mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold',
+              '-ml-2 mt-3 inline-block min-h-9 rounded-lg px-2 py-2 text-sm font-semibold',
               'text-brand-strong transition-colors duration-fast hover:bg-brand-weak',
               'focus-visible:outline-none focus-visible:shadow-ring-brand',
               'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
             )}
           >
-            Open change report
-            <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+            <TrailingArrowLabel arrowClassName="ml-1.5 h-4 w-4">Open change report</TrailingArrowLabel>
           </Link>
         </>
       )}

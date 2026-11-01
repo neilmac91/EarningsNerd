@@ -19,6 +19,8 @@ Conventions (also stated on the Overview sheet, where users see them):
 - Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis). Every data note is a Comment
   too, the workbook's evidence dialog; a note that questions the number also sets its letter after the figure through
   the number format (``#,##0" a"``), so the cell stays a number, and their key sits under the Metrics grid (D-061).
+  A later filing's different value is a Comment's evidence too, never a letter (MPA WP5a), with a "First reported" row
+  in Sources & methods.
 - Sources & methods carries the output values, calculation operands and source links, plus
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 - Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
@@ -33,6 +35,7 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -50,9 +53,10 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence, derived_q4_sentence,
-    count_label, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index,
-    operand_records, period_label, point_method, point_notes,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, SummaryClause, calculated_sentence, count_label, derived_q4_sentence,
+    detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, growth_point,
+    later_filing_entry, not_meaningful_lines, note_index, operand_records, period_label, point_method, point_notes,
+    workbook_closing,
 )
 from app.services.trend_analysis.data_notes import marks_figure, resolve_data_notes
 from app.utils.company_names import display_company_name
@@ -264,6 +268,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         "Monetary values retain the supplied numeric precision and reporting currencies shown in Metrics and Sources & methods; no currency conversion is applied.",
         "Sources & methods lists reported inputs, formulas, source links and any limitations for each figure.",
         "Sources & methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
+        # Where some growth reads n/m across a change of basis, both causes of an n/m (D12).
+        *not_meaningful_lines(dataset),
         FCF_DEFINITION,
     ]
     if sentence := calculated_sentence(dataset):
@@ -276,16 +282,17 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         # Which figures carry a comment is the closing line's to say (WORKBOOK_CLOSING), once.
         notes.append("Calculation method is separate from whether the source checks passed.")
     # The data notes as the page's fine print: the summary line, every note (marked ones first, a letter only where it
-    # marks) and the closing line.
+    # marks), the later-filing line after them, as on the page (an entry with no letter, D9), and the closing line.
     notes.append("Data notes")
     if summary := " · ".join(map(_summary_words, fine_print_summary(envelope))):
         notes.append(summary)
+    later_filing = later_filing_entry(dataset)
     notes.extend(
         " ".join(filter(None, (f"{entry['letter']}." if entry["letter"] else "", entry["message"], entry["places"],
                                entry["counts"], entry["comparisons"])))
-        for entry in detail_entries(envelope["notes"])
+        for entry in [*detail_entries(envelope["notes"]), *filter(None, [later_filing])]
     )
-    notes.append(WORKBOOK_CLOSING)
+    notes.append(workbook_closing(later_filing is not None))
     row += 1
     for note in notes:
         cell = _write_text(ws, row, 1, note)
@@ -417,7 +424,7 @@ def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
                 "provenance": provenance,
                 "source_url": point.get("source_url") or provenance.get("source_url"),
             }), *operand_records(provenance)]
-            for label, record in records:
+            for label, record, words in _with_first_reported(records):
                 record_provenance = record.get("provenance") or {}
                 note = indexed.get((series["concept"], point.get("period"), bases[measure])) if label == measure else None
                 values = [
@@ -429,8 +436,9 @@ def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
                     record.get("filed_at") or record_provenance.get("filed_at"), record.get("raw_tag"),
                     record.get("source_url"),
                     # The letter where the note marks the figure (D-061), else the note's words: a letter names
-                    # only what the grid marks.
-                    (f"Data note {note['letter']}" if marks_figure(note) else note["message"]) if note else "",
+                    # only what the grid marks. Then what the page's evidence dialog says of the row (D10).
+                    " · ".join(filter(None, [(f"Data note {note['letter']}" if marks_figure(note) else note["message"])
+                                             if note else "", " ".join(words)])),
                 ]
                 for column, value in enumerate(values, start=1):
                     # Only the numeric data column is typed as a number. Every source/formula
@@ -449,6 +457,25 @@ def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
         ws.column_dimensions[get_column_letter(column)].width = {
             1: 25, 4: 25, 5: 21, 9: 40, 10: 50, 15: 45, 16: 60, 17: 16,
         }.get(column, 19)
+
+
+def _with_first_reported(records: list[tuple[str, dict[str, Any]]]) -> Iterator[tuple[str, dict[str, Any], list[str]]]:
+    """Sources & methods' records, each with the evidence words its Note column adds (D10, full): a growth's basis n/m
+    on its own row, and, after a figure or an input that carries its year's own annual report's value, a "First
+    reported" row: that report's value as filed, its accession, filed day and link, and the evidence sentence."""
+    measure = records[0][0]
+    for label, record in records:
+        words, first = evidence_lines(record), record.get("first_reported")
+        if not (first and words):
+            yield label, record, words
+            continue
+        yield label, record, []
+        yield "First reported" if label == measure else f"{label} first reported", {
+            "concept": record.get("concept"), "value": first.get("value"), "unit": first.get("unit"),
+            "period_start": record.get("period_start"), "period_end": record.get("period_end"),
+            "accession": first.get("accession"), "filed_at": first.get("filed_at"), "source_url": first.get("source_url"),
+            "provenance": {"method": "reported"},
+        }, words
 
 
 def _style_line_series(chart: LineChart) -> None:
@@ -486,14 +513,15 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
         growth_cell.border = _CELL_BORDER
         yoy = point.get("yoy")
         note = indexed.get((top["concept"], period, "yoy"))
-        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")}, note)
+        notes = point_notes(growth_point(point, "yoy", bool(top.get("percent"))), note)
         if notes:
             growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
             growth_cell.number_format = _marked_format("0.0%", note)
         elif yoy is not None:
-            growth_cell.value = "n/m"  # sign-flip sentinel — not a meaningful percentage
+            # Not meaningful (a change of sign, or of basis across a later filing's value): text, not a percentage.
+            growth_cell.value = "n/m"
             if note and marks_figure(note):  # the letter from the text section; an unmarked "n/m" keeps General
                 growth_cell.number_format = _marked_format("@", note)
 

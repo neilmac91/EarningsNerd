@@ -97,8 +97,8 @@ def admitted_items(items: list, *, instant: bool) -> Iterator[tuple[tuple[date, 
     span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span is dropped); an instant's klass is
     "I". ``filing_currencies`` counts each filing's items on these same keys, so an item the
     collector drops for its form, value, date or span never votes. The pick runs over the whole
-    registries, so the concepts a financial filer's collector skips (``_FI_SKIPPED_CONCEPTS``) still
-    vote: a filing tags them in its own currency too.
+    registries, so a financial filer's generic revenue tags, which its collector replaces with
+    ``fi_revenue``'s (``_FI_SKIPPED_CONCEPTS``), still vote: a filing tags them in its own currency too.
     """
     # Call time: concepts imports quarterly, which imports this module.
     from app.services.facts.concepts import _classify_duration, _parse_date

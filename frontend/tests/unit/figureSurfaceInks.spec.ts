@@ -17,7 +17,10 @@ import { describe, expect, it } from 'vitest'
  * 2. Contrast. Every pair the surfaces draw meets its APCA tier (apca-w3 0.1.9's SA98G constants, below): figures
  *    and metric names |Lc| >= 90; change lines, headings and labels >= 75; marks and the missing-value dash >= 60;
  *    rules >= 15 and a hovered row's rules >= 30. The app-wide secondary ink is held here too: it reads in dark as
- *    in light (|Lc| >= 75 on the dark panel and page), and tertiary's dark twin stays text-safe (4.5:1).
+ *    in light (|Lc| >= 75 on the dark panel and page), and tertiary's dark twin stays text-safe (4.5:1). So is the
+ *    accent text ink, the sage of every link and secondary or ghost button label: brand.strong and its dark twin read
+ *    at the label tier (|Lc| >= 75) on their panel and page, and the twin keeps brand.strong's OKLCH hue and chroma,
+ *    so brand stays one sage in both themes (E202 (2), D-071: at #98C5AD the dark Export Excel label was Lc -62.2).
  * 3. Balance. In dark the gain and loss data inks match in contrast and chroma, so neither direction reads louder
  *    (emerald-300 beside rose-200 did), and dark primary stays a step above the secondary ink it once all but met.
  */
@@ -80,16 +83,20 @@ const wcag = (a: string, b: string) => {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** OKLCH chroma (Björn Ottosson's OKLab), the colourfulness two inks of one lightness are compared by. */
-function chroma(hex: string): number {
+/** OKLab's a and b (Björn Ottosson's OKLab). */
+function lab(hex: string): [number, number] {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   const [l, m, s] = [
     0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b,
     0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
     0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b,
   ].map(Math.cbrt)
-  return Math.hypot(1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s)
+  return [1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s]
 }
+/** OKLCH chroma, the colourfulness two inks of one lightness are compared by. */
+const chroma = (hex: string) => Math.hypot(...lab(hex))
+/** OKLCH hue in degrees. */
+const hue = (hex: string) => (Math.atan2(lab(hex)[1], lab(hex)[0]) * 180) / Math.PI
 
 const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: Record<string, Record<string, unknown>> } } }).theme.extend.colors
 const token = (pathName: string): string => {
@@ -130,6 +137,11 @@ const PAIRS: [string, string, string, number][] = [
   }),
   ['dark secondary ink on the panel', 'text.secondary.dark', 'panel.dark', 75],
   ['dark secondary ink on the page', 'text.secondary.dark', 'background.dark', 75],
+  // The accent text ink: links and secondary or ghost button labels, 12px/600 at the smallest (D-071).
+  ['light accent ink on the panel', 'brand.strong', 'panel.light', 75],
+  ['light accent ink on the page', 'brand.strong', 'background.light', 75],
+  ['dark accent ink on the panel', 'brand.strong-dark', 'panel.dark', 75],
+  ['dark accent ink on the page', 'brand.strong-dark', 'background.dark', 75],
 ]
 
 describe('the analysis figure surfaces keep their own inks', () => {
@@ -164,6 +176,13 @@ describe('the analysis figure surfaces keep their own inks', () => {
     }
     const [gain, loss] = [chroma(token('gain.data-dark')), chroma(token('loss.data-dark'))]
     expect(Math.abs(gain - loss), `gain chroma ${gain.toFixed(3)} against loss chroma ${loss.toFixed(3)}`).toBeLessThanOrEqual(0.01)
+  })
+
+  it("keeps the dark accent ink on the light one's sage, so brand is one sage in both themes (D-071)", () => {
+    // #AEDCC2 is brand.strong's hue and chroma at the lightness that reads at the label tier on the dark panel.
+    const [light, dark] = [token('brand.strong'), token('brand.strong-dark')]
+    expect(Math.abs(hue(dark) - hue(light)), `hue ${hue(dark).toFixed(1)} against ${hue(light).toFixed(1)}`).toBeLessThanOrEqual(1)
+    expect(Math.abs(chroma(dark) - chroma(light)), `chroma ${chroma(dark).toFixed(3)} against ${chroma(light).toFixed(3)}`).toBeLessThanOrEqual(0.005)
   })
 
   it('keeps dark primary, the one heading ink, a step above the secondary ink', () => {

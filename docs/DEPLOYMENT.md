@@ -22,6 +22,12 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 - the push is to `main`, **and**
 - the repository variable `GCP_WIF_PROVIDER` is set (the job is skipped without it), **and**
 - `backend/` changed outside `backend/tests/`, **and**
+- main has not moved past the commit with changes to `backend/` outside `backend/tests/`. When it has,
+  a newer backend commit's run deploys them, and deploying this one after it would roll production back.
+  Deploys wait in the order their runs reach the job, not in merge order. The detector reads main's tip
+  by its full ref with a shallow fetch, up to three attempts; if that read fails, the step fails and
+  nothing deploys. A deploy that skips as superseded concludes success, with a "Superseded deploy
+  skipped" notice and no migration line (`lessons/ops-a-superseded-commit-never-deploys.md`), **and**
 - all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed, **and**
 - `secret-scan` (gitleaks over every branch's history) found no committed credential.
 
@@ -36,7 +42,10 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `lessons/ops-migrations-need-lock-timeout.md`. The same script runs three passes against a
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
-deploy. It then runs `gcloud run deploy` and routes
+deploy of the newest commit that changed `backend/` outside `backend/tests/`, never an older one's: a
+guarded run skips as superseded, and a run from before the guard would deploy the older commit
+(`lessons/ops-a-superseded-commit-never-deploys.md`, rule 6). It then runs
+`gcloud run deploy` and routes
 traffic to the new revision, updates the required pregenerate job image, and updates eight other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
 earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge, feedback-media-cleanup). Missing jobs are skipped,

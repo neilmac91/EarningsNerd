@@ -47,7 +47,7 @@ export function ActivityLine({ children }: ActivityLineProps) {
   return (
     <p className="flex items-start gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
       <span aria-hidden="true" className="flex h-5 flex-none items-center">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-bright-dark" />
       </span>
       <span className="min-w-0 break-words">{children}</span>
     </p>

@@ -8,7 +8,7 @@ import type { Locator } from '@playwright/test'
  * read — the surfaces measured with it are flat token fills. A DOM measurement, not a screen-reader
  * or visual test. The ratio is rounded to two places unless `exact` is set: a case that holds a floor
  * at its margin reads it unrounded, since a rounded 4.495 would pass 4.5 (the waitlist join link's
- * dark label computes to 4.500005:1 on its hovered fill).
+ * dark label read 4.500005:1 on its hovered fill until the accent text ink rose, D-071; 5.69:1 since).
  */
 export const textContrast = (loc: Locator, { exact = false }: { exact?: boolean } = {}): Promise<number> =>
   loc.evaluate((el, exact) => {

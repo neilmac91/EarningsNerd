@@ -100,7 +100,7 @@ export default function FigureReceipt({
         href={receipt.url}
         target="_blank"
         rel="noopener noreferrer"
-        className={`mt-3 inline-flex items-center gap-1 rounded-sm text-sm font-medium ${MUTED} transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark`}
+        className={`mt-3 inline-flex items-center gap-1 rounded-sm text-sm font-medium ${MUTED} transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-brand-strong-dark dark:hover:underline underline-offset-4 dark:focus-visible:shadow-ring-brand-dark`}
       >
         <ArrowSquareOutIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>

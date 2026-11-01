@@ -27,18 +27,23 @@ declared the default, the same file was a no-op.
      (`ALTER COLUMN … SET DEFAULT`) or drops NOT NULL, so the old code and the new can both insert during the
      rollout.
    - A database `create_all` made from the old model, a local one included, needs that migration too.
-2. **Step 2, a later pull request, once step 1's `deploy-backend` job is green:** a guarded migration drops the
+2. **Step 2, a later pull request, once step 1 has deployed:** a guarded migration drops the
    column (`DO $$ … IF EXISTS (… information_schema.columns …) THEN ALTER TABLE … DROP COLUMN … END IF $$`), per
-   `lessons/ops-migrations-need-lock-timeout.md`.
-3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
-   every read and insert of a whole row (a count of one column, as the waitlist's stats count does, still works), and
+   `lessons/ops-migrations-need-lock-timeout.md`. Step 1 has deployed when its own `deploy-backend` run, or a newer
+   deploy that carries it, shows the migration line and health. A job skipped as superseded is green but deployed
+   nothing (`lessons/ops-a-superseded-commit-never-deploys.md`).
+3. **After step 2, roll traffic back only to a revision whose image carries step 1:** step 1's own deploy's, or,
+   when that deploy skipped as superseded, the newer deploy's that carried it. Revisions are not always created in
+   merge order (on 2026-10-31 an older commit's revision followed a newer one's), so judge a revision by its image,
+   not its age. A revision whose image predates step 1 maps the column and fails every read and insert of a whole
+   row (a count of one column, as the waitlist's stats count does, still works), and
    `ops.yml`'s rollback takes any revision. Name the limit in `docs/DEPLOYMENT.md`'s rollback section, where a
    responder looks, as E245's is.
 
 The review gate holds rule 2's order, not its wait. It fails a pull request whose migration drops a column the base
 branch's models still map (`backend/scripts/review_gate.py`, "Dropped columns"; `backend/tests/unit/test_review_gate.py`),
 so step 2 cannot merge before step 1, nor with it. It reads the base as the pull request would merge into it, not the
-deploy: whether step 1's `deploy-backend` job is green before step 2 merges stays review-checked, as AGENTS.md §6's wait
+deploy: whether step 1 has deployed before step 2 merges stays review-checked, as AGENTS.md §6's wait
 for a backend merge's deploy does. It reads each migration the pull request adds or changes at its head, and the base's
 models from the checkout the workflow makes, by their source. Since the workflow runs the base's script, a change to
 the gate first checks the pull request after the one that makes it: E245's step 1 added it, so step 2 is the first drop
@@ -58,8 +63,8 @@ dropped table and a changed type, which break the serving code the same way.
     ACCESS EXCLUSIVE holder blocks it.
   - CI's triple pass runs the file on PostgreSQL 15, but it seeds `create_all` from the new model, so CI runs only
     the file's no-op branch.
-- `backend/migrations/20261030_waitlist_email_verified_drop.sql` is step 2, which merges only once step 1's
-  `deploy-backend` job is green. On PostgreSQL 16 locally:
+- `backend/migrations/20261030_waitlist_email_verified_drop.sql` is step 2, which merges only once step 1 has
+  deployed. On PostgreSQL 16 locally:
   - On tables made both ways and brought to step 1's state, it dropped the column and kept every row, with no table
     rewrite.
   - Under a held reader it hit the lock timeout, which `apply_migrations.sh` retries.

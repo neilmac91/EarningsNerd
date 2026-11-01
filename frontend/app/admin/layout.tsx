@@ -39,7 +39,7 @@ function AdminSubNav({ navRef }: { navRef: RefObject<HTMLElement> }) {
               aria-current={active ? 'page' : undefined}
               className={`inline-flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
                 active
-                  ? 'border-brand-strong text-text-primary-light dark:border-brand-strong-dark dark:text-text-primary-dark'
+                  ? 'border-brand-strong text-text-primary-light dark:border-brand-bright-dark dark:text-text-primary-dark'
                   : 'border-transparent text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white'
               }`}
             >

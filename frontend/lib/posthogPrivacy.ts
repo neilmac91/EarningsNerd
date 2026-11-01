@@ -1,5 +1,5 @@
 import type { CaptureResult, PostHog, PostHogConfig } from 'posthog-js'
-import { browserAnalyticsAllowed } from './posthogConsent'
+import { browserAnalyticsAllowed, postHogGuardFailed } from './posthogConsent'
 import { canRecordTelemetry, sanitizeTelemetry, sanitizeTelemetryText, sanitizeTelemetryUrl } from './telemetryPrivacy'
 
 /** Clean old SDK attribution/flag stores as well as current event properties. */
@@ -26,10 +26,14 @@ export function initializePostHogPrivacy(client: PostHog): void {
 }
 
 export function beforeSendPostHog(client: PostHog, event: CaptureResult | null): CaptureResult | null {
-  // Session replay is unavailable for this release, including manually captured or queued
-  // snapshots. Consent is checked again here even when SDK opt-out persistence is unavailable.
-  if (!event || !browserAnalyticsAllowed() || event.event === '$snapshot') return null
+  if (!event) return null
+  // posthog-js stores session attribution (the raw page URL) before it calls before_send: clean it for every event,
+  // the ones dropped below included.
   sanitizePostHogPersistence(client)
+  // Session replay is unavailable for this release, including manually captured or queued
+  // snapshots. Consent is checked again here even when SDK opt-out persistence is unavailable,
+  // and a client whose consent guard failed sends no event, whatever another tab stores there.
+  if (!browserAnalyticsAllowed() || postHogGuardFailed(client) || event.event === '$snapshot') return null
   return sanitizeTelemetry(event, true)
 }
 

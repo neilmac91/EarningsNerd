@@ -32,7 +32,7 @@ const CLASS_JOINERS = new Set(['cx', 'clsx'])
 export const tokensOf = (text: string) => text.split(/\s+/).filter(Boolean)
 
 /** The expression under any parentheses, `as`, `satisfies`, `!` or angle-bracket cast. */
-function unwrapped(expr: ts.Expression): ts.Expression {
+export function unwrapped(expr: ts.Expression): ts.Expression {
   while (
     ts.isParenthesizedExpression(expr) ||
     ts.isAsExpression(expr) ||

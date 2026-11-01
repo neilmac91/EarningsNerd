@@ -274,7 +274,7 @@
   position: absolute;
   /* Zero on one line; a wrapped box gains descender clearance without moving its text. */
   inset: max(0px, calc(6% - 0.06em)) 0 0;
-  background: theme('colors.brand.strong-dark');
+  background: theme('colors.brand.bright-dark');
   border-radius: inherit;
   z-index: -1;
   pointer-events: none;
@@ -363,7 +363,7 @@
   transform: translateY(-50%); /* centred on its marker's midpoint, whatever height it renders at */
   color: #3C6650; /* brand-strong */
 }
-.dark .en-margin-mark { color: #98C5AD; /* brand-strong-dark */ }
+.dark .en-margin-mark { color: #AEDCC2; /* brand-strong-dark, the accent text ink (D-071) */ }
 
 /* Hero accent word — solid sage ink, not a gradient. Tokenized: brand.strong
    in light, brand.strong-dark on navy. The legacy `.text-gradient-mint` alias

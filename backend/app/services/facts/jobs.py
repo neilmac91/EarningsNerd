@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Company, Filing, FinancialFact, Watchlist
-from app.services.facts.concepts import AFFECTED_FINANCIAL_CONCEPTS
+from app.services.facts.concepts import AFFECTED_FINANCIAL_CONCEPTS, _is_financial_sic
 from app.services.facts.ingest import ingest_companyfacts
 from app.services.facts.reconcile import extract_authoritative_values
 from app.services.facts.transport import _fetch_companyfacts_sync, logger
@@ -360,9 +360,8 @@ def _backfill_rows(
             if filing.company_id not in auth_by_company:
                 cik = getattr(filing.company, "cik", None)
                 fetched = fetch_companyfacts(cik) if cik else None
-                auth_by_company[filing.company_id] = (
-                    extract_authoritative_values(fetched) if fetched else {}
-                )
+                auth_by_company[filing.company_id] = extract_authoritative_values(  # a financial filer: its total
+                    fetched, financial=_is_financial_sic(getattr(filing.company, "sic", None))) if fetched else {}
                 if not fetched:
                     companyfacts_unavailable += 1
                     unauthorized_companies.add(filing.company_id)

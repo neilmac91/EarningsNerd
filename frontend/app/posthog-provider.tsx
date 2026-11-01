@@ -4,8 +4,10 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
+import { hasActiveSession } from '@/lib/api/session'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
-import { applyPostHogConsent, browserAnalyticsAllowed, installPostHogConsentGuard } from '@/lib/posthogConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed, postHogGuardFailed } from '@/lib/posthogConsent'
+import { settledAccount, whenAccountRead } from '@/lib/posthogIdentity'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
@@ -44,8 +46,9 @@ function PostHogPageViewWrapper() {
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   // Seeded from the SDK, for a provider that mounts again after PostHog has loaded (GlobalErrorBoundary's "Try
   // again", a global-error reset): a second init is a no-op that never calls `loaded`, so nothing else would set it.
-  // The server render and the first hydration still start at false, since posthog.init runs only in the effect below.
-  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded))
+  // A client whose consent guard failed stays not ready. The server render and the first hydration still start at
+  // false, since posthog.init runs only in the effect below.
+  const [initialized, setInitialized] = useState(() => Boolean(posthog?.__loaded) && !postHogGuardFailed(posthog))
   // The visitor's analytics choice as this provider last applied it; with `initialized` it makes PostHogReadyContext.
   const [analyticsAllowed, setAnalyticsAllowed] = useState(false)
 
@@ -54,19 +57,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
     let active = true
     let starting = false
-    const followChoice = () => {
-      const allowed = browserAnalyticsAllowed()
-      setAnalyticsAllowed(allowed)
-      if (!key) return // Identification can still mirror the account id into Sentry after consent.
+    // Every failure here keeps PostHog off and reaches Sentry (failPostHogClosed), never only the console.
+    const start = (projectKey: string) => {
       try {
-        installPostHogConsentGuard(posthog)
-        if (posthog.__loaded) {
-          applyPostHogConsent(posthog)
-          return
-        }
-        if (!allowed || starting) return
-        starting = true
-        posthog.init(key, {
+        posthog.init(projectKey, {
           api_host: host,
           capture_pageview: false,
           capture_pageleave: true,
@@ -75,19 +69,67 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           ...postHogPrivacyConfig(posthog),
           bootstrap: { featureFlags: {} },
           loaded: () => {
-            // Initialization may finish after a refusal/clear in this or another tab. Never use
-            // the choice captured by the init closure to opt back in or start recording.
-            initializePostHogPrivacy(posthog)
-            applyPostHogConsent(posthog)
-            if (active) {
-              setInitialized(true)
+            // posthog-js swallows a throw from `loaded` and carries on, so none may leave it. Initialization may
+            // finish after a refusal/clear in this or another tab. Never use the choice captured by the init
+            // closure to opt back in or start recording.
+            try {
+              // posthog-js keeps an identified reader's id across page loads until reset(). Reset it here, before
+              // posthog-js sends its first request for this page, unless the browser has a session and the app's latest
+              // read of it names that account (lib/posthogIdentity.ts): a browser without a session, or one whose
+              // session ended or became another account's, starts on a fresh identity with a new device id. The
+              // privacy seed is written after it, and the application below restores the visitor's choice, which
+              // reset() clears.
+              const held = posthog.get_property('$user_state') === 'identified' ? posthog.get_distinct_id() : null
+              const confirmed = hasActiveSession() ? settledAccount() : null
+              if (held !== null && held !== confirmed) posthog.reset(true)
+              initializePostHogPrivacy(posthog)
+              const guarded = applyPostHogConsent(posthog)
+              if (!active) return
+              if (guarded) setInitialized(true)
               setAnalyticsAllowed(browserAnalyticsAllowed())
+            } catch (error) {
+              // Every throw here comes before setInitialized(true), so the page never reads ready.
+              failPostHogClosed(posthog, error)
             }
           },
         })
       } catch (error) {
-        starting = false
-        console.error('PostHog: Failed to initialize or update PostHog', error)
+        failPostHogClosed(posthog, error)
+        setInitialized(false)
+      }
+    }
+    const followChoice = () => {
+      const allowed = browserAnalyticsAllowed()
+      setAnalyticsAllowed(allowed)
+      if (!key) return // Identification can still mirror the account id into Sentry after consent.
+      try {
+        if (posthog.__loaded) {
+          if (!applyPostHogConsent(posthog)) setInitialized(false)
+          return
+        }
+        if (!allowed || starting) return
+        // Start PostHog only under its consent guard, installed here before init: unguarded, a withdrawal could
+        // not stop queued or retried requests.
+        if (!applyPostHogConsent(posthog)) return
+        starting = true
+        // The session marker cannot tell a live session from one that ended while no page was open. For a browser
+        // with one, start once the app has read whose session it is, so `loaded` resets a kept identity the read does
+        // not confirm. A browser without one starts at once, and any identity PostHog kept is reset.
+        if (!hasActiveSession()) {
+          start(key)
+          return
+        }
+        whenAccountRead(() => {
+          if (!active) return
+          if (!browserAnalyticsAllowed()) {
+            starting = false // Refused while the read was pending: a later allow starts again.
+            return
+          }
+          start(key)
+        })
+      } catch (error) {
+        failPostHogClosed(posthog, error)
+        setInitialized(false)
       }
     }
     // Subscribe before init: synchronous loaded callbacks and concurrent choices follow one store.

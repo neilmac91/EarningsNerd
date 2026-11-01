@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { ArrowRightIcon } from '@/lib/icons'
+import { TrailingArrowLabel } from '@/components/ui/TrailingArrowLabel'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
@@ -55,13 +55,16 @@ export default function WaitlistPage() {
 
             <p className="mt-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Don&apos;t want to wait?{' '}
+              {/* One box in its sentence, as the flex row it replaces was: where it does not fit beside the question
+                  it takes the next line whole, and where it wraps there under 200% text its arrow keeps with its last
+                  word (E275; DESIGN_SYSTEM.md §4, Trailing arrow). Inline, its words broke across the question's line
+                  and painted fragments side by side on one line, each with its own ring. */}
               <ExampleCtaLink
                 href={exampleFilingHref('waitlist_example')}
                 placement="waitlist"
-                className="inline-flex items-center gap-1 rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
+                className="inline-block rounded-sm font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
               >
-                Try a live example summary
-                <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                <TrailingArrowLabel arrowClassName="ml-1 h-3.5 w-3.5">Try a live example summary</TrailingArrowLabel>
               </ExampleCtaLink>
             </p>
           </div>
@@ -120,7 +123,7 @@ export default function WaitlistPage() {
                 secondary recipe's hover fill (in dark a shade stronger: brand-dark/15, where the
                 recipe's brand-weak-dark is the same sage at 0.14) and takes the recipe's pressed fill
                 under the pointer, in both themes (E82): its label measures 5.33:1 on that fill in light
-                and 4.50:1 in dark, on this card. tests/e2e/text-floors.spec.ts holds both themes, at
+                and 5.69:1 in dark, on this card (4.50:1 before the accent text ink rose, D-071). tests/e2e/text-floors.spec.ts holds both themes, at
                 rest and hovered. */}
             <WaitlistEntryLink
               className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition-colors duration-fast hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"

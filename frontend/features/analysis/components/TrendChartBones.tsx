@@ -35,7 +35,8 @@ export const bonesPlan = (layout: ChartLayout): BonesPlan => ({
   plotLeft: layout.plotLeft,
   plotRight: layout.plotRight,
   panels: layout.panels.map((box) => ({ top: box.top, height: box.height })),
-  slots: Math.max(1, Math.round((layout.plotRight - layout.plotLeft) / layout.slot)),
+  // The plan's own count: the plot's width over its slot also counts a gap seam's share of a slot (E258).
+  slots: layout.count,
   barWidth: layout.barWidth,
 })
 

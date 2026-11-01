@@ -21,11 +21,16 @@ async def get_company_peers(
     ticker: str,
     metric: str = Query(
         "revenue",
-        description="Standardized concept to compare on, e.g. 'revenue', 'net_income', 'net_margin'.",
+        description=(
+            "Standardized concept to compare on, e.g. 'revenue', 'net_income', 'net_margin'. 'revenue', the "
+            "default, ranks a commercial bank or savings institution (SIC 6021, 6022, 6029, 6035, 6036) on "
+            "net interest income."
+        ),
     ),
     db: Session = Depends(get_db),
 ) -> PeerComparisonResponse:
-    """Rank a company against same-SIC peers on one metric, from the financial_fact table.
+    """Rank a company against same-SIC peers on one metric, from the financial_fact table. A figure more than
+    eighteen months older than the newest in its group is left out (peers_service.MAX_FIGURE_LAG).
 
     A single indexed read (no live SEC calls). Coverage grows with the facts backfill;
     the subject is always returned, even before peers/facts exist.

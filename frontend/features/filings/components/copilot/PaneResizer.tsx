@@ -106,7 +106,7 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
       onKeyDown={onKeyDown}
       className={`group z-10 cursor-col-resize touch-none focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:focus-visible:shadow-ring-brand-inset-dark ${className}`}
     >
-      <div className="mx-auto h-full w-px bg-white/10 transition-colors group-hover:bg-brand-strong/60 dark:group-hover:bg-brand-strong-dark/60 group-focus-visible:bg-brand-strong dark:group-focus-visible:bg-brand-strong-dark" />
+      <div className="mx-auto h-full w-px bg-white/10 transition-colors group-hover:bg-brand-strong/60 dark:group-hover:bg-brand-bright-dark/60 group-focus-visible:bg-brand-strong dark:group-focus-visible:bg-brand-bright-dark" />
     </div>
   )
 }

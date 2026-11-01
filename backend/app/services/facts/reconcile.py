@@ -11,6 +11,7 @@ from app.services.facts.concepts import (
     CROSS_CHECK_TOLERANCE, HEADLINE_GAAP_TAGS, NON_NEGATIVE_CONCEPTS,
     _INSTANT_HEADLINE, _MAGNITUDE_TOLERANCE, _parse_date,
 )
+from app.services.facts.fi_revenue import financial_revenue_tags
 from app.services.facts.fiscal_naming import is_proxy_form
 from app.services.facts.lineage import (
     annotate_filing_calculations, authoritative_reconciliation, local_reconciliation,
@@ -161,12 +162,12 @@ def _prior_values(
 # mismatch. Runs in the backfill (not the request path); best-effort — if companyfacts is
 # unavailable, the invariant-gate result stands.
 
-def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], float]:
+def extract_authoritative_values(companyfacts: Any, *, financial: bool = False) -> dict[tuple[str, date], float]:
     """Map ``(headline concept, period_end) -> authoritative annual USD value`` from companyfacts.
 
-    Reads ``facts."us-gaap".<tag>.units.USD[]``, never a proxy's item (``is_proxy_form``). For duration
-    concepts (revenue, net income) only the ~annual duration is kept (the FY value our facts carry); for the
-    instant concept (total assets) the period-end value is taken. Pure/defensive — ``{}`` for anything malformed.
+    Reads ``facts."us-gaap".<tag>.units.USD[]``, never a proxy's item (``is_proxy_form``); a ``financial`` filer's
+    revenue reads ``fi_revenue.financial_revenue_tags``. Duration concepts keep only the ~annual duration (the FY value
+    our facts carry); the instant concept takes the period-end value. Pure/defensive — ``{}`` for anything malformed.
     """
     out: dict[tuple[str, date], float] = {}
     if not isinstance(companyfacts, dict):
@@ -176,7 +177,8 @@ def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], fl
     if not isinstance(usgaap, dict):
         return out
 
-    for concept, tags in HEADLINE_GAAP_TAGS.items():
+    revenue = {"revenue": financial_revenue_tags(usgaap, "USD")} if financial else {}  # its total, never the fee line
+    for concept, tags in {**HEADLINE_GAAP_TAGS, **revenue}.items():
         instant = concept in _INSTANT_HEADLINE
         for tag in tags:
             node = usgaap.get(tag)

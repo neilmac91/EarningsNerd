@@ -186,7 +186,7 @@ export default function NotificationBell({
                       <span
                         aria-hidden="true"
                         className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                          item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-strong-dark'
+                          item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-bright-dark'
                         }`}
                       />
                       {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at

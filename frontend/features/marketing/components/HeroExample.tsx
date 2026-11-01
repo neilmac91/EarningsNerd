@@ -3,8 +3,8 @@ import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { Badge } from '@/components/ui/Badge'
-import { EnRef, MarkedCopy, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
-import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
+import { EnRef, MarkedCopy, TrailingArrowLabel, cx, markedBlockInsetClass, markedRowInsetClass } from '@/components/ui'
+import { ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
 import { Sep } from '@/features/filings/components/FilingIdentity'
@@ -260,22 +260,25 @@ function HeroExample({
               : 'Source filing\u00a0· check the figures on SEC.gov'}
         </a>
 
-        {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}
+        {/* Into the real example: a text link (the hero's primary action lives beside the headline). It stands alone,
+            so where its label wraps under 200% text it stays one box that grows with its lines (min-h-9, where h-9 held
+            three lines in a 36px box, the hover fill and the ring round the middle one), and its arrow keeps with its last
+            word (E275; DESIGN_SYSTEM.md §4, Trailing arrow). At rest at the default size it is the 36px it was. */}
         <ExampleCtaLink
           href={ctaHref}
           placement={ctaPlacement}
           className={cx(
-            'group -ml-2 inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-semibold',
+            'group -ml-2 inline-block min-h-9 self-start rounded-lg px-2 py-2 text-sm font-semibold',
             'text-brand-strong transition-colors duration-fast hover:bg-brand-weak',
             'focus-visible:outline-none focus-visible:shadow-ring-brand',
             'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
           )}
         >
-          {ctaLabel}
-          <ArrowRightIcon
-            className="h-3.5 w-3.5 shrink-0 transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
-            aria-hidden="true"
-          />
+          <TrailingArrowLabel
+            arrowClassName={cx('ml-1.5 h-3.5 w-3.5', 'transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0')}
+          >
+            {ctaLabel}
+          </TrailingArrowLabel>
         </ExampleCtaLink>
       </div>
     </section>

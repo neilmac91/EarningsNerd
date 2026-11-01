@@ -32,12 +32,50 @@ PostHog loads after analytics consent. Recording is disabled in application conf
 `$snapshot` payloads are rejected even on otherwise safe routes. Sentry replay remains disabled;
 its error diagnostics and data-scrubbing configuration are separate from browser analytics.
 
-With the locked `posthog-js` 1.438.12, `before_send` runs when an event is captured, not when an
+With the locked `posthog-js` 1.440.0, `before_send` runs when an event is captured, not when an
 earlier batch or retry leaves. [posthogConsent.ts](../frontend/lib/posthogConsent.ts) therefore
-guards the SDK's typed request and retry entry points. On withdrawal it drains batches, retry
-queues and pending DOM-ready requests through denial guards. A request generation prevents a
-late failed request from retrying after a subsequent allow. The adapter uses SDK internals;
-rerun the actual transport tests and review those entry points on SDK upgrades.
+guards the two places every request that carries data leaves through: `_send_request` and the
+retry queue's `retriableRequest`. The scripts posthog-js loads (its remote configuration and the
+extensions that configuration enables) go around both and carry no event data. The npm builds the
+app ships rename some of the client's private members, among them the three the guard once read,
+so it finds the retry and batch queues by their shape, never by those names. On withdrawal it
+drains batches, retry queues and pending DOM-ready requests through denial guards. A request
+generation prevents a late failed request from retrying after a subsequent allow. PostHog starts
+only after the guard is installed.
+
+After a guard failure, nothing more leaves that client through either wrapper, and it loads no
+further script. Its own `is_capturing` reads false, so the SDK captures nothing for it. Its
+`before_send` drops any event that still arrives. The guard's wrappers drop every request, flags
+and remote configuration included, and its script loading is switched off, so its remote
+configuration falls back to a request the wrappers drop. A request already on the wire is not
+recalled, and a script loaded before the failure keeps running. posthog-js keeps its own consent in
+a store that all tabs share and that `reset()` clears. A failed client keeps that store at the
+visitor's choice, as every healthy tab does; its own capturing never depends on it. The failure
+reaches Sentry once. The adapter uses SDK internals; rerun the actual transport tests and review
+those entry points on SDK upgrades.
+
+Capturing nothing is not storing nothing: posthog-js writes an identity to its cookie and local
+storage on `identify()` and `reset()`, and session data when something reads the session, even
+while capturing is off. [analytics.ts](../frontend/lib/analytics.ts) therefore identifies an
+account only while analytics is allowed, and app code identifies through it alone. It resets an
+identity the client holds for another account before it identifies one, so posthog-js never
+switches the person silently. posthog-js also keeps an identified reader's id across page loads
+until `reset()`, which only the dashboard's Log out called. So a reader with no account carries
+none. The identification hook forgets the account whenever it goes away: when the reader becomes a
+guest (any logout control, a lost session) and when the account query leaves the cache (an account
+deletion and "Log out of all devices" clear it). Forgetting resets a loaded client, with a new
+device id; a client whose reset throws is turned off instead. A client that has not loaded
+(analytics refused, or not chosen yet) cannot reset. When PostHog next starts, the provider resets
+a kept identity before posthog-js sends anything for the page, unless the browser has a session and
+the app's latest read of it (`/api/auth/me`) names that account; an account query cleared from the
+cache ends the read. A session can end while no page is open (a refresh token lapses, or "Log out
+of all devices" or a deletion runs on another device), and the session marker still reads as a
+session then, so for a browser with that marker the provider starts PostHog only once the read has
+settled ([posthogIdentity.ts](../frontend/lib/posthogIdentity.ts)). A read that never settles keeps
+PostHog off for that page. A browser without the marker starts at once, and any identity kept is
+reset. Nothing of this is stored. After a logout and a login made while
+analytics is refused, the next allow identifies the account again. Whether a refusal should also clear PostHog's own storage is a founder decision
+(`tasks/todo.md` F70).
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -56,10 +94,41 @@ do not certify every version of Vercel's remotely served script or recall its di
   page state and identity fallback. They also cover truthful save failure and deferred initialization.
 - [telemetryPrivacy.spec.tsx](../frontend/tests/unit/telemetryPrivacy.spec.tsx) retains real-SDK
   credential sanitization and Sentry-envelope checks; replay payloads are always rejected.
-- [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) uses the locked real
-  PostHog browser bundle. Every request is fulfilled or blocked locally, including remote
-  configuration. It checks queued batches, unload, offline retry, late failure, two-tab withdrawal
-  and disabled replay even when fixture configuration enables it.
+- [posthogConsentGuard.spec.tsx](../frontend/tests/unit/posthogConsentGuard.spec.tsx) runs the guard
+  on real clients from the package entry and the `module` build. Allowed sends leave. A withdrawn
+  choice's queued and retried requests do not, nor does the retry of one already in flight. It
+  plants each failure the guard must survive, with flag requests and script loading on and a
+  credential URL. Nothing such a client captures or requests leaves, it loads no script, those
+  calls store no credential URL, it keeps the store every tab shares at the visitor's choice
+  through a logout's reset, and it reaches Sentry once. It runs the provider on real clients: off
+  before an allow, on after it, off after a refusal, with each failure path planted, and an account
+  identified only while analytics is allowed. An identity is forgotten, with a new device id and
+  Sentry's user, once the reader has no account, and the visitor's choice still holds. One kept
+  from an earlier visit is reset before anything is sent unless the app's read of the session names
+  that account: for a browser without a session, one whose session ended while no page was open,
+  and one now holding another account's session. For a browser with a session, PostHog starts only
+  after that read. An identity the read confirms is kept, an anonymous one is kept across loads, and
+  another account starts on a fresh identity.
+  [posthog-user-identification.spec.tsx](../frontend/tests/unit/posthog-user-identification.spec.tsx)
+  pins that the hook asks to forget for every guest and when the account query leaves the cache,
+  and that it reports each settled read of the session. Whether each way a session ends produces
+  one of those is review-checked.
+- [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) reads every
+  file under `frontend/` that names posthog-js. It fails an underscore member that code, a test
+  stand-in or a script held in a string reaches and the `module` build lacks. It also fails a
+  string that names another copy of the client (a core build other than the manifest's entries,
+  the `no-external` sub-package, the compiled source or a package subpath), and app code that
+  ties an account to PostHog anywhere but `lib/analytics.ts` (an `identify`, `alias` or
+  `setIdentity` off another receiver, a key that sets the person, either by a bare string, or a
+  local that shadows the facade). Its header lists what stays out of its reach.
+- [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
+  `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
+  including remote configuration, and the SDK's lazy-loaded extensions come from the package's own
+  copies, as PostHog's CDN serves them, never one of its core builds. A request it does not answer,
+  on the ingest host or on any host but the fixture site, fails the test that made it. It checks
+  queued batches, unload, offline retry and its
+  resumption after a new allow, late failure, two-tab withdrawal and disabled replay even when
+  fixture configuration enables it.
 
 These tests do not prove production network configuration, processor agreements, retention or
 international-transfer compliance. Check the deployed network before release; no provider

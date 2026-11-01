@@ -503,7 +503,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
         {/* Beta member: Pro is free via the 100%-off forever promo. Make their $0 total clear. */}
         {showBetaOffer && (
-          <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-cap-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
+          <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-cap-5 text-center dark:border-brand-bright-dark/40 dark:bg-brand-bright-dark/15">
             <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
               You&apos;re a beta member. Pro is on us.
             </p>

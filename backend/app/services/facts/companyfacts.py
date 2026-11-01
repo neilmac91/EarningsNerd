@@ -14,6 +14,7 @@ from app.services.facts.concepts import (
 )
 from app.services.facts.currency import admitted_items, companyfacts_currencies
 from app.services.facts.derive import derive_same_period_metrics
+from app.services.facts.fi_revenue import financial_revenue_tags
 from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
 from app.services.facts.own_reports import own_report_history
 from app.services.facts.quarterly import (
@@ -113,9 +114,8 @@ def normalize_companyfacts(
     EPS is reported-only. Cumulative slices feed calculations but are never stored as quarter facts.
     Direct rows are ``source="companyfacts", reconciled=True`` — this is SEC's own structured data, the
     same authority `cross_check_facts` treats as ground truth — with only the NON_NEGATIVE hard-reject
-    applied (a negative revenue/assets is corrupt regardless of source). ``financial_sic`` skips the
-    generic revenue concept (fee-income subset for banks — the filing 528 / MCB class); the exact FI
-    component tags still ingest.
+    applied (a negative revenue/assets is corrupt regardless of source). ``financial_sic`` reads revenue from
+    ``fi_revenue.financial_revenue_tags``: the filer's reported total, never its ASC 606 fee line (E264).
     """
     meta: dict[str, Any] = {"unsupported_ifrs": False, "history": []}
     facts_root = companyfacts.get("facts") if isinstance(companyfacts, dict) else None
@@ -191,9 +191,9 @@ def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool) -> tuple[
     currency, foreign = companyfacts_currencies(usgaap)  # the pick the sync's demotion reads too
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
-        if financial_sic and concept in _FI_SKIPPED_CONCEPTS:
-            continue
         unit_key = _unit_for(concept, currency)  # the series currency, or its per-share unit
+        if financial_sic and concept in _FI_SKIPPED_CONCEPTS:  # its total, never the fee line (facts/fi_revenue.py)
+            tags = financial_revenue_tags(usgaap, unit_key, foreign)
         values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False, foreign=foreign)
         if values:
             duration_values[concept] = values

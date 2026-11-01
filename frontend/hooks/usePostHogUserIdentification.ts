@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { analytics } from '@/lib/analytics'
+import { reportAccountRead } from '@/lib/posthogIdentity'
 import { queryKeys } from '@/lib/queryKeys'
 import { usePostHogReady } from '@/lib/posthogReady'
 
@@ -28,7 +29,7 @@ import { usePostHogReady } from '@/lib/posthogReady'
  * the SDK, with no remount to run it.
  */
 export function usePostHogUserIdentification(): void {
-  const { data: user } = useQuery({
+  const { data: user, status: userStatus } = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
@@ -42,9 +43,42 @@ export function usePostHogUserIdentification(): void {
 
   const posthogReady = usePostHogReady()
   const lastIdentity = useRef<string | null>(null)
+  const guest = user === null
+  const queryClient = useQueryClient()
+  const accountId = user ? String(user.id) : null
 
   useEffect(() => {
-    if (!user?.id || !posthogReady) return
+    // PostHog's start waits on this read for a browser with a session (lib/posthogIdentity.ts). A read that failed
+    // confirms no account, so an identity PostHog kept is reset rather than trusted.
+    if (userStatus === 'success') reportAccountRead(accountId)
+    else if (userStatus === 'error') reportAccountRead(null)
+  }, [userStatus, accountId])
+
+  useEffect(() => {
+    // An account deletion and "Log out of all devices" clear the whole cache instead of writing a guest, and React
+    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal: the
+    // read reported before no longer holds, so PostHog's next start must not trust it (lib/posthogIdentity.ts), and
+    // the same account read again, by any observer, is identified again.
+    const identity = hashKey(queryKeys.currentUser())
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'removed' || event.query.queryHash !== identity) return
+      reportAccountRead(null)
+      lastIdentity.current = null
+      analytics.forgetAccount()
+    })
+  }, [queryClient])
+
+  useEffect(() => {
+    if (!user?.id) {
+      // No account: forget the one identified before, in PostHog and Sentry too. Only the dashboard's Log out resets
+      // PostHog itself; the menus' Log out and a lost session reach here as a guest (the cache clears above reach the
+      // subscription), and so does a browser PostHog kept identified from an earlier visit once it loads. A login then
+      // identifies the account again once analytics is allowed; lib/analytics.ts never identifies while it is refused.
+      lastIdentity.current = null
+      if (guest) analytics.forgetAccount()
+      return
+    }
+    if (!posthogReady) return
     // Respect the analytics opt-in: PostHog is opted-out without it, and we shouldn't touch Sentry's
     // user either. (null preferences = no choice yet → wait for consent.)
     if (getCookiePreferences()?.analytics !== true) return
@@ -70,5 +104,5 @@ export function usePostHogUserIdentification(): void {
     lastIdentity.current = identity
 
     analytics.identify(String(user.id), { is_pro: isPro, plan: isPro ? 'pro' : 'free' })
-  }, [user?.id, subscription, subscriptionFailed, posthogReady])
+  }, [user?.id, guest, subscription, subscriptionFailed, posthogReady])
 }

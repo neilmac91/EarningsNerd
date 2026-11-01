@@ -4,12 +4,20 @@ import type { PostHog, PostHogConfig, QueuedRequestWithOptions } from 'posthog-j
 import { gzipSync, gunzipSync } from 'node:zlib'
 
 const consent = vi.hoisted(() => ({ current: { analytics: true, sessionRecording: true } as { analytics: boolean; sessionRecording: boolean } | null }))
-const mockPostHog = vi.hoisted(() => ({
-  __loaded: false,
-  init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn(),
-  startSessionRecording: vi.fn(), stopSessionRecording: vi.fn(), debug: vi.fn(),
-  _send_request: vi.fn(), _send_retriable_request: vi.fn(),
-}))
+const mockPostHog = vi.hoisted(() => {
+  const client = {
+    __loaded: false,
+    init: vi.fn(), capture: vi.fn(), opt_in_capturing: vi.fn(), opt_out_capturing: vi.fn(),
+    startSessionRecording: vi.fn(), stopSessionRecording: vi.fn(), debug: vi.fn(),
+    _send_request: vi.fn(), __request_queue: [] as unknown[], get_property: vi.fn(),
+  }
+  // As in posthog-js's npm builds: no _send_retriable_request, and the queue fields renamed. The consent guard
+  // finds the queues by shape (lib/posthogConsent.ts); tests/unit/posthogConsentGuard.spec.tsx runs the real builds.
+  return Object.assign(client, {
+    mangledRetryQueue: { _instance: client, retriableRequest: vi.fn(), resume: vi.fn(), unload: vi.fn() },
+    mangledBatchQueue: { enqueue: vi.fn(), enable: vi.fn(), unload: vi.fn() },
+  })
+})
 vi.mock('posthog-js', async (original) => ({ ...await original<object>(), default: mockPostHog }))
 vi.mock('posthog-js/react', () => ({ PostHogProvider: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@/lib/browserConsent', () => ({

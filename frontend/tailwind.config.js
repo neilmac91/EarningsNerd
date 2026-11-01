@@ -94,10 +94,16 @@ module.exports = {
         // USAGE: DEFAULT is a FILL (white text on it) — never use it as text on
         // cream; use `strong` for accent text/links. `*-dark` values are brightened
         // to read as text/accents on navy. Never use brand in a numeric/price context.
+        // strong-dark #AEDCC2 is the dark accent TEXT ink, strong's twin: its OKLCH hue and chroma (160.1, 0.060) at
+        // the lightness that clears APCA Lc 75 on the panel, as labels need: -75.5 on panel, -78.4 on navy (strong is
+        // 79.3 on panel, 75.1 on cream). It was #98C5AD, Lc -62.2 on panel (E202 (2), D-071), which stays as
+        // bright-dark: the C5 emphasis fill (D-057), the logo's accent, the primary button's dark hover fill, dots drawn
+        // on their own, indicator lines and two translucent callout tints. bright-dark is never a text ink outside the
+        // logo (gate: themePairs.spec.ts); a dot drawn in its label's ink (`bg-current`) follows the label.
         brand: {
           DEFAULT: '#4F7A63', strong: '#3C6650', emphasis: '#345C48',
           weak: '#ECF2EE', border: '#CFE0D6',
-          dark: '#7FB295', 'strong-dark': '#98C5AD', 'fill-dark': '#569272',
+          dark: '#7FB295', 'strong-dark': '#AEDCC2', 'bright-dark': '#98C5AD', 'fill-dark': '#569272',
           'weak-dark': 'rgba(127,178,149,0.14)', 'border-dark': 'rgba(127,178,149,0.28)',
         },
 

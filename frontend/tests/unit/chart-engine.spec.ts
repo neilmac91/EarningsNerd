@@ -14,8 +14,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { bonesPlan } from '@/features/analysis/components/TrendChartBones'
 import { BROKEN_BARS, buildBarChart, unitCurrency, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
-import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, maxChartWidth, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, SEAM, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView, type ModelPanel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, perShareMoney, ratioFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
@@ -93,11 +94,20 @@ function expectModelChecks(model: ChartModel, view: ChartView, { chart, notes, w
   // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
   expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
   if (view === 'card') expect(layouts[0].height).toBe(320)
-  layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(widths[i], minChartWidth(model, view))))
+  // M6: below the minimum the SVG keeps its width and scrolls in its card; above a maximum its model sets (E266, the
+  // Sector peers panel's) it keeps that width at its card's left. Every other model sets none (Infinity), so it fills.
+  layouts.forEach((layout, i) => expect(layout.width, 'M6: the card’s width, between the chart’s minimum and its maximum').toBe(Math.max(Math.min(widths[i], maxChartWidth(model, view)), minChartWidth(model, view))))
   // A7's minimum slot: MIN_SLOT, or more where the chart's widest x tick needs it (minSlotOf).
   const minSlot = minSlotOf(model, view)
   for (const [i, layout] of layouts.entries()) {
     expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(minSlot - 1e-9)
+    // E266: a slot never passes the model's maximum, unless its minimum does; a plan narrower than its card stopped there.
+    if (model.maxSlot != null) {
+      expect(layout.slot, 'E266: a slot never passes its maximum, unless its minimum does').toBeLessThanOrEqual(Math.max(model.maxSlot, minSlot) + 1e-9)
+      if (layout.width < widths[i]) expect(layout.slot, 'E266: a plan narrower than its card holds the maximum slot').toBeGreaterThan(model.maxSlot - 1)
+    } else {
+      expect(maxChartWidth(model, view), 'E266: a model that sets no maximum has none').toBe(Infinity)
+    }
     // E251: a slot holds every line of its x tick with 2 px each side, as the strip's cells do, at every width: a ticker
     // is wider than a year.
     for (const period of model.periods) for (const line of period.tick) {
@@ -672,14 +682,31 @@ describe('reading a chart: the slot under a pointer, a period’s column and the
       })
       expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
       expect(slotAt(layout, layout.plotRight)).toBeNull()
-      // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+      // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut. A chart
+      // whose run breaks (E258) is also scrolled to the middle of each gap seam and into the column past it.
       expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
-      for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+      const seamScrolls = layout.seams.flatMap((seam) => {
+        const gapLeft = layout.x(model.periods[seam - 1].key) + layout.slot / 2
+        const gapRight = layout.x(model.periods[seam].key) - layout.slot / 2
+        return [(gapLeft + gapRight) / 2, gapRight + layout.slot / 4].map((edge) => edge - layout.plotLeft)
+      })
+      for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width, ...seamScrolls]) {
         const cover = gutterCover(layout, scroll)
         expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
         expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
-        const boundary = (scroll + cover - layout.plotLeft) / layout.slot
-        expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+        // Inside the plot, the column the gutter's own edge cuts: the cover runs out to its right edge, so it shows whole or
+        // not at all. An edge on a column's boundary, or in a gap seam's (E258), cuts none, and the cover is the gutter's
+        // own. Past the plot, a scroll no plot this wide reaches, the cover still ends on a slot boundary, each seam taken out.
+        const edge = layout.plotLeft + scroll
+        if (edge >= layout.plotRight) {
+          const boundary = (scroll + cover - layout.plotLeft) / layout.slot - SEAM * layout.seams.length
+          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+          continue
+        }
+        const cut = model.periods.map((period) => columnOf(layout, period.key))
+          .find((column) => column.left + 1e-6 < edge && edge < column.left + column.width - 1e-6)
+        if (cut) expect(scroll + cover, 'out to the cut column’s right edge').toBeCloseTo(cut.left + cut.width, 6)
+        else expect(cover, 'no column cut: the gutter’s own width').toBeCloseTo(layout.plotLeft, 6)
       }
       expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
       for (const box of layout.panels) {
@@ -696,6 +723,123 @@ describe('reading a chart: the slot under a pointer, a period’s column and the
   })
   it.each(BAR_CASES.map(([name]) => name))('%s (a bar chart)', (name) => expectReading(buildBarChart(barDef(name))))
   it.each(PEER_CASES.map(([name]) => name))('%s (a ranked company chart)', (name) => expectReading(buildBarChart(peerDef(name))))
+})
+
+describe('a gap seam, where a chart’s run breaks (E258)', () => {
+  const KEYS = [...'ABCDEFGHIJK'].map((letter) => `C${letter}`)
+  /** Eleven companies on a percent axis, whose labels fit at the narrowest slot, the last one the chart is about; with
+   *  `gap`, the run breaks before it, as a ranked chart's subject drawn past companies it leaves out. */
+  const def = (gap: boolean): BarChartDef => ({
+    id: 'seam', title: 'Seam',
+    categories: KEYS.map((key, i) => ({
+      key, tick: key, long: key, ...(i < 10 ? { context: true as const } : {}), ...(gap && i === 10 ? { gapBefore: true as const } : {}),
+    })),
+    series: { key: 'margin', label: 'Margin', values: KEYS.map((_, i) => 11 - i) },
+    axis: { kind: 'percent' },
+  })
+
+  it('sets SEAM slots of empty plot before its period, which the slots share the plot with, and still closes the plot', () => {
+    for (const width of [342, 502, 1030]) {
+      const layout = layoutChart(buildBarChart(def(true)), width, 'card')
+      expect([layout.count, layout.seams]).toEqual([11, [10]])
+      expect(layout.slot).toBeCloseTo((layout.plotRight - layout.plotLeft) / (11 + SEAM), 9)
+      const steps = KEYS.slice(1).map((key, i) => (layout.x(key) - layout.x(KEYS[i])) / layout.slot)
+      steps.forEach((step, i) => expect(step, `${width}px: the step to ${KEYS[i + 1]}, in slots`).toBeCloseTo(i === 9 ? 1 + SEAM : 1, 9))
+      expect(layout.x('CK') + layout.slot / 2).toBeCloseTo(layout.plotRight, 9)
+    }
+  })
+
+  it('belongs to no slot: a pointer over it reads none, and A7’s gutter cuts no column there', () => {
+    const layout = layoutChart(buildBarChart(def(true)), 342, 'card')
+    const gapLeft = layout.x('CJ') + layout.slot / 2
+    const gapRight = layout.x('CK') - layout.slot / 2
+    expect(gapRight - gapLeft).toBeCloseTo(layout.slot * SEAM, 9)
+    expect([gapLeft - 0.001, gapLeft + 0.001, (gapLeft + gapRight) / 2, gapRight - 0.001, gapRight + 0.001].map((x) => slotAt(layout, x)))
+      .toEqual([9, null, null, null, 10])
+    // The gutter's own edge in the gap: no column is cut, so the cover is the gutter's own width.
+    expect(gutterCover(layout, (gapLeft + gapRight) / 2 - layout.plotLeft)).toBe(layout.plotLeft)
+    // In the column past it, the cover runs out to that column's right edge, the plot's; in a column before it, as on an
+    // unbroken run.
+    const past = layout.x('CK') - layout.plotLeft
+    expect(gutterCover(layout, past) + past).toBeCloseTo(layout.plotRight, 9)
+    expect(gutterCover(layout, layout.slot * 2.25) + layout.slot * 2.25).toBeCloseTo(layout.plotLeft + layout.slot * 3, 9)
+  })
+
+  it('widens the narrowest chart by SEAM of its narrowest slot, and the bones still draw a bar a period', () => {
+    const [broken, even] = [buildBarChart(def(true)), buildBarChart(def(false))]
+    expect(minChartWidth(broken) - minChartWidth(even)).toBeCloseTo(SEAM * minSlotOf(even), 9)
+    // A five-glyph tick's slot is 37 px, and 37 × 11.75 is 434.75: the width rounds up to the plan's whole pixel.
+    const fiveGlyph = (gap: boolean) => buildBarChart({ ...def(gap), categories: def(gap).categories.map((slot) => ({ ...slot, tick: `${slot.key}XYZ` })) })
+    expect(minSlotOf(fiveGlyph(true))).toBe(37)
+    expect(minChartWidth(fiveGlyph(true)) - minChartWidth(fiveGlyph(false))).toBe(28)
+    expect(layoutChart(fiveGlyph(true), 0, 'card').slot).toBeGreaterThanOrEqual(37)
+    expect(bonesPlan(layoutChart(broken, 342, 'card')).slots).toBe(11)
+    // An unbroken run is laid out as before E258: no seam, and the plot shared by its periods alone.
+    const plain = layoutChart(even, 342, 'card')
+    expect([plain.count, plain.seams]).toEqual([11, []])
+    expect(plain.slot).toBe((plain.plotRight - plain.plotLeft) / 11)
+  })
+
+  it('never stands before the first category, where no run breaks', () => {
+    const first = def(false)
+    first.categories[0] = { ...first.categories[0], gapBefore: true }
+    expect(() => buildBarChart(first)).toThrow('a gap before the first category "CA" breaks no run')
+  })
+})
+
+describe('a maximum slot, past which a chart stops widening (E266)', () => {
+  const KEYS = ['CA', 'CB', 'CC']
+  /** Three companies on a percent axis, the last the chart is about; `maxSlot` as given, and with `gap` the run breaks
+   *  before the last. */
+  const def = (maxSlot?: number, gap = false): BarChartDef => ({
+    id: 'widest', title: 'Widest',
+    categories: KEYS.map((key, i) => ({
+      key, tick: key, long: key, ...(i < 2 ? { context: true as const } : {}), ...(gap && i === 2 ? { gapBefore: true as const } : {}),
+    })),
+    series: { key: 'margin', label: 'Margin', values: [3, 2, 1] },
+    axis: { kind: 'percent' },
+    ...(maxSlot != null ? { maxSlot } : {}),
+  })
+
+  it('lays a card wider than the chart’s widest out at its gutter, its right pad and the maximum a slot, from the card’s left', () => {
+    const model = buildBarChart(def(104))
+    expect(model.maxSlot).toBe(104)
+    for (const width of [502, 800, 1166]) {
+      const layout = layoutChart(model, width, 'card')
+      expect(layout.width, `${width}px`).toBe(layout.gutter + 8 + 3 * 104)
+      expect([layout.plotLeft, layout.slot]).toEqual([layout.gutter, 104])
+      expect(KEYS.map((key) => layout.x(key) - layout.plotLeft)).toEqual([52, 156, 260])
+    }
+    expect(maxChartWidth(model)).toBe(layoutChart(model, 1166, 'card').width)
+  })
+
+  it('counts a gap seam as the minimum does, and fills a card narrower than its widest as before', () => {
+    const broken = layoutChart(buildBarChart(def(104, true)), 1166, 'card')
+    expect(broken.width).toBe(broken.gutter + 8 + (3 + SEAM) * 104)
+    expect(broken.slot).toBe(104)
+    // 105 px over 3.75 slots is 393.75: the width rounds down to the plan's whole pixel, so no slot passes the maximum.
+    const odd = layoutChart(buildBarChart(def(105, true)), 1166, 'card')
+    expect(odd.width).toBe(odd.gutter + 8 + 393)
+    expect(odd.slot).toBeLessThanOrEqual(105)
+    // A card under the widest: the plan is the one a chart with no maximum takes, at the card's width.
+    const [capped, open] = [buildBarChart(def(104)), buildBarChart(def())]
+    for (const width of [250, 342]) expect(plan(capped, layoutChart(capped, width, 'card')), `${width}px`).toEqual(plan(open, layoutChart(open, width, 'card')))
+  })
+
+  it('never narrows a chart past its minimum, which wins over a maximum slot below it', () => {
+    const narrow = buildBarChart(def(20))
+    expect(maxChartWidth(narrow)).toBeLessThan(minChartWidth(narrow))
+    const layout = layoutChart(narrow, 1166, 'card')
+    expect(layout.width).toBe(minChartWidth(narrow))
+    expect(layout.slot).toBeGreaterThanOrEqual(minSlotOf(narrow))
+  })
+
+  it('is none where the model sets none: such a chart fills its card', () => {
+    const model = buildBarChart(def())
+    expect('maxSlot' in model).toBe(false)
+    expect(maxChartWidth(model)).toBe(Infinity)
+    expect(layoutChart(model, 1166, 'card').width).toBe(1166)
+  })
 })
 
 describe('A7’s sticky gutter never shows a printed value in part, at any scroll', () => {

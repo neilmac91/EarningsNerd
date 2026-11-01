@@ -8,7 +8,7 @@
                     (brand.strong), active brand.emphasis.
                     dark: FLIPS to a navy-ink label on brand.dark — white on
                     brand.fill-dark is 3.7:1 (fails AA). Hover BRIGHTENS to
-                    brand.strong-dark (dark-mode rule), active presses to
+                    brand.bright-dark (dark-mode rule), active presses to
                     brand.fill-dark. Every dark state ≥ 5:1.
      - secondary:   brand.strong text + brand.border hairline on transparent;
                     hover tints with brand.weak (never opacity — that darkens).
@@ -90,7 +90,7 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
     'active:bg-brand-emphasis active:shadow-none',
     'focus-visible:shadow-ring-brand',
     'disabled:cursor-not-allowed disabled:bg-brand/45 disabled:text-white/80 disabled:shadow-none',
-    'dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark dark:active:bg-brand-fill-dark',
+    'dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-bright-dark dark:active:bg-brand-fill-dark',
     'dark:focus-visible:shadow-ring-brand-dark dark:disabled:bg-brand-dark/35 dark:disabled:text-background-dark/60',
   ),
   secondary: cx(

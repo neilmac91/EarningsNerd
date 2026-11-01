@@ -128,10 +128,29 @@ def _summary():
     return export_fixtures._make_summary_and_filing(sections)
 
 
+# A year's own annual report's value beside a later filing's (MPA WP5a): a figure's, with a factor of 1,000, reaches
+# the later-filing line, the evidence sentence and the scale words; an input's, of the opposite sign, the input's
+# evidence and the sign words; growth across the change, the cause, a growth as first reported and its n/m, and the
+# closing and n/m sentences.
+_FIRST_REPORTED = {"unit": "USD", "form": "10-K", "accession": "0000123456-23-000001", "filed_at": "2023-02-14",
+                   "source_url": "https://www.sec.gov/Archives/edgar/data/1/000012345623000001/",
+                   "later_filed_at": "2025-02-14"}
+
+
+def _later_filings(revenue: list[dict], input_point: dict | None = None) -> None:
+    revenue[0]["first_reported"] = {**_FIRST_REPORTED, "value": revenue[0]["value"] / 1000, "disagreement": "scale"}
+    for point, growth in zip(revenue[1:], (0.25, "nm")):
+        point.update(yoy="nm", yoy_first_reported=growth,
+                     yoy_provenance=point.get("yoy_provenance") or {"method": "calculated", "validation": "passed"})
+    if input_point is not None:
+        operand = input_point["provenance"]["inputs"][0]
+        operand["first_reported"] = {**_FIRST_REPORTED, "value": -operand["value"], "disagreement": "opposite_sign"}
+
+
 def _analysis():
     """The PDF fixture with a narrative that carries no heading, a calculated point with its operand's
-    source fields, a metric calculated in full (the sentence above the grid names it), and data notes in every
-    count the summary line prints."""
+    source fields, a metric calculated in full (the sentence above the grid names it), data notes in every
+    count the summary line prints, and later-filing evidence on a figure, an input and two growths."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
     # The CAGR sentence as observations.py stores it, with the window key.
     analysis.narrative_md = "Revenue grew from $1,000 [1] to $1,500 [2]. Revenue CAGR was 22.5% over FY2022..FY2024 [3]."
@@ -150,6 +169,7 @@ def _analysis():
         "points": [{"period": period, "value": 200.0, "provenance": {"method": "calculated", "validation": "passed"}}
                    for period in ("FY2022", "FY2023", "FY2024")],
     })
+    _later_filings(points, input_point=points[2])
     analysis.dataset_json["data_notes"] = data_notes(analysis.dataset_json)
     return analysis
 
@@ -167,10 +187,22 @@ def _quarterly_analysis():
 
 
 def _dataset():
-    """The workbook fixture with a note that questions a figure, so the Metrics grid prints its key."""
+    """The workbook fixture with a note that questions a figure, so the Metrics grid prints its key, and later-filing
+    evidence on the top line's figure and growths, on free cash flow's input (its own row in Sources & methods) and, of
+    the opposite sign, on net income's. workbook_fixtures._dataset() itself is the scans' workbook without evidence,
+    whose closing line is main's."""
     dataset = workbook_fixtures._dataset()
     dataset["series"][0]["points"][0]["provenance"] = {"method": "reported", "validation": "needs_review",
                                                        "reasons": ["source_conflict"]}
+    fcf = next(series for series in dataset["series"] if series["concept"] == "free_cash_flow")["points"][2]
+    fcf["provenance"] = {"method": "calculated", "validation": "passed", "reasons": [],
+                         "formula": "operating_cash_flow - abs(capital_expenditures)", "inputs": [
+                             {"concept": "operating_cash_flow", "value": 420.0, "unit": "USD", "period_start": "2024-01-01",
+                              "period_end": "2024-12-31", "accession": "0000123456-25-000001", "filed_at": "2025-02-14",
+                              "source_url": "https://www.sec.gov/Archives/edgar/data/1/000012345625000001/"}]}
+    _later_filings(dataset["series"][0]["points"], input_point=fcf)
+    net_income = next(series for series in dataset["series"] if series["concept"] == "net_income")["points"][1]
+    net_income["first_reported"] = {**_FIRST_REPORTED, "value": -net_income["value"], "disagreement": "opposite_sign"}
     return dataset
 
 
@@ -221,8 +253,22 @@ def test_no_em_dash_exclamation_emoji_or_window_key_in_what_the_exports_print():
             _quarterly_analysis(), export_fixtures.TestAnalysisPdfHtml()._company())).runs),
         "CSV": breaks([cell for row in csv.reader(io.StringIO(service.generate_csv(summary, filing))) for cell in row]),
         "workbook": breaks(_workbook_texts(build_analysis_workbook(_dataset(), exported_at=workbook_fixtures.EXPORTED_AT))),
+        **{f"{name} without later-filing evidence": breaks(texts) for name, texts in _without_evidence().items()},
     }
     assert found == {name: [] for name in found}
+
+
+def _without_evidence() -> dict[str, list[str]]:
+    """The analysis PDF and the workbook on fixtures that carry no later-filing evidence, so the scans read main's
+    closing lines too, which every export without evidence prints."""
+    analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
+    analysis.dataset_json["data_notes"] = data_notes(analysis.dataset_json)
+    return {
+        "analysis PDF": read_html(ExportService().generate_analysis_pdf_html(
+            analysis, export_fixtures.TestAnalysisPdfHtml()._company())).runs,
+        "workbook": _workbook_texts(build_analysis_workbook(workbook_fixtures._dataset(),
+                                                            exported_at=workbook_fixtures.EXPORTED_AT)),
+    }
 
 
 def test_the_exports_name_their_source_sec_gov_not_edgar():
@@ -234,6 +280,7 @@ def test_the_exports_name_their_source_sec_gov_not_edgar():
             _analysis(), export_fixtures.TestAnalysisPdfHtml()._company())).runs),
         "CSV": names_edgar([cell for row in csv.reader(io.StringIO(service.generate_csv(summary, filing))) for cell in row]),
         "workbook": names_edgar(_workbook_texts(build_analysis_workbook(_dataset(), exported_at=workbook_fixtures.EXPORTED_AT))),
+        **{f"{name} without later-filing evidence": names_edgar(texts) for name, texts in _without_evidence().items()},
     }
     assert found == {name: [] for name in found}
     url = "https://www.sec.gov/Archives/edgar/data/875045/x.htm"
@@ -270,6 +317,17 @@ def test_the_headings_the_exports_own_are_in_sentence_case():
     found = {name: [(text, word) for text in texts if (word := not_sentence_case(html_lib.unescape(str(text))))]
              for name, texts in headings.items()}
     assert found == {name: [] for name in headings}
+
+
+def test_the_scans_reach_every_later_filing_line_and_main_s_closing_lines():
+    """The fixtures reach what the scans must read (MPA WP5a-X): the evidence-bearing workbook prints an input's First
+    reported row and the later-filing closing line, and the fixtures without evidence print main's closing lines."""
+    from app.services.analysis_export_metadata import PDF_CLOSING, WORKBOOK_CLOSING, workbook_closing
+
+    texts = _workbook_texts(build_analysis_workbook(_dataset(), exported_at=workbook_fixtures.EXPORTED_AT))
+    assert "Input 1 first reported" in texts and workbook_closing(True) in texts
+    plain = _without_evidence()
+    assert WORKBOOK_CLOSING in plain["workbook"] and PDF_CLOSING in plain["analysis PDF"]
 
 
 def test_the_readers_flag_the_forms_this_pr_fixed():

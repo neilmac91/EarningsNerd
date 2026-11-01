@@ -13,9 +13,9 @@ a fixture the service would never answer would gate a panel production never dra
    is chosen for each entry from the provenance the fixture gives it (reported, a legacy calculation, a withheld
    derived EPS); a provenance this cannot seed fails. A source link comes from the entry's CIK and accession, so
    production's entries keep theirs, and a synthetic entry's accession is no SEC accession, so it gets none.
-2. The bank case asks for revenue and answers net interest income: the substitution in ``peers_service.py`` (a
-   subject with no revenue fact and a net interest income one) has its first test here, and a revenue fact added for
-   the subject turns it back.
+2. The bank case asks for revenue, the panel's default, and answers net interest income: a commercial bank's industry
+   ranks on it whatever its companies store (F69, ``peers_service.default_concept_for``), so a revenue fact added for
+   the subject keeps it there, and the same companies under a broker-dealer's code answer revenue.
 3. No fixture case, response or entry carries a key ``PeerComparisonResponse`` or ``PeerEntry`` does not define (the
    retired client's phantom ``PeerEntry.source_url``, which the endpoint never sent).
 4. The client's types (``frontend/features/peers/api/peers-api.ts``) name the schema's fields and only those:
@@ -126,18 +126,23 @@ def test_each_case_is_what_the_service_answers(session, name):
     assert _answer(session, case) == case["response"]
 
 
-def test_a_bank_asked_for_revenue_answers_net_interest_income(session):
+def test_a_bank_ranks_on_net_interest_income_whatever_it_stores(session):
     case = CASES["bank"]
-    assert (case["metric"], case["response"]["concept"]) == ("revenue", "net_interest_income")
+    assert (case["metric"], case["response"]["concept"], case["response"]["sic"]) == ("revenue", "net_interest_income", "6022")
     _seed(session, case["response"])
     assert _answer(session, case)["concept"] == "net_interest_income"
-    # The substitution is the subject's: once it holds a revenue fact, revenue is what it ranks on.
+    # The industry decides, not the company (F69): a revenue fact for the subject keeps it on net interest income.
     subject = session.query(Company).filter(Company.ticker == case["response"]["ticker"]).one()
     session.add(FinancialFact(
         company_id=subject.id, concept="revenue", unit="USD", period_end=date(2025, 12, 31), fiscal_year=2025,
         fiscal_period="FY", value=40.0e9, form="10-K", accession="synthetic-revenue", source="edgar_xbrl",
         raw_tag="us-gaap:Revenues", reconciled=True, is_latest=True,
     ))
+    session.commit()
+    assert _answer(session, case)["concept"] == "net_interest_income"
+    # Outside the bank codes the default is revenue: a broker-dealer's companies rank on it, never switching.
+    for company in session.query(Company).all():
+        company.sic = "6211"
     session.commit()
     assert _answer(session, case)["concept"] == "revenue"
 

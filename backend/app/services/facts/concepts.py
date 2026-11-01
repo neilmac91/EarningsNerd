@@ -213,8 +213,8 @@ COMPANYFACTS_INSTANT_TAGS: dict[str, tuple[str, ...]] = {
     "current_liabilities": ("LiabilitiesCurrent",),
 }
 
-# Generic revenue tags are WRONG for banks/insurers (fee-income subset — the MCB fix would be
-# undone by re-ingesting them); the exact FI component tags above carry their top line instead.
+# Generic revenue tags are WRONG for banks/insurers (fee-income subset — the MCB fix): a financial
+# filer's revenue skips them and reads facts/fi_revenue.py's tags instead (its total, never the fee line).
 _FI_SKIPPED_CONCEPTS: frozenset[str] = frozenset({"revenue"})
 
 

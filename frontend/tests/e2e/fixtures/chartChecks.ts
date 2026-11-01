@@ -17,7 +17,9 @@ import { apcaLc } from '../../unit/apca'
  * - D8: every string paints at Geist Mono's 0.6 em advance, so the planner's widths are the screen's;
  * - D10: no chart animates under reduced motion;
  * - D14: every bar lies on its value's side of its zero rule, at the page's width;
- * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its start, its
+ * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, or, where its model sets a
+ *   maximum slot (E266, expectSound's `maxSlot`), stops at that slot, narrower, at its card's left, its values stop (and
+ *   so its focus ring) as wide as the plot; opened at its start, its
  *   values stop there: the newest period by default, at the scroll's end; a start the chart names (E251: a ranked company
  *   chart's subject; expectSound's `start`, from the caller's fixture) with its column in view. A7's sticky gutter shows
  *   once the viewport has scrolled, repeats the y axis at its edge and passes D1, D2 and D8 itself; at the scroll's start
@@ -52,6 +54,10 @@ export interface PlotReport extends TextReport {
   animations: number
   svgWidth: number
   viewportWidth: number
+  /** The SVG's left edge against the viewport's, at this scroll. */
+  svgLeft: number
+  /** The values stop's width, which its focus ring outlines. */
+  stopWidth: number
   scrolls: boolean
   /** How far the viewport sits from its newest period (0 there). */
   fromNewest: number
@@ -154,7 +160,10 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
     const start = Number(stop?.getAttribute('aria-valuenow') ?? -1)
     const last = Number(stop?.getAttribute('aria-valuemax') ?? -1)
     const centres = [...svg.querySelectorAll('text[data-text="x"]')].map((tick) => Number(tick.getAttribute('x')))
-    const slot = panels.length && centres.length ? (panels[0].right - panels[0].left) / centres.length : 0
+    // A slot is the pitch of neighbouring ticks. The step across a gap seam is wider (E258), so the slot is the narrowest
+    // step, and the plot's whole width where it has one period.
+    const steps = centres.slice(1).map((centre, i) => centre - centres[i])
+    const slot = steps.length ? Math.min(...steps) : panels.length && centres.length ? panels[0].right - panels[0].left : 0
     const columns = centres.map((centre) => ({ left: centre - slot / 2 - viewport.scrollLeft, right: centre + slot / 2 - viewport.scrollLeft }))
     const cover = overlay ? Number(overlay.querySelector('rect')?.getAttribute('width') ?? 0) : (panels[0]?.left ?? 0)
     const texts: Record<string, string[]> = {}
@@ -211,6 +220,8 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       animations: plot.getAnimations({ subtree: true }).length,
       svgWidth: width,
       viewportWidth: viewport.clientWidth,
+      svgLeft: svg.getBoundingClientRect().left - viewport.getBoundingClientRect().left,
+      stopWidth: stop?.getBoundingClientRect().width ?? 0,
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
       fromNewest: viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft,
       scrollLeft: viewport.scrollLeft,
@@ -238,8 +249,10 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
 
 /** The checks on one measured plot. `start` is the category the chart starts at, by index, as the caller's fixture names
  *  it (E251: a ranked company chart's subject); without it, the newest period. It is the caller's, never read off the
- *  values stop under test, so a chart that ignores the start it names fails. */
-export function expectSound(report: PlotReport, { start }: { start?: number } = {}) {
+ *  values stop under test, so a chart that ignores the start it names fails. `maxSlot` is the widest a slot gets where
+ *  the chart's model sets one (E266: the Sector peers panel's, which its caller writes out), so the checks need not
+ *  trust the code under test for it either. */
+export function expectSound(report: PlotReport, { start, maxSlot }: { start?: number; maxSlot?: number } = {}) {
   const { name } = report
   expect(report.outside, `${name}: D1, text outside the SVG`).toEqual([])
   expect(report.collisions, `${name}: D2, text boxes that intersect`).toEqual([])
@@ -253,8 +266,18 @@ export function expectSound(report: PlotReport, { start }: { start?: number } = 
   const expected = start ?? report.periods - 1
   expect(report.last, `${name}: the values stop spans the plot's ${report.periods} periods`).toBe(report.periods - 1)
   expect(report.start, `${name}: the values stop starts at the chart's start, period ${expected}`).toBe(expected)
-  // M6: the plot is laid out at its card's whole-pixel width, or at its wider minimum, and then scrolls in its card.
-  expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
+  // M6: the plot is laid out at its card's whole-pixel width, or at its wider minimum, and then scrolls in its card. Where
+  // the chart has a maximum slot (E266), no slot is wider, and a plot narrower than its card stopped at that slot, at the
+  // card's left edge.
+  const slot = report.columns.length ? report.columns[0].right - report.columns[0].left : 0
+  if (maxSlot != null) expect(slot, `${name}: no slot wider than the chart's maximum, ${maxSlot}px`).toBeLessThanOrEqual(maxSlot + 0.5)
+  if (maxSlot != null && report.svgWidth < Math.floor(report.viewportWidth)) {
+    expect(slot, `${name}: a plot narrower than its card stopped at its maximum slot`).toBeGreaterThanOrEqual(maxSlot - 0.5)
+    expect(Math.abs(report.svgLeft), `${name}: and keeps its card's left edge`).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(report.stopWidth - report.svgWidth), `${name}: its values stop, and so its focus ring, is the plot's width`).toBeLessThanOrEqual(0.5)
+  } else {
+    expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
+  }
   expect(report.scrolls, `${name}: scrolls exactly when it is wider than its card`).toBe(report.svgWidth > report.viewportWidth + 1)
   expect(report.keyboardStop, `${name}: a scrolling plot is a keyboard stop, and only then`).toBe(report.scrolls)
   // A plot that scrolls opens at its start: the newest period, the one the legend and the metrics table quote, at the

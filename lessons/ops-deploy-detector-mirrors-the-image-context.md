@@ -15,22 +15,28 @@ Astra agent and integrated after an independent review.
 
 ## Rule
 
-1. The deploy change detector excludes exactly the paths `backend/.dockerignore` excludes from the image
-   (today `backend/tests/`), and runs `git diff --name-only --no-renames` so both sides of a rename are
-   listed — a runtime file moved under an excluded path still deploys (the image loses it).
+1. The deploy change detector excludes the tracked directories `backend/.dockerignore` excludes from the
+   image (today `backend/tests/`), and runs `git diff --name-only --no-renames` so both sides of a rename
+   are listed — a runtime file moved under an excluded path still deploys (the image loses it). The
+   ignore file's single-file patterns are not mirrored: `backend/.gitignore`, the one tracked file it
+   excludes, still deploys an image whose content is unchanged.
 2. Every step after the detector is gated on its output (`if: steps.changes.outputs.backend == 'true'`).
    The gate `backend/tests/unit/test_backend_deploy_scope.py` executes the detector's actual shell on every
    tracked `backend/tests/` path, future nested paths, near-prefix boundaries (`backend/tests_support/`),
-   runtime, migration, container and mixed changes, and on a real-git rename; it also asserts the gating,
+   runtime, migration, container and mixed changes, on a real-git rename, and on one tracked file from
+   every top-level `backend/` entry, judged on both sides against the directories `.dockerignore`
+   names; it also asserts the gating,
    that `backend-tests` stays unconditional, and that the step keeps GitHub's default shell (the pipeline's
    exit status relies on `bash -e` without `pipefail`).
-3. When `.dockerignore` gains or loses an entry, change the detector, the gate and the three docs
+3. When `.dockerignore` gains or loses an entry, change the detector's one path rule (its `deployable`
+   function, which judges both this commit's paths and main's newer ones), the gate and the three docs
    (`AGENTS.md` §6, `CLAUDE.md` Deploy, `docs/DEPLOYMENT.md`) in the same PR. Say "`backend/` outside
    `backend/tests/`", never "any backend change" or "test-only" (the exclusion is a path prefix, not a
    category: `backend/pytest.ini` and `backend/requirements-dev.txt` are inside the build context and deploy).
 4. After a merge whose only `backend/` paths are excluded, the deploy job's steps are expected to skip and its
-   log carries no `apply_migrations: applied=` line; a merge that touches deployable backend files is still
-   verified by its deploy job's conclusion.
+   log carries no `apply_migrations: applied=` line. A merge that touches deployable backend files is verified by
+   the migration line and health, in its own run or, once main has moved past it, in the newer deploy that carries
+   it: a run skipped as superseded also skips every step (`lessons/ops-a-superseded-commit-never-deploys.md`).
 
 ## Evidence
 

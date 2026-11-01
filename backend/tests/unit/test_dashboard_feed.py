@@ -174,10 +174,10 @@ def test_eps_line_is_diluted_when_both_filings_carry_it():
 
 
 def test_eps_line_takes_one_key_for_both_sides_and_basic_when_a_side_has_no_diluted_series():
-    # A blob stored before P1.5 (2026-06-14), or by the companyfacts fallback, has no eps_diluted; a post-P1.5 blob
-    # has an empty one when no diluted concept anchored. Two 10-Qs share no period, so either side without it puts the
-    # pair on the basic line, its prior the prior filing's quarter: never the current filing's year-ago diluted 0.80
-    # (a plain key swap's pair).
+    # A blob stored before P1.5 (2026-06-14), or by the companyfacts fallback before E260's second pull request, has
+    # no eps_diluted; any other blob has an empty one when no diluted figure was found. Two 10-Qs share no period, so
+    # either side without it puts the pair on the basic line, its prior the prior filing's quarter: never the current
+    # filing's year-ago diluted 0.80 (a plain key swap's pair).
     for current, prior in (
         (_Q2, {k: v for k, v in _Q1.items() if k != "eps_diluted"}),  # the prior predates P1.5
         (_Q2, {**_Q1, "eps_diluted": []}),  # the prior's diluted series is empty
@@ -187,7 +187,8 @@ def test_eps_line_takes_one_key_for_both_sides_and_basic_when_a_side_has_no_dilu
         out = compute_what_changed(current, prior)
         assert _eps_items(out) == [("earnings_per_share", "EPS (basic)", 1.02, 0.92)]
         assert all(i["prior"] not in (0.80, 0.81) for i in out["items"])
-    # A companyfacts-shaped pair: basic EPS only, no raw_tag on either side.
+    # A pair shaped like the companyfacts fallback's before E260's second pull request: basic EPS only, with no
+    # eps_diluted key and no raw_tag on either side.
     out = compute_what_changed(
         {"earnings_per_share": _series(("2026-06-30", 1.02))}, {"earnings_per_share": _series(("2026-03-31", 0.92))}
     )
@@ -556,8 +557,8 @@ def test_a_transition_period_or_two_years_back_is_not_the_year_before():
 
 
 # E260: a blob extracted since E260 holds a diluted-only filer's EPS under eps_diluted alone, with an empty
-# earnings_per_share; one extracted before (or by the companyfacts fallback) can hold that diluted figure under
-# earnings_per_share and carry no eps_diluted.
+# earnings_per_share; one extracted before (or by the companyfacts fallback before E260's second pull request) can
+# hold that diluted figure under earnings_per_share and carry no eps_diluted.
 _DILUTED_ONLY_Q2 = {"revenue": _series(("2026-06-30", 110.0)), "net_income": _series(("2026-06-30", 12.0)),
                     "earnings_per_share": [], "eps_diluted": _series(("2026-06-30", 1.00))}
 

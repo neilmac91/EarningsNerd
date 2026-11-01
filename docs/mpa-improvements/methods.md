@@ -12,7 +12,12 @@ So the census reads production through two public, read-only endpoints:
 - `GET /api/companies/{ticker}/peers?metric={concept}`: one indexed read, no SEC call, no write.
   For a company with no SIC code it scopes to the company alone. It returns the company's newest
   `is_latest` FY row for the concept, with the same `provenance_for_fact` projection the analysis
-  dataset uses.
+  dataset uses. Since F69 (D-072, 2026-11-01) it answers a commercial bank or savings institution
+  (SIC 6021, 6022, 6029, 6035, 6036) asked for `revenue` on net interest income, and leaves out a
+  figure whose period ended more than 548 days before the newest in its group, the company's own
+  included. A rerun records the answer's `concept`, not the one asked (`census.py` below records
+  the request, as it ran), and reads a company whose own row is left out through
+  `/api/filings/{id}/fundamentals` or the detection SQL below.
 - `GET /api/filings/{id}/fundamentals`: a filing's own FY rows, with provenance.
 
 The population is the 687 companies in the production sitemap, times the 26 annual concepts of
@@ -22,7 +27,8 @@ errors. Of those companies, 27 hold annual facts at all. The per-year pass then 
 database and refreshes from SEC in the background, as any page view does. It then read the
 fundamentals of each company's three newest annual filings. Sector comes from SEC's
 `company_tickers.json` and `submissions/CIK##########.json`, paced at 4 requests a second under
-the app's public identity, because production stores no SIC codes.
+the app's public identity, because production stored no SIC codes then (the founder's backfill ran
+on 2026-10-31).
 
 The full population, every company and every fiscal year, needs the database. That run is
 [`ops/detection/mpa_notation_frequency.sql`](../../ops/detection/mpa_notation_frequency.sql). It

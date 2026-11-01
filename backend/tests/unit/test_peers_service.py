@@ -227,3 +227,148 @@ class TestGetPeers:
         db = SessionLocal()
         assert svc.get_peers(db, "NOPE" + uuid.uuid4().hex[:6], "revenue") is None
         db.close()
+
+
+# F69 (D-072): one figure per industry, and a figure that trails its group's newest by more than eighteen months leaves
+# the ranking. These use real SIC codes, which companies other tests create may share, so each test reads a database
+# of its own.
+
+
+@pytest.fixture()
+def private_db():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.models import Company
+    from app.models.financial_fact import FinancialFact
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Company.__table__.create(engine)
+    FinancialFact.__table__.create(engine)
+    db = sessionmaker(bind=engine)()
+    yield db
+    db.close()
+    engine.dispose()
+
+
+def _annual(db, company, concept, value, period_end, unit="USD"):
+    _fact(db, company.id, concept=concept, value=value, period_end=period_end, fy=period_end.year, unit=unit)
+
+
+class TestOneFigurePerIndustry:
+    @pytest.mark.parametrize("sic", ["6021", "6022", "6029", "6035", "6036"])
+    def test_a_bank_code_ranks_on_net_interest_income_whatever_it_stores(self, private_db, sic):
+        subject, peer = _company(private_db, sic=sic), _company(private_db, sic=sic)
+        for company, revenue, nii in ((subject, 900.0, 300.0), (peer, 100.0, 400.0)):
+            _annual(private_db, company, "revenue", revenue, date(2025, 12, 31))
+            _annual(private_db, company, "net_interest_income", nii, date(2025, 12, 31))
+
+        result = svc.get_peers(private_db, subject.ticker, "revenue")
+
+        assert result["concept"] == "net_interest_income"
+        assert [(p["ticker"], p["value"], p["rank"]) for p in result["peers"]] == [
+            (peer.ticker, 400.0, 1), (subject.ticker, 300.0, 2),
+        ]
+
+    def test_a_broker_without_revenue_ranks_on_revenue_and_shows_no_value(self, private_db):
+        # The page never switches figure on its own: GS's shape (net interest income, no revenue) answers revenue.
+        subject, peer = _company(private_db, sic="6211"), _company(private_db, sic="6211")
+        _annual(private_db, subject, "net_interest_income", 13.6e9, date(2025, 12, 31))
+        _annual(private_db, peer, "revenue", 6.2e9, date(2025, 12, 31))
+
+        result = svc.get_peers(private_db, subject.ticker, "revenue")
+
+        assert result["concept"] == "revenue"
+        assert result["subject"]["value"] is None and result["subject"]["rank"] is None
+        assert [p["ticker"] for p in result["peers"]] == [peer.ticker]
+
+    def test_a_metric_named_is_ranked_as_named(self, private_db):
+        subject = _company(private_db, sic="6021")
+        _annual(private_db, subject, "net_income", 58.5e9, date(2025, 12, 31))
+        _annual(private_db, subject, "net_interest_income", 95.4e9, date(2025, 12, 31))
+
+        assert svc.get_peers(private_db, subject.ticker, "net_income")["concept"] == "net_income"
+
+    def test_the_default_concept_of_each_code(self):
+        assert [svc.default_concept_for(sic) for sic in ("6021", "6022", "6029", "6035", "6036", " 6022 ")] == [
+            "net_interest_income"
+        ] * 6
+        assert [svc.default_concept_for(sic) for sic in ("6211", "6282", "6798", "6311", "6020", "7372", "", None)] == [
+            "revenue"
+        ] * 8
+
+
+class TestRecencyWindow:
+    def test_a_figure_548_days_behind_the_newest_ranks_and_549_leaves(self, private_db):
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, on_edge, past_edge = (_company(private_db, sic=sic) for _ in range(3))
+        _annual(private_db, subject, "revenue", 100.0, date(2025, 12, 31))
+        _annual(private_db, on_edge, "revenue", 50.0, date(2024, 7, 1))  # 548 days before 2025-12-31
+        _annual(private_db, past_edge, "revenue", 500.0, date(2024, 6, 30))  # 549 days: it would have ranked first
+
+        result = svc.get_peers(private_db, subject.ticker, "revenue")
+
+        assert [(p["ticker"], p["rank"], p["percentile"]) for p in result["peers"]] == [
+            (subject.ticker, 1, 100.0), (on_edge.ticker, 2, 0.0),
+        ]
+        assert result["peer_count"] == 2
+        assert result["subject"]["rank"] == 1
+
+    def test_a_fiscal_calendar_offset_stays(self, private_db):
+        # A June year beside a December one (PANW and FTNT on 2026-10-31: 212 days) is one comparable year.
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, peer = _company(private_db, sic=sic), _company(private_db, sic=sic)
+        _annual(private_db, subject, "revenue", 11.5e9, date(2026, 7, 31))
+        _annual(private_db, peer, "revenue", 6.8e9, date(2025, 12, 31))
+
+        result = svc.get_peers(private_db, subject.ticker, "revenue")
+
+        assert [p["ticker"] for p in result["peers"]] == [subject.ticker, peer.ticker]
+
+    def test_a_stale_subject_is_surfaced_without_a_value(self, private_db):
+        # MS's shape: its newest revenue is FY2014 beside a FY2025 peer. The window is measured from the group's
+        # newest figure, never the subject's, so the subject leaves and the current peer stays.
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, peer = _company(private_db, sic=sic), _company(private_db, sic=sic)
+        _annual(private_db, subject, "revenue", 34.3e9, date(2014, 12, 31))
+        _annual(private_db, peer, "revenue", 2.4e9, date(2025, 12, 31))
+
+        result = svc.get_peers(private_db, subject.ticker, "revenue")
+
+        assert result["subject"]["value"] is None and result["subject"]["rank"] is None
+        assert [(p["ticker"], p["rank"]) for p in result["peers"]] == [(peer.ticker, 1)]
+        assert result["peer_count"] == 1
+
+    def test_the_window_holds_for_every_metric(self, private_db):
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, stale = _company(private_db, sic=sic), _company(private_db, sic=sic)
+        _annual(private_db, subject, "net_margin", 0.21, date(2025, 12, 31), unit="pure")
+        _annual(private_db, stale, "net_margin", 1.78, date(2019, 12, 31), unit="pure")
+
+        result = svc.get_peers(private_db, subject.ticker, "net_margin")
+
+        assert [p["ticker"] for p in result["peers"]] == [subject.ticker]
+
+    def test_a_withheld_row_never_moves_the_window(self, private_db):
+        # The window counts from the newest figure with a value: a withheld derived EPS, which draws no bar, dated
+        # two years past the others must not push them out of the ranking.
+        from app.models import FinancialFact
+
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, peer, withheld = (_company(private_db, sic=sic) for _ in range(3))
+        _annual(private_db, subject, "eps_diluted", 5.0, date(2024, 12, 31), unit="USD/shares")
+        _annual(private_db, peer, "eps_diluted", 3.0, date(2024, 12, 31), unit="USD/shares")
+        private_db.add(FinancialFact(
+            company_id=withheld.id, concept="eps_diluted", unit="USD/shares", period_end=date(2026, 12, 31),
+            fiscal_year=2026, fiscal_period="FY", value=9.0, form="10-K", accession=uuid.uuid4().hex,
+            source="derived", raw_tag=None, reconciled=False, is_latest=True,
+        ))
+        private_db.commit()
+
+        result = svc.get_peers(private_db, subject.ticker, "eps_diluted")
+
+        assert [(p["ticker"], p["value"], p["rank"]) for p in result["peers"]] == [
+            (subject.ticker, 5.0, 1), (peer.ticker, 3.0, 2), (withheld.ticker, None, None),
+        ]
+        assert result["subject"]["value"] == 5.0

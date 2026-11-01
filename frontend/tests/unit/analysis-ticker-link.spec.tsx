@@ -196,12 +196,13 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
     const { client } = mount('?ticker=AAPL', undefined, false)
     const words = await screen.findByText("Fetching AAPL's full SEC reporting history. The first load takes a few seconds.")
     // A line in the secondary ink (the census in statusTintResidue.spec.ts keeps it from being an info Notice), with
-    // the Ask answer's one pulse dot, sage in both themes and hidden from assistive tech.
+    // the Ask answer's one pulse dot, sage in both themes (Bright Sage in dark, the dots' fill, D-071) and hidden from
+    // assistive tech.
     const line = words.closest('p') as HTMLElement
     expect(line).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
     const dots = line.querySelectorAll('.animate-pulse')
     expect(dots).toHaveLength(1)
-    expect(dots[0]).toHaveClass('bg-brand-strong', 'dark:bg-brand-strong-dark')
+    expect(dots[0]).toHaveClass('bg-brand-strong', 'dark:bg-brand-bright-dark')
     expect(dots[0].closest('[aria-hidden="true"]')).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Run analysis' })).not.toBeInTheDocument()
     // The poll's next read lands the periods: the line gives way to the picker.

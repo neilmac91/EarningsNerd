@@ -1053,8 +1053,10 @@ describe('the summary status chip: the label clears 4.5:1 on the watchlist cards
   })
 
   it("reads what is under a summary chip from its row's source, the card as Card renders it, and fails on what it cannot read", () => {
-    // The rows' own layers: the watchlist card's three wrappers around the chip, and the dashboard row's status cluster.
-    expect(SUMMARY_LAYERS).toHaveLength(4)
+    // The rows' own layers: the watchlist card's three wrappers around the chip, and the dashboard row's status cluster
+    // with the pair inside it that keeps the badge beside its remove button (E273). Neither of the dashboard's two
+    // carries a ground, so the row's tint is what the chip sits on.
+    expect(SUMMARY_LAYERS).toHaveLength(5)
     const ok: string[] = []
     // A card per item is its own row, read at rest and hovered from Card's own classes: the interactive card brightens
     // to white under the pointer in light and keeps its fill in dark, where dark:bg- outranks hover:bg-; its pressed

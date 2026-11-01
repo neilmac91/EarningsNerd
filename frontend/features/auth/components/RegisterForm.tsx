@@ -179,7 +179,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
       )}
 
       {collectionAvailable && isInvited && (
-        <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-strong-dark/25 dark:bg-brand-strong-dark/10">
+        <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-bright-dark/25 dark:bg-brand-bright-dark/10">
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             You&apos;re invited to the private beta
           </p>

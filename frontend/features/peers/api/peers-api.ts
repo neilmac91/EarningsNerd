@@ -23,7 +23,8 @@ export interface PeerEntry {
 /** GET /api/companies/{ticker}/peers?metric={concept}: the backend's `PeerComparisonResponse`, field for field but `sic`,
  *  which no copy prints, so the client leaves it unread. `concept` is what the answer ranks on, which can differ from the
  *  metric asked (a bank asked for revenue answers net interest income); `peer_count` counts every entry, withheld ones
- *  included; `peers` is the whole cohort, the subject among them where it holds a fact, value descending. */
+ *  included; `peers` is the whole cohort, the subject among them where it holds a fact no more than 548 days behind its
+ *  group's newest, value descending. */
 export interface PeerComparisonResponse {
   ticker: string
   company_name: string
