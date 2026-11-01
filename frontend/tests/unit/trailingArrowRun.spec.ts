@@ -24,9 +24,12 @@
    a link that stands alone and can wrap is inline-block.
 
    It reads each file's TypeScript AST (tests/unit/classListScan.ts's parser),
-   so comments never count. Out of reach: an arrow a component renders after
-   children it is passed, and other glyphs after a link's words (a caret, and
-   the external link's square, which E279 brings in). Planted cases hold the
+   so comments never count. It looks through a fragment to the element that
+   lays its children out, and through a conditional (`&&`, `||`, `??`, a
+   ternary's arms) to the arrow or the label it may render. Out of reach: an
+   arrow a component renders after children it is passed, an arrow or a label
+   held in a variable, and other glyphs after a link's words (a caret, and the
+   external link's square, which E279 brings in). Planted cases hold the
    reader.
 ============================================================================= */
 
@@ -62,6 +65,37 @@ const tagOf = (element: Element, sourceFile: ts.SourceFile) => element.openingEl
 const rendered = (children: ts.NodeArray<ts.JsxChild>) =>
   children.filter((child) => !(ts.isJsxText(child) && child.text.trim() === '') && !(ts.isJsxExpression(child) && !child.expression))
 
+type Rendered = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
+
+/** What a JSX child may render at its top: itself where it is an element or a fragment, and through an expression,
+    parentheses and a conditional (`&&`'s right side, either side of `||` or `??`, a ternary's arms). */
+function branches(node: ts.Node): Rendered[] {
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) return [node]
+  if (ts.isJsxExpression(node)) return node.expression ? branches(node.expression) : []
+  if (ts.isParenthesizedExpression(node)) return branches(node.expression)
+  if (ts.isConditionalExpression(node)) return [...branches(node.whenTrue), ...branches(node.whenFalse)]
+  if (ts.isBinaryExpression(node)) {
+    const operator = node.operatorToken.kind
+    if (operator === ts.SyntaxKind.AmpersandAmpersandToken) return branches(node.right)
+    if (operator === ts.SyntaxKind.BarBarToken || operator === ts.SyntaxKind.QuestionQuestionToken) return [...branches(node.left), ...branches(node.right)]
+  }
+  return []
+}
+
+/** True where `node` is a JSX element of that name. */
+const named = (node: Rendered, name: string, sourceFile: ts.SourceFile) =>
+  !ts.isJsxFragment(node) && (ts.isJsxElement(node) ? node.openingElement.tagName : node.tagName).getText(sourceFile) === name
+
+/** The element that lays out a fragment's children: its nearest element ancestor, through any expression, or none
+    where the fragment is what a component returns. */
+function hostOf(node: ts.Node): Element | null {
+  let up = node.parent
+  while (up && (ts.isJsxExpression(up) || ts.isParenthesizedExpression(up) || ts.isConditionalExpression(up) || ts.isBinaryExpression(up) || ts.isJsxFragment(up))) {
+    up = up.parent
+  }
+  return up && ts.isJsxElement(up) ? up : null
+}
+
 /** True where the element's class attributes call buttonVariants(), alone or inside a joiner. */
 function styledAsButton(element: Element): boolean {
   let found = false
@@ -75,18 +109,19 @@ function styledAsButton(element: Element): boolean {
   return found
 }
 
-/** Every element in `source` whose last rendered child is a bare ArrowRightIcon after its words. */
+/** Every element or fragment in `source` whose last rendered child is, or may render, a bare ArrowRightIcon after its
+    words. A fragment's row is its host element's, so the host's tag and button styling decide it. */
 function trailingArrowSites(source: string, file: string): Site[] {
   const sourceFile = parse(source, file)
   const sites: Site[] = []
   const visit = (node: ts.Node): void => {
-    if (ts.isJsxElement(node)) {
+    if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
       const children = rendered(node.children)
       const last = children[children.length - 1]
-      const arrow = last && (ts.isJsxSelfClosingElement(last) ? last.tagName : ts.isJsxElement(last) ? last.openingElement.tagName : null)
-      if (arrow && arrow.getText(sourceFile) === ARROW && children.length > 1) {
-        const tag = tagOf(node, sourceFile)
-        const binds = file === COMPONENT ? 'component' : BUTTONS.has(tag) || styledAsButton(node) ? 'button' : null
+      if (last && children.length > 1 && branches(last).some((branch) => named(branch, ARROW, sourceFile))) {
+        const host = ts.isJsxElement(node) ? node : hostOf(node)
+        const tag = host ? tagOf(host, sourceFile) : '<>'
+        const binds = file === COMPONENT ? 'component' : host && (BUTTONS.has(tag) || styledAsButton(host)) ? 'button' : null
         sites.push({ file, line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1, tag, binds })
       }
     }
@@ -104,14 +139,15 @@ interface Parent {
   rows: string[]
 }
 
-/** Every element in `source` with a TrailingArrowLabel among its children, and the row classes it carries. */
+/** Every element in `source` with a TrailingArrowLabel among its children (behind a conditional or inside a fragment
+    too), and the row classes it carries. */
 function labelParents(source: string, file: string): Parent[] {
   const sourceFile = parse(source, file)
   const parents: Parent[] = []
-  const isLabel = (child: ts.JsxChild) =>
-    (ts.isJsxElement(child) ? child.openingElement.tagName : ts.isJsxSelfClosingElement(child) ? child.tagName : null)?.getText(sourceFile) === LABEL
+  const rendersLabel = (child: ts.Node): boolean =>
+    branches(child).some((branch) => named(branch, LABEL, sourceFile) || (ts.isJsxFragment(branch) && branch.children.some(rendersLabel)))
   const visit = (node: ts.Node): void => {
-    if (ts.isJsxElement(node) && node.children.some(isLabel)) {
+    if (ts.isJsxElement(node) && node.children.some(rendersLabel)) {
       const tokens = node.openingElement.attributes.properties.flatMap((attribute) =>
         ts.isJsxAttribute(attribute) && CLASS_ATTRIBUTE.test(attribute.name.getText(sourceFile)) && attribute.initializer
           ? literalTexts(attribute.initializer).flatMap(tokensOf)
@@ -215,6 +251,26 @@ describe('the trailing-arrow reader, on planted sources', () => {
     expect(faults(`export const A = () => <Link href="/a">Open <ArrowRightIcon><title>next</title></ArrowRightIcon></Link>`)).toEqual(['Link'])
   })
 
+  it('finds a bare arrow inside a fragment, behind && or ??, and in a ternary arm, named by the element that lays it out', () => {
+    expect(
+      faults(`
+        export const A = ({ x }: { x: boolean }) => <Link href="/a" className="inline-flex gap-1">{x ? <>See all <ArrowRightIcon /></> : null}</Link>
+        export const B = ({ open }: { open: boolean }) => <Link href="/b" className="inline-flex gap-1">See all {open && <ArrowRightIcon />}</Link>
+        export const C = ({ open }: { open: boolean }) => <a href="/c">Open {open ? <ArrowRightIcon /> : null}</a>
+        export const D = ({ icon }: { icon?: JSX.Element }) => <span>Next {icon ?? <ArrowRightIcon />}</span>
+        export const E = () => <>See all <ArrowRightIcon /></>
+      `),
+    ).toEqual(['Link', 'Link', 'a', 'span', '<>'])
+  })
+
+  it('lets a button bind an arrow it lays out through a fragment, and passes a conditional arrow alone', () => {
+    const sites = planted(`
+      export const A = ({ x }: { x: boolean }) => <Button>{x ? <>Next <ArrowRightIcon /></> : null}</Button>
+      export const B = ({ open }: { open: boolean }) => <Link href="/b" aria-label="Next">{open && <ArrowRightIcon />}</Link>
+    `)
+    expect(sites.map((site) => `${site.tag} ${site.binds}`)).toEqual(['Button button'])
+  })
+
   it('finds a label set in a flex or grid row, behind a variant or in a joiner, and passes one outside it', () => {
     const parents = labelParents(
       `
@@ -223,9 +279,11 @@ describe('the trailing-arrow reader, on planted sources', () => {
         export const C = () => <div className="!grid"><TrailingArrowLabel>See all</TrailingArrowLabel></div>
         export const D = () => <Link href="/d" className="inline-block min-h-9 py-2"><TrailingArrowLabel>See all</TrailingArrowLabel></Link>
         export const E = () => <div className="flex-1 grid-cols-2"><TrailingArrowLabel>See all</TrailingArrowLabel></div>
+        export const F = ({ show }: { show: boolean }) => <Link href="/f" className="inline-flex">{show && <TrailingArrowLabel>See all</TrailingArrowLabel>}</Link>
+        export const G = ({ x }: { x: boolean }) => <Link href="/g" className="flex">{x ? <><TrailingArrowLabel>See all</TrailingArrowLabel></> : null}</Link>
       `,
       'planted.tsx',
     )
-    expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], ['!grid'], [], []])
+    expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], ['!grid'], [], [], ['inline-flex'], ['flex']])
   })
 })
