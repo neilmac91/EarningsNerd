@@ -28,6 +28,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Query, Session, sessionmaker
 from sqlalchemy.sql.selectable import Select
@@ -125,7 +126,9 @@ def _main(tmp_path, capsys, *argv):
     output = tmp_path / "out" / "report.json"
     output.unlink(missing_ok=True)
     code = preview.main(["--output", str(output), "--workflow-commit", COMMIT, *argv])
-    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    captured = capsys.readouterr()
+    sys.stderr.write(captured.err)  # readouterr() empties both streams: the run's stderr stays for its caller
+    lines = [json.loads(line) for line in captured.out.splitlines()]
     return code, lines, json.loads(output.read_text())
 
 
@@ -597,14 +600,14 @@ def test_a_run_reaching_every_outcome_reads_only_and_prints_closed_classes(db, f
         flushes.append(args)
 
     event.listen(Session, "do_orm_execute", on_orm)
-    event.listen(engine, "before_cursor_execute", on_cursor)
+    event.listen(Engine, "before_cursor_execute", on_cursor)  # every engine, not only the test's own
     event.listen(Session, "before_flush", on_flush)
     try:
         with caplog.at_level(logging.DEBUG):
             code, lines, report = _main(tmp_path, capsys, "--tickers", ",".join(["aaa", "BBB", "CCC", *named]))
     finally:
         event.remove(Session, "do_orm_execute", on_orm)
-        event.remove(engine, "before_cursor_execute", on_cursor)
+        event.remove(Engine, "before_cursor_execute", on_cursor)
         event.remove(Session, "before_flush", on_flush)
     err = capsys.readouterr().err
 
@@ -761,9 +764,35 @@ def test_three_database_errors_in_a_row_stop_the_run_before_its_next_sec_read(db
     assert report["summary"]["stopped"] == "database_errors" and len(sec.reads) == 3
 
 
+def test_each_companys_sec_read_comes_before_its_session_opens(db, factory, sec, monkeypatch):
+    """No transaction is open while a company's SEC read retries: a held one would keep its locks for up to the
+    read's 580 s and stop a deploy migration's lock. Each read comes first, then the company's session opens."""
+    companies = _companies(db, sec, 2)
+    events = []
+
+    class Recorded:
+        def __init__(self):
+            self.session = factory()
+
+        def __enter__(self):
+            events.append("open")
+            return self.session.__enter__()
+
+        def __exit__(self, *exc):
+            events.append("closed")
+            return self.session.__exit__(*exc)
+
+    read = facts_service._fetch_companyfacts_sync
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: events.append(cik) or read(cik))
+    args = SimpleNamespace(tickers="", workflow_commit=COMMIT, companyfacts_dir=None)
+    report = preview.run(args, lambda line: None, session_factory=Recorded)
+    assert [company["outcome"] for company in report["companies"]] == ["previewed", "previewed"]
+    assert events == ["open", "closed", companies[0].cik, "open", "closed", companies[1].cik, "open", "closed"]
+
+
 def test_a_company_session_issues_no_more_than_its_counted_statements(db, factory, sec):
     """The Ops gate's bound on the company in flight counts SESSION_STATEMENTS statements a company session, each
-    under the step's statement_timeout. On SQLite the read-only check issues none, so the rest must fit beside it."""
+    under the step's statement_timeout."""
     blk = json.loads((FIXTURES / "BLK.json").read_text())
     sec.payloads[_seed(db, "AAA", blk, "6211").cik] = blk
     db.commit()
@@ -783,7 +812,9 @@ def test_a_company_session_issues_no_more_than_its_counted_statements(db, factor
     finally:
         event.remove(engine, "before_cursor_execute", on_cursor)
     assert [c["outcome"] for c in report["companies"]] == ["previewed"] and len(counts) == 2
-    assert counts[1] == preview.SESSION_STATEMENTS - 1 == 3  # the currency test, the rows, their filings
+    # The currency test, the rows and their filings: on PostgreSQL the read-only check and the pool's checkout ping
+    # (pool_pre_ping, a ping the cursor events never see) make SESSION_STATEMENTS.
+    assert counts[1] == preview.SESSION_STATEMENTS - 2 == 3
 
 
 # --- SEC reads: count, stops, caps, the time budget and the window -----------------------------------------------------
@@ -854,7 +885,7 @@ def test_the_time_budget_stops_before_the_next_read_and_the_run_still_ends_with_
 
     assert code == 1 and [line["outcome"] for line in lines[1:-1]] == ["previewed"] * 2 + ["not_run"] * 2
     assert lines[-1] == report["summary"] and report["summary"]["stopped"] == "time_budget" and len(sec.reads) == 2
-    assert preview.TIME_BUDGET_SECONDS == 2400  # the last company's worst case (1,060 s) still ends inside 60 minutes
+    assert preview.TIME_BUDGET_SECONDS == 2100  # the last company's worst case (1,180 s) still ends inside 60 minutes
 
 
 @pytest.mark.parametrize("tickers,refused,named", [
@@ -963,6 +994,9 @@ def test_the_start_line_is_flushed_before_the_first_read_and_each_line_has_its_e
     monkeypatch.setattr(sys, "stdout", out)
     _companies(db, sec, 1)
     _companies(db, sec, 1, synced=None, start=300)
+    _company(db, "NUL", 401, sic=None)
+    _company(db, "EMP", 402, sic="")
+    db.commit()
     seen = []
     read = facts_service._fetch_companyfacts_sync
     monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: seen.append(out.flushed) or read(cik))
@@ -973,6 +1007,9 @@ def test_the_start_line_is_flushed_before_the_first_read_and_each_line_has_its_e
     start, *companies, summary = [json.loads(line) for line in out.getvalue().splitlines()]
     assert code == 0 and json.loads(seen[0].splitlines()[0]) == start  # printed and flushed before the read
     assert set(start) == START_KEYS and start["dry_run"] and not start["production_image_used"]
+    assert (start["cohort_size"], start["blank_sic_companies"], start["cohort"]) == (2, 2, [
+        {"ticker": "C100", "sic": "6211", "synced_since_deploy": True},
+        {"ticker": "C300", "sic": "6211", "synced_since_deploy": False}])
     assert start["rule"] == {"e264_deployed_at": "2026-11-01T14:07:03Z", "e278_deployed_at": "2026-11-01T21:04:12Z",
                              "feed_tolerance": 0.005, "per_filing": "cross_check_facts (1%)"}
     assert (start["workflow_commit"], start["execution"]) == (COMMIT, "github_actions_runner")

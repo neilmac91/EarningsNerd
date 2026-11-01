@@ -52,10 +52,10 @@ by --tickers). It makes no SEC read on Monday 06:00-08:30 UTC, when pregenerate 
 scan at SEC's cap: a run started there is refused, and one that reaches 06:00 stops. The daily EFTS jobs can overlap a
 running scan too (earnings-calendar-refresh at 05:30, notable-filings at 08:30 and 18:30, America/New_York): dispatch
 outside those minutes. Before each read it stops after 3 failed reads in a row, 3 rate-limit hits, 3 database errors
-in a row, or 2400 s. The company then in flight takes 1,060 s at worst while each SEC attempt ends within its timeouts
-(580 s of retries, four 120 s statements), so the step's 60 minutes hold the report. A response that trickles in under
-its read timeout could outlast the step, which then keeps the flushed company lines but no report. The rest are
-not_run. Exit 1 on any failure, refusal or stop.
+in a row, or 2100 s. The company then in flight takes 1,180 s at worst while each SEC attempt ends within its timeouts
+(580 s of retries, five 120 s statements with the pool's checkout ping), and the step's readback and start come first,
+so the step's 60 minutes hold the report. A response that trickles in under its read timeout could outlast the step,
+which then keeps the flushed company lines but no report. The rest are not_run. Exit 1 on any failure, refusal or stop.
 
   python scripts/financial_revenue_preview.py --output report.json --workflow-commit SHA [--tickers A,B]
   python scripts/financial_revenue_preview.py ... --companyfacts-dir DIR   # offline CIK##########.json, no SEC
@@ -108,11 +108,12 @@ MARGINS = frozenset(CONCEPTS[1:])
 QUARTERS = frozenset({"Q1", "Q2", "Q3", "Q4"})
 MAX_TICKERS = 50
 MAX_PREVIEWED = 500
-TIME_BUDGET_SECONDS = 2400
+TIME_BUDGET_SECONDS = 2100
 STOP_AFTER_FAILED_FETCHES = 3
 STOP_AFTER_RATE_LIMIT_HITS = 3
 STOP_AFTER_DATABASE_ERRORS = 3
-SESSION_STATEMENTS = 4  # a company session's: the read-only check, the currency test, its rows, their filings
+SESSION_STATEMENTS = 5  # a company session's at most: the pool's checkout ping, the read-only check, the currency
+#                        test, its rows and their filings
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 TICKER = re.compile(r"[A-Z0-9][A-Z0-9.-]{0,11}")
 SETS = ("A", "A_tag_only", "B", "B_review", "C1", "C1_review", "C2", "C2_review", "D", "D_review", "E", "E_review",

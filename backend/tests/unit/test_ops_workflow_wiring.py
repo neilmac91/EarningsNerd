@@ -324,6 +324,7 @@ PREVIEW_ENV = {  # the step's env, whole: a name added here (a PGHOST, an SEC fl
 }
 TRANSPORT = Path(__file__).resolve().parents[2] / "app/services/facts/transport.py"
 REPORT_SECONDS = 60  # the summary line and the report file, after the company in flight
+STARTUP_SECONDS = 60  # the interpreter and the app's imports, after the readback and before the script's clock
 
 
 def test_the_preview_step_only_reads_for_its_one_operation_and_keeps_its_report():
@@ -369,8 +370,9 @@ def test_the_preview_stops_itself_inside_its_steps_timeout():
     statement = int(re.search(r"statement_timeout=(\d+)s", step["env"]["PGOPTIONS"]).group(1))
     in_flight = (attempts * per_attempt + (attempts - 1) * MAX_RETRY_AFTER_SECONDS
                  + preview.SESSION_STATEMENTS * statement)
-    assert in_flight == 1060, "the script's header states 1,060 s: change both together"
-    assert 0 < preview.TIME_BUDGET_SECONDS + in_flight + REPORT_SECONDS <= int(step["timeout-minutes"]) * 60
+    assert in_flight == 1180, "the script's header states 1,180 s: change both together"
+    before = statement + STARTUP_SECONDS  # the step's readback runs one statement before the script starts
+    assert 0 < before + preview.TIME_BUDGET_SECONDS + in_flight + REPORT_SECONDS <= int(step["timeout-minutes"]) * 60
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:
