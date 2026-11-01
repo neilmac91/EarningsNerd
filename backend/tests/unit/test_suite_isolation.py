@@ -173,16 +173,18 @@ def _pinned_methods():
     )
 
 
-def test_probe_pins_a_singleton_method_like_monkeypatch(monkeypatch):
-    # Undoing monkeypatch.setattr of a method on an instance sets the bound method it saved back on the
-    # instance. Pin one method on each singleton; conftest must clear all three.
+def test_probe_pins_a_singleton_method_like_monkeypatch():
+    # Before pytest 9.2.0, undoing monkeypatch.setattr of a method on an instance set the bound method it
+    # saved back on the instance (pytest #10644); 9.2.0 restores the instance's own entry instead. A test
+    # that assigns the bound method still pins it, so pin one method on each singleton that way; conftest
+    # must clear all three.
     from app.services import summary_pipeline
 
     assert _pinned_methods() == []
-    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "search_company", AsyncMock(return_value=[]))
-    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
-    monkeypatch.setattr(summary_pipeline.openai_service, "stream_chat", AsyncMock())
-    monkeypatch.undo()
+    for target, name in ((summary_pipeline.sec_edgar_service, "search_company"),
+                         (summary_pipeline.xbrl_service, "get_xbrl_data"),
+                         (summary_pipeline.openai_service, "stream_chat")):
+        setattr(target, name, getattr(target, name))
     assert _pinned_methods() == [
         "OpenAIService.stream_chat", "SECEdgarServiceCompat.search_company", "XBRLServiceCompat.get_xbrl_data",
     ]
@@ -206,7 +208,7 @@ def test_pinned_methods_are_cleared_without_the_pipeline(request, monkeypatch):
     assert len(found) == 3 and all(a is b for a, b in zip(found, expected)), found
     service = compat.xbrl_service
     try:
-        service.get_xbrl_data = service.get_xbrl_data  # a pin, as monkeypatch's undo leaves it
+        service.get_xbrl_data = service.get_xbrl_data  # a pin, as monkeypatch's undo left one before pytest 9.2.0
         service.xbrl_alias = service.get_xbrl_data  # the same bound method under a name the class lacks
         conftest._clear_pinned_methods()
         assert "get_xbrl_data" not in vars(service) and "xbrl_alias" in vars(service), sorted(vars(service))

@@ -22,6 +22,7 @@ import {
   isCopilotPaywallError,
   type CopilotCitation,
 } from '@/features/filings/api/copilot-api'
+import { ERROR_CODES, type KnownErrorCode } from '@/lib/api/client'
 
 const verifiedCitation: CopilotCitation = {
   n: 1,
@@ -47,8 +48,8 @@ function doneMessage(overrides: Partial<CopilotMessageData> = {}): CopilotMessag
 describe('CopilotMessage citation chips', () => {
   it('renders a chip for [1] as an anchor to the fragment_url', () => {
     render(<CopilotMessage message={doneMessage()} />)
-    // The inline chip is the anchor whose accessible name is "Citation 1: ...".
-    const chip = screen.getByRole('link', { name: /citation 1: item 7 — md&a/i })
+    // The inline chip is the anchor whose accessible name is "1. Citation: ...".
+    const chip = screen.getByRole('link', { name: /1\. citation: item 7 — md&a/i })
     expect(chip).toHaveAttribute('href', 'https://www.sec.gov/x#:~:text=Revenue')
     expect(chip).toHaveAttribute('target', '_blank')
     expect(chip).toHaveTextContent('[1]')
@@ -109,7 +110,7 @@ describe('CopilotMessage citation chips', () => {
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [9].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
-    const chip = screen.getByRole('link', { name: /citation 9/i })
+    const chip = screen.getByRole('link', { name: /9\. citation/i })
     expect(chip).toHaveTextContent('[9]')
     expect(chip).toHaveAttribute('href', 'https://www.sec.gov/filing')
     expect(chip).toHaveAttribute('data-citation-kind', 'xbrl')
@@ -128,7 +129,7 @@ describe('CopilotMessage citation chips', () => {
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [f 1].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
-    const chip = screen.getByRole('link', { name: /citation f1/i })
+    const chip = screen.getByRole('link', { name: /f1\. citation/i })
     expect(chip).toHaveTextContent('[F1]') // normalized to the canonical marker
   })
 
@@ -155,19 +156,19 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.getByText('3 matched sources')).toBeInTheDocument()
     // The count is said once (ASK-14): no second "citations · source checks" tally beside it.
     expect(screen.queryByText(/source checks|\d+ citations?\b/i)).not.toBeInTheDocument()
-    const textChip = screen.getByRole('link', { name: /citation 3:/i })
+    const textChip = screen.getByRole('link', { name: /3\. citation:/i })
     expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
     fireEvent.focus(textChip)
-    const textPopover = screen.getByRole('group', { name: /citation 3:/i })
+    const textPopover = screen.getByRole('group', { name: /3\. citation:/i })
     expect(within(textPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(textPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(within(textPopover).getByText(excerpt.excerpt)).toBeInTheDocument()
-    fireEvent.focus(screen.getByRole('link', { name: /citation 1:/i }))
-    const factPopover = screen.getByRole('group', { name: /citation 1:/i })
+    fireEvent.focus(screen.getByRole('link', { name: /1\. citation:/i }))
+    const factPopover = screen.getByRole('group', { name: /1\. citation:/i })
     expect(within(factPopover).getByText('Matches filing')).toBeInTheDocument()
     expect(within(factPopover).getByText(/does not check every claim/)).toBeInTheDocument()
-    fireEvent.focus(screen.getByRole('link', { name: /citation 4:/i }))
-    const labelledPopover = screen.getByRole('group', { name: /citation 4:/i })
+    fireEvent.focus(screen.getByRole('link', { name: /4\. citation:/i }))
+    const labelledPopover = screen.getByRole('group', { name: /4\. citation:/i })
     expect(within(labelledPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(labelledPopover).queryByText('Matches filing')).not.toBeInTheDocument()
     expect(within(labelledPopover).getByText(/does not check every claim/)).toBeInTheDocument()
@@ -180,8 +181,8 @@ describe('CopilotMessage citation chips', () => {
     // The literal marker survives somewhere in the prose.
     expect(screen.getByText(/\[2\]/)).toBeInTheDocument()
     // And there is no citation chip / anchor for [2].
-    expect(screen.queryByRole('link', { name: /citation 2/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /2\. citation/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /2\. citation/i })).not.toBeInTheDocument()
   })
 })
 
@@ -331,9 +332,9 @@ describe('CopilotMessage follow-up chips', () => {
  * routers/summaries.py).
  */
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
-  const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
+  const TASTE_SPENT = "You've used your 3 free questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
-    "You've reached this month's fair-use limit of 1000 Copilot questions. It resets at the start of next month."
+    "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })
   /** The class tokens in a subtree that paint with one of the given status inks, through any variant prefix. */
   const tokensOf = (root: HTMLElement, palette: string) =>
@@ -350,7 +351,23 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
     expect(isCopilotFairUseLimit(TASTE_SPENT)).toBe(false)
     expect(isCopilotPaywallError(FAIR_USE)).toBe(true)
     expect(isCopilotFairUseLimit(FAIR_USE)).toBe(true)
-    expect(isCopilotPaywallError('The answer could not be completed. Please try again.')).toBe(false)
+    expect(isCopilotPaywallError("I couldn't complete this answer. Try again.")).toBe(false)
+  })
+
+  it('decides the plan card on a known code first, whatever its words (E31)', () => {
+    const words = 'Words that name neither the cap nor the plan.'
+    expect(isCopilotPaywallError(words, 'plan_required')).toBe(true)
+    expect(isCopilotPaywallError(words, 'free_allowance_exhausted')).toBe(true)
+    expect(isCopilotPaywallError(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(words, 'pro_fair_use_limit')).toBe(true)
+    expect(isCopilotFairUseLimit(FAIR_USE, 'free_allowance_exhausted')).toBe(false)
+    // Every other known code is a pause, a rate limit or a sign-in: Retry, never the plan card (the contract's §3).
+    const others = (Object.keys(ERROR_CODES) as KnownErrorCode[])
+      .filter((code) => !['plan_required', 'free_allowance_exhausted', 'pro_fair_use_limit'].includes(code))
+    expect(others).toContain('generation_paused')
+    for (const code of others) {
+      expect([code, isCopilotPaywallError(FAIR_USE, code), isCopilotFairUseLimit(FAIR_USE, code)]).toEqual([code, false, false])
+    }
   })
 
   it('a spent allowance is the quiet card with the server sentence and Upgrade to Pro', () => {
@@ -387,7 +404,7 @@ describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
   })
 
   it('a real failure keeps the error tint, role="alert" and Retry', () => {
-    render(<CopilotMessage message={errorMessage('The answer could not be completed. Please try again.')} onRetry={vi.fn()} />)
+    render(<CopilotMessage message={errorMessage("I couldn't complete this answer. Try again.")} onRetry={vi.fn()} />)
     const bubble = screen.getByRole('alert')
     expect(errorTokens(bubble).length).toBeGreaterThan(0)
     expect(within(bubble).getByRole('button', { name: /try again/i })).toBeInTheDocument()

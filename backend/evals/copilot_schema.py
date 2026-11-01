@@ -59,6 +59,11 @@ class CopilotGoldenCase:
     notes: str = ""
     period_of_report: str = ""
     reporting_currency: str = ""
+    # The excerpt source the filing's preparation must record (E80): {"outcome": "native", "sections": [...]}, the
+    # canonical sections the filing supplies whole (with a "basis" when one is left out), or {"outcome": "fallback",
+    # "fallback_reason": ..., "basis": ...}, a fallback the RUNBOOK documents for this filing. Checked against the
+    # excerpt builder's own record.
+    excerpt_source: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CopilotGoldenCase":
@@ -66,6 +71,7 @@ class CopilotGoldenCase:
             ticker=d["ticker"],
             period_of_report=d.get("period_of_report", ""),
             reporting_currency=d.get("reporting_currency", ""),
+            excerpt_source=d.get("excerpt_source", {}),
             cik=str(d["cik"]),
             accession_number=d["accession_number"],
             filing_type=d["filing_type"],

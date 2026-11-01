@@ -135,12 +135,17 @@ def _summary(fid: int, overview: str, raw_summary: dict | None = None, risk_fact
     return sid
 
 
-def _progress(fid: int, stage: str) -> None:
+def _progress(fid: int, stage: str, *, age_seconds: float = 0, error: str | None = None) -> None:
+    """The filing's progress row, last written ``age_seconds`` ago."""
     from app.database import SessionLocal
     from app.models import SummaryGenerationProgress
+    from app.utils.datetimes import utcnow
 
+    written = utcnow() - timedelta(seconds=age_seconds)
     db = SessionLocal()
-    db.add(SummaryGenerationProgress(filing_id=fid, stage=stage, elapsed_seconds=7.0, error=None))
+    db.add(SummaryGenerationProgress(
+        filing_id=fid, stage=stage, elapsed_seconds=7.0, error=error, started_at=written, updated_at=written,
+    ))
     db.commit()
     db.close()
 
@@ -311,3 +316,123 @@ def test_the_watchlist_and_the_dashboard_call_ready_what_the_filing_page_shows(
     with SessionLocal() as db:
         stored_row = db.get(Summary, sid)
     assert _summary_status(stored_row, None) == {"summary_id": sid, "summary_status": status}
+
+
+# A run last written longer ago than the progress poll's staleness window, which the poll marks a retryable error.
+STALLED_AGE = 240
+READY_BODY = "A real overview of the business."
+PLACEHOLDER_BODY = "Generating summary... please wait"
+
+
+@pytest.mark.parametrize(
+    ("body", "stage", "age", "error", "status", "progress"),
+    [
+        pytest.param(None, None, 0, None, "missing", None, id="no run"),
+        pytest.param(None, "fetching", 0, None, "generating:fetching", ("fetching", None), id="a fresh run's first stage"),
+        pytest.param(None, "summarizing", 0, None, "generating:summarizing", ("summarizing", None), id="a fresh run"),
+        # The progress poll would mark these a retryable error; the read-only surfaces say so without the write.
+        pytest.param(None, "fetching", STALLED_AGE, None, "error", ("error", "stalled"), id="a stalled first stage"),
+        pytest.param(None, "summarizing", STALLED_AGE, None, "error", ("error", "stalled"), id="a stalled run"),
+        pytest.param(None, "error", 0, "Pipeline timeout", "error", ("error", "Pipeline timeout"), id="a failed run"),
+        pytest.param(None, "error", STALLED_AGE, "Pipeline timeout", "error", ("error", "Pipeline timeout"),
+                     id="an old failed run"),
+        # A run that ended with no summary beside it: none is being written and none failed.
+        pytest.param(None, "completed", 0, None, "missing", None, id="a completed run"),
+        pytest.param(None, "completed", STALLED_AGE, None, "missing", None, id="an old completed run"),
+        pytest.param(None, "partial", 0, None, "missing", None, id="a partial run"),
+        pytest.param(None, "partial", STALLED_AGE, None, "missing", None, id="an old partial run"),
+        # A stored summary decides first, whatever its progress row says; the row is sent beside it as stored.
+        pytest.param(READY_BODY, "summarizing", STALLED_AGE, None, "ready", ("summarizing", None),
+                     id="a ready summary beside a stalled run"),
+        pytest.param(READY_BODY, "summarizing", 0, None, "ready", ("summarizing", None),
+                     id="a ready summary beside a fresh run"),
+        pytest.param(READY_BODY, "completed", 0, None, "ready", ("completed", None),
+                     id="a ready summary beside a completed run"),
+        pytest.param(PLACEHOLDER_BODY, "summarizing", STALLED_AGE, None, "placeholder", ("summarizing", None),
+                     id="a placeholder beside a stalled run"),
+        pytest.param(PLACEHOLDER_BODY, "summarizing", 0, None, "placeholder", ("summarizing", None),
+                     id="a placeholder beside a fresh run"),
+        pytest.param(PLACEHOLDER_BODY, "error", 0, "Pipeline timeout", "placeholder", ("error", "Pipeline timeout"),
+                     id="a placeholder beside a failed run"),
+    ],
+)
+def test_the_watchlist_and_the_feed_read_a_run_the_same_way(client, user_id, body, stage, age, error, status, progress):
+    # A stale or ended run without a summary reached the watchlist card as `generating:*` ("A summary is being
+    # written.", no action) and the feed's link as "Generating…" (E43). Both read the progress row through
+    # progress_read_status: a fresh run is being written, a stalled one is the error the progress poll would mark,
+    # and an ended one is a missing summary. Neither writes the row.
+    from app.database import SessionLocal
+    from app.models import SummaryGenerationProgress
+    from app.services.summary_generation_service import STALE_PROGRESS_SECONDS, STALLED_ERROR
+
+    assert STALLED_AGE > STALE_PROGRESS_SECONDS
+    ticker = f"S{uuid.uuid4().hex[:5].upper()}"
+    cid = _company(ticker)
+    _watch(user_id, cid, T0)
+    fid = _filing(cid, "10-Q", datetime(2026, 3, 1, tzinfo=timezone.utc))
+    sid = _summary(fid, body) if body is not None else None
+    if stage is not None:
+        _progress(fid, stage, age_seconds=age, error=error)
+
+    def stored_row():
+        with SessionLocal() as db:
+            row = db.get(SummaryGenerationProgress, fid)
+            return None if row is None else (row.stage, row.error, row.started_at, row.updated_at)
+
+    before = stored_row()
+    [insight] = client.get("/api/watchlist/insights").json()
+    feed = client.get("/api/dashboard/feed")
+    assert feed.status_code == 200, feed.text
+    [item] = feed.json()["items"]
+
+    snap = insight["latest_filing"]
+    assert (snap["summary_id"], snap["summary_status"]) == (sid, status)
+    assert snap["needs_regeneration"] is not status.startswith(("generating:", "ready"))
+    expected = None if progress is None else (progress[0], STALLED_ERROR if progress[1] == "stalled" else progress[1])
+    assert (None if snap["progress"] is None else (snap["progress"]["stage"], snap["progress"]["error"])) == expected
+    assert (item["filing_id"], item["summary_id"], item["summary_status"]) == (fid, sid, status)
+    assert stored_row() == before
+
+
+def test_the_insights_and_the_feed_read_progress_without_a_write_or_a_query_per_row(client, user_id, monkeypatch):
+    # The read-only surfaces never mark a stalled run (only the progress poll does) and read every company's progress
+    # in one batched query: their statements are SELECTs alone, as many for four stalled companies as for one.
+    from sqlalchemy import event
+
+    from app.database import engine
+    from app.services import summary_generation_service
+
+    def _no_mark(*_args, **_kwargs):
+        raise AssertionError("a GET marked a stalled run")
+
+    monkeypatch.setattr(summary_generation_service, "mark_stale_progress_as_error", _no_mark)
+
+    def watch_stalled(count: int) -> None:
+        for _ in range(count):
+            cid = _company(f"Q{uuid.uuid4().hex[:5].upper()}")
+            _watch(user_id, cid, T0)
+            _progress(_filing(cid, "10-Q", datetime(2026, 3, 1, tzinfo=timezone.utc)), "summarizing",
+                      age_seconds=STALLED_AGE)
+
+    def statements(path: str) -> list[str]:
+        seen: list[str] = []
+
+        def spy(_conn, _cursor, statement, _parameters, _context, _executemany):
+            seen.append(statement.lstrip().split(None, 1)[0].upper())
+
+        event.listen(engine, "before_cursor_execute", spy)
+        try:
+            response = client.get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", spy)
+        assert response.status_code == 200, response.text
+        return seen
+
+    paths = ("/api/watchlist/insights", "/api/dashboard/feed")
+    watch_stalled(1)
+    one = {path: statements(path) for path in paths}
+    watch_stalled(3)
+    four = {path: statements(path) for path in paths}
+    for path in paths:
+        assert set(one[path]) == {"SELECT"} and set(four[path]) == {"SELECT"}, (path, one[path], four[path])
+        assert len(four[path]) == len(one[path]), (path, one[path], four[path])

@@ -171,7 +171,12 @@ async def prepare_source(source: dict, runtime: Any, output: Path) -> dict:
                 document_url=metadata["document_url"], sec_url=metadata.get("sec_url"), xbrl_data=xbrl)
             db.add(filing)
             db.commit()
-            excerpt = runtime.excerpt(db, filing, html, sections=sections)
+            # The builder's own record of where the excerpt came from (excerpt_provenance, E80-C1), kept before the
+            # checks below, so a source one of them refuses keeps it; the runner's preflight reads it against the
+            # golden case.
+            records: list = []
+            excerpt = runtime.excerpt(db, filing, html, sections=sections, on_provenance=records.append)
+            result["excerpt_provenance"] = records[-1] if records else None
             result["artifacts"]["excerpt"] = _artifact(folder, "excerpt.txt", excerpt or "")
             if not excerpt or not excerpt.strip():
                 raise ValueError("excerpt_unavailable")

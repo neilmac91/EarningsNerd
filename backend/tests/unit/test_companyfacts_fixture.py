@@ -136,6 +136,8 @@ def test_extract_standardized_metrics_shapes_current_prior_change(parsed: dict):
     assert revenue["current"] == {
         "period": "2023-12-31", "value": 24_318_000_000,
         "form": "10-K", "currency": None, "raw_tag": None, "period_start": "2023-01-01",
+        # The filing that reported it, which the figure check's series match compares (E184).
+        "accn": "0001789012-24-000031",
     }
     assert revenue["prior"]["period"] == "2022-12-31"
     assert revenue["prior"]["value"] == 21_704_000_000

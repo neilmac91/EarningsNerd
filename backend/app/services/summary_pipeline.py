@@ -52,7 +52,7 @@ from app.services.summary_schema import TRACKED_SECTIONS_V2
 # fake clock …). Nothing in this module calls most of them any more; they are kept here on purpose.
 # Gate: tests/unit/test_summary_stages_seams.py (every ``pipeline.<name>`` a stage uses must exist here).
 import time  # noqa: F401
-from app.error_codes import ErrorCode  # noqa: F401
+from app.error_codes import STREAM_CODES, ErrorCode  # noqa: F401
 from app.services.edgar.exceptions import (  # noqa: F401
     EdgarError, EdgarRateLimitError, EdgarNetworkError, FilingNotFoundError,
 )

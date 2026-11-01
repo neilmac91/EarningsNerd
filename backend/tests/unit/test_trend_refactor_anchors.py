@@ -349,13 +349,17 @@ def test_t0_3_dataset_fingerprint_of_the_seeded_history(session_factory, company
         if series["cagr"] is not None:
             assert series["cagr"] == _reference_cagr(series), (series["concept"], _FINGERPRINT_CHANGED)
     cagr = {series["concept"]: series.pop("cagr") for series in dataset["series"]}
-    assert cagr == pytest.approx({
+    expected = {
         "revenue": 0.19721576725837586, "gross_margin": None, "operating_margin": None,
         "net_income": 0.06265856918261115, "earnings_per_share": 0.06265856918261115,
         "operating_cash_flow": -0.02273519408117486, "free_cash_flow": -0.2631937002719227,
         "cash_and_equivalents": -0.03451061539437028, "current_ratio": None,
         "long_term_debt": 0.2599210498948732,
-    }, rel=1e-12)
+    }
+    assert cagr.keys() == expected.keys()
+    for concept, value in expected.items():
+        # A series with no CAGR is compared exactly: pytest.approx refuses None under a relative tolerance (9.2.0).
+        assert cagr[concept] == (value if value is None else pytest.approx(value, rel=1e-12)), concept
     assert svc.dataset_fingerprint(dataset) == (
         # Quarterly-v2 deliberately changes this contract: lineage participates in the
         # snapshot, invalidating narratives whose figures or source checks changed.

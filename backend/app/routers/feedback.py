@@ -359,7 +359,7 @@ async def _notify_admin(user_id: int, user_email: str | None, feedback_id: int, 
         return
     safe_email = html.escape(user_email or "")
     safe_message = html.escape(payload.message)
-    inbox_url = html.escape(settings.FRONTEND_URL.rstrip("/") + "/admin/feedback", quote=True)
+    inbox_url = html.escape(settings.FRONTEND_URL + "/admin/feedback", quote=True)
     page_html = (
         f'<p><strong>Page:</strong> {html.escape(payload.page_url)}</p>' if payload.page_url else ""
     )

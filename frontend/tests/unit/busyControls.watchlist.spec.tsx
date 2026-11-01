@@ -57,6 +57,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurr
 vi.mock('@/features/dashboard/api/dashboard-api', () => ({ getDashboardFeed: api.getDashboardFeed }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
+  ENABLE_FINANCIAL_CHARTS: false,
   ENABLE_INSIDER_ACTIVITY: false,
 }))
 vi.mock('@/lib/analytics', () => ({
@@ -153,8 +154,8 @@ describe('PopularTickerChips', () => {
     renderWithClient(<><DashboardInsights /><PopularTickerChips /></>)
     await waitFor(() => expect(getInsights).toHaveBeenCalledTimes(1))
 
-    const aapl = screen.getByRole('button', { name: 'Add AAPL to your watchlist' })
-    const msft = screen.getByRole('button', { name: 'Add MSFT to your watchlist' })
+    const aapl = screen.getByRole('button', { name: 'AAPL, add to your watchlist' })
+    const msft = screen.getByRole('button', { name: 'MSFT, add to your watchlist' })
     aapl.focus()
     fireEvent.click(aapl)
     await waitFor(() => expect(aapl).toHaveAttribute('aria-busy', 'true'))
@@ -481,7 +482,7 @@ describe('FilingFeed onboarding', () => {
     api.addToWatchlist.mockResolvedValue({})
     const { setCount } = renderFeed(0)
 
-    const chip = (await screen.findAllByRole('button', { name: /^Add .+ to your watchlist$/ }))[0]
+    const chip = (await screen.findAllByRole('button', { name: /^.+, add to your watchlist$/ }))[0]
     chip.focus()
     fireEvent.click(chip)
     await waitFor(() => expect(api.addToWatchlist).toHaveBeenCalledTimes(1))
@@ -494,13 +495,13 @@ describe('FilingFeed onboarding', () => {
   it('leaves focus alone when the panel leaves while focus is elsewhere', async () => {
     api.getDashboardFeed.mockResolvedValue([])
     const { setCount } = renderFeed(0)
-    await screen.findAllByRole('button', { name: /^Add .+ to your watchlist$/ })
+    await screen.findAllByRole('button', { name: /^.+, add to your watchlist$/ })
     const elsewhere = document.createElement('button')
     document.body.appendChild(elsewhere)
     try {
       elsewhere.focus()
       setCount(1)
-      await waitFor(() => expect(screen.queryByRole('button', { name: /^Add .+ to your watchlist$/ })).not.toBeInTheDocument())
+      await waitFor(() => expect(screen.queryByRole('button', { name: /^.+, add to your watchlist$/ })).not.toBeInTheDocument())
       expect(document.activeElement).toBe(elsewhere)
     } finally {
       elsewhere.remove()

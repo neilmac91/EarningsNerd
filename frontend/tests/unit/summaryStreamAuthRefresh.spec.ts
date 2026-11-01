@@ -9,7 +9,7 @@ vi.mock('@/lib/api/refresh', () => ({
   refreshAccessToken: vi.fn(),
 }))
 
-import { generateSummaryStream } from '@/features/summaries/api/summaries-api'
+import { generateSummaryStream, isNonRetryableStreamError } from '@/features/summaries/api/summaries-api'
 import { refreshAccessToken } from '@/lib/api/refresh'
 import { hasActiveSession } from '@/lib/api/session'
 
@@ -38,6 +38,13 @@ const unauthorized = () => ({
   ok: false,
   status: 401,
   json: async () => ({ detail: 'You are not logged in.' }),
+})
+
+// E31: the same 401 with its code (docs/audit/contracts/error-codes.md §3, `auth_required`), handled as today: the
+// silent refresh, and the Retry kept.
+const unauthorizedCoded = () => ({
+  ...unauthorized(),
+  json: async () => ({ detail: 'You are not logged in.', code: 'auth_required' }),
 })
 
 describe('generateSummaryStream — expired-session silent refresh', () => {
@@ -131,5 +138,46 @@ describe('generateSummaryStream — expired-session silent refresh', () => {
 
     expect(refreshAccessToken).not.toHaveBeenCalled() // no pointless refresh for a guest
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('refreshes once and replays a coded 401, as an uncoded one', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(unauthorizedCoded()).mockResolvedValueOnce(okStream())
+    global.fetch = fetchMock as unknown as typeof fetch
+    vi.mocked(refreshAccessToken).mockResolvedValue(undefined)
+
+    const complete = vi.fn()
+    const error = vi.fn()
+    await generateSummaryStream(101, vi.fn(), vi.fn(), complete, error)
+    vi.runAllTimers()
+
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(complete).toHaveBeenCalledWith(7)
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['its code', unauthorizedCoded, 'auth_required'],
+    ['a code registered on another status, as none', () => ({
+      ...unauthorized(), json: async () => ({ detail: 'You are not logged in.', code: 'plan_required' }),
+    }), undefined],
+    ['an unknown code, as none', () => ({
+      ...unauthorized(), json: async () => ({ detail: 'You are not logged in.', code: 'quota_v9' }),
+    }), undefined],
+  ])('surfaces a 401 the refresh cannot lift with %s, and keeps its Retry', async (_, response, code) => {
+    const fetchMock = vi.fn().mockResolvedValue(response())
+    global.fetch = fetchMock as unknown as typeof fetch
+    vi.mocked(refreshAccessToken).mockRejectedValue(Object.assign(new Error('session gone'), { response: { status: 401 } }))
+
+    const error = vi.fn()
+    await expect(generateSummaryStream(101, vi.fn(), vi.fn(), vi.fn(), error)).rejects.toThrow()
+    vi.runAllTimers()
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(error).toHaveBeenCalledTimes(1)
+    const [message, failure] = error.mock.calls[0]
+    expect([message, failure?.code]).toEqual(['You are not logged in.', code])
+    // The contract's §3 keeps a 401's Retry (a refresh or a sign-in can lift it), so its code changes nothing here.
+    expect(isNonRetryableStreamError(message, failure?.code)).toBe(false)
   })
 })

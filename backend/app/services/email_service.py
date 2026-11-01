@@ -94,8 +94,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER, *, preheader: str) -> s
     The panel's padding is on its cells, which classic Outlook honours (it ignores a table's), so the body
     lines up under the header there too.
     """
-    # A trailing slash is stripped, as the waitlist's links strip it: a doubled slash answers 308.
-    tile_url = f"{settings.FRONTEND_URL.rstrip('/')}{_HEADER_TILE_PATH}"
+    tile_url = f"{settings.FRONTEND_URL}{_HEADER_TILE_PATH}"
     return f"""
     <!doctype html>
     <html lang="en">

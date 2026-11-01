@@ -24,7 +24,8 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
    roles' rows are NULL without `pg_read_all_stats`) plus a `pg_locks ⨝ pg_class` dump so the
    blocker and the relation are visible from the CI log. Every other workflow step that reaches
    Cloud SQL (`ops.yml`) sets a `lock_timeout` of at most 10 s; its `statement_timeout` is scoped per
-   step, at most 600 s (the write paths 120 s, the read-only snapshots 600 s, the capacity ledger 15 s).
+   step, at most 600 s (the write paths 120 s, the read-only snapshots 600 s, the capacity ledger 15 s,
+   the excerpt cohort's stored count 120 s).
 2. Every deploy job carries `timeout-minutes` well under GitHub's 360-minute default.
 3. New migration files never issue a top-level `ALTER TABLE` on a pre-existing table. Wrap it in
    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns …) THEN ALTER … END IF; END $$;`

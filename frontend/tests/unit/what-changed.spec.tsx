@@ -220,7 +220,7 @@ describe('WhatChanged (A5)', () => {
         ...baseReport.metrics!,
         items: [
           { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394_328e6, prior: 365_817e6, display: '+7.8%', tone: 'gain' },
-          { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
+          { metric: 'eps_diluted', label: 'EPS (diluted)', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
         ],
       },
     }
@@ -242,7 +242,7 @@ describe('WhatChanged (A5)', () => {
       ...baseReport.metrics!,
       items: [
         { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 21.2, current: 45.1e12, prior: 37.2e12, display: '+21.2%', tone: 'gain' },
-        { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 103.9, current: 365.94, prior: 179.47, display: '+103.9%', tone: 'gain' },
+        { metric: 'eps_diluted', label: 'EPS (diluted)', direction: 'up', pct: 103.9, current: 365.94, prior: 179.47, display: '+103.9%', tone: 'gain' },
       ],
     }
 
@@ -250,7 +250,7 @@ describe('WhatChanged (A5)', () => {
       render(<WhatChanged report={{ ...baseReport, metrics: items, reporting_currency: 'JPY' }} />)
       const table = within(document.querySelector<HTMLElement>('[data-change-layout="table"]')!)
       expect(table.getByRole('row', { name: /Revenue/ })).toHaveTextContent(/¥37\.2T\s*¥45\.1T/)
-      expect(table.getByRole('row', { name: /Diluted EPS/ })).toHaveTextContent(/¥179\.47\s*¥365\.94/)
+      expect(table.getByRole('row', { name: /EPS \(diluted\)/ })).toHaveTextContent(/¥179\.47\s*¥365\.94/)
       expect(document.body.textContent).not.toContain('$')
     })
 
@@ -259,7 +259,7 @@ describe('WhatChanged (A5)', () => {
         const { unmount } = render(<WhatChanged report={{ ...baseReport, metrics: items, reporting_currency }} />)
         const table = within(document.querySelector<HTMLElement>('[data-change-layout="table"]')!)
         expect(table.getByRole('row', { name: /Revenue/ })).toHaveTextContent(/37\.2T\s*45\.1T/)
-        expect(table.getByRole('row', { name: /Diluted EPS/ })).toHaveTextContent(/179\.47\s*365\.94/)
+        expect(table.getByRole('row', { name: /EPS \(diluted\)/ })).toHaveTextContent(/179\.47\s*365\.94/)
         expect(document.body.textContent).not.toMatch(/[$¥]/)
         unmount()
       }

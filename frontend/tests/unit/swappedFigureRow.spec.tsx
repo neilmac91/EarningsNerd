@@ -74,7 +74,7 @@ function digitsInSage(root: HTMLElement): string[] {
 describe('a replaced figure', () => {
   it('names the filed amount shown, the summary’s figure it replaced and the withheld takeaway in its panel', () => {
     render(<FinancialMetricsTable metrics={[replaced]} bare />)
-    act(() => screen.getAllByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })[0].focus())
+    act(() => screen.getAllByRole('link', { name: 'Matches filing, source (opens in a new tab)' })[0].focus())
     expect(screen.getByRole('group', { name: 'Source detail' })).toHaveTextContent(
       'Shown as the company filed it: $133,050 million. The summary’s figure, $132,100M, was replaced. ' +
         'Its takeaway was written before the correction, so it is withheld.',
@@ -88,7 +88,7 @@ describe('the figure panel', () => {
     ['a matched figure', { ...replaced, current_period: '$133.1B', source_replaced: null, commentary_withheld: null }],
   ])('rests the amounts in %s’s note in the ink, its check alone in sage', (_, row) => {
     render(<FinancialMetricsTable metrics={[row]} bare />)
-    act(() => screen.getAllByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })[0].focus())
+    act(() => screen.getAllByRole('link', { name: 'Matches filing, source (opens in a new tab)' })[0].focus())
     const panel = screen.getByRole('group', { name: 'Source detail' })
     expect(panel.textContent).toContain('$133,050 million')
     expect(digitsInSage(panel)).toEqual([])

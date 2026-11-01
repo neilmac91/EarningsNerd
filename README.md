@@ -21,7 +21,8 @@ so investors can understand a company in minutes instead of hours.
   citations back to the exact passage or XBRL figure.
 - **Financial visualization** — interactive charts for revenue, earnings, and key metrics, grounded
   in parsed XBRL data.
-- **Insider activity** — Form 4 open-market trades.
+- **Insider activity & peer benchmarking** — Form 4 open-market trades and cross-company metric
+  comparisons, drawn from parsed XBRL.
 - **Personalized dashboard** — a watchlist-driven feed of what changed across your companies, plus
   an upcoming-earnings calendar.
 - **Watchlists, saved summaries, trending & hot filings, and email alerts.**

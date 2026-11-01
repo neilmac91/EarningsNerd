@@ -10,6 +10,7 @@ import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
+import type { KnownErrorCode } from '@/lib/api/client'
 import { sourceUrl, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
@@ -49,7 +50,7 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`Citation ${citation.n}: ${label}. ${display}${described ? `, ${described}` : ''}`}
+      aria-label={`${citation.n}. Citation: ${label}. ${display}${described ? `, ${described}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
@@ -118,6 +119,8 @@ export interface NarrativeState {
   stage?: string
   completion?: AnalysisCompletion
   error?: string
+  /** The refusal's E31 code, when the server sent a known one: the page decides on it before the words. */
+  errorCode?: KnownErrorCode
 }
 
 /** What a streaming run is doing, in words: the pane's Activity line and the page's status line (AnalysisPageClient)

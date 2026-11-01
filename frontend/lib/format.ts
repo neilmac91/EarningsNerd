@@ -133,7 +133,7 @@ export const fmtShares = (value: NumericInput, options?: { digits?: number; sign
  * income is calculated from filed figures"): the label's first segment, a run up to whitespace, '-' or
  * '/', takes a lower-case first letter unless it is an acronym. A segment with no lower-case letter is one, '&' and '.'
  * sitting inside a segment ('EPS', 'R&D', 'U.S.'), and so is one with a capital after its first letter ('YoY'). So
- * 'Net income' reads 'net income', 'Non-interest income' 'non-interest income' and 'Diluted EPS' 'diluted EPS', while
+ * 'Net income' reads 'net income', 'Long-term debt' 'long-term debt' and 'Diluted EPS' 'diluted EPS', while
  * 'EPS', 'U.S. revenue' and 'YoY growth' stay as written.
  */
 export const inSentence = (label: string): string =>

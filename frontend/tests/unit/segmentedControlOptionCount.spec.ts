@@ -2,11 +2,12 @@
    segmentedControlOptionCount.spec.ts: a long set of options is a select
    -----------------------------------------------------------------------------
    DESIGN.md (the SegmentedControl paragraph): "A long set of options, such as a
-   chart's metric picker, is not a segmented control: it is a compact select sized
-   to its content beside its label". The metric pickers, the company page's peer
-   picker (nine options, retired with its panel, D-066) and the filing page's
-   trend picker (up to 23), left the control for that select in #1292; this gate
-   keeps the next long set from arriving as segments.
+   chart's metric picker, is not a segmented control: it is a compact select
+   beside its label, which never overflows its row". The metric pickers, the
+   company page's peer picker (nine options; retired with its panel, D-066, and
+   back as the Sector peers panel's on the trend charts' engine, E251) and the
+   filing page's trend picker (up to 23), left the control for that select in
+   #1292; this gate keeps the next long set from arriving as segments.
 
    The cap is five options: MAX_SEGMENTS, exported by the primitive
    (components/ui/SegmentedControl.tsx) and read here as MAX_OPTIONS, so the

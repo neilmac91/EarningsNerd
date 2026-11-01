@@ -9,7 +9,9 @@ lists it (the jobs-channel and rollback actions whose progress output remains op
 captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
 describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
 captures or reads one only in the two gcloud_json() seams or the fixed summary snapshot's private,
-auto-removed files with bounded reads. The sole local-only exception is verify.py's one command
+auto-removed files with bounded reads. No step turns on bash's trace, which would print a secret before its
+mask or a captured error text, whatever the condition, and the proxy step, which holds DATABASE_URL, is run
+as a re-run with debug logs too. The sole local-only exception is verify.py's one command
 spawn: its caller owns the terminal streams. A static-reference guard keeps that launcher out of Actions;
 indirect/dynamic invocation remains a review concern. Its observer and every other spawn stay gated.
 Python a step runs is a file run by path from ops/ or scripts/,
@@ -23,7 +25,8 @@ or pipes into a shell, or a `python3 -c` helper; a file a step writes and then r
 call; a capture file named without its literal path (a relative path, a brace or variable expansion); a step in a
 job other than `ops` (only its steps are read); and a dynamic import or lookup (importlib, __import__,
 sys.modules) in an ops/ module. The stdin-program check does not recognise an interpreter invoked through a
-variable or another name (for example `$INTERPRETER -` or `pypy3 -`).
+variable or another name (for example `$INTERPRETER -` or `pypy3 -`). The trace check reads a `set` its text
+spells and the option's name; the trace turned on any other way (through a variable, say) is a review concern.
 """
 import ast
 import importlib.util
@@ -482,8 +485,12 @@ def test_logs_probe_names_the_class_gcloud_json_names_never_the_text(tmp_path, m
 
 
 @pytest.mark.parametrize("stderr,code,klass", [("WARNING: " + SENTINEL, 0, None), *CORPUS])
-def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass):
-    """Run the whole proxy step with fake setup tools and gcloud; failures must never reach env export or launch."""
+# Each case twice: what the step prints may not hang on whether the run asked for debug logs, which any re-run may.
+@pytest.mark.parametrize("debug", [False, True], ids=["first-run", "debug-re-run"])
+def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monkeypatch, capsys, stderr, code, klass,
+                                                                 debug):
+    """Run the whole proxy step with fake setup tools and gcloud, and with `debug` as a re-run with debug logs
+    (RUNNER_DEBUG=1); failures must never reach env export or launch."""
     workflow, steps = _steps()
     argv = ["secrets", "versions", "access", "latest", "--secret=DATABASE_URL"]
     database_url = "postgresql://fixture-user:fixture-password@/fixture-db?host=/cloudsql/fixture:region:instance"
@@ -502,7 +509,8 @@ def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monke
                                {"CLOUD_SQL_PROXY_VERSION": workflow["env"]["CLOUD_SQL_PROXY_VERSION"],
                                 "CLOUD_SQL_PROXY_SHA256": workflow["env"]["CLOUD_SQL_PROXY_SHA256"],
                                 "GITHUB_ENV": str(env_file), "FAKE_PROXY_PROGRESS": str(progress),
-                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started")},
+                                "FAKE_PROXY_STARTED": str(tmp_path / "proxy-started"),
+                                **({"RUNNER_DEBUG": "1"} if debug else {})},
                                stubs=stubs, cwd=tmp_path)
     assert calls == [argv] and result.returncode == code and result.stderr == ""
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
@@ -688,6 +696,46 @@ def test_no_ops_step_runs_an_inline_python_program():
     inline = [name for name, step in steps.items()
               if "run" in step and _inline_python(step["run"], step.get("shell", default))]
     assert not inline, f"commit the program under ops/ and run it by path: {inline}"
+
+
+def _traces(run):
+    """Whether a step's script turns on bash's trace, which writes each command to the job log with its variables
+    expanded: a `set` that takes -x, alone or among other letters (`set -x`, `set -euxo pipefail`), in a brace group
+    or not, or any command that names the option (`set -o xtrace`), behind whatever condition (a debug re-run's
+    RUNNER_DEBUG among them). It reads each command whole, a comment after it included, so it fails closed: a `set`
+    whose trailing comment holds a -x word fails, as does any command, or comment after one, that names xtrace,
+    turning the option off by its name included."""
+    return any(re.match(r"(?:\{\s+)*set(?:\s+\S+)*?\s+-[A-Za-z]*x", command) or re.search(r"\bxtrace\b", command)
+               for line in _executable_lines(run) for command in _commands(line))
+
+
+@pytest.mark.parametrize("run,traces", [
+    ("set -x\n", True),
+    ("set -euxo pipefail\n", True),
+    ("set -e -x\n", True),
+    ("set -o xtrace\n", True),
+    ('[ "${RUNNER_DEBUG:-}" != 1 ] || set -x\n', True),  # GitHub sets RUNNER_DEBUG=1 when a run asks for debug logs
+    ('[ "${RUNNER_DEBUG:-}" = 1 ] && set -x\n', True),
+    ('[ "${RUNNER_DEBUG:-}" = 1 ] && { set -x; }\n', True),
+    ('if [ "${RUNNER_DEBUG:-}" = 1 ]; then set -x; fi\n', True),
+    ("set +o xtrace\n", True),  # fails closed: it names the option
+    ("set -euo pipefail\n", False),
+    ("set +e\n", False),
+    ("set +x\n", False),
+    ("# set -x\n", False),
+    ('echo "set -x"\n', False),
+])
+def test_trace_predicate(run, traces):
+    assert _traces(run) is traces
+
+
+def test_no_ops_step_turns_on_the_shell_trace():
+    """bash's trace prints what a step holds before it is masked or classified: the proxy step's DATABASE_URL before
+    its ::add-mask::, a read's captured error text before its closed class. Anyone who can re-run the workflow may
+    ask for debug logs, so a trace behind that condition is one too."""
+    _, steps = _steps()
+    traced = [name for name, step in steps.items() if _traces(step.get("run") or "")]
+    assert not traced, f"bash's trace would print these steps' expanded variables to the public log: {traced}"
 
 
 def _ops_modules():

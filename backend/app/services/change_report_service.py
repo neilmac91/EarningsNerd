@@ -155,9 +155,13 @@ def assemble_report(
     ``section_changes`` is the filing-text wording diff block (``filing_section_service``), None
     while ENABLE_SECTION_CHANGES is off; the key is always present so the contract is stable.
     """
+    prior_ref = _filing_ref(prior_filing)
     metrics = compute_what_changed(
         getattr(current_filing, "xbrl_data", None),
         getattr(prior_filing, "xbrl_data", None) if prior_filing is not None else None,
+        # Every line compares the period the basis line prints: "against the 10-Q for the quarter ended <this>".
+        prior_period_end=prior_ref["period_end_date"] if prior_ref else None,
+        form=getattr(current_filing, "filing_type", None),
     )
     # Stored risk labels are model-authored. Until there is a source-projected cross-period
     # contract, omit this portion of What Changed rather than re-expose them through a side door.
@@ -165,7 +169,7 @@ def assemble_report(
     return {
         "has_prior": prior_filing is not None,
         "comparison_basis": _comparison_basis(getattr(current_filing, "filing_type", None)),
-        "prior_filing": _filing_ref(prior_filing),
+        "prior_filing": prior_ref,
         "metrics": metrics,
         # The currency of every metric item's current/prior amount (additive). Items carry raw XBRL
         # amounts in the filer's own currency, so a client labels them with it and never assumes

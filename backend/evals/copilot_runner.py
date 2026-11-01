@@ -6,7 +6,7 @@ DB inference, unverified-case promotion, or answered-only denominator is accepte
 from __future__ import annotations
 
 import argparse
-from contextlib import AsyncExitStack, aclosing, nullcontext
+from contextlib import AsyncExitStack, aclosing, closing, nullcontext
 from contextvars import ContextVar
 from copy import deepcopy
 from unittest.mock import patch
@@ -16,21 +16,120 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+# Pure: imports no settings, so main() still sets DATABASE_URL first (tests/unit/test_copilot_gate.py).
+from app.services.excerpt_provenance import NATIVE_SECTION_KEYS
 from evals.copilot_schema import CopilotGoldenCase
 
 GOLDEN_PATH = Path(__file__).with_name('copilot_golden_set.json')
 SOURCES_PATH = Path(__file__).with_name('copilot_sources.json')
 REPORTS_DIR = Path(__file__).with_name('reports')
+# The fallbacks a golden case may declare as its filing's own: no section text supplied, or a native assembly too thin
+# to use. A disabled section flag or an unrecorded reason says nothing about the filing.
+DECLARABLE_FALLBACKS = ('sections_not_supplied', 'native_excerpt_thin')
+# The source each outcome's record names: a native excerpt is assembled from edgartools' sections, a fallback is
+# the regex extractor's.
+_OUTCOME_SOURCE = {'native': 'edgartools', 'fallback': 'regex_fallback'}
+# The length from which the native assembler reads a supplied section as the filing's own text
+# (``assemble_excerpt_from_sections``): it backfills financials or MD&A shorter than this with a dense window of the
+# document, and skips any section under 200 characters. tests/unit/test_copilot_gate.py holds these to the assembler.
+NATIVE_SECTION_FLOORS = {'financials': 5000, 'mda': 3000, 'risk': 200}
+# What the preparation writes for a section mapping the parser did not supply (JSON null, or an empty mapping); the
+# builder's record leaves its section hash unset for those.
+_NO_SECTIONS_SHA256 = frozenset(hashlib.sha256(text.encode()).hexdigest() for text in ('null', '{}'))
 
 
 def _load_cases(path: Path) -> list[CopilotGoldenCase]:
     data = json.loads(path.read_text())
     return [CopilotGoldenCase.from_dict(c) for c in data.get('cases', [])]
+
+
+def _declares_excerpt_source(declared: Any) -> bool:
+    """Whether a golden case declares the excerpt source its preparation must record (E80): native, with the canonical
+    sections the filing supplies whole (each at least its ``NATIVE_SECTION_FLOORS`` length), or a declarable fallback.
+    A native declaration that leaves a canonical section out (a stub the assembler backfills, or a 10-Q's absent Risk
+    Factors item), and every fallback, says why in its ``basis``. A native declaration is a floor: a section it leaves
+    out that the parser later supplies whole does not refuse the draw, though its ``basis`` then goes stale."""
+    if not isinstance(declared, dict):
+        return False
+    basis = declared.get('basis')
+    explained = isinstance(basis, str) and bool(basis.strip())
+    if declared.get('outcome') == 'native':
+        sections = declared.get('sections')
+        if not isinstance(sections, list) or not sections or not all(isinstance(key, str) for key in sections):
+            return False
+        whole = set(sections) == set(NATIVE_SECTION_KEYS)
+        return (set(declared) <= {'outcome', 'sections', 'basis'} and len(set(sections)) == len(sections)
+                and set(sections) <= set(NATIVE_SECTION_KEYS) and (explained or ('basis' not in declared and whole)))
+    return (declared.get('outcome') == 'fallback' and set(declared) == {'outcome', 'fallback_reason', 'basis'}
+            and declared.get('fallback_reason') in DECLARABLE_FALLBACKS and explained)
+
+
+def _prepared_excerpts(database: Path) -> dict[str, str]:
+    """The sha256 of each prepared filing's critical excerpt, by accession: the text the run hands the Copilot
+    (``_source_text``). Plain SQL through the standard library, read-only, not the ORM: it runs before any setting
+    loads, and tests/unit/test_copilot_bootstrap.py's real preparation ties the query to the schema. A NULL excerpt
+    is left out, so its source is refused as not the one prepared."""
+    try:
+        with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as db:
+            rows = db.execute('SELECT filings.accession_number, filing_content_cache.critical_excerpt FROM filings '
+                              'JOIN filing_content_cache ON filing_content_cache.filing_id = filings.id').fetchall()
+    except sqlite3.Error:
+        raise ValueError('prepared scratch database is unreadable') from None
+    return {accession: hashlib.sha256(excerpt.encode()).hexdigest() for accession, excerpt in rows
+            if isinstance(excerpt, str)}
+
+
+def _check_excerpt_source(case: CopilotGoldenCase, source: dict, read_excerpt_sha256: str | None) -> None:
+    """Refuse a prepared source unless the excerpt builder's own record (excerpt_provenance, E80-C1) names this filing's
+    prepared document, sections and excerpt, the excerpt being the one the run hands the Copilot, and the excerpt source
+    its golden case declares, each declared section supplied whole (E80). A refusal names the fields that differ, each
+    short section and its length, or the recorded and the declared source, outcome and reason, never a hash or text."""
+    accession, record, declared = case.accession_number, source.get('excerpt_provenance'), case.excerpt_source
+    if not _declares_excerpt_source(declared):
+        raise ValueError(f'golden case declares no valid excerpt source: {accession}')
+    if not isinstance(record, dict) or record.get('schema_version') != 2:
+        raise ValueError(f'excerpt provenance unavailable: {accession}')
+    artifacts, sections_sha256 = source['artifacts'], record.get('sections_sha256')
+    differ = [field for field, same in (
+        ('accession', record.get('accession') == accession),
+        ('filing_type', record.get('filing_type') == case.filing_type),
+        ('document_sha256', record.get('document_sha256') == artifacts['html']['sha256']),
+        ('sections_sha256', artifacts['sections']['sha256'] in _NO_SECTIONS_SHA256 if sections_sha256 is None
+         else sections_sha256 == artifacts['sections']['sha256']),
+        ('excerpt_sha256', record.get('excerpt_sha256') == artifacts['excerpt']['sha256']),
+        ('critical_excerpt', read_excerpt_sha256 == artifacts['excerpt']['sha256']),
+    ) if not same]
+    if differ:
+        raise ValueError(f"excerpt provenance does not match the prepared {', '.join(differ)}: {accession}")
+    outcome, reason, recorded = record.get('outcome'), record.get('fallback_reason'), record.get('source')
+    if (outcome != declared['outcome'] or reason != declared.get('fallback_reason')
+            or recorded != _OUTCOME_SOURCE.get(outcome)):
+        raise ValueError(f"excerpt source {recorded} {outcome} ({reason}) is not the declared {declared['outcome']} "
+                         f"({declared.get('fallback_reason')}) from {_OUTCOME_SOURCE[declared['outcome']]}: "
+                         f"{accession}")
+    supplied, missing = record.get('supplied_sections'), record.get('missing_sections')
+    if (not isinstance(supplied, list) or not isinstance(missing, list)
+            or not all(isinstance(entry, dict) and entry.get('key') in NATIVE_SECTION_KEYS
+                       and type(entry.get('supplied_chars')) is int for entry in supplied)
+            or len({entry['key'] for entry in supplied}) != len(supplied)
+            or not all(key in NATIVE_SECTION_KEYS for key in missing)):
+        raise ValueError(f'excerpt provenance records no valid section coverage: {accession}')
+    # The section parser strips each section (edgar/xbrl_sections.py), so its supplied length is the one the
+    # assembler measures against the floor.
+    chars, short = {entry['key']: entry['supplied_chars'] for entry in supplied}, []
+    for key in declared.get('sections', ()):
+        if key in missing or key not in chars:
+            short.append(f'{key} missing')
+        elif chars[key] < NATIVE_SECTION_FLOORS[key]:
+            short.append(f'{key} {chars[key]}/{NATIVE_SECTION_FLOORS[key]}')
+    if short:
+        raise ValueError(f"excerpt supplies declared sections under the native floor ({', '.join(short)}): {accession}")
 
 
 def _plan(cases: list[CopilotGoldenCase], runs: int) -> list[dict]:
@@ -44,6 +143,8 @@ def _plan(cases: list[CopilotGoldenCase], runs: int) -> list[dict]:
     for c in cases:
         if not c.verified or not c.qa or not re.fullmatch(r'\d{10}-\d{2}-\d{6}', c.accession_number):
             raise ValueError('unverified or malformed golden case')
+        if not _declares_excerpt_source(c.excerpt_source):
+            raise ValueError('golden case declares no valid excerpt source')
         try:
             date.fromisoformat(c.period_of_report)
             if not re.fullmatch(r'[A-Z]{3}', c.reporting_currency):
@@ -143,6 +244,7 @@ def validate_preparation(path: Path, cases: list[CopilotGoldenCase]) -> dict:
         raise ValueError('prepared scratch database is unavailable')
     if prep.get('database_sha256') != hashlib.sha256(database.read_bytes()).hexdigest():
         raise ValueError('prepared database changed')
+    read_excerpts = _prepared_excerpts(database)
     cases_by_accession = {c.accession_number: c for c in cases}
     filenames = {'html':'filing.html', 'xbrl':'xbrl.json', 'sections':'sections.json', 'excerpt':'excerpt.txt'}
     for source in sources:
@@ -158,6 +260,9 @@ def validate_preparation(path: Path, cases: list[CopilotGoldenCase]) -> dict:
                     or (bundle / case.accession_number).is_symlink()
                     or hashlib.sha256(artifact_path.read_bytes()).hexdigest() != artifact.get('sha256')):
                 raise ValueError('prepared source artifact changed or missing')
+        # E80: a draw counts only on the excerpt source the golden case declares, recorded by the builder over the
+        # very document, sections and excerpt prepared here, and handed to the Copilot from the prepared database.
+        _check_excerpt_source(case, source, read_excerpts.get(case.accession_number))
     prep['original_database_path'] = prep.get('database_path')
     prep['database_path'] = str(database)
     return prep

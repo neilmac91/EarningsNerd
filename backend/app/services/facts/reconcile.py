@@ -11,7 +11,7 @@ from app.services.facts.concepts import (
     CROSS_CHECK_TOLERANCE, HEADLINE_GAAP_TAGS, NON_NEGATIVE_CONCEPTS,
     _INSTANT_HEADLINE, _MAGNITUDE_TOLERANCE, _parse_date,
 )
-from app.services.facts.currency import is_proxy_form
+from app.services.facts.fiscal_naming import is_proxy_form
 from app.services.facts.lineage import (
     annotate_filing_calculations, authoritative_reconciliation, local_reconciliation,
 )

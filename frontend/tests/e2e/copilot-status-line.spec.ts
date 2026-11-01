@@ -36,12 +36,12 @@ const ANSWERED: Reply = { status: 200, contentType: 'text/event-stream', body: `
 
 // The two other endings, each said by its card on the Ask tab: a failed answer (the card's alert, with Try again), and
 // a plan gate (the plan card's region), here the Pro fair-use cap in the server's words.
-const FAIR_USE = "You've reached this month's fair-use limit of 1,000 Copilot questions. It resets at the start of next month."
+const FAIR_USE = "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
 const ENDINGS: { name: string; reply: Reply; sentence: string }[] = [
   {
     name: 'a failed answer',
     reply: { status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'Internal Server Error' }) },
-    sentence: 'The answer could not be completed. Please try again.',
+    sentence: "I couldn't complete this answer. Try again.",
   },
   {
     name: 'the fair-use cap',

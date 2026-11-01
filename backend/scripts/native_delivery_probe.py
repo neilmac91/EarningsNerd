@@ -278,7 +278,10 @@ def run(manifest: dict[str, Any]) -> int:
         "route_reported_total_cost_usd_estimate": results[0]["total_cost_usd"] if results else None,
         "stdin_bytes": receipt["stdin"]["byte_length"], "output_bytes": receipt["output"]["byte_length"],
         "finish_metadata_observed": receipt["finish_metadata_observed"],
+        "assistant_completion": receipt["assistant_completion"],
+        "schema_version": receipt["schema_version"], "classifier_version": receipt["classifier_version"],
         "stream_event_type_counts": receipt["stream"]["event_type_counts"],
+        "partial_stream_event_counts": receipt["stream"]["stream_events"]["counts"],
         "provider_delivery_verified": False, "source_role_dispatch": False, "admission_credit": False,
         "engineering_context_identity_for_exclusion_closure": context_id,
     }

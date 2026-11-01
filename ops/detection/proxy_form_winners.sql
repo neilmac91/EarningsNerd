@@ -1,6 +1,6 @@
 -- Detection: current financial_fact rows a proxy or information statement supplied. Since 2023 a
 -- proxy's pay-versus-performance table tags NetIncomeLoss (sometimes other lines) for five fiscal
--- years, filed after the 10-Ks it quotes. Until facts/currency.py's is_proxy_form the companyfacts sync
+-- years, filed after the 10-Ks it quotes. Until is_proxy_form (now facts/fiscal_naming.py) the companyfacts sync
 -- took each period's latest-filed item of any form, so the proxy's figure replaced the 10-K's (the
 -- 2026-10 restatement census: 120 cells at 24 of 59 large filers, 12 of them off the 10-K's, FDX's at a
 -- millionth of it), and the backfill's cross-check (facts/reconcile.py's extract_authoritative_values,
@@ -8,7 +8,8 @@
 -- sync replaces a sync's proxy row only where no stored row holds the 10-K's identity: neither a
 -- sync's nor a filing's, which the per-filing writer stores behind a current proxy row when the 10-K
 -- is listed after it. Elsewhere the proxy row stays current, a margin computed from it keeps its value,
--- and no sync rewrites a filing's row. The sets: 1 counts the current rows whose form is a proxy form,
+-- and no sync rewrites a filing's row, whether the sync runs in USD alone or involves another currency
+-- (facts/currency.py never protects a proxy's row and leaves a stored identity behind it). The sets: 1 counts the current rows whose form is a proxy form,
 -- 2 lists their companies and concepts, 3 lists the calculations computed from them, 4 lists the
 -- filings' rows, current or not, the cross-check replaced with a proxy's figure, and 5 those it
 -- confirmed against one. Together they are the cohort of the journaled repair, the quarterly repair's
@@ -188,9 +189,10 @@ LIMIT 200;
 \echo '   #1191 (2026-10-10) it also records provenance.checks.authoritative, with outcome replaced and the'
 \echo '   parsed original_value. why = proxy row: a stored proxy-form row of the company, concept and period'
 \echo '   end, current or not, holds the same value (relative 1e-6; its accession is proxy_witness), and the'
-\echo '   value is not 1,000 or 1,000,000 times the original, which is the authority multiplying up a figure'
-\echo '   in millions read as units, the parse bug the check exists for. why = scale: no such row, and the'
-\echo '   value is 1/1,000 or 1/1,000,000 of the original (within 1%, same sign), the FDX shape.'
+\echo '   value is not 1,000 or 1,000,000 times the original, which is most often the authority multiplying up'
+\echo '   a figure in millions read as units, the parse bug the check exists for (see Limits for the mirror).'
+\echo '   why = scale: no such row, and the value is 1/1,000 or 1/1,000,000 of the original (within 1%, same'
+\echo '   sign), the FDX shape.'
 \echo '   original_backed: a stored report row holds the original, so the replacement overwrote a figure a'
 \echo '   report gives. Left out: a row whose value a stored report row holds. report row here: a row of a'
 \echo '   report form, other than this one, that the cross-check did not replace. Limits: alone, a witness'
@@ -204,7 +206,16 @@ LIMIT 200;
 \echo '   the scale-up guard cannot apply. Scale also lists a parse that was itself 1,000 or 1,000,000 times'
 \echo '   too large: no proxy figure is behind it, and the repair leaves it (verdict no_proxy_figure). The'
 \echo '   repair also keeps a row that already holds the 10-K''s figure (kept_agrees_with_authority); it stays'
-\echo '   listed while no other stored report row holds that figure.'
+\echo '   listed while no other stored report row holds that figure. The scale-up exclusion also hides a proxy'
+\echo '   tagged 1,000 or 1,000,000 times a right parse (FedEx''s error mirrored), which this file cannot tell'
+\echo '   apart without the payload''s 10-K figure. The repair reads that figure: where it is off the value''s'
+\echo '   scale step, of the other sign or zero, the row takes set 4''s ordinary path (restored where the'
+\echo '   original is within 1% of the 10-K''s figure, a report row behind its value or not; beyond, refused,'
+\echo '   or left and listed where a report row holds its value and refused when current); where there is no'
+\echo '   10-K figure, or one on the value''s step more than 1% off it, set 4 leaves the row as it is, with no'
+\echo '   write and no count, and lists it in scale_up_retained; where it holds the 10-K winner''s identity'
+\echo '   behind a current proxy row, set 2 promotes it if it agrees with the 10-K winner and refuses the'
+\echo '   company, naming the row, if it does not. This file lists nothing for it before or after.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,

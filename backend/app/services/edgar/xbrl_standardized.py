@@ -24,11 +24,11 @@ def normalise_series(entries: List[Dict]) -> List[Dict]:
             "value": entry.get("value"),
             "form": entry.get("form"),
             "currency": entry.get("currency"),
-            **{key: entry[key] for key in ("fiscal_year", "fiscal_period", "period_start")
+            **{key: entry[key] for key in ("fiscal_year", "fiscal_period", "period_start", "accn")
                if entry.get(key) is not None},
-            # raw_tag rides through so financial_fact records which XBRL concept a value came
-            # from (audit trail) and the change report can detect a concept that flips
-            # between filings. None for legacy/pre-fix series.
+            # raw_tag rides through so financial_fact records which XBRL concept a value came from (audit trail)
+            # and the change report can detect a concept that flips between filings; None for legacy series. accn,
+            # the filing a fact records (above, where recorded), lets a comparison refuse another filing's (E184).
             "raw_tag": entry.get("raw_tag"),
         })
     return cleaned

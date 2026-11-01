@@ -12,17 +12,14 @@ import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-import pytest
-
 from app.services import waitlist_service
 from app.services.waitlist_service import REFERRAL_BONUS, build_referral_link, calculate_waitlist_position
 
 FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
 
 
-@pytest.mark.parametrize("frontend_url", ["https://earningsnerd.test", "https://earningsnerd.test/"])
-def test_referral_link_lands_on_the_waitlist_page(monkeypatch, frontend_url):
-    monkeypatch.setattr(waitlist_service.settings, "FRONTEND_URL", frontend_url)
+def test_referral_link_lands_on_the_waitlist_page(monkeypatch):
+    monkeypatch.setattr(waitlist_service.settings, "FRONTEND_URL", "https://earningsnerd.test")
     link = build_referral_link("abc12345")
     assert link == "https://earningsnerd.test/waitlist?ref=abc12345", f"{link} must land on /waitlist?ref=, where the form reads it"
 

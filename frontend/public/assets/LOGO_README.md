@@ -90,18 +90,18 @@ Excel export).
   environment; that the register's paths are the list the spec writes out, so no path leaves it;
   and that the register's origin is the root layout's `metadataBase`. Two gates hold the backend to
   the rule. `backend/tests/unit/test_mail_rendered_addresses.py` renders every public mail function
-  of `email_service.py`, the module that builds the mail, with `FRONTEND_URL` keeping a trailing
-  slash and inputs that pass each of its parameters and run every line a render can reach. It reads
+  of `email_service.py`, the module that builds the mail, with `FRONTEND_URL` set to a sentinel
+  origin and inputs that pass each of its parameters and run every line a render can reach. It reads
   the addresses in what is sent, in each form its header lists: one into a file the site serves from
-  `frontend/public` is a whole registered path on `FRONTEND_URL`, the slash stripped, however the
-  code derived it. Its header names what it cannot see, mail built outside `email_service.py` among
-  it. `backend/tests/unit/test_mail_published_assets.py` reads the code, every file in
-  `backend/app`: a string that addresses such a file spells a whole registered path, with nothing
-  filled in after it and no origin of the site's, second slash or unstripped `FRONTEND_URL` in front
-  of it, and a registered path is used whole where the scan can see it. It cannot follow a value
-  through the code, and its header names what it cannot see. The header's tile is built on
-  `FRONTEND_URL` with any trailing slash stripped, and `FRONTEND_URL`'s default is the register's
-  origin. Whether the origin answers without a redirect, the response headers a route or a headers
+  `frontend/public` is a whole registered path on `FRONTEND_URL`, however the code derived it. Its
+  header names what it cannot see, mail built outside `email_service.py` among it.
+  `backend/tests/unit/test_mail_published_assets.py` reads the code, every file in `backend/app`: a
+  string that addresses such a file spells a whole registered path, with nothing filled in after it
+  and no origin of the site's or second slash in front of it, and a registered path is used whole
+  where the scan can see it. It cannot follow a value through the code, and its header names what it
+  cannot see. The header's tile is built on `FRONTEND_URL`, which Settings loads without a trailing
+  slash (`backend/app/config.py`), and `FRONTEND_URL`'s default is the register's origin. Whether
+  the origin answers without a redirect, the response headers a route or a headers
   rule sets on these paths (a Content-Type that stops a mail client showing the image), and anything
   set only in the Vercel dashboard (a variable a rule reads, or a redirect) are review-checked.
 - **Where it goes.** The mark sits top-left on every surface the brand owns (the site header, the

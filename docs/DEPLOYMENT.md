@@ -167,8 +167,8 @@ host or a URL. `describe-jobs` makes its nine reads independently in Python, eac
 failure classes, retains every readable job's projection and finishes nonzero if any job is
 unverified or any readable invariant fails.
 
-The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `detection-sql`,
-`figure-check-count`, the repair-ticker,
+The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
+`detection-sql`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
 lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
@@ -304,6 +304,40 @@ address after a `label:` prefix are kept, and a host name in a script written wi
 The response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
 
+`excerpt-cohort` (E28) counts which builder wrote the summary excerpts, two ways, both read-only,
+into a receipt of counts. `ops/excerpts/provenance_count.py` reads the `Excerpt provenance`, fetch and size-cap
+log lines Cloud Logging still holds for the API service, the task worker and the jobs, one UTC day
+at a time to the top of the hour before the dispatch's, from 2026-10-01 or, once that is more than
+45 days back, from 45 days before that end (the reader's limit); at most 40 pages of 1,000 entries a
+day, and a 25-minute budget inside the step's 30. Its `e28_window.covered` says whether the read
+held E28 (b)'s whole window: from a dispatch at 11:00 UTC on 2026-11-18 the rolled start passes the
+window's opening and it is false whatever the logs still hold, and a day of the window that has
+expired makes it false sooner. It dates what has expired from the `_Default` bucket's
+`retentionDays`, where the identity may read it, and the oldest entry the app's streams still hold.
+Each day carries its own state: `complete`, `expired_or_absent`, `partly_expired_or_absent`,
+`retention_unverified`, `partial` or `unavailable` (with a closed class, `time_budget` among them),
+so missing or expired evidence never reads as a zero count. `ops/excerpts/source_cohort.sql` counts
+the stored excerpts by form, builder and bucket in one `READ ONLY` transaction (120 s a statement,
+10 s a lock), from its own step rather than `detection-sql`'s loop. The
+`excerpt-cohort-<run id>-<attempt>` Actions artifact keeps the counts alone (`logged.json`,
+`stored.txt`), 14 days. The artifact is not private: on this public repository any signed-in GitHub
+user can download it while it is kept, and the Actions log is public too. What the readers write to
+their output files is counts only, with no accession, filing id, URL or message text (#1747's
+contract). A read's error text, which can name the database's user or host or carry whatever the
+reader was reading, reaches neither: a failed read prints its exit code and a closed class
+(`unavailable`, `permission_denied`, `timeout` or `other`; `describe-service` prints the first three
+too, from gcloud's error output or its own time limit, and never `other`). A
+reader that fails outright (no gcloud token or project), or whose gcloud calls hang until
+the step's 30 minutes (they carry no timeout of their own), fails the run before the stored count;
+it writes no receipt then, and the upload step warns. A run stopped before either read starts (the
+pre-flight, the sign-in) keeps no artifact, and its upload step warns. The run needs the Ops identity's Logging read
+access (a denied read leaves its days `unavailable`; CODE RED record 10 records
+`roles/logging.viewer` on that identity and a `logs-probe` reading PERMITTED, access being verified
+per run), and reads `retentionDays` only with `logging.buckets.get` (without it, the oldest-entry
+probe dates expiry alone). Its deploy pre-flight runs before the log read, so the database read
+starts up to half an hour after it: dispatch it when no backend merge is imminent. It retires with
+#1747's readers, when E28 (b) closes.
+
 `logs-probe` reports whether the Ops identity can read the API service's logs:
 `logs-probe: logging.read PERMITTED (N recent entries visible)`, or
 `logs-probe: logging.read DENIED (rc=N)` followed by
@@ -331,7 +365,16 @@ the post-deploy `/health/detailed` check runs, so that check is **post-hoc detec
 prevention**: a DB-unreachable revision is already live serving 503s, and the failing check only
 reddens the CI job (your signal to roll back) — it does not cut traffic back on its own. A revision
 that boots and passes health yet misbehaves at runtime likewise stays live. Cloud Run keeps prior
-revisions, so rolling back is a one-liner (no rebuild):
+revisions, so traffic can return to a compatible prior revision without a rebuild. Choose the target
+against the compatibility floors below before changing traffic.
+
+**Password-hash compatibility floor (E97).** Once a new or changed password has been stored as
+Argon2id (`$argon2id$`), never roll the password reader or its dependencies back before E97. A
+bcrypt-only revision cannot verify those accounts. Use an image that retains E97's scheme-aware
+`password_utils.verify_password` and its Argon2 dependencies, or recover by rolling forward to a
+compatible image. Preserve that reader and its dependencies when reverting the offending change on
+`main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
+bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
@@ -341,7 +384,8 @@ gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --lim
 gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-revisions=REVISION=100
 ```
 
-Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
+Then revert the offending change on `main`, preserving the compatibility floors, so the next CD
+deploy doesn't re-ship it (a plain
 `--to-latest` deploy would otherwise route traffic straight back to the bad image). A rollback past
 E110 parks the pending alert batches frozen with a plain-text part as `payload_drift`, unsent;
 `docs/OPERATIONS.md` (Durable alert delivery) says how to give their filings back. Never roll back

@@ -954,6 +954,59 @@ Only after successful source preparation does the runner receive the existing Ac
 credential and run all six vetted numeric questions three times (18 attempts). Original unverified
 qualitative/refusal questions remain unchanged under `pending_cases`; they are not silently certified.
 
+**Source preflight (E80).** Each golden case declares the excerpt source its preparation must record
+(`excerpt_source`): native, with the canonical sections (`financials`, `mda`, `risk`) the filing
+supplies whole, or a fallback this RUNBOOK documents for that filing, with the builder's reason. A
+section is whole from the length at which the native assembler reads it as the filing's own text:
+5,000 characters of financials and 3,000 of MD&A, under which it backfills a dense window of the
+document, and 200 for any section, under which it skips it (`copilot_runner.NATIVE_SECTION_FLOORS`,
+held to the assembler by `tests/unit/test_copilot_gate.py`). A native declaration that leaves a
+section out, and every fallback, says why in its `basis`. A native declaration is a floor, not an
+exact set: a section it leaves out that a later parser supplies whole does not refuse the draw (the
+excerpt is then richer, as production's is), but its `basis` and the sizes below go stale until the
+declaration is updated. AAPL, TSLA and MSFT declare all three. BABA's FY2026 20-F parses Item 18 to
+761 characters, so it declares `mda` and `risk`; FY2025's financial statements parse to 847
+characters and Item 5 to 2,219, so it declares `risk` alone
+(`tasks/review-evidence/e28-native-sections-2026-10-15/copilot_sources_parity.txt`). ASML's 20-F
+declares the one fallback, `sections_not_supplied`: at 24.9 million characters it is over the
+section parser's 16-million-character cap, and parsed it yielded no sections either ("Gotchas"). A
+10-Q whose Part II has no Risk Factors item would declare `financials` and `mda`, with that basis.
+
+The preparation keeps the excerpt builder's own record of each excerpt (`excerpt_provenance`,
+E80-C1). Before any provider call, `copilot_runner.validate_preparation` refuses a source whose
+record is missing or holds no valid section coverage; names a filing, document, section mapping or
+excerpt other than the ones prepared, or an excerpt other than the one the run hands the Copilot
+from the prepared database; records another outcome, source or fallback reason than its case
+declares; or supplies a declared section under its floor, or not at all. A source parsed natively
+where its case declares a fallback is refused too, so a parser change that reaches ASML updates its
+declaration and this paragraph in the same change. A refusal names the first refused source and
+what differs (the fields, each short section and its length, or the recorded and the declared
+source, outcome and reason), never a hash or text. The source check prints it as its "Source
+refused" error and in `source-check.log`; the runner, if it refuses, writes it in its report.
+`preparation.json`, retained with them, keeps every source's record. The preflight reads the prepared database's excerpts with the standard
+library's `sqlite3`, read-only, by plain SQL over `filings` and `filing_content_cache`: it runs
+before any setting loads, so the ORM is not yet there; `tests/unit/test_copilot_bootstrap.py`'s real
+preparation ties the query to the schema.
+
+An SEC outage does not reach the preflight: the bootstrap fetches each filing before the runner
+starts, so an outage fails "Prepare actual SEC sources in a new scratch database", the runner step
+never starts, the draw gate (`backend/scripts/copilot_eval_draw_gate.py`) counts no draw, and a
+re-run draws once SEC answers. A refusal follows a preparation that completed on another source than
+the one its case declares: a section parse that timed out (30 s, 40 s for a 20-F) or failed, an
+edgartools, parser or assembler change, or a document SEC now serves differently. A refused source
+spends no draw either (the founder's decision of 31 October 2026, E80 option (c)). The preparation
+step's last act is the source check, `python -m evals.copilot_source_check`. It runs the same
+preflight, with no provider call and no credential. A refusal fails "Prepare actual SEC sources in a
+new scratch database" with a "Source refused" error that names what differs. An outage fails the
+bootstrap first and never reaches the check. The runner step is then skipped, and the draw gate
+counts no draw. A re-run draws once the declared source prepares again. A refusal the pull request
+itself causes, a parser change for one, refuses on every re-run, at no provider cost, until a push.
+The bootstrap stays blind to the golden set; the check reads the golden cases only once the
+preparation is written. The runner keeps its own call before any provider call. So a check skipped
+or removed refuses there instead, at the cost of the head's draw: the check fails closed.
+`tests/unit/test_copilot_source_check.py` pins both placements, and that the check refuses what the
+runner's preflight (`validate_preparation`) refuses.
+
 The runner requires exactly one valid terminal completion per attempt, all planned identities,
 zero execution errors and no trust/accuracy veto. Valid refusal completions preserve the production
 contract, which omits the strip counter. Every declared XBRL citation is checked before
@@ -1146,7 +1199,13 @@ reported totals from no-total banks, and existing deterministic summary assembly
 available component rows using aligned XBRL periods/currencies. It replaces model
 component rows, including their incompatible commentary/evidence, without inventing
 verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
-future failures can distinguish extraction absence from generation omissions.
+future failures can distinguish extraction absence from generation omissions. Since E184
+each fact a standardized series takes from the filing's XBRL (and each operand ROE and ROA
+copy) also records `accn`, the filing that recorded it. The judge and the bake-off
+candidates never read it (`runner._model_metrics` drops it, as it drops
+`financial_classification`), nor does the baseline, whose production prompt picks its
+fields one by one. A comparison of retained groundings across that change drops `accn`
+first.
 
 This failed measurement was not pinned. The sole authoritative three-run measurement
 subsequently ran on source `f5b46ba96b3023f93554087e431937ed9daba3c4`, including deployed

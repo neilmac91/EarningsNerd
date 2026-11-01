@@ -14,7 +14,7 @@ export const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   // Financial-institution revenue lines (only present for banks/insurers/BDCs — a bank shows these
   // instead of a single Revenue; insurers add these alongside their reported total revenue).
   { key: 'net_interest_income', label: 'Net interest income', fmt: 'usd' },
-  { key: 'noninterest_income', label: 'Non-interest income', fmt: 'usd' },
+  { key: 'noninterest_income', label: 'Noninterest income', fmt: 'usd' },
   { key: 'premiums_earned', label: 'Premiums earned', fmt: 'usd' },
   { key: 'net_investment_income', label: 'Net investment income', fmt: 'usd' },
   { key: 'net_income', label: 'Net income', fmt: 'usd' },
@@ -24,8 +24,8 @@ export const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'investing_cash_flow', label: 'Investing cash flow', fmt: 'usd' },
   { key: 'financing_cash_flow', label: 'Financing cash flow', fmt: 'usd' },
   { key: 'free_cash_flow', label: 'Free cash flow', fmt: 'usd' },
-  { key: 'eps_diluted', label: 'Diluted EPS', fmt: 'eps' },
-  { key: 'earnings_per_share', label: 'EPS', fmt: 'eps' },
+  { key: 'eps_diluted', label: 'EPS (diluted)', fmt: 'eps' },
+  { key: 'earnings_per_share', label: 'EPS (basic)', fmt: 'eps' },
   { key: 'gross_margin', label: 'Gross margin', fmt: 'pct' },
   { key: 'operating_margin', label: 'Operating margin', fmt: 'pct' },
   { key: 'net_margin', label: 'Net margin', fmt: 'pct' },

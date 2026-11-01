@@ -37,7 +37,7 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
 const GAP = 8 // lib/launcherKeepClear's LAUNCHER_KEEP_CLEAR_GAP
 type Box = { top: number; bottom: number; left: number; right: number }
 
-const launcher = (page: Page) => page.getByRole('button', { name: 'Send feedback', exact: true })
+const launcher = (page: Page) => page.getByRole('button', { name: 'Feedback', exact: true })
 /** The KPI strip's root, the dl's parent, located without its keep-clear mark. */
 const strip = (page: Page) => page.locator('dl:has([data-analysis-kpi])').locator('..')
 const values = (page: Page) => page.locator('[data-analysis-kpi] [data-kpi-value]')
@@ -180,7 +180,7 @@ for (const theme of ['light', 'dark'] as const) {
       // Enter opens its dialog, which keeps it shown; Escape returns a focus that shows it.
       await page.keyboard.press('Enter')
       await expect(dialog).toBeVisible()
-      expect(await opacity(page.getByRole('button', { name: 'Close feedback', exact: true })), 'its dialog keeps it shown').toBe('1')
+      expect(await opacity(launcher(page)), 'its dialog keeps it shown').toBe('1')
       await page.keyboard.press('Escape')
       await expect(dialog).toHaveCount(0)
       await expect(launcher(page)).toBeFocused()

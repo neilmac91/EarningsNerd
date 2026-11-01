@@ -120,7 +120,7 @@ describe('the popover leaves Escape to a modal layer that holds focus but not it
     vi.useRealTimers()
   })
 
-  const chip = () => screen.getByRole('button', { name: 'Source: Quote found in filing' })
+  const chip = () => screen.getByRole('button', { name: 'Quote found in filing, source' })
   const popover = () => screen.queryByRole('group', { name: 'Source detail' })
   function Page({ chipInSheet = false }: { chipInSheet?: boolean }) {
     const trace = <SourceTrace url="https://www.sec.gov/x.htm" verified sectionRef="Item 8" excerpt="Total net sales" />

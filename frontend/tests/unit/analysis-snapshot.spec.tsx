@@ -92,9 +92,13 @@ describe('analysis snapshot consistency', () => {
       false,
     ],
     ['the 403 Pro gate', 'Multi-Period Analysis is a Pro feature. Upgrade to Pro to access this feature.', true],
-  ])('answers %s with a plan link only for the Pro gate, and the fair-use sentence once', async (_, message, planLink) => {
+    // E31: a known code decides whatever the words say, so their next edit cannot move the plan link.
+    ['a coded Pro gate in other words', 'This analysis needs another plan.', true, 'plan_required' as const],
+    ['a coded fair-use cap whose words name Pro', 'Upgrade to Pro will not lift this cap.', false, 'pro_fair_use_limit' as const],
+  ])('answers %s with a plan link only for the Pro gate, and the fair-use sentence once', async (_, message, planLink, code?) => {
     vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)
-    vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) => handlers.onError(message))
+    vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) =>
+      code ? handlers.onError(message, code) : handlers.onError(message))
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
     client.setQueryData(queryKeys.currentUser(), { id: 7 })
     client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })

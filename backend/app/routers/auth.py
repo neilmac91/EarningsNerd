@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
-import asyncio
 import hashlib
 import hmac
 import json
@@ -21,7 +20,7 @@ import jwt
 
 from app.database import get_db
 from app.dependencies import resolve_current_user_or_none
-from app.models import User
+from app.models import InviteCode, User
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
@@ -46,7 +45,9 @@ from app.services.durable_tasks import AccountMail
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
+    bound_checked_password,
     get_password_hash,
+    in_password_thread,
     validate_password_strength,
     verify_password,
 )
@@ -149,6 +150,11 @@ class UserLogin(BaseModel):
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
 
+    @field_validator("password")
+    @classmethod
+    def bound_password(cls, value: str) -> str:
+        return bound_checked_password(value)
+
 
 class Token(BaseModel):
     access_token: str
@@ -239,6 +245,11 @@ class ChangePasswordRequest(BaseModel):
     # OAuth-only users SETTING a password for the first time (they're already authenticated).
     current_password: Optional[str] = None
     new_password: str
+
+    @field_validator("current_password")
+    @classmethod
+    def bound_current_password(cls, value: Optional[str]) -> Optional[str]:
+        return bound_checked_password(value)
 
     @field_validator("new_password")
     @classmethod
@@ -544,17 +555,18 @@ async def _queue_account_mail(
         background.add_task(account_mail_service.send_account_mail_after_response, mail, email)
 
 
-async def _send_account_exists_email_safe(user: User) -> None:
+async def _send_account_exists_email_safe(recipient: "_Recipient") -> None:
     """Tell the real account owner that someone tried to register with their email.
 
     This is how the existing-email branch of register stays opaque: the HTTP response is
     identical to a new signup, and only the inbox owner learns the account already exists.
-    Best-effort — email failures must not change the (opaque) response."""
+    Best-effort — email failures must not change the (opaque) response. Takes the address and name the
+    route's unit read, so the send runs after its release with no session (E121)."""
     try:
         from app.services.email_service import send_account_exists_email
         await send_account_exists_email(
-            to_email=user.email,
-            name=user.full_name,
+            to_email=recipient.email,
+            name=recipient.full_name,
             login_link=f"{settings.FRONTEND_URL}/login",
             reset_link=f"{settings.FRONTEND_URL}/forgot-password",
         )
@@ -562,6 +574,36 @@ async def _send_account_exists_email_safe(user: User) -> None:
         # The class alone, as the reset and verification mail log theirs: a provider's error text can
         # quote the request, the recipient's address among it.
         logger.warning("Account-exists email not sent: %s", e.__class__.__name__)
+
+
+@dataclass(frozen=True)
+class _Recipient:
+    """An account's address and name, read in a unit, for a notice sent after its release."""
+
+    email: str
+    full_name: Optional[str]
+
+
+@dataclass(frozen=True)
+class _Created:
+    """A new account as register's unit leaves it: its id, address, name and beta tag, and the verification link's
+    token the unit issued and committed, for the send after the release."""
+
+    user_id: int
+    email: str
+    full_name: Optional[str]
+    is_beta: bool
+    raw_token: str
+
+
+@dataclass(frozen=True)
+class _Registered:
+    """What register's account unit leaves the route once it has released its session: the existing account's
+    address and name for the account-exists notice, or the new account, or neither when the insert or the invite's
+    redemption was refused."""
+
+    exists: Optional[_Recipient] = None
+    created: Optional[_Created] = None
 
 
 @dataclass(frozen=True)
@@ -637,6 +679,14 @@ async def register(
     The HTTP response is byte-identical in both cases, so probing /register cannot enumerate
     accounts. The user finishes via the email link, or by signing in with the password they
     just chose (login does not require verification).
+
+    Two units in the thread pool, each released before what follows it (E121): the invite's read, before the
+    breached-password check and the hash, and the account's lookup, its insert with the invite's redemption, the
+    verification link's token and the register audit row, before either mail. So no pooled connection is out across the
+    check, the hash or a send, and no statement runs on the event loop. Both mails are sent with no session, from what
+    the unit read or issued: the account-exists notice, and the verification link
+    (``account_mail_service.send_issued_verification_link``, the send registration shared before, failed sends logged
+    as before).
     """
     enforce_rate_limit(
         request,
@@ -646,14 +696,23 @@ async def register(
     )
     _require_new_collection()
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
+    email, full_name, hashed_ip = user_data.email, user_data.full_name, _hashed_client_ip(request)
 
     # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
     # account work. It rejects uniformly regardless of email, so it is not an enumeration vector;
-    # the email-existence anti-enumeration (opaque response + bcrypt timing) is preserved below for
+    # the email-existence anti-enumeration (opaque response + hashing timing) is preserved below for
     # the valid-invite path. In "public" mode the invite is ignored and nothing changes.
-    invite = None
+    invite: Optional[InviteCode] = None
     if settings.REGISTRATION_MODE == "invite_only":
-        invite = invite_service.validate_invite(db, user_data.invite_code, user_data.email)
+        def read_invite() -> Optional[InviteCode]:
+            # The release detaches the invite without expiring it: the redemption below reads only its id, and the
+            # funnel event whether it names an address.
+            try:
+                return invite_service.validate_invite(db, user_data.invite_code, email)
+            finally:
+                filing_list_service.release_request_session(db)
+
+        invite = await run_in_threadpool(read_invite)
         if invite is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -668,33 +727,49 @@ async def register(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    # Always pay the bcrypt cost, even for an existing email, so response timing doesn't reveal
+    # Always pay the hashing cost, even for an existing email, so response timing doesn't reveal
     # whether the account is new (hash + insert) vs. existing (no insert) — closes the timing oracle.
-    hashed_password = await asyncio.to_thread(get_password_hash, user_data.password)
+    hashed_password = await in_password_thread(get_password_hash, user_data.password)
+    agreement = accept_current_agreement()
 
-    existing_user = auth_account_service.find_user_by_email(db, user_data.email)
-    if existing_user:
-        # Don't reveal existence in the response; alert the real owner out-of-band instead.
-        await _send_account_exists_email_safe(existing_user)
-        return _REGISTER_OPAQUE
+    def register_account() -> _Registered:
+        try:
+            existing_user = auth_account_service.find_user_by_email(db, email)
+            if existing_user is not None:
+                return _Registered(exists=_Recipient(existing_user.email, existing_user.full_name))
+            # Inserts the account and, in the same transaction, redeems the validated invite (beta tag).
+            user = auth_account_service.create_password_account(
+                db,
+                email=email,
+                hashed_password=hashed_password,
+                full_name=full_name,
+                invite=invite,
+                agreement=agreement,
+            )
+            if user is None:
+                # A refused invite redemption (redeemed or revoked since it validated) or a lost concurrent-create
+                # race: stay opaque (rolled back).
+                return _Registered()
+            # Read before the token's commit expires the account.
+            user_id, stored_email, name, is_beta = user.id, user.email, user.full_name, bool(user.is_beta)
+            raw_token = auth_account_service.issue_email_verification_token(db, user)
+            audit_service.log_register(db, user_id, stored_email, ip_address=hashed_ip)
+            return _Registered(created=_Created(user_id, stored_email, name, is_beta, raw_token))
+        finally:
+            filing_list_service.release_request_session(db)
 
-    # Inserts the account and, in the same transaction, redeems the validated invite (beta tag).
     try:
-        user = auth_account_service.create_password_account(
-            db,
-            email=user_data.email,
-            hashed_password=hashed_password,
-            full_name=user_data.full_name,
-            invite=invite,
-            agreement=accept_current_agreement(),
-        )
+        registered = await run_in_threadpool(register_account)
     except CollectionUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    if user is None:
-        # A refused invite redemption (redeemed or revoked since it validated) or a lost concurrent-create
-        # race: stay opaque (rolled back).
+    if registered.exists is not None:
+        # Don't reveal existence in the response; alert the real owner out-of-band instead.
+        await _send_account_exists_email_safe(registered.exists)
         return _REGISTER_OPAQUE
-    redeemed = invite is not None
+    if registered.created is None:
+        return _REGISTER_OPAQUE
+    created = registered.created
+    user_id = created.user_id
 
     # Reverse trial is NOT granted at registration: the email is still unverified here, so granting
     # no-card Pro now would hand full features to a disposable/unverified address (repeatable for
@@ -704,25 +779,24 @@ async def register(
     # Stripe's own trial dedup applies) — verification raises the bar but doesn't alone stop an
     # attacker cycling many disposable-but-verifiable addresses.
 
-    await account_mail_service.send_verification_link(db, user)
-    audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
+    await account_mail_service.send_issued_verification_link(created.user_id, created.email, created.full_name, created.raw_token)
 
     # Closed-beta activation funnel (best-effort; telemetry must never break registration). Keyed on
     # str(user.id) so it stitches with the frontend, which identifies on String(user.id). No PII
     # (e.g. email) is sent as a property.
     try:
-        if redeemed:
+        if invite is not None:
             capture_event(
-                str(user.id), EVENT_INVITE_REDEEMED, {"email_bound": invite.email is not None}
+                str(user_id), EVENT_INVITE_REDEEMED, {"email_bound": invite.email is not None}
             )
         capture_event(
-            str(user.id),
+            str(user_id),
             EVENT_SIGNUP_COMPLETED,
-            {"is_beta": bool(user.is_beta), "invited": invite is not None},
+            {"is_beta": created.is_beta, "invited": invite is not None},
         )
         # EVENT_TRIAL_STARTED now fires in verify_email, where the reverse trial is actually granted.
     except Exception:  # pragma: no cover - defensive: telemetry never blocks signup
-        logger.warning("Signup funnel telemetry failed for user %s", user.id, exc_info=True)
+        logger.warning("Signup funnel telemetry failed for user %s", user_id, exc_info=True)
 
     return _REGISTER_OPAQUE
 
@@ -746,13 +820,13 @@ async def login(
     user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
 
     def look_up() -> tuple[Optional[int], Optional[tuple[int, Optional[str], bool]]]:
-        # One unit in the thread pool, released before bcrypt, so no login holds a pool slot while it
+        # One unit in the thread pool, released before the hash check, so no login holds a pool slot while it
         # hashes (lessons/ops-release-cached-filing-reads-before-yield.md).
         try:
             # Durable per-account lockout: bounds distributed brute-force/spray against one account
             # across many IPs, holds across instances/restarts, and is keyed on the email hash so a
             # non-existent address locks the same as a real one (no 429-vs-401 enumeration). Peek
-            # before bcrypt.
+            # before the hash check.
             lock_seconds = login_lockout.seconds_until_unlock(db, email)
             if lock_seconds is not None:
                 return lock_seconds, None
@@ -770,13 +844,14 @@ async def login(
         )
     user_id, verified_hash, is_active = account or (None, None, False)
 
-    # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
-    # response timing is the same whether or not the email exists (no timing oracle). Offloaded
-    # to a worker thread so the ~250ms hash doesn't block the event loop under login load.
-    password_ok = await asyncio.to_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
+    # Always run the hash check — against the real hash if we have one, else a fixed dummy — so the
+    # request performs comparable expensive work to reduce timing differences. Argon2id and legacy bcrypt
+    # checks can still differ; the gap is unmeasured on Cloud Run (password_utils). The password thread
+    # keeps the check off the event loop under login load.
+    password_ok = await in_password_thread(verify_password, user_data.password, verified_hash or _DUMMY_PASSWORD_HASH)
 
     def finish() -> Optional[str]:
-        # One unit in the thread pool after bcrypt, released before the route returns.
+        # One unit in the thread pool after the hash check, released before the route returns.
         try:
             if verified_hash and password_ok and is_active:
                 # Under the account's lock, and only while the hash just verified is still its own (E121).
@@ -1006,7 +1081,7 @@ async def reset_password(
     """Set a new password using the single-use token from the reset email.
 
     Two units in the thread pool, the token's account read and the reset, each released before what follows
-    it, so the breached-password check and bcrypt hold no pooled connection and no statement or lock wait runs
+    it, so the breached-password check and the hash hold no pooled connection and no statement or lock wait runs
     on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
     def find_account() -> int:
         try:
@@ -1027,7 +1102,7 @@ async def reset_password(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
+    hashed_password = await in_password_thread(get_password_hash, payload.new_password)
 
     def reset() -> None:
         # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
@@ -1063,8 +1138,8 @@ async def change_password(
     Applies the same strength + breached-password (HIBP) checks as registration/reset.
 
     Two units in the thread pool around the waits (E121): the auth lookup's read is released first, so no
-    pooled connection is out while bcrypt checks the current password, the breached-password check runs or
-    bcrypt hashes the new one; the change and this device's new session are then one unit, released before
+    pooled connection is out while the current password is checked, the breached-password check runs or
+    the new one is hashed; the change and this device's new session are then one unit, released before
     the route returns (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
     # The release detaches the user without expiring it: the id, email and hash the lookup loaded stay
@@ -1080,7 +1155,7 @@ async def change_password(
     )
     verified_hash = current_user.hashed_password
     if verified_hash:
-        ok = await asyncio.to_thread(verify_password, payload.current_password or "", verified_hash)
+        ok = await in_password_thread(verify_password, payload.current_password or "", verified_hash)
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
@@ -1092,7 +1167,7 @@ async def change_password(
             detail="This password has appeared in a known data breach. Choose a different one.",
         )
 
-    new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
+    new_password_hash = await in_password_thread(get_password_hash, payload.new_password)
 
     def change() -> bool:
         # A password change must evict every existing session (a stolen/old refresh token must not

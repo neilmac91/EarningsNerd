@@ -65,7 +65,7 @@ measure is unchanged.
 | D10 | **Printed values where position cannot meet the task:** top-line and growth bar labels; near-zero equity labels (A13b); off-scale values at the plot edge (A3b); the latest value of every series in the legend; and in expanded, a **value strip** with every margin, cash and balance value. | Margins ±1 pp: met by the expanded strip in 59/59 datasets (sim S5). The card's position tolerance per dataset is measured in the report §9. | A (§0.4 #1, #3, #6) |
 | D11 | **Tolerance `T = max(step/8, 4 px·span/h)`.** Order questions are scored wherever the true gap > T. T is frozen per dataset from this spec's geometry and applied unchanged to current and proposed renders. Tier P is exact transcription of the printed strings. | REGN FY2025 FCF < NI (gap $0.42B, T $0.25B) is in scope on the card. The count of out-of-scope pairs is measured in the report §9. | B formula, product-judge freeze (§0.4 #13) |
 | D12 | **Series colours chart-1..k in order over the *present* series** (DS §10: "never skipped"), plus marker shape by the same index (circle, square, triangle). | Two-series charts (21 margins, 12 cash, 15 balance datasets) get teal + honey, never the weakest CVD pair (teal–cornflower, deutan ΔE 31 dark / 37 light). | C + A shapes (§0.4 #9) |
-| D13 | **Fixed geometry.** Card SVG 320 px tall in every chart. Expanded SVG 520 + strip. Height never depends on width. Minimum slot 36 px in both views (a labelled chart up to 42 px, §3.7 A7); below it the SVG scrolls inside its card. | All cards in a grid row align: 566/566 rendered cards are 320 px tall, and not-applicable cards keep 320 px. 0 sideways page scroll in the 390 px phone run (report §9). | A height, B reserved band (§0.4 #11, #16) |
+| D13 | **Fixed geometry.** Card SVG 320 px tall in every chart. Expanded SVG 520 + strip. Height never depends on width. Minimum slot 36 px in both views, or the widest x tick line + 4 px where that is more (E251, §3.7 A7; a labelled chart widens up to 42 px); below it the SVG scrolls inside its card. | All cards in a grid row align: 566/566 rendered cards are 320 px tall, and not-applicable cards keep 320 px. 0 sideways page scroll in the 390 px phone run (report §9). | A height, B reserved band (§0.4 #11, #16) |
 | D14 | **Export serialises the on-screen SVG node** at fixed 2×, with both Geist Mono subsets embedded, each keeping its `unicode-range`. | † (U+2020) exists only in the latin-ext subset. U+2009, ▲ and ▼ exist in no subset (cmap). Export differs from the screen on 0.000% of pixels; today's method on 1.39–2.37% (report §9). The header/footer composition is specified, not yet verified. | C (§0.4 #14) |
 | D15 | **FY-end caption from the latest FY or fiscal-Q4 row, with day ≤ 7 rolled back** to the previous month. | 0 wrong in 72/72 datasets that have such a row: CPRT Jul, LOVE Jan, SBUX Sep, NVDA Jan, DECK Mar, MSFT Jun, AAPL Sep, CLFD Sep, 56 Dec. XOM/q has none, so the segment is omitted (sim S11). | B rule, product-judge fix (§0.4 #12) |
 | D16 | **Top-line fallback `revenue → net_interest_income → premiums_earned`.** Reason-specific not-applicable copy. | 70/73 top-line charts (today 65/73): 59 revenue, 6 NII, 5 premiums. Margins not applicable 14/73: 6 NII, 5 premiums, 3 with no top line. | all three |
@@ -128,7 +128,7 @@ number no longer applies, the rule is given and the number is measured in the re
 | 8. Legend | HTML, stacked (name over value), superscript note letters, hollow swatch for an absent series; M19 checks the stacked width ≤ 502 px | Inline HTML: swatch, name, latest value, and `(FY2024)` when the latest value isn't the last period. It wraps by whole items. No superscripts. An absent series shows a neutral dashed swatch in «t.tick» and claims no palette slot: `Long-term debt — not in dataset`. M19: legend wraps by whole items; no item splits. | Prototype, 566 cards. The prototype shows the absent item only for long-term debt (missing debt must never read as $0); absent gross margin and FCF are not listed (§3.6). |
 | 9. Marker shapes | circle Ø6, square 5×5, diamond 6×6 | circle Ø6, square 6×6, triangle 8 × 7, by present-series index | Prototype marks. |
 | 10. Tokens | grid light `#DEDDD6` (Lc 14.7); tick dark `#B8BDC6` (−63.1); dark subtitle and footnotes at DS `text.secondary.dark`; dark legend names at `text.primary.dark` | grid `#DCD9D0` (Lc 16.8) / `#525C6B` (−15.0); tick `#636A77` (74.1) / `#B8BEC7` (−63.6); value `#374151` / `#D7DADC`; zero `#6B7280` / `#9CA3AF`; review `#92400E` / `#FBBF24`; dark series `#62B2A6 #D3A55C #8CA6E3 #E8927C #97A6C2 #AFA2DE`, light series unchanged. Dark HTML subtitle, footnotes and legend names use `chart.label.dark #B8BEC7`. | DS `text.secondary.dark #9CA3AF` measures Lc −48.6, under 60 for 12 px text (`$S/apca_table.txt`). |
-| 11. Bars and slot | Bars min(44 card / 56 expanded, round(0.62·slot)); growth min(24 / 32, round(0.36·slot)); slotMin = max(24, widest slot-centred string + 4) | Top-line and equity bars min(44, round(0.64·slot)); growth bars max(4, round(0.6·barW)); same in both views. Minimum slot 36 px in both views; a labelled chart widens until A4 finds a tier, up to 42 px a period (§0.5); below it the SVG scrolls inside its card. The card shows "Values don’t fit at this width. The metrics table lists them." when no tier fits even at 42 px; scrolling alone does not show it. Card SVG 320 px; expanded 520 + strip. | Prototype finding at a 390 px viewport: 27 px slots dropped every printed value of an annual chart; with 36 px slots they print. The phone run shows 0 sideways page scroll (report §9). |
+| 11. Bars and slot | Bars min(44 card / 56 expanded, round(0.62·slot)); growth min(24 / 32, round(0.36·slot)); slotMin = max(24, widest slot-centred string + 4) | Top-line and equity bars min(44, round(0.64·slot)); growth bars max(4, round(0.6·barW)); same in both views. Minimum slot 36 px in both views, or the widest x tick line + 4 px where that is more (the draft's form over a 36 px floor, E251); a labelled chart widens until A4 finds a tier, up to 42 px a period (§0.5), and one whose minimum is already that wide does not widen; below it the SVG scrolls inside its card. The card shows "Values don’t fit at this width. The metrics table lists them." when no tier fits even at 42 px or at that wider minimum; scrolling alone does not show it. Card SVG 320 px; expanded 520 + strip. | Prototype finding at a 390 px viewport: 27 px slots dropped every printed value of an annual chart; with 36 px slots they print. The phone run shows 0 sideways page scroll (report §9). |
 | 12. FY caption, n/m, missing growth | A9; n/m = sentinel or zero prior; separate footnotes for structural and unavailable growth | A9 kept: day ≤ 7 rolls back to the prior month. n/m is the backend `nm` sentinel or a prior value of exactly 0 (*2026-10-29, MPA WP5a-F1:* an `nm` beside `yoy_first_reported` is a later filing's value, footnoted apart from the zero and sign cases). Missing-growth footnotes use period runs (`none for Q3 ’23–Q4 ’24`), one line for every "—". | n/m and runs: prototype. The prototype implements A9's annual branch; its quarterly subtitle prints `· fiscal quarters ·` and it has no change segment. This spec keeps the full A9 (sim S11: 0 wrong in 72). |
 | 13. Tolerances | T = max(step/8, 4 px·span/h), frozen; tiers P, V, O, S | Unchanged. The step-6a scoring uses this T, from the spec's card geometry, identically for current and proposed renders, with ordinals scored where the true gap > T. Tier P is scored as exact transcription of the strings the chart prints. | `$S/score_tiers.py`, `$S/readout/tol_T.json`. |
 | 14. Not yet prototyped | — | Tooltip, keyboard stepping, column wash, loading and error skeleton states, and the export header/footer composition are **specified, not yet verified** (§3.9, §3.11, §3.13). | Outside the prototype's scope; kept, not deleted. |
@@ -239,10 +239,11 @@ says so; everything else follows the spec.
     brand ring rings the viewport whatever the plot's scroll (an inset ring on the scrolled plot would leave the view
     and lie under the gutter), and a touch screen reader finds it anywhere on the chart. Down and Up step too, and Home and End jump to the
     oldest and newest; a step past either end, which changes no value, says "Oldest period." or "Newest period." in a
-    status line. A pointer's tooltip announces nothing: only the keyboard speaks.
+    status line (a bar chart's own words where it names them, E251). A pointer's tooltip announces nothing: only the keyboard speaks.
   - It starts at the newest period, the one the legend and the metrics table quote, and a plot opens scrolled there
     whenever its view or window starts to overflow: on first layout, after expanding or collapsing (§3.10), whether or
-    not the other view overflowed, and for a new window. Never on a resize or zoom, which would lose the reader's
+    not the other view overflowed, and for a new window. (A bar chart can name another start, E251: then the stop starts
+    there and the plot opens with that column in view.) Never on a resize or zoom, which would lose the reader's
     place: a plot that overflows is planned at its minimum width, which a resize leaves as it is. The Recharts stop
     started at the oldest.
   - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
@@ -306,7 +307,9 @@ says so; everything else follows the spec.
       x = 0.
     - D3's "on the zero rule" is a gap's baseline 3 px above its panel's zero line (A11's placement), within a pixel.
     - D6 measures each paint's computed colour against the card's computed background, itself held to «t.surface»;
-      each role takes its §3.8 floor, the ↑ and ↓ arrows a mark's. The column wash is held at the token level only.
+      each role takes its §3.8 floor, the ↑ and ↓ arrows a mark's, and each tspan is a paint of its own. A paint that a
+      computed opacity, filter, mask or blend mode fades fails, its colour notwithstanding (E251). The column wash is held
+      at the token level only.
     - D9's "before and after hydration": no chart is in the server's HTML (the page draws them after a run), so each
       card's heights are recorded from the moment it is inserted, and it keeps one.
     - M19 lets an item break inside only when it is wider than its legend's whole line: no wrapping avoids that
@@ -446,6 +449,86 @@ says so; everything else follows the spec.
     printed value the fixture's own to its last digit, the values stop at the newest fiscal year, net margin on a percent axis and the DOM checks of
     `fixtures/chartChecks.ts` for one card (whose zero rule now reads a ratio axis's `0×`), in both themes at 390 and
     1280 px, and every series at 390, 360 and 320 px under 200% text.
+- **A ranked company chart's seams (E251).** The engine gains what the company page's Sector peers panel needs to draw
+  its ranked companies on it, each seam with its gate, while every existing chart's model, plan and readout stays as it
+  was, byte for byte (E251's first pull request dumped the engine's whole output for every analysis dataset, bar case
+  and Financial trends model at every width the sweeps use, before and after). The cases are
+  `tests/unit/fixtures/peers-cohorts.json`, the peers endpoint's answers (production's JPM and BAC joined into a pair,
+  and synthetic cohorts: eleven companies spread across two orders of magnitude, eleven near-equal ones, a six-glyph
+  ticker, a margin, a per-share amount, CNY and a ticker two companies share), drawn through `chartPlan.ts`'s
+  `peerBarCases`.
+  - A slot as wide as its ticks: a slot holds the widest line of its x ticks with 2 px each side, so A7's minimum is
+    `max(36, ceil(widest line + 4))` (`layout.ts` `minSlotOf`), the form of the draft rule (§0.4 row 11,
+    `max(24, widest slot-centred string + 4)`) over the 36 px floor; a six-glyph tick ran 1.8 px past a 36 px column. A
+    labelled chart's search for a tier still stops at 42 px, so a chart whose minimum is wider (a six-glyph ticker's
+    44 px) does not widen, and where its labels miss at that minimum its card says they don't fit.
+    `chart-engine.spec.ts` holds every tick line to its slot over every analysis dataset, bar case and peer case, and
+    A7's checks read `minSlotOf`.
+  - Context bars: a `BarCategory` can be `context` (`barChart.ts`), copied onto its point and its placed bar, which takes
+    the growth bars' narrower width (`layout.ts` `contextBarWidth`), the cue the colour cannot give (§3.8, CVD); the
+    renderer paints it in the context ink (§3.8), its readout row carries the flag, and `LegendSwatch` paints that row's
+    swatch in the context ink, so a tooltip's swatch is the hovered bar's own paint (E236, as the retired peers chart's
+    `swatchOf` did). The mark stays chart-1, so M9 and the golden plans are unmoved. `trend-charts-v2.spec.tsx` draws every
+    peer case through `ChartPlotFrame` in both themes, holds each bar's paint and width to its role and each tooltip
+    swatch to its bar, and fails whatever the DOM states that fades a paint, on any node of a plot's SVG: an `opacity`,
+    `fill-opacity`, `stroke-opacity`, `filter` or `mask` attribute; an opacity, filter, mask, blend mode or paint in a
+    style; a translucent rgba; a tspan's own paint; any class but the visx shapes' (`visx-group`, `visx-bar`,
+    `visx-linepath`); a `<style>`, filter, mask or SMIL element. A fade paints the ink blended with whatever lies behind
+    it, which no token holds to its floor, and the computed `fill` D6 reads leaves it as it is, so D6 also fails a paint,
+    each tspan's included, that a computed opacity, filter, mask or blend mode fades, its own or a group's up to the SVG
+    (`fixtures/chartChecks.ts`; §6).
+  - A start category: a bar chart can name the category it starts at (`BarChartDef.start`, refused when it names none),
+    carried as `ChartModel.start`. The values stop starts there, a new window starts again there, and a plot that
+    overflows opens with that column centred in the view right of the gutter, as a keyboard move brings a column into
+    view, so a phone opens on a ranked company chart's subject rather than at its smallest company: scrolled to the
+    column's centre less half the gutter less half the view, clamped to the scroll's range (`TrendChartPlot`). A start
+    whose centred scroll falls before 0 (a sector's largest company; the near-equal case's fourth at 300 px, −6 px)
+    opens at the scroll's start, on the plot's own axis with no sticky gutter, which shows only once the plot has
+    scrolled; one whose centred scroll runs past the end (the spread's tenth at 300 px, 222 px against 156) opens at the
+    end. A start whose column the first view holds may still open scrolled: the spread's sixth opens at 74 px at 300 px,
+    centred. Unset, it is the newest period, as before. `trend-charts-v2.spec.tsx` holds the stop's period on mount and
+    after a new window, the column in view and the gutter exactly when scrolled, for a first, an early, a middle and a
+    late start; `fixtures/chartChecks.ts`'s `expectSound(report, { start })` holds the values stop to the caller's start,
+    else the newest period ("the values stop starts at the chart's start"), and asks "opens at its newest period" of the
+    newest start alone. Its first run in a browser is E251's PR 2: `tests/e2e/company-sector-peers.spec.ts` opens the
+    Sector peers panel with its subject first, fourth (near-equal), sixth and tenth at 300, 390 and 1280 px, each
+    through `expectSound(report, { start })` and the rule's own scroll from the plot's geometry; a page 300 px wide
+    gives the plot a 230 px view, where near-equal's fourth falls after 0 (+29 px) and opens scrolled, and 390 px a
+    309 px view, where it opens at the scroll's start (−10.5 px).
+  - Reading words: a bar chart can name its categories (`BarChartDef.reading`, carried as `ChartModel.reading`:
+    `{ items, first, last }`), so its scroll region reads "Scroll horizontally to view all {items}." and a step past
+    either end says its `first` or `last` words; a ranked company chart says "companies", "First company." and "Last
+    company.". Unset, the periods' words (`PERIOD_READING`). `trend-charts-v2.spec.tsx` holds a peer chart's region
+    and end words, and an analysis chart's periods'.
+  - The shared line: Financial trends' "Values don’t fit at this width." moves to `layout.ts` as `VALUES_DONT_FIT_HERE`,
+    beside `VALUES_DONT_FIT`, for any card no metrics table sits beside, so the peers panel reads the same constant.
+- **The Sector peers panel (E251).** The company page's ranked company chart, drawn on the seams above.
+  `features/peers/lib/peerChart.ts` turns a peers answer into a `BarChartDef`: the companies with a value in the
+  answer's order, as many as eleven slots hold (`cohort.ts` `drawn`: a cohort of eleven or fewer whole; a larger one the
+  top eleven where the subject ranks among them, else the top ten and then the subject, the top never parting a tie, so
+  it is always the companies ranked that high, the card's footnote then saying what the chart shows, `croppedOf`, and
+  giving the count alone where one rank fills every slot), each slot keyed by its ticker
+  or by its place where two companies answer one (`Company.ticker` is not unique), ticked and named by the ticker; every
+  company but the subject `context`; `start` at the subject; `COMPANY_READING` ("companies", "First company.", "Last
+  company."); the answered `concept`'s label (a bank asked for revenue answers net interest income) and its axis by the
+  metric's kind in the answer's `unit`. Its describer heads each company with its ticker, its name, its rank over the
+  companies with a value and its own fiscal year (`AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025`;
+  chief design's merge condition on #1868: no tick or label names a company, and two can answer one ticker), speaks its
+  name, its ticker, "this company" for the subject, its rank and its year, and reads calculated from
+  `provenance.method`. `features/peers/lib/cohort.ts` decides,
+  engine-free, whether the panel shows at all (`noCohort`: a metric FEATURED names, the subject's own figure and at least
+  one other company's, never `peer_count`), so the page loads the card, and the engine with it, only for a cohort, which
+  `tests/e2e/company-first-load.spec.ts` holds on the build's manifests. `chartPlan.ts`'s peer cases are the panel's own
+  builder over the cohorts it shows, pinned by name (`PEER_SHOWING`, the list `shows` must pick out), so the model,
+  reading and sticky-gutter sweeps, the renderer's role checks and the readout sweep (through the panel's describer)
+  read the charts the page draws.
+  `backend/tests/unit/test_peers_fixture_contract.py` holds every fixture case to what `peers_service.get_peers` answers,
+  and `tests/e2e/company-sector-peers.spec.ts` holds the panel on a production build: the named SVG, the subject's bar in
+  chart-1 and every other company's in the context ink (computed), each printed value the fixture's, the values stop
+  opening at the subject and the DOM checks of `fixtures/chartChecks.ts` for one card, the context ink among D6's marks,
+  in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; and the start above, a first, an early,
+  a middle and a late subject, at 300, 390 and 1280 px. `peerChartDef` refuses a subject that draws no bar, the refusal
+  `chartPlan.ts`'s first `peerBarCases` held.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet
@@ -902,6 +985,9 @@ LCID annual margins: domain −600…+100%; one band below the plot holds six it
   - marks bound to a data value (`data-series`, `data-period`);
   - the off-scale arrows, bound to their point;
   - legend and strip swatches.
+- A bar chart's context bars (E251, §0.5) paint the context ink (§3.8), not a series token: their mark keeps chart-1 and
+  its place in this order, so a context bar claims no palette slot and M9 holds. The context ink appears only on such a
+  bar, bound to its data, and on its tooltip row's swatch.
 - The break mark on a clipped bar uses «t.surface», never a series token.
 - Gain/loss and sage tokens never appear in these four charts. Sign is carried by position against a drawn zero rule
   and by the printed "+" and "−".
@@ -1009,10 +1095,12 @@ legend has no fixed width; it never pushes the plot.
 
 **A7. Slot minimum and scroll.**
 
-- The minimum slot is 36 px in both views: `W = max(container width, G_L + 8 + 36·n)`.
-- A chart with labelled marks takes the narrowest whole-pixel width, at most `G_L + 8 + 42·n`, at which A4 finds a
-  tier for every labelled panel (§0.5), and `W = max(container width, that width)`. A chart whose labels no slot up
-  to 42 px holds keeps 36 px.
+- The minimum slot is `max(36, ceil(widest x tick line + 4))` px in both views, so a slot holds each tick line with
+  2 px each side, as the strip's cells (§3.10): `W = max(container width, G_L + 8 + slotMin·n)`. No year or quarter
+  tick reaches it ("2025" is 26.4 px); a ticker can (E251, §0.5): five glyphs take 37 px, six take 44.
+- A chart with labelled marks takes the narrowest whole-pixel width, at most `G_L + 8 + 42·n`, at which A4 finds a tier
+  for every labelled panel (§0.5), and `W = max(container width, that width)`. A chart whose labels no slot up to 42 px
+  holds keeps its minimum, as does one whose minimum is already 42 px or more.
 - When W exceeds the container, the SVG scrolls horizontally inside its card (the existing `useOverflowRegion`
   viewport); the page never scrolls sideways.
 - Measured: at 1280 no chart scrolls. In the 390 px phone run, charts scroll inside their cards with 0 sideways page
@@ -1062,8 +1150,9 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | `#E8927C` (`chart-4-dark`) | −51.9 / 6.17 | final (on the dark card the light hex is −36.9) |
 | `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
 | `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
+| `context` | A bar chart's context bars, every bar it sets beside the one it is about (E251), solid, never an opacity; no palette slot | `#968A78` (`chart.context.light`) | 58.3 / 3.24 | `#AFA391` (`chart.context.dark`) | −49.7 / 5.92 | E251's default, for chief design (on the dark card the light hex is −36.8) |
 | `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | the engine's `cursor` (`charts/theme.ts`) |
-| `tip` | Tooltip surface and border (specified, not yet verified) | DS `chart.tip` | | DS `chart.tip` | | DS |
+| `tip` | Tooltip surface and border (specified, not yet verified) | the Card recipe: `panel-light`, `border-light`, `shadow-e2` | — | `panel-dark`, a `white/10` hairline, no shadow | — | DS Card / panel (`chart.tip` retired, E255) |
 
 **Thresholds.**
 
@@ -1117,10 +1206,25 @@ was the DS's `barCursorProps` and now names the engine's own `cursor`, and the t
 names in `Chart.tsx` is gone, so the renderer's `cursor` and `figure` hold those values alone. The renderer's tooltip
 takes the Card recipe's surface and border, so the `tip` row's `chart.tip`, like `chart.crosshair`, has no reader;
 E255 retires both tokens.)
+(E255, 2026-10-31: `chart.crosshair` and `chart.tip` are retired from `tailwind.config.js`, and the `tip` row names
+the Card recipe the renderer's tooltip takes. The built CSS held no class of either token before or after.)
+(E251, 2026-10-31: the `context` row is new, `chart.context` in `tailwind.config.js`, for the ranked company chart's other
+companies. It is a solid ink because a fade paints the ink blended with whatever lies behind it, which no token holds to
+a floor: the retired Sector peers panel's `flat` at 45% composited to `#BABDC1` (Lc 32.8 on the card, 26.7 under the
+wash) and `#57606D` (−16.7, −13.4), while its computed `fill`, all D6 then read, showed the full grey. D6 now fails a
+fade (§6). The marks floor holds it on the card and under the column wash in both themes
+(`chart-apca.spec.ts`), with 52.2 and −46.4 under the wash; in light it is lighter and greyer than chart-1 (OKLCH chroma
+0.030 against 0.080), and in dark it measures chart-1-dark's Lc, since the floor sits about 1 Lc under it there, so it
+differs by chroma and hue alone. It is 3.24:1 on the light card and 3.05:1 on cream, the 3:1 a non-text mark needs (DS §1),
+and ΔE76 22 from the light zero rule and 18 from the dark one, so a 2 px stub stays visible on the rule. Its light hex is
+−36.8 on the dark card, so it needs its dark half, as every series does.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
-where shapes, legend order and printed values back it up.
+where shapes, legend order and printed values back it up. The context ink sits deutan 17 / protan 9 from chart-1 in light
+and 15 / 9 in dark, under that weakest pair, as any ink at the floor with as little chroma does (the best found at chroma
+0.03 or less measures 18 / 9), so colour alone cannot tell a context bar from the bar a chart is about for a colour-blind
+reader: a context bar also takes the growth bars' narrower width (§3.7, the precedent for telling bars apart).
 
 **All tokens resolve to literal hex/rgba strings before render.** No `var(--…)` reaches an SVG attribute, so
 serialisation cannot lose them.
@@ -1712,7 +1816,7 @@ strip.
 | A3 | Percent outlier clip (margins, growth): sets `yPlot` and the `below`/`above` states | §3.4 |
 | A1 / A1b | Domain, step and ticks per panel from in-range values and the panel's fixed interval cap; small-crossing room | §3.1 |
 | A2 | Unit and decimals per axis; tick text; left gutter G_L | §3.1 |
-| A7 | Width, slot and scroll (minimum slot 36 px; a labelled chart up to 42 px) | §3.7 |
+| A7 | Width, slot and scroll (minimum slot 36 px, or the widest x tick + 4; a labelled chart up to 42 px) | §3.7 |
 | A3b | Off-scale band: items, rows and positions at each clipped edge | §3.4 |
 | A6 | Layout bands: panel tops and heights from view, mode, chart and off-scale rows | §3.7 |
 | A4 | Bar-label tier per panel (top line: d0 down to 0; growth: 1, 0), tested in 2-D | §4.1 |
@@ -1825,10 +1929,10 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | M3 | model | One unit and one d per axis; no `$0.00`; zero label is exactly `$0`/`0%`; no M/B mix; no $ tick with ≥ 4 integer digits | mixed units, "$1,000M" |
 | M4 | model | Tick intervals ≤ the panel's cap; gridline spacing ≥ h/(cap + 0.1) (≥ 17 px) in every panel and view | crowded ticks |
 | M5 | model | G_L ≥ max tick px + 8 and ≥ 36 | clipped tick labels |
-| M6 | model | slot ≥ 36 px (a labelled chart: the narrowest width up to 42 px a period with an A4 tier); if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values |
+| M6 | model | slot ≥ max(36, the widest x tick line + 4) px (a labelled chart: the narrowest width up to 42 px a period with an A4 tier, none past a wider minimum), so each tick line keeps 2 px each side in its column; if the container is narrower, `scroll = true` and W is that width | text collisions, dropped values, a ticker past its column |
 | M7 | model | Every null plotted value has a band letter; every off-scale line point has an A3b item with its true value; every clipped growth bar has a break mark and its true value as its label; band letters = footnote letters = data-note letters that touch plotted values; no ↑/↓ in the band | silent gaps, orphan notes, hidden values |
 | M8 | model | H identical for W ∈ {342, 502, 1030}; H = 320 on the card; ticks and tick text identical for card and expanded | CLS, grid misalignment, export ≠ screen |
-| M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; no gain, loss or brand token in any mark | colour misuse |
+| M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; a bar chart's context bars take the context ink, their mark keeping its slot (E251); no gain, loss or brand token in any mark | colour misuse |
 | M10 | model | For every same-panel series pair and period, the drawn y order equals the true order (0 false orderings) | dual-axis misordering |
 | M11 | model | Clipping only on margins and growth panels; the clipped set equals the A3 output; no $ panel clipped | hidden dollars |
 | M12 | model | Every SVG string ⊆ G2; † only as a notes-band glyph (and as the key of its footnote line), and since E194 (D-061) nowhere: no band cell or footnote mark is †; no † in any legend item, caption, label or title; no `[0-9$%BMKT]\s?†` anywhere (SVG, legend, footnotes, KPI strip) | missing glyphs, † on names and numbers |
@@ -1844,9 +1948,9 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | D1 | DOM | Every `<text>` `getBBox()` lies inside the SVG viewBox, inset 1 px (ascent and descent included) | "Fiscal year" clipping |
 | D2 | DOM | No two `<text>` bboxes intersect | label collisions |
 | D3 | DOM | No note glyph (band letters, †) and no ↑/↓ inside any plot rect; text inside a plot rect is limited to bar labels, A13b labels and the `—`/`n/m` state glyphs on the zero rule | stacked "a" markers |
-| D4 | DOM | Every element with a series-colour fill or stroke has `data-series` and `data-period` (marks, off-scale arrows), or is a legend or strip swatch; count of others = 0 | coloured right-axis bar |
+| D4 | DOM | Every element with a series-colour or context-ink fill or stroke has `data-series` and `data-period` (marks, off-scale arrows), or is a legend or strip swatch; count of others = 0 | coloured right-axis bar |
 | D5 | DOM | Every y tick label's right edge < G_L; no text right of the plot except the right pad; no axis domain path, tick line or tag element exists | second axis, spine, tag |
-| D6 | DOM | Computed colours meet the §3.8 APCA thresholds against «t.surface» in both themes, including the card's HTML subtitle, legend and footnotes | low contrast |
+| D6 | DOM | Computed colours meet the §3.8 APCA thresholds against «t.surface» in both themes, including the card's HTML subtitle, legend and footnotes, each `tspan` read as a paint of its own; and no paint in a plot is faded: a computed opacity under 1, a filter, a mask or a blend mode other than `normal` on it or on a group up to the SVG, or its own fill or stroke opacity under 1, fails whatever sets it (E251) | low contrast; a faded mark its computed colour does not show |
 | D7 | DOM | Marker count = valued and zero in-domain points on line series; isolated points visible | invisible points |
 | D8 | DOM | For every `<text>`, `getComputedTextLength()` = 0.6 × 11 × chars ± 0.5 px | fallback font |
 | D9 | DOM | Card heights identical before and after hydration and across each grid row; no sideways page scroll at 390 px | layout shift |

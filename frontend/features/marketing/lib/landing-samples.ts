@@ -134,12 +134,12 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
   // No prior filing id is known statically; the live report links to the real prior 10-K.
   prior_filing: null,
   metrics: {
-    headline: 'Revenue, net income and diluted EPS all rose against the prior fiscal year.',
+    headline: 'Revenue, net income and EPS (diluted) all rose against the prior fiscal year.',
     data_quality: 'ok',
     items: [
       { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 6.4, current: 416161e6, prior: 391035e6, display: '+6.4%', tone: 'gain' },
       { metric: 'net_income', label: 'Net income', direction: 'up', pct: 19.5, current: 112010e6, prior: 93736e6, display: '+19.5%', tone: 'gain' },
-      { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 22.7, current: 7.46, prior: 6.08, display: '+22.7%', tone: 'gain' },
+      { metric: 'eps_diluted', label: 'EPS (diluted)', direction: 'up', pct: 22.7, current: 7.46, prior: 6.08, display: '+22.7%', tone: 'gain' },
     ],
   },
   reporting_currency: 'USD',

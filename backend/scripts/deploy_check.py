@@ -229,6 +229,7 @@ def check_dependencies():
         ("pydantic_settings", "pydantic_settings"),
         ("PyJWT", "jwt"),
         ("passlib", "passlib"),
+        ("argon2-cffi", "argon2"),
         ("stripe", "stripe")
     ]
     

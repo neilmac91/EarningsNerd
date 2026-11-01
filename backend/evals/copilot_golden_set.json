@@ -11,6 +11,7 @@
       "verified": true,
       "period_of_report": "2025-09-27",
       "reporting_currency": "USD",
+      "excerpt_source": {"outcome": "native", "sections": ["financials", "mda", "risk"]},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {
@@ -46,6 +47,7 @@
       "verified": true,
       "period_of_report": "2024-12-31",
       "reporting_currency": "USD",
+      "excerpt_source": {"outcome": "native", "sections": ["financials", "mda", "risk"]},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {
@@ -81,6 +83,7 @@
       "verified": true,
       "period_of_report": "2025-06-30",
       "reporting_currency": "USD",
+      "excerpt_source": {"outcome": "native", "sections": ["financials", "mda", "risk"]},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {
@@ -116,6 +119,7 @@
       "verified": true,
       "period_of_report": "2026-03-31",
       "reporting_currency": "CNY",
+      "excerpt_source": {"outcome": "native", "sections": ["mda", "risk"], "basis": "Item 18 parses to 761 characters, a stub the native assembler backfills with a dense window of the document (tasks/review-evidence/e28-native-sections-2026-10-15/copilot_sources_parity.txt)."},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {
@@ -145,6 +149,7 @@
       "verified": true,
       "period_of_report": "2025-03-31",
       "reporting_currency": "CNY",
+      "excerpt_source": {"outcome": "native", "sections": ["risk"], "basis": "Its financial statements parse to 847 characters and Item 5 to 2,219, stubs the native assembler backfills with dense windows of the document (tasks/review-evidence/e28-native-sections-2026-10-15/copilot_sources_parity.txt)."},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {
@@ -174,6 +179,7 @@
       "verified": true,
       "period_of_report": "2025-12-31",
       "reporting_currency": "EUR",
+      "excerpt_source": {"outcome": "fallback", "fallback_reason": "sections_not_supplied", "basis": "ASML's 20-F is 24.9 million characters, over the section parser's 16-million-character cap, so no section text reaches the builder and its excerpt is the regex fallback over the fetched document; parsed, it yielded no sections either (RUNBOOK, Gotchas; tasks/review-evidence/e28-native-sections-2026-10-15/parse_results.jsonl)."},
       "notes": "Exact numeric question independently checked against this accession's primary SEC statement on 2026-09-05. This does not certify the pending historical QA.",
       "qa": [
         {

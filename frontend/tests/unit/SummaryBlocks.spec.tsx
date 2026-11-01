@@ -165,7 +165,7 @@ describe('SummaryBlocks', () => {
     for (const text of ['Stock awards', 'Expense over vesting', 'Extra supplied field', 'Short row']) {
       expect(within(first).getByText(text, { exact: true })).toBeInTheDocument()
     }
-    expect(within(first).getAllByRole('link', { name: 'Source: Quote found in filing (opens in a new tab)' })).toHaveLength(2)
+    expect(within(first).getAllByRole('link', { name: 'Quote found in filing, source (opens in a new tab)' })).toHaveLength(2)
     const second = screen.getByRole('table', { name: 'Notable Footnotes, table 2 of 2' })
     expect(within(second).queryAllByRole('columnheader')).toHaveLength(0)
     expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Unlabelled value', 'Second cell'])

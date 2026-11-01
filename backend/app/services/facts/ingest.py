@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, Filing
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
-from app.services.facts.currency import demote_convenience_rows
+from app.services.facts.currency import demote_convenience_rows, payload_view, protected_rows
 from app.services.facts.sync_threads import run_to_completion, submit
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
@@ -54,15 +54,15 @@ def _companyfacts_fresh_result(
 def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Normalize and persist one already-fetched payload in the caller's short transaction; each
-    native-currency row demotes its current USD twin, whatever its source or filing, and a native
-    ratio stored behind a USD-derived one takes its place (rows demoted, never deleted or rewritten)."""
+    """Normalize and persist one fetched payload in the caller's short transaction, deleting nothing: the
+    upsert, then the currency step (``demote_convenience_rows``), both main's for a sync in USD alone; else a
+    newer filing's row holds its key on both (``protected_rows``), and a proven switch writes nothing."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
-    facts, meta = normalize_companyfacts(
-        company_id, payload, financial_sic=_is_financial_sic(company.sic)
-    )
-    result = upsert_facts_bulk(db, facts, history=meta["history"], commit=False)  # all-zero for an empty batch
-    result["demoted"] += demote_convenience_rows(db, facts)
+    facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
+    guard = protected_rows(db, facts, view := payload_view(payload))  # the view is pure; this takes the row lock
+    batch, history = ([], []) if guard.switch else (facts, meta["history"])  # a proven switch writes nothing
+    result = upsert_facts_bulk(db, batch, history=history, commit=False, protected=guard.kept)  # [] is all-zero
+    result["demoted"] += demote_convenience_rows(db, facts, view, guard)
     company.facts_synced_at = utcnow()
     db.commit()
     logger.info(

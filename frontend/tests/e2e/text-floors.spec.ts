@@ -7,6 +7,7 @@ import { settled, textContrast } from './fixtures/contrast'
 import { answerAnalysisApi, runAnalysis } from './fixtures/analysisLayoutApi'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
+import { asCompany, PEERS } from './fixtures/companyPeersApi'
 import { answerSearch, runSearch } from './fixtures/searchApi'
 import { AUTH_ROUTES, isAuthRoute } from '../../lib/authShellRoutes'
 import { STATIC_ENTRIES } from '../../app/sitemap'
@@ -91,6 +92,10 @@ async function answerSiteApi(page: Page, baseURL: string, signedIn: boolean) {
         return json(200, { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' })
       case '/api/filings/company/AAPL':
         return json(200, [companyFiling(11, '10-K', '2025-10-31', '2025-09-27'), companyFiling(12, '10-Q', '2025-08-01', '2025-06-28'), companyFiling(14, '10-K', '2024-11-01', '2024-09-28')])
+      case '/api/companies/AAPL/peers':
+        // The company page's Sector peers panel (E251), on the peers fixture's spread with Apple as its subject, so the
+        // census reads the panel's text in both themes.
+        return json(200, asCompany(PEERS.cases.spread.response, 'AAPL', 'Apple Inc.'))
       case '/api/auth/me':
         return signedIn
           ? json(200, { id: 1, email: 'jordan@example.com', full_name: 'Jordan Whitaker', is_pro: false, is_beta: false, is_admin: false, email_verified: true })
@@ -128,7 +133,17 @@ type Route = {
 const ROUTES: Route[] = [
   { name: 'home', path: '/', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'pricing', path: '/pricing', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Pricing' })).toBeVisible() },
-  { name: 'company', path: '/company/AAPL', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('button', { name: /^Report year 2025\b/ })).toBeVisible() },
+  {
+    name: 'company',
+    path: '/company/AAPL',
+    open: (p, b) => answerSiteApi(p, b, false),
+    ready: async (p) => {
+      await expect(p.getByRole('button', { name: /^Report year 2025\b/ })).toBeVisible()
+      // The Sector peers panel lands after its own read (E251): the census waits for its plot, so it measures the panel.
+      await expect(p.getByRole('heading', { level: 2, name: 'Sector peers', exact: true })).toBeVisible()
+      await expect(p.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+    },
+  },
   { name: 'filing', path: '/filing/3', open: (p, b) => answerApi(p, b, 'anon'), ready: (p) => expect(p.getByText('On this page')).toBeVisible() },
   {
     name: 'dashboard',

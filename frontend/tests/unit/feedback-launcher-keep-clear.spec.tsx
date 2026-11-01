@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
@@ -164,7 +164,7 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
         <FeedbackWidget />
       </QueryClientProvider>,
     )
-    const launcher = await screen.findByRole('button', { name: 'Send feedback' })
+    const launcher = await screen.findByRole('button', { name: 'Feedback' })
     flush() // the check queued on mount
     return launcher
   }
@@ -183,13 +183,28 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
     expect(launcher).not.toHaveClass('focus:opacity-100')
     expect(launcher).not.toHaveClass('focus:pointer-events-auto')
     // It stays in the accessibility tree with its name, and keeps its place: one fixed site at z-30.
-    expect(screen.getByRole('button', { name: 'Send feedback' })).toBe(launcher)
+    expect(screen.getByRole('button', { name: 'Feedback' })).toBe(launcher)
     expect(launcher).toHaveClass('fixed', 'z-30')
 
     region = { left: 16, top: 900, width: 358, height: 200 }
     fireEvent(window, new Event('resize'))
     flush()
     for (const name of [...yieldClasses, 'focus-visible:opacity-100']) expect(launcher).not.toHaveClass(name)
+  })
+
+  it('is named by its word, open or closed: no aria-label, and below sm the word is sr-only, never display: none', async () => {
+    // Label in name (WCAG 2.5.3; chief design on #1884): the launcher shows "Feedback" and is named by it, and
+    // aria-expanded says whether its dialog is open. `hidden sm:inline` would take the word out of the name below sm and
+    // leave the button unnamed there; jsdom applies no stylesheet, so the classes are the claim at that width.
+    const launcher = await renderWidget()
+    expect(launcher).not.toHaveAttribute('aria-label')
+    expect(launcher).toHaveAccessibleName('Feedback')
+    expect(within(launcher).getByText('Feedback')).toHaveClass('sr-only', 'sm:not-sr-only')
+    expect(within(launcher).getByText('Feedback')).not.toHaveClass('hidden')
+    fireEvent.click(launcher)
+    expect(await screen.findByRole('dialog', { name: 'Send feedback' })).toBeInTheDocument()
+    expect(launcher).toHaveAccessibleName('Feedback')
+    expect(launcher).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('fades on the fast motion token, and not at all under reduced motion', async () => {

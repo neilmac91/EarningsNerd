@@ -2709,7 +2709,7 @@ const DIALOG_HEADERS = [
     icon: false,
     title: 'Send feedback',
     open: async (p: Page, dialog: Locator) => {
-      await p.getByRole('button', { name: 'Send feedback', exact: true }).click()
+      await p.getByRole('button', { name: 'Feedback', exact: true }).click()
       await expect(dialog).toBeVisible()
     },
   },

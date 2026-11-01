@@ -7,7 +7,8 @@
    own note letter where that note questions the number (D-061), value and YoY notes independent. Every fixture dataset
    and chart, plus synthetic notes. The golden
    plans (chart-engine.spec.ts) carry the six golden datasets' announcements. The core under them, `readouts`, reads any
-   model through a describer: every bar chart case (barChart.ts, E195 (D)) with Financial trends' own.
+   model through a describer: every bar chart case (barChart.ts, E195 (D)) with Financial trends' own, and every ranked
+   company chart (E251) with the Sector peers panel's, whose context bars' rows say so, for their swatches.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -20,7 +21,10 @@ import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { slotsOf, trendDescriber } from '@/features/fundamentals/lib/trendChart'
-import { barCases, barSeries, withMixedNotes, type BarFixture } from './chartPlan'
+import { drawn } from '@/features/peers/lib/cohort'
+import { peerChart } from '@/features/peers/lib/peerChart'
+import { formatCompanyName } from '@/lib/formatCompanyName'
+import { barCases, barSeries, peerBarCases, withMixedNotes, type BarFixture, type PeerFixture } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
 const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -232,7 +236,7 @@ describe('the core reads any model through a describer: every bar chart case (ba
       .toBe('FY2025, year ended September 27, 2025. Current ratio: 0.89 times, calculated.')
     const eps = coreReadouts(model('Penny diluted EPS'), financialTrends('Penny diluted EPS'))
     expect(eps.map((readout) => readout.rows[0].text)).toEqual(['$0.31', 'Unavailable', '−$0.12'])
-    expect(eps[2].announcement).toBe('FY2025, year ended December 31, 2025. Diluted EPS: minus $0.12.')
+    expect(eps[2].announcement).toBe('FY2025, year ended December 31, 2025. EPS (diluted): minus $0.12.')
     expect(coreReadouts(model('Extreme net margin'), financialTrends('Extreme net margin'))[0].rows[0].text).toBe('−18,093% (off scale) · Calculated')
   })
 
@@ -240,5 +244,41 @@ describe('the core reads any model through a describer: every bar chart case (ba
     expect(periodHeader('FY2025', 'year', '2025-09-27')).toEqual({ shown: 'FY2025 · year ended Sep 27, 2025', spoken: 'FY2025, year ended September 27, 2025' })
     expect(periodHeader('Q2 2026', 'quarter', '2026-06-30').shown).toBe('Q2 2026 · quarter ended Jun 30, 2026')
     expect([periodHeader('FY2025', 'year', null), periodHeader('FY2025', 'year', 'unknown')]).toEqual([{ shown: 'FY2025', spoken: 'FY2025' }, { shown: 'FY2025', spoken: 'FY2025' }])
+  })
+})
+
+describe('a ranked company chart’s readouts (E251): a company a readout, through the Sector peers panel’s describer', () => {
+  const FIXTURE_PEERS = JSON.parse(readFileSync('tests/unit/fixtures/peers-cohorts.json', 'utf8')) as PeerFixture
+  // Every cohort the panel shows, as its own builder draws it (features/peers/lib/peerChart.ts).
+  const PEERS = peerBarCases(FIXTURE_PEERS)
+
+  it.each(PEERS.map(([name]) => name))('%s', (name) => {
+    const answer = FIXTURE_PEERS.cases[name].response
+    const { model: m, reads: all } = peerChart(answer)
+    const entries = drawn(answer)
+    const ranked = answer.peers.filter((entry) => entry.value != null).length
+    const [panel] = m.panels
+    const [mark] = panel.marks
+    expect(all.map((readout) => readout.period)).toEqual(m.periods.map((period) => period.key))
+    all.forEach((readout, i) => {
+      const point = mark.points[i]
+      const entry = entries[i]
+      // The tooltip heads a company with its ticker, its name (two companies can answer one ticker), its rank over the
+      // companies with a value (on one line, its spaces no-break) and its own fiscal year, which can differ by company;
+      // the values stop says its name, its
+      // ticker, "this company" for the one the page is about, its rank and its year (no "·", "#" or unit letter).
+      expect(readout.header).toBe(`${entry.ticker} · ${formatCompanyName(entry.company_name)} · #${entry.rank}\u00a0of\u00a0${ranked} · FY${entry.fiscal_year} · year ended ${periodEndText(entry.period_end)}`)
+      const spoken = `${formatCompanyName(entry.company_name)}, ${entry.ticker}, ${entry.is_subject ? 'this company, ' : ''}rank ${entry.rank} of ${ranked}, FY${entry.fiscal_year}, year ended ${periodEndText(entry.period_end, true)}. ${mark.label}: `
+      expect(readout.announcement.startsWith(spoken), `${point.period}: "${readout.announcement}"`).toBe(true)
+      expect(readout.announcement).not.toMatch(/[·#]/)
+      const [row] = readout.rows
+      expect([readout.rows.length, row.seriesKey, row.label, row.color, row.swatch]).toEqual([1, mark.seriesKey, mark.label, 0, 'bar'])
+      // A context bar's row carries the flag its swatch paints by (LegendSwatch, E236), and only that row.
+      expect(row.context, `${point.period}: the row is its bar’s`).toBe(point.context)
+      expect(row.value).toBe(point.value == null ? null : panel.axis.format.tip(point.value))
+      // A figure the backend derived (a margin) reads "Calculated", from its own provenance.
+      expect(row.calculated, `${point.period}: calculated as its provenance says`).toBe(entry.provenance?.method === 'calculated')
+    })
+    expect(all.some((readout) => readout.rows[0].context) && all.some((readout) => !readout.rows[0].context), 'a subject and a context company').toBe(true)
   })
 })

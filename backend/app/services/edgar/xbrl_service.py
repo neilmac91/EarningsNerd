@@ -204,7 +204,7 @@ class EdgarXBRLService:
                 # Empty/legacy malformed snapshots must not suppress a real extraction.
                 return payload if isinstance(payload, dict) and any(
                     isinstance(payload.get(key), list) and payload[key]
-                    for key in ("revenue", "net_income", "earnings_per_share", "total_assets",
+                    for key in ("revenue", "net_income", "earnings_per_share", "eps_diluted", "total_assets",
                                 "total_liabilities", "cash_and_equivalents", "net_interest_income",
                                 "noninterest_income")
                 ) else None

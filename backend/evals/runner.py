@@ -76,9 +76,37 @@ def _grounding_user_prompt(
 _XBRL_TEXT_CHAR_CAP = 40_000
 
 
+def _fact_without_accession(fact: Any) -> Any:
+    """A standardized fact without ``accn``, the filing that recorded it, in itself and in the operands a ratio
+    copies whole (ROE's and ROA's ``numerator`` and ``denominator``)."""
+    if not isinstance(fact, dict):
+        return fact
+    return {key: _fact_without_accession(value) if key in ("numerator", "denominator") else value
+            for key, value in fact.items() if key != "accn"}
+
+
+def _without_accession(entry: Any) -> Any:
+    """A standardized metric without the filing each of its facts records: ``build_metric_entry``'s shape, a
+    ``series`` whose first two facts are also its ``current`` and ``prior``.
+
+    Standardized facts carry ``accn`` since E184, so the figure check can refuse a fact another filing recorded;
+    production's grounding prints none, so the judge and the candidates read the bytes they read before. Every
+    value stays. Anything else passes as extracted: segments, the reporting currency, the financing comparison
+    source, and the debt observations, whose own ``accn`` was model input before E184."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("series"), list):
+        return entry
+    return {
+        key: [_fact_without_accession(fact) for fact in value] if key == "series"
+        else _fact_without_accession(value) if key in ("current", "prior") else value
+        for key, value in entry.items()
+    }
+
+
 def _model_metrics(metrics: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Internal applicability metadata never consumes model grounding budget."""
-    return {key: value for key, value in metrics.items() if key != "financial_classification"} if metrics else metrics
+    """Internal applicability metadata and each standardized fact's filing never consume model grounding budget."""
+    return {
+        key: _without_accession(value) for key, value in metrics.items() if key != "financial_classification"
+    } if metrics else metrics
 
 
 def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:

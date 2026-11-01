@@ -221,10 +221,12 @@ function AccountFeedback({ readerId }: { readerId: number }) {
           (`focus-visible:`: a Tab, an Escape close, any key); a focus Modal returns after a pointer close (Send, the
           close button, a scrim tap) does not, so it never comes back opaque and tappable over the figures as the
           reader scrolls on. */}
+      {/* Named by its word, "Feedback", at every width (WCAG 2.5.3; chief design on #1884): below sm the word is sr-only
+          rather than display: none, so it stays in the name, and aria-expanded and aria-haspopup say whether the
+          dialog is open. */}
       <button
         ref={launcherRef}
         type="button"
-        aria-label={open ? 'Close feedback' : 'Send feedback'}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
@@ -232,7 +234,7 @@ function AccountFeedback({ readerId }: { readerId: number }) {
         className={cx(LAUNCHER_CLASS, yielding && !open && 'pointer-events-none opacity-0 focus-visible:pointer-events-auto focus-visible:opacity-100')}
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
-        <span className="hidden sm:inline">Feedback</span>
+        <span className="sr-only sm:not-sr-only">Feedback</span>
       </button>
     </>
   )

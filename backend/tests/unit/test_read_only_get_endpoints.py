@@ -248,13 +248,31 @@ SEC_COORDINATION_WRITE_SITES = {
     "app/services/sec_request_gate.py::PostgresRequestGate.try_defer": {"execute": 1},
     "app/services/sec_request_gate.py::record_response_async": {"create_task": 1},
 }
-# Exact reviewed code, excluding comments/docstrings and source positions.
+# Exact reviewed code, excluding comments/docstrings and source positions, in
+# _canonical_dump's form: on these two files it reads the same on Python 3.11 to
+# 3.13. Re-pin on CI's Python 3.11.
 # The owner pins all imports too: rebinding SECRequestGate to a domain model
 # must not pass just because the four side-effect counts stayed unchanged.
 SEC_COORDINATION_CODE_PINS = {
-    "app/services/sec_request_gate.py": "df1035f2ad42ca0997ffcabcde0b4b528987891cff9c6c3d1e3b8f8c498ea9fb",
-    "app/models/sec_request_gate.py": "028c9504de661dde54fd8c2c39e4920357ce96cecb45adabb4bca180afa8c00b",
+    "app/services/sec_request_gate.py": "20e6a88913aeeb1169d1dd22cf7622b1b07be601f2d5a4ca857f20da21ef81dd",
+    "app/models/sec_request_gate.py": "1c1545b2c1f3dde4fccdbd4c1fd60d436f00ad651228ba3992c9c6c7b3bd04fd",
 }
+
+
+def _canonical_dump(node: object) -> str:
+    """ast.dump's shape with every field that is None or an empty list left out. It removes the differences in
+    ast.dump's own output between versions: 3.12 added type_params, empty on code that declares none, and 3.13 leaves
+    out None and empty-list fields by default (though not a Constant's or a MatchSingleton's None, which this drops
+    too). It does not remove a difference in the tree itself: 3.12 parses a nested f-string format spec with an extra
+    empty Constant, so a pinned file holding one would hash apart across versions. It loses nothing: each field's type
+    tells None from an empty list, and ast.parse never puts the one where the other belongs."""
+    if isinstance(node, ast.AST):
+        fields = ", ".join(f"{name}={_canonical_dump(value)}" for name, value in ast.iter_fields(node)
+                           if value is not None and value != [])
+        return f"{type(node).__name__}({fields})"
+    if isinstance(node, list):
+        return "[" + ", ".join(_canonical_dump(item) for item in node) + "]"
+    return repr(node)
 
 
 def _code_digest(path: Path) -> str:
@@ -264,7 +282,7 @@ def _code_digest(path: Path) -> str:
             if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) \
                     and isinstance(node.body[0].value.value, str):
                 node.body = node.body[1:]
-    return hashlib.sha256(ast.dump(tree, include_attributes=False).encode()).hexdigest()
+    return hashlib.sha256(_canonical_dump(tree).encode()).hexdigest()
 
 
 def _sec_coordination_contract_problems() -> list[str]:

@@ -162,7 +162,7 @@ describe('NarrativePane readable evidence', () => {
     const evidence = screen.getByRole('list', { name: 'Figures behind this finding', hidden: true })
     expect(evidence).toHaveTextContent('$1.746B')
     expect(evidence).toHaveTextContent('Q2 2026')
-    expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/Citation 1:/)
+    expect(within(evidence).getByRole('button', { hidden: true })).toHaveAccessibleName(/1\. Citation:/)
     expect(evidence.closest('details')).toBeNull()
   })
 
@@ -270,7 +270,7 @@ describe('NarrativePane readable evidence', () => {
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('26.1% (26.065360767092645%)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('1.00004× (1.00004 ratio)')
     // A legacy calculation's note is about its record, not its number: no letter on the chip or in its name (D-061).
-    const chip = screen.getByRole('button', { name: 'Citation 1: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%)' })
+    const chip = screen.getByRole('button', { name: '1. Citation: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%)' })
     expect(chip).toHaveAttribute('title', 'Net margin · Q2 2026 · 26.1% (26.065360767092645%) · XBRL · net_margin')
     expect(chip.querySelector('[data-note-kind]')).not.toBeInTheDocument()
     const source = document.getElementById('analysis-source-1')!
@@ -287,9 +287,11 @@ describe('NarrativePane citation chips', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<NarrativePane state={state} />)
     expect(screen.getByText('1 source')).toBeInTheDocument()
-    const notesButton = screen.getByRole('button', { name: 'Review data notes a' })
+    const notesButton = screen.getByRole('button', { name: 'Notes a' })
+    // Named by its face (E68 (3)): no aria-label stands in for the words it shows.
+    expect(notesButton).not.toHaveAttribute('aria-label')
     expect(document.getElementById('analysis-source-1')?.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /1\. Citation:.*data note a/ })).toBeInTheDocument()
     fireEvent.click(notesButton)
     const note = document.getElementById('analysis-data-note-a')!
     expect(note.closest('details')).toHaveAttribute('open')
@@ -318,11 +320,11 @@ describe('NarrativePane citation chips', () => {
     // The citation-only concern stays the narrative's: the report's line names one note.
     expect(reportSummary).not.toHaveTextContent('not yet matched to the filing')
     expect(reportSummary.querySelectorAll('[data-note-letter]')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: /Citation 1:.*data note b/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /1\. Citation:.*data note b/ })).toBeInTheDocument()
     expect(document.querySelectorAll('#analysis-data-note-a')).toHaveLength(1)
     expect(document.querySelectorAll('#analysis-data-note-b')).toHaveLength(1)
     const note = document.getElementById('analysis-data-note-b')!
-    fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Notes b' }))
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
     expect(note).toHaveTextContent('Not yet matched to the filing')
@@ -332,7 +334,7 @@ describe('NarrativePane citation chips', () => {
     passed.series[0].points[0].provenance!.reasons = []
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
+    expect(screen.getByRole('button', { name: /1\. Citation:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not yet matched to the filing')
   })
 
@@ -343,13 +345,13 @@ describe('NarrativePane citation chips', () => {
 
   it('renders a chip for a resolved [1] marker', () => {
     render(<NarrativePane state={doneState()} />)
-    const chip = screen.getByRole('button', { name: /citation 1: xbrl · us-gaap:revenues/i })
+    const chip = screen.getByRole('button', { name: /1\. citation: xbrl · us-gaap:revenues/i })
     expect(chip).toHaveTextContent('[1]')
   })
 
   it('scrolls to and flashes the matching Sources row when a chip is clicked', () => {
     render(<NarrativePane state={doneState()} />)
-    const chip = screen.getByRole('button', { name: /citation 1/i })
+    const chip = screen.getByRole('button', { name: /1\. citation/i })
     const sourceRow = document.getElementById('analysis-source-1')
     expect(sourceRow).not.toBeNull()
 
@@ -365,7 +367,7 @@ describe('NarrativePane citation chips', () => {
     })
     render(<NarrativePane state={state} />)
     expect(screen.getByText(/\[2\]/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /2\. citation/i })).not.toBeInTheDocument()
   })
 
   it("says what the run is doing in its heading's group while it streams", () => {
@@ -383,7 +385,7 @@ describe('NarrativePane citation chips', () => {
   it('does not inject chips while streaming (raw markers stay plain text)', () => {
     render(<NarrativePane state={{ status: 'streaming', text: 'Revenue grew [1]', stage: 'writing' }} />)
     expect(screen.getByText(/\[1\]/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /citation 1/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /1\. citation/i })).not.toBeInTheDocument()
   })
 
   it('shows mismatch and removed-reference warnings without calling source entries verified', () => {

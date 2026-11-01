@@ -351,16 +351,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   bindings and the control's whole face). The amendment link carries the brand focus ring.
 - **Company page** (`frontend/app/company/[ticker]/page-client.tsx`,
   `features/companies/components/CompanySearch.tsx`, `features/insiders`,
-  `features/fundamentals`, `features/filings/components/FilingsHistoryNote.tsx`,
+  `features/fundamentals`, `features/peers`, `features/filings/components/FilingsHistoryNote.tsx`,
   `features/filings/components/FilingIndex.tsx`): a company that fails
   to load says "Couldn’t load this company" with "Try again" and never prints the raw error; only a 404
   reads "Company not found", an answer in the empty card (the error card stays for the load failure),
   with the search's scope ("No company with a ticker on SEC EDGAR matches
   …"). The watched star keeps the button's own ink, its fill and `aria-pressed` carrying the state. The
   search field reads "Search company or ticker" everywhere (the landing's string) and its result rows
-  take the inset focus ring. Financial trends picks its metric through a compact select sized to its
-  content beside its "Metric" label (up to 23 options, in sentence case on its face); the Sector peers
-  panel and its metric picker are retired until the SIC backfill gives it cohorts (D-066); insider
+  take the inset focus ring. Financial trends picks its metric through a compact select of one width, 14rem,
+  beside its "Metric" label (up to 23 options, in sentence case on its face; E253); the Sector peers
+  panel picks its metric through the same select at the same width (nine options) and shows itself only once
+  the peers endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31 (E251); insider
   activity picks its window through the SegmentedControl; headings in sentence case; a trade's type
   carries a hidden ▲ or ▼ beside its label and the discretionary net keeps its sign; the 10b5-1 note
   says what a plan trade is; a trade's

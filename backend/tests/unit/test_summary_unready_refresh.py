@@ -162,7 +162,8 @@ def test_force_over_a_ready_row_stays_pro_only():
         response = _post(filing_id, "?force=true")
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Regenerating a summary is a Pro feature."
+    # E31: the plan gate's code beside its unchanged words.
+    assert response.json() == {"detail": "Regenerating a summary is a Pro feature.", "code": "plan_required"}
     summarize.assert_not_called()
     assert _stored(filing_id)[:2] == (stored_id, READY_BODY)
 

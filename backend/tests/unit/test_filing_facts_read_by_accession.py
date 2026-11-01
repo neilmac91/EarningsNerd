@@ -81,6 +81,10 @@ ALLOWED: dict[tuple[str, str, str], int] = {
     # Selected beside the other columns so ``evidence_kind`` keeps every filing-owned row out of the
     # companyfacts year evidence: an ownership test in Python, over a company's rows at period ends.
     ("app/services/facts/fiscal_evidence.py", "trusted_fiscal_years", "column"): 1,
+    # Selected beside the other columns of a company's rows for ``_other_derived``: a ratio stored before
+    # operands were recorded counts as USD-derived when no filing owns it (companyfacts then read only USD),
+    # an ownership test in Python on the row the currency step already holds, never a filing's figures.
+    ("app/services/facts/currency.py", "protected_rows", "column"): 1,
     # ``.isnot(None)``: the companies that hold any per-filing row, the cohort each repair walks.
     ("scripts/relabel_filing_fy_facts.py", "run", "ownership"): 1,
     ("scripts/repair_filing_lineage.py", "run", "ownership"): 1,

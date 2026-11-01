@@ -375,6 +375,96 @@ def test_sync_extraction_returns_none_when_unusable(filings):
         assert _extract_from_filing_instance_sync("0000320193", "0001-26-000003") is None
 
 
+# ---------------------------------------------------------------------------
+# E260: earnings_per_share holds a basic figure or none. A filer that tags basic EPS by share class alone, or an IFRS
+# filer with no undimensioned basic figure, has its diluted figure in eps_diluted only, never under "EPS (basic)".
+# ---------------------------------------------------------------------------
+
+_Q1_2026, _Q1_2025 = ("2026-01-01", "2026-03-31"), ("2025-01-01", "2025-03-31")
+
+
+def _eps_quarter(**eps_frames):
+    frames = {
+        "Revenues": _facts_df([(False, *_Q1_2026, 90_000.0), (False, *_Q1_2025, 80_000.0)]),
+        "NetIncomeLoss": _facts_df([(False, *_Q1_2026, 9_000.0), (False, *_Q1_2025, 8_000.0)]),
+    }
+    frames.update(eps_frames)
+    return frames
+
+
+def _extract(frames):
+    with _patch_company([FakeFiling("10-Q", "2026-03-31", FakeXBRL(frames))]):
+        return _extract_from_filing_instance_sync("0000320193", "0001-26-000004")
+
+
+def _points(series):
+    return [(point["period"], point["value"]) for point in series]
+
+
+# Class A and class B basic EPS, each tagged on the share-class axis, and no undimensioned basic figure.
+_BASIC_BY_CLASS = _facts_df([(True, *_Q1_2026, 1.30), (True, *_Q1_2026, 0.65), (True, *_Q1_2025, 1.12)])
+_DILUTED = _facts_df([(False, *_Q1_2026, 1.25), (False, *_Q1_2025, 1.10)])
+
+
+def test_basic_eps_tagged_by_share_class_alone_leaves_the_basic_key_empty():
+    result = _extract(_eps_quarter(EarningsPerShareBasic=_BASIC_BY_CLASS, EarningsPerShareDiluted=_DILUTED))
+    assert result["earnings_per_share"] == []
+    assert _points(result["eps_diluted"]) == [("2026-03-31", 1.25), ("2025-03-31", 1.10)]
+
+
+def test_an_ifrs_filer_with_diluted_eps_alone_has_no_basic_figure():
+    from types import SimpleNamespace
+
+    period = "2025-12-31"
+    frames = {
+        "ifrs-full:Revenue": _facts_df([(False, "2025-01-01", period, 900.0)]),
+        "ifrs-full:DilutedEarningsLossPerShare": _facts_df([(False, "2025-01-01", period, 2.10)]),
+    }
+
+    class Query:
+        def by_concept(self, concept, exact=True):
+            self.frame = frames.get(concept, pd.DataFrame())
+            return self
+
+        def to_dataframe(self):
+            return self.frame
+
+    with _patch_company([FakeFiling("20-F", period, SimpleNamespace(facts=SimpleNamespace(query=Query)))]):
+        result = _extract_from_filing_instance_sync("0000000001", "0001-25-000009")
+    assert result["earnings_per_share"] == []
+    assert _points(result["eps_diluted"]) == [(period, 2.10)]
+
+
+def test_one_basic_and_diluted_tag_fills_both_keys():
+    # EarningsPerShareBasicAndDiluted states both measures at once (a filer with nothing to dilute, often in a loss).
+    both = _facts_df([(False, *_Q1_2026, 0.42), (False, *_Q1_2025, 0.38)])
+    result = _extract(_eps_quarter(EarningsPerShareBasicAndDiluted=both))
+    assert _points(result["earnings_per_share"]) == _points(result["eps_diluted"]) == [
+        ("2026-03-31", 0.42), ("2025-03-31", 0.38),
+    ]
+
+
+def test_an_instance_whose_only_income_statement_fact_is_diluted_eps_still_anchors():
+    # Before E260 that figure filled earnings_per_share, which anchors the instance (_finish_instance); it now
+    # anchors through eps_diluted, so the filing keeps its own instance rather than the companyfacts fallback.
+    result = _extract({
+        "EarningsPerShareDiluted": _facts_df([(False, *_Q1_2026, 0.07)]),
+        "Assets": _facts_df([(False, None, "2026-03-31", 500_000.0)]),
+    })
+    assert result is not None
+    assert result["earnings_per_share"] == []
+    assert _points(result["eps_diluted"]) == [("2026-03-31", 0.07)]
+
+
+def test_the_summary_grounding_names_a_diluted_only_filers_figure_diluted():
+    from app.services.ai.xbrl_narrative import build_xbrl_narrative_section
+
+    raw = _extract(_eps_quarter(EarningsPerShareBasic=_BASIC_BY_CLASS, EarningsPerShareDiluted=_DILUTED))
+    grounding = build_xbrl_narrative_section(EdgarXBRLService().extract_standardized_metrics(raw))
+    assert "EPS (Diluted)" in grounding
+    assert "EPS (Basic)" not in grounding
+
+
 def test_richer_financials_extracted_only_behind_the_flag(monkeypatch):
     # Roadmap 2.6 (Phase A): the full cash-flow + working-capital lines are extracted only when
     # RICHER_FINANCIALS_ENABLED is on, so the default concept set stays byte-for-byte unchanged.
@@ -621,9 +711,8 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
                     for end, value in expected_series]
     assert raw[metric] == expected_raw
     if qualified:
-        assert standardized[metric]['series'] == [
-            {k: v for k, v in item.items() if k != 'accn'} for item in expected_raw
-        ]
+        # Each standardized fact keeps the filing it records (accn), so a comparison can refuse another's (E184).
+        assert standardized[metric]['series'] == expected_raw
     else:
         assert metric not in standardized
 
@@ -647,8 +736,7 @@ def test_selected_cash_debt_provenance_preserves_owner_values_and_queries(monkey
     converted = service.extract_standardized_metrics(legacy)
     if expected_legacy:
         assert converted['cash_and_equivalents']['series'] == [
-            {**{k: v for k, v in item.items() if k != 'accn'}, 'currency': None}
-            for item in expected_legacy
+            {**item, 'currency': None} for item in expected_legacy
         ]
     else:
         assert 'cash_and_equivalents' not in converted
@@ -737,9 +825,7 @@ def test_instance_capex_identity_reaches_grounding_without_changing_selection(mo
         ]
         assert raw['capital_expenditures'] == expected_raw
         standardized = EdgarXBRLService().extract_standardized_metrics(raw)
-        assert standardized['capital_expenditures']['series'] == [
-            {key: value for key, value in row.items() if key != 'accn'} for row in expected_raw
-        ]
+        assert standardized['capital_expenditures']['series'] == expected_raw
         grounding = build_xbrl_narrative_section(standardized)
         assert f'current source concept: {qualified}' in grounding
         assert f'prior source concept: {qualified}' in grounding

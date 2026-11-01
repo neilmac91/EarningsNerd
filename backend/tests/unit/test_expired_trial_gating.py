@@ -227,7 +227,7 @@ def test_generate_stream_downgrades_expired_trial_to_free_cap(client):
     # Paywall frame, pinned by frame-type + stable minimal substrings (#7b: not the exact copy):
     assert '"type": "error"' in resp.text
     assert "Upgrade to Pro" in resp.text                        # the stable upsell CTA
-    assert f"{FREE_TIER_SUMMARY_LIMIT} summaries" in resp.text  # blocked specifically by the Free cap
+    assert f"{FREE_TIER_SUMMARY_LIMIT} free summaries" in resp.text  # blocked specifically by the Free cap
     # And generation did NOT proceed — nothing was streamed back.
     assert '"type": "complete"' not in resp.text
     assert '"type": "chunk"' not in resp.text

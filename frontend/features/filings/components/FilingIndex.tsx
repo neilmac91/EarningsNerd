@@ -355,7 +355,9 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
           href={filing.sec_url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`View the ${filing.filing_type} filed ${filed} on SEC.gov (opens in a new tab)`}
+          // The one word the link shows from 48rem opens its name (WCAG 2.5.3; chief design on #1884). It stays an
+          // aria-label: below 48rem the word is display: none, so a hidden tail would lose it there.
+          aria-label={`SEC.gov, ${filing.filing_type} filed ${filed} (opens in a new tab)`}
           className={cx(
             // In a narrow list the square sits beside the code, at the row's top padding, not centred on the row's text.
             'absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center gap-1.5 rounded-lg',

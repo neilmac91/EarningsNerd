@@ -63,7 +63,7 @@ describe('AskFilingDemo', () => {
     render(<AskFilingDemo />)
     expect(screen.getByText(SAMPLE_ASK.question)).toBeInTheDocument()
 
-    const [total, growth, passage] = [1, 2, 3].map((n) => screen.getByRole('link', { name: new RegExp(`^Citation ${n}:`) }))
+    const [total, growth, passage] = [1, 2, 3].map((n) => screen.getByRole('link', { name: new RegExp(`^${n}\\. Citation:`) }))
     for (const chip of [total, growth, passage]) {
       expect(chip).toHaveAttribute('href', AAPL_FY25_EDGAR_URL)
       expect(chip).toHaveAttribute('target', '_blank')

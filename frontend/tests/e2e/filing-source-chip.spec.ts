@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { API_ORIGIN, DOCUMENT, EXCERPT, PANE, answerApi, type Content, type Theme, type Who } from './fixtures/filing3Api'
 
-const CHIP = 'Source: Quote found in filing'
+const CHIP = 'Quote found in filing, source'
 // The popover's link for the first chip (a takeaway whose URL carries a text fragment): its label, then a visually
 // hidden " (opens in a new tab)". `activeName` reads textContent, which holds both.
 const PASSAGE_LINK = 'Open the passage on SEC.gov (opens in a new tab)'

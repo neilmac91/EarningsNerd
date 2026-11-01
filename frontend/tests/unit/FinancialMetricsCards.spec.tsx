@@ -161,8 +161,8 @@ function factsOf(root: HTMLElement) {
     priors: all(root, '[data-metric-field="prior"]').map(text),
     changes: all(root, '[data-metric-field="change"]').map((e) => ({ text: text(e), direction: e.dataset.direction ?? null, tone: e.dataset.tone ?? null })),
     takeaways: all(root, '[data-metric-field="takeaway"]').map((e) => text(e.firstElementChild)),
-    xbrlChips: all(root, '[data-metric-field="name"] [aria-label^="Source: "]').map((e) => e.getAttribute('aria-label')),
-    takeawayChips: all(root, '[data-metric-field="takeaway"] [aria-label^="Source: "]').map((e) => e.getAttribute('aria-label')),
+    xbrlChips: all(root, '[data-metric-field="name"] [aria-label*=", source"]').map((e) => e.getAttribute('aria-label')),
+    takeawayChips: all(root, '[data-metric-field="takeaway"] [aria-label*=", source"]').map((e) => e.getAttribute('aria-label')),
   }
 }
 
@@ -185,8 +185,8 @@ const servedFacts = (rows: FinancialMetric[], hasComparatives: boolean) => ({
     : [],
   takeaways: rows.map((r) => (takeawayOf(r) ?? '—no takeaway')),
   // With no viewer and no coarse pointer a chip is the link itself, and its name says it opens a new tab.
-  xbrlChips: rows.filter((r) => r.source_url).map((r) => `Source: ${r.source_verified ? 'Matches filing' : 'Linked, not checked'} (opens in a new tab)`),
-  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `Source: ${passageLabel(r.commentary_evidence!.verified, r.commentary_evidence!.section_ref)} (opens in a new tab)`),
+  xbrlChips: rows.filter((r) => r.source_url).map((r) => `${r.source_verified ? 'Matches filing' : 'Linked, not checked'}, source (opens in a new tab)`),
+  takeawayChips: rows.filter((r) => r.commentary_evidence && takeawayOf(r) !== null).map((r) => `${passageLabel(r.commentary_evidence!.verified, r.commentary_evidence!.section_ref)}, source (opens in a new tab)`),
 })
 
 const TONE_TOKENS = /^(font-semibold|(dark:)?text-(gain|loss)-(text|dark)|(dark:)?text-flat-(light|dark))$/
@@ -552,7 +552,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a card chip’s sheet closes when the cards are hidden, and focus goes to the same chip in the table', () => {
     setup('coarse', 'table')
-    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0]
+    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Quote found in filing, source' })[0]
     act(() => cardChip.focus())
     fireEvent.click(cardChip)
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
@@ -560,35 +560,35 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
     crossBreakpoint('cards') // rotated to landscape: the table is the layout shown
     expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
-    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Quote found in filing, source' })[0])
   })
 
   it('keyboard: a table chip’s popover closes when the table is hidden, and focus goes to the same chip in its card', () => {
     setup('fine', 'cards')
-    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
+    const tableChip = inLayout('table').getByRole('link', { name: 'Matches filing, source (opens in a new tab)' })
     act(() => tableChip.focus())
     const tablePopover = screen.getByRole('group', { name: 'Source detail' })
 
     crossBreakpoint('table') // narrowed below md: the cards are the layout shown
     expect(tablePopover).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Matches filing, source (opens in a new tab)' }))
     // Focus on the twin opens the twin's own popover, as focus on any chip does: one surface, not two.
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
   it('keyboard: when the browser blurs the hidden chip before any resize, focus still goes to its twin', () => {
     setup('fine', 'table')
-    const cardChip = inLayout('cards').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' })
+    const cardChip = inLayout('cards').getByRole('link', { name: 'Matches filing, source (opens in a new tab)' })
     act(() => cardChip.focus())
     hidden = 'cards' // the breakpoint flipped; Chromium's focus fixup blurs the chip in a task of its own
     act(() => cardChip.blur())
-    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Matches filing, source (opens in a new tab)' }))
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
   it('a hover popover closes with its layout and moves no focus (no keyboard focus to hand over)', () => {
     setup('fine', 'cards')
-    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Matches filing (opens in a new tab)' }))
+    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Matches filing, source (opens in a new tab)' }))
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
     crossBreakpoint('table')
     expect(screen.queryByRole('group', { name: 'Source detail' })).toBeNull()
@@ -597,7 +597,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a ui/Modal raised above the sheet keeps focus when a rotation closes the sheet beneath it', () => {
     setup('coarse', 'table')
-    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Quote found in filing, source' })[0])
     expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
     // An upper layer (the Feedback dialog, through ui/Modal's marker) opened over the sheet holds focus.
     const upper = document.createElement('div')
@@ -615,7 +615,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
   it('touch: a resize that leaves the chip rendered (an on-screen keyboard, a small window change) keeps the sheet open', () => {
     setup('coarse', 'table')
-    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Quote found in filing' })[0])
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Quote found in filing, source' })[0])
     crossBreakpoint('table') // still a phone: the cards stay shown
     expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
   })
@@ -625,15 +625,15 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
   // element. These pin the key itself and a hand-off from another row.
   it('keyboard: a chip in another row hands focus to that row’s twin, not to the first chip of the layout', () => {
     setup('fine', 'cards')
-    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }) // row 1's name chip
+    const tableChip = inLayout('table').getByRole('link', { name: 'Linked, not checked, source (opens in a new tab)' }) // row 1's name chip
     act(() => tableChip.focus())
     crossBreakpoint('table')
-    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' }))
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Linked, not checked, source (opens in a new tab)' }))
   })
 
   it('keyboard: focus in the popover (its EDGAR link) also goes to the twin when the breakpoint hides the chip', () => {
     setup('fine', 'table', { withViewer: true })
-    const cardChip = inLayout('cards').getByRole('button', { name: 'Source: Matches filing' })
+    const cardChip = inLayout('cards').getByRole('button', { name: 'Matches filing, source' })
     act(() => cardChip.focus())
     fireEvent.keyDown(cardChip, { key: 'Tab' }) // the popover's EDGAR link takes the next Tab
     const edgar = within(screen.getByRole('group', { name: 'Source detail' })).getByRole('link', { name: FILING_LINK })
@@ -641,6 +641,6 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
 
     crossBreakpoint('cards') // widened past md: the table is the layout shown
     expect(edgar).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Source: Matches filing' }))
+    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Matches filing, source' }))
   })
 })

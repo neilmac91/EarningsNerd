@@ -72,7 +72,7 @@ async function askWithLink(page: Page, baseURL: string, theme: Theme) {
   await composer.press('Enter')
   const link = page.locator(PANE).locator('.copilot-answer').getByRole('link', { name: LINK })
   const bold = page.locator(PANE).locator('.copilot-answer').getByRole('link', { name: BOLD })
-  const chip = page.locator(PANE).getByRole('button', { name: /^Citation 1:/ })
+  const chip = page.locator(PANE).getByRole('button', { name: /^1\. Citation:/ })
   await expect(link).toBeVisible()
   await expect(bold.locator('strong')).toBeVisible()
   await expect(chip).toBeVisible()

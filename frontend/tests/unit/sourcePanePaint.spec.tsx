@@ -107,7 +107,7 @@ describe('the Source pane paints the device only on a passage the server located
         </FilingViewerProvider>
       </QueryClientProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: /^(Source:|Citation) / }))
+    fireEvent.click(screen.getByRole('button', { name: /, source$|^\w+\. Citation: / }))
     await waitFor(() => expect(highlights.size).toBe(1))
     expect([...highlights.keys()]).toEqual([registers])
     // The jump found its text, so the paint is the one this case names, not a passage the reader missed.

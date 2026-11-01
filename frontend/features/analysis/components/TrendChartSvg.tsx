@@ -118,7 +118,8 @@ function Bars({ box, tokens, marks }: { box: PanelBox; tokens: ChartTokens; mark
         const cx = bar.x + bar.width / 2
         return (
           <g key={`${bar.seriesKey}:${bar.period}`}>
-            <Bar x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx={mark.kind === 'growth' ? 0 : 2} fill={tokens.series[mark.color]}
+            {/* A context bar (E251) paints the context ink, never its series' colour: its mark keeps chart-1. */}
+            <Bar x={bar.x} y={bar.y} width={bar.width} height={bar.height} rx={mark.kind === 'growth' ? 0 : 2} fill={bar.context ? tokens.context : tokens.series[mark.color]}
               data-series={bar.seriesKey} data-period={bar.period} data-v={bar.value} data-zero={bar.zero} />
             {/* A growth bar past the axis is broken 6 px inside its clipped end (§4.1). */}
             {bar.clipped && <BreakMark cx={cx} width={bar.width} y={bar.value >= 0 ? bar.y + 6 : bar.y + bar.height - 9} surface={tokens.surface} />}

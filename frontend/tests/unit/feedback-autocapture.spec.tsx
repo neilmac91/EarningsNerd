@@ -53,7 +53,7 @@ it('the real PostHog SDK captures ordinary controls but excludes feedback rows a
   fireEvent.click(screen.getByRole('button', { name: 'Ordinary control' }))
   expect(JSON.stringify(events)).toContain('$autocapture')
 
-  fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Feedback' }))
   events.length = 0
   const composer = screen.getByRole('dialog', { name: 'Send feedback' })
   fireEvent.input(within(composer).getByLabelText('Feedback message'), { target: { value: 'Private composer https://example.test/secret-note' } })

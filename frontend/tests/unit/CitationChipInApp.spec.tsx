@@ -31,8 +31,8 @@ describe('CitationChip with an in-app filing viewer', () => {
     )
 
     // Primary action is a button (in-app), not a navigating anchor.
-    const chip = screen.getByRole('button', { name: /citation 1: item 7 — md&a/i })
-    expect(screen.queryByRole('link', { name: /citation 1/i })).toBeNull()
+    const chip = screen.getByRole('button', { name: /1\. citation: item 7 — md&a/i })
+    expect(screen.queryByRole('link', { name: /1\. citation/i })).toBeNull()
 
     expect(screen.getByTestId('probe')).toHaveTextContent('none')
     fireEvent.click(chip)
@@ -47,7 +47,7 @@ describe('CitationChip with an in-app filing viewer', () => {
 
     // It's a labelled group (it contains that interactive link), never a tooltip — a tooltip must
     // not hold focusable content.
-    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /1\. citation: item 7 — md&a/i })).toBeInTheDocument()
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
@@ -77,9 +77,9 @@ describe('CitationChip with an in-app filing viewer', () => {
     })
     try {
       render(<FilingViewerProvider><CitationChip citation={citation} /><RequestProbe /></FilingViewerProvider>)
-      const chip = screen.getByRole('button', { name: /citation 1:/i })
+      const chip = screen.getByRole('button', { name: /1\. citation:/i })
       fireEvent.mouseEnter(chip)
-      const card = screen.getByRole('group', { name: /citation 1:/i })
+      const card = screen.getByRole('group', { name: /1\. citation:/i })
       const bounds = card.getBoundingClientRect()
       expect(bounds.top).toBeGreaterThanOrEqual(8)
       expect(bounds.bottom).toBeLessThanOrEqual(height - 8)
@@ -100,7 +100,7 @@ describe('CitationChip with an in-app filing viewer', () => {
       fireEvent.click(chip)
       expect(screen.getByTestId('probe')).toHaveTextContent('req:1')
       fireEvent.scroll(window)
-      expect(screen.queryByRole('group', { name: /citation 1:/i })).toBeNull()
+      expect(screen.queryByRole('group', { name: /1\. citation:/i })).toBeNull()
     } finally {
       rectSpy.mockRestore()
       vi.unstubAllGlobals()
@@ -109,7 +109,7 @@ describe('CitationChip with an in-app filing viewer', () => {
 
   it('falls back to a SEC-jump link when no viewer is mounted', () => {
     render(<CitationChip citation={citation} />)
-    const link = screen.getByRole('link', { name: /citation 1/i })
+    const link = screen.getByRole('link', { name: /1\. citation/i })
     expect(link).toHaveAttribute('href', citation.fragment_url)
     expect(link).toHaveAttribute('target', '_blank')
   })
@@ -125,20 +125,20 @@ describe('CitationChip with an in-app filing viewer', () => {
       fact: true,
     }
     const { rerender } = render(<CitationChip citation={textCitation} />)
-    expect(screen.getByRole('link', { name: /citation 1/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /1\. citation/i })).toHaveAttribute(
       'data-citation-kind',
       'text',
     )
 
     rerender(<CitationChip citation={factCitation} />)
-    expect(screen.getByRole('link', { name: /citation f1/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /f1\. citation/i })).toHaveAttribute(
       'data-citation-kind',
       'xbrl',
     )
 
     // The label is the model's to write: without the server's payload the chip stays a passage's (E179).
     rerender(<CitationChip citation={{ ...factCitation, fact: undefined }} />)
-    expect(screen.getByRole('link', { name: /citation f1/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /f1\. citation/i })).toHaveAttribute(
       'data-citation-kind',
       'text',
     )

@@ -360,10 +360,10 @@ def _add_eps_observations(
     observations: list[TrendObservation],
     add: Callable[..., None],
 ) -> None:
-    eps = next((by.get(name) for name in ("earnings_per_share", "eps_diluted") if by.get(name)), None)
-    eps_points = _valued_points(eps)
-    if eps and eps_points:
-        point = eps_points[-1]
+    # Basic EPS unless diluted reaches a later period (a basic series can end at rows stored before E260).
+    ends = [(s, _valued_points(s)[-1]) for s in map(by.get, ("earnings_per_share", "eps_diluted")) if _valued_points(s)]
+    eps, point = max(ends, key=lambda end: end[0]["points"].index(end[1]), default=(None, None))
+    if eps:
         add(
             "growth_quality", "latest-eps", (
                 f"{eps['label']} was {_point_value(eps, point)} in {point['period']} "

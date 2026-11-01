@@ -4,7 +4,7 @@ import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo
 import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
-const CHIP = 'Source: Quote found in filing'
+const CHIP = 'Quote found in filing, source'
 
 describe('TraceToSourceDemo (landing evidence section)', () => {
   it('renders the live takeaway with its located passage open and a link to that passage', () => {

@@ -119,7 +119,7 @@ const resolveVar = (value: string) => value.replace(/^var\((--[\w-]+)\)$/, (_, n
 const SOURCE_COLORS = { ...flatten(config.theme.extend.colors), white: tailwindColors.white }
 /** Source colors left out on purpose; DESIGN.md › Colors states why. */
 const OMITTED_COLORS = [
-  ...['grid', 'label', 'crosshair', 'ref', 'tip'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
+  ...['grid', 'label', 'ref'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
 ]
 /** Source aliases: the snapshot records only the token each one equals. */
 const COLOR_ALIASES: Record<string, string> = {

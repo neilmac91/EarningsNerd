@@ -456,8 +456,8 @@ async function assertTable(page: Page, state: AnalysisState) {
   expect(actualCells, 'each financial cell retains its exact value/comparison note, including cells with no note').toEqual(expectedCells)
   const letters = [...new Set(expectedCells.flat().flatMap(cell => [...cell.value, ...cell.comparison].map(mark => mark.letter)))].sort()
   // The table's chip lists the letters its figures show; with none, there is no chip.
-  if (letters.length) await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Review data notes ${letters.join(', ')}`, exact: true })).toBeVisible()
-  else await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: /^Review data notes/ })).toHaveCount(0)
+  if (letters.length) await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Notes ${letters.join(', ')}`, exact: true })).toBeVisible()
+  else await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ })).toHaveCount(0)
   await assertPaintedMarks(page, TABLE)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
   await assertTableGeometry(page, expectedPeriods.length)
@@ -555,13 +555,13 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       // Disclosure content is also part of the responsive page, not an overflow escape hatch. Only the discrepancy's
       // figures carry a letter, so only its table has a Notes chip; the chip opens the fine print at its note.
       if (state === 'discrepancy') {
-        await section.getByRole('button', { name: /^Review data notes/ }).focus()
+        await section.getByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ }).focus()
         await page.keyboard.press('Enter')
         await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
         await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
         await expect(page.locator(`${NOTES} li`).first()).toHaveAttribute('id', 'analysis-data-note-a')
       } else {
-        await expect(section.getByRole('button', { name: /^Review data notes/ })).toHaveCount(0)
+        await expect(section.getByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ })).toHaveCount(0)
         await page.locator(`${NOTES} > details > summary`).click()
         await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
       }
@@ -610,7 +610,7 @@ for (const theme of THEMES) for (const profile of [
     await assertEarlierHint(initial.left)
     // The scroll region is the next Tab stop after the card's last heading control (Export Excel on the Pro surface).
     const exportButton = section.getByRole('button', { name: 'Export Excel', exact: true })
-    await (await exportButton.count() ? exportButton : section.getByRole('button', { name: /^Review data notes/ })).focus()
+    await (await exportButton.count() ? exportButton : section.getByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ })).focus()
     await page.keyboard.press('Tab')
     await expect(region).toBeFocused()
     const baseline = await settleTable(page)

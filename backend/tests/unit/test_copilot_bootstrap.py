@@ -101,16 +101,32 @@ def runtime():
                 if s['cik']==cik and s['filing_type'] in forms]
     async def document(url):
         calls.append(url)
-        return '<html><body>Revenue was CNY 321 million. Selected filing operations. '+('source narrative '*1000)+'</body></html>'
+        # Markup alone for the last source, with no text at all: the regex fallback returns nothing for it (given even
+        # a newline of text, it returns its label alone), so the excerpt is empty.
+        if os.environ.get('MARKUP_ONLY_FOR_LAST') and url==sources[-1]['document_url']:
+            return '<html><body></body></html>'
+        # Text as a filing's is, not plain ASCII, and with its trailing newline: the builder hashes the document as
+        # fetched, so a bootstrap that handed it an altered copy would name another document.
+        return ('<html><body>Revenue was CNY 321 million. Selected filing operations — © 2026. '
+                +('source narrative '*1000)+'</body></html>\n')
     async def xbrl(accession,cik):
         if os.environ.get('FAIL_PREPARATION') and accession==sources[-1]['accession_number']: return None
+        # XBRL with no fact for the last source: the excerpt is built, then the facts check refuses the source.
+        if os.environ.get('NO_FACTS_FOR_LAST') and accession==sources[-1]['accession_number']:
+            return {'reporting_currency':'CNY'}
         return {'revenue':[{'period':'2025-03-31','value':321000000,'currency':'CNY',
                 'form':'20-F','accn':accession,'raw_tag':'us-gaap:Revenues'}],'reporting_currency':'CNY'}
     async def sections(accession,filing_type,*,html):
+        if os.environ.get('MARKUP_ONLY_FOR_LAST') and accession==sources[-1]['accession_number']: return None
         # Sections are parsed from the document just fetched (E28), never resolved from SEC.
         assert html.startswith('<html><body>Revenue was CNY 321 million.') and filing_type in ('10-K','10-Q','20-F')
-        return {'financials':'Revenue CNY 321 million. '+('source table '*1000),
-                'mda':'Selected source management discussion. '+('source prose '*1000)}
+        # No sections for the last source, as for ASML's 20-F (over the section parser's size cap).
+        if os.environ.get('NO_SECTIONS_FOR_LAST') and accession==sources[-1]['accession_number']: return None
+        # A 2,639-character MD&A for the first source: a stub the assembler backfills (under its 3,000 floor).
+        prose=200 if os.environ.get('STUB_MDA_FOR_FIRST') and accession==sources[0]['accession_number'] else 1000
+        # In the order the section parser emits a 10-K's or a 20-F's (risk, mda, financials), not sorted.
+        return {'mda':'Selected source management discussion. '+('source prose '*prose),
+                'financials':'Revenue CNY 321 million. '+('source table '*1000)}
     rt.sec=SimpleNamespace(get_filings=metadata,get_filing_document=document)
     rt.xbrl=SimpleNamespace(get_xbrl_data=xbrl,get_filing_sections=sections)
     return rt
@@ -130,11 +146,20 @@ print('RESULT:'+json.dumps({'report':report,'rows':rows,'caches':caches,'babas':
 '''
 
 
-def _prepare(tmp_path, *, expectation="999999", failure=False):
+def _prepare(tmp_path, *, expectation="999999", failure=False, no_sections_for_last=False, stub_mda_for_first=False,
+             no_facts_for_last=False, markup_only_for_last=False):
     tmp_path.mkdir()
     env = {**os.environ, "PREP_ROOT": str(tmp_path), "GOLDEN_EXPECTATION": expectation}
     if failure:
         env["FAIL_PREPARATION"] = "yes"
+    if no_sections_for_last:
+        env["NO_SECTIONS_FOR_LAST"] = "yes"
+    if stub_mda_for_first:
+        env["STUB_MDA_FOR_FIRST"] = "yes"
+    if no_facts_for_last:
+        env["NO_FACTS_FOR_LAST"] = "yes"
+    if markup_only_for_last:
+        env["MARKUP_ONLY_FOR_LAST"] = "yes"
     result = subprocess.run([sys.executable, "-c", PREPARE], env=env, text=True, capture_output=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     return json.loads(next(line[7:] for line in result.stdout.splitlines() if line.startswith("RESULT:")))
@@ -184,3 +209,67 @@ def test_cli_returns_nonzero_for_unavailable_preparation(monkeypatch):
     monkeypatch.setattr(boot, "bootstrap", unavailable)
     monkeypatch.setattr(sys, "argv", ["copilot_bootstrap", "--database", "/unused.db", "--output", "/unused"])
     assert boot.main() == 1
+
+
+def test_the_runner_takes_the_builders_own_records_only_as_each_case_declares(tmp_path, monkeypatch):
+    # E80 across the real producer-to-consumer boundary: the bootstrap's own preparation (the production builder
+    # records each excerpt) read by the runner's preflight. The stub parser supplies financials and mda but no risk,
+    # as for a 10-Q with no Risk Factors item; a stub MD&A for the first source, which the assembler backfills; and no
+    # sections for the last source, as for ASML's 20-F.
+    from evals import copilot_runner as runner
+
+    report = _prepare(tmp_path / "prepared", no_sections_for_last=True, stub_mda_for_first=True)["report"]
+    assert report["status"] == "complete"
+    records = [source["excerpt_provenance"] for source in report["sources"]]
+    assert [(r["outcome"], r["fallback_reason"], r["missing_sections"]) for r in records] == (
+        [("native", None, ["risk"])] * 5 + [("fallback", "sections_not_supplied", ["financials", "mda", "risk"])])
+    assert records[0]["supplied_sections"][1] == {"key": "mda", "supplied_chars": 2639}
+    evidence = tmp_path / "prepared/evidence"
+    first, last = report["sources"][0]["accession_number"], report["sources"][-1]["accession_number"]
+    assert "MD&A CONTEXT (recovered from filing)" in (evidence / first / "excerpt.txt").read_text()
+    assert records[-1]["sections_sha256"] is None
+    assert (evidence / last / "sections.json").read_text() == "null"
+
+    monkeypatch.setattr(runner, "SOURCES_PATH", tmp_path / "prepared/copilot_sources.json")
+    path = evidence / "preparation.json"
+
+    def cohort(*, first, native, last):
+        cases = runner._load_cases(runner.GOLDEN_PATH)
+        for case, sections in zip(cases, [first] + [native] * (len(cases) - 1)):
+            case.reporting_currency = "CNY"  # the stub's XBRL
+            case.excerpt_source = {"outcome": "native", "sections": sections, "basis": "the stub parser's sections"}
+        cases[-1].excerpt_source = last
+        return cases
+
+    asml = {"outcome": "fallback", "fallback_reason": "sections_not_supplied", "basis": "no item headings parse"}
+    both = ["financials", "mda"]
+    accepted = runner.validate_preparation(path, cohort(first=["financials"], native=both, last=asml))
+    assert accepted["status"] == "complete"
+    refused = [
+        (cohort(first=both, native=both, last=asml), r"under the native floor \(mda 2639/3000\)"),
+        (cohort(first=["financials"], native=[*both, "risk"], last=asml), r"under the native floor \(risk missing\)"),
+        (cohort(first=["financials"], native=both, last={"outcome": "native", "sections": both, "basis": "x"}),
+         r"excerpt source regex_fallback fallback \(sections_not_supplied\) is not the declared native \(None\)"),
+        (cohort(first=["financials"], native=both, last={**asml, "fallback_reason": "native_excerpt_thin"}),
+         r"is not the declared fallback \(native_excerpt_thin\)"),
+    ]
+    for cases, message in refused:
+        with pytest.raises(ValueError, match=message):
+            runner.validate_preparation(path, cases)
+
+
+@pytest.mark.parametrize("damage, reason, outcome", [
+    ("no_facts_for_last", "facts_unavailable", "native"),
+    # Markup alone: the regex fallback finds no text, and the builder records the excerpt it could not make.
+    ("markup_only_for_last", "excerpt_unavailable", "unavailable"),
+])
+def test_a_source_a_later_check_refuses_keeps_the_builders_record(tmp_path, damage, reason, outcome):
+    # The record is kept before the stage's checks, so a source refused after its excerpt was built (no fact reaches
+    # the database, or the excerpt is empty) still shows what the builder made, in the preparation the run retains.
+    report = _prepare(tmp_path / damage, **{damage: True})["report"]
+    last = report["sources"][-1]
+    assert report["status"] != "complete" and last["status"] == "unavailable"
+    assert last["error"] == {"stage": "persist", "error_type": "ValueError", "reason": reason}
+    record = last["excerpt_provenance"]
+    assert record["schema_version"] == 2 and record["accession"] == last["accession_number"]
+    assert record["outcome"] == outcome and record["excerpt_sha256"] == last["artifacts"]["excerpt"]["sha256"]

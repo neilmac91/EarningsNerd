@@ -251,9 +251,9 @@ export default function AnalysisPageClient() {
             // A fresh generation consumed quota — keep the settings usage meter honest. Only an analysis is metered.
             if (completion.kind === 'analysis' && !completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
           },
-          onError: (message) => {
+          onError: (message, code) => {
             if (!isCurrent()) return
-            setNarrative({ status: 'error', text: '', error: message })
+            setNarrative({ status: 'error', text: '', error: message, errorCode: code })
             setRunning(false)
             sayStatus('')
           },
@@ -365,7 +365,7 @@ export default function AnalysisPageClient() {
   const companyName = formatCompanyName(coverage?.company_name) || ticker
   // The narrative card already states the error once. Only the 403 "Pro feature" case adds a way to
   // the plans; the fair-use 429 is a Pro user's monthly cap, so it gets no "See plans" and no repeat.
-  const proRequired = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
+  const proRequired = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '', narrative.errorCode)
 
   return (
     // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).

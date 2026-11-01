@@ -101,17 +101,17 @@
   },
   "charts": {
     "AAPL revenue": {"case": "the default metric", "filing": "AAPL_filing_3", "concept": "revenue", "label": "Revenue", "axis": "money"},
-    "AAPL diluted EPS": {"case": "a per-share amount, USD/shares", "filing": "AAPL_filing_3", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "AAPL diluted EPS": {"case": "a per-share amount, USD/shares", "filing": "AAPL_filing_3", "concept": "eps_diluted", "label": "EPS (diluted)", "axis": "money"},
     "AAPL net margin": {"case": "a margin, calculated, in percentage points", "filing": "AAPL_filing_3", "concept": "net_margin", "label": "Net margin", "axis": "percent"},
     "AAPL current ratio": {"case": "a ratio, calculated, two years", "filing": "AAPL_filing_3", "concept": "current_ratio", "label": "Current ratio", "axis": "ratio"},
     "AAPL working capital": {"case": "negative amounts, calculated", "filing": "AAPL_filing_3", "concept": "working_capital", "label": "Working capital", "axis": "money"},
     "AAPL equity": {"case": "four fiscal years", "filing": "AAPL_filing_3", "concept": "shareholders_equity", "label": "Shareholders’ equity", "axis": "money"},
     "CNY revenue": {"case": "amounts in CN¥", "filing": "CNY_synthetic", "concept": "revenue", "label": "Revenue", "axis": "money"},
-    "CNY diluted EPS": {"case": "a per-share amount in CNY", "filing": "CNY_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "CNY diluted EPS": {"case": "a per-share amount in CNY", "filing": "CNY_synthetic", "concept": "eps_diluted", "label": "EPS (diluted)", "axis": "money"},
     "Bank net interest income": {"case": "a bank’s top line", "filing": "BANK_synthetic", "concept": "net_interest_income", "label": "Net interest income", "axis": "money"},
     "One-year revenue": {"case": "one bar", "filing": "ONE_YEAR_synthetic", "concept": "revenue", "label": "Revenue", "axis": "money"},
-    "Withheld diluted EPS": {"case": "no value: every slot prints —", "filing": "WITHHELD_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
-    "Penny diluted EPS": {"case": "cents, a loss and a withheld year", "filing": "PENNY_synthetic", "concept": "eps_diluted", "label": "Diluted EPS", "axis": "money"},
+    "Withheld diluted EPS": {"case": "no value: every slot prints —", "filing": "WITHHELD_synthetic", "concept": "eps_diluted", "label": "EPS (diluted)", "axis": "money"},
+    "Penny diluted EPS": {"case": "cents, a loss and a withheld year", "filing": "PENNY_synthetic", "concept": "eps_diluted", "label": "EPS (diluted)", "axis": "money"},
     "Extreme net margin": {"case": "A3 clips a bar", "filing": "EXTREME_synthetic", "concept": "net_margin", "label": "Net margin", "axis": "percent"}
   }
 }

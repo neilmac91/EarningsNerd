@@ -140,6 +140,19 @@ def test_persisted_xbrl_precedes_both_caches_and_is_cik_scoped(sessions, monkeyp
     assert svc._persisted_xbrl("acc", "1") is None
 
 
+def test_persisted_xbrl_serves_a_snapshot_whose_only_metric_is_diluted_eps(sessions):
+    # Since E260 a filer that tags no undimensioned basic EPS stores its figure under eps_diluted alone, and an
+    # instance that anchors on it is a usable extraction (_finish_instance), so its stored snapshot is served as stored.
+    snapshot = {"eps_diluted": [{"period": "2025-12-31", "value": 1.25}], "earnings_per_share": []}
+    with sessions() as db:
+        co = Company(cik="0000000001", ticker="A", name="A")
+        db.add(co)
+        db.flush()
+        filing(db, co, "acc", "10-K", "2025-12-31", "2026-02-01").xbrl_data = snapshot
+        db.commit()
+    assert xbrl.EdgarXBRLService()._persisted_xbrl("acc", "1") == snapshot
+
+
 def test_companyfacts_populates_balance_sheet_and_quarter_metadata():
     def point(value, **more):
         return {"end": "2025-10-31", "val": value, "accn": "acc", "form": "10-Q", "fy": 2026, "fp": "Q3", **more}

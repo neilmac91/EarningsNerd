@@ -225,7 +225,7 @@ logger = logging.getLogger(__name__)
 
 _PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
 PROVIDER_STARTED_STAGE = "generating"  # progress stage emitted once the provider stream yields
-_STREAM_FAILURE = "I couldn't complete this answer. Please try again."
+_STREAM_FAILURE = "I couldn't complete this answer. Try again."  # its twin: STREAM_ERROR in copilot-api.ts
 _RETRYABLE_QUOTATION_FAILURES = frozenset({
     "Unsupported prose quotation: quotation_not_in_source",
     "Unsupported prose quotation: elided_quotation",

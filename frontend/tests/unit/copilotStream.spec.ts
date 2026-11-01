@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { askFilingStream, type CopilotHandlers, type CopilotCompletion } from '@/features/filings/api/copilot-api'
+import { askFilingStream, isCopilotPaywallError, type CopilotHandlers, type CopilotCompletion } from '@/features/filings/api/copilot-api'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 
 const auth = vi.hoisted(() => ({ active: false, refresh: async () => {} }))
-vi.mock('@/lib/api/client', () => ({ getApiUrl: () => 'https://api.example.test', ensureRefreshed: () => auth.refresh() }))
+vi.mock('@/lib/api/client', async () => {
+  // The real E31 code reader (a pure function of its table), beside the stubs this file needs.
+  const { parseErrorCode } = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client')
+  return { getApiUrl: () => 'https://api.example.test', ensureRefreshed: () => auth.refresh(), parseErrorCode }
+})
 vi.mock('@/lib/api/session', () => ({
   hasActiveSession: () => auth.active, getSessionGeneration: () => 1,
   isSessionGenerationCurrent: () => true, notifySessionLost: () => {},
@@ -197,7 +201,7 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     await task
     expect(h.onComplete).toHaveBeenCalledTimes(first === 'complete' ? 1 : 0)
     expect(h.onError).toHaveBeenCalledTimes(first === 'error' ? 1 : 0)
-    if (first === 'error') expect(h.onError).toHaveBeenCalledWith('The answer could not be completed. Please try again.')
+    if (first === 'error') expect(h.onError).toHaveBeenCalledWith("I couldn't complete this answer. Try again.")
   })
 
   it.each(['eof', 'truncated', 'malformed', 'network'])('fails safely for %s and never flushes draft prose', async (failure) => {
@@ -212,7 +216,7 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
       wire.close()
     }
     await task
-    expect(h.onError).toHaveBeenCalledExactlyOnceWith('The answer could not be completed. Please try again.')
+    expect(h.onError).toHaveBeenCalledExactlyOnceWith("I couldn't complete this answer. Try again.")
     expect(h.onToken).not.toHaveBeenCalled()
     expect(h.onComplete).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
@@ -296,5 +300,53 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     const h = handlers()
     await askFilingStream(1, 'q', [], h)
     expect(h.onError).toHaveBeenCalledExactlyOnceWith(status === 401 ? 'Log in to ask this filing a question.' : 'Monthly cap reached. Upgrade to Pro.')
+  })
+
+  // E37: a refusal whose body names nothing takes the reader's own sentence. A 403 is still the plan's gate; a 429
+  // with no words is a moment's limit, which names no plan, so it keeps Retry and never offers a Pro reader Upgrade.
+  it.each([
+    [403, 'This is a Pro feature.', true],
+    [429, 'Too many questions. Try again shortly.', false],
+  ])('reads a %s whose body names nothing in the reader\'s own words', async (status, sentence, planCard) => {
+    global.fetch = async () => new Response('<html>busy</html>', { status })
+    const h = handlers()
+    await askFilingStream(1, 'q', [], h)
+    expect(vi.mocked(h.onError).mock.calls).toEqual([[sentence]])
+    expect(isCopilotPaywallError(sentence)).toBe(planCard)
+  })
+
+  // E31 (docs/audit/contracts/error-codes.md §6): a known code on its registered channel rides beside the words; an
+  // absent code (a server before E31), an unknown one, or a known one off its channel reads as none.
+  it.each([
+    ['a 403 with free_allowance_exhausted', 403, 'free_allowance_exhausted', ['No more questions.', 'free_allowance_exhausted']],
+    ['a 403 with plan_required', 403, 'plan_required', ['No more questions.', 'plan_required']],
+    ['a 429 with pro_fair_use_limit', 429, 'pro_fair_use_limit', ['No more questions.', 'pro_fair_use_limit']],
+    ['a 403 with no code (a server before E31)', 403, undefined, ['No more questions.']],
+    ['a 429 with no code (the burst limiter)', 429, undefined, ['No more questions.']],
+    ['a 403 with a code this client does not know', 403, 'quota_v9', ['No more questions.']],
+    ['a 403 with the fair-use code, registered on 429', 403, 'pro_fair_use_limit', ['No more questions.']],
+    ['a 429 with plan_required, registered on 403', 429, 'plan_required', ['No more questions.']],
+  ])('hands onError the code of %s only when it is known on that status', async (_, status, code, call) => {
+    global.fetch = async () => new Response(JSON.stringify({ detail: 'No more questions.', ...(code ? { code } : {}) }), { status })
+    const h = handlers()
+    await askFilingStream(1, 'q', [], h)
+    expect(vi.mocked(h.onError).mock.calls).toEqual([call])
+  })
+
+  // A coded event is the application's refusal, so its own words (a cap and its reset) reach the card beside its code;
+  // without a known code the event may carry a draft's text, and the reader's own sentence stands in.
+  it.each([
+    ['a stream code', { code: 'pro_fair_use_limit' }, ['The cap resets next month.', 'pro_fair_use_limit']],
+    ['no code', {}, ["I couldn't complete this answer. Try again."]],
+    ['an unknown code', { code: 'quota_v9' }, ["I couldn't complete this answer. Try again."]],
+    ['an HTTP-only code on the stream', { code: 'plan_required' }, ["I couldn't complete this answer. Try again."]],
+  ])("hands onError an error event's code only when it is a stream code: %s", async (_, extra, call) => {
+    const wire = stream()
+    global.fetch = async () => wire.response
+    const h = handlers()
+    const task = askFilingStream(1, 'q', [], h)
+    wire.send(sse({ type: 'error', message: 'The cap resets next month.', ...extra }))
+    await task
+    expect(vi.mocked(h.onError).mock.calls).toEqual([call])
   })
 })

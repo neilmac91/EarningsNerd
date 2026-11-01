@@ -19,6 +19,7 @@ import {
   ProhibitIcon,
 } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
+import type { KnownErrorCode } from '@/lib/api/client'
 import { isCopilotFairUseLimit, isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
@@ -55,6 +56,8 @@ export interface CopilotMessageData {
   // 'reading' (waiting for the admitted answer), then 'done' or 'error': answers arrive whole.
   status?: 'reading' | 'done' | 'error'
   error?: string
+  /** The refusal's E31 code, when the server sent a known one: the plan card decides on it before the words. */
+  errorCode?: KnownErrorCode
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
   followups?: string[]
 }
@@ -387,7 +390,7 @@ export default function CopilotMessage({
   // this status region and a screen reader announces the sentence when it arrives (below). While the filing workspace's
   // Filing tab hides the card, the pane's line says the sentence (errorSentence).
   if (message.status === 'error' && isPaywallError) {
-    const fairUse = isCopilotFairUseLimit(message.error || '')
+    const fairUse = isCopilotFairUseLimit(message.error || '', message.errorCode)
     return (
       <div role="status" className={ANSWER_CARD}>
         <p className="text-text-secondary-light dark:text-text-secondary-dark">{errorSentence(message.error)}</p>

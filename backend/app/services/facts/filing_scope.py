@@ -58,8 +58,8 @@ def _counted_stand_ins(own: list[FinancialFact], stand_ins: list[FinancialFact])
     their units, so a stand-in never adds a second unit to a line. In any other line, only in the
     currency the filing's own rows rank first (``_currency``: a ratio's is its operands'): the
     per-filing extractor chose it for this report, while a sync may hold a line only in USD (an early
-    sync read the USD lists alone; a current one reads them for a filer that switched currency,
-    ``currency.series_unit``), and that line's own-year translation alone reaches the period end.
+    sync read the USD lists alone, and one before ``currency.filing_currencies`` a switcher's), and
+    that line's own-year translation alone reaches the period end.
     Only when no row of the filing's own carries a currency do the stand-ins rank their own: the
     sync held every annual cell the writer read, in the writer's currency (the newest report synced
     first, at a domestic filer or after a native sync), or the writer stored no annual row (an

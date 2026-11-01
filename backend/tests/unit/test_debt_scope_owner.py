@@ -907,3 +907,21 @@ def test_an_empty_section_is_not_created_just_to_report_missing_debt(monkeypatch
     """A "we cannot verify debt" sentence must not flip an empty §8 to covered."""
     _raw, _metrics, sections, _grounding, _markdown = _run_real_path(monkeypatch, {}, {})
     assert "leverage" not in sections.get("balance_sheet_liquidity", {})
+
+
+def test_a_balance_printed_alone_names_no_accession_though_its_standardized_fact_records_one():
+    # Standardized facts carry their filing's accn since E184. The grounding line a selected balance prints alone (no
+    # debt observations: a summary cached before the debt slice, or a filer with no admissible component) named none
+    # before, so it names none now: printing it would change the prompt, a decision of its own (evals/RUNBOOK.md).
+    from app.services.ai.xbrl_narrative import build_xbrl_narrative_section
+    from app.services.edgar.xbrl_standardized import extract_standardized_metrics
+
+    accession = "0000320193-25-000073"
+    metrics = extract_standardized_metrics({"reporting_currency": "USD", "long_term_debt": [
+        {"period": "2025-09-27", "value": 78_328e6, "form": "10-K", "accn": accession, "currency": "USD",
+         "raw_tag": "us-gaap:LongTermDebtNoncurrent"},
+    ]})
+    assert metrics["long_term_debt"]["current"]["accn"] == accession
+    [line] = [line for line in build_xbrl_narrative_section(metrics).splitlines() if "Debt component" in line]
+    assert line.endswith("(concept: us-gaap:LongTermDebtNoncurrent; basis: carrying amount; as of: 2025-09-27; "
+                         "currency: USD)")

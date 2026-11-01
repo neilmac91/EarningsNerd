@@ -1,6 +1,6 @@
 # Triage a red copilot-eval run by the RUNBOOK rule; never re-run it to get a green one
 
-Date: 2026-10-09, updated 2026-10-27 (#1673)   Area: ops / evals
+Date: 2026-10-09, updated 2026-10-31 (E80)   Area: ops / evals
 
 **Context**: On #1148 (the homepage part of the design critique; no Copilot code), `copilot-eval`'s
 first attempt went red on four heads. Each time one row ended `publication withheld: Unverified or
@@ -29,9 +29,18 @@ and the other four conditions. Record the outcome in a PR comment either way.
 
 Never draw again on the same code to get a green result:
 - **Re-run, toggle, reopen.** Never re-run the job, toggle the PR from draft to ready, or close and
-  reopen it on an unchanged head. The workflow refuses all three: it draws once per head commit, and
-  a later run on a head that already drew reports that draw's verdict and spends nothing. Nothing in
-  the PR body exempts a head.
+  reopen it on an unchanged head that already drew. The workflow refuses all three: it draws once per
+  head commit, and a later run on a head that already drew reports that draw's verdict and spends
+  nothing. Nothing in the PR body exempts a head.
+- **A run that drew nothing.** An attempt whose runner step never started, on a head that has not
+  drawn, drew nothing. An install failure ends an attempt that way, and so does an SEC outage or the
+  draw gate's failed read of earlier runs. So does a "Source refused" from the preparation step's
+  source check (E80, the founder's decision of 31 October 2026). The triage rule does not apply to
+  such an attempt. Diagnose its error. When the cause lies outside the pull request, re-run it after the
+  cause clears. A refusal the pull request causes refuses on every re-run, until a push. An attempt
+  whose runner step started is the head's draw, even one cancelled or refused by the runner's own
+  preflight. A run the gate stopped because the head already drew carries that draw's verdict: triage
+  the draw.
 - **A toggle right after a push.** A draft-to-ready toggle or a re-run made while a push's own draw is still
   running cancels that draw, and a cancelled draw counts as the head's draw, never as a green one. On #1673, the
   push of b1a8587 started its draw (run 40404764572, created 21:29:18Z). A toggle at 21:29:23-24Z, made to request
@@ -50,8 +59,8 @@ Never draw again on the same code to get a green result:
   it keys on the head commit. Gating it is follow-up 11 in
   `tasks/decisions-2026-10-09-design-followups.md`, the founder's call.
 
-When the rule's conditions do not hold, the PR waits for a green run from a push that changes the
-code, or for the founder. A predeclared protocol that needs several draws of the same code gives each
+When a red draw does not meet the rule's conditions, the PR waits for a green run from a push that
+changes the code, or for the founder. A predeclared protocol that needs several draws of the same code gives each
 draw its own head (a commit that changes only its evidence folder), as its preregistration says.
 
 **Evidence**: runs 37935449192 and 37958886664 (attempt 1 red, attempt 2 green, each re-run by the

@@ -1,4 +1,4 @@
-import api, { getApiUrl } from '@/lib/api/client'
+import api, { getApiUrl, parseErrorCode, type KnownErrorCode } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
@@ -212,12 +212,20 @@ export interface AnalysisStreamHandlers {
   onProgress?: (stage: string) => void
   onToken: (text: string) => void
   onComplete: (completion: AnalysisCompletion) => void
-  onError: (message: string) => void
+  /** `code` comes only when the server sent a code this client knows on its registered channel (E31,
+   *  docs/audit/contracts/error-codes.md): the page keys on it first, and on the words when it is absent. */
+  onError: (message: string, code?: KnownErrorCode) => void
 }
 
+/** The codes whose card offers the plans (the contract's §3): a plan the reader lacks, or Free's allowance used up. */
+const PLAN_CODES: ReadonlySet<KnownErrorCode> = new Set<KnownErrorCode>(['plan_required', 'free_allowance_exhausted'])
+
 /** The 403 "Pro feature" gate: the page adds a way to the plans beside it. The fair-use 429 is not one
- *  (a Pro user's monthly cap, stated once in the narrative card with no plan link). */
-export const isAnalysisPaywallError = (message: string): boolean => {
+ *  (a Pro user's monthly cap, stated once in the narrative card with no plan link). A known code decides
+ *  (PLAN_CODES are the gate; `pro_fair_use_limit` and every other code, a pause or a rate limit, are not), so
+ *  the words may change; without one, from a server before E31, the words decide. */
+export const isAnalysisPaywallError = (message: string, code?: KnownErrorCode): boolean => {
+  if (code) return PLAN_CODES.has(code)
   const m = (message || '').toLowerCase()
   return m.includes('pro feature') || m.includes('upgrade to pro')
 }
@@ -267,15 +275,21 @@ export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange & 
   return response.data
 }
 
-const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
+/** A refused request's words, and its E31 code when the body carries one this client knows on this status. */
+const parseErrorDetail = async (
+  response: Response,
+  fallback: string,
+): Promise<{ message: string; code?: KnownErrorCode }> => {
   try {
     const data = await response.json()
-    if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback
-    if (data?.message) return typeof data.message === 'string' ? data.message : fallback
+    const code = parseErrorCode(data?.code, response.status)
+    if (data?.detail) return { message: typeof data.detail === 'string' ? data.detail : fallback, code }
+    if (data?.message) return { message: typeof data.message === 'string' ? data.message : fallback, code }
+    return { message: fallback, code }
   } catch {
     // Non-JSON body — fall through to the status-based fallback.
   }
-  return fallback
+  return { message: fallback }
 }
 
 /**
@@ -359,11 +373,13 @@ export const streamAnalysis = async (
     cancelScheduledFlush()
     tokenBuffer = ''
   }
-  const fail = (message: string) => {
+  const fail = (message: string, code?: KnownErrorCode) => {
     if (terminal || signal?.aborted) return
     terminal = true
     discardBufferedTokens()
-    handlers.onError(message)
+    // The code rides only when there is one, so a reader of one argument sees what it saw before E31.
+    if (code) handlers.onError(message, code)
+    else handlers.onError(message)
   }
 
   try {
@@ -387,19 +403,19 @@ export const streamAnalysis = async (
 
     if (signal?.aborted) return
     if (!response.ok) {
-      let errorMessage: string
+      let refused: { message: string; code?: KnownErrorCode }
       if (response.status === 401) {
-        errorMessage = 'Log in to run an analysis.'
+        refused = { message: 'Log in to run an analysis.' }
       } else if (response.status === 403) {
-        errorMessage = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
+        refused = await parseErrorDetail(response, 'Multi-Period Analysis is a Pro feature.')
       } else if (response.status === 429) {
-        errorMessage = await parseErrorDetail(response, 'Monthly limit reached. Please try again later.')
+        refused = await parseErrorDetail(response, 'Monthly limit reached. Please try again later.')
       } else if (response.status >= 500) {
-        errorMessage = await parseErrorDetail(response, 'Server error. Please try again.')
+        refused = await parseErrorDetail(response, 'Server error. Please try again.')
       } else {
-        errorMessage = await parseErrorDetail(response, 'The analysis did not start. Run it again.')
+        refused = await parseErrorDetail(response, 'The analysis did not start. Run it again.')
       }
-      fail(errorMessage)
+      fail(refused.message, refused.code)
       return
     }
 
@@ -479,7 +495,7 @@ export const streamAnalysis = async (
             return
           }
           case 'error':
-            fail(typeof data.message === 'string' ? data.message : 'Something went wrong.')
+            fail(typeof data.message === 'string' ? data.message : 'Something went wrong.', parseErrorCode(data.code, 'stream'))
             return
           default:
             break

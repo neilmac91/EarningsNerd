@@ -199,14 +199,16 @@ def _conjuncts(condition: str) -> list[str] | None:
     return terms + [body[start:].strip()]
 
 
-def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str) -> bool:
-    """True only when one top-level term of the condition is false for both read operations: it names another
-    operation, lists operations that include neither read, or needs an earlier step that a read skipped."""
+def _never_runs_for_a_read(condition: str, unrun: set[str], operand: str,
+                           operations: tuple[str, ...] = READ_OPERATIONS) -> bool:
+    """True only when one top-level term of the condition is false for each of the operations (by default, both
+    reads): it names another operation, lists operations that include none of them, or needs an earlier step that
+    they skipped. The Ops wiring tests read their own operation's steps with it."""
     for term in _conjuncts(condition) or []:
-        if (match := re.fullmatch(rf"{operand} == '([^']*)'", term)) and match.group(1).lower() not in READ_OPERATIONS:
+        if (match := re.fullmatch(rf"{operand} == '([^']*)'", term)) and match.group(1).lower() not in operations:
             return True
         if (match := re.fullmatch(rf"contains\('([^']*)', {operand}\)", term)) and not any(
-                operation in match.group(1).lower() for operation in READ_OPERATIONS):
+                operation in match.group(1).lower() for operation in operations):
             return True
         if (match := UNRUN_OUTCOME.fullmatch(term)) and match.group(1) in unrun:
             return True
@@ -319,6 +321,8 @@ EVASIONS = {  # each change would put a production write, or a replacement, into
     "a step after a skipped step's skip": _step_before_the_read("always() && steps.quarterly.outcome == 'skipped'"),
     "a step on a step that ran": _step_before_the_read("always() && steps.request.outcome == 'success'"),
     "a step on a later step's outcome": _step_before_the_read("always() && steps.quarterly.outcome != 'skipped'"),
+    "a step on a read under a condition selected() cannot read": _step_before_the_read(
+        "always() && steps.request.outputs.operation == 'describe-service' && hashFiles('x') != ''"),
     "text before the expression": _step_before_the_read("${{ always() }} && steps.request.outputs.operation == 'rollback-traffic'"),
     "a block scalar's newline": _step_before_the_read("${{ steps.request.outputs.operation == 'rollback-traffic' }}\n"),
     "a leading space": _step_before_the_read(" ${{ steps.request.outputs.operation == 'rollback-traffic' }}"),
