@@ -64,8 +64,9 @@ currency that it names or cannot protect. So run the sync once companyfacts show
 latest filing: a sync whose response names every stored filing makes its own row the one current row
 at every period it presents, whatever earlier syncs or the per-filing writer left there, except a
 period where a row of a filing filed strictly after its own was current (a newer-filing rule by date,
-each row dated by its own filing; a proxy statement's row too, where the response's identity is stored
-behind it) and a quarter whose unlabelled twin in that unit is current, both left as found, and never a row this repair quarantined, for any reason (a rolled-back insert among
+each row dated by its own filing), a period where a proxy statement's row is current (whatever its date,
+as main leaves it, for this repair's proxy step) and a quarter whose unlabelled twin in that unit is
+current, each left as found, and never a row this repair quarantined, for any reason (a rolled-back insert among
 them): such a period is left as the sync found it, a gap only where nothing else was current. The sync leaves one thing for this
 repair: an annual ratio (a margin or the current ratio) that an older sync computed from
 other-currency operands under the same filing as the series-currency calculation. That identity is
@@ -114,7 +115,8 @@ so those rows stay until this repair's proxy step (`backend/app/services/proxy_f
 them. A sync leaves a proxy row current wherever a stored row holds the 10-K's identity, whether it runs
 in USD alone or involves another currency (above): the latter never protects a proxy row, so it demotes one
 where it inserts the 10-K's row, as a sync in USD alone does, and where the identity is stored it leaves
-the key as found behind the proxy row, for this step to judge the stored row. It runs in every preview and apply, with no flag, after the calendar correction and before the
+the key as found behind the proxy row, whatever the proxy's date, for this step to judge the stored row. The
+step runs in every preview and apply, with no flag, after the calendar correction and before the
 computed-metric correction, reading only the payload the repair already fetched. A company with no proxy
 row and no filing row a proxy figure replaced or confirmed passes through it unchanged.
 

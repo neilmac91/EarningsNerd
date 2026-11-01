@@ -532,25 +532,25 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     else its filing's date in the payload, else a provenance's ``filed_at``): that key is left as found, a
     newer-filing rule by date alone, since companyfacts' first tag with data, not the latest filing, picks the
     batch's winner across tags. The upsert stored the batch's row behind such a row in its unit (``Guard.later``, a
-    ratio's too), so the rule holds on its insert path too, outside a proxy statement's row, which the upsert demotes
-    as main's does: a key is left as found for that one only where the batch's identity was stored behind it, as main
-    leaves it, for the proxy step (E211). A quarantined row (``_promotable``), or a quarter whose unlabelled twin in
+    ratio's too), so the rule holds on its insert path too. A key where a proxy statement's row is current is left as
+    found, held or not, as main leaves it (no rule keeps one through an insert, so the batch's identity is stored
+    behind it) for the proxy step, E211. A quarantined row (``_promotable``), or a quarter whose unlabelled twin in
     its unit is current (the upsert's D1 rule), is never made current and its key is left as found, except that this
     sync's own insert there is demoted: a lagging sync never makes the batch's older figure current at a key a newer
     filing's row holds, and a row current there before stays (a gap only where none was). A proven switch, or a sync
     in USD alone, never calls this."""
-    own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], _filed(
-        f["accession"], None, dates, view)) for f in facts
-        if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
+    own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], _filed(f["accession"], None,
+        dates, view)) for f in facts if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
     current: dict[tuple[Any, ...], list[Any]] = {}
     for row in rows:
         if row.is_latest and _kind(row.unit):
             current.setdefault((row.concept, row.period_end, row.fiscal_period), []).append(row)
     twins = {(row.concept, row.period_end, row.unit) for key, group in current.items() if key[2] is None for row in group}
-    picks = dict(held)
+    proxied = {key for key, group in current.items() if any(is_proxy_form(row.form) for row in group)}
+    picks = {key: row for key, row in held.items() if key not in proxied}
     for row in rows:
         key = (row.concept, row.period_end, row.fiscal_period)
-        if key not in held and (row.unit, row.accession) == own.get(key, ())[:2] and not any(
+        if key not in held and key not in proxied and (row.unit, row.accession) == own.get(key, ())[:2] and not any(
                 other.is_latest and _filed(other.accession, other.provenance, dates, view) > own[key][2]
                 for other in current.get(key, ())):
             picks[key] = row

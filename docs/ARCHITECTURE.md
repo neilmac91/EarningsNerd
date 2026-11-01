@@ -526,10 +526,11 @@ unused since generation became account-required in #619; kept because migrations
   one current amount or per-share row and every other there is demoted, whichever sync or writer left
   the period so: the upsert skips a stored identity and never touches its `is_latest`, so without this
   an earlier demotion, an amendment stored behind its original's companyfacts row, or a lagging
-  sync's figure stayed for good. Three cases are left as found: a period where a row of a filing filed
-  strictly after the batch row's own filing was current (a proxy statement's too, where the batch's
-  identity is stored behind it, as main leaves it, for the proxy step: the upsert demotes one where it
-  inserts, since no rule keeps a proxy statement's row) (each by its Filing row's date, else
+  sync's figure stayed for good. Four cases are left as found: a period where a proxy statement's row
+  is current, whatever its date and held or not, as main leaves it, for the proxy step (no rule keeps a
+  proxy statement's row through an insert, so one still current means the batch's identity is stored
+  behind it); a period where a row of a filing filed strictly after the batch row's own filing was
+  current (each by its Filing row's date, else
   its filing's `filed` in the payload, else its provenance `filed_at`, which for a calculation records
   its latest operand's date, so a calculation is dated by its own filing wherever a Filing row or the
   payload dates it), a newer-filing rule by date alone (the upsert's own rule reads Filing rows only,
