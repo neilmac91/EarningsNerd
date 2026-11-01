@@ -12,7 +12,10 @@ steps each pass ``--apply`` only for their own apply operation, run every other 
 read the session's settings back and stop unless they are their own before the script runs, and fail
 with the script. The quarterly repair also needs an explicit list of at most 50 tickers and writes its
 report where the next step keeps it; the relabel and the lineage backfill take an optional list of at
-most 50, and none means every company. The workflow's approval check lets an apply through only when the run's own review
+most 50, and none means every company. E264's financial revenue preview has no apply: it reads its
+session back first and runs read-only from its step's fixed ``PGOPTIONS``, passes the report file the
+next step keeps and the commit the run checked out, and takes an optional list of at most 50, none
+meaning every SIC 6000-6799 company. The workflow's approval check lets an apply through only when the run's own review
 history records an approval of ``ops-apply``, and reads any other answer, an unreadable one included,
 as none.
 """
@@ -28,6 +31,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = sorted(p.name for p in (ROOT / ".github/workflows").glob("*.yml"))
 INPUT_EXPRESSIONS = ("${{ inputs.", "${{ github.event.inputs.", "${{ steps.", "${{ needs.")
+COMMIT = "5b0094d2b7e1c3f4a6d8e0b2c4f6a8d0e2b4c6f8"  # GITHUB_SHA, the commit a run checked out
 
 
 def _workflow(name: str) -> dict:
@@ -170,7 +174,7 @@ def _run_script_step(tmp_path, name, script, op, tickers, *, apply_op, python_ex
         stand_in.chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "OP": op, "TICKERS": tickers,
            "CALLS": str(tmp_path / "calls"), "PGOPTIONS": step["env"]["PGOPTIONS"], "RUNNER_TEMP": str(tmp_path / "temp"),
-           "READBACK": _readback(op, apply_op=apply_op) if readback is None else readback}
+           "GITHUB_SHA": COMMIT, "READBACK": _readback(op, apply_op=apply_op) if readback is None else readback}
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True, check=False
     )
@@ -420,6 +424,64 @@ def test_a_lineage_backfill_stops_on_a_failed_company_or_a_session_that_is_not_t
     """The readback is a check, not only a log line: a session whose settings are not the step's stops the
     run before the script opens one, and a failed company fails the step."""
     _, result, calls = _run_lineage_step(tmp_path, "repair-lineage-dry-run", "", **kwargs)
+    assert result.returncode == code
+    assert ("the session's settings are not this step's" in result.stdout) == (code == 1)
+    ran = [call for call in calls if call.startswith("python ")]
+    assert bool(ran) == ("python_exit" in kwargs)
+
+
+PREVIEW, PREVIEW_OP = "Run financial revenue preview (read-only)", "financial-revenue-preview"
+PREVIEW_GUARDS = "-c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on"
+
+
+@pytest.mark.parametrize("tickers", ["", "JPM,BAC", "BRK.B", ",".join(f"T{i}" for i in range(50))])
+def test_resolve_step_accepts_a_preview_of_the_financial_cohort_or_a_ticker_list(tmp_path, tickers):
+    code, output = _run_resolve(tmp_path, OP=PREVIEW_OP, TICKERS=tickers)
+    assert code == 0
+    assert output.splitlines() == [f"operation={PREVIEW_OP}", f"tickers={tickers}", "revision="]
+
+
+@pytest.mark.parametrize("tickers", ["JPM;BAC", "JPM,,BAC", ",".join(f"T{i}" for i in range(51))])
+def test_resolve_step_rejects_a_malformed_or_oversized_preview_ticker_list(tmp_path, tickers):
+    code, output = _run_resolve(tmp_path, OP=PREVIEW_OP, TICKERS=tickers)
+    assert code != 0
+    assert output == ""
+
+
+def _run_preview_step(tmp_path, tickers, **kwargs):
+    return _run_script_step(tmp_path, PREVIEW, "financial_revenue_preview.py", PREVIEW_OP, tickers, apply_op=None, **kwargs)
+
+
+@pytest.mark.parametrize("tickers, args", [("", ""), ("JPM,BAC", " --tickers JPM,BAC")])
+def test_the_preview_reads_its_session_back_first_and_runs_read_only(tmp_path, tickers, args):
+    """The preview passes the report file the next step keeps and the commit this run checked out, and the
+    tickers only when given. The step's read-only PGOPTIONS reach the readback and the script unchanged."""
+    _, result, calls = _run_preview_step(tmp_path, tickers)
+    assert result.returncode == 0, result.stderr
+    report = tmp_path / "temp" / "financial-revenue-preview" / "report.json"
+    assert [call for call in calls if call.startswith("python ")] == [
+        f"python scripts/financial_revenue_preview.py --output {report} --workflow-commit {COMMIT}{args}"]
+    assert [call for call in calls if call.startswith("PGOPTIONS=")] == [f"PGOPTIONS={PREVIEW_GUARDS}"] * 2
+    assert calls[0].startswith("psql "), "the readback runs before the script"
+    assert report.parent.is_dir(), "the report's directory exists before the script writes it"
+    kept = next(step for step in _workflow("ops.yml")["jobs"]["ops"]["steps"]
+                if step.get("name") == "Retain financial revenue preview report")
+    assert kept["with"]["path"].replace("${{ runner.temp }}", str(tmp_path / "temp")) == str(report), (
+        "the step after it keeps the file the script writes")
+
+
+@pytest.mark.parametrize("kwargs, code", [
+    ({"python_exit": 3}, 3),  # a failed company or a stopped run fails the step
+    ({"psql_exit": 2}, 2),  # the session's settings could not be read: no script
+    ({"readback": "session read_only=off lock_timeout=10s statement_timeout=2min"}, 1),  # a session that could write
+    ({"readback": "session read_only=on lock_timeout=0 statement_timeout=2min"}, 1),  # no lock bound
+    ({"readback": "session read_only=on lock_timeout=10s statement_timeout=0"}, 1),  # no statement bound
+    ({"readback": ""}, 1),  # psql printed nothing
+])
+def test_a_preview_stops_on_a_failed_run_or_a_session_that_is_not_the_steps(tmp_path, kwargs, code):
+    """The readback is a check, not only a log line: a session whose settings are not the step's stops the
+    run before the script opens one, and the script's own failure fails the step."""
+    _, result, calls = _run_preview_step(tmp_path, "JPM", **kwargs)
     assert result.returncode == code
     assert ("the session's settings are not this step's" in result.stdout) == (code == 1)
     ran = [call for call in calls if call.startswith("python ")]
