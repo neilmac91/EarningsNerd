@@ -3,7 +3,6 @@ import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { sanitizeTelemetry } from './telemetryPrivacy'
 import { applyPostHogConsent, browserAnalyticsAllowed } from './posthogConsent'
-import { markAccountToForget } from './posthogIdentity'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -45,8 +44,13 @@ const safeReset = () => {
   if (typeof window === 'undefined') {
     return
   }
-  // A new device id too, so later events cannot be tied back to the account through it.
-  posthog.reset(true)
+  // A new device id too, so later events cannot be tied back to the account through it. Never let it throw: the
+  // identification hook forgets inside an account deletion's cache clear, which a throw would abort.
+  try {
+    posthog.reset(true)
+  } catch (error) {
+    Sentry.captureException(error, { tags: { posthog_js: String(posthog.version) } })
+  }
   // The SDK clears its own consent with the identity. Restore only the current validated
   // browser choice; a refusal (including one storage could not save) must remain off.
   // Its answer is not used: a guard that first fails here turns the client off but leaves
@@ -63,15 +67,14 @@ const safeReset = () => {
 // the dashboard's Log out calls that itself. A reader with no account (after any logout, an account deletion or a lost
 // session) must carry none: the consent clause ties statistics to an account id while logged in (lib/consentCopy.ts).
 // hooks/usePostHogUserIdentification.ts calls this whenever the account goes away. It resets an identity a loaded
-// client still holds; a client that has not loaded cannot reset, so it leaves word for the provider to reset at the
-// next load (lib/posthogIdentity.ts). Repeated calls cost nothing.
+// client still holds. A client that has not loaded cannot reset; the provider resets a kept identity when PostHog next
+// starts, unless the app's read of the session then names that account (lib/posthogIdentity.ts). Repeated calls cost
+// nothing.
 const safeForgetAccount = () => {
   if (typeof window === 'undefined') {
     return
   }
-  if (!posthog.__loaded) {
-    markAccountToForget()
-  } else if (identifiedAs() !== null) {
+  if (identifiedAs() !== null) {
     safeReset()
     return
   }

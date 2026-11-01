@@ -57,7 +57,9 @@ function helperScript(): string {
   ).outputText
   return `(() => {
     const modules = {};
-    const load = (name, execute) => { const exports = {}; execute(exports, id => modules[id]); modules[name] = exports; return exports; };
+    // An import the fixture has not loaded fails here, rather than as an undefined module when the code first uses it.
+    const require = id => { if (!(id in modules)) throw new Error('telemetry fixture: no module ' + id); return modules[id]; };
+    const load = (name, execute) => { const exports = {}; execute(exports, require); modules[name] = exports; return exports; };
     window.sentryReports = [];
     modules['@sentry/nextjs'] = { setUser: () => {}, captureException: error => { window.sentryReports.push(String(error)); } };
     window.consent = load('./browserConsent', function(exports, require) { ${compile('browserConsent')} });

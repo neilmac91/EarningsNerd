@@ -64,13 +64,15 @@ until `reset()`, which only the dashboard's Log out called. So a reader with no 
 none. The identification hook forgets the account whenever it goes away: when the reader becomes a
 guest (any logout control, a lost session) and when the account query leaves the cache (an account
 deletion and "Log out of all devices" clear it). Forgetting resets a loaded client, with a new
-device id. A client that has not loaded (analytics refused, or not chosen yet) cannot reset, so a
-flag in local storage asks the provider to reset at the next load, whoever's session it is then.
-The flag names no account, and it is left only where PostHog has stored something, which needs an
-allow first: a browser that never allowed analytics gets none. The provider also resets an id kept from an earlier visit for a
-browser without a session. Either reset comes before posthog-js sends anything for the page.
-After a logout and a login made while analytics is refused, the next allow identifies the account
-again. Whether a refusal should also clear PostHog's own storage is a founder decision
+device id. A client that has not loaded (analytics refused, or not chosen yet) cannot reset. When
+PostHog next starts, the provider resets a kept identity before posthog-js sends anything for the
+page, unless the app's read of the session (`/api/auth/me`) names that account. A session can end
+while no page is open (a refresh token lapses, or "Log out of all devices" or a deletion runs on
+another device), and the session marker still reads as a session then, so for a browser with that
+marker the provider starts PostHog only once the read has settled
+([posthogIdentity.ts](../frontend/lib/posthogIdentity.ts)). A browser without it starts at once,
+and any identity kept is reset. Nothing of this is stored. After a logout and a login made while
+analytics is refused, the next allow identifies the account again. Whether a refusal should also clear PostHog's own storage is a founder decision
 (`tasks/todo.md` F70).
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
@@ -100,12 +102,15 @@ do not certify every version of Vercel's remotely served script or recall its di
   before an allow, on after it, off after a refusal, with each failure path planted, and an account
   identified only while analytics is allowed. An identity is forgotten, with a new device id and
   Sentry's user, once the reader has no account, and the visitor's choice still holds. One kept
-  from an earlier visit is reset before anything is sent, for a browser without a session or one
-  whose account went while PostHog was off. An anonymous identity is kept across loads, and another
-  account starts on a fresh identity.
+  from an earlier visit is reset before anything is sent unless the app's read of the session names
+  that account: for a browser without a session, one whose session ended while no page was open,
+  and one now holding another account's session. For a browser with a session, PostHog starts only
+  after that read. An identity the read confirms is kept, an anonymous one is kept across loads, and
+  another account starts on a fresh identity.
   [posthog-user-identification.spec.tsx](../frontend/tests/unit/posthog-user-identification.spec.tsx)
-  pins that the hook asks to forget for every guest and when the account query leaves the cache.
-  Whether each way a session ends produces one of those is review-checked.
+  pins that the hook asks to forget for every guest and when the account query leaves the cache,
+  and that it reports each settled read of the session. Whether each way a session ends produces
+  one of those is review-checked.
 - [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) reads every
   file under `frontend/` that names posthog-js. It fails an underscore member that code, a test
   stand-in or a script held in a string reaches and the `module` build lacks. It also fails a

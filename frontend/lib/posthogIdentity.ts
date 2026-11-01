@@ -1,45 +1,28 @@
 /**
- * An account must not outlive its reader in PostHog's storage. posthog-js keeps an identified reader's id across page
- * loads until reset(), and reset() works only on a loaded client. lib/analytics.ts's forgetAccount, which the
- * identification hook calls for every guest and whenever the account goes, cannot reset while PostHog is not loaded on
- * the page (analytics refused or not chosen yet). It leaves word here instead, and the provider resets an identity
- * PostHog kept the next time it loads, before it sends anything (app/posthog-provider.tsx).
- *
- * The word is a flag in this origin's local storage; it names no account. It is left only where PostHog has stored
- * something, which needs an allow first, so a browser that never allowed analytics gets nothing. Storage that cannot be
- * read or written leaves the provider's check for a browser without a session in place.
+ * Whose session this browser holds, as the app last read it, for PostHog's start. posthog-js keeps an identified
+ * reader's id in its own storage across page loads until reset(), and a session can end while no page is open: a
+ * refresh token lapses, or "Log out of all devices" or an account deletion runs on another device. The session marker
+ * (lib/api/session.ts) still reads as a session then. So for a browser with that marker, the provider starts PostHog
+ * only once the app's own read of the session (GET /api/auth/me, through hooks/usePostHogUserIdentification.ts) has
+ * settled, and in `loaded` resets a kept identity that the read does not confirm, before posthog-js sends anything
+ * (app/posthog-provider.tsx). Nothing here is stored: it lives for the page.
  */
-const FORGET_KEY = 'en_posthog_forget_account'
-// posthog-js's own entry, `ph_<project key>_posthog`: a cookie that holds the identity, and a local-storage entry of the
-// same name that holds it where cookies cannot.
-const POSTHOG_ENTRY = /^ph_.+_posthog$/
+let settled: { account: string | null } | undefined
+const waiting: Array<() => void> = []
 
-function postHogStoredHere(): boolean {
-  try {
-    const cookies = document.cookie.split(';').map(cookie => cookie.split('=')[0].trim())
-    const entries = Array.from({ length: window.localStorage.length }, (_, i) => window.localStorage.key(i) ?? '')
-    return [...cookies, ...entries].some(name => POSTHOG_ENTRY.test(name))
-  } catch {
-    return false
-  }
+/** The hook reports each settled read: the account's id, or null for no account or a read that failed. */
+export function reportAccountRead(account: string | null): void {
+  settled = { account }
+  for (const then of waiting.splice(0)) then()
 }
 
-export function markAccountToForget(): void {
-  if (!postHogStoredHere()) return
-  try {
-    window.localStorage.setItem(FORGET_KEY, '1')
-  } catch {
-    /* storage blocked */
-  }
+/** Runs `then` once the session has been read: at once if it has, else at the next report. */
+export function whenAccountRead(then: () => void): void {
+  if (settled) then()
+  else waiting.push(then)
 }
 
-/** Whether an account may have gone while PostHog was not loaded; reading it clears the word. */
-export function takeAccountToForget(): boolean {
-  try {
-    const pending = window.localStorage.getItem(FORGET_KEY) === '1'
-    window.localStorage.removeItem(FORGET_KEY)
-    return pending
-  } catch {
-    return false
-  }
+/** The account the last settled read names; null for none, or before any read has settled. */
+export function settledAccount(): string | null {
+  return settled?.account ?? null
 }

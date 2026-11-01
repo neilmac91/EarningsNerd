@@ -1,5 +1,14 @@
+/**
+ * The identification hook's own duties, on a stand-in facade: it identifies an account only once PostHog is ready and
+ * analytics is allowed, asks to forget the account for every guest and when the current-user query leaves the cache,
+ * and reports each settled read of the session, which PostHog's start waits on for a browser with a session
+ * (lib/posthogIdentity.ts). Its cases write the guest's null or clear a bare QueryClient themselves. Whether each way a
+ * session ends in the app writes that null or clears the cache is review-checked
+ * (lessons/frontend-an-sdk-that-captures-nothing-can-still-store.md). What the facade and the provider then do with the
+ * SDK is pinned on real clients in posthogConsentGuard.spec.tsx.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const getCurrentUserSafe = vi.fn()
@@ -7,6 +16,7 @@ const getSubscriptionStatus = vi.fn()
 const getCookiePreferences = vi.fn()
 const identify = vi.fn()
 const forgetAccount = vi.fn()
+const reportAccountRead = vi.fn()
 
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: () => getCurrentUserSafe(),
@@ -22,6 +32,9 @@ vi.mock('@/lib/analytics', () => ({
     identify: (...args: unknown[]) => identify(...args),
     forgetAccount: (...args: unknown[]) => forgetAccount(...args),
   },
+}))
+vi.mock('@/lib/posthogIdentity', () => ({
+  reportAccountRead: (...args: unknown[]) => reportAccountRead(...args),
 }))
 
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
@@ -64,7 +77,35 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     getCookiePreferences.mockReset()
     identify.mockReset()
     forgetAccount.mockReset()
+    reportAccountRead.mockReset()
     getCookiePreferences.mockReturnValue({ analytics: true })
+  })
+
+  it('reports each settled read of the session: the account, no account, or a read that failed as none', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    renderProbe()
+    await waitFor(() => expect(reportAccountRead).toHaveBeenLastCalledWith('7'))
+    for (const read of [() => getCurrentUserSafe.mockResolvedValue(null), () => getCurrentUserSafe.mockRejectedValue(new Error('planted: /me failed'))]) {
+      cleanup()
+      reportAccountRead.mockReset()
+      read()
+      renderProbe()
+      await waitFor(() => expect(reportAccountRead).toHaveBeenCalledWith(null))
+      expect(reportAccountRead).not.toHaveBeenCalledWith('7')
+    }
+  })
+
+  it('identifies the same account again after the cache is cleared', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const { qc, setReady } = renderWithReadiness(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    act(() => qc.clear())
+    // The same account signs in again, as after "Log out of all devices" on another browser and a login here.
+    setReady(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(2))
+    expect(identify).toHaveBeenLastCalledWith('7', { is_pro: false, plan: 'free' })
   })
 
   it('identifies a free user with is_pro/plan once user + subscription resolve', async () => {

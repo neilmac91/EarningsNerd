@@ -7,6 +7,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { analytics } from '@/lib/analytics'
+import { reportAccountRead } from '@/lib/posthogIdentity'
 import { queryKeys } from '@/lib/queryKeys'
 import { usePostHogReady } from '@/lib/posthogReady'
 
@@ -28,7 +29,7 @@ import { usePostHogReady } from '@/lib/posthogReady'
  * the SDK, with no remount to run it.
  */
 export function usePostHogUserIdentification(): void {
-  const { data: user } = useQuery({
+  const { data: user, status: userStatus } = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
@@ -44,14 +45,22 @@ export function usePostHogUserIdentification(): void {
   const lastIdentity = useRef<string | null>(null)
   const guest = user === null
   const queryClient = useQueryClient()
+  const accountId = user ? String(user.id) : null
+
+  useEffect(() => {
+    // PostHog's start waits on this read for a browser with a session (lib/posthogIdentity.ts). A read that failed
+    // confirms no account, so an identity PostHog kept is reset rather than trusted.
+    if (userStatus === 'success') reportAccountRead(accountId)
+    else if (userStatus === 'error') reportAccountRead(null)
+  }, [userStatus, accountId])
 
   useEffect(() => {
     // An account deletion and "Log out of all devices" clear the whole cache instead of writing a guest, and React
-    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal.
+    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal. (The
+    // render after a clear reads no user yet, which re-arms identification below.)
     const identity = hashKey(queryKeys.currentUser())
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type !== 'removed' || event.query.queryHash !== identity) return
-      lastIdentity.current = null
       analytics.forgetAccount()
     })
   }, [queryClient])

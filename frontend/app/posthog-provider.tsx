@@ -7,7 +7,7 @@ import { useEffect, Suspense, useState } from 'react'
 import { hasActiveSession } from '@/lib/api/session'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
 import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed, postHogGuardFailed } from '@/lib/posthogConsent'
-import { takeAccountToForget } from '@/lib/posthogIdentity'
+import { settledAccount, whenAccountRead } from '@/lib/posthogIdentity'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
@@ -57,22 +57,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
     let active = true
     let starting = false
-    const followChoice = () => {
-      const allowed = browserAnalyticsAllowed()
-      setAnalyticsAllowed(allowed)
-      if (!key) return // Identification can still mirror the account id into Sentry after consent.
-      // Every failure below keeps PostHog off and reaches Sentry (failPostHogClosed), never only the console.
+    // Every failure here keeps PostHog off and reaches Sentry (failPostHogClosed), never only the console.
+    const start = (projectKey: string) => {
       try {
-        if (posthog.__loaded) {
-          if (!applyPostHogConsent(posthog)) setInitialized(false)
-          return
-        }
-        if (!allowed || starting) return
-        // Start PostHog only under its consent guard, installed here before init: unguarded, a withdrawal could
-        // not stop queued or retried requests.
-        if (!applyPostHogConsent(posthog)) return
-        starting = true
-        posthog.init(key, {
+        posthog.init(projectKey, {
           api_host: host,
           capture_pageview: false,
           capture_pageleave: true,
@@ -86,12 +74,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             // closure to opt back in or start recording.
             try {
               // posthog-js keeps an identified reader's id across page loads until reset(). Reset it here, before
-              // posthog-js sends its first request for this page, when its account went away while PostHog was not
-              // loaded (lib/posthogIdentity.ts), whoever's session this is now, or when the browser has no session. A
-              // new device id too. The privacy seed is written after it, and the application below restores the
-              // visitor's choice, which reset() clears.
-              const accountGone = takeAccountToForget()
-              if ((accountGone || !hasActiveSession()) && posthog.get_property('$user_state') === 'identified') posthog.reset(true)
+              // posthog-js sends its first request for this page, unless the app's read of the session names that
+              // account (lib/posthogIdentity.ts): a browser without a session, or one whose session ended or became
+              // another account's, starts on a fresh identity with a new device id. The privacy seed is written after
+              // it, and the application below restores the visitor's choice, which reset() clears.
+              const held = posthog.get_property('$user_state') === 'identified' ? posthog.get_distinct_id() : null
+              if (held !== null && held !== settledAccount()) posthog.reset(true)
               initializePostHogPrivacy(posthog)
               const guarded = applyPostHogConsent(posthog)
               if (!active) return
@@ -102,6 +90,40 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
               failPostHogClosed(posthog, error)
             }
           },
+        })
+      } catch (error) {
+        failPostHogClosed(posthog, error)
+        setInitialized(false)
+      }
+    }
+    const followChoice = () => {
+      const allowed = browserAnalyticsAllowed()
+      setAnalyticsAllowed(allowed)
+      if (!key) return // Identification can still mirror the account id into Sentry after consent.
+      try {
+        if (posthog.__loaded) {
+          if (!applyPostHogConsent(posthog)) setInitialized(false)
+          return
+        }
+        if (!allowed || starting) return
+        // Start PostHog only under its consent guard, installed here before init: unguarded, a withdrawal could
+        // not stop queued or retried requests.
+        if (!applyPostHogConsent(posthog)) return
+        starting = true
+        // The session marker cannot tell a live session from one that ended while no page was open. For a browser
+        // with one, start once the app has read whose session it is, so `loaded` resets a kept identity the read does
+        // not confirm. A browser without one starts at once, and any identity PostHog kept is reset.
+        if (!hasActiveSession()) {
+          start(key)
+          return
+        }
+        whenAccountRead(() => {
+          if (!active) return
+          if (!browserAnalyticsAllowed()) {
+            starting = false // Refused while the read was pending: a later allow starts again.
+            return
+          }
+          start(key)
         })
       } catch (error) {
         failPostHogClosed(posthog, error)

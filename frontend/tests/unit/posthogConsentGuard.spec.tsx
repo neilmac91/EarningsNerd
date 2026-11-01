@@ -21,6 +21,13 @@ import type { PostHogQueues } from '@/lib/posthogConsent'
  * is allowed. SDK_OPTIONS turns script loading, flags and remote configuration off for the other clients, since jsdom
  * loads no script.
  *
+ * The account cases pin what PostHog keeps of an account across page loads: the facade's forget and its reset before
+ * another account, and the provider's start, which for a browser with a session waits for the app's read of it and
+ * resets a kept identity the read does not confirm. Each case reports the read itself, as the identification hook does
+ * in the app (posthog-user-identification.spec.tsx pins the hook's side). Out of their reach, and review-checked: that
+ * every way a session ends in the app reaches the hook, and a browser whose storage blocks the session marker, which
+ * starts at once and resets a kept identity at each load.
+ *
  * posthog-js binds fetch and XMLHttpRequest when its module first runs, so both are replaced before any import: every
  * request the SDK makes is answered by the stand-in fetch, and without `withCredentials` the SDK keeps no XHR
  * transport (jsdom has no sendBeacon). Nothing leaves the process.
@@ -470,9 +477,10 @@ describe('an account PostHog keeps when the reader has none', () => {
   /**
    * A page load of the app's provider and lib/analytics.ts on a fresh client, after an allow. The client reads what an
    * earlier page load stored, as a reload's would. (The package entry's own client survives vi.resetModules, since
-   * Vitest leaves node_modules out of it, so each page load gets its own.)
+   * Vitest leaves node_modules out of it, so each page load gets its own.) For a browser with a session, `read` is what
+   * the app's read of the session settles on, which the identification hook reports in the app; PostHog starts after it.
    */
-  async function visit() {
+  async function visit(read?: { account: string | null }) {
     cleanup()
     vi.resetModules()
     const { PostHog } = await import('posthog-js')
@@ -481,6 +489,7 @@ describe('an account PostHog keeps when the reader has none', () => {
     const before = wire.calls.length
     const { choose } = await renderProvider(client)
     const { analytics } = await import('@/lib/analytics')
+    if (read) (await import('@/lib/posthogIdentity')).reportAccountRead(read.account)
     act(() => choose(true))
     expect(client.__loaded).toBe(true)
     return { client, analytics, choose, sinceLoad: () => wire.calls.slice(before) }
@@ -510,8 +519,9 @@ describe('an account PostHog keeps when the reader has none', () => {
     return { analytics }
   }
 
-  /** The page-view tracker's batched $pageview, once it has left (its flush waits a few seconds). */
-  const pageViewSent = () => vi.waitFor(() => expect(sent('$pageview')).toBeGreaterThan(0), { timeout: 8000 })
+  /** The page-view tracker's batched $pageview for this page load, once it has left (its flush waits a few seconds). */
+  const pageViewSent = (sinceLoad: () => Array<{ events: string[] }>) =>
+    vi.waitFor(() => expect(sinceLoad().flatMap(call => call.events)).toContain('$pageview'), { timeout: 8000 })
 
   it('is forgotten once the reader is a guest, and a guest without one is left alone', async () => {
     const { client, analytics, choose } = await identifiedVisit('synthetic-account-forget-check')
@@ -543,48 +553,107 @@ describe('an account PostHog keeps when the reader has none', () => {
     expect(client.get_property('$device_id')).not.toBe(device)
     // reset() clears the privacy seed too; it is written after the reset, so this page keeps its sanitized attribution.
     expect(client.get_property('$initial_person_info')).toMatchObject({ u: `${window.location.origin}/reset-password` })
-    await pageViewSent() // The page-view tracker's first $pageview, which leaves in a batch.
+    await pageViewSent(sinceLoad) // The page-view tracker's first $pageview, which leaves in a batch.
     const carries = (value: string) => sinceLoad().filter(call => (call.url + call.text).includes(value))
     expect([carries('synthetic-account-stale-check'), carries(device), carries(CANARY)]).toEqual([[], [], []])
     expect((stored() + decodeURIComponent(document.cookie)).includes(CANARY)).toBe(false)
     act(() => choose(false))
   }, 20_000)
 
-  it('is reset at the next load, whoever\'s session it is, when the account went away while PostHog was off', async () => {
-    const first = await identifiedVisit('synthetic-account-pending-check')
+  it('is reset at load when the session the app reads is another account\'s, though the account went while PostHog was off', async () => {
+    const first = await identifiedVisit('synthetic-account-departed')
     act(() => first.choose(false))
-    // A later page with analytics refused: PostHog does not load there, so forgetting the account leaves word. Sentry's
-    // user, which identify sets whatever the choice, goes too.
+    // A later page with analytics refused: PostHog does not load there, so forgetting the account cannot reset it.
+    // Sentry's user, which identify sets whatever the choice, goes all the same.
     const refused = await refusedVisit()
-    refused.analytics.identify('synthetic-account-pending-check')
-    expect(sentry.setUser).toHaveBeenLastCalledWith({ id: 'synthetic-account-pending-check' })
+    refused.analytics.identify('synthetic-account-departed')
+    expect(sentry.setUser).toHaveBeenLastCalledWith({ id: 'synthetic-account-departed' })
     refused.analytics.forgetAccount()
     expect(sentry.setUser).toHaveBeenLastCalledWith(null)
     // Another account then signs in on this browser and allows analytics.
     ;(await import('@/lib/api/session')).markSessionActive()
-    const { client, choose, sinceLoad } = await visit()
-    expect(client.get_distinct_id()).not.toBe('synthetic-account-pending-check')
-    await pageViewSent()
-    expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-pending-check'))).toEqual([])
+    const { client, choose, sinceLoad } = await visit({ account: 'synthetic-account-arrived' })
+    expect(client.get_distinct_id()).not.toBe('synthetic-account-departed')
+    await pageViewSent(sinceLoad)
+    expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-departed'))).toEqual([])
     act(() => choose(false))
   }, 20_000)
 
-  it('leaves word only where PostHog has stored something, so a browser that never allowed analytics stores none', async () => {
-    const word = () => localStorage.getItem('en_posthog_forget_account')
-    ;(await refusedVisit()).analytics.forgetAccount()
-    expect(word()).toBeNull()
-    // PostHog's entry as the cookie that holds the identity, or in local storage where cookies cannot hold it.
-    const entries = [
-      () => { document.cookie = 'ph_phc_synthetic_entry_posthog=%7B%7D; path=/' },
-      () => localStorage.setItem('ph_phc_synthetic_entry_posthog', '{}'),
-    ]
-    for (const plant of entries) {
-      localStorage.clear()
-      clearCookies()
-      plant()
-      ;(await refusedVisit()).analytics.forgetAccount()
-      expect(word()).toBe('1')
-    }
+  it('is reset before anything is sent when the session ended while no page was open', async () => {
+    const first = await identifiedVisit('synthetic-account-lapsed')
+    const device = first.client.get_property('$device_id') as string
+    act(() => first.choose(false))
+    // A refresh token lapsed, or "Log out of all devices" or a deletion ran on another device: the session marker
+    // still reads as a session, and the app's read of the session finds no account.
+    ;(await import('@/lib/api/session')).markSessionActive()
+    const { client, choose, sinceLoad } = await visit({ account: null })
+    expect(client.get_distinct_id()).not.toBe('synthetic-account-lapsed')
+    expect(client.get_property('$device_id')).not.toBe(device)
+    await pageViewSent(sinceLoad)
+    const carries = (value: string) => sinceLoad().filter(call => (call.url + call.text).includes(value))
+    expect([carries('synthetic-account-lapsed'), carries(device)]).toEqual([[], []])
+    act(() => choose(false))
+  }, 20_000)
+
+  it('waits for the session read before PostHog starts, for a browser with a session', async () => {
+    ;(await import('@/lib/api/session')).markSessionActive()
+    cleanup()
+    vi.resetModules()
+    const { PostHog } = await import('posthog-js')
+    const client = new PostHog()
+    clients.push(client)
+    const before = wire.calls.length
+    const { choose } = await renderProvider(client)
+    const identity = await import('@/lib/posthogIdentity')
+    act(() => choose(true))
+    expect(client.__loaded).toBe(false)
+    // Refused while the read is pending: PostHog stays off once the read settles, and a later allow starts it.
+    act(() => choose(false))
+    act(() => identity.reportAccountRead('synthetic-account-pending-read'))
+    expect(client.__loaded).toBe(false)
+    expect(wire.calls.slice(before)).toEqual([])
+    act(() => choose(true))
+    expect(client.__loaded).toBe(true)
+    act(() => choose(false))
+  })
+
+  it('keeps a refusal through a forget\'s reset, which clears the consent posthog-js stores', async () => {
+    const { client, analytics, choose } = await identifiedVisit('synthetic-account-refused-forget')
+    act(() => choose(false))
+    analytics.forgetAccount() // A logout after a refusal in this tab, with PostHog still loaded.
+    expect(client.get_distinct_id()).not.toBe('synthetic-account-refused-forget')
+    expect([client.is_capturing(), client.has_opted_out_capturing()]).toEqual([false, true])
+  })
+
+  it('identifies an anonymous visitor in place, so the events before the login join the account', async () => {
+    const { client, analytics, choose } = await visit()
+    const [anonymous, device] = [client.get_distinct_id(), client.get_property('$device_id')]
+    const flagsBefore = flagsSent()
+    analytics.identify('synthetic-account-in-place')
+    expect([client.get_distinct_id(), client.get_property('$device_id')]).toEqual(['synthetic-account-in-place', device])
+    await vi.waitFor(() => expect(sent('$identify')).toBe(1))
+    expect(wire.calls.some(call => call.events.includes('$identify') && call.text.includes(anonymous))).toBe(true)
+    await vi.waitFor(() => expect(flagsSent()).toBeGreaterThan(flagsBefore))
+    act(() => choose(false))
+  })
+
+  it('never throws out of a forget when posthog-js throws while resetting, and reports it', async () => {
+    // The identification hook forgets inside an account deletion's cache clear, which a throw would abort.
+    const { client, analytics, choose } = await identifiedVisit('synthetic-account-reset-throws')
+    const planted = new Error('planted: reset failed')
+    vi.spyOn(client, 'reset').mockImplementation(() => { throw planted })
+    expect(() => analytics.forgetAccount()).not.toThrow()
+    expect(sentry.captureException).toHaveBeenCalledWith(planted, { tags: { posthog_js: String(client.version) } })
+    expect(sentry.setUser).toHaveBeenLastCalledWith(null)
+    act(() => choose(false))
+  })
+
+  it('stores nothing when the account goes while PostHog is not loaded', async () => {
+    const refused = await refusedVisit()
+    const before = [stored(), document.cookie]
+    refused.analytics.identify('synthetic-account-unloaded')
+    refused.analytics.forgetAccount()
+    expect([stored(), document.cookie]).toEqual(before)
   })
 
   it('leaves an anonymous browser\'s identity alone across a load', async () => {
@@ -604,18 +673,21 @@ describe('an account PostHog keeps when the reader has none', () => {
     const flagsBefore = flagsSent()
     analytics.identify('synthetic-account-second') // Another tab signed in, or a session ended unseen.
     expect(client.get_distinct_id()).toBe('synthetic-account-second')
+    // The reset before it clears Sentry's user; the new account's is set after it.
+    expect(sentry.setUser).toHaveBeenLastCalledWith({ id: 'synthetic-account-second' })
     expect(client.get_property('$device_id')).not.toBe(device)
     await vi.waitFor(() => expect(sent('$identify')).toBe(2)) // Identified afresh, not switched silently.
     await vi.waitFor(() => expect(flagsSent()).toBeGreaterThan(flagsBefore))
     act(() => choose(false))
   })
 
-  it('is kept while the browser\'s session goes on', async () => {
+  it('is kept while the browser\'s session goes on and the app\'s read of it names that account', async () => {
     const first = await identifiedVisit('synthetic-account-session-check')
+    const device = first.client.get_property('$device_id')
     act(() => first.choose(false))
     ;(await import('@/lib/api/session')).markSessionActive()
-    const { client, choose } = await visit()
-    expect(client.get_distinct_id()).toBe('synthetic-account-session-check')
+    const { client, choose } = await visit({ account: 'synthetic-account-session-check' })
+    expect([client.get_distinct_id(), client.get_property('$device_id')]).toEqual(['synthetic-account-session-check', device])
     act(() => choose(false))
   })
 })
@@ -705,6 +777,30 @@ describe('the provider when PostHog cannot run under its guard', () => {
     client.capture('after-loaded-throw', {}, { send_instantly: true })
     await new Promise(resolve => setTimeout(resolve, 10))
     expect([client.is_capturing(), ready(), sent('after-loaded-throw')]).toEqual([false, 'false', 0])
+    expect(sentry.captureException).toHaveBeenCalledTimes(1)
+    expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
+  })
+
+  it('turns PostHog off, not ready, and reports a throw from posthog.init after `loaded` has run', async () => {
+    // posthog-js runs `loaded` inside init, so the page already reads ready when init throws after it.
+    const planted = new Error('planted: init threw after loaded')
+    const { PostHog } = await import('posthog-js')
+    const client = new PostHog()
+    clients.push(client)
+    const init = client.init.bind(client)
+    vi.spyOn(client, 'init').mockImplementation((...args: Parameters<PostHog['init']>) => {
+      init(...args)
+      throw planted
+    })
+    const { choose, ready } = await renderProvider(client)
+    untouchedBeforeConsent(client, choose)
+    act(() => choose(true))
+    expect([client.__loaded, ready()]).toEqual([true, 'false'])
+    act(() => choose(false))
+    act(() => choose(true))
+    client.capture('after-init-throw', {}, { send_instantly: true })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect([client.is_capturing(), ready(), sent('after-init-throw')]).toEqual([false, 'false', 0])
     expect(sentry.captureException).toHaveBeenCalledTimes(1)
     expect(sentry.captureException.mock.calls[0][0]).toBe(planted)
   })
