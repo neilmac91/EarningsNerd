@@ -17,7 +17,7 @@ test('a dialog taller than the viewport scrolls inside and keeps every control r
     )
   })
   await page.goto('/terms')
-  const launcher = page.locator('button[aria-haspopup="dialog"][aria-label="Send feedback"]')
+  const launcher = page.getByRole('button', { name: 'Feedback', exact: true })
   await launcher.click()
 
   const dialog = page.getByRole('dialog', { name: 'Send feedback' })

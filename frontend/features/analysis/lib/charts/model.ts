@@ -200,7 +200,8 @@ const present = (series: AnalysisSeries | undefined, ds: AnalysisDataset): serie
 /**
  * The currency every plotted amount is in. Amounts on one scale must share a currency (one label covers
  * two amounts only when both are in it), so more than one is `mixed` and the chart does not draw. A
- * point's own unit wins over its series' (E102: a series takes its first point's unit).
+ * point's own unit wins over its series'. Since E102 the dataset refuses a series whose valued points name two units,
+ * so the two agree, and the point's own is still read first.
  */
 function currencyOf(ds: AnalysisDataset, series: AnalysisSeries[]): { currency: string | null; mixed: boolean } {
   const keys = new Set(ds.periods.map((period) => period.key))

@@ -43,11 +43,6 @@ export const STREAM_ERROR_COPY: Readonly<Record<string, string>> = {
   // Since E37 admission.py writes these words itself.
   "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.":
     "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
-  // Retired (E37): the ceiling's words before E37. The page deploys before the backend, and until #1869's backend serves,
-  // #1848's streams these words, coded, so the card shows its successor's words above, not the retired ones. Delete
-  // this line once #1869's backend deploy is verified (tests/unit/streamErrorCopy.spec.ts, RETIRED_KEYS).
-  "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
-    "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
   // admission.py: the free monthly limit, in its own words since E37. The paywall card writes its own copy for this
   // one; the line keeps the map whole.
   "You've used this month's {limit} free summaries. Upgrade to Pro for unlimited summaries.":
