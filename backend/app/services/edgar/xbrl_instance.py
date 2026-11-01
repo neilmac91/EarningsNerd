@@ -288,7 +288,8 @@ def _finish_instance(result, accession_number, base_form, xb, period_of_report, 
     # filing's own period — otherwise this instance is unusable and the
     # accession-aware companyfacts fallback should take over. Banks report no single "revenue"
     # (it is suppressed), so their net-interest/non-interest income components anchor instead.
-    anchor_keys = ("revenue", "net_income", "earnings_per_share",
+    # Diluted EPS anchors as basic does: since E260 a diluted figure never fills earnings_per_share.
+    anchor_keys = ("revenue", "net_income", "earnings_per_share", "eps_diluted",
                    "net_interest_income", "noninterest_income")
     if not any(result.get(key) for key in anchor_keys):
         logger.info(f"No usable consolidated facts in instance for {accession_number}")

@@ -1,6 +1,6 @@
 -- Detection: current financial_fact rows a proxy or information statement supplied. Since 2023 a
 -- proxy's pay-versus-performance table tags NetIncomeLoss (sometimes other lines) for five fiscal
--- years, filed after the 10-Ks it quotes. Until facts/currency.py's is_proxy_form the companyfacts sync
+-- years, filed after the 10-Ks it quotes. Until is_proxy_form (now facts/fiscal_naming.py) the companyfacts sync
 -- took each period's latest-filed item of any form, so the proxy's figure replaced the 10-K's (the
 -- 2026-10 restatement census: 120 cells at 24 of 59 large filers, 12 of them off the 10-K's, FDX's at a
 -- millionth of it), and the backfill's cross-check (facts/reconcile.py's extract_authoritative_values,
@@ -8,7 +8,8 @@
 -- sync replaces a sync's proxy row only where no stored row holds the 10-K's identity: neither a
 -- sync's nor a filing's, which the per-filing writer stores behind a current proxy row when the 10-K
 -- is listed after it. Elsewhere the proxy row stays current, a margin computed from it keeps its value,
--- and no sync rewrites a filing's row. The sets: 1 counts the current rows whose form is a proxy form,
+-- and no sync rewrites a filing's row, whether the sync runs in USD alone or involves another currency
+-- (facts/currency.py never protects a proxy's row and leaves a stored identity behind it). The sets: 1 counts the current rows whose form is a proxy form,
 -- 2 lists their companies and concepts, 3 lists the calculations computed from them, 4 lists the
 -- filings' rows, current or not, the cross-check replaced with a proxy's figure, and 5 those it
 -- confirmed against one. Together they are the cohort of the journaled repair, the quarterly repair's

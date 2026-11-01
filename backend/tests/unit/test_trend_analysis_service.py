@@ -279,6 +279,27 @@ class TestCodeOwnedObservations:
         assert "[F1]" in signals[0].markdown and "[F2]" in signals[0].markdown
         assert "Net interest income USD 10" in signals[0].markdown
 
+    def test_latest_eps_is_diluted_where_the_basic_series_ends_at_an_earlier_period(self):
+        # E260: a filer with no undimensioned basic EPS writes no basic rows since E260, so its basic series can end
+        # at rows stored before it while diluted EPS carries on. The observation names the later figure.
+        dataset = self._dataset()
+        basic = next(s for s in dataset["series"] if s["concept"] == "earnings_per_share")
+        diluted = [{**point, "value": value, "marker": f"F{50 + index}"}
+                   for index, (point, value) in enumerate(zip(basic["points"], (6.3, 7.5)))]
+        dataset["series"].append(_observation_series("eps_diluted", "EPS (diluted)", diluted, unit="USD/shares"))
+
+        def latest_eps():
+            catalogue = svc.build_observation_catalogue(dataset)
+            return next(item for item in catalogue if item.id.startswith("growth_quality.latest-eps")).markdown
+
+        assert "EPS (basic) was USD 7.70 per share in 2026Q2 [F14]" in latest_eps()  # both reach 2026Q2: basic
+        basic["points"][-1]["value"] = None
+        assert "EPS (diluted) was USD 7.50 per share in 2026Q2 [F51]" in latest_eps()
+        diluted[-1]["value"] = None
+        assert "EPS (basic) was USD 6.40 per share in 2026Q1 [F13]" in latest_eps()  # both end at 2026Q1: basic
+        dataset["series"].remove(basic)
+        assert "EPS (diluted) was USD 6.30 per share in 2026Q1 [F50]" in latest_eps()
+
     def test_derived_q4_points_are_disclosed_in_code_owned_observations(self):
         dataset = self._dataset()
         revenue = next(s for s in dataset["series"] if s["concept"] == "net_interest_income")
