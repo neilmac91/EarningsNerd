@@ -64,14 +64,16 @@ until `reset()`, which only the dashboard's Log out called. So a reader with no 
 none. The identification hook forgets the account whenever it goes away: when the reader becomes a
 guest (any logout control, a lost session) and when the account query leaves the cache (an account
 deletion and "Log out of all devices" clear it). Forgetting resets a loaded client, with a new
-device id. A client that has not loaded (analytics refused, or not chosen yet) cannot reset. When
-PostHog next starts, the provider resets a kept identity before posthog-js sends anything for the
-page, unless the app's read of the session (`/api/auth/me`) names that account. A session can end
-while no page is open (a refresh token lapses, or "Log out of all devices" or a deletion runs on
-another device), and the session marker still reads as a session then, so for a browser with that
-marker the provider starts PostHog only once the read has settled
-([posthogIdentity.ts](../frontend/lib/posthogIdentity.ts)). A browser without it starts at once,
-and any identity kept is reset. Nothing of this is stored. After a logout and a login made while
+device id; a client whose reset throws is turned off instead. A client that has not loaded
+(analytics refused, or not chosen yet) cannot reset. When PostHog next starts, the provider resets
+a kept identity before posthog-js sends anything for the page, unless the browser has a session and
+the app's latest read of it (`/api/auth/me`) names that account; an account query cleared from the
+cache ends the read. A session can end while no page is open (a refresh token lapses, or "Log out
+of all devices" or a deletion runs on another device), and the session marker still reads as a
+session then, so for a browser with that marker the provider starts PostHog only once the read has
+settled ([posthogIdentity.ts](../frontend/lib/posthogIdentity.ts)). A read that never settles keeps
+PostHog off for that page. A browser without the marker starts at once, and any identity kept is
+reset. Nothing of this is stored. After a logout and a login made while
 analytics is refused, the next allow identifies the account again. Whether a refusal should also clear PostHog's own storage is a founder decision
 (`tasks/todo.md` F70).
 

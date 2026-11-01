@@ -96,6 +96,34 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     }
   })
 
+  it('reports each later read on the same page: the account, then no account after a logout', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const qc = renderProbe()
+    await waitFor(() => expect(reportAccountRead).toHaveBeenLastCalledWith('7'))
+    act(() => qc.setQueryData(queryKeys.currentUser(), null))
+    await waitFor(() => expect(reportAccountRead).toHaveBeenLastCalledWith(null))
+    expect(reportAccountRead.mock.calls).toEqual([['7'], [null]])
+  })
+
+  it('reports nothing while the read is pending', async () => {
+    getCurrentUserSafe.mockReturnValue(new Promise(() => undefined))
+    renderProbe()
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+    expect(reportAccountRead).not.toHaveBeenCalled()
+  })
+
+  it('reports no account when a refetch fails, though the cache keeps the account', async () => {
+    getCurrentUserSafe.mockResolvedValueOnce({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const qc = renderProbe()
+    await waitFor(() => expect(reportAccountRead).toHaveBeenLastCalledWith('7'))
+    getCurrentUserSafe.mockRejectedValueOnce(new Error('planted: /me failed'))
+    await act(async () => { await qc.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await waitFor(() => expect(reportAccountRead).toHaveBeenLastCalledWith(null))
+    expect(qc.getQueryData(queryKeys.currentUser())).toEqual({ id: 7, email: 'u@x.com', is_pro: false })
+  })
+
   it('identifies the same account again after the cache is cleared', async () => {
     getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
     getSubscriptionStatus.mockResolvedValue({ is_pro: false })
@@ -153,6 +181,21 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     expect(forgetAccount).not.toHaveBeenCalled()
     act(() => qc.clear())
     expect(forgetAccount).toHaveBeenCalledTimes(1)
+    // The read reported before no longer holds, so PostHog's next start must not trust it.
+    expect(reportAccountRead).toHaveBeenLastCalledWith(null)
+  })
+
+  it('identifies again after a cache clear, though another reader re-reads the account before the hook renders', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const { qc, setReady } = renderWithReadiness(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    act(() => qc.clear())
+    // The login page's header reads the same account again, as after "Log out of all devices" and a login.
+    await act(async () => { await qc.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe }) })
+    setReady(false)
+    setReady(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(2))
   })
 
   // A guest carries no account: lib/analytics.ts resets an identity PostHog still holds, from an earlier visit or from a

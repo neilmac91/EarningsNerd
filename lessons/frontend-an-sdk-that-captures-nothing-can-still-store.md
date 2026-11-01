@@ -34,11 +34,14 @@ choice stop what posthog-js captures and sends, but its reviews found what it st
 - Forget the account at the one place that sees every way it goes away, not at each control that ends a session.
   `frontend/hooks/usePostHogUserIdentification.ts` calls `analytics.forgetAccount()` for every known guest and when the
   current-user query leaves the cache. Forgetting resets a held identity with a new device id.
-- Trust a kept identity only once the server has confirmed it. A client-side session marker cannot tell a live session
-  from one that ended elsewhere, so for a browser with one, the provider (`frontend/app/posthog-provider.tsx`) starts
-  the SDK only after the app's read of the session has settled (`frontend/lib/posthogIdentity.ts`). In `loaded`, which
-  posthog-js runs before its remote configuration and flags, it resets a kept identity the read does not confirm. A
-  browser without a marker starts at once and resets any identity kept.
+- Trust a kept identity only while the browser holds a session and the server has confirmed it. A client-side session
+  marker cannot tell a live session from one that ended elsewhere, so for a browser with one, the provider
+  (`frontend/app/posthog-provider.tsx`) starts the SDK only after the app's read of the session has settled
+  (`frontend/lib/posthogIdentity.ts`). In `loaded`, which posthog-js runs before its remote configuration and flags, it
+  resets a kept identity unless the latest read confirms it. A read the cache drops (an account deletion, "Log out of
+  all devices") is reported as no account, so it cannot be trusted later on the page. A browser without a marker
+  starts at once and resets any identity kept.
+- A client that cannot forget an account fails closed rather than capture under it.
 - Check what an SDK writes, not only what it sends.
 
 **Gate.** Partly gated, for posthog-js.
@@ -52,19 +55,25 @@ choice stop what posthog-js captures and sends, but its reviews found what it st
 - `frontend/tests/unit/posthogConsentGuard.spec.tsx`, on real clients:
   - an account is identified only while analytics is allowed;
   - `forgetAccount` resets a held identity with a new device id, clears Sentry's user, keeps the visitor's choice
-    (an allow and a refusal alike), never throws, and leaves an anonymous identity alone;
+    (an allow and a refusal alike, the refusal stored again for every tab), never throws, turns off a client whose
+    reset throws, and leaves an anonymous identity alone;
   - an anonymous visitor is identified in place, so the events before the login join the account;
   - a browser without a session that loads PostHog again starts on a fresh identity, and none of its requests carries
     the old one;
   - so does a browser whose session ended while no page was open, and one now holding another account's session;
-  - for a browser with a session, PostHog starts only after the app's read of it, and a refusal while the read is
-    pending keeps it off;
+  - for a browser with a session, PostHog starts only after the app's read of it, even when the allow was stored before
+    the page; a refusal while the read is pending keeps it off, and a page that unmounts while it is pending never
+    starts;
+  - a read the page ended before PostHog started (a deletion's cleared cache) and a read made before the session marker
+    went are not trusted;
   - an identity the read confirms is kept, an anonymous identity is kept across a load, and forgetting while PostHog is
     not loaded stores nothing;
   - another account starts on a fresh identity and is identified afresh.
 - `frontend/tests/unit/posthog-user-identification.spec.tsx` pins that the hook asks to forget for every guest, again
-  once PostHog is ready, and when the cache is cleared; that it reports each settled read of the session; and that it
-  identifies the same account again after a logout and a login, or a cache clear.
+  once PostHog is ready, and when the cache is cleared; that it reports each settled read of the session on the same
+  page (an account, no account after a logout, no account after a failed refetch or a cache clear, nothing while
+  pending); and that it identifies the same account again after a logout and a login, or a cache clear, though another
+  reader re-reads the account first.
 
 Review-checked:
 
@@ -73,8 +82,10 @@ Review-checked:
 - a file that handles a PostHog client without naming posthog-js;
 - a session that ends without the account query reading no account or leaving the cache. Every logout control and a
   lost session write that null today; an account deletion and "Log out of all devices" clear the cache;
-- a browser whose storage blocks the session marker. It starts at once, so a logged-in reader's kept identity is reset
-  at each load: a new anonymous id and device id each time, which costs statistics and keeps nothing of an account.
+- a browser whose storage blocks the session marker. It keeps no consent choice either, so PostHog starts only on an
+  allow made on the page, and an allow made before the app's read of the session answers resets a kept identity (a new
+  anonymous id and device id), which costs statistics and keeps nothing of an account;
+- a session read that never settles (a refresh that never answers, or offline): PostHog stays off for that page.
 
 What PostHog keeps in storage while analytics is refused is the founder's decision (`tasks/todo.md` F70 item 4).
 

@@ -74,12 +74,14 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             // closure to opt back in or start recording.
             try {
               // posthog-js keeps an identified reader's id across page loads until reset(). Reset it here, before
-              // posthog-js sends its first request for this page, unless the app's read of the session names that
-              // account (lib/posthogIdentity.ts): a browser without a session, or one whose session ended or became
-              // another account's, starts on a fresh identity with a new device id. The privacy seed is written after
-              // it, and the application below restores the visitor's choice, which reset() clears.
+              // posthog-js sends its first request for this page, unless the browser has a session and the app's latest
+              // read of it names that account (lib/posthogIdentity.ts): a browser without a session, or one whose
+              // session ended or became another account's, starts on a fresh identity with a new device id. The
+              // privacy seed is written after it, and the application below restores the visitor's choice, which
+              // reset() clears.
               const held = posthog.get_property('$user_state') === 'identified' ? posthog.get_distinct_id() : null
-              if (held !== null && held !== settledAccount()) posthog.reset(true)
+              const confirmed = hasActiveSession() ? settledAccount() : null
+              if (held !== null && held !== confirmed) posthog.reset(true)
               initializePostHogPrivacy(posthog)
               const guarded = applyPostHogConsent(posthog)
               if (!active) return

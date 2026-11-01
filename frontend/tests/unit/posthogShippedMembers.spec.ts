@@ -39,8 +39,8 @@ import { describe, expect, it } from 'vitest'
  * - an `identify`, `alias` or `setIdentity` read off anything but a name bound to that module's import (called, passed
  *   or bound), or destructured, in a declaration or an assignment;
  * - a key that sets the person (`bootstrap.distinctID`, `identity_distinct_id`, `register({ distinct_id })`) in an object
- *   literal (a getter or method too), as a class field, or written (by any assignment, a destructuring pattern, a loop
- *   head or an increment);
+ *   literal (a getter or method too), as a class field or constructor parameter property, or written (by any
+ *   assignment, a destructuring pattern, a loop head or an increment);
  * - either kind named by a bare string, or another declaration of a name bound to the facade;
  * - any of these in code held in a string.
  *
@@ -50,6 +50,8 @@ import { describe, expect, it } from 'vitest'
  *   source file other than `posthog-core`, named by a bare path segment;
  * - code held more than two strings deep;
  * - a file that handles a PostHog client without naming posthog-js;
+ * - a key that sets the person declared as a module's or namespace's export and passed whole as an object
+ *   (`bootstrap: boot` after `import * as boot`);
  * - a kept name read off the wrong object, since a name passes when the build has it anywhere (`client._instance`
  *   passes, though the client's helpers carry `_instance` and the client does not).
  */
@@ -217,10 +219,21 @@ function facadeNames(file: ts.SourceFile): Set<string> {
  */
 function declares(node: ts.Identifier): boolean {
   const parent = node.parent
-  return (ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isBindingElement(parent) || ts.isFunctionDeclaration(parent)
-    || ts.isFunctionExpression(parent) || ts.isClassDeclaration(parent) || ts.isClassExpression(parent) || ts.isEnumDeclaration(parent))
-    && parent.name === node && !inType(parent)
+  const binds = ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isBindingElement(parent) || ts.isFunctionDeclaration(parent)
+    || ts.isFunctionExpression(parent) || ts.isClassDeclaration(parent) || ts.isClassExpression(parent) || ts.isEnumDeclaration(parent)
+    || ts.isImportEqualsDeclaration(parent) || ts.isModuleDeclaration(parent)
+  return binds && parent.name === node && !inType(parent) && !(ts.isParameter(parent) && signatureOnly(parent.parent))
 }
+
+/** A function or member that only declares a signature (an overload, an abstract or ambient method, an index
+ * signature): its parameters bind nothing a body could use. */
+const signatureOnly = (owner: ts.Node) => ts.isIndexSignatureDeclaration(owner)
+  || ((ts.isFunctionDeclaration(owner) || ts.isMethodDeclaration(owner) || ts.isConstructorDeclaration(owner)) && !owner.body)
+
+/** Whether this node names a key an object or class instance holds: an object-literal or class member, or a
+ * constructor's parameter property (`constructor(public distinctID: string)`). */
+const holdsKey = (node: ts.Node) => isMember(node)
+  || (ts.isParameter(node) && ts.isConstructorDeclaration(node.parent) && Boolean(ts.getModifiers(node)?.some(m => PROPERTY_MODIFIERS.has(m.kind))))
 
 const IDENTITY_NAMES = new Set([...IDENTITY_MEMBERS, ...IDENTITY_KEYS])
 
@@ -255,7 +268,9 @@ function identityTies(source: string, fileName: string, depth = 0): Array<{ name
     } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
       const name = nameOf(node.propertyName ?? node.name)
       if (name && IDENTITY_MEMBERS.has(name)) flag(name, node)
-    } else if (isMember(node) && IDENTITY_KEYS.has(nameOf((node as ts.NamedDeclaration).name) ?? '') && !inType(node)) {
+    } else if (holdsKey(node) && IDENTITY_KEYS.has(nameOf((node as ts.NamedDeclaration).name) ?? '') && !inType(node)
+      // A destructuring assignment's keys name what it reads: `({ distinct_id } = event.properties)`.
+      && !((ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && ts.isAssignmentTarget(node.parent))) {
       flag(nameOf((node as ts.NamedDeclaration).name)!, node)
     } else if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && IDENTITY_KEYS.has(keyed(node) ?? '')
       && ts.isAssignmentTarget(node)) {
@@ -424,6 +439,10 @@ describe('posthog-js members the shipped build has', () => {
     expect(otherBuilds("require(path.join(packageRoot, 'full'))", 'planted.ts')).toEqual([])
     expect(otherBuilds("require(path.join(packageRoot, 'lib', 'src', 'remote-config.js'))", 'planted.ts')).toEqual([])
   })
+  it('does not see a key that sets the person declared as a module\'s export and passed whole (a stated gap)', () => {
+    expect(identityCalls("import * as boot from './boot'\nposthog.init(key, { bootstrap: boot })", 'planted.ts')).toEqual([])
+    expect(identityCalls('export const distinctID = id', 'boot.ts')).toEqual([])
+  })
   it('does not read code held more than two strings deep (a stated gap)', () => {
     expect(unknownToBuild('page.evaluate(\'eval("Function(`return client._retryQueue`)")\')', 'planted.ts')).toEqual([])
     expect(identityCalls('page.evaluate(\'eval("Function(`return posthog.identify(id)`)")\')', 'planted.ts')).toEqual([])
@@ -467,6 +486,10 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     ['an identity registered by a getter', 'posthog.register({ get distinct_id() { return id } })'],
     ['an identity bootstrapped by a getter', 'posthog.init(key, { bootstrap: { get distinctID() { return id } } })'],
     ['an identity bootstrapped by a class field', 'class Boot { distinctID = id }\nposthog.init(key, { bootstrap: new Boot() })'],
+    ['an identity bootstrapped by a constructor parameter property', 'class Boot { constructor(public distinctID: string) {} }\nposthog.init(key, { bootstrap: new Boot(id) })'],
+    ['an identity registered by a method', 'posthog.register({ distinct_id() { return id } })'],
+    ['an identity registered by a setter', 'posthog.register({ set distinct_id(value: string) { void value } })'],
+    ['an identity passed as a JSX attribute', 'const boot = <Bootstrap distinctID={id} />', 'planted.tsx'],
     ['a client held in a scope under the facade\'s imported name', "import analytics from '@/lib/analytics'\nfunction tie(id: string) { const analytics = usePostHog(); analytics.identify(id) }"],
     ['a client passed under the facade\'s imported name', "import { analytics } from '@/lib/analytics'\nexport const tie = (analytics: PostHog, id: string) => analytics.identify(id)"],
     ['a client destructured under the facade\'s imported name', "import analytics from '@/lib/analytics'\nexport function tie({ analytics }: Props) { analytics.identify(id) }"],
@@ -478,6 +501,10 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     ['a key written through an array pattern', '[props.distinct_id] = [id]'],
     ['a key written through an object pattern', '({ x: props.distinct_id } = { x: id })'],
     ['a key written by a loop head', 'for (props.distinct_id of [id]) { send(props) }'],
+    ['a key written by a for-in head', 'for (props.distinct_id in source) { send(props) }'],
+    ['a key written by an increment', 'props.distinct_id++'],
+    ['the facade\'s imported name declared again by import-equals in a namespace', "import analytics from '@/lib/analytics'\nnamespace Tie { import analytics = Holder.client; analytics.identify(id) }"],
+    ['a namespace under the facade\'s imported name', "import analytics from '@/lib/analytics'\nnamespace analytics { export const tie = 1 }"],
     ['an identify destructured by assignment', '({ identify } = posthog)'],
     ['an alias renamed by a destructuring assignment', '({ alias: tie } = posthog)'],
     ['a nested function under the facade\'s imported name', "import analytics from '@/lib/analytics'\nfunction tie() { function analytics() {} }"],
@@ -502,6 +529,11 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     ['a sentence in a string', "const note = 'we identify a reader only after an allow.'"],
     ['a parameter named like the facade in a type', "import analytics from '@/lib/analytics'\ntype Track = (analytics: unknown) => void"],
     ['a key named like the person in a type', 'interface Boot { distinctID: string }'],
+    ['a field named like the person in an ambient class', 'declare class Boot { distinctID: string }'],
+    ['a key read by a destructuring assignment', 'let distinct_id\n({ distinct_id } = event.properties)'],
+    ['a parameter named like the facade in an overload', "import analytics from '@/lib/analytics'\nfunction track(analytics: unknown): void\nfunction track(value?: unknown) { return value }"],
+    ['a parameter named like the facade in an abstract method', "import analytics from '@/lib/analytics'\nabstract class Tracker { abstract track(analytics: unknown): void }"],
+    ['a parameter named like the facade in an index signature', "import analytics from '@/lib/analytics'\nclass Bag { [analytics: string]: unknown }"],
     ['another call', "posthog.capture('event')"],
   ])('passes %s', (_form, planted, fileName = 'planted.ts') => {
     expect(identityCalls(planted, fileName)).toEqual([])

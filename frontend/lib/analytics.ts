@@ -2,7 +2,7 @@ import posthog from 'posthog-js'
 import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { sanitizeTelemetry } from './telemetryPrivacy'
-import { applyPostHogConsent, browserAnalyticsAllowed } from './posthogConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed } from './posthogConsent'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -45,11 +45,12 @@ const safeReset = () => {
     return
   }
   // A new device id too, so later events cannot be tied back to the account through it. Never let it throw: the
-  // identification hook forgets inside an account deletion's cache clear, which a throw would abort.
+  // identification hook forgets inside an account deletion's cache clear, which a throw would abort. A client that
+  // could not forget the account must not go on capturing under it, so it fails closed and reports once.
   try {
     posthog.reset(true)
   } catch (error) {
-    Sentry.captureException(error, { tags: { posthog_js: String(posthog.version) } })
+    failPostHogClosed(posthog, error)
   }
   // The SDK clears its own consent with the identity. Restore only the current validated
   // browser choice; a refusal (including one storage could not save) must remain off.

@@ -56,11 +56,14 @@ export function usePostHogUserIdentification(): void {
 
   useEffect(() => {
     // An account deletion and "Log out of all devices" clear the whole cache instead of writing a guest, and React
-    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal. (The
-    // render after a clear reads no user yet, which re-arms identification below.)
+    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal: the
+    // read reported before no longer holds, so PostHog's next start must not trust it (lib/posthogIdentity.ts), and
+    // the same account read again, by any observer, is identified again.
     const identity = hashKey(queryKeys.currentUser())
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type !== 'removed' || event.query.queryHash !== identity) return
+      reportAccountRead(null)
+      lastIdentity.current = null
       analytics.forgetAccount()
     })
   }, [queryClient])

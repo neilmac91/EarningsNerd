@@ -10,7 +10,10 @@
 let settled: { account: string | null } | undefined
 const waiting: Array<() => void> = []
 
-/** The hook reports each settled read: the account's id, or null for no account or a read that failed. */
+/**
+ * The hook reports each settled read: the account's id, or null for no account or a read that failed. It reports null
+ * too when the account query leaves the cache (an account deletion, "Log out of all devices"), which ends the read.
+ */
 export function reportAccountRead(account: string | null): void {
   settled = { account }
   for (const then of waiting.splice(0)) then()
@@ -22,7 +25,7 @@ export function whenAccountRead(then: () => void): void {
   else waiting.push(then)
 }
 
-/** The account the last settled read names; null for none, or before any read has settled. */
+/** The account the latest settled read names; null for none, or before any read has settled. */
 export function settledAccount(): string | null {
   return settled?.account ?? null
 }
