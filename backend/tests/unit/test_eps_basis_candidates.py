@@ -106,6 +106,12 @@ def test_the_instance_lists_us_gaap_names_match_the_facts_layer(key):
     assert us_gaap == list(COMPANYFACTS_DURATION_TAGS[key])
 
 
+@pytest.mark.parametrize("key", ["earnings_per_share", "eps_diluted"])
+def test_the_fallback_lists_match_the_facts_layer(key):
+    # The companyfacts fallback reads us-gaap alone, as the facts layer does: the same names in the same order.
+    assert _fallback_lists()[key] == list(COMPANYFACTS_DURATION_TAGS[key])
+
+
 def test_the_lists_are_read():
     lists = _fallback_lists()
     assert lists["total_assets"] == ["Assets"]

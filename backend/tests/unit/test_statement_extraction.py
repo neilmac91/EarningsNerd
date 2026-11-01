@@ -251,6 +251,12 @@ def test_company_facts_eps_takes_each_measure_into_its_own_key():
     assert [item["value"] for item in result["earnings_per_share"]] == [1.30]
     assert [item["value"] for item in result["eps_diluted"]] == [1.25]
 
+    # A basic figure never fills eps_diluted: a filer that tags basic EPS alone has no diluted series.
+    basic_only = {"facts": {"us-gaap": {"EarningsPerShareBasic": _per_share(("2025-12-31", "2025-01-01", 1.30, accn))}}}
+    result = service._parse_company_facts(basic_only, accn)
+    assert [item["value"] for item in result["earnings_per_share"]] == [1.30]
+    assert result["eps_diluted"] == []
+
     # One BasicAndDiluted tag states both measures, so it fills both keys.
     combined = {"facts": {"us-gaap": {"EarningsPerShareBasicAndDiluted": _per_share(
         ("2025-12-31", "2025-01-01", 0.42, accn))}}}
