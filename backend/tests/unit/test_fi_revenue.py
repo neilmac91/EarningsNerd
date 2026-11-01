@@ -274,6 +274,18 @@ def test_a_fee_tag_a_year_admits_fills_no_period_below_a_part_beside_it(fee_2022
     assert (years.get(2022), 2022 in authority) == filled
 
 
+def test_a_part_beside_the_fee_tag_is_read_as_the_collector_reads_it():
+    # The FY2023 10-K restates FY2022's total (the fee tag's) and its net interest income lower. As read, the total is
+    # above its part, so the fee tag still fills FY2022, though the part as first filed was above the restated total.
+    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, FEE: {2021: 19.2e9, 2022: 13.5e9},
+                      "InterestIncomeExpenseNet": {2022: 13.0e9}})
+    usgaap = payload["facts"]["us-gaap"]
+    for tag, value in ((FEE, 12.5e9), ("InterestIncomeExpenseNet", 12.0e9)):
+        usgaap[tag]["units"]["USD"].append(_item(value, "2022-12-31", "2022-01-01", "K2023", filed="2024-02-15"))
+    years, _ = _fy(payload)
+    assert years[2022] == (12.5, FEE)
+
+
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_the_authority_reads_the_feeds_revenue(ticker):
     payload = _load(ticker)

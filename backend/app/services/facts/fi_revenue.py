@@ -82,7 +82,7 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
     shared = _shared(fee, held)  # the years both report, else the quarters
     agrees = bool(shared) and _matches(_read(fee[max(shared)]), held[max(shared)])
     beside = [(key, v) for tag in NON_606_TAGS for key, got in _items(usgaap, tag, unit, foreign).items()
-              if key in fee for _, v in got if v > 0]  # positive non-606 revenue at a period the fee tag reports
+              if key in fee and (v := _read(got)) > 0]  # each positive part, as read, at a period the fee tag reports
     if shared and (max(shared)[1] == "FY" or not agrees):  # a shared year decides; a shared quarter can only refuse
         admit = agrees and not any(  # where the fee tag fills a period, it is no smaller than a part beside it
             key not in held and _read(fee[key]) < (1 - CROSS_CHECK_TOLERANCE) * v for key, v in beside)
