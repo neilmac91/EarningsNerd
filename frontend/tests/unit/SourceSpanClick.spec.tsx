@@ -137,7 +137,7 @@ describe('source_span_click from a SourceTrace chip (EN-01)', () => {
           <SourceTrace url={URL} verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />
         </FilingViewerProvider>,
       )
-      const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
+      const chip = screen.getByRole('button', { name: 'Quote found in filing, source' })
       fireEvent.click(chip)
       fireEvent.click(chip)
       fireEvent.click(chip)
@@ -170,7 +170,7 @@ describe('source_span_click from a SourceTrace chip (EN-01)', () => {
           <SourceTrace url={URL} verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />
         </FilingViewerProvider>,
       )
-      fireEvent.click(screen.getByRole('button', { name: 'Source: Quote found in filing' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Quote found in filing, source' }))
       expect(sourceSpanCalls()).toHaveLength(0)
       fireEvent.click(screen.getByRole('button', { name: 'Show in filing' }))
       expect(sourceSpanCalls()).toHaveLength(1)

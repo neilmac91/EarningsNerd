@@ -8,15 +8,15 @@ describe('Financial metric Trace-to-Source', () => {
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toBe('https://sec.gov/x.htm')
     expect(link.textContent).toBe('Matches filing')
-    expect(link.getAttribute('aria-label')).toBe('Source: Matches filing (opens in a new tab)')
+    expect(link.getAttribute('aria-label')).toBe('Matches filing, source (opens in a new tab)')
   })
 
-  it('shows the honest "Linked, not checked" chip when unverified, never named "Source: Source"', () => {
+  it('shows the honest "Linked, not checked" chip when unverified, never named "Source, source"', () => {
     render(<MetricSourceLink url="https://sec.gov/x.htm" verified={false} />)
-    const link = screen.getByRole('link', { name: 'Source: Linked, not checked (opens in a new tab)' })
+    const link = screen.getByRole('link', { name: 'Linked, not checked, source (opens in a new tab)' })
     expect(link.textContent).toContain('Linked, not checked')
     expect(link.textContent).not.toContain('Matches filing')
-    expect(screen.queryByRole('link', { name: 'Source: Source' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /^Source, source/ })).toBeNull()
   })
 
   it('renders nothing without a url', () => {

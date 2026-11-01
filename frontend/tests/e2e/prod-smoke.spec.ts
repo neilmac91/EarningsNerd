@@ -33,7 +33,7 @@ test.describe('production smoke', () => {
     await expect(page.getByRole('navigation', { name: 'Summary sections' })).toBeVisible({ timeout: 45000 })
 
     // 2) Target the closed pane launcher by its exact name; the summary also has an "Ask this filing"
-    //    CTA, and every provenance chip is named "Source: …". This checks feature presence, not the
+    //    CTA, and every provenance chip is named "…, source" (its label first, chief design on #1884). This checks feature presence, not the
     //    deployed commit identity or why a feature is missing.
     const launcher = page.getByRole('button', { name: 'Source', exact: true })
     await expect(launcher).toBeVisible({ timeout: 20000 })
