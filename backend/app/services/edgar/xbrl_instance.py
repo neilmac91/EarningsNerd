@@ -116,13 +116,13 @@ def _instance_concepts():
 def _statement_metrics(settings, company, xb, base_form, period_of_report, accession_number):
     # Financial institutions: "revenue" has no single generic tag (a bank's ASC-606 fee-income tag
     # is only a subset). Read the industry-correct revenue/component lines from the AS-REPORTED
-    # income statement and suppress the generic keys they replace. Their revenue is read only from the
-    # tags E264's rule chooses from the filing's own facts (E278), on the statement and in the generic
-    # list. Non-financial filers are untouched, and any failure falls back to the generic path below.
+    # income statement and suppress the generic keys they replace. The bank and catch-all profiles and the
+    # generic list read revenue only from the tags E264's rule chooses from the filing's own facts (E278).
+    # Non-financial filers are untouched, and any failure falls back to the generic path below.
     fin_suppress, fin_metrics, profile_key, revenue_tags = set(), {}, None, None
     if settings.USE_STATEMENT_FINANCIALS:
         sic = getattr(company, "sic", None)
-        revenue_tags = financial_revenue_concepts(xb, company, sic, base_form, period_of_report)
+        revenue_tags = financial_revenue_concepts(xb, company, sic, base_form, period_of_report, accession_number)
         try:
             fin = extract_financial_statement_metrics(
                 xb, company, sic, base_form, period_of_report, revenue_tags=revenue_tags)

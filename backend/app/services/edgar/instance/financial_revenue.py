@@ -61,17 +61,17 @@ def _choose(xb: Any, company: Any, sic: Optional[str], form: str, period_of_repo
 
 
 def financial_revenue_concepts(
-    xb: Any, company: Any, sic: Optional[str], form: str, period_of_report: str
+    xb: Any, company: Any, sic: Optional[str], form: str, period_of_report: str, accession_number: str = ""
 ) -> Optional[Tuple[str, ...]]:
     """The tags this filing's revenue is read from, in priority order; () for none; None to read as before.
 
     The filer is financial by the statement reader's own test (``is_financial_institution``). Only the filing's own
     facts are read: each tag's undimensioned facts ending on or before ``period_of_report``, in the reporting currency
     the rule's facts carry (``_reporting_currency``). Never raises: extraction must not break on the choice, so a
-    failure is logged and the routes read as before.
+    failure is logged, naming ``accession_number``, and the routes read as before.
     """
     try:
         return _choose(xb, company, sic, form, period_of_report)
     except Exception as exc:  # noqa: BLE001 - never let the choice break extraction
-        logger.warning(f"Financial revenue choice failed: {exc}")
+        logger.warning(f"Financial revenue choice failed for {accession_number or 'a filing'}: {exc}")
         return None

@@ -295,7 +295,7 @@ def test_a_failed_choice_reads_as_before_and_is_logged(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="app.services.edgar.instance_extractor"):
         result = _extract(monkeypatch, _Instance(AXP_2025), por="2025-12-31")
     assert _revenue(result) == (FEE, 41304 * M)
-    assert "Financial revenue choice failed: rule failed" in caplog.text
+    assert "Financial revenue choice failed for 0000000001-26-000001: rule failed" in caplog.text
 
 
 def test_a_failed_query_reads_as_no_facts_for_its_tag():

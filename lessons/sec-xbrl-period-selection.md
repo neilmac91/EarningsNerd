@@ -21,8 +21,10 @@ total; the fee tag only on evidence that it is that total), and every
 filer, both gated by `backend/tests/unit/test_fi_revenue.py` (E264). The per-filing path reads
 the same rule over the chosen filing's own facts and nothing else: its choice
 (`edgar/instance/financial_revenue.py`) is the only revenue anchor of the statement reader's
-bank and catch-all profiles and the generic list's only revenue candidate for a financial filer,
-gated by `backend/tests/unit/test_instance_financial_revenue.py` (E278; its segment table and the
+bank and catch-all profiles and the generic list's only revenue candidate, for a financial filer
+whose filing tags one of the rule's elements, gated by
+`backend/tests/unit/test_instance_financial_revenue.py`, and every call of the statement reader
+passes it, gated by `test_fi_revenue.py`'s call-site check (E278; its segment table and the
 companyfacts fallback are still open there). E211's proxy step still reads the generic tuple
 (E206). Concept list ORDERINGS encode tag priority — reordering one changes which tag wins on
 multi-tagged filers, so treat the lists as behavior, not style.

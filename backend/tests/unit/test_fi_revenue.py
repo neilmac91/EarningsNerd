@@ -364,9 +364,11 @@ def test_the_total_tags_stay_out_of_the_generic_registries():
     assert named == ["app/services/facts/fi_revenue.py"]  # never a currency vote (currency.py reads the registries)
 
 
-# The functions that read a financial filer's revenue only when told it is one: each keyword defaults to False, the
-# generic reading, so a call that drops it quietly reads the fee line again.
-_FILER = {"extract_authoritative_values": "financial", "normalize_companyfacts": "financial_sic"}
+# The functions that read a financial filer's revenue only when told how: each keyword defaults to the generic reading
+# (False; None for the statement reader, whose fixed anchors read then), so a call that drops it quietly reads the fee
+# line again. The statement reader takes the filing's own choice (E278, edgar/instance/financial_revenue.py).
+_FILER = {"extract_authoritative_values": "financial", "normalize_companyfacts": "financial_sic",
+          "extract_financial_statement_metrics": "revenue_tags"}
 
 
 def _filer_uses(path):
@@ -436,6 +438,12 @@ def _filer_uses(path):
      "read = lambda p, financial=False: extract_authoritative_values(p, financial=financial)\n", "call wrapper"),
     ("from app.services.facts.reconcile import extract_authoritative_values\n"
      "def read(p, financial):\n    return extract_authoritative_values(p, financial=financial)\n", "call"),
+    ("from app.services.edgar.instance.statements import extract_financial_statement_metrics\n"
+     "extract_financial_statement_metrics(xb, c, s, f, p)\n", "bare"),
+    ("from app.services.edgar.instance.statements import extract_financial_statement_metrics\n"
+     "extract_financial_statement_metrics(xb, c, s, f, p, revenue_tags=None)\n", "literal"),
+    ("from app.services.edgar.instance.statements import extract_financial_statement_metrics\n"
+     "extract_financial_statement_metrics(xb, c, s, f, p, revenue_tags=tags)\n", "call"),
 ])
 def test_the_filer_gate_reads_every_form_it_names(tmp_path, source, how):
     path = tmp_path / "planted.py"
@@ -444,10 +452,11 @@ def test_the_filer_gate_reads_every_form_it_names(tmp_path, source, how):
 
 
 def test_every_authority_and_normalizer_call_names_its_filer():
-    """Rule 12: every use of extract_authoritative_values or normalize_companyfacts in app/, scripts/ and evals/ is a
-    direct call that passes its keyword (financial=, financial_sic=) a computed value, never inside a function that
-    defaults it, but E211's temporary proxy step: one bare authority call, in _Planner.__init__, whose one financial
-    company (JPM) files no ASC 606 tag. It leaves with E211 (todo E206), and the pin fails once it is stale."""
+    """Rule 12: every use of extract_authoritative_values, normalize_companyfacts or the statement reader
+    (extract_financial_statement_metrics, E278) in app/, scripts/ and evals/ is a direct call that passes its keyword
+    (financial=, financial_sic=, revenue_tags=) a computed value, never inside a function that defaults it, but E211's
+    temporary proxy step: one bare authority call, in _Planner.__init__, whose one financial company (JPM) files no
+    ASC 606 tag. It leaves with E211 (todo E206), and the pin fails once it is stale."""
     found = Counter((path.relative_to(BACKEND).as_posix(), name, scope, how)
                     for root in ("app", "scripts", "evals") for path in (BACKEND / root).rglob("*.py")
                     if any(fn in path.read_text() for fn in _FILER)  # a use the walk can read names it
