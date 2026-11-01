@@ -565,9 +565,11 @@ says so; everything else follows the spec.
     slot passes it; `layoutChart` plans at the card's width held between the two, the minimum winning where a maximum
     slot would fall below the minimum one. A model without one has none, so every other chart, the six golden plans
     among them, lays out as before.
-  - The renderer needs no change: the stage takes the plan's width inside the scroll region, so a narrower plan stands
-    at the card's left with its axis under the heading, the region measures its own width (never the plot's), and the
-    tooltip places itself within the region's width (`placeTip`), past the plot's right edge where it needs to.
+  - The renderer: the stage takes the plan's width inside the scroll region, so a narrower plan stands at the card's
+    left with its axis under the heading, the region measures its own width (never the plot's), and the tooltip places
+    itself within the region's width (`placeTip`), past the plot's right edge where it needs to. The values stop is no
+    wider than the plan (`maxWidth`), so its focus ring outlines a narrower plot rather than the empty card beside it;
+    a plot that fills or scrolls its card leaves the stop the card's width, as before.
   - 104 px sits just above the widest an eleven-company chart takes, 101.5 px on the 1166 px plot of the 1216 px card
     the page keeps from 1280 px up, so a chart of eleven bars, or ten and a gap ('cap, tie at the tenth', 103.9 px), lays
     out as before at every width. A chart of ten bars takes the maximum at 1280 px, among them 'cap, tie at the eleventh',
@@ -579,8 +581,8 @@ says so; everything else follows the spec.
     at 1280 px, each step 104 px and the plot n × 104 px; on a phone only a pair changes; the eleven-bar and seamed cap
     cases' plans unchanged at 390, 1024 and 1280 px, their widest past the page's; and the ten-bar tie); and
     `tests/e2e/company-sector-peers.spec.ts` (every case's slot no wider than 104 px through `expectSound`'s `maxSlot`,
-    and the pair at 390 and 1280 px, its bars 104 px apart, the plot narrower than its card at its left and, at 1280 px,
-    the tooltip past the plot's right edge, inside the card).
+    and the pair at 390 and 1280 px, its bars 104 px apart, the plot narrower than its card at its left, its values stop
+    the plot's width and, at 1280 px, the tooltip past the plot's right edge, inside the card).
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

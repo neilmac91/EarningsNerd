@@ -18,7 +18,8 @@ import { apcaLc } from '../../unit/apca'
  * - D10: no chart animates under reduced motion;
  * - D14: every bar lies on its value's side of its zero rule, at the page's width;
  * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, or, where its model sets a
- *   maximum slot (E266, expectSound's `maxSlot`), stops at that slot, narrower, at its card's left; opened at its start, its
+ *   maximum slot (E266, expectSound's `maxSlot`), stops at that slot, narrower, at its card's left, its values stop (and
+ *   so its focus ring) as wide as the plot; opened at its start, its
  *   values stop there: the newest period by default, at the scroll's end; a start the chart names (E251: a ranked company
  *   chart's subject; expectSound's `start`, from the caller's fixture) with its column in view. A7's sticky gutter shows
  *   once the viewport has scrolled, repeats the y axis at its edge and passes D1, D2 and D8 itself; at the scroll's start
@@ -55,6 +56,8 @@ export interface PlotReport extends TextReport {
   viewportWidth: number
   /** The SVG's left edge against the viewport's, at this scroll. */
   svgLeft: number
+  /** The values stop's width, which its focus ring outlines. */
+  stopWidth: number
   scrolls: boolean
   /** How far the viewport sits from its newest period (0 there). */
   fromNewest: number
@@ -218,6 +221,7 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
       svgWidth: width,
       viewportWidth: viewport.clientWidth,
       svgLeft: svg.getBoundingClientRect().left - viewport.getBoundingClientRect().left,
+      stopWidth: stop?.getBoundingClientRect().width ?? 0,
       scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
       fromNewest: viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft,
       scrollLeft: viewport.scrollLeft,
@@ -270,6 +274,7 @@ export function expectSound(report: PlotReport, { start, maxSlot }: { start?: nu
   if (maxSlot != null && report.svgWidth < Math.floor(report.viewportWidth)) {
     expect(slot, `${name}: a plot narrower than its card stopped at its maximum slot`).toBeGreaterThanOrEqual(maxSlot - 0.5)
     expect(Math.abs(report.svgLeft), `${name}: and keeps its card's left edge`).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(report.stopWidth - report.svgWidth), `${name}: its values stop, and so its focus ring, is the plot's width`).toBeLessThanOrEqual(0.5)
   } else {
     expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
   }

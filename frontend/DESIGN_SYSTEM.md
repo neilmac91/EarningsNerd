@@ -3242,7 +3242,8 @@ eleventh company); a company left out that ties with the subject breaks no run, 
 own rank. A slot is never wider than 104 px (E266, chief design on #1879; `peerChart.ts` `PEER_MAX_SLOT`), just above the
 101.5 px an eleven-company chart takes on the widest card the page gives (1216 px, from 1280 px up), so a small cohort's
 bars stand a slot apart with the plot at the card's left, its axis under the heading, where filling the card set a pair's
-two bars about 560 px apart at 1280 px; the tooltip still places itself within the card's width. A chart of eleven bars,
+two bars about 560 px apart at 1280 px; the tooltip still places itself within the card's width, and the values stop's
+focus ring outlines the plot alone. A chart of eleven bars,
 or ten and a gap, lays out as before at every width; one of ten bars (a cohort of ten, or a tie at the cut that leaves
 the eleventh slot empty) takes the maximum at 1280 px, and on a phone only a pair does. The footnote then says what the
 chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
@@ -3297,8 +3298,8 @@ start in a browser at 300, 390 and 1280 px, the subject first, near-equal's four
 opening where the rule puts it, its sticky gutter exactly when scrolled; and a broken run at 390 and 1280 px, the step
 to the subject's tick three quarters of a slot wider where the chart leaves out a company ranked above it, and no step wider where it
 leaves out none, a tie included, with the DOM checks over each; every case's slot no wider than 104 px, and the pair at 390
-and 1280 px with its bars 104 px apart, its plot narrower than its card at the card's left and, at 1280 px, its tooltip
-past the plot's right edge, inside the card),
+and 1280 px with its bars 104 px apart, its plot narrower than its card at the card's left, its values stop the plot's
+width and, at 1280 px, its tooltip past the plot's right edge, inside the card),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
 scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is
