@@ -34,9 +34,9 @@ DEFAULT_CONCEPT = "revenue"
 
 # The SIC codes whose companies rank on net interest income by default: commercial banks (6021 national,
 # 6022 state, 6029 not elsewhere classified) and savings institutions (6035 federally chartered, 6036 not).
-# Net interest income is a bank's top line on /analysis too, and the companyfacts feed reads it for every
-# company while it skips revenue for SIC 6000-6799; every other code, broker-dealers (6211) included, ranks on
-# revenue (F69, D-072).
+# Net interest income is the one top-line figure every bank holds: the companyfacts feed reads it for every
+# company, and a financial filer's revenue only where the filer reports a total (facts/fi_revenue.py; SYF reports
+# none). Every other code, broker-dealers (6211) included, ranks on revenue (F69, D-072).
 NET_INTEREST_INCOME_SICS = frozenset({"6021", "6022", "6029", "6035", "6036"})
 
 # How far a figure's period end may trail the newest in its group and still rank (F69, D-072). Fiscal
