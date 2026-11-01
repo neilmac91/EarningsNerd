@@ -309,7 +309,9 @@ the merged stack had not been looked at in production.
    regeneration names the failure; a short excerpt or a twice-declared number buys the retry). Its first draw went
    17/18, so under its pre-registration it adds the second as well (a whole-row rule in the first generation,
    addendum 1). #1360 merged on 2026-10-16 as `dd31aa1b`, after two valid 18/18 draws. Evidence and the
-   measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`.
+   measurements: `tasks/review-evidence/copilot-table-excerpt-retry-2026-10-16/`. On 2026-11-01 the founder kept
+   the admission order Codex questioned on #1360: an eligible citation failure regenerates before decision F reads
+   the candidate, and the replacement passes every check (`backend/evals/RUNBOOK.md`, the admission-order sentence).
 2. **Change report EPS:** label the figure "EPS (basic)", or prefer diluted EPS
    (`facts_service` keys `earnings_per_share` to `EarningsPerShareBasic` first).
    **Ruled on 2026-10-31 by chief design, on #1862:** both, as names. `earnings_per_share` reads "EPS (basic)"
