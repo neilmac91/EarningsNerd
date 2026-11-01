@@ -159,13 +159,14 @@ Rules:
   rows carry a marker and its twin. `frontend/tests/unit/brandCopyRules.spec.ts` rule 3 holds the
   places.
 - **Colour.** Light: tint `#ECF2EE`, hairline `#CFE0D6`, bar `#4F7A63`, marks `#3C6650`. Dark: tint
-  `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#AEDCC2` (Reading Sage, the accent text ink, since D-070). The
-  tint is a surface, never a fill for text; measured, the hairline reads 1.24:1 on cream and the
-  tint 1.02:1, which is the point: the device is quiet, and the ink on it (15.4:1 light, 12.7:1
-  dark) carries the words. The words on the tint are the primary ink: in the Source pane the
-  reader's secondary ink was 4.49:1 on the dark tint over the slate panel while it was gray-400, so
-  the located passage takes the primary ink there (9.6:1); the secondary ink is gray-300 since
-  2026-10-25 (7.7:1 there), and the passage keeps the primary ink, the device's words.
+  `rgba(127,178,149,0.14)`, hairline `rgba(127,178,149,0.28)`, bar `#7FB295`, marks `#AEDCC2`
+  (Reading Sage, the accent text ink, since D-070). The tint is a surface, never a fill for text;
+  measured, the hairline reads 1.24:1 on cream and the tint 1.02:1, which is the point: the device
+  is quiet, and the ink on it (15.4:1 light, 12.7:1 dark) carries the words. The words on the tint
+  are the primary ink: in the Source pane the reader's secondary ink was 4.49:1 on the dark tint
+  over the slate panel while it was gray-400, so the located passage takes the primary ink there
+  (9.6:1); the secondary ink is gray-300 since 2026-10-25 (7.7:1 there), and the passage keeps the
+  primary ink, the device's words.
 - **Promotional emphasis (C5).** Every homepage headline variant, the auth-shell promise and the
   waitlist headline use `BrandEmphasis`: a full Bright Sage (`brand-bright-dark`, `#98C5AD`) fill
   in both themes, 8px corners and genuine Inter italic 600. Light uses opaque espresso (`#1A1A17`,

@@ -153,6 +153,8 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   pressed: ['brand-border@0.6', 'brand-border-dark'],
   'primary-ink': ['white', 'background-dark'],
   'primary-hover': ['brand-strong', 'brand-bright-dark'],
+  // The logo's ink: Deep Sage in light, Bright Sage in dark, where the accent text ink is Reading Sage (D-070).
+  logo: ['brand-strong', 'brand-bright-dark'],
   'primary-active': ['brand-emphasis', 'brand-fill-dark'],
   'primary-disabled': ['brand@0.45', 'brand-dark@0.35'],
   'primary-disabled-ink': ['white@0.8', 'background-dark@0.6'],

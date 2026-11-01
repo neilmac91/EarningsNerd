@@ -21,7 +21,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 
 | Role | Light | Dark | Use for |
 |------|-------|------|---------|
-| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #AEDCC2` (text/links: APCA Lc −75.5 on panel, −78.4 on navy) / `brand-bright-dark #98C5AD` (Bright Sage: the primary hover, the C5 emphasis fill in both themes, the logo's accent, dots and lines; never text outside the logo) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
+| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #AEDCC2` (text/links: APCA Lc −75.5 on panel, −78.4 on navy) / `brand-bright-dark #98C5AD` (Bright Sage: the primary hover, the C5 emphasis fill in both themes, the logo's accent, dots drawn on their own, lines and two callout tints; never text outside the logo) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
@@ -102,7 +102,7 @@ the debug payload panel).
   planted self-check) and `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
-- **A dark hover steps where the eye can see it: secondary never turns only primary under the
+- **A dark hover steps where the eye can see it: secondary never turns only primary, or only sage, under the
   pointer.** Dark primary `#EAECEF` and dark secondary `#D1D5DB` are 1.24:1 apart (1.05:1 before
   primary rose from `#D7DADC`, 2026-10-25; `tests/unit/figureSurfaceInks.spec.ts` keeps the step at
   1.2:1 or more; light's pair is 1.69:1), so a control that rests in secondary and only turns primary
@@ -120,9 +120,13 @@ the debug payload panel).
   and a translucent tint would show the page through the corner it overhangs; Toast). A sortable
   heading on the figure sheet, which rests in secondary, steps to white the same way. A state
   marked by the same step does the same: the
-  pricing page's selected billing label takes white in dark. Gate: `tests/unit/themePairs.spec.ts`
-  ('gives every dark hover a visible step: secondary never turns only primary under the pointer',
-  with its planted self-check). It reads the resting ink through a same-file string constant in a
+  pricing page's selected billing label takes white in dark. Sage alone is as faint since the accent
+  text ink rose to Reading Sage `#AEDCC2` (D-070), 1.03:1 from the secondary ink, so a control that
+  rests in secondary and turns only sage carries a cue in dark too: the count control's every kind
+  (Count control, §4) and three source links, SourceTrace's, CitationChip's and the figure receipt's,
+  which take an underline under the pointer. Gate: `tests/unit/themePairs.spec.ts`
+  ('gives every dark hover a visible step: secondary never turns only primary, or only sage, under
+  the pointer', with its planted self-check, and every count-control kind as the app composes it). It reads the resting ink through a same-file string constant in a
   template slot (`${MUTED}`) too; a resting ink set on an ancestor (a table row) it cannot see.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
@@ -510,8 +514,13 @@ Count control    A link or control whose label carries a count, a date, an index
                  the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
                  since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone.
                  In dark the label rests at #D1D5DB (the secondary ink since 2026-10-25) and turns
-                 brand-strong-dark #AEDCC2 under the pointer, at about the same lightness (Lc −75.5
-                 against −77.3 on the panel), so the hue carries the change (D-070).
+                 brand-strong-dark #AEDCC2 under the pointer, about as light as at rest (1.03:1, D-070),
+                 fainter than the secondary-to-primary step §2 refuses, so in dark each kind carries a
+                 cue besides the ink: 'button' its tint, 'link' its underline, 'inline' an underline
+                 that rests in the tertiary ink and turns sage, and 'summary' an underline under the
+                 pointer (dark only; light keeps its 1.58:1 ink step). A link that rests in the
+                 secondary ink and turns sage does the same (SourceTrace's and CitationChip's source
+                 links, the figure receipt's).
                  Its chrome (the ring, a hairline, a selected fill) may be sage where its recipe says
                  so; the label's ink never. Never a sage label with the count in a span of its own:
                  the control then rests in sage while it carries a value, and the rule keeps sage for
