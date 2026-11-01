@@ -24,7 +24,7 @@ import pytest
 from app.services.facts import fi_revenue
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_DURATION_TAGS, HEADLINE_GAAP_TAGS, _classify_duration
-from app.services.facts.currency import admitted_items
+from app.services.facts.currency import admitted_items, companyfacts_currencies
 from app.services.facts.reconcile import extract_authoritative_values
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -180,11 +180,40 @@ def test_an_insurer_reads_its_total():
     assert [years[y][0] for y in (2022, 2023, 2024, 2025)] == [68.77, 66.905, 70.986, 77.084] and _fee_rows(facts) == []
 
 
-@pytest.mark.parametrize("beside", ["OperatingLeaseLeaseIncome", "InterestIncomeExpenseNet",
-                                    "GrossInvestmentIncomeOperating"])  # a BDC's total investment income
+@pytest.mark.parametrize("beside", [  # written out, so a tag dropped from NON_606_TAGS fails its own case
+    "InterestIncomeExpenseNet", "InterestAndDividendIncomeOperating", "InterestIncomeOperating", "NoninterestIncome",
+    "PremiumsEarnedNet", "NetInvestmentIncome", "GrossInvestmentIncomeOperating", "OperatingLeaseLeaseIncome",
+    "LeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue",
+])
 def test_no_total_and_other_revenue_beside_the_fee_tag_is_no_revenue(beside):
     years, _ = _fy(_years({FEE: {y: 450e6 for y in range(2022, 2026)}, beside: {y: 60e6 for y in range(2022, 2026)}}))
     assert years == {}
+
+
+def test_a_part_beside_the_fee_tag_in_any_one_year_refuses_it():
+    years, _ = _fy(_years({FEE: {y: 450e6 for y in range(2022, 2026)}, "InterestIncomeExpenseNet": {2022: 60e6}}))
+    assert years == {}  # no period of the fee tag may carry a part beside it, not only its latest
+
+
+def test_a_fee_tag_four_percent_below_the_total_is_not_the_total():
+    # Outside CROSS_CHECK_TOLERANCE (1%), which the backfill's cross-check shares: retuning it moves this rule too.
+    years, facts = _fy(_years({REV: {2023: 10.0e9, 2024: 10.0e9}, FEE: {2023: 9.6e9, 2024: 9.6e9, 2025: 9.9e9}}))
+    assert 2025 not in years and _fee_rows(facts) == []
+
+
+def test_a_total_within_one_percent_below_the_fee_tag_is_no_partial_line():
+    payload = _years({REV: {2023: 9.95e9, 2024: 9.95e9}, FEE: {2023: 10.0e9, 2024: 10.0e9, 2025: 10.5e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV, FEE)
+    years, _ = _fy(payload)
+    assert (years[2024], years[2025]) == ((9.95, REV), (10.5, FEE))  # a rounding gap keeps the total first
+
+
+def test_a_later_total_is_judged_at_the_latest_period_it_shares():
+    # Gross Revenues beside a net total (IBKR's FY2008-13 shape): they agree at FY2020 but not at FY2023, the latest
+    # year both report, so the gross line never fills FY2024.
+    years, _ = _fy(_years({RNOIE: {2020: 10.0e9, 2021: 11.0e9, 2022: 12.0e9, 2023: 13.0e9},
+                           REV: {2020: 10.0e9, 2023: 20.0e9, 2024: 21.0e9}}))
+    assert 2024 not in years and years[2023] == (13.0, RNOIE)
 
 
 def test_a_crisis_year_keeps_the_reported_total():
@@ -304,9 +333,10 @@ def test_the_default_authority_is_unchanged():
 
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker):
-    """Rule 12: replayed as SEC served it at every filing date in the fixture, each state the payload passed through,
-    no revenue row (or calculation operand) carries the fee tag at a period any total tag reports more than 1% above
-    it, in the full fixture; the fee-subset filers carry none at all."""
+    """Rule 12: replayed at every filing date in the fixture, each state the trimmed fixture passed through (its
+    first kept period on, so a filer's earlier years are never replayed), no revenue row (or calculation operand)
+    carries the fee tag at a period any total tag reports more than 1% above it, in the full fixture; the fee-subset
+    filers carry none at all."""
     full = _load(ticker)
     totals: dict = {}
     for tag in fi_revenue.TOTAL_TAGS:
@@ -334,12 +364,6 @@ def test_the_total_tags_stay_out_of_the_generic_registries():
     assert named == ["app/services/facts/fi_revenue.py"]  # never a currency vote (currency.py reads the registries)
 
 
-def _calls(path, name):
-    tree = ast.parse(path.read_text())
-    return [node for node in ast.walk(tree) if isinstance(node, ast.Call)
-            and getattr(node.func, "id", getattr(node.func, "attr", None)) == name]
-
-
 # The functions that read a financial filer's revenue only when told it is one: each keyword defaults to False, the
 # generic reading, so a call that drops it quietly reads the fee line again.
 _FILER = {"extract_authoritative_values": "financial", "normalize_companyfacts": "financial_sic"}
@@ -347,9 +371,10 @@ _FILER = {"extract_authoritative_values": "financial", "normalize_companyfacts":
 
 def _filer_uses(path):
     """Each use of a ``_FILER`` function in ``path`` as (name, scope, how): "call" for a direct call that passes its
-    keyword, "bare" for a direct call without it, and "other" for a use that would hide a call from the gate (an
-    aliased import, a bound name, a partial, an argument). A name built at run time (getattr with a string) is beyond
-    an AST walk."""
+    keyword a computed value, "literal" for one that passes it a constant, "bare" for one without it, "wrapper" for a
+    call inside a function that defaults that keyword and passes it on (its callers never state the filer's kind), and
+    "other" for a use that would hide a call from the gate (an aliased import, a bound name, a partial, an argument).
+    A name built at run time (getattr with a string) is beyond an AST walk."""
     tree = ast.parse(path.read_text())
     parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
 
@@ -365,11 +390,23 @@ def _filer_uses(path):
         name = getattr(node, "id", getattr(node, "attr", None))
         return name if isinstance(node, (ast.Name, ast.Attribute)) and name in _FILER else None
 
+    def defaulted(args):
+        positional = [*args.posonlyargs, *args.args]
+        return ({p.arg for p in positional[len(positional) - len(args.defaults):]}
+                | {p.arg for p, d in zip(args.kwonlyargs, args.kw_defaults) if d is not None})
+
     uses, direct = [], set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Call) and (name := named(node.func)):
             direct.add(node.func)
-            uses.append((name, scope(node), "call" if any(k.arg == _FILER[name] for k in node.keywords) else "bare"))
+            given = [k.value for k in node.keywords if k.arg == _FILER[name]]
+            uses.append((name, scope(node), "bare" if not given else
+                         "literal" if isinstance(given[0], ast.Constant) else "call"))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            own = defaulted(node.args)
+            uses += [(name, scope(call), "wrapper") for call in ast.walk(node) if isinstance(call, ast.Call)
+                     and (name := named(call.func)) and any(k.arg == _FILER[name] and isinstance(k.value, ast.Name)
+                                                            and k.value.id in own for k in call.keywords)]
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             uses += [(name, scope(node), "other") for alias in node.names
                      if (name := alias.name.split(".")[-1]) in _FILER and alias.asname not in (None, name)]
@@ -382,23 +419,35 @@ def _filer_uses(path):
     ("import functools\nfrom app.services.facts.reconcile import extract_authoritative_values\n"
      "functools.partial(extract_authoritative_values)\n", "other"),
     ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p)\n", "bare"),
-    ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p, financial=True)\n", "call"),
+    ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p, financial=bank)\n", "call"),
+    ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p, financial=False)\n",
+     "literal"),
     ("from app.services import facts_service\nfacts_service.normalize_companyfacts(1, p)\n", "bare"),
-    ("from app.services import facts_service\nfacts_service.normalize_companyfacts(1, p, financial=True)\n", "bare"),
+    ("from app.services import facts_service\nfacts_service.normalize_companyfacts(1, p, financial=s)\n", "bare"),
     ("from app.services.facts.companyfacts import normalize_companyfacts\n"
      "normalize_companyfacts(1, p, financial_sic=s)\n", "call"),
+    ("from app.services.facts.reconcile import extract_authoritative_values\n"
+     "def read(p, financial=False):\n    return extract_authoritative_values(p, financial=financial)\n",
+     "call wrapper"),
+    ("from app.services.facts.companyfacts import normalize_companyfacts\n"
+     "def read(p, *, financial_sic=False):\n    return normalize_companyfacts(1, p, financial_sic=financial_sic)\n",
+     "call wrapper"),
+    ("from app.services.facts.reconcile import extract_authoritative_values\n"
+     "read = lambda p, financial=False: extract_authoritative_values(p, financial=financial)\n", "call wrapper"),
+    ("from app.services.facts.reconcile import extract_authoritative_values\n"
+     "def read(p, financial):\n    return extract_authoritative_values(p, financial=financial)\n", "call"),
 ])
 def test_the_filer_gate_reads_every_form_it_names(tmp_path, source, how):
     path = tmp_path / "planted.py"
     path.write_text(source)
-    assert [found for _name, _scope, found in _filer_uses(path)] == [how]
+    assert sorted(found for _name, _scope, found in _filer_uses(path)) == how.split()
 
 
 def test_every_authority_and_normalizer_call_names_its_filer():
     """Rule 12: every use of extract_authoritative_values or normalize_companyfacts in app/, scripts/ and evals/ is a
-    direct call that passes its keyword (financial=, financial_sic=), but E211's temporary proxy step: one bare
-    authority call, in _Planner.__init__, whose one financial company (JPM) files no ASC 606 tag. It leaves with E211
-    (todo E206), and the pin fails once it is stale."""
+    direct call that passes its keyword (financial=, financial_sic=) a computed value, never inside a function that
+    defaults it, but E211's temporary proxy step: one bare authority call, in _Planner.__init__, whose one financial
+    company (JPM) files no ASC 606 tag. It leaves with E211 (todo E206), and the pin fails once it is stale."""
     found = Counter((path.relative_to(BACKEND).as_posix(), name, scope, how)
                     for root in ("app", "scripts", "evals") for path in (BACKEND / root).rglob("*.py")
                     if any(fn in path.read_text() for fn in _FILER)  # a use the walk can read names it
@@ -408,13 +457,45 @@ def test_every_authority_and_normalizer_call_names_its_filer():
     }
 
 
-def test_the_collector_and_the_census_read_the_same_choice():
+def _cad_shape():
+    """A CAD filer: its newest 10-K decides the series. A 10-K/A whose own currency is USD carries a CAD translation of
+    FY2023's total, which the collector never reads, and FY2023's fee tag has two items filed the same day, of which
+    the collector reads the later."""
+    def cad(val, year, accn, filed, form="10-K"):
+        return {"val": val, "end": f"{year}-12-31", "start": f"{year}-01-01", "accn": accn, "form": form,
+                "filed": filed, "fy": year, "fp": "FY"}
+
+    translation = cad(5.0e9, 2023, "A23", "2024-06-01", form="10-K/A")
+    usd = {**translation, "val": 4.0e9}
+    return {"facts": {"us-gaap": {
+        REV: {"units": {"CAD": [cad(10.0e9, 2022, "K22", "2023-02-15"), cad(10.0e9, 2022, "K23", "2024-02-15"),
+                                cad(11.0e9, 2023, "K23", "2024-02-15"), translation], "USD": [usd]}},
+        "NetSales": {"units": {"USD": [usd]}},  # A23's second USD amount: its own currency is USD
+        FEE: {"units": {"CAD": [cad(10.5e9, 2023, "K24", "2025-02-15"),
+                                cad(11.0e9, 2023, "K24A", "2025-02-15", form="10-K/A"),
+                                cad(12.0e9, 2024, "K24", "2025-02-15")]}},
+    }}}
+
+
+def test_the_collector_reads_the_series_currency_and_leaves_out_foreign_filings():
+    # Read with A23's translation, the total would be a partial line at FY2023; read with the earlier of the same-day
+    # fee items, the fee tag would miss it. Either way FY2022 or FY2024 would go, and in USD there is no total at all.
+    payload = _cad_shape()
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "CAD", frozenset({"A23"})) == (REV, FEE)
+    years, facts = _fy(payload)
+    assert years == {2022: (10.0, REV), 2023: (11.0, REV), 2024: (12.0, FEE)}
+    assert {f["unit"] for f in facts if f["concept"] == "revenue"} == {"CAD"}
+
+
+@pytest.mark.parametrize("ticker", ["IBKR", "ICE", "TROW", "AMT", "CAD"])
+def test_the_census_reads_the_collectors_choice(ticker):
     from scripts.restatement_census import measure_company
 
-    for path in (BACKEND / "app/services/facts/companyfacts.py", BACKEND / "scripts/restatement_census.py"):
-        assert _calls(path, "financial_revenue_tags"), path
-    cells, _info = measure_company("IBKR", _load("IBKR"), True, 10)
-    assert sum(1 for c in cells if c["concept"] == "revenue") == 10
+    payload = _cad_shape() if ticker == "CAD" else _load(ticker)
+    usgaap = payload["facts"]["us-gaap"]
+    cells, _info = measure_company(ticker, payload, True, 10)
+    chosen = {tuple(c["concept_tags"]) for c in cells if c["concept"] == "revenue"}
+    assert chosen == {fi_revenue.financial_revenue_tags(usgaap, *companyfacts_currencies(usgaap))} != {()}
 
 
 def test_a_non_financial_filer_never_reaches_the_rule(monkeypatch):
