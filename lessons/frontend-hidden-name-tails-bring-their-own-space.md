@@ -34,6 +34,15 @@ or "Hide share options". Every control in `frontend/features/admin/components/Sh
 hidden tail, "More{' '}<span className="sr-only">share options</span>". `frontend/tests/unit/shareInviteNames.spec.tsx`
 holds each control's whole name to begin with the words it shows, with the platform share sheet and without.
 
+**Exception (E281, 2026-11-01, #1921)**: where a link's text must stay exactly as written, an `aria-label` that
+repeats those words first and ends in the tail's words stands in for the tail: the footer's Logo.dev
+attribution, whose text is the attribution's phrase alone, and a feedback message's links, read literally in a
+`whitespace-pre-wrap` paragraph where a written `{' '}` would paint a space. The visible words open the label,
+so label in name holds (`frontend/tests/unit/labelInName.spec.ts`). A link whose `aria-label` already named it
+ends that label in the same words; every other new-tab link keeps its words and takes the tail.
+`frontend/tests/unit/newTabCue.spec.ts` reads both forms, and DESIGN_SYSTEM.md's "A link that opens a new tab"
+names the two exceptions.
+
 **Evidence**: found on this branch's CLEAN-R2 links (`e97f70ff`, in
 `frontend/app/company/[ticker]/page-client.tsx`, since replaced by #1147's filings index): the first
 run of `tests/e2e/company-filing-rows.spec.ts` against the colon tail found no link named "Open

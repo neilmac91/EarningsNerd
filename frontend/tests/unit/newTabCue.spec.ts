@@ -20,12 +20,16 @@
    condition). Any other '_blank' in the app (a window.open call) fails as
    unread. An own aria-label is read to its words: a string, or a template's
    last chunk; one built otherwise, or an aria-label a spread may set after it
-   (a spread with no own label after it), fails as unread. The tail is read in
-   the element's children at any depth. The residue, held by name: the terms
-   page's link, on a legal page whose text waits on the founder's go-ahead.
-   A glyph that marks the new tab says nothing itself: inside a new-tab link,
-   an ArrowSquareOutIcon takes aria-hidden, and so does an element around a
-   text arrow (↗). Planted cases hold the reader.
+   (a spread with no own label after it), fails as unread, and so does an
+   aria-labelledby, which replaces the name. A spread followed by an own label
+   is trusted to set no aria-labelledby. The tail is read in the element's
+   children at any depth, and only where it reaches the name: a tail that
+   carries aria-hidden, or sits in an element that does, says nothing. The
+   residue, held by name: the terms page's link, on a legal page whose text
+   waits on the founder's go-ahead. A glyph that marks the new tab says
+   nothing itself: inside a new-tab link, an ArrowSquareOutIcon takes
+   aria-hidden, and so does an element around a text arrow (↗). Planted cases
+   hold the reader.
 ============================================================================= */
 
 import fs from 'node:fs'
@@ -93,21 +97,25 @@ function textOf(element: ts.JsxElement): string | null {
   return text
 }
 
-/** True where `children` hold the tail at any depth: an sr-only element whose text is the cue, right after a `{' '}`. */
+/** True where `children` hold the tail at any depth: an sr-only element whose text is the cue, right after a `{' '}`.
+    An aria-hidden element takes itself and all it holds out of the name, so neither it nor its children count. */
 function holdsTail(children: ts.NodeArray<ts.JsxChild>, sourceFile: ts.SourceFile): boolean {
   return children.some((child, index) => {
-    if (ts.isJsxElement(child) && srOnly(child, sourceFile) && textOf(child) === CUE) {
+    if (!ts.isJsxElement(child) || hidden(child.openingElement, sourceFile)) return false
+    if (srOnly(child, sourceFile) && textOf(child) === CUE) {
       const before = children[index - 1]
       return !!before && ts.isJsxExpression(before) && !!before.expression && ts.isStringLiteralLike(before.expression) && before.expression.text === ' '
     }
-    return ts.isJsxElement(child) && holdsTail(child.children, sourceFile)
+    return holdsTail(child.children, sourceFile)
   })
 }
 
 /** What a new-tab element's name says: its aria-label's end where it has one the scan reads (the last that sets it
-    wins, as React applies props in order), else its children's tail. */
+    wins, as React applies props in order), else its children's tail. An aria-labelledby replaces both, so the scan
+    cannot read the name. */
 function verdictOf(opening: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sourceFile: ts.SourceFile): Verdict {
   const attributes = opening.attributes.properties
+  if (attributes.some((attribute) => attributeName(attribute, sourceFile) === 'aria-labelledby')) return 'unread'
   const lastLabel = [...attributes].reverse().find((attribute) => ts.isJsxSpreadAttribute(attribute) || attributeName(attribute, sourceFile) === 'aria-label')
   if (lastLabel && ts.isJsxSpreadAttribute(lastLabel)) return 'unread'
   if (lastLabel && ts.isJsxAttribute(lastLabel)) {
@@ -220,7 +228,7 @@ describe('the new-tab reader, on planted sources', () => {
     ).toEqual(['a tail', 'a tail', 'a label', 'Link label'])
   })
 
-  it('finds a silent link: no cue, the cue with its space inside or with none, a cue not hidden, and a label that does not say so', () => {
+  it('finds a silent link: no cue, the cue with its space inside or with none, a cue not hidden, a cue aria-hidden drops from the name, and a label that does not say so', () => {
     expect(
       verdicts(`
         export const A = ({ u }: { u: string }) => <a href={u} target="_blank">Original on SEC.gov</a>
@@ -229,8 +237,10 @@ describe('the new-tab reader, on planted sources', () => {
         export const D = ({ u }: { u: string }) => <a href={u} target="_blank" aria-label="Open the filing">Open{' '}<span className="sr-only">(opens in a new tab)</span></a>
         export const E = ({ u }: { u: string }) => <a href={u} target="_blank">Open{' '}<span>(opens in a new tab)</span></a>
         export const F = ({ u }: { u: string }) => <a href={u} target="_blank">Open{' '}<span className="sr-only"> (opens in a new tab)</span></a>
+        export const G = ({ u }: { u: string }) => <a href={u} target="_blank"><span aria-hidden="true">Open{' '}<span className="sr-only">(opens in a new tab)</span></span></a>
+        export const H = ({ u }: { u: string }) => <a href={u} target="_blank">Open{' '}<span className="sr-only" aria-hidden="true">(opens in a new tab)</span></a>
       `),
-    ).toEqual(['a silent', 'a silent', 'a silent', 'a silent', 'a silent', 'a silent'])
+    ).toEqual(['a silent', 'a silent', 'a silent', 'a silent', 'a silent', 'a silent', 'a silent', 'a silent'])
   })
 
   it('reads a target behind a condition, and lets an own label after a spread win', () => {
@@ -257,15 +267,16 @@ describe('the new-tab reader, on planted sources', () => {
     ).toEqual(['ArrowSquareOutIcon', '↗', '', '', 'ArrowSquareOutIcon ↗'])
   })
 
-  it('fails as unread a label it cannot read, a spread after the label, and a _blank outside a target, in a handler or a call', () => {
+  it('fails as unread a label it cannot read, a spread after the label, an aria-labelledby, and a _blank outside a target, in a handler or a call', () => {
     expect(
       verdicts(`
         export const A = ({ u, name }: { u: string; name: string }) => <a href={u} target="_blank" aria-label={name}>Open</a>
         export const B = ({ u, p }: { u: string; p: object }) => <a aria-label="Open (opens in a new tab)" {...p} href={u} target="_blank">Open</a>
         export const C = ({ u, p }: { u: string; p: object }) => <a {...p} href={u} target="_blank">Open{' '}<span className="sr-only">(opens in a new tab)</span></a>
+        export const E = ({ u }: { u: string }) => <a href={u} target="_blank" aria-labelledby="source-name">Open{' '}<span className="sr-only">(opens in a new tab)</span></a>
         export const D = ({ u }: { u: string }) => <button type="button" onClick={() => window.open(u, '_blank')}>Open</button>
         export const open = (u: string) => window.open(u, '_blank')
       `),
-    ).toEqual(['a unread', 'a unread', 'a unread', '_blank unread', '_blank unread'])
+    ).toEqual(['a unread', 'a unread', 'a unread', 'a unread', '_blank unread', '_blank unread'])
   })
 })
