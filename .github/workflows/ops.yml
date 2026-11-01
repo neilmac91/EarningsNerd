@@ -872,7 +872,8 @@ jobs:
 
       - name: Retain financial revenue preview report
         # Whenever the preview step ran, whatever its result, and only then, as for the quarterly repair
-        # report. A run refused before its report writes none, and this step then warns.
+        # report. The script writes its report when it refuses or stops too. Only a step stopped before
+        # the script (the readback), an argv its parser rejects or a crash leaves none; this step then warns.
         if: always() && steps.fi_revenue_preview.outcome != 'skipped'
         uses: actions/upload-artifact@v7
         with:
