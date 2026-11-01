@@ -196,9 +196,9 @@ PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Each push deploys its own commit, and waiting deploys run in the order they become ready, so the
-deploy detector skips a commit that main has moved past with deployable backend changes. A skipped
-job is green with no migration line: a commit has deployed only when its own run, or a newer deploy
-that carries it, shows that line and health. Back-to-back backend merges, made only under the
+deploy detector skips a commit that main has moved past with deployable backend changes. A deploy job
+that skips as superseded concludes success, with no migration line: a commit has deployed only when
+its own run, or a newer deploy that carries it, shows that line and health. Back-to-back backend merges, made only under the
 founder's batch approval, usually deploy once, as the newest commit
 (`lessons/ops-a-superseded-commit-never-deploys.md`).
 Read the head SHA from the PR before merging; never type one from memory.

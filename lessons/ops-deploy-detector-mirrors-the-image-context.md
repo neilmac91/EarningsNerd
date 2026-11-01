@@ -24,7 +24,8 @@ Astra agent and integrated after an independent review.
    runtime, migration, container and mixed changes, and on a real-git rename; it also asserts the gating,
    that `backend-tests` stays unconditional, and that the step keeps GitHub's default shell (the pipeline's
    exit status relies on `bash -e` without `pipefail`).
-3. When `.dockerignore` gains or loses an entry, change the detector, the gate and the three docs
+3. When `.dockerignore` gains or loses an entry, change the detector's one path rule (its `deployable`
+   function, which judges both this commit's paths and main's newer ones), the gate and the three docs
    (`AGENTS.md` §6, `CLAUDE.md` Deploy, `docs/DEPLOYMENT.md`) in the same PR. Say "`backend/` outside
    `backend/tests/`", never "any backend change" or "test-only" (the exclusion is a path prefix, not a
    category: `backend/pytest.ini` and `backend/requirements-dev.txt` are inside the build context and deploy).

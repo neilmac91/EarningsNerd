@@ -32,8 +32,11 @@ declared the default, the same file was a no-op.
    `lessons/ops-migrations-need-lock-timeout.md`. Step 1 has deployed when its own `deploy-backend` run, or a newer
    deploy that carries it, shows the migration line and health. A job skipped as superseded is green but deployed
    nothing (`lessons/ops-a-superseded-commit-never-deploys.md`).
-3. **After step 2, roll traffic back no further than step 1's revision.** An older revision maps the column and fails
-   every read and insert of a whole row (a count of one column, as the waitlist's stats count does, still works), and
+3. **After step 2, roll traffic back only to a revision whose image carries step 1:** step 1's own deploy's, or,
+   when that deploy skipped as superseded, the newer deploy's that carried it. Revisions are not always created in
+   merge order (on 2026-10-31 an older commit's revision followed a newer one's), so judge a revision by its image,
+   not its age. A revision whose image predates step 1 maps the column and fails every read and insert of a whole
+   row (a count of one column, as the waitlist's stats count does, still works), and
    `ops.yml`'s rollback takes any revision. Name the limit in `docs/DEPLOYMENT.md`'s rollback section, where a
    responder looks, as E245's is.
 

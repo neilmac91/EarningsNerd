@@ -27,7 +27,8 @@ TIP_CALL = "rev-parse --verify FETCH_HEAD"
 NEWER_CALL = f"diff --name-only --no-renames HEAD {MAIN_TIP}"
 READ_OF_MAIN = ["fetch", "tip", "newer"]
 # git as the detector calls it, answered from files: the merge's changed paths, and the paths main has
-# changed since this commit. Every call is logged by name, in order; any other invocation fails the run.
+# changed since this commit. Every call is logged by name, in order. Any other invocation is logged as
+# "unexpected" and fails, so a fallback read after a failed one (rev-parse HEAD) shows in the order.
 # The fetch retry's waits are logged, not slept.
 GIT_STUB = (
     'git() {\n'
@@ -36,7 +37,7 @@ GIT_STUB = (
     '    "' + FETCH_CALL + '") echo fetch >> "$TEST_GIT_LOG" ;;\n'
     '    "' + TIP_CALL + '") echo tip >> "$TEST_GIT_LOG"; echo "' + MAIN_TIP + '" ;;\n'
     '    "' + NEWER_CALL + '") echo newer >> "$TEST_GIT_LOG"; cat "$TEST_NEWER_PATHS_FILE" ;;\n'
-    '    *) echo "unexpected git invocation: $*" >&2; return 2 ;;\n'
+    '    *) echo unexpected >> "$TEST_GIT_LOG"; echo "unexpected git invocation: $*" >&2; return 2 ;;\n'
     '  esac\n'
     '}\n'
     'sleep() { echo "sleep-$*" >> "$TEST_GIT_LOG"; }\n'
@@ -298,6 +299,9 @@ def test_an_older_deploy_after_a_newer_backend_merge_is_skipped_in_real_git(tmp_
     """The 2026-10-31 order: three backend merges, the newest deploying first. Each older commit's
     deploy, run once main has moved past it, is skipped; the newest deploys, and so does a commit
     main has moved past only with changes outside the image (frontend, records, backend/tests/)."""
+    checkout = next(step for step in _workflow()["jobs"]["deploy-backend"]["steps"]
+                    if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout.get("with", {}).get("fetch-depth") == "2", "_checkout builds its workspace at this depth"
     repo, env, git = _scratch_repo(tmp_path)
     _commit(repo, git, "base", {"backend/app/a.py": "A = 0\n", "backend/app/b.py": "B = 0\n"})
     first = _commit(repo, git, "first backend merge", {"backend/app/a.py": "A = 1\n"})

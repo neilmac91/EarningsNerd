@@ -18,10 +18,11 @@ from another session.
 **Rule.** Immediately before merging a pull request that changes `backend/` outside `backend/tests/`:
 1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). If the newest
    backend-changing push's `deploy-backend` has not finished, or its health is not yet verified, wait.
-   A cancelled or failed `deploy-backend` on a backend-changing push counts as unverified. Re-run that
-   job, since its commit carries every change before it, and verify it before the next merge. A job
-   skipped as superseded is green but deployed nothing: verify the newest backend commit's deploy, and
-   see `lessons/ops-a-superseded-commit-never-deploys.md` for what to re-run when that one deployed nothing.
+   A cancelled or failed `deploy-backend` on the newest backend-changing push counts as unverified.
+   Re-run that job, since its commit carries every change before it, and verify it before the next
+   merge; never re-run an older push's deploy. A job that skips as superseded concludes success but
+   deployed nothing: the newest backend-changing push's deploy is the one to verify, and
+   `lessons/ops-a-superseded-commit-never-deploys.md` says what to re-run when that one deployed nothing.
 2. **Slot claims.** Read the comments of every open pull request updated since the last verified backend
    deploy for a slot claim: a comment that it is taking the slot, or that asks later merges to hold.
    Honour the claim until that pull request posts its verification.
