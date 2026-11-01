@@ -18,8 +18,9 @@ from another session.
 **Rule.** Immediately before merging a pull request that changes `backend/` outside `backend/tests/`:
 1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). The newest is the run
    whose `head_sha` is main's tip after a fetch (`git rev-parse origin/main`), not the list's first entry:
-   the list follows each run's `created_at`, which can read an hour ahead of the run's own steps. If the newest
-   backend-changing push's `deploy-backend` has not finished, or its health is not yet verified, wait.
+   the list follows each run's `created_at`, which can read an hour ahead of the run's own steps. A tip with no
+   run listed yet has an unfinished run: wait for it. If the newest backend-changing push's `deploy-backend`
+   has not finished, or its health is not yet verified, wait.
    A cancelled or failed `deploy-backend` on the newest push that changed `backend/` outside
    `backend/tests/` counts as unverified. Re-run that job, since its commit carries every change before
    it, and verify it before the next merge; never re-run an older one's. A job that skips as superseded
