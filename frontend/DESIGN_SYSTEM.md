@@ -595,8 +595,9 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  route mounts the filing viewer's drawer, so no case reaches either),
                  tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
                  ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
-                 row) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke- class in any arrowClassName
-                 or in the classes the component writes on its run and its glyph).
+                 row), tests/unit/TrailingArrowLabel.spec.tsx (the run holds the glyph with the last letter and its
+                 marks, the glyph aria-hidden) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke-
+                 class in any arrowClassName or in the classes the component writes on its run and its glyph).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use

@@ -30,7 +30,10 @@
    after them. So an element with a TrailingArrowLabel among its
    children also fails where its class attributes make it a flex or grid row
    at any width (flex, inline-flex, grid or inline-grid, behind any variant):
-   a link that stands alone and can wrap is inline-block.
+   a link that stands alone and can wrap is inline-block. It reads those
+   classes in the attribute and through each const of the file the attribute
+   names, resolved by scope (the Copilot locators' LOCATOR_LINK), so a
+   parameter that shadows a const reads as none.
 
    It reads each file's TypeScript AST (tests/unit/classListScan.ts's parser),
    so comments never count. It looks through a fragment to the element that
@@ -39,14 +42,16 @@
    glyph a component renders after children it is passed, a glyph or a label
    held in a variable (FigureReceipt's and SourceTrace's chip glyphs lead their
    words), a component from another file, a glyph inside an element of its own
-   (which may be an icon control, not part of the label), and other glyphs
-   after a link's words (a caret). Planted cases hold the reader.
+   (which may be an icon control, not part of the label), other glyphs after a
+   link's words (a caret), and a row class that a call builds, an import holds
+   or an object's key holds. Planted cases hold the reader.
 ============================================================================= */
 
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { bindingResolver, type Binding } from './astBindings'
 import { CLASS_ATTRIBUTE, literalTexts, parse, sourceFiles, tokensOf } from './classListScan'
 
 const ROOT = path.join(__dirname, '../..')
@@ -234,6 +239,29 @@ function trailingArrowSites(source: string, file: string): Site[] {
   return sites
 }
 
+/** The class tokens of a class attribute's value: its strings and template chunks, and the same of each const of the file
+    that an identifier in it names as a value (not a callee, not either side of a member access), resolved by scope and
+    followed through consts that name others. A parameter or a destructured name has no initializer, so it reads as none. */
+function classTokens(value: ts.Node, resolve: (ref: ts.Identifier) => Binding | undefined): string[] {
+  const seen = new Set<ts.Node>()
+  const read = (node: ts.Node): string[] => {
+    const tokens = literalTexts(node).flatMap(tokensOf)
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && !ts.isPropertyAccessExpression(n.parent) && !(ts.isCallExpression(n.parent) && n.parent.expression === n)) {
+        const binding = resolve(n)
+        if (binding?.init && !seen.has(binding.decl)) {
+          seen.add(binding.decl)
+          tokens.push(...read(binding.init))
+        }
+      }
+      ts.forEachChild(n, visit)
+    }
+    visit(node)
+    return tokens
+  }
+  return read(value)
+}
+
 interface Parent {
   file: string
   line: number
@@ -246,6 +274,7 @@ interface Parent {
     too), and the row classes it carries. */
 function labelParents(source: string, file: string): Parent[] {
   const sourceFile = parse(source, file)
+  const resolve = bindingResolver(sourceFile)
   const parents: Parent[] = []
   const rendersLabel = (child: ts.Node): boolean =>
     branches(child).some((branch) => named(branch, LABEL, sourceFile) || (ts.isJsxFragment(branch) && branch.children.some(rendersLabel)))
@@ -253,7 +282,7 @@ function labelParents(source: string, file: string): Parent[] {
     if (ts.isJsxElement(node) && node.children.some(rendersLabel)) {
       const tokens = node.openingElement.attributes.properties.flatMap((attribute) =>
         ts.isJsxAttribute(attribute) && CLASS_ATTRIBUTE.test(attribute.name.getText(sourceFile)) && attribute.initializer
-          ? literalTexts(attribute.initializer).flatMap(tokensOf)
+          ? classTokens(attribute.initializer, resolve)
           : [],
       )
       parents.push({
@@ -477,5 +506,23 @@ describe('the trailing-arrow reader, on planted sources', () => {
       'planted.tsx',
     )
     expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], ['!grid'], [], [], ['inline-flex'], ['flex'], ['inline-flex']])
+  })
+
+  it("reads a row class through the file's own consts, by scope, and through a const that names another", () => {
+    const parents = labelParents(
+      `
+        const ROWED = cx('inline-flex min-w-0 items-center gap-1', countControlClass('link'))
+        const BASE = 'sm:flex'
+        const JOINED = cx(BASE, 'gap-1')
+        const BLOCK = cx('inline-block break-words', countControlClass('link'))
+        export const A = ({ u }: { u: string }) => <a href={u} className={ROWED}><TrailingArrowLabel glyph="external">Item 7. MD&A</TrailingArrowLabel></a>
+        export const B = () => <Link href="/b" className={JOINED}><TrailingArrowLabel>See all</TrailingArrowLabel></Link>
+        export const C = ({ u }: { u: string }) => <a href={u} className={BLOCK}><TrailingArrowLabel glyph="external">Item 7. MD&A</TrailingArrowLabel></a>
+        export const D = ({ ROWED }: { ROWED: string }) => <a href="/d" className={ROWED}><TrailingArrowLabel>See all</TrailingArrowLabel></a>
+        export const E = ({ open }: { open: boolean }) => <a href="/e" className={open ? ROWED : BLOCK}><TrailingArrowLabel>See all</TrailingArrowLabel></a>
+      `,
+      'planted.tsx',
+    )
+    expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], [], [], ['inline-flex']])
   })
 })
