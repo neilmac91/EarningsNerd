@@ -43,10 +43,12 @@ vi.mock('@/features/peers/components/SectorPeersCard', async (importOriginal) =>
 })
 
 import { ThemeContext } from '@/components/ThemeProvider'
+import { buildBarChart } from '@/features/analysis/lib/charts/barChart'
+import { layoutChart, maxChartWidth } from '@/features/analysis/lib/charts/layout'
 import { CHART_TOKENS } from '@/features/analysis/lib/charts/theme'
 import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import SectorPeers from '@/features/peers/components/SectorPeers'
-import { drawn, noCohort } from '@/features/peers/lib/cohort'
+import { breaksBefore, drawn, noCohort } from '@/features/peers/lib/cohort'
 import { peerChartDef } from '@/features/peers/lib/peerChart'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { PEER_SHOWING, type PeerFixture } from './chartPlan'
@@ -103,6 +105,14 @@ const picker = (scope: HTMLElement) => within(scope).getByRole('combobox', { nam
 const plotOf = async (scope: HTMLElement, label: string) => {
   const svg = await within(scope).findByRole('img', { name: `${label} chart` })
   return { svg, bars: [...svg.querySelectorAll('rect[data-series]')] }
+}
+/** Each step between neighbouring bars' centres, in the narrowest step's units to two places: 1 a slot, 1.75 where a
+ *  gap seam stands between them (E258). */
+const stepsOf = (bars: Element[]) => {
+  const centres = bars.map((bar) => Number(bar.getAttribute('x')) + Number(bar.getAttribute('width')) / 2)
+  const steps = centres.slice(1).map((centre, i) => centre - centres[i])
+  const slot = Math.min(...steps)
+  return steps.map((step) => Math.round((step / slot) * 100) / 100)
 }
 /** The card on a case: a case on the default metric as the default answer; any other as the metric picked, the default
  *  answered with the spread, as a reader reaches it. */
@@ -233,16 +243,18 @@ describe('the Sector peers panel (E251)', () => {
   // A cohort larger than the eleven slots: the top eleven where the subject ranks among them, else the top ten and the
   // subject, either side of the slots' edge (the eleventh drawn among the top, the twelfth after the top ten); the top
   // never parts a tie, so it is the companies ranked that high, and where one rank fills the slots the footnote gives
-  // the count alone.
+  // the count alone. Where the chart leaves out a company ranked above the subject drawn after the top, a gap of three
+  // quarters of a slot stands before it (E258), so the bars never read it as next in rank; every other step is one slot.
   it.each([
-    { name: 'cap', top: 'ABCDEFGHIJ', after: 'CAPM', ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPM.' },
-    { name: 'cap, subject fifth', top: 'ABCDEFGHIJK', after: null, ranks: 'CAPE ranks #5 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
-    { name: 'cap, subject eleventh', top: 'ABCDEFGHIJK', after: null, ranks: 'CAPK ranks #11 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
-    { name: 'cap, subject twelfth', top: 'ABCDEFGHIJ', after: 'CAPL', ranks: 'CAPL ranks #12 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPL.' },
-    { name: 'cap, tie at the tenth', top: 'ABCDEFGHI', after: 'CAPM', ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 9 of the 14 companies ranked, and CAPM.' },
-    { name: 'cap, tie at the eleventh', top: 'ABCDEFGHIJ', after: null, ranks: 'CAPB ranks #2 of 12 on revenue', cut: 'The chart shows the top 10 of the 12 companies ranked.' },
-    { name: 'cap, all tied', top: 'ABCDEFGHIJ', after: 'CAPL', ranks: 'CAPL ranks #1 of 12 on revenue', cut: 'The chart shows 11 of the 12 companies ranked.' },
-  ])('$name: draws what its footnote says, "$cut"', async ({ name, top, after, ranks, cut }) => {
+    { name: 'cap', top: 'ABCDEFGHIJ', after: 'CAPM', gap: true, ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPM.' },
+    { name: 'cap, subject fifth', top: 'ABCDEFGHIJK', after: null, gap: false, ranks: 'CAPE ranks #5 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
+    { name: 'cap, subject eleventh', top: 'ABCDEFGHIJK', after: null, gap: false, ranks: 'CAPK ranks #11 of 14 on revenue', cut: 'The chart shows the top 11 of the 14 companies ranked.' },
+    { name: 'cap, subject twelfth', top: 'ABCDEFGHIJ', after: 'CAPL', gap: true, ranks: 'CAPL ranks #12 of 14 on revenue', cut: 'The chart shows the top 10 of the 14 companies ranked, and CAPL.' },
+    { name: 'cap, tie at the tenth', top: 'ABCDEFGHI', after: 'CAPM', gap: true, ranks: 'CAPM ranks #13 of 14 on revenue', cut: 'The chart shows the top 9 of the 14 companies ranked, and CAPM.' },
+    { name: 'cap, tie at the eleventh', top: 'ABCDEFGHIJ', after: null, gap: false, ranks: 'CAPB ranks #2 of 12 on revenue', cut: 'The chart shows the top 10 of the 12 companies ranked.' },
+    // Every company ties: the one left out ranks no higher than the subject, so its run does not break.
+    { name: 'cap, all tied', top: 'ABCDEFGHIJ', after: 'CAPL', gap: false, ranks: 'CAPL ranks #1 of 12 on revenue', cut: 'The chart shows 11 of the 12 companies ranked.' },
+  ])('$name: draws what its footnote says, "$cut"', async ({ name, top, after, gap, ranks, cut }) => {
     const answer = answerOf(name)
     renderPanel({ revenue: answer })
     const section = await panelCard()
@@ -252,6 +264,7 @@ describe('the Sector peers panel (E251)', () => {
     expect([...svg.querySelectorAll('text[data-text="x"]')].map((tick) => tick.textContent)).toEqual(companies)
     expect([rankLine(section).tagName, rankLine(section).textContent]).toEqual(['P', ranks])
     expect(footnote(section).textContent!.endsWith(`Fiscal years can differ by company. ${cut}`), footnote(section).textContent!).toBe(true)
+    expect(stepsOf(bars), 'each step between neighbouring bars, in slots').toEqual(companies.slice(1).map((_, i) => (gap && i === companies.length - 2 ? 1.75 : 1)))
     // The words never contradict the ranks: "the top N" is every company ranked N or better, and only those.
     const named = /the top (\d+) of/.exec(cut)
     if (named) {
@@ -259,6 +272,20 @@ describe('the Sector peers panel (E251)', () => {
       const ranked = answer.peers.filter((entry) => entry.rank != null && entry.rank <= atMost).map((entry) => entry.ticker)
       expect(companies.filter((ticker) => ticker !== after), `the top: every company ranked ${atMost} or better, and nothing ranked below`).toEqual(ranked)
     }
+  })
+
+  it('draws no gap before a subject that ties with the companies it leaves out: it stands at its own rank, next after the top', async () => {
+    // CAPK and CAPL tie with CAPM at the eleventh rank: the chart draws the top ten and CAPM, and leaves out the two it ties
+    // with, which rank no higher than it (E258).
+    const answer = answerOf('cap')
+    for (const entry of answer.peers) if (['CAPK', 'CAPL', 'CAPM'].includes(entry.ticker)) Object.assign(entry, { rank: 11, value: 38.2e9 })
+    expect(breaksBefore(answer)).toBe(false)
+    renderPanel({ revenue: answer })
+    const section = await panelCard()
+    const { bars } = await plotOf(section, 'Revenue')
+    expect(bars.map((bar) => bar.getAttribute('data-period'))).toEqual([...'ABCDEFGHIJ'].map((letter) => `CAP${letter}`).concat('CAPM'))
+    expect(stepsOf(bars), 'every step one slot').toEqual(Array(10).fill(1))
+    expect(rankLine(section).textContent).toBe('CAPM ranks #11 of 14 on revenue')
   })
 
   it('starts the values stop at the subject, which it names as this company, with its rank and its own fiscal year', async () => {
@@ -412,5 +439,69 @@ describe('the Sector peers panel (E251)', () => {
     const section = await panelCard()
     fireEvent.change(picker(section), { target: { value: 'total_assets' } })
     expect((await inPlace(section)).textContent).toBe('Sector peers for total assets can’t be shown here.')
+  })
+})
+
+describe('the panel’s widest slot (E266, chief design on #1879)', () => {
+  /** The plot's own width in the card at 390, 1024 and 1280 px, as a browser measures it on a production build; from
+   *  1280 px up the page keeps a 1216 px card, so 1166 px is the widest plot it gives. */
+  const VIEW = { phone: 309, tablet: 910, desktop: 1166 }
+  const SPREAD = answerOf('spread')
+  /** A cohort of `n` from the spread: its first n − 1 companies but the subject, and the subject, in value order and
+   *  ranked afresh. */
+  const cohortOf = (n: number): PeerComparisonResponse => {
+    const others = SPREAD.peers.filter((entry) => !entry.is_subject).slice(0, n - 1)
+    const peers = [...others, SPREAD.subject].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((entry, i) => ({ ...entry, rank: i + 1 }))
+    return { ...SPREAD, peer_count: n, peers, subject: peers.find((entry) => entry.is_subject)! }
+  }
+  const modelOf = (answer: PeerComparisonResponse) => buildBarChart(peerChartDef(answer))
+  /** The same chart with no maximum: the plan the panel drew before E266. */
+  const unbounded = (answer: PeerComparisonResponse) => {
+    const { maxSlot, ...def } = peerChartDef(answer)
+    expect(maxSlot).toBe(104)
+    return buildBarChart(def)
+  }
+  /** What a plan draws where: its width, its slot and each company's centre. */
+  const placed = (answer: PeerComparisonResponse, width: number, bounded = true) => {
+    const model = bounded ? modelOf(answer) : unbounded(answer)
+    const layout = layoutChart(model, width, 'card')
+    return { width: layout.width, slot: layout.slot, x: model.periods.map((period) => layout.x(period.key)) }
+  }
+
+  it.each([2, 3, 4, 5, 6, 7, 8, 9, 10])('a cohort of %i at 1280 px: each step 104 px, the plot n × 104 px from its gutter', (n) => {
+    const answer = cohortOf(n)
+    expect(drawn(answer)).toHaveLength(n)
+    const layout = layoutChart(modelOf(answer), VIEW.desktop, 'card')
+    const { x } = placed(answer, VIEW.desktop)
+    expect(x.slice(1).map((centre, i) => centre - x[i]), 'each step').toEqual(Array(n - 1).fill(104))
+    expect(layout.plotRight - layout.plotLeft, 'the plot').toBe(n * 104)
+    expect([layout.plotLeft, layout.width], 'from its gutter, then its right pad').toEqual([layout.gutter, layout.gutter + n * 104 + 8])
+    // Before, the cohort filled the card: every slot wider than 104 px.
+    expect(placed(answer, VIEW.desktop, false).slot).toBeGreaterThan(104)
+  })
+
+  it('on a phone, only a pair changes: from more than 104 px a slot to 104', () => {
+    expect(placed(cohortOf(2), VIEW.phone, false).slot).toBeGreaterThan(104)
+    expect(placed(cohortOf(2), VIEW.phone).slot).toBe(104)
+    for (let n = 3; n <= 11; n++) expect(placed(cohortOf(n), VIEW.phone), `a cohort of ${n}`).toEqual(placed(cohortOf(n), VIEW.phone, false))
+  })
+
+  // The eleven-company charts and the cap's cuts that draw eleven bars, or ten and a gap seam, are as wide as a full
+  // cohort: their widest is past the widest plot the page gives, so at every width they lay out as before.
+  it.each(['spread', 'spread, subject first', 'spread, subject tenth', 'near-equal', 'cap', 'cap, subject fifth', 'cap, subject eleventh',
+    'cap, subject twelfth', 'cap, tie at the tenth', 'cap, all tied'])('%s lays out as before at every width the page gives it', (name) => {
+    const answer = answerOf(name)
+    expect(maxChartWidth(modelOf(answer)), 'its widest').toBeGreaterThanOrEqual(VIEW.desktop)
+    for (const width of Object.values(VIEW)) expect(placed(answer, width), `${width}px`).toEqual(placed(answer, width, false))
+  })
+
+  // A tie at the cut leaves the eleventh slot empty, so 'cap, tie at the eleventh' draws ten bars, as a cohort of ten:
+  // at 1280 px its slot falls from about 111.7 px to 104, and it fills the card at narrower widths as before.
+  it('cap, tie at the eleventh draws ten bars, so it takes the maximum at 1280 px as a cohort of ten does', () => {
+    const answer = answerOf('cap, tie at the eleventh')
+    expect([drawn(answer).length, breaksBefore(answer)]).toEqual([10, false])
+    expect(placed(answer, VIEW.desktop, false).slot).toBeCloseTo(111.7, 1)
+    expect(placed(answer, VIEW.desktop).slot).toBe(104)
+    for (const width of [VIEW.phone, VIEW.tablet]) expect(placed(answer, width), `${width}px`).toEqual(placed(answer, width, false))
   })
 })

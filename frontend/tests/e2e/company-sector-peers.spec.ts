@@ -25,7 +25,13 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * (E251's PR 1 rule, TrendChartPlot): at 300 and 390px a subject's column opens centred as far as the scroll goes, the
  * spread's first company at the scroll's start on the plot's own axis with no sticky gutter, its sixth scrolled with the
  * gutter shown, its tenth at the scroll's end, and near-equal's fourth at the scroll's start at 390px and scrolled at
- * 300px, whose plot's view is 230px; at 1280px each fits its card. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
+ * 300px, whose plot's view is 230px; at 1280px each fits its card. A broken run (E258), at 390 and 1280px: where the chart leaves
+ * out a company ranked above the subject it draws after the top ('cap', 'cap, tie at the tenth'), the step to the subject's
+ * tick is three quarters of a slot wider than every other; where it leaves out none ranked above it, a tie included ('cap, subject
+ * eleventh', 'cap, all tied'), every step is a slot; the DOM checks hold over each; and at 1280px the subject's column as
+ * the checks read it is the one its hover wash paints. The widest slot (E266): every case's slot is no wider than 104 px,
+ * and at 390 and 1280px the pair's two bars stand 104 px apart in a plot narrower than its card, at its left, with the
+ * subject's tooltip at 1280px past the plot's right edge, inside the card. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
@@ -41,6 +47,9 @@ const VIEWPORTS = [
 const THEMES: Theme[] = ['light', 'dark']
 const SPREAD = PEERS.cases.spread.response
 const SUBJECT = SPREAD.subject.ticker
+/** The widest a company's slot gets (E266, chief design on #1879), written out so the checks hold the plot to the ruling
+ *  rather than to the panel's own constant: every case here passes it to expectSound. */
+const MAX_SLOT = 104
 
 /** The panel: the nearest section around its heading. */
 const sectorPeers = (page: Page) =>
@@ -141,7 +150,7 @@ for (const { width, height, isMobile, hasTouch } of VIEWPORTS) {
         // computed ground.
         const [report] = await measurePlots(card)
         const name = `Sector peers (${theme}, ${width}px)`
-        expectSound({ ...report, name }, { start: SPREAD.peers.findIndex((entry) => entry.is_subject) })
+        expectSound({ ...report, name }, { start: SPREAD.peers.findIndex((entry) => entry.is_subject), maxSlot: MAX_SLOT })
         if (width < 768) {
           expect(report.scrolls, `${name}: the spread's eleven bars scroll inside the card on a phone`).toBe(true)
           await expect(card.getByRole('region', { name: 'Revenue chart. Scroll horizontally to view all companies.', exact: true })).toBeVisible()
@@ -195,7 +204,7 @@ for (const width of [300, 390, 1280] as const) {
         await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
         const [report] = await measurePlots(card)
         const label = `${name} at ${width}px`
-        expectSound({ ...report, name: label }, { start })
+        expectSound({ ...report, name: label }, { start, maxSlot: MAX_SLOT })
         if (width === 1280) {
           expect(report.scrolls, `${label}: fits its card`).toBe(false)
           return
@@ -214,6 +223,108 @@ for (const width of [300, 390, 1280] as const) {
         expect(report.gutter != null, `${label}: the sticky gutter exactly when scrolled`).toBe(opened !== 'start')
       })
     }
+  })
+}
+
+// E258: where the chart leaves out a company ranked above the subject it draws after the top, a gap of three quarters of
+// a slot stands before the subject, so the bars never read it as next in rank; a cut that leaves out no company ranked above it, a tie
+// included, draws its bars a slot apart. The companies each case draws are written out, so the check reads the plot's
+// own ticks against them rather than the panel's own logic.
+const BREAKS: { name: string; drawn: string; gap: boolean }[] = [
+  { name: 'cap', drawn: 'ABCDEFGHIJM', gap: true },
+  { name: 'cap, tie at the tenth', drawn: 'ABCDEFGHIM', gap: true },
+  { name: 'cap, subject eleventh', drawn: 'ABCDEFGHIJK', gap: false },
+  { name: 'cap, all tied', drawn: 'ABCDEFGHIJL', gap: false },
+]
+
+for (const width of [390, 1280] as const) {
+  test.describe(`Sector peers' run at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' })
+
+    for (const { name, drawn, gap } of BREAKS) {
+      const tickers = [...drawn].map((letter) => `CAP${letter}`)
+      const subject = PEERS.cases[name].response.subject.ticker
+      test(`${name}: ${gap ? `three quarters of a slot more before ${subject}, drawn after the top` : 'its bars a slot apart'}, and the plot sound`, async ({ page, baseURL }) => {
+        await openCompany(page, baseURL!, name, 'light')
+        const card = sectorPeers(page)
+        const plot = card.getByTestId('peers-chart')
+        await expect(plot.getByRole('img', { name: 'Revenue chart', exact: true })).toBeVisible()
+        await expect(plot).not.toHaveAttribute('aria-busy')
+        await page.evaluate(() => document.fonts.ready)
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+        const label = `${name} at ${width}px`
+        const [report] = await measurePlots(card)
+        expectSound({ ...report, name: label }, { start: tickers.indexOf(subject), maxSlot: MAX_SLOT })
+        const ticks = await plot.getByRole('img', { name: 'Revenue chart', exact: true }).locator('text[data-text="x"]').evaluateAll((nodes) =>
+          nodes.map((node) => ({ ticker: node.textContent, x: Number(node.getAttribute('x')) })))
+        expect(ticks.map((tick) => tick.ticker), `${label}: a tick a company drawn`).toEqual(tickers)
+        const steps = ticks.slice(1).map((tick, i) => tick.x - ticks[i].x)
+        const slot = Math.min(...steps)
+        expect(steps.map((step) => Math.round((step / slot) * 100) / 100), `${label}: each step between neighbouring ticks, in slots`)
+          .toEqual(steps.map((_, i) => (gap && i === steps.length - 1 ? 1.75 : 1)))
+        // The subject's column as the checks read it (fixtures/chartChecks.ts: a slot is the narrowest step between ticks)
+        // is the one its hover wash paints; the plot's width over its ticks would miss it on each side across a seam. A
+        // hover needs a pointer, so the desktop width alone runs it, where the plot fits its card.
+        if (width === 1280) {
+          const svg = plot.getByRole('img', { name: 'Revenue chart', exact: true })
+          await svg.scrollIntoViewIfNeeded()
+          const box = (await svg.boundingBox())!
+          const at = tickers.indexOf(subject)
+          await page.mouse.move(box.x + ticks[at].x, box.y + box.height / 2)
+          const wash = plot.locator('[data-chart-wash]')
+          await expect(wash).toBeVisible()
+          const [hovered] = await measurePlots(card)
+          const viewport = (await plot.locator('[data-analysis-chart-scroll]').boundingBox())!
+          const painted = (await wash.boundingBox())!
+          expect(Math.abs(hovered.columns[at].left - (painted.x - viewport.x)), `${label}: the subject's column starts where its wash does`).toBeLessThanOrEqual(0.5)
+          expect(Math.abs(hovered.columns[at].right - (painted.x + painted.width - viewport.x)), `${label}: and ends where it does`).toBeLessThanOrEqual(0.5)
+        }
+      })
+    }
+  })
+}
+
+// E266: a small cohort's bars stand MAX_SLOT apart, the plot at the card's left, where filling the card set a pair's two
+// bars about 560 px apart at 1280px; the tooltip still places itself within the card's width, past the plot's right edge.
+for (const width of [390, 1280] as const) {
+  test.describe(`Sector peers' widest slot at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' })
+
+    test(`pair: its two bars ${MAX_SLOT}px apart, the plot narrower than its card at the card's left, and sound`, async ({ page, baseURL }) => {
+      await openCompany(page, baseURL!, 'pair', 'light')
+      const card = sectorPeers(page)
+      const plot = card.getByTestId('peers-chart')
+      // Two commercial banks, which rank on net interest income (F69).
+      const svg = plot.getByRole('img', { name: 'Net interest income chart', exact: true })
+      await expect(svg).toBeVisible()
+      await expect(plot).not.toHaveAttribute('aria-busy')
+      await page.evaluate(() => document.fonts.ready)
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+      const label = `pair at ${width}px`
+      const [report] = await measurePlots(card)
+      expectSound({ ...report, name: label }, { start: 0, maxSlot: MAX_SLOT })
+      const ticks = await svg.locator('text[data-text="x"]').evaluateAll((nodes) => nodes.map((node) => ({ ticker: node.textContent, x: Number(node.getAttribute('x')) })))
+      expect(ticks.map((tick) => tick.ticker), `${label}: a tick a company drawn`).toEqual(['JPM', 'BAC'])
+      expect(ticks[1].x - ticks[0].x, `${label}: the step between the bars`).toBe(MAX_SLOT)
+      // The plot: its own gutter, two slots and the 8 px right pad, short of its card, so it neither scrolls nor stops.
+      expect(report.svgWidth, `${label}: the plot is its gutter, two slots and its right pad`).toBe(report.cover + 2 * MAX_SLOT + 8)
+      expect(report.svgWidth, `${label}: narrower than its card`).toBeLessThan(report.viewportWidth)
+      expect([report.scrolls, report.keyboardStop], `${label}: no scroll and no keyboard stop`).toEqual([false, false])
+      // A hover needs a pointer, so the desktop width alone runs it: the subject's tooltip sits flush right of its column,
+      // past the plot's right edge and inside the card.
+      if (width === 1280) {
+        await svg.scrollIntoViewIfNeeded()
+        const box = (await svg.boundingBox())!
+        await page.mouse.move(box.x + ticks[0].x, box.y + box.height / 2)
+        const tip = plot.locator('[data-chart-tooltip]')
+        await expect(tip).toBeVisible()
+        const viewport = (await plot.locator('[data-analysis-chart-scroll]').boundingBox())!
+        const placed = (await tip.boundingBox())!
+        expect(Math.abs(placed.x - (box.x + report.columns[0].right)), `${label}: the tooltip flush right of the subject's column`).toBeLessThanOrEqual(1)
+        expect(placed.x + placed.width, `${label}: past the plot's right edge`).toBeGreaterThan(box.x + box.width)
+        expect(placed.x + placed.width, `${label}: inside the card`).toBeLessThanOrEqual(viewport.x + viewport.width + 0.5)
+      }
+    })
   })
 }
 

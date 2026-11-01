@@ -43,9 +43,9 @@ Usage (from backend/):
   SKIP_REDIS_INIT=true python scripts/restatement_census.py --tickers REGN,AAPL --sic-json PATH
 
 ``--sic-json`` maps tickers to ``{"cik": ..., "sic": ...}``. The SIC decides ``financial_sic`` exactly as
-ingest does (6000-6799 skips the generic revenue tags). A ticker absent from it is resolved through the
-app's exact ticker resolution (``sec_edgar_service.resolve_ticker``); its SIC is then unknown and it is
-read as non-financial, which the coverage table states.
+ingest does (6000-6799 reads revenue through ``facts/fi_revenue.py``, never the generic tags). A ticker
+absent from it is resolved through the app's exact ticker resolution (``sec_edgar_service.resolve_ticker``);
+its SIC is then unknown and it is read as non-financial, which the coverage table states.
 """
 from __future__ import annotations
 
@@ -171,14 +171,15 @@ def _tag_collections(usgaap: dict, financial_sic: bool) -> dict[str, tuple[tuple
         COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, _FI_SKIPPED_CONCEPTS, _unit_for,
     )
     from app.services.facts.currency import companyfacts_currencies
+    from app.services.facts.fi_revenue import financial_revenue_tags
 
     currency, foreign = companyfacts_currencies(usgaap)
     out: dict[str, tuple[tuple[str, ...], str, dict, bool]] = {}
     for instant, registry in ((False, COMPANYFACTS_DURATION_TAGS), (True, COMPANYFACTS_INSTANT_TAGS)):
         for concept, tags in registry.items():
-            if not instant and financial_sic and concept in _FI_SKIPPED_CONCEPTS:
-                continue
             unit = currency if instant else _unit_for(concept, currency)
+            if not instant and financial_sic and concept in _FI_SKIPPED_CONCEPTS:  # the collector's own choice
+                tags = financial_revenue_tags(usgaap, unit, foreign)
             per_tag = {tag: _collect_companyfacts_values(usgaap, (tag,), unit, instant=instant, foreign=foreign)
                        for tag in tags}
             out[concept] = (tags, unit, per_tag, instant)

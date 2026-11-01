@@ -44,6 +44,12 @@ export const MIN_SLOT = 36
  *  need a minimum this wide or wider (minSlotOf: a six-glyph ticker's 44 px) gets no widening: where its labels miss
  *  at its minimum, its card says they don't fit. */
 export const LABELLED_MAX_SLOT = 42
+/** A gap seam's width, in slots (E258): the empty plot before a period whose run breaks there (`ChartPeriod.gapBefore`),
+ *  three quarters of a slot (chief design on #1880): the step to the next period, 1.75 slots, nearly doubles the run's
+ *  own gaps, so it reads as a break at a glance, and stays short of the two slots that one company left out would leave.
+ *  It belongs to no slot: a pointer over it hovers nothing, and A7's sticky gutter cuts no column there. A chart with
+ *  none lays out as before. */
+export const SEAM = 0.75
 /** The value strip's row: its series' swatch centred at STRIP_MARKER_X, then its short name from STRIP_LABEL_X. */
 export const STRIP_MARKER_X = 6
 export const STRIP_LABEL_X = 14
@@ -143,6 +149,10 @@ export interface ChartLayout {
   plotLeft: number
   plotRight: number
   slot: number
+  /** The slots the plot holds: one a period, and at least one. */
+  count: number
+  /** Each period a gap seam stands before (E258), by index, ascending: SEAM slots of plot before it that no slot holds. */
+  seams: number[]
   barWidth: number
   /** Growth bars are narrower than the top-line bars above them, so the two panels read apart. */
   growthBarWidth: number
@@ -162,8 +172,14 @@ export interface ChartLayout {
  *  SVG's full height. Null in the gutter or the right pad. */
 export function slotAt(layout: ChartLayout, x: number): number | null {
   if (x < layout.plotLeft || x >= layout.plotRight) return null
-  const count = Math.round((layout.plotRight - layout.plotLeft) / layout.slot)
-  return Math.min(count - 1, Math.floor((x - layout.plotLeft) / layout.slot))
+  // In slots from the plot's left edge, each seam passed taken out, so slot i starts at i: a seam's gap is no slot's.
+  let units = (x - layout.plotLeft) / layout.slot
+  for (const seam of layout.seams) {
+    if (units < seam) break
+    if (units < seam + SEAM) return null
+    units -= SEAM
+  }
+  return Math.min(layout.count - 1, Math.floor(units))
 }
 
 /** A period's column, its slot's left edge and width: the hover and focus wash (§3.9) and the span a keyboard move
@@ -181,7 +197,17 @@ export const captionBacking = (box: PanelBox) => (box.captionY != null && box.pa
  *  shows in part beside the axis, where a cut "−19%" would read "19%". */
 export function gutterCover(layout: ChartLayout, scrollLeft: number): number {
   if (scrollLeft <= 0) return layout.plotLeft
-  return layout.plotLeft + Math.ceil(scrollLeft / layout.slot - 1e-9) * layout.slot - scrollLeft
+  // The cover's edge in slots, a hair inside, each seam passed taken out (as slotAt reads it): an edge in a seam's gap
+  // cuts no column, so the cover stays the gutter's own.
+  let units = scrollLeft / layout.slot - 1e-9
+  let passed = 0
+  for (const seam of layout.seams) {
+    if (units < seam) break
+    if (units < seam + SEAM) return layout.plotLeft
+    units -= SEAM
+    passed += SEAM
+  }
+  return layout.plotLeft + (Math.ceil(units) + passed) * layout.slot - scrollLeft
 }
 
 /** A box in the viewport's x, past the cover's edge, that A7's sticky gutter also covers. */
@@ -237,6 +263,14 @@ function frameOf(model: ChartModel, view: ChartView): { gutter: number; minSlot:
  *  widest strip cell, needs it with 2 px each side. */
 export const minSlotOf = (model: ChartModel, view: ChartView = 'card') => frameOf(model, view).minSlot
 
+/** The index of each period a gap seam stands before (E258), ascending; none on every chart but a broken run's. */
+const seamsOf = (model: ChartModel): number[] => model.periods.flatMap((period, i) => (period.gapBefore ? [i] : []))
+
+/** The width a chart takes at a slot: its gutter, its right pad, and the slot a period and SEAM of one a seam (E258).
+ *  A seam's fraction of a slot can leave part of a pixel, and the plan is in whole pixels, as the PNG export draws it
+ *  (TrendChartPlot), so each bound rounds the way that keeps its slot: the minimum up, the maximum down. */
+const widthAt = (model: ChartModel, gutter: number, slot: number) => gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length)
+
 /** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
  *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
  *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
@@ -244,7 +278,8 @@ export const minSlotOf = (model: ChartModel, view: ChartView = 'card') => frameO
  *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  const at = (slot: number) => gutter + RIGHT_PAD + slot * model.periods.length
+  // Rounded up (a 37 px slot over 11.75 slots is 434.75); with no seam it is whole already.
+  const at = (slot: number) => Math.ceil(widthAt(model, gutter, slot))
   const fits = (width: number) => !plan(model, width, view).valuesDontFit
   if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
   for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
@@ -357,8 +392,18 @@ function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox
   return { nearZero, nearZeroDropped }
 }
 
+/** E266: the widest a chart is laid out, where its model sets a maximum slot (`ChartModel.maxSlot`, the Sector peers
+ *  panel's): its gutter, its right pad and that slot a period, its seams counted as minChartWidth counts them, rounded
+ *  down so no slot passes it. Past it the plot stops widening and keeps its card's left edge (TrendChartPlot's stage
+ *  takes the plan's width). Unset, there is none. */
+export function maxChartWidth(model: ChartModel, view: ChartView = 'card'): number {
+  return model.maxSlot == null ? Infinity : Math.floor(widthAt(model, frameOf(model, view).gutter, model.maxSlot))
+}
+
+/** The plan at a card's width: no wider than the model's maximum (E266) and never narrower than its minimum, which
+ *  wins where a maximum slot would fall below the minimum one. */
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
-  return plan(model, Math.max(containerWidth, minChartWidth(model, view)), view)
+  return plan(model, Math.max(Math.min(containerWidth, maxChartWidth(model, view)), minChartWidth(model, view)), view)
 }
 
 /** The whole plan at a given SVG width. */
@@ -366,7 +411,9 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   const { gutter } = frameOf(model, view)
   const plotLeft = gutter
   const plotRight = width - RIGHT_PAD
-  const slot = (plotRight - plotLeft) / Math.max(1, model.periods.length)
+  // The slots share the plot with each gap seam's SEAM slots (E258); with none, every period's share is as before.
+  const seams = seamsOf(model)
+  const slot = (plotRight - plotLeft) / Math.max(1, model.periods.length + SEAM * seams.length)
   const barWidth = Math.min(44, Math.round(0.64 * slot))
   const growthBarWidth = Math.max(4, Math.round(0.6 * barWidth))
   // A context bar's width (E251), the cue colour alone cannot give a colour-blind reader: the context ink sits deutan 17 /
@@ -374,7 +421,9 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   // apart (§3.7); the bar a chart is about keeps the full width.
   const contextBarWidth = growthBarWidth
   const index = new Map(model.periods.map((period, i) => [period.key, i]))
-  const x = (period: string) => plotLeft + slot * ((index.get(period) ?? 0) + 0.5)
+  // The seams at or before each period: each moves it, and every period after it, SEAM slots right.
+  const seamed = new Map(model.periods.map((period, i) => [period.key, seams.filter((seam) => seam <= i).length]))
+  const x = (period: string) => plotLeft + slot * ((index.get(period) ?? 0) + 0.5 + SEAM * (seamed.get(period) ?? 0))
   const stacked = model.panels.length > 1
   const gap = view === 'expanded' ? 16 : 10
   const xAxisHeight = model.mode === 'quarterly' ? 32 : 20
@@ -435,7 +484,10 @@ function plan(model: ChartModel, width: number, view: ChartView): ChartLayout {
   cursor += stripHeight
   const stripRowY = stripTop == null ? [] : model.strip.map((_, i) => stripTop + 12 + i * STRIP_ROW)
   const valuesDontFit = panels.some((box) => box.panel.marks.some((mark) => mark.labelled) && box.labels.decimals == null)
-  return { view, width, height, gutter, plotLeft, plotRight, slot, barWidth, growthBarWidth, x, panels, xTickY, stripTop, stripRowY, valuesDontFit, notesY: cursor + 12 }
+  return {
+    view, width, height, gutter, plotLeft, plotRight, slot, count: Math.max(1, model.periods.length), seams, barWidth, growthBarWidth, x, panels,
+    xTickY, stripTop, stripRowY, valuesDontFit, notesY: cursor + 12,
+  }
 }
 
 export interface PlacedGlyph extends NoteGlyph {
