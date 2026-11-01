@@ -176,7 +176,7 @@ const COLOUR_VALUE = new Map(colourValues(TAILWIND.theme.extend.colors))
 const sameInk = (twin: string, rung: string) => twin === rung || (COLOUR_VALUE.has(twin) && COLOUR_VALUE.get(twin) === COLOUR_VALUE.get(rung))
 /** Crossings of the text ramp kept on purpose, per file and class, each by its decision. The flat direction chip (directionChip.flat)
     rests on text-text-secondary-light and, in dark, on the semantic flat ink flat-dark (#9CA3AF, 4.87:1 in its tint on
-    the panel), between the up and down chips (5.72:1 and 4.44:1 in theirs) where secondary-dark's 8.40:1 would
+    the panel), quieter than the up and down chips (5.72:1 and 5.76:1 in theirs) where secondary-dark's 8.40:1 would
     outshine both. The founder kept it so (E202 (3), D-073); moving it to text-secondary-dark empties this entry, and
     the count fails until a decision changes it. */
 const CROSSED_RUNG_RESIDUE: Record<string, Record<string, number>> = {
