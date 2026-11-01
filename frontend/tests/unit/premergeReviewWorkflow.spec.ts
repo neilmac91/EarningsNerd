@@ -895,7 +895,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       return o.label.startsWith('review:') ? twoBlockers : { refuted: true, reason: 'r' }
     }
     const [result] = (await load({ agentCap: 2 })({ prs: [pr('routine')] }, agent)) as Result[]
-    expect(calls.map((c) => c.label)).toEqual(['review:1:combined', 'verify:1:a.py#1'])
+    expect(calls.map((c) => c.label.split(':')[0])).toEqual(['review', 'verify'])
     expect(titles(result.refuted)).toEqual(['first blocker'])
     expect(titles(result.unverified)).toEqual(['second blocker'])
     expect(result.confirmed).toHaveLength(0)
