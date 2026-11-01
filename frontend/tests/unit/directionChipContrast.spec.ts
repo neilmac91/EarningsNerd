@@ -16,8 +16,9 @@ import { directionChip } from '@/lib/financialTone'
  * tailwind.config.js: the label's ink over the chip's tint, the tint composited on the ground. Light reads the bare
  * classes; dark reads the `dark:` ones, and a chip with no dark ink or tint keeps its light one there, as the
  * stylesheet does. A chip with no ink or no tint, two of either in one theme (the stylesheet's order, which this spec
- * does not read, would pick one), a colour-like value it cannot read (an arbitrary value that is not a six-digit hex, a
- * comma-separated rgb() or rgba(), or a length or size such as `text-[13px]`; `text-[var(--x)]` fails), an opacity
+ * does not read, would pick one), a colour-like value it cannot read (an arbitrary value that is not a hex, a
+ * comma-separated rgb() or rgba() with numbers as CSS spells them, channels to 255 and an alpha to 1, or a length or
+ * size such as `text-[13px]`; `text-[var(--x)]` and `rgba(251,113,133,.)` fail), an opacity
  * modifier it cannot apply as written (on a colour that carries its own alpha, which Tailwind replaces; above 1; or off
  * Tailwind's opacity scale, such as `/98`, for which Tailwind emits nothing), an ink or tint under any other variant (a
  * hover, a breakpoint: the chip is measured as it rests) or marked important, an opacity utility below 100 under any
@@ -44,12 +45,24 @@ const THEMES: Theme[] = ['light', 'dark']
 /** WCAG AA for text under 18pt (24px), or under 14pt (18.66px) bold: the chips' labels are 12px. */
 const FLOOR = 4.5
 
+/** A number as CSS spells one (`1`, `0.14`, `.5`): `1.` and `.` are not, and the browser drops a declaration with one. */
+const NUMBER = String.raw`(?:\d+(?:\.\d+)?|\.\d+)`
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+const RGB = new RegExp(String.raw`^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(${NUMBER})\s*)?\)$`)
+
+/** A hex (#rgb, #rrggbb, #rrggbbaa) or a comma-separated rgb()/rgba(), or null: a channel over 255 or an alpha over 1,
+ *  which the browser would clamp, is not read as written but refused. */
 function parse(value: string): Rgba | null {
-  const hex = /^#([0-9a-f]{6})$/i.exec(value)
-  if (hex) return [parseInt(hex[1].slice(0, 2), 16), parseInt(hex[1].slice(2, 4), 16), parseInt(hex[1].slice(4, 6), 16), 1]
-  const fn = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(value)
-  if (fn) return [Number(fn[1]), Number(fn[2]), Number(fn[3]), fn[4] === undefined ? 1 : Number(fn[4])]
-  return null
+  const hex = HEX.exec(value)
+  if (hex) {
+    const digits = hex[1].length === 3 ? [...hex[1]].map((c) => c + c).join('') : hex[1]
+    const [r, g, b, a = 255] = (digits.match(/../g) as string[]).map((v) => parseInt(v, 16))
+    return [r, g, b, a / 255]
+  }
+  const fn = RGB.exec(value)
+  if (!fn) return null
+  const colour: Rgba = [Number(fn[1]), Number(fn[2]), Number(fn[3]), fn[4] === undefined ? 1 : Number(fn[4])]
+  return colour.slice(0, 3).every((c) => c <= 255) && colour[3] <= 1 ? colour : null
 }
 
 /** One colour over an opaque ground, rounded to 8-bit channels as the browser paints it. */
@@ -72,7 +85,7 @@ const ratio = (a: Rgba, b: Rgba) => {
 /** Splits a class at its variant colons, never inside an arbitrary value's brackets. */
 const classParts = (cls: string) => cls.split(/:(?![^[]*\])/)
 /** An arbitrary value Tailwind reads as something other than a colour (`text-[13px]`, `bg-[url(...)]`). */
-const NOT_A_COLOUR = /^(length:|url\(|position:|size:|(calc|clamp|min|max)\(|[\d.]+(px|rem|em|%|ch|ex|lh|vw|vh|svh|dvh|pt)?$)/
+const NOT_A_COLOUR = /^(length:|url\(|position:|size:|(calc|clamp|min|max)\(|[\d.]+[a-z%]*$)/i
 /** An opacity utility (`opacity-60`, `dark:text-opacity-60`, `bg-opacity-[.5]`) that fades what it is on. */
 const OPACITY = /^(text-|bg-)?opacity-(.+)$/
 /** An opacity utility's value that fades nothing. */
@@ -89,7 +102,7 @@ function colourOf(utility: string, where: string, failures: string[]): { kind: '
   const modifier = slash === -1 ? undefined : m[2].slice(slash + 1)
   let colour: Rgba | null
   if (name.startsWith('[')) {
-    const inner = name.slice(1, -1)
+    const inner = name.slice(1, -1).replace(/_/g, ' ')
     colour = parse(inner)
     if (!colour) {
       if (NOT_A_COLOUR.test(inner)) return null
@@ -106,7 +119,7 @@ function colourOf(utility: string, where: string, failures: string[]): { kind: '
     }
   }
   if (modifier !== undefined) {
-    const arbitrary = /^\[([\d.]+)(%?)\]$/.exec(modifier)
+    const arbitrary = new RegExp(String.raw`^\[(${NUMBER})(%?)\]$`).exec(modifier)
     const scaled = Object.hasOwn(OPACITY_SCALE, modifier) ? Number(OPACITY_SCALE[modifier]) : undefined
     const alpha = scaled ?? (arbitrary ? Number(arbitrary[1]) / (arbitrary[2] ? 100 : 1) : NaN)
     if (scaled === undefined && /^\d+$/.test(modifier)) {
@@ -194,7 +207,7 @@ function underTheFloor(name: string, className: string): string[] {
       }
       const tint = over(chip.tint, ground)
       const r = ratio(over(chip.ink, tint), tint)
-      if (r < FLOOR) failures.push(`${name} (${theme}) on the ${label}: ${r.toFixed(2)}:1 in its tint, under ${FLOOR}:1`)
+      if (!(r >= FLOOR)) failures.push(`${name} (${theme}) on the ${label}: ${r.toFixed(2)}:1 in its tint, under ${FLOOR}:1`)
     }
   }
   return failures
@@ -242,7 +255,21 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[var(--ink)]'))).toEqual([
       'plant: text-[var(--ink)] looks like a colour this spec cannot read',
     ])
-    expect(underTheFloor('plant', `${down} text-[13px] text-[calc(1rem+1px)]`)).toEqual([])
+    expect(underTheFloor('plant', `${down} text-[13px] text-[calc(1rem+1px)] text-[0.8cqw]`)).toEqual([])
+    // Spellings the browser drops or clamps: refused, so the theme never falls back or reads past what is painted.
+    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/[1.]'))).toEqual([
+      "plant: text-loss-dark/[1.]'s opacity cannot be read as one between 0 and 1",
+    ])
+    for (const [from, to] of [
+      ['dark:text-loss-dark', 'text-[rgba(251,113,133,.)]'],
+      ['dark:text-loss-dark', 'text-[rgba(251,113,133,2)]'],
+      ['dark:text-loss-dark', 'text-[rgb(300,113,133)]'],
+      ['dark:bg-loss-soft-dark', 'bg-[rgba(251,113,133,.)]'],
+    ]) {
+      expect(underTheFloor('plant', down.replace(from, `dark:${to}`))).toEqual([`plant: ${to} looks like a colour this spec cannot read`])
+    }
+    // White's #fff, the dark tint idiom (bg-white/5), is read: the flat chip on it reads above the floor.
+    expect(underTheFloor('plant', directionChip.flat.replace('dark:bg-flat-dark/10', 'dark:bg-white/5'))).toEqual([])
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/98'))).toEqual([
       "plant: text-loss-dark/98's opacity is off Tailwind's scale, so it emits no CSS for it",
     ])

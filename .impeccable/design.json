@@ -272,7 +272,7 @@
         "role": "semantic",
         "displayName": "Loss Dark",
         "canonical": "#FF96A1",
-        "description": "Loss delta text and graphics in dark mode: rose-400's hue at the gain ink's lightness, so a down chip's label in its tint reads level with an up chip's (5.76:1 and 5.72:1 on the panel, D-074); the analysis figure surfaces take loss-data-dark."
+        "description": "Loss delta text and graphics in dark mode: rose-400's hue, lightened until a down chip's label in its tint reads level with an up chip's (5.76:1 and 5.72:1 on the panel, D-074); the analysis figure surfaces take loss-data-dark."
       },
       "loss-soft": {
         "role": "semantic",

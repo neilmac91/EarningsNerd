@@ -45,8 +45,8 @@ export const dataDirectionText: Record<Direction, string> = {
 /** Full pill/chip tone — text + a subtle tinted background + border.
  *  Label ink = the 700-level TEXT tokens (AA inside the tint); the 600s stay on the
  *  border only. Matches Badge's beat/miss recipe — the two primitives now agree.
- *  In dark the up and down labels are level in their tints on the panel, 5.72:1 and 5.76:1: loss.dark #FF96A1 takes
- *  rose-400's hue at the gain ink's lightness, where rose-400 was 4.44:1, under AA for the 12px label (E282, D-074).
+ *  In dark the up and down labels are level in their tints on the panel, 5.72:1 and 5.76:1: loss.dark #FF96A1 is
+ *  rose-400's hue, lightened to that level, where rose-400 was 4.44:1, under AA for the 12px label (E282, D-074).
  *  The flat chip's dark label is the semantic flat ink, flat-dark #9CA3AF (4.87:1 in its tint on the panel), a rung
  *  below its light label, quieter than the up and down chips where secondary-dark would outshine both (E202 (3), D-073;
  *  themePairs.spec.ts's CROSSED_RUNG_RESIDUE holds it). tests/unit/directionChipContrast.spec.ts holds every tone's
