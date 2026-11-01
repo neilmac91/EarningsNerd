@@ -23,15 +23,17 @@ operands: outside the choice, inside it, or legacy (none recorded: rows stored b
 - D and E: a non-current feed revenue row, judged against what its own accession reported for its span under the
   first chosen tag it reports there: flagged when more than 0.5% from that, or when the accession reports no chosen
   tag and the row's tag is outside the choice. D is an annual row at its accession's own year end (history), E any
-  other. A difference with the row's tag inside the choice is D_review or E_review.
+  other. A difference where the row carries that very tag is D_review or E_review; a row of a later chosen tag the
+  rule reads there only behind an earlier one (ICE's FY2017 fee line behind its Revenues) is D or E.
 - K: a current row of either writer at a key the batch fills under another identity, more than 0.5% from it (a
   quarter stored with no fiscal period is read at the batch's quarter there); K_review when its lineage is inside.
 - F: a per-filing revenue row the old cross-check replaced (source companyfacts), whatever its provenance, that
   cross_check_facts would replace under the deployed authority. F_gap: such a row of another source (confirmed by
   the old authority, or written unchecked). unjudged: no authority at its period end (10-Q quarters, E278's).
 - missing (informational): batch identities no stored row holds.
-Each listed row carries its stored and deployed figures, the gap, its rule (old when created before the deploy
-instant, as census set 8 splits them) and a closed ``why`` (WHY).
+Each listed row carries its stored and deployed figures, the gap, its rule and a closed ``why`` (WHY). The rule is old
+when the row was created before the deploy that changed its writer, as census set 8 splits them: E278's (#1919) for a
+per-filing row the extraction wrote (its source is not companyfacts), E264's for every other row.
 
 Outcomes per company (OUTCOMES): previewed; pending_resync (synced before the deploy, no SEC read: step (1)'s rest
 of the cohort); not_financial; fetch_failed; payload_rejected; unsupported_ifrs; another_currency (the sync's
@@ -47,8 +49,8 @@ limiter not at 1 request a second. There is no apply mode, no heartbeat and no w
 one companyfacts read through facts_service._fetch_companyfacts_sync (the shared limiter), before its session
 opens. It refuses more than 50 tickers or an unknown one, Monday 06:00-08:30 UTC for SEC reads (the scheduled jobs
 already sum to SEC's cap then), and more than 500 companies to read (it lists them, to batch by --tickers). It stops
-after 3 failed reads in a row, 3 rate-limit hits or 3000 s, inside the step's 60 minutes: the companies left to read
-are not_run. Exit 1 on any failure, refusal or stop.
+after 3 failed reads in a row, 3 rate-limit hits or 2400 s: the company then in flight can take 1,060 s at worst (580 s
+of SEC retries, four 120 s statements), and the step's 60 minutes still hold the report. The rest are not_run. Exit 1 on any failure, refusal or stop.
 
   python scripts/financial_revenue_preview.py --output report.json --workflow-commit SHA [--tickers A,B]
   python scripts/financial_revenue_preview.py ... --companyfacts-dir DIR   # offline CIK##########.json, no SEC
@@ -94,13 +96,14 @@ from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: E402
 from app.utils.datetimes import ensure_utc, iso_z, utc_from_iso, utcnow  # noqa: E402
 
 E264_DEPLOYED_AT = utc_from_iso("2026-11-01T14:07:03+00:00")  # census SQL's e264_deployed
+E278_DEPLOYED_AT = utc_from_iso("2026-11-01T21:04:12+00:00")  # deploy-backend job 124977441912 moved the last job
 FEED_TOLERANCE = 0.005
 CONCEPTS = ("revenue", "net_margin", "operating_margin", "gross_margin")
 MARGINS = frozenset(CONCEPTS[1:])
 QUARTERS = frozenset({"Q1", "Q2", "Q3", "Q4"})
 MAX_TICKERS = 50
 MAX_PREVIEWED = 500
-TIME_BUDGET_SECONDS = 3000
+TIME_BUDGET_SECONDS = 2400
 STOP_AFTER_FAILED_FETCHES = 3
 STOP_AFTER_RATE_LIMIT_HITS = 3
 MAX_INPUT_BYTES = 32 * 1024 * 1024
@@ -317,7 +320,9 @@ def feed_set(row: dict, kind: str, chosen: set[str], deployed: Deployed, winners
         return (name, None, ()) if row["raw_tag"] not in chosen else None
     if gap(row["value"], own[1]) <= FEED_TOLERANCE:
         return None
-    return (name if row["raw_tag"] not in chosen else f"{name}_review"), _figure(
+    # Review only for the tag the rule reads at this accession: a different figure under it is a recast or a stored
+    # error. Any other tag (outside the choice, or one the rule reads only behind an earlier tag) is the old reading.
+    return (f"{name}_review" if row["raw_tag"] == own[0] else name), _figure(
         "own_report", own[1], own[0], row["accession"]), ()
 
 
@@ -338,10 +343,15 @@ def _plain(value: Any) -> Any:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
 
+def _rule(row: dict) -> str:
+    """old or new: whether the row predates the deploy that changed its writer (E278's for the extraction's rows)."""
+    extracted = row["filing_id"] is not None and row["source"] != "companyfacts"
+    created, instant = row["created_at"], E278_DEPLOYED_AT if extracted else E264_DEPLOYED_AT
+    return "old" if created is None or ensure_utc(created) < instant else "new"
+
+
 def _entry(row: dict, figure: dict | None, why: set[str]) -> dict[str, Any]:
-    created = row["created_at"]
-    return {"fact_id": row["id"], **{name: _plain(row[name]) for name in REPORT_FIELDS},
-            "rule": "old" if created is None or ensure_utc(created) < E264_DEPLOYED_AT else "new",
+    return {"fact_id": row["id"], **{name: _plain(row[name]) for name in REPORT_FIELDS}, "rule": _rule(row),
             "stored_value": row["value"], "deployed": figure,
             "gap": None if figure is None else round(gap(row["value"], figure["value"]), 6), "why": sorted(why)}
 
@@ -460,7 +470,8 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
             "started": True, "run_id": run_id, "workflow_commit": args.workflow_commit, "dry_run": True,
             "execution": "github_actions_runner", "production_image_used": False,
             "payload_source": "sec" if args.companyfacts_dir is None else "offline_directory",
-            "rule": {"e264_deployed_at": iso_z(E264_DEPLOYED_AT), "feed_tolerance": FEED_TOLERANCE,
+            "rule": {"e264_deployed_at": iso_z(E264_DEPLOYED_AT), "e278_deployed_at": iso_z(E278_DEPLOYED_AT),
+                     "feed_tolerance": FEED_TOLERANCE,
                      "per_filing": f"cross_check_facts ({CROSS_CHECK_TOLERANCE:.0%})"},
             "cohort_size": len(members), "blank_sic_companies": blank,
             "cohort": [{"ticker": m.ticker, "sic": m.sic, "synced_since_deploy": m.synced} for m in members],

@@ -322,7 +322,9 @@ PREVIEW_ENV = {  # the step's env, whole: a name added here (a PGHOST, an SEC fl
     "STRIPE_WEBHOOK_SECRET": "whsec_ops", "PWNED_PASSWORD_CHECK_ENABLED": "false",
     "TICKERS": "${{ steps.request.outputs.tickers }}",
 }
-IN_FLIGHT_SECONDS = 600  # the company in flight at the budget's end (an SEC read, a 120 s statement), then the report
+# The company in flight at the budget's end, at worst: an SEC read of 5 attempts at 20 s with 4 Retry-After waits
+# of 120 s (580 s), then its session's four statements at 120 s each (480 s); then the summary and the report.
+IN_FLIGHT_SECONDS = 1200
 
 
 def test_the_preview_step_only_reads_for_its_one_operation_and_keeps_its_report():

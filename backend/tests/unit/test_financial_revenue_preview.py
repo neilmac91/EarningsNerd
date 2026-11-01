@@ -65,14 +65,14 @@ SIC = {"AMT": "6798", "AXP": "6199", "BLK": "6211", "IBKR": "6211", "ICE": "6200
        "MET": "6311", "PNC": "6021", "TROW": "6282", "WFC": "6021"}
 # The design's table came from a pure prototype that stored no per-filing rows and never split D and E by tag. Here
 # each 10-K's own year also goes through the per-filing writer, which adds F, F_gap and unjudged and changes no feed
-# count; and ICE's FY2017 fee history is D_review, not D: ICE's choice keeps the fee tag (Revenues, then the fee),
-# and the design sends a difference whose tag the choice keeps to review.
+# count. ICE's FY2017 fee history is D: ICE's choice keeps the fee tag, but behind Revenues, which that 10-K reports,
+# so the deployed rule reads Revenues there and the stored fee figure is the old tag order, not a recast.
 FIXTURE_SETS = {
     "AMT": {"A": 28, "C1": 3, "D": 2, "E": 5, "F_gap": 4},
     "AXP": {"A": 31, "C1": 4, "E": 9, "K": 3, "F_gap": 7},
     "BLK": {},
     "IBKR": {"A": 46, "B": 12, "C1": 68, "C2": 14, "D": 2, "F_gap": 10, "unjudged": 1},
-    "ICE": {"A": 1, "D_review": 1, "F": 1},
+    "ICE": {"A": 1, "D": 1, "F": 1},
     "KKR": {"A": 6, "B": 1, "D": 1, "E": 8, "F_gap": 2},
     "MET": {"A": 23, "C1": 2, "C2": 1, "E": 3, "F_gap": 5},
     "PNC": {"K_review": 2, "F": 1},
@@ -291,7 +291,7 @@ def _oracle(rows, payload):
             if hit is None and row["raw_tag"] not in chosen:
                 out[name][row["id"]] = None
             elif hit is not None and far(row["value"], hit[1]):
-                out[name if row["raw_tag"] not in chosen else f"{name}_review"][row["id"]] = hit[1]
+                out[f"{name}_review" if row["raw_tag"] == hit[0] else name][row["id"]] = hit[1]
         if not feed and row["concept"] == "revenue":
             auth = authority.get(("revenue", row["period_end"]))
             if auth is None:
@@ -333,7 +333,7 @@ def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_ro
         assert {k: v for k, v in company["counts"].items() if v} == FIXTURE_SETS[ticker], ticker
         # The deployed resync's own rows agree with the batch: every listed row was stored before the deploy.
         assert {r["rule"] for listed in company["rows"].values() for r in listed} <= {"old"}, ticker
-    ice = _set(report, "ICE", "D_review")
+    ice = _set(report, "ICE", "D")
     assert [(r["fiscal_year"], r["stored_value"], r["deployed"]["tag"], r["deployed"]["value"]) for r in ice.values()] \
         == [(2017, 4_629_000_000.0, "us-gaap:Revenues", 5_834_000_000.0)]
     assert {r["fiscal_year"] for r in _set(report, "PNC", "K_review").values()} == {2019}
@@ -456,6 +456,32 @@ def test_a_same_value_row_outside_the_choice_a_gap_past_half_a_percent_and_a_cal
     assert not _set(report, "QTA", "C2_review") and not _set(report, "QTA", "missing")
 
 
+def test_a_history_row_under_the_tag_its_own_accession_reads_at_another_figure_is_review(db, tmp_path, capsys, sec):
+    """A non-current feed row is judged by what its own accession reports under the first chosen tag it reports
+    there. The same tag at another figure is D_review: a recast or a stored error, not the old tag order. A later
+    chosen tag the rule reads only behind an earlier one is D (ICE's FY2017 fee line behind its Revenues, pinned by
+    the fixture test), and so is a tag outside the choice."""
+    company = _company(db, "HST", 23)
+    payload = _payload(23, **{RNOIE: [
+        _item(110e6, "2022-12-31", "2022-01-01", _accn(23, 23)),
+        _item(111e6, "2022-12-31", "2022-01-01", _accn(23, 24), filed="2024-02-15"),  # recast in the next 10-K
+        _item(120e6, "2023-12-31", "2023-01-01", _accn(23, 24)),
+    ]})
+    recast = _row(db, company, fiscal_year=2022, period_start=date(2022, 1, 1), period_end=date(2022, 12, 31),
+                  value=108e6, accession=_accn(23, 23), raw_tag=f"us-gaap:{RNOIE}", is_latest=False)
+    facts_service._persist_companyfacts_payload(db, company, payload)  # its own-report identity is skipped
+    company.facts_synced_at = NEW
+    db.commit()
+    sec.payloads[company.cik] = payload
+
+    code, _lines, report = _main(tmp_path, capsys, "--tickers", "HST")
+
+    assert code == 0
+    assert {i: (r["deployed"]["tag"], r["deployed"]["value"]) for i, r in _set(report, "HST", "D_review").items()} == {
+        recast.id: (f"us-gaap:{RNOIE}", 110e6)}
+    assert not _set(report, "HST", "D") and not _set(report, "HST", "A")
+
+
 def test_a_stale_current_row_at_a_key_the_batch_fills_is_k_from_either_writer_and_as_a_legacy_quarter_twin(
         db, tmp_path, capsys, sec):
     """The writer demotes only when it inserts: where the batch's identity was already stored, a current row of
@@ -501,6 +527,15 @@ def test_the_deploy_instant_splits_synced_companies_and_the_rule_of_a_row(db, tm
     entry = {"id": 1, **{name: None for name in preview.REPORT_FIELDS}, "value": 1.0}
     assert [preview._entry({**entry, "created_at": created}, None, set())["rule"]
             for created in (at, before, None, at.replace(tzinfo=None))] == ["new", "old", "old", "new"]
+    # The per-filing extraction changed at E278's deploy (#1919): a row it wrote in between holds the old reading.
+    e278 = preview.E278_DEPLOYED_AT
+    assert e278 == datetime(2026, 11, 1, 21, 4, 12, tzinfo=UTC)  # deploy-backend job 124977441912's last job
+    extracted, replaced = {**entry, "filing_id": 7, "source": "edgar_xbrl"}, {**entry, "filing_id": 7,
+                                                                                "source": "companyfacts"}
+    assert [preview._entry({**extracted, "created_at": created}, None, set())["rule"]
+            for created in (at, e278 - timedelta(seconds=1), e278)] == ["old", "old", "new"]
+    assert [preview._entry({**replaced, "created_at": created}, None, set())["rule"]
+            for created in (before, at, e278 - timedelta(seconds=1))] == ["old", "new", "new"]
 
 
 # --- read-only, every outcome and public safety ----------------------------------------------------------------------
@@ -759,7 +794,7 @@ def test_the_time_budget_stops_before_the_next_read_and_the_run_still_ends_with_
 
     assert code == 1 and [line["outcome"] for line in lines[1:-1]] == ["previewed"] * 2 + ["not_run"] * 2
     assert lines[-1] == report["summary"] and report["summary"]["stopped"] == "time_budget" and len(sec.reads) == 2
-    assert preview.TIME_BUDGET_SECONDS == 3000  # inside the Ops step's 60 minutes, with room for the last company
+    assert preview.TIME_BUDGET_SECONDS == 2400  # the last company's worst case (1,060 s) still ends inside 60 minutes
 
 
 @pytest.mark.parametrize("tickers,refused,named", [
@@ -864,8 +899,8 @@ def test_the_start_line_is_flushed_before_the_first_read_and_each_line_has_its_e
     start, *companies, summary = [json.loads(line) for line in out.getvalue().splitlines()]
     assert code == 0 and json.loads(seen[0].splitlines()[0]) == start  # printed and flushed before the read
     assert set(start) == START_KEYS and start["dry_run"] and not start["production_image_used"]
-    assert start["rule"] == {"e264_deployed_at": "2026-11-01T14:07:03Z", "feed_tolerance": 0.005,
-                             "per_filing": "cross_check_facts (1%)"}
+    assert start["rule"] == {"e264_deployed_at": "2026-11-01T14:07:03Z", "e278_deployed_at": "2026-11-01T21:04:12Z",
+                             "feed_tolerance": 0.005, "per_filing": "cross_check_facts (1%)"}
     assert (start["workflow_commit"], start["execution"]) == (COMMIT, "github_actions_runner")
     assert all(set(line) == COMPANY_KEYS for line in companies) and set(summary) == SUMMARY_KEYS
     assert [line["outcome"] for line in companies] == ["previewed", "pending_resync"]
