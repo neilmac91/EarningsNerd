@@ -1,20 +1,20 @@
 {
-  "source": "The peers endpoint’s answers, as GET /api/companies/{ticker}/peers?metric={metric} serves them (PeerComparisonResponse, backend/app/schemas/peers.py), each case labelled with the metric its request named. The two production cases are production’s own entries: the pair joined from JPM’s and BAC’s single-company answers, and the single as JPM served it; every other case is synthetic, its companies and figures invented for the case. Each envelope is computed as backend/app/services/peers_service.py computes it: value descending with the ticker as tie-break and withheld values last, competition ranks and percentile round(below / (m − 1) × 100, 1) over the companies with a value, peer_count the entries, subject the subject’s own entry, or one synthesised where the subject holds no fact. backend/tests/unit/test_peers_fixture_contract.py seeds every case and holds the service to it.",
+  "source": "The peers endpoint’s answers, as GET /api/companies/{ticker}/peers?metric={metric} serves them (PeerComparisonResponse, backend/app/schemas/peers.py), each case labelled with the metric its request named. The two production cases are production’s own entries: the pair joined from JPM’s and BAC’s net interest income entries, and the single as JPM served it before the SIC backfill; every other case is synthetic, its companies and figures invented for the case. Each envelope is computed as backend/app/services/peers_service.py computes it: value descending with the ticker as tie-break and withheld values last, competition ranks and percentile round(below / (m − 1) × 100, 1) over the companies with a value, peer_count the entries, subject the subject’s own entry, or one synthesised where the subject holds no fact. backend/tests/unit/test_peers_fixture_contract.py seeds every case and holds the service to it.",
   "cases": {
     "pair": {
-      "case": "production: JPM’s and BAC’s single-company answers of 2026-10-31 08:35 UTC (GET /api/companies/{JPM,BAC}/peers, each sic null and peer_count 1), joined into the pair the service answers for JPM once both hold SIC 6021 (the committed census’s code, unverified against EDGAR): each entry as served, ranked and counted as the service would",
+      "case": "production: JPM’s and BAC’s net interest income entries of 2026-10-31 20:25 UTC (GET /api/companies/JPM/peers?metric=net_interest_income, after the founder’s SIC backfill, answered JPM, BAC, C and WFC under SIC 6021), joined into the pair the service answers for JPM’s default, revenue, once only those two hold the figure: a commercial bank ranks on net interest income (F69): each entry as served, ranked and counted as the service would",
       "metric": "revenue",
       "response": {
         "ticker": "JPM",
         "company_name": "JPMORGAN CHASE & CO",
         "sic": "6021",
-        "concept": "revenue",
+        "concept": "net_interest_income",
         "unit": "USD",
         "peer_count": 2,
         "subject": {
           "ticker": "JPM",
           "company_name": "JPMORGAN CHASE & CO",
-          "value": 182447000000.0,
+          "value": 95443000000.0,
           "period_end": "2025-12-31",
           "fiscal_year": 2025,
           "is_subject": true,
@@ -37,7 +37,7 @@
           {
             "ticker": "JPM",
             "company_name": "JPMORGAN CHASE & CO",
-            "value": 182447000000.0,
+            "value": 95443000000.0,
             "period_end": "2025-12-31",
             "fiscal_year": 2025,
             "is_subject": true,
@@ -59,7 +59,7 @@
           {
             "ticker": "BAC",
             "company_name": "BANK OF AMERICA CORP /DE/",
-            "value": 113097000000.0,
+            "value": 60096000000.0,
             "period_end": "2025-12-31",
             "fiscal_year": 2025,
             "is_subject": false,
@@ -4931,12 +4931,12 @@
       }
     },
     "bank": {
-      "case": "synthetic: a bank that reports net interest income and no revenue, asked for revenue, so the service ranks its sector on net interest income instead (peers_service.py:58-83), as GS answered on 2026-10-31; every company and figure invented",
+      "case": "synthetic: a state commercial bank (SIC 6022), asked for revenue, the panel’s default, so the service ranks its industry on net interest income, whatever its companies store (F69, peers_service.default_concept_for); every company and figure invented",
       "metric": "revenue",
       "response": {
         "ticker": "BNKB",
         "company_name": "Synthetic Bank B Corp",
-        "sic": "9999",
+        "sic": "6022",
         "concept": "net_interest_income",
         "unit": "USD",
         "peer_count": 3,

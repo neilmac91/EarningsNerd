@@ -9,10 +9,18 @@ Coverage is only as broad as the facts corpus: peers are limited to same-SIC com
 already present in our DB with facts for the concept, so results are sparse early and
 grow as the backfill covers more companies. Peers may report on slightly different
 fiscal calendars; we compare each company's most recent annual value.
+
+Two rules keep a ranking comparable (F69, D-072). An industry ranks on one figure: a request
+for the default concept ranks a commercial bank or savings institution on net interest income
+and every other company on revenue, whatever the company itself stores. And a figure whose
+period ended more than ``MAX_FIGURE_LAG`` before the newest figure in its group leaves the
+ranking, the subject's included, so a company that stopped filing a concept is not ranked on
+its last figure beside current ones.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -23,6 +31,23 @@ from app.services.facts_service import _unit_for
 from app.services.fact_provenance import provenance_for_fact, published_value
 
 DEFAULT_CONCEPT = "revenue"
+
+# The SIC codes whose companies rank on net interest income by default: commercial banks (6021 national,
+# 6022 state, 6029 not elsewhere classified) and savings institutions (6035 federally chartered, 6036 not).
+# Net interest income is a bank's top line on /analysis too, and the facts layer keeps it current for every
+# bank; every other code, broker-dealers (6211) included, ranks on revenue (F69, D-072).
+NET_INTEREST_INCOME_SICS = frozenset({"6021", "6022", "6029", "6035", "6036"})
+
+# How far a figure's period end may trail the newest in its group and still rank (F69, D-072). Fiscal
+# calendars and filing deadlines put current annual figures up to about fifteen months apart (a 20-F filer's
+# year beside a fast 10-K filer's); a company that stopped filing a concept trails by years.
+MAX_FIGURE_LAG = timedelta(days=548)
+
+
+def default_concept_for(sic: Optional[str]) -> str:
+    """The concept a request for the default ranks on: net interest income for a commercial bank or savings
+    institution, revenue for every other company."""
+    return "net_interest_income" if (sic or "").strip() in NET_INTEREST_INCOME_SICS else DEFAULT_CONCEPT
 
 
 def _entry(company: Company, fact: FinancialFact, *, is_subject: bool) -> dict[str, Any]:
@@ -46,7 +71,8 @@ def get_peers(
     """Rank a company against same-SIC peers on one concept.
 
     Returns ``None`` when the ticker isn't a known company. The subject is always
-    included in the response (with null value/rank if it has no fact for the concept).
+    included in the response (with null value/rank if it has no fact for the concept,
+    or if its figure trails the group's newest by more than ``MAX_FIGURE_LAG``).
     """
 
     company = db.query(Company).filter(Company.ticker == (ticker or "").upper()).first()
@@ -55,32 +81,12 @@ def get_peers(
 
     concept = (concept or DEFAULT_CONCEPT).strip() or DEFAULT_CONCEPT
 
-    # Financial institutions report no single "revenue" fact (a bank stores net-interest / non-
-    # interest income components instead). When the default revenue ranking is requested for such a
-    # subject, fall back to net interest income so the peer panel stays meaningful (same-SIC bank
-    # peers likewise carry it) rather than collapsing to an empty cohort.
+    # One figure per industry (F69, D-072): the default ranks a commercial bank or savings institution on
+    # net interest income and every other company on revenue, decided by the subject's SIC code alone, so
+    # every page of one industry answers the same ranking. A company that stores no figure on its
+    # industry's concept shows none; it never switches the page to another figure.
     if concept == DEFAULT_CONCEPT:
-        has_revenue = (
-            db.query(FinancialFact.id)
-            .filter(
-                FinancialFact.company_id == company.id,
-                FinancialFact.concept == DEFAULT_CONCEPT,
-                FinancialFact.is_latest.is_(True),
-            )
-            .first()
-        )
-        if not has_revenue:
-            has_nii = (
-                db.query(FinancialFact.id)
-                .filter(
-                    FinancialFact.company_id == company.id,
-                    FinancialFact.concept == "net_interest_income",
-                    FinancialFact.is_latest.is_(True),
-                )
-                .first()
-            )
-            if has_nii:
-                concept = "net_interest_income"
+        concept = default_concept_for(company.sic)
 
     # Currency guard: a ranking is only meaningful within ONE currency — a CNY revenue is
     # ~7x a USD one, so a foreign private issuer (which now stores native-currency facts,
@@ -137,6 +143,14 @@ def get_peers(
     latest: dict[int, tuple[Company, FinancialFact]] = {}
     for peer, fact in results:
         latest.setdefault(peer.id, (peer, fact))
+
+    # Recency (F69, D-072): a company whose most recent figure ended more than MAX_FIGURE_LAG before the
+    # group's newest leaves the ranking before anything is counted, the subject's figure included (the
+    # subject is then surfaced without a value below). Measured from the group's own newest figure, so
+    # the answer needs no clock and a group whose filers all lag keeps its ranking.
+    if latest:
+        floor = max(fact.period_end for _, fact in latest.values()) - MAX_FIGURE_LAG
+        latest = {cid: pair for cid, pair in latest.items() if pair[1].period_end >= floor}
 
     # The cohort is now single-currency by construction, so the response unit is the
     # subject's unit (not "whichever fact iterated first" — which could differ once the

@@ -3236,8 +3236,10 @@ company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), 
 with the rank kept on one line (no-break spaces);
 the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
 September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
-ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
-option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
+ranks on, its `concept`, so a commercial bank or savings institution, whose industry ranks on net interest income by
+default (SIC 6021, 6022, 6029, 6035, 6036; F69), says so in the picker's first option, the plot's name, the rank line,
+the footnote and the readout. The endpoint leaves out a company whose figure ended more than 548 days before its
+group's newest (F69), so the years the chart sets side by side are at most eighteen months apart. The card: the heading, `h2` at `text-xl`; the rank
 line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which
 counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
 FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
