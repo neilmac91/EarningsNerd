@@ -533,9 +533,11 @@ function expectArrowWithLastWord(g: Awaited<ReturnType<typeof arrowLinkGeometry>
   }
 }
 
-// Each link with the widest width the cases below test at which its label wraps under 200% text, so a case says
-// when it reads a wrapped label. Swept a pixel at a time, "See all 5 companies" wraps up to 356px and "Open watchlist
-// insights" up to 397px.
+// Each link with the widest width the cases below test at which its label wraps under 200% text with room to spare,
+// so a case says when it reads a wrapped label. Where a label stops wrapping is the font's to say: in one Chromium with
+// CI's fonts "See all 5 companies" wrapped up to 356px and "Open watchlist insights" up to 397px, and CI's own runner
+// wrapped "See all 5 companies" at 360px too. So a wider case asserts no count; the arrow's checks hold on one line or
+// on two.
 const ARROW_LINKS: Array<[name: string, wrapsTo: number]> = [['See all 5 companies', 340], ['Open watchlist insights', 390]]
 
 for (const width of [320, 340, 360, 375, 390, 640, 1024]) {
@@ -550,7 +552,7 @@ for (const width of [320, 340, 360, 375, 390, 640, 1024]) {
     for (const [name, wrapsTo] of ARROW_LINKS) {
       const g = await arrowLinkGeometry(page, name)
       expectArrowWithLastWord(g)
-      expect(g.lineCount, `${name}: ${width <= wrapsTo ? 'wraps here, so the case reads a wrapped label' : 'keeps one line'}`).toBe(width <= wrapsTo ? 2 : 1)
+      if (width <= wrapsTo) expect(g.lineCount, `${name} wraps here, so the case reads a wrapped label`).toBe(2)
     }
   })
 }
