@@ -564,19 +564,26 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  own, never an ink. It serves What changed's call to action (since E272), the feed's "See all N
                  companies" and Your companies' "Open watchlist insights" (E274), and the hero example's "Read the
                  full example summary", the Compare periods card's "Open change report" and the waitlist's "Try a
-                 live example summary" (E275). Two text links still draw the arrow as a flex row's last item, the
-                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
-                 (E276); a button's arrow (MarketingCta, buttonVariants) stays in its flex row, since the button's box
-                 binds it. A link that stands alone and can wrap is inline-block, so it paints one box, and one with a
-                 fill or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two
-                 links take a 4px inset (-mx-1 px-1) so their ring clears their words, the hero example's and Compare
-                 periods' their px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's)
-                 is inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
-                 above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
-                 word's line, one box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the
-                 other three, and the hero example's at 1024 and 1280px: each arrow on its last word's line, one box,
-                 every line of the words inside it) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke-
-                 class in any arrowClassName or in the classes the component writes on its run and its arrow).
+                 live example summary" (E275), and the Copilot message's "Browse {ticker}'s other filings" and the
+                 calendar card's "View full calendar" (E276). A button's arrow (MarketingCta, buttonVariants) stays in
+                 its flex row, since the button's box binds it. A link that stands alone and can wrap is inline-block,
+                 so it paints one box, and one with a fill or a set height takes min-h-9, never h-9, so the box grows
+                 with its lines: the dashboard's two links, the Copilot message's and the calendar card's take a 4px
+                 inset (-mx-1 px-1) so their ring clears their words, the hero example's and Compare periods' their
+                 px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's) is inline-block
+                 too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces, above). The
+                 external link's square after a link's words ("Original on SEC.gov" and its kin) still parts from them
+                 the same way under 200% text, and at the default size where a section name wraps in the Copilot
+                 Sources list (E279). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on
+                 its last word's line, one box, the words inside the link's 0.25rem inset),
+                 tests/e2e/reflow-200.spec.ts (the hero example's, Compare periods', the waitlist's and the Copilot
+                 message's, and the hero's and the Copilot message's at 1024 and 1280px: each arrow on its last word's
+                 line, one box, every line of the words inside it and inside its inset where it has one; the calendar
+                 card's row is filled on the server, which CI's e2e build runs without, so no case reaches it),
+                 tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon after its
+                 words, and no TrailingArrowLabel sits in a flex or grid row) and tests/unit/trailingArrowInk.spec.ts
+                 (no text-, fill- or stroke- class in any arrowClassName or in the classes the component writes on its
+                 run and its arrow).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
