@@ -19,7 +19,7 @@ import NotificationBell from '@/features/notifications/components/NotificationBe
 import * as notificationsApi from '@/features/notifications/api/notifications-api'
 
 const { identify } = vi.hoisted(() => ({ identify: vi.fn() }))
-vi.mock('@/lib/analytics', () => ({ analytics: { identify } }))
+vi.mock('@/lib/analytics', () => ({ analytics: { identify, forgetAccount: vi.fn() } }))
 vi.mock('@/lib/api/refresh', () => ({ refreshAccessToken: vi.fn() }))
 vi.mock('@/components/CookieConsent', () => ({ getCookiePreferences: () => ({ analytics: true }) }))
 
