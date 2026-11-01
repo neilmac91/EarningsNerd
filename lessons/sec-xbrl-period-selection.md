@@ -12,15 +12,16 @@ fact's own duration window (distance-anchored Q1–Q4), with latest-filed-wins f
 restatements and derived Q4 (FY − Q1..Q3, flows only, never EPS).
 
 **Rule**: Never trust `fy`/`fp` as the fact's period. For per-filing metrics use the
-accession-aware instance path; for time series classify by the fact's duration window.
-A financial filer's (SIC 6000-6799) companyfacts revenue and the backfill's cross-check
-never read the generic revenue tuple, whose first tag is the ASC 606 fee subset beside a
-bank's, insurer's or REIT's total: they read `facts/fi_revenue.financial_revenue_tags` (the
-reported total; the fee tag only where it is that total), gated by
-`backend/tests/unit/test_fi_revenue.py` (E264). E211's proxy step still reads the generic
-tuple (E206), and the instance path's lists are E276. Concept list ORDERINGS encode tag
-priority — reordering one changes which tag wins on multi-tagged filers, so treat the lists
-as behavior, not style.
+accession-aware instance path; for time series classify by the fact's duration window. A
+financial filer's (SIC 6000-6799) companyfacts revenue and the backfill's cross-check never
+read the generic revenue tuple, whose first tag is the ASC 606 fee subset beside a bank's,
+insurer's or REIT's total: they read `facts/fi_revenue.financial_revenue_tags` (the reported
+total; the fee tag only on evidence that it is that total), and every
+`normalize_companyfacts` and `extract_authoritative_values` call outside tests names its
+filer, both gated by `backend/tests/unit/test_fi_revenue.py` (E264). E211's proxy step still
+reads the generic tuple (E206), and the instance path's lists are E276. Concept list
+ORDERINGS encode tag priority — reordering one changes which tag wins on multi-tagged
+filers, so treat the lists as behavior, not style.
 
 **Evidence**: `backend/app/services/edgar/instance_extractor.py`;
 `facts_service` companyfacts ingest + `test_companyfacts_ingest.py` (PR #552);
