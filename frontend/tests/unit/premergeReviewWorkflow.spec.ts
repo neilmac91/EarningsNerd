@@ -73,14 +73,18 @@
  *   - a lens that returns nothing makes the result `incomplete` and not mergeable;
  *   - a refuter that returns nothing leaves the finding unverified, never refuted, and makes the result
  *     `incomplete`, so a should-fix whose required refutation never ran is not clearance;
- *   - a verification that throws keeps its finding (unverified) instead of dropping it: a vote that throws when read
- *     stands in for the throw, and only this case passes the agents' results uncopied, since in the runtime none can;
+ *   - a verification that throws keeps its finding (unverified) instead of dropping it. It throws as it can in the
+ *     runtime, where `parallel` and `agent` throw once a run has started all the agents it may: the case caps the run at
+ *     two agents, so the lens and the first of two blockers' refuters use them and the second blocker's refuters' call
+ *     throws;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
- * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
- * to null, and a thunk that throws, at once or later, resolves to null, so the call never rejects. `budget` has no target, and `workflow` is passed on to `agent` under a
- * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many. As
- * in the runtime, the script runs in strict mode, each run gets fresh hooks and its own copies of `args` and of each
- * agent's result, parsed from JSON, and `Date.now()`, an argless `new Date()` and `Math.random()` throw.
+ * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
+ * thunk that throws, at once or later, resolves to null; as in the runtime, `parallel` and `agent` themselves throw
+ * only once the run has started all the agents it may, which no case but that one reaches. `budget` has no target,
+ * and `workflow` is passed on to `agent` under a `workflow:` label, so a guarded call to it runs here as it would in
+ * the runtime and counts as one agent too many. As in the runtime, the script runs in strict mode, each run gets fresh
+ * hooks and its own copies of `args` and of each agent's result, parsed from JSON, and `Date.now()`, an argless
+ * `new Date()` and `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -123,7 +127,7 @@ const VERDICT_SCHEMA = {
   required: ['refuted', 'reason'],
 }
 
-function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unknown, agent: unknown) => Promise<unknown> {
+function load({ agentCap = Infinity }: { agentCap?: number } = {}): (args: unknown, agent: unknown) => Promise<unknown> {
   const source = readFileSync(SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
   // The runtime's clock and randomness throw, as the Workflow reference documents: Date.now(), an argless new Date()
   // and Math.random().
@@ -140,6 +144,12 @@ function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unk
   // one that tagged two lenses' findings in place would fail a case it passes in the runtime.
   const own = (value: unknown) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)))
   return (args, agent) => {
+    // The runtime caps the agents a run may start (at 1000) and checks the cap in `parallel` and `agent`, which throw
+    // once it is reached; the case for a verification that throws sets a cap low enough to reach.
+    let started = 0
+    const atCap = () => {
+      if (started >= agentCap) throw new Error(`the run has started all ${agentCap} of its agents`)
+    }
     const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) =>
       Promise.all(
         items.map(async (item, index) => {
@@ -153,8 +163,9 @@ function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unk
         }),
       )
     // Each thunk settles on its own, as in the runtime: one that throws, synchronously or not, resolves to null.
-    const parallel = async (thunks: Array<() => Promise<unknown>>) =>
-      Promise.all(
+    const parallel = async (thunks: Array<() => Promise<unknown>>) => {
+      if (thunks.length) atCap()
+      return Promise.all(
         thunks.map(async (thunk) => {
           try {
             return await thunk()
@@ -163,6 +174,7 @@ function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unk
           }
         }),
       )
+    }
     const log = () => undefined
     const phase = () => undefined
     const RuntimeDate = new Proxy(Date, {
@@ -173,8 +185,11 @@ function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unk
     // The runtime's token budget when no target is set, as the Workflow reference documents it.
     const budget = Object.freeze({ total: null, spent: () => 0, remaining: () => Infinity })
     const stub = agent as (prompt: unknown, o: unknown) => Promise<unknown>
-    // `rawResults` hands the script each result as the stub made it, for the one case whose vote must throw when read.
-    const ownAgent = rawResults ? stub : async (prompt: unknown, o: unknown) => own(await stub(prompt, o))
+    const ownAgent = async (prompt: unknown, o: unknown) => {
+      atCap()
+      started += 1
+      return own(await stub(prompt, o))
+    }
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
     const workflow = (ref: unknown, input?: unknown) =>
       ownAgent(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
@@ -865,21 +880,25 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
-    const blockerOnly: Findings = { findings: [{ file: 'a.py', title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
+    // Two blockers on a run capped at two agents, as the runtime caps a run: the lens and the first blocker's refuter use
+    // the cap, so the second blocker's refuters' `parallel` call throws, and with it that blocker's verification.
+    const twoBlockers: Findings = {
+      findings: [
+        { file: 'a.py', title: 'first blocker', detail: 'd', severity: 'blocker', evidence: 'e' },
+        { file: 'b.py', title: 'second blocker', detail: 'd', severity: 'blocker', evidence: 'e' },
+      ],
+      summary: 's',
+    }
     const calls: Call[] = []
     const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
       calls.push({ label: o.label, model: o.model, effort: o.effort, prompt, schema: o.schema })
-      if (o.label.startsWith('review:')) return blockerOnly
-      // A vote whose fields throw when read: the verification stage throws after its agents returned. No vote can do
-      // that in the runtime, where each result is schema-checked and arrives as a copy, so this case alone takes the
-      // results uncopied, to pin the script's fallback for a verification that throws.
-      return { get refuted(): boolean { throw new Error('unreadable vote') }, reason: 'r' }
+      return o.label.startsWith('review:') ? twoBlockers : { refuted: true, reason: 'r' }
     }
-    const [result] = (await load({ rawResults: true })({ prs: [pr('routine')] }, agent)) as Result[]
-    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(1)
-    expect(titles(result.unverified)).toEqual(['blocker'])
+    const [result] = (await load({ agentCap: 2 })({ prs: [pr('routine')] }, agent)) as Result[]
+    expect(calls.map((c) => c.label)).toEqual(['review:1:combined', 'verify:1:a.py#1'])
+    expect(titles(result.refuted)).toEqual(['first blocker'])
+    expect(titles(result.unverified)).toEqual(['second blocker'])
     expect(result.confirmed).toHaveLength(0)
-    expect(result.refuted).toHaveLength(0)
     expect(result.incomplete).toBe(true)
     expect(result.mergeable).toBe(false)
   })
