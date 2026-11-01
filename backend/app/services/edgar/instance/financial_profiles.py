@@ -45,8 +45,8 @@ FINANCIAL_PROFILES: List[Dict[str, Any]] = [
         "selectors": [
             ("net_interest_income", ("InterestIncomeExpenseNet",), "NetInterestIncome"),
             ("noninterest_income", ("NoninterestIncome",), "NonInterestIncome"),
-            # The bank's own reported consolidated total, when it publishes one (e.g. JPM "Total net
-            # revenue" $182.4B); self-gates to nothing for small banks (MCB) that report no such line.
+            # The bank's reported total (JPM "Total net revenue" $182.4B). A filing's own choice (E278,
+            # financial_revenue) replaces these anchors; an empty one reads no revenue, and None reads them.
             ("revenue", ("Revenues", "RevenuesNetOfInterestExpense"), "Revenue"),
         ],
         "suppress": ("revenue",),
@@ -74,8 +74,8 @@ FINANCIAL_PROFILES: List[Dict[str, Any]] = [
         "suppress": (),
     },
     {
-        # Catch-all for financial institutions not sub-typed above (asset managers, broker-dealers):
-        # read their genuine as-reported total-revenue line instead of a guessed tag.
+        # Catch-all for financial institutions not sub-typed above (asset managers, broker-dealers): their reported
+        # total. A filing's own choice (E278, financial_revenue) replaces these anchors; they read only when it is None.
         "key": "financial_generic",
         "detect": (),
         "selectors": [

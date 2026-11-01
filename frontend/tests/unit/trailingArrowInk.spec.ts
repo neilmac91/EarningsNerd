@@ -1,17 +1,18 @@
 /* =============================================================================
    trailingArrowInk.spec.ts: a trailing arrow takes its control's ink
    -----------------------------------------------------------------------------
-   TrailingArrowLabel draws a label's last word and its arrow in one no-wrap
-   run, the arrow aria-hidden and with no ink of its own (DESIGN_SYSTEM.md §4,
-   Trailing arrow). Its arrowClassName sizes and spaces the arrow and may move
-   it, never an ink: an arrow given a colour parts from its label's ink and from
-   the label's hover, and no other gate reads it (chief design on #1911,
-   6556730911). So this scan fails a text-, fill- or stroke- class in every
-   arrowClassName the app writes, in the component's own default and in the
-   classes the component writes on its run and its arrow, behind any variant
-   prefix (dark:, hover:, group-hover:) and with Tailwind's `!` before or
-   after: the arrow holds no text, so none of those has a job there, and the
-   run keeps its control's ink.
+   TrailingArrowLabel draws a label's arrow (or the external link's square)
+   with its last word's last letter in one no-wrap run, the glyph aria-hidden
+   and with no ink of its own (DESIGN_SYSTEM.md §4, Trailing arrow). Its
+   arrowClassName sizes and spaces the arrow and may move it, never an ink: an
+   arrow given a colour parts from its label's ink and from the label's hover,
+   and no other gate reads it (chief design on #1911, 6556730911). So this
+   scan fails a text-, fill- or stroke- class in every arrowClassName the app
+   writes, in the component's own default and in the classes the component
+   writes on its run and its arrow, behind any variant prefix (dark:, hover:,
+   group-hover:) and with Tailwind's `!` before or after: the arrow holds no
+   text, so none of those has a job there, and the run keeps its control's
+   ink.
 
    It reads each file's TypeScript AST (tests/unit/classListScan.ts's parser),
    so comments never count. A value is read to its strings through cx() and

@@ -258,12 +258,15 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
           <div className="mt-4 flex flex-wrap gap-3">
             <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on Twitter
+              {' '}<span className="sr-only">(opens in a new tab)</span>
             </a>
             <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on LinkedIn
+              {' '}<span className="sr-only">(opens in a new tab)</span>
             </a>
             <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={pillLinkClass}>
               Share on WhatsApp
+              {' '}<span className="sr-only">(opens in a new tab)</span>
             </a>
           </div>
         )}

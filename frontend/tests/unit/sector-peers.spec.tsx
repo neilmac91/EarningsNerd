@@ -361,10 +361,11 @@ describe('the Sector peers panel (E251)', () => {
     const section = await panelCard()
     await plotOf(section, 'Revenue')
     expect([...section.querySelectorAll('details a')].map((link) => link.textContent)).toEqual([
-      'DUPX · Synthetic Duplicate One Inc · 2025 · original SEC filing',
-      'DUPX · Synthetic Duplicate Two Corp · 2025 · original SEC filing',
-      'UNQX · Synthetic Unique Co · 2025 · original SEC filing',
-      'ALNX · Synthetic Alone Ltd · 2025 · original SEC filing',
+      // Each link's text ends in its sr-only new-tab cue (E281).
+      'DUPX · Synthetic Duplicate One Inc · 2025 · original SEC filing (opens in a new tab)',
+      'DUPX · Synthetic Duplicate Two Corp · 2025 · original SEC filing (opens in a new tab)',
+      'UNQX · Synthetic Unique Co · 2025 · original SEC filing (opens in a new tab)',
+      'ALNX · Synthetic Alone Ltd · 2025 · original SEC filing (opens in a new tab)',
     ])
   })
 

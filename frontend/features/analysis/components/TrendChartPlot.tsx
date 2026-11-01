@@ -16,7 +16,9 @@
  * start and keeps its period when focus leaves. Hover, a tap, or the keyboard paints the period's column wash
  * across the plot and shows its tooltip; pointing at a period takes over from the keyboard without moving focus or the
  * scroll, and the next key resumes the keyboard's own period. The tooltip stays while the pointer rests on it, and
- * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13).
+ * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13). A tap pins its period's tooltip until a second
+ * tap on its period, a tap on the tooltip itself or a press outside the chart: on a phone a tooltip can stand taller
+ * than its plot and cover the bars, so a tap meant for a covered bar lands on the tooltip and closes it (E267).
  *
  * Until its font has loaded (G4) the plot's box holds bones from its own plan, its gridlines and bars (§3.9 `loading`),
  * and the plot replaces them with a fade (DESIGN_SYSTEM.md §11, skeleton→content; E200).
@@ -252,12 +254,16 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
     setOwner((current) => (current === 'pointer' ? null : current))
   }
 
-  // A tap pins its period's tooltip and a second tap on it unpins it; a swipe that scrolls the plot pins nothing.
+  // A tap pins its period's tooltip, and a second tap on its period or a tap on the tooltip itself closes it (E267); a
+  // swipe that scrolls the plot pins nothing. A mouse never taps (onPointerDown), so a click on a hovered tooltip keeps it.
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const start = tap.current
     tap.current = null
     if (!start || start.id !== event.pointerId || Math.hypot(event.clientX - start.x, event.clientY - start.y) >= TAP_SLOP) return
-    if (tipRef.current?.contains(event.target as Node)) return
+    if (tipRef.current?.contains(event.target as Node)) {
+      dismiss()
+      return
+    }
     const index = indexAt(event.clientX)
     if (index == null || (pinned && owner === 'pointer' && hover === index)) {
       dismiss()

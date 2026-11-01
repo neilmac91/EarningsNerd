@@ -37,7 +37,7 @@ describe("a bulk summary row's share options open in a dialog (E242)", () => {
     expect(opener).toHaveAttribute('aria-expanded', 'true')
     expect(dialog).toHaveTextContent(`The invite link for ${ADDRESS} works once, and only for that address.`)
     expect((within(dialog).getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value).toContain(LINK)
-    for (const name of ['WhatsApp', 'Messages', 'Email']) expect(within(dialog).getByRole('link', { name })).toBeInTheDocument()
+    for (const name of [/^WhatsApp ?\(opens in a new tab\)$/, 'Messages', 'Email']) expect(within(dialog).getByRole('link', { name })).toBeInTheDocument()
     for (const name of ['Copy for DM/LinkedIn', 'Copy message']) expect(within(dialog).getByRole('button', { name })).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: 'Share invite' }), 'the options arrive open, with no toggle').toBeNull()
 

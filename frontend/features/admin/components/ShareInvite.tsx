@@ -259,6 +259,7 @@ function ShareOptions({ link, message, onMessage, unbound, optionsIn }: ShareOpt
           >
             <WhatsappLogoIcon className="h-3.5 w-3.5" />
             WhatsApp
+            {' '}<span className="sr-only">(opens in a new tab)</span>
           </a>
           <a
             href={deepLinks.sms}

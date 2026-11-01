@@ -2,7 +2,7 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
 import LandingRow from '@/features/marketing/components/LandingRow'
-import { ArrowRightIcon } from '@/lib/icons'
+import { TrailingArrowLabel } from '@/components/ui/TrailingArrowLabel'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import type { ReportingThisWeekResponse } from '@/lib/serverApi'
 
@@ -79,10 +79,9 @@ export default function ReportingThisWeek({
       {ENABLE_CALENDAR && (
         <Link
           href="/calendar"
-          className="mt-5 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-brand-strong transition-colors duration-fast hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="-mx-1 mt-5 inline-block rounded-sm px-1 text-sm font-medium text-brand-strong transition-colors duration-fast hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
-          View full calendar
-          <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+          <TrailingArrowLabel arrowClassName="ml-1.5 h-4 w-4">View full calendar</TrailingArrowLabel>
         </Link>
       )}
     </LandingRow>

@@ -71,11 +71,11 @@ function LaterFilingEvidence({ first, value, figure, form, accession, href, name
         <p className="flex flex-wrap gap-x-3"><span>As filed in the later filing:</span>{' '}<span className="ml-auto text-right">{exactFigure(value, figure)}</span></p>
       </div>
       <div className="space-y-1">
-        {ownHref && <a href={ownHref} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open its own annual report on SEC.gov${ownFiling && ` (${ownFiling})`} for ${name}`}>Open its own annual report on SEC.gov</a>}
+        {ownHref && <a href={ownHref} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open its own annual report on SEC.gov${ownFiling && ` (${ownFiling})`} for ${name} (opens in a new tab)`}>Open its own annual report on SEC.gov</a>}
         <p className="font-data">Filing {first.accession}</p>
       </div>
       {(href || accession) && <div className="space-y-1">
-        {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open the later filing on SEC.gov${shownFiling && ` (${shownFiling})`} for ${name}`}>Open the later filing on SEC.gov</a>}
+        {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open the later filing on SEC.gov${shownFiling && ` (${shownFiling})`} for ${name} (opens in a new tab)`}>Open the later filing on SEC.gov</a>}
         {accession && <p className="font-data">Filing {accession}</p>}
       </div>}
     </div>
@@ -98,7 +98,7 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
       {input.first_reported && input.value != null
         ? <LaterFilingEvidence first={input.first_reported} value={input.value} figure={input} accession={input.accession} href={href} name={name} />
         : <>
-          {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${name}${input.accession ? `, filing ${input.accession}` : ''}`}>Open original SEC filing</a>}
+          {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${name}${input.accession ? `, filing ${input.accession}` : ''} (opens in a new tab)`}>Open original SEC filing</a>}
           {input.accession && <p className="font-data">Filing {input.accession}</p>}
         </>}
       {input.raw_tag && <details><summary tabIndex={0} className={sourceLinkClass}>Technical source details</summary><p className="font-data">{input.raw_tag}</p></details>}
@@ -214,7 +214,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             {first && point.value != null
               ? <LaterFilingEvidence first={first} value={point.value} figure={figure} form={point.form} accession={point.accession} href={href} name={`${label}, ${period}`} />
               : <>
-                {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${label}, ${period}`}>Open original SEC filing</a>}
+                {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${label}, ${period} (opens in a new tab)`}>Open original SEC filing</a>}
                 {point.accession && <p className="font-data">Filing {point.accession}</p>}
               </>}
             {point.raw_tag && <details><summary tabIndex={0} className={sourceLinkClass}>Technical source details</summary><p className="font-data">{point.raw_tag}</p></details>}

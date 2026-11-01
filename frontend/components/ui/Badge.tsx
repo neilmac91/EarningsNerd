@@ -73,7 +73,9 @@
                      tint too.
      - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
                      from the brand accent), soft tint bg, auto ▲/▼. A
-                     direction only, never a status.
+                     direction only, never a status. Each label holds 4.5:1
+                     in its tint in both themes
+                     (tests/unit/directionChipContrast.spec.ts, E282).
      - new:          new-filing pulse — the brand tint (TINT, as brand) + a
                      calm pulsing dot in its sage ink (respects
                      prefers-reduced-motion). A new filing is news, not a

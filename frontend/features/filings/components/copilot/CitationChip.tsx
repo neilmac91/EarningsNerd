@@ -209,7 +209,8 @@ export default function CitationChip({ citation }: CitationChipProps) {
     )
   } else if (isHttpUrl(fragment_url)) {
     trigger = (
-      <a {...triggerHandlers} href={fragment_url} target="_blank" rel="noopener noreferrer">
+      // The anchor opens the passage in a new tab and says so (E281); its own label comes after the spread, so it wins.
+      <a {...triggerHandlers} aria-label={`${ariaLabel} (opens in a new tab)`} href={fragment_url} target="_blank" rel="noopener noreferrer">
         {marker}
       </a>
     )
@@ -271,8 +272,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 rel="noopener noreferrer"
                 className="mt-2 flex shrink-0 items-center gap-1 rounded-lg text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark dark:hover:underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
-                <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
+                <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                 Open original
+                {' '}<span className="sr-only">(opens in a new tab)</span>
               </a>
             )}
           </span>,

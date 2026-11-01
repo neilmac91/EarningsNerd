@@ -202,7 +202,7 @@ describe('FilingViewer (embedded)', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'cite' }))
     expect(await screen.findByText(/Couldn’t pinpoint the exact passage/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open original' })).toHaveAttribute('href', 'https://sec.gov/x')
+    expect(screen.getByRole('link', { name: /^Open original ?\(opens in a new tab\)$/ })).toHaveAttribute('href', 'https://sec.gov/x')
     expect(screen.queryByText(/source match found/i)).toBeNull()
   })
 

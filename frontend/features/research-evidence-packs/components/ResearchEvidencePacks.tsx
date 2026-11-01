@@ -30,7 +30,7 @@ function SourceQuote({ source }: { source: SourceSnapshot }) {
     <p className={`break-words font-data text-xs ${secondary}`}>Period {source.reportDate} · Filed {source.filedDate}<br />{source.accession} · Cached paragraph {source.paragraph}</p>
     <blockquote className="whitespace-pre-wrap break-words font-data text-sm leading-relaxed">{source.quote}</blockquote>
     {source.fictional ? <p className={`text-xs ${secondary}`}>Fictional example: invented source, no SEC original.</p> :
-      <a href={source.originalUrl!} target="_blank" rel="noopener noreferrer" className={sourceLink}>Open SEC original ↗</a>}
+      <a href={source.originalUrl!} target="_blank" rel="noopener noreferrer" className={sourceLink}>Open SEC original <span aria-hidden="true">↗</span>{' '}<span className="sr-only">(opens in a new tab)</span></a>}
   </div>
 }
 

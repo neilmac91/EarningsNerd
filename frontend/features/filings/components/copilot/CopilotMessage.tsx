@@ -3,15 +3,13 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { ActivityLine, Button, countControlClass, cx, noticeTint } from '@/components/ui'
+import { ActivityLine, Button, TrailingArrowLabel, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 import { sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 import {
   ArrowClockwiseIcon,
-  ArrowRightIcon,
-  ArrowSquareOutIcon,
   BracketsCurlyIcon,
   ChatCircleTextIcon,
   CheckCircleIcon,
@@ -266,18 +264,12 @@ function TrustBadge({ citation }: { citation: CopilotCitation }) {
    quotes are pseudo-elements so the excerpt stays an exact text node. A
    locator prints the citation's section name as the model wrote it ("Item 7.
    MD&A"), so it is the count control's link (D-030): the secondary ink at
-   rest, sage and the underline under the pointer, the brand ring on focus. */
-const LOCATOR_LINK = cx('inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm text-xs font-semibold', countControlClass('link'))
-
-/** The locator's new-tab cue, as the app's other links to the original draw it. */
-function OpensOriginal() {
-  return (
-    <>
-      <ArrowSquareOutIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
-      <span className="sr-only"> (opens in a new tab)</span>
-    </>
-  )
-}
+   rest, sage and the underline under the pointer, the brand ring on focus.
+   Its square keeps with its last word (TrailingArrowLabel, E279): a section
+   name wraps here at the default size, and as the last item of a flex row the
+   square sat at the row's far edge, centred between the lines. An sr-only cue
+   after the label tells a screen reader that the link opens a new tab. */
+const LOCATOR_LINK = cx('inline-block min-w-0 max-w-full break-words rounded-sm text-xs font-semibold', countControlClass('link'))
 
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
@@ -318,8 +310,8 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
-                        <span className="min-w-0 break-words">{sourceLinkLabel(c.fragment_url)}</span>
-                        <OpensOriginal />
+                        <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">{sourceLinkLabel(c.fragment_url)}</TrailingArrowLabel>
+                        {' '}<span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
@@ -335,8 +327,8 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
-                        <span className="min-w-0 break-words">{c.section_ref ?? 'View in filing'}</span>
-                        <OpensOriginal />
+                        <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">{c.section_ref ?? 'View in filing'}</TrailingArrowLabel>
+                        {' '}<span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
@@ -437,10 +429,9 @@ export default function CopilotMessage({
             {ticker && (
               <Link
                 href={`/company/${encodeURIComponent(ticker)}`}
-                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
+                className={`${hint ? 'mt-1.5 ' : ''}-mx-1 inline-block rounded-sm px-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
               >
-                Browse {ticker}’s other filings
-                <ArrowRightIcon className="h-3 w-3" />
+                <TrailingArrowLabel arrowClassName="ml-1 h-3 w-3">{`Browse ${ticker}’s other filings`}</TrailingArrowLabel>
               </Link>
             )}
           </div>

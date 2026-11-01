@@ -34,6 +34,18 @@ or "Hide share options". Every control in `frontend/features/admin/components/Sh
 hidden tail, "More{' '}<span className="sr-only">share options</span>". `frontend/tests/unit/shareInviteNames.spec.tsx`
 holds each control's whole name to begin with the words it shows, with the platform share sheet and without.
 
+**Exception (E281, 2026-11-01, #1921)**: where a link's text must stay exactly as written, or where the link sits
+inside running text with words after it, an `aria-label` that repeats its words first and ends in the tail's words
+stands in for the tail. Inside running text the tail's written `{' '}` paints inside the link's box, under its
+underline and focus ring (4.45px at 16px, chief design's measure on #1921); the space before a span that ends its
+line is dropped. So the footer's Logo.dev attribution (its text the attribution's phrase alone), a feedback
+message's links (read literally, in a `whitespace-pre-wrap` paragraph) and the terms page's "SEC EDGAR" link
+(mid-sentence, once the founder's go-ahead comes) take the label form. The visible words open the label, so label
+in name holds (`frontend/tests/unit/labelInName.spec.ts`). A link whose `aria-label` already named it ends that
+label in the same words; every other new-tab link keeps its words and takes the tail.
+`frontend/tests/unit/newTabCue.spec.ts` reads both forms and fails a tail with words after it in its parent, and
+DESIGN_SYSTEM.md's "A link that opens a new tab" states the rule.
+
 **Evidence**: found on this branch's CLEAN-R2 links (`e97f70ff`, in
 `frontend/app/company/[ticker]/page-client.tsx`, since replaced by #1147's filings index): the first
 run of `tests/e2e/company-filing-rows.spec.ts` against the colon tail found no link named "Open

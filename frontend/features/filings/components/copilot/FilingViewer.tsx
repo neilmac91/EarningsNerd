@@ -11,7 +11,7 @@ import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
 import ReaderTable from './ReaderTable'
-import { buttonVariants, SkeletonText } from '@/components/ui'
+import { buttonVariants, SkeletonText, TrailingArrowLabel } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
@@ -128,9 +128,10 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       href={secUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+      className="inline-block text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
-      Open original <ArrowSquareOutIcon className="h-3 w-3" />
+      <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">Open original</TrailingArrowLabel>
+      {' '}<span className="sr-only">(opens in a new tab)</span>
     </a>
   ) : null
 
@@ -157,7 +158,8 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             )}
             {isHttpUrl(secUrl) && (
               <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
-                Open the original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" />
+                Open the original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {' '}<span className="sr-only">(opens in a new tab)</span>
               </a>
             )}
           </div>
@@ -177,6 +179,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               {isHttpUrl(secUrl) && (
                 <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                   Open original
+                  {' '}<span className="sr-only">(opens in a new tab)</span>
                 </a>
               )}
             </p>

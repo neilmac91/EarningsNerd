@@ -374,7 +374,11 @@ WAITLIST_MODE=...                                  # Server-side waitlist gating
 
 `USE_STATEMENT_FINANCIALS` (boolean, default **true**) selects as-reported income-statement
 revenue/components for financial institutions. It avoids treating a bank's fee-income tag as total
-revenue. Non-financial issuers keep their existing extraction. An explicit false env value still
+revenue. It also gates E264's revenue choice on the per-filing path (E278,
+`edgar/instance/financial_revenue.py`): where a financial filer's filing tags one of that rule's elements,
+its revenue is read only from the tags the rule chooses from the filing's own facts, on the bank and
+catch-all statement profiles and in the generic fact list (the insurer and BDC profiles keep their own);
+off, the fixed anchor lists read as before. Non-financial issuers keep their existing extraction. An explicit false env value still
 overrides the default; all reads use `app.config.Settings`. The founder's SIC backfill and any
 persisted financial remediation are separate runs (see the WS-7 section of `DEPLOYMENT.md`).
 WS-6 coordinates the parity measurement and single honest baseline re-pin; the default change

@@ -102,6 +102,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 className={`${rowClass} transition-colors hover:bg-brand-weak focus-visible:outline-none focus-visible:shadow-ring-brand-inset dark:hover:bg-white/5 dark:focus-visible:shadow-ring-brand-inset-dark`}
               >
                 {inner}
+                {' '}<span className="sr-only">(opens in a new tab)</span>
               </a>
             ) : (
               <div className={rowClass}>{inner}</div>

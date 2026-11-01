@@ -26,7 +26,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
-| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
+| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FF96A1` (text-safe on navy and the panel; level in their chips' tints, 5.72:1 and 5.76:1 on the panel, D-074); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
@@ -99,7 +99,11 @@ the debug payload panel).
   brightened (2026-10-25), every tertiary site that had borrowed secondary-dark (140 swept, four by hand,
   three in globals.css) was twinned back to tertiary-dark, so it keeps today's ink. Gates:
   `tests/unit/themePairs.spec.ts` ('keeps tertiary and secondary on their own rungs in dark', with its
-  planted self-check) and `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
+  planted self-check; it reads a dark twin by its ink, so a token of tertiary's or secondary's hex counts as
+  that rung, and lists its one decided crossing, the flat direction chip on flat-dark: D-073, §4 Delta text;
+  the light key stays by name, so the figure surfaces' note pair, held by figureSurfaceInks.spec.ts, is
+  outside it) and
+  `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
 - **A dark hover steps where the eye can see it: secondary never turns only primary, or only sage, under the
@@ -217,6 +221,21 @@ the debug payload panel).
   `tests/unit/fixtures/brandRule2Styles.css`; its markdown-link check, which fails an `a` the app
   hands react-markdown resting in sage; and `tests/e2e/prose-links.spec.ts`, which reads what the
   cascade paints.
+  **A link that opens a new tab** (`target="_blank"`) says so in its name (E281; chief design on
+  #1918): a sighted reader has the square, a screen reader only the name. After its label it carries a
+  hidden tail that brings its own space, `{' '}<span className="sr-only">(opens in a new tab)</span>`:
+  a space written inside the sr-only span is lost where an engine adds no separator for the span's box
+  (`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). The tail suits a link that ends its
+  line: inside running text, with words after the link, the tail's written space paints inside the
+  link's box, under its underline and focus ring (4.45px at 16px; chief design on #1921). So where a
+  link sits inside running text, where an `aria-label` names it already, or where its text must stay
+  as written (the footer's Logo.dev attribution, a feedback message read literally), its label ends in
+  " (opens in a new tab)" instead. The square, and a text arrow (↗) where a link draws one, is
+  `aria-hidden`. The terms page's "SEC EDGAR" link, inside running text, stays silent until the
+  founder's go-ahead on the legal pages' text, then takes the label form. Gate:
+  `tests/unit/newTabCue.spec.ts` (every element written with `target="_blank"` says so by the tail or
+  by its label, a tail with words after it in its parent fails as inline, any other `_blank` fails as
+  unread, and the terms page's link is its one residue).
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
   as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
@@ -555,28 +574,53 @@ Count control    A link or control whose label carries a count, a date, an index
                  file's bindings (a same-file variable, a same-file function's return) and inside an
                  app component in it that turns its children or a count of its own sage. The two
                  labels outside the helper are review-checked, and so is what the header names.
-Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link, a text-link call to
-                 action) is <TrailingArrowLabel> (components/ui since E275): the last word and the arrow in one no-wrap
-                 run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow onto
-                 its last line, never between the lines or to the far edge. It takes its words as children, so a
-                 count in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above);
-                 arrowClassName sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its
-                 own, never an ink. It serves What changed's call to action (since E272), the feed's "See all N
-                 companies" and Your companies' "Open watchlist insights" (E274), and the hero example's "Read the
-                 full example summary", the Compare periods card's "Open change report" and the waitlist's "Try a
-                 live example summary" (E275). Two text links still draw the arrow as a flex row's last item, the
-                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
-                 (E276); a button's arrow (MarketingCta, buttonVariants) stays in its flex row, since the button's box
-                 binds it. A link that stands alone and can wrap is inline-block, so it paints one box, and one with a
-                 fill or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two
-                 links take a 4px inset (-mx-1 px-1) so their ring clears their words, the hero example's and Compare
-                 periods' their px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's)
-                 is inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
+Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link, a text-link call to action)
+                 is <TrailingArrowLabel> (components/ui since E275): the arrow and its last word's last letter in one
+                 no-wrap run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow
+                 onto its last line, never between the lines or to the far edge. A word has no break inside it, so the
+                 last word stays whole with the arrow after it wherever it fits its line; where the word alone is wider
+                 than its line, it breaks inside as its control lets a word break (overflow-wrap), the arrow after its
+                 last part, never running past the control as a no-wrap word did (E279: a Copilot source's
+                 "Performance" in its 110px row at 320px under 200% text). It takes its words as children, so a count
+                 in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above); arrowClassName
+                 sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its own, never an
+                 ink. glyph="external" draws the external link's square in its place, for a link to the original on
+                 SEC.gov (E279). A link that opens a new tab says so after the label, {' '}<span
+                 className="sr-only">(opens in a new tab)</span>, so the label's children stay one string (A link that
+                 opens a new tab, under Links in both surfaces; E281). The run is a plain inline span: as an
+                 inline-flex or inline-block box it would be an atomic inline, and a line could break before it,
+                 parting the last letter and its glyph from the rest of the word. It serves What changed's call to
+                 action (since E272), the feed's "See all N companies" and Your companies' "Open watchlist insights"
+                 (E274), and the hero example's "Read the full example summary", the Compare periods card's "Open
+                 change report" and the waitlist's "Try a live example summary" (E275), and the Copilot message's
+                 "Browse {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the
+                 square, the Copilot answer's sources (a passage's section name, a figure's "Open the filing on
+                 SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the
+                 filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and
+                 the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
+                 (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
+                 is a square that marks a whole row link (the filing index's row link, the full-text search's result
+                 row). A link that stands alone and can wrap is inline-block, so it paints one box, and one with a fill
+                 or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two links,
+                 the Copilot message's, the calendar card's and the Filing tab footer's take a 4px inset (-mx-1 px-1)
+                 so their ring clears their words, the hero example's and Compare periods' their px-2 py-2. A link set
+                 in a sentence that moves to its own line whole (the waitlist's, the filings history note's) is
+                 inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
                  above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
                  word's line, one box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the
-                 other three, and the hero example's at 1024 and 1280px: each arrow on its last word's line, one box,
-                 every line of the words inside it) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke-
-                 class in any arrowClassName or in the classes the component writes on its run and its arrow).
+                 hero example's, Compare periods', the waitlist's, the Copilot message's and E279's square links, the
+                 hero's, the Copilot message's and the Copilot sources' at 1024 and 1280px too, and the sources'
+                 passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
+                 line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
+                 its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
+                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
+                 tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
+                 ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
+                 row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with
+                 the last letter and its marks, the glyph aria-hidden) and tests/unit/trailingArrowInk.spec.ts (no
+                 text-, fill- or stroke- class in any arrowClassName or in the classes the component writes on its run
+                 and its glyph).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -656,7 +700,12 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
-                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
+                 chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
+                 panel), a rung below its light label: quieter than the up and down chips (5.72:1 and 5.76:1
+                 in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
+                 the one text-ramp crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE),
+                 which reads a dark twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
                  600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
                  the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
@@ -671,7 +720,9 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
                  (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
                  renders the what-changed chip and holds its colour to directionChip for the server's
-                 tone, which no lint can see.
+                 tone, which no lint can see. tests/unit/directionChipContrast.spec.ts holds every
+                 directionChip label, and Badge's beat and miss, at 4.5:1 in its tint on the panel and
+                 the page in both themes, each read from its classes as it ships (E282, D-074).
                  The analysis figure surfaces alone amend the 700-level clause (CLAUDE.md rule 11):
                  their change lines (MetricsTable's, KpiStrip's) take
                  lib/financialTone.dataDirectionText, up text-gain-data dark:text-gain-data-dark
@@ -679,7 +730,7 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  #FECDD3), flat text-text-secondary-light dark:text-note-dark, each held to APCA
                  |Lc| ≥ 75 on the sheet and the panel. Three of the general delta inks miss that tier
                  there: green-700 #15803D is Lc 72.4 on the light sheet and 71.1 on the panel, and in
-                 dark emerald-400 #34D399 is -65.6 / -62.6 and rose-400 #FB7185 -49.7 / -46.7; green-800
+                 dark emerald-400 #34D399 is -65.6 / -62.6 and loss.dark #FF96A1 -61.5 / -58.6; green-800
                  holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
                  lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
                  reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss
@@ -1358,7 +1409,9 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  spread fails too).
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
-                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt); their labels hold 4.5:1 in
+                 their tints in both themes (tests/unit/directionChipContrast.spec.ts, E282).
+                 `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
                  dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
                  caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one
@@ -2630,8 +2683,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  sentence, without a button's label or a prefix. A later tab switch says nothing more.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
-                 composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
-                 screen reader (D-030).
+                 composes countControlClass('link') with the new-tab square after its last word
+                 (TrailingArrowLabel, E279), "(opens in a new tab)" for a screen reader (D-030).
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
@@ -3196,11 +3249,14 @@ and "Notes" and covers any column or value the edge would cut, so no value shows
 scroll's start there is none. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
-is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+is hoverable; a tap pins it until a second tap on its period, a tap on the tooltip itself or a press outside, and a
+swipe pins nothing (E267: on a phone under 200% text a tooltip can stand taller than its plot and cover the other
+bars, so a tap meant for a covered bar lands on the tooltip and closes it). Escape dismisses a
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
+themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` and, for the tap on a tooltip over the bars it covers,
+`tests/e2e/company-sector-peers.spec.ts` (E267). CI's required `e2e-tests` job runs them all
 unconditionally after E195 retires the separate chart job and its flag guards (F67).
 
 **Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws

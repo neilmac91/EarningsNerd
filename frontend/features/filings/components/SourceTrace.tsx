@@ -127,7 +127,7 @@ export function SourceTracePanelBody({
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {sourceLinkLabel(url)}
-          <span className="sr-only"> (opens in a new tab)</span>
+          {' '}<span className="sr-only">(opens in a new tab)</span>
         </a>
       )}
     </>

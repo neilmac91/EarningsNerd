@@ -258,8 +258,9 @@ says so; everything else follows the spec.
   - Escape dismisses a tooltip first, wherever focus is when a pointer raised it (WCAG 1.4.13), and then collapses an
     expanded card and returns focus to its toggle, so D13's one Escape is two while a tooltip shows. The tooltip sits
     flush beside its column, so a pointer crosses onto it without passing over another period, and resting on it keeps
-    its period. A tap pins it until a second tap on its period or a press outside the chart; a swipe that scrolls the
-    plot pins nothing.
+    its period. A tap pins it until a second tap on its period, a tap on the tooltip itself or a press outside the
+    chart; a swipe that scrolls the plot pins nothing. On a phone under 200% text a tooltip can stand taller than its
+    plot and cover the other bars, so a tap meant for a covered bar lands on the tooltip, which closes (E267).
   - The tooltip lies outside the scrolling viewport, so 200% text never clips it, inside the viewport's sides and at
     the plot's top. The wash, the gutter and the tooltip sit outside the node the PNG export serialises, so none needs
     A7's `data-export="skip"`.

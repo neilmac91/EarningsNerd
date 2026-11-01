@@ -179,7 +179,7 @@ describe('waitlist success card', () => {
     expect(screen.queryByText("You're in!")).not.toBeInTheDocument()
     expect(screen.getByText(/This is not an account or an invitation yet/)).toBeInTheDocument()
     const example = screen.getByRole('link', { name: 'Read a live example while you wait' })
-    const share = screen.getByRole('link', { name: 'Share on Twitter' })
+    const share = screen.getByRole('link', { name: /^Share on Twitter ?\(opens in a new tab\)$/ })
     expect(example.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(api.joinWaitlist).toHaveBeenCalledWith(expect.objectContaining({ referral_code: 'abc12345' }), undefined)
   })
@@ -204,10 +204,11 @@ describe('waitlist success card', () => {
 
   it('lets the share links wrap inside the card (DESIGN_SYSTEM.md, Wrapping button)', async () => {
     await join("You're on the waitlist.")
-    for (const name of ['Share on Twitter', 'Share on LinkedIn', 'Share on WhatsApp']) {
-      const classes = screen.getByRole('link', { name }).className.split(/\s+/)
-      expect(classes, name).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
-      expect(classes, name).not.toContain('whitespace-nowrap')
+    for (const label of ['Share on Twitter', 'Share on LinkedIn', 'Share on WhatsApp']) {
+      // Each says it opens a new tab after its words (E281).
+      const classes = screen.getByRole('link', { name: new RegExp(`^${label} ?\\(opens in a new tab\\)$`) }).className.split(/\s+/)
+      expect(classes, label).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
+      expect(classes, label).not.toContain('whitespace-nowrap')
     }
   })
 })

@@ -92,14 +92,14 @@ describe('HeroExample', () => {
 
   it('claims a filed-data source only for the checked fallback; live figures send the reader to the filing', () => {
     const { container, unmount } = render(<HeroExample example={LIVE} />)
-    const live = screen.getByRole('link', { name: 'Source filing\u00a0· check the figures on SEC.gov' })
+    const live = screen.getByRole('link', { name: /^Source filing · check the figures on SEC\.gov ?\(opens in a new tab\)$/ })
     expect(live).toHaveAttribute('href', LIVE.secUrl)
     expect(container.querySelectorAll('dl [title]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(/XBRL/)
     unmount()
 
     const fallback = render(<HeroExample example={null} />)
-    expect(screen.getByRole('link', { name: "Figures from the company's filed data\u00a0· check them on SEC.gov" })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^Figures from the company's filed data · check them on SEC\.gov ?\(opens in a new tab\)$/ })).toHaveAttribute(
       'href',
       'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm',
     )
@@ -116,7 +116,7 @@ describe('HeroExample', () => {
 
   it('rings the EDGAR link like every other Tab stop', () => {
     render(<HeroExample example={LIVE} />)
-    const edgar = screen.getByRole('link', { name: /on SEC\.gov$/ })
+    const edgar = screen.getByRole('link', { name: /on SEC\.gov ?\(opens in a new tab\)$/ })
     for (const cls of ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark']) {
       expect(edgar.className.split(/\s+/)).toContain(cls)
     }

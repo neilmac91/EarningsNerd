@@ -260,7 +260,7 @@ for (const theme of ['light', 'dark'] as const) {
             const rect = await rectOf(pane)
             return rect.y + rect.h
           }).toBeLessThanOrEqual(bottom + 0.5)
-          const original = pane.getByRole('link', { name: 'Original on SEC.gov', exact: true })
+          const original = pane.getByRole('link', { name: 'Original on SEC.gov (opens in a new tab)', exact: true })
           expect(inside(await rectOf(original), vp), 'source footer outside the viewport').toBe(true)
           expect(await hitsItself(original), 'source footer is covered').toBe(true)
         }

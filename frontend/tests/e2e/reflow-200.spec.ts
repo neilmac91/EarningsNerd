@@ -2,7 +2,7 @@ import { answerLegalReadiness, legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN, SUMMARY } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, DOCUMENT, PANE, SUMMARY } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
@@ -2853,7 +2853,33 @@ for (const width of [390, 360, 320]) {
     where it was h-9): the arrow sits inside its last word's line, right after it, and every line of the link's words
     lies inside its box. Each case holds a label to more than one line where it wraps with room to spare, so it reads a
     wrapped label; where a label stops wrapping is the font's to say (E274's CI runner wrapped a label 4px past the local
-    edge), so no case holds one to a single line. */
+    edge), so no case holds one to a single line.
+
+    E276 (#1911's review) adds the Copilot message's "Browse AAPL’s other filings", the next step a not-disclosed answer
+    offers: an inline-flex row whose 12px arrow, with no aria-hidden, sat 29px above the last of three lines at 320px and
+    13px above the last of two from 360 to 414px and in the desktop pane, 79 to 201px right of its last word. The link is
+    reached by asking, so its entry carries a reach step. It stands alone, so it takes the dashboard links' 4px inset
+    (E274) and its ring clears its words; an entry with an inset holds every line and the arrow inside it, and the
+    hero's and Compare periods' 0.5rem with it. The calendar card's "View full calendar" took the same remedy and has
+    no case: its home page row is filled on the server, and CI's e2e build runs no backend, so the row omits itself
+    (tests/unit/trailingArrowRun.spec.ts holds its markup).
+
+    E279 (E276's sweep; its shape chief design's on #1914, 5728343724) brings in the external link's square after a
+    link's words: the Copilot answer's sources, the filing page's "Original on SEC.gov", the company page's "Company on
+    SEC.gov", the filings history note's "Full history on SEC.gov" and the Filing tab's footer link. Each drew it as the
+    last item of a flex row, so it sat at the row's far edge where the label wrapped. On main the passage source's 12px
+    square sat 141px above the last of ten lines at 320px under 200% text and 45px above the last of four from 414px and
+    in the desktop pane; at the default size, where that source's name takes two lines at 320, 390 and 1440px, it sat
+    between them, 69 to 223px right of the last word. The figure source's sat 77px above the last of six lines at 320px
+    and 29px above the last of three from 360px; the identity links' 14px above the last of two at 320 and 360px; the
+    history note's 17px up from 320 to 414px; the footer's 17px up at 320px. Each label now takes TrailingArrowLabel
+    with glyph="external". A source's name carries its sr-only new-tab cue, so its entry's name does too and the
+    geometry reads no sr-only text as a line; an entry whose name another link on the page shares is found in the pane.
+    The run holds the last word's last letter, not the word: a no-wrap last word ran 70px past a source's 110px
+    row at 320px under 200% text, so every entry now holds its lines and its glyph inside the link side to side as well.
+    The filing viewer drawer's "Open original" has no case: no route mounts the drawer (the app mounts the viewer
+    embedded), and the unit gate holds its markup. The Filing tab's footer link stands alone in its row, so it takes the
+    4px inset and its entry holds its words and its square inside it (chief design on #1918, 5729280088). */
 const ARROW_CHANGE_REPORT = {
   has_prior: true,
   comparison_basis: 'Year over year',
@@ -2868,16 +2894,123 @@ const ARROW_CHANGE_REPORT = {
   key_changes: null,
   has_changes: true,
 }
-const ARROW_LINKS: Array<{ name: string; path: string; wrapsTo: number; open: (page: Page, baseURL: string) => Promise<void> }> = [
-  { name: 'Read the full example summary', path: '/', wrapsTo: 414, open: answerGuest },
+// A not-disclosed answer in the wire shape copilot-api.ts admits for one: no citations and two or three follow-ups.
+const NOT_DISCLOSED = {
+  type: 'complete',
+  kind: 'not_disclosed',
+  answer: 'This filing does not break out operating margin by product line.',
+  grounded: 0,
+  citations: [],
+  followups: ['What drove net sales in fiscal 2025?', 'How did Services revenue change?'],
+}
+// The longer of the cited answer's two MD&A section names, which wraps in the Sources list at the default size (E279).
+const MDA_SERVICES = 'Item 7. MD&A – Products and Services Performance'
+// A cited answer, as citation-chip-keyboard.spec.ts streams it: two passage sources and a figure's (E279).
+const CITED = {
+  type: 'complete',
+  kind: 'answer',
+  answer:
+    'Total net sales were $416.2B in FY2025 [F1]. Growth came mainly from Services [2]. Management cautions that gross margins remain subject to volatility and downward pressure [1].',
+  grounded: 3,
+  citations: [
+    { n: 1, excerpt: 'As a result, the Company believes, in general, gross margins will be subject to volatility and downward pressure.', section_ref: 'Item 7. MD&A – Gross Margin', verified: true, fragment_url: `${DOCUMENT}#:~:text=As%20a%20result` },
+    { n: 2, excerpt: 'Services net sales increased during 2025 compared to 2024 primarily due to higher net sales from advertising, the App Store and cloud services.', section_ref: MDA_SERVICES, verified: true, fragment_url: `${DOCUMENT}#:~:text=Services%20net%20sales` },
+    { n: 'F1', excerpt: 'RevenueFromContractWithCustomerExcludingAssessedTax = 416,161,000,000 USD (FY2025)', section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax', verified: true, fragment_url: DOCUMENT,
+      concept: 'RevenueFromContractWithCustomerExcludingAssessedTax', value: 416161000000, value_kind: null },
+  ],
+  followups: ['Which segment declined in 2025?', 'What drove the lower effective tax rate?'],
+}
+/** The filing page for a Pro reader, its Ask stream (and the stream's preflight) answered with NOT_DISCLOSED. */
+const answerNotDisclosed = (page: Page, baseURL: string) => answerAsk(page, baseURL, NOT_DISCLOSED)
+/** The filing page for a Pro reader, its Ask stream answered with CITED. */
+const answerCited = (page: Page, baseURL: string) => answerAsk(page, baseURL, CITED)
+/** The filing page for a Pro reader, its Ask stream (and the stream's preflight) answered with `answer`. */
+async function answerAsk(page: Page, baseURL: string, answer: unknown) {
+  await answerApi(page, baseURL, 'pro')
+  const cors = {
+    'access-control-allow-origin': new URL(baseURL).origin,
+    'access-control-allow-credentials': 'true',
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+  }
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/ask-stream',
+    (route) =>
+      route.request().method() === 'OPTIONS'
+        ? route.fulfill({ status: 204, headers: cors })
+        : route.fulfill({
+            status: 200,
+            headers: { ...cors, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
+            body: `data: ${JSON.stringify(answer)}\n\n`,
+          }),
+  )
+  // The first-run coachmark seen: it is not under test.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('en:copilot-coachmark-v1', '1')
+    } catch {}
+  })
+}
+/** Opens the Source pane and asks, so the answer shows its next step or its sources. */
+async function askInThePane(page: Page) {
+  const launcher = page.locator('button[aria-label="Source"]')
+  await expect(launcher).toBeVisible()
+  await launcher.click()
+  const composer = page.locator(PANE).getByPlaceholder('Ask about this filing…')
+  await composer.fill('What was the operating margin by product line?')
+  await composer.press('Enter')
+}
+/** Opens the Source pane on its Filing tab, whose footer links to the original. */
+async function openFilingTab(page: Page) {
+  const launcher = page.locator('button[aria-label="Source"]')
+  await expect(launcher).toBeVisible()
+  await launcher.click()
+  await page.locator(PANE).getByRole('tab', { name: 'Filing' }).click()
+}
+const inThePane = (page: Page) => page.locator(PANE)
+const openFiling = (page: Page, baseURL: string) => answerApi(page, baseURL, 'pro')
+const openCompany = (page: Page, baseURL: string) =>
+  answerSite(page, baseURL, false, { path: '/api/summaries/filing/11/what-changed', status: 200, body: ARROW_CHANGE_REPORT })
+const ARROW_LINKS: Array<{
+  name: string
+  path: string
+  wrapsTo: number
+  open: (page: Page, baseURL: string) => Promise<void>
+  /** What brings the link out once the page is open, where the page does not show it on load. */
+  reach?: (page: Page) => Promise<void>
+  /** The label wraps on a desktop too under 200% text, so the link has cases at 1024 and 1280px. */
+  desktop?: true
+  /** The link's own inset in rem, which its words and its arrow keep inside its box, so its ring clears them. */
+  inset?: number
+  /** Where the link is found, where another link on the page shares its name. */
+  within?: (page: Page) => Locator
+  /** Which of the page's links of that name it is, for the case's title. */
+  place?: string
+  /** The label wraps at the default text size too, so the link has cases there (E279). */
+  defaultSize?: true
+}> = [
+  { name: 'Read the full example summary', path: '/', wrapsTo: 414, open: answerGuest, desktop: true, inset: 0.5 },
   { name: 'Try a live example summary', path: '/waitlist', wrapsTo: 414, open: answerGuest },
   {
     name: 'Open change report',
     path: '/company/AAPL',
     wrapsTo: 414,
-    open: (page, baseURL) => answerSite(page, baseURL, false, { path: '/api/summaries/filing/11/what-changed', status: 200, body: ARROW_CHANGE_REPORT }),
+    open: openCompany,
+    inset: 0.5,
   },
+  { name: 'Browse AAPL’s other filings', path: '/filing/3', wrapsTo: 414, open: answerNotDisclosed, reach: askInThePane, desktop: true, inset: 0.25 },
+  // The external link's square (E279): the Copilot answer's sources, the filing and company pages' SEC.gov links, the
+  // filings history note's and the Filing tab's footer. Each name carries its sr-only new-tab cue (E281).
+  { name: `${MDA_SERVICES} (opens in a new tab)`, place: 'a passage source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true, defaultSize: true },
+  { name: 'Open the filing on SEC.gov (opens in a new tab)', place: 'a figure source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true },
+  { name: 'Original on SEC.gov (opens in a new tab)', place: 'the identity line', path: '/filing/3', wrapsTo: 360, open: openFiling },
+  // At 360px its one-line run is 3.5px too wide in a local CI-font build and fits in CI's: it wraps with room to spare
+  // at 320px alone (43.5px), so only 320px asks for a wrapped label (chief design on #1918).
+  { name: 'Company on SEC.gov (opens in a new tab)', path: '/company/AAPL', wrapsTo: 320, open: openCompany },
+  { name: 'Full history on SEC.gov (opens in a new tab)', path: '/company/AAPL', wrapsTo: 414, open: openCompany },
+  { name: 'Original on SEC.gov (opens in a new tab)', place: 'the Filing tab', path: '/filing/3', wrapsTo: 320, open: openFiling, reach: openFilingTab, within: inThePane, inset: 0.25 },
 ]
+const titleOf = (l: (typeof ARROW_LINKS)[number]) => `${l.path}${l.place ? ` (${l.place})` : ''}: "${l.name}"`
 
 async function trailingArrowGeometry(link: Locator) {
   return link.evaluate((a) => {
@@ -2889,7 +3022,8 @@ async function trailingArrowGeometry(link: Locator) {
     }
     const walker = document.createTreeWalker(a, NodeFilter.SHOW_TEXT)
     const texts: Text[] = []
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+    // A cue for a screen reader alone (sr-only) is no line a reader sees.
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim() && !node.parentElement!.closest('.sr-only')) texts.push(node as Text)
     const painted = texts.flatMap(lines)
     const lastLines = lines(texts[texts.length - 1])
     return {
@@ -2903,9 +3037,10 @@ async function trailingArrowGeometry(link: Locator) {
   })
 }
 
-/** Opens the link's page under 200% text and holds its arrow to its last word and its lines to its box. A desktop
-    doubles the text with its own check, since the 24rem query matches only on a phone. */
-async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW_LINKS)[number], width: number, wraps: boolean, desktop = false) {
+/** Opens the link's page under 200% text (or at the default size, where `doubled` is false) and holds its arrow to its
+    last word and its lines to its box. A desktop doubles the text with its own check, since the 24rem query matches
+    only on a phone. */
+async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW_LINKS)[number], width: number, wraps: boolean, desktop = false, doubled = true) {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('theme', 'light')
@@ -2914,14 +3049,15 @@ async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW
   })
   await l.open(page, baseURL)
   await page.goto(l.path)
-  const link = page.getByRole('link', { name: l.name, exact: true })
+  if (l.reach) await l.reach(page)
+  const link = (l.within ? l.within(page) : page).getByRole('link', { name: l.name, exact: true })
   await expect(link).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
-  if (desktop) await doubleTextOnADesktop(page, false)
-  else await doubleText(page)
+  if (doubled && desktop) await doubleTextOnADesktop(page, false)
+  else if (doubled) await doubleText(page)
   await settle(page)
   const g = await trailingArrowGeometry(link)
-  const at = `${l.name} at ${width}px and 200% text`
+  const at = `${l.name} at ${width}px and ${doubled ? '200%' : 'the default'} text`
   if (wraps) expect(g.lineCount, `${at}: wraps here, so the case reads a wrapped label`).toBeGreaterThan(1)
   expect(g.boxes, `${at}: the link is one box, so its ring and its hover fill hold every line`).toBe(1)
   expect(g.arrow.top, `${at}: the arrow sits inside its last word's line`).toBeGreaterThanOrEqual(g.lastWord.top - 2)
@@ -2932,13 +3068,22 @@ async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW
     expect(part.top, `${at}: every line of its words lies inside the link`).toBeGreaterThanOrEqual(g.link.top - 0.5)
     expect(part.bottom, `${at}: every line of its words lies inside the link`).toBeLessThanOrEqual(g.link.bottom + 0.5)
   }
+  // Side to side too, inside the inset where the link has one: a no-wrap word wider than its line would run past the
+  // link (a Copilot source's name in its 110px row at 320px, E279), which the lines' tops and bottoms never show.
+  const inset = l.inset ?? 0
+  const px = inset * parseFloat(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize))
+  const within = inset ? `keep the link's ${inset}rem inset, so its ring clears them` : 'lie inside the link'
+  for (const part of [...g.painted, g.arrow]) {
+    expect(part.left, `${at}: its words and its arrow ${within}`).toBeGreaterThanOrEqual(g.link.left + px - 0.5)
+    expect(part.right, `${at}: its words and its arrow ${within}`).toBeLessThanOrEqual(g.link.right - px + 0.5)
+  }
 }
 
 for (const width of [320, 360, 390, 414]) {
   test.describe(`a ${width}px phone at 200% text, the arrow links outside the dashboard`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: true, hasTouch: true })
     for (const l of ARROW_LINKS) {
-      test(`${l.path}: "${l.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
+      test(`${titleOf(l)} keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
         await expectTrailingArrow(page, baseURL!, l, width, width <= l.wrapsTo)
       })
     }
@@ -2948,13 +3093,34 @@ for (const width of [320, 360, 390, 414]) {
 /** From lg the hero example's card narrows beside the headline, so under 200% text its link wraps again: three lines
     at 1024px and two from 1100 to 1366px (chief design's measure on #1911, 6556730911). On main its arrow sat 40px
     above the last line at 1024px and 20px up from 1100 to 1366px. The phone cases stop at 414px, so a class that
-    applies from lg alone could bring the fault back unseen; these two hold the band. */
+    applies from lg alone could bring the fault back unseen; these two hold the band. The Copilot link wraps on a
+    desktop too, in the Source pane, whose width does not grow with the screen: two lines from 1024 to 1440px (E276). */
+const DESKTOP_ARROW_LINKS = ARROW_LINKS.filter((l) => l.desktop)
 for (const width of [1024, 1280]) {
-  test.describe(`a ${width}px screen at 200% text, the hero example's arrow link`, () => {
+  test.describe(`a ${width}px screen at 200% text, the arrow links that wrap on a desktop`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: false, hasTouch: false })
-    const hero = ARROW_LINKS[0]
-    test(`${hero.path}: "${hero.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
-      await expectTrailingArrow(page, baseURL!, hero, width, true, true)
-    })
+    for (const l of DESKTOP_ARROW_LINKS) {
+      test(`${titleOf(l)} keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
+        await expectTrailingArrow(page, baseURL!, l, width, true, true)
+      })
+    }
+  })
+}
+
+/** The Copilot answer's Sources list sets E279's priority, since a source's name wraps there at the default size too:
+    the longer MD&A name takes two lines at 320 and 390px on a phone's sheet and at 1440px in the desktop pane. */
+const DEFAULT_SIZE_ARROW_LINKS = ARROW_LINKS.filter((l) => l.defaultSize)
+for (const viewport of [
+  { width: 320, height: 900, phone: true },
+  { width: 390, height: 844, phone: true },
+  { width: 1440, height: 900, phone: false },
+]) {
+  test.describe(`a ${viewport.width}px ${viewport.phone ? 'phone' : 'screen'} at the default text size, the arrow links that wrap there`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height }, isMobile: viewport.phone, hasTouch: viewport.phone })
+    for (const l of DEFAULT_SIZE_ARROW_LINKS) {
+      test(`${titleOf(l)} keeps its arrow with its last word and its lines inside the link at ${viewport.width}px and the default text size`, async ({ page, baseURL }) => {
+        await expectTrailingArrow(page, baseURL!, l, viewport.width, true, !viewport.phone, false)
+      })
+    }
   })
 }
