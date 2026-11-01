@@ -19,7 +19,7 @@ insurer's or REIT's total: they read `facts/fi_revenue.financial_revenue_tags` (
 total; the fee tag only on evidence that it is that total), and every
 `normalize_companyfacts` and `extract_authoritative_values` call outside tests names its
 filer, both gated by `backend/tests/unit/test_fi_revenue.py` (E264). E211's proxy step still
-reads the generic tuple (E206), and the instance path's lists are E276. Concept list
+reads the generic tuple (E206), and the instance path's lists are E278. Concept list
 ORDERINGS encode tag priority — reordering one changes which tag wins on multi-tagged
 filers, so treat the lists as behavior, not style.
 
