@@ -477,10 +477,12 @@ async function clusterGeometry(page: Page) {
     return {
       sideways: doc.scrollWidth - doc.clientWidth,
       rows: [...document.querySelectorAll<HTMLElement>('button[aria-label^="Remove "]')].map((button) => {
-        // The button sits with its badge in a pair, the pair after "Last filed …" in the cluster, the cluster in the row.
-        const pair = button.parentElement!
-        const cluster = pair.parentElement!
-        const row = cluster.parentElement!
+        // Anchored on the row, the element that holds the company link, so a wrapper round the button cannot move the
+        // walk: the cluster is the row's last child, "Last filed …" its first and the pair (the badge and the button)
+        // its last. `walk` says whether the page has that shape, so a case fails rather than measure the wrong boxes.
+        const row = button.closest<HTMLElement>('div:has(> a[href^="/company/"])')!
+        const cluster = row.lastElementChild as HTMLElement
+        const pair = cluster.lastElementChild as HTMLElement
         const style = getComputedStyle(row)
         const box = row.getBoundingClientRect()
         const content = { left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
@@ -489,7 +491,7 @@ async function clusterGeometry(page: Page) {
           const r = item.getBoundingClientRect()
           return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }
         })
-        const badge = cluster.querySelector<HTMLElement>('span.inline-flex')
+        const badge = pair.querySelector<HTMLElement>('span.inline-flex')
         const range = document.createRange()
         if (badge) range.selectNodeContents(badge)
         const badgeBox = badge?.getBoundingClientRect()
@@ -518,6 +520,11 @@ async function clusterGeometry(page: Page) {
           badgeBox.width + parseFloat(getComputedStyle(cluster).columnGap) + buttonBox.width <= width
         return {
           name: button.getAttribute('aria-label')!, content, items, lastFiled, pairFits,
+          walk: {
+            pairHoldsButton: pair.contains(button),
+            lastFiledFirst: /^(Last filed|No filings)/.test(cluster.firstElementChild?.textContent ?? ''),
+            badgeFound: !!badge,
+          },
           buttonBesideBadge: !!badgeBox && Math.abs(middle(badgeBox) - middle(buttonBox)) <= 2,
           badgeText: badgeLines.map((r) => ({ left: r.left, right: r.right })),
           badgeContent: badgeBox && badgeStyle
@@ -529,7 +536,7 @@ async function clusterGeometry(page: Page) {
   })
 }
 
-for (const width of [320, 340, 360, 375, 390, 640, 768, 1024]) {
+for (const width of [320, 340, 360, 375, 390, 430, 640, 768, 1024]) {
   test(`Your companies' status clusters stay inside their rows at ${width}px under 200% text`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: 900 })
     await openDashboard(page, TYPICAL, baseURL!)
@@ -540,6 +547,7 @@ for (const width of [320, 340, 360, 375, 390, 640, 768, 1024]) {
     expect(m.rows).toHaveLength(COMPANIES.length)
     expect(m.sideways, 'the page does not scroll sideways').toBe(0)
     for (const row of m.rows) {
+      expect(row.walk, `${row.name}: the row, its cluster and its pair are where the walk reads them`).toEqual({ pairHoldsButton: true, lastFiledFirst: true, badgeFound: true })
       for (const item of row.items) {
         expect(item.left, `${row.name}: the cluster starts inside its row`).toBeGreaterThanOrEqual(row.content.left - 0.5)
         expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
@@ -561,6 +569,7 @@ for (const width of [320, 390, 1024, 1440]) {
     const m = await clusterGeometry(page)
     expect(m.rows).toHaveLength(COMPANIES.length)
     for (const row of m.rows) {
+      expect(row.walk, `${row.name}: the row, its cluster and its pair are where the walk reads them`).toEqual({ pairHoldsButton: true, lastFiledFirst: true, badgeFound: true })
       const middles = row.items.map((item) => (item.top + item.bottom) / 2)
       expect(Math.max(...middles) - Math.min(...middles), `${row.name}: its cluster keeps one line`).toBeLessThanOrEqual(2)
       for (const item of row.items) expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
