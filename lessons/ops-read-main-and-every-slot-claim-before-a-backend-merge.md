@@ -16,7 +16,9 @@ from another session.
   unverified.
 
 **Rule.** Immediately before merging a pull request that changes `backend/` outside `backend/tests/`:
-1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). If the newest
+1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). The newest is the run
+   whose `head_sha` is main's tip after a fetch (`git rev-parse origin/main`), not the list's first entry:
+   the list follows each run's `created_at`, which can read an hour ahead of the run's own steps. If the newest
    backend-changing push's `deploy-backend` has not finished, or its health is not yet verified, wait.
    A cancelled or failed `deploy-backend` on the newest push that changed `backend/` outside
    `backend/tests/` counts as unverified. Re-run that job, since its commit carries every change before
@@ -78,6 +80,13 @@ Reverting the setting restores the single-pending replacement risk; retain the s
   (`lessons/ops-a-superseded-commit-never-deploys.md`). Multi-commit push coverage and recovery of a
   failed or partial rollout still need separate work; this queue setting does not supply them.
 
+**The newest run by main's tip (2026-11-01).** #1902, a frontend-only merge, landed at 09:15:40 while
+#1909's push run was still running (`99f1a7d36`, merged at 09:07:33). Its merge turn read the push runs'
+list, whose first entry was #1899's finished run (`440c905e5`): that run's `created_at` read 09:52:22 for
+steps that began at 08:52:24, which placed it above #1909's run (09:07:36). #1909 changed no deployable
+backend file, and its run concluded green at 09:35, so the early merge cost nothing this time; rule 1 now
+names the newest run by main's tip.
+
 **Evidence.**
 - GitHub's [concurrency guide](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
   documents `queue: max`, its 100-job limit and arrival-order behavior. Pairing it with
@@ -87,3 +96,5 @@ Reverting the setting restores the single-pending replacement risk; retain the s
 - The two runs: 40047306851 (`a97e5271`) and 40047643613 (`3aec67e0`).
 - The two verifications: 6378105580 on #1547 and 6378118828 on #1549.
 - #1545 then merged at 01:24 after all four reads, on the main its trial merge had used.
+- The newest-run miss: runs 41290655873 (`440c905e5`, #1899), 41291727961 (`99f1a7d36`, #1909) and
+  41292347032 (`02c49b0e0`, #1902).
