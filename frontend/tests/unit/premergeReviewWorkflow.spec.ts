@@ -77,7 +77,8 @@
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
  * to null, and a throwing thunk resolves to null. `budget` has no target, and `workflow` is passed on to `agent` under a
  * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many. As
- * in the runtime, the script runs in strict mode, and `Date.now()`, an argless `new Date()` and `Math.random()` throw.
+ * in the runtime, the script runs in strict mode, each run gets its own copy of `args`, parsed from JSON, and
+ * `Date.now()`, an argless `new Date()` and `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -159,7 +160,10 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
     const workflow = (ref: unknown, input?: unknown) =>
       (agent as (prompt: string, o: { label: string }) => Promise<unknown>)(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
-    return factory(args, agent, pipeline, parallel, log, phase, NO_BUDGET, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
+    // The runtime parses each run's `args` afresh from JSON, so nothing a run writes into them reaches the next run: a
+    // script that wrote a PR's tier back onto it would otherwise turn the cases' batch-tier runs into PR-tier runs.
+    const ownArgs = args === undefined ? undefined : JSON.parse(JSON.stringify(args))
+    return factory(ownArgs, agent, pipeline, parallel, log, phase, NO_BUDGET, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
   }
 }
 

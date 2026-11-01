@@ -42,12 +42,14 @@ decision. The spec gates the pair per report in four cases: one parses the scrip
 lists and is scored on planted sources; one runs a defect reported twice with every combination of its refuters'
 answers; one does the same for two reports identical in every field; one sweeps reviews of many shapes, each refuter's
 answer drawn on its own. They fail when an agent other than the lenses and the refuters runs, when a refuter is shown
-anything its report alone would not show it, or when a report's outcome, or the review's, differs from what each
-report's own refuters' answers give. Five review rounds of the gate, with two refuters on each finding, found forms of
+anything its report alone would not show it (outside the identical reports, whose prompts are compared as a whole), or
+when a report's outcome, or the review's, differs from what each report's own refuters' answers give. Five review
+rounds of the gate on #1915, with two refuters on each finding, and the reviews of its last two fixes found forms of
 grouping that its earlier versions let through: a larger review, votes coupled by title or by a quoted line, a refuter
 shown other reports' words or a lens's summary, an agent reached through an alias, the runtime's `workflow` or the stack
 of a harness that ran the script outside strict mode, a missing vote borrowed on a real PR, draws that tied a report's
-two refuters together, a review with a nit, copies identical in every field, and a PR called the way AGENTS.md §5
-documents or with its tier set on the batch. Of the mutants those rounds built, the gate as it landed kills every one
-that breaks the rule in the reviews it runs, and its header names what remains out of its reach, such as a change that
-tells the runtime from the harness, which the review of the last fix raised.
+two refuters together, a review with a nit, copies identical in every field, a PR called the way AGENTS.md §5 documents
+or with its tier set on the batch, and a script that carries what a run writes into `args` over to the next run. Of
+the mutants they built, the gate as it landed kills every one that breaks the rule in the reviews it runs, and its
+header names what remains out of its reach, such as a change that tells the runtime from the harness, which the review
+of #1915's fix 6641a58b..56163b8d raised.
