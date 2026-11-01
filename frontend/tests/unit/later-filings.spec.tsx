@@ -7,7 +7,8 @@
    evidence refuses the dataset until it lands with its reader). The page reads them before the producer
    writes them. The shared fixture (backend/tests/fixtures/analysis_later_filings.json) plants that wire shape on
    REGN's own-report values (WP5b) and holds the later-filing places both sides compute; the backend's twin of
-   laterFilingPlaces reads the same cases when it lands.
+   laterFilingPlaces, whose places the PDF and workbook print (WP5a-X), reads the same cases
+   (backend/tests/unit/test_later_filings.py).
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'

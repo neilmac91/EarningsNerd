@@ -8,9 +8,10 @@ from html import escape
 from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, calculated_sentence,
-    derived_quarters, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index, operand_records,
-    period_label, point_method, raw_value_text, source_urls,
+    ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, QUARTER_LEGEND, calculated_sentence, derived_quarters,
+    detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, later_filing_entry,
+    not_meaningful_lines, note_index, operand_records, pdf_closing, period_label, point_method, raw_value_text,
+    source_urls,
 )
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, marks_figure, note_for_quality, resolve_data_notes,
@@ -436,8 +437,28 @@ class ExportService:
                 if operand.get(key):
                     text += f" · {name}: {operand[key]}"
             link = self._analysis_links({**nested, "source_url": operand.get("source_url") or nested.get("source_url")})
-            items.append(f"<li>{escape(text)}{' · ' + link if link else ''}</li>")
+            items.append(f"<li>{escape(text)}{' · ' + link if link else ''}{self._analysis_evidence(operand)}</li>")
         return '<ul class="operands">' + "".join(items) + "</ul>" if items else ""
+
+    def _analysis_evidence(self, figure: dict) -> str:
+        """What the page's evidence dialog says of a figure or an input (D10, full), indented under its row: a later
+        filing's different value with the own annual report's accession and link, or a basis n/m's cause and growth as
+        first reported. Nothing for any other figure."""
+        lines = evidence_lines(figure)
+        if not lines:
+            return ""
+        first = figure.get("first_reported") or {}
+        text = escape(" ".join(lines))
+        if first.get("accession"):
+            text += f" · Accession: {escape(str(first['accession']))}"
+        if link := self._analysis_links({"source_url": first.get("source_url")}):
+            text += f" · {link}"
+        return f'<ul class="operands"><li>{text}</li></ul>'
+
+    def _analysis_nm_causes(self, dataset: dict) -> str:
+        """What Sources & methods' footnote adds after its own sentences: where some growth reads n/m across a change of
+        basis, the files' n/m sentence naming both causes (D12), after a space; else nothing."""
+        return "".join(f" {escape(line)}" for line in not_meaningful_lines(dataset))
 
     def _analysis_methods(self, dataset: dict, indexed: dict) -> str:
         sections = []
@@ -457,7 +478,7 @@ class ExportService:
                 links = self._analysis_links({**provenance, "source_url": point.get("source_url") or provenance.get("source_url")})
                 if links:
                     detail += " · " + links
-                items.append(f"<li>{detail}{self._analysis_operands(provenance)}</li>")
+                items.append(f"<li>{detail}{self._analysis_evidence(point)}{self._analysis_operands(provenance)}</li>")
             label = escape(str(series.get("label", series.get("concept", ""))))
             sections.append(f"<h3>{label}</h3><ul>{''.join(items)}</ul>")
         return "".join(sections)
@@ -478,21 +499,24 @@ class ExportService:
             )
         return "".join(items), marks
 
-    def _analysis_notes_list(self, notes: list[dict]) -> str:
+    def _analysis_notes_list(self, notes: list[dict], later_filing: dict | None = None) -> str:
         """The data notes' open detail (DataNotesList): every note, the marked ones first, each in its anchored entry so a
-        letter's link lands, with its letter only where it marks, its message, places, counts and comparisons."""
+        letter's link lands, with its letter only where it marks, its message, places, counts and comparisons; then
+        the later-filing line, the page's line after the notes, an entry with no letter and no anchor (D9)."""
         items = []
-        for entry in detail_entries(notes):
+        for entry in [*detail_entries(notes), *filter(None, [later_filing])]:
             letter = f'{escape(entry["letter"])}.' if entry["letter"] else ""
+            anchor = f' id="{escape(entry["id"], quote=True)}"' if entry["id"] is not None else ""
             # One run of text: the page's lines (message, places, counts, comparisons) read as sentences in print.
             parts = (entry["message"], entry["places"], entry["counts"], entry["comparisons"])
-            items.append(f'<li id="{escape(entry["id"], quote=True)}"><span class="note-letter">{letter}</span>'
+            items.append(f'<li{anchor}><span class="note-letter">{letter}</span>'
                          f'{escape(" ".join(filter(None, parts)))}</li>')
         return f'<ul class="data-notes">{"".join(items)}</ul>' if items else ""
 
-    def _analysis_fine_print(self, envelope: dict) -> str:
+    def _analysis_fine_print(self, envelope: dict, dataset: dict) -> str:
         """The data notes under the grid, as the page's fine print: the summary line, kept on the grid's last page,
-        then the open detail and the closing line. A missing figure is the grid's dash itself, alone in its run."""
+        then the open detail with the later-filing line after the notes, and the closing line. A missing figure is the
+        grid's dash itself, alone in its run."""
         clauses = []
         for clause in fine_print_summary(envelope):
             text = escape(clause.words)
@@ -503,8 +527,10 @@ class ExportService:
                 text += f', shown as <span class="data">{self._analysis_value_text(None, "", False)}</span>'
             clauses.append(text)
         summary = " · ".join(["<strong>Data notes</strong>", *clauses])
-        return (f'<p class="fine-print data-notes-summary">{summary}</p>{self._analysis_notes_list(envelope["notes"])}'
-                f'<p class="fine-print">{escape(PDF_CLOSING)}</p>')
+        later_filing = later_filing_entry(dataset)
+        return (f'<p class="fine-print data-notes-summary">{summary}</p>'
+                f'{self._analysis_notes_list(envelope["notes"], later_filing)}'
+                f'<p class="fine-print">{escape(pdf_closing(later_filing is not None))}</p>')
 
     def generate_analysis_pdf_html(self, analysis, company) -> str:
         """Render the saved financial snapshot; presentation fallback never consults current facts."""
@@ -540,13 +566,14 @@ class ExportService:
         # A citation's own concern that no report figure carries lists under its sources, as on the page.
         report_keys = {note["key"] for note in report_notes["notes"]}
         supplements = self._analysis_notes_list([note for note in notes["notes"] if note["key"] not in report_keys])
+        causes = self._analysis_nm_causes(dataset)
         body_html = f"""
             {narrative}
             <section class="metrics-landscape">
                 <h2>Metrics by period</h2>
                 {self._analysis_grid_lead(dataset)}
                 {self._analysis_grid(dataset, indexed)}
-                {self._analysis_fine_print(report_notes)}
+                {self._analysis_fine_print(report_notes, dataset)}
                 <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
             <h2>Narrative sources</h2><ol class="sources">{citation_items}</ol>
@@ -556,7 +583,7 @@ class ExportService:
             <section class="methods"><h2>Sources &amp; methods</h2>
                 <p class="footnote">Raw values retain the supplied numeric representation.
                 Reported figures come from SEC filings; calculated figures use the formulas and operands below.
-                Missing values are unavailable in this analysis, which does not establish that the company did not report them.</p>
+                Missing values are unavailable in this analysis, which does not establish that the company did not report them.{causes}</p>
                 {self._analysis_methods(dataset, indexed)}
             </section>
             <h2>About this document</h2>
