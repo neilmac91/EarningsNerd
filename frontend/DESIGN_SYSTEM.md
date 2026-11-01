@@ -596,8 +596,8 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  "Browse {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the
                  square, the Copilot answer's sources (a passage's section name, a figure's "Open the filing on
                  SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the
-                 filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and
-                 the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 filings history note's "Full history on SEC.gov" and the Filing tab's footer "Original on SEC.gov"
+                 (E279; the filing viewer's unmounted drawer went with E280). A button's arrow or square (MarketingCta,
                  buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
                  (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
                  is a square that marks a whole row link (the filing index's row link, the full-text search's result
@@ -614,7 +614,7 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
                  line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
                  its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
-                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
+                 without, so no case reaches it),
                  tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
                  ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
                  row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with

@@ -82,7 +82,7 @@ interface FilingWorkspaceProps {
   demoMode?: boolean
   /** The embedded Copilot conversation (<AskCopilotRail embedded .../>). */
   copilotBody: ReactNode
-  /** The embedded filing reader (<FilingViewer embedded .../>). */
+  /** The filing reader (<FilingViewer .../>). */
   filingBody: ReactNode
   /** The original document for the filing tab's "Original on SEC.gov" link: `document_url`, then
    * `sec_url` (the page derives it with `originalDocumentUrl`). */
