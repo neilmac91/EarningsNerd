@@ -45,15 +45,17 @@ import evals.acceptance_source_review_execution as execution
 from evals.acceptance_source_review_graph import ATTESTATION_FLAGS
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 REQUEST_KIND = "e7_native_delivery_request"
 RECEIPT_KIND = "e7_native_delivery_receipt"
 VALIDATION_KIND = "e7_native_delivery_validation"
-CLASSIFIER_VERSION = 3
+CLASSIFIER_VERSION = 4
 # Ledgers are read back by the classifier that wrote them: schema 1 receipts (argv without
-# ``--include-partial-messages``) carry classifier 2; schema 2 receipts carry classifier 3. Any other
-# pairing is refused. Classifier 1 receipts predate the ledger contract and stay sealed history.
-_LEDGER_CLASSIFIERS = {1: 2, SCHEMA_VERSION: CLASSIFIER_VERSION}
+# ``--include-partial-messages``) carry classifier 2; schema 2 receipts carry classifier 3; schema 3
+# receipts (schema 2's argv) carry classifier 4, which reads a server-side fallback only from its
+# documented signals. Any other pairing is refused. Classifier 1 receipts predate the ledger contract
+# and stay sealed history.
+_LEDGER_CLASSIFIERS = {1: 2, 2: 3, SCHEMA_VERSION: CLASSIFIER_VERSION}
 # Content block types a single-model, no-tools reply may carry; `tool_use` is admitted here only so
 # that it keeps its own verbatim reason (`tool_use_observed`). Anything else (`fallback` from a
 # server-side model switch, `server_tool_use`, `web_search_tool_result`, unknown kinds) fails closed.
@@ -633,10 +635,26 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
             return None
         return block
 
-    # Server-side fallback (messages-streaming: a `fallback` content block at each model boundary and
-    # `input_transformations` on message_start/message_delta) means part of the reply was served by
-    # another model; both signals are recorded so classifier 3 can refuse the attempt.
+    # Server-side fallback. Classifier 3 counts a `fallback` content block and any `input_transformations`
+    # field on message_start/message_delta as one signal (`fallback_signals`, kept as written so schema 2
+    # ledgers re-derive unchanged). Classifier 4 reads the documented signals one by one: a `fallback`
+    # block marks a model boundary; `input_transformations` comes on message_delta only after a mid-stream
+    # fallback; a `fallback_message` entry in `usage.iterations` names the fallback model's part. On
+    # message_start, `input_transformations` is preserved thinking's report of thinking blocks the API
+    # dropped from the input: a client that sends the binding header gets it on every response, an empty
+    # list when nothing was dropped (CLI 2.1.286, probe 3), so only a value other than [] is recorded.
     fallback_signals = 0
+    fallback_blocks = 0
+    start_transformations = 0
+    start_transformed = 0
+    delta_transformations = 0
+    fallback_iterations = 0
+
+    def fallback_iteration_count(usage_value: Any) -> int:
+        if type(usage_value) is not dict or type(usage_value.get("iterations")) is not list:
+            return 0
+        return sum(1 for item in usage_value["iterations"] if type(item) is dict and item.get("type") == "fallback_message")
+
     for position, event in enumerate(events):
         kind = event["type"]
         subtype = event.get("subtype")
@@ -659,8 +677,13 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                 message_starts.append({"id": message.get("id"), "model": message.get("model"),
                                        "stop_reason": message.get("stop_reason")})
                 message_start_positions.append(position)
-                if "input_transformations" in message or "input_transformations" in inner:
+                values = [holder["input_transformations"] for holder in (message, inner) if "input_transformations" in holder]
+                if values:
                     fallback_signals += 1
+                    start_transformations += 1
+                    if any(type(value) is not list or value for value in values):
+                        start_transformed += 1
+                fallback_iterations += fallback_iteration_count(message.get("usage"))
             elif inner_type in ("content_block_start", "content_block_delta", "content_block_stop"):
                 content_block_span = [position, position] if content_block_span is None else [content_block_span[0], position]
                 index = inner.get("index")
@@ -674,6 +697,7 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                             tool_use = True
                         if block_type == "fallback":
                             fallback_signals += 1
+                            fallback_blocks += 1
                         if block_type == "text" and type(block.get("text")) is str:
                             initial_text = block["text"]  # documented as "", carried if ever non-empty
                     stream_block_types.append(block_type)
@@ -714,6 +738,8 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                 message_delta_positions.append(position)
                 if "input_transformations" in delta or "input_transformations" in inner:
                     fallback_signals += 1
+                    delta_transformations += 1
+                fallback_iterations += fallback_iteration_count(inner.get("usage"))
                 if any(block["open"] for block in blocks.values()):
                     block_fault("open_at_message_delta")
             elif inner_type == "message_stop":
@@ -741,6 +767,7 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
             stop_reasons.append(message.get("stop_reason"))
             models.append(message.get("model"))
             usage.append(message.get("usage"))
+            fallback_iterations += fallback_iteration_count(message.get("usage"))
             content = message.get("content")
             for block in content if type(content) is list else []:
                 if type(block) is not dict:
@@ -757,6 +784,7 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                             "num_turns": event.get("num_turns"), "usage": event.get("usage"),
                             "total_cost_usd": event.get("total_cost_usd"), "stop_reason": event.get("stop_reason"),
                             "permission_denials": event.get("permission_denials")})
+            fallback_iterations += fallback_iteration_count(event.get("usage"))
     if any(block["open"] for block in blocks.values()):
         block_fault("unclosed")
     delta_text = "".join(delta_text_parts)
@@ -767,6 +795,7 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
             "assistant_block_types": assistant_block_types,
             "assistant_text": "".join(text_parts), "tool_use_observed": tool_use,
             "compaction_observed": compaction, "api_retry_count": api_retries, "session_ids": session_ids,
+            "fallback_message_iterations": fallback_iterations,
             "stream_events": {"counts": stream_counts, "message_starts": message_starts,
                               "message_start_positions": message_start_positions,
                               "message_delta_stop_reasons": message_delta_stop_reasons,
@@ -775,7 +804,10 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                               "content_block_span": content_block_span, "last_position": last_stream_position,
                               "parent_tool_use_id_nonnull": stream_parents, "error_events": stream_errors,
                               "content_block_types": stream_block_types, "content_block_faults": block_faults,
-                              "fallback_signals": fallback_signals,
+                              "fallback_signals": fallback_signals, "fallback_blocks": fallback_blocks,
+                              "input_transformations": {"message_start": start_transformations,
+                                                        "message_start_transformed": start_transformed,
+                                                        "message_delta": delta_transformations},
                               "text_delta_sha256": _sha(delta_text.encode("utf-8", errors="replace")),
                               "text_delta_byte_length": len(delta_text.encode("utf-8", errors="replace"))},
             "text_delta_text": delta_text}
@@ -822,14 +854,17 @@ def classify_stream(
 
     Precedence is fixed: ``unknown`` (timeout or no result event) > ``compacted`` > ``truncated`` >
     ``failed`` > ``complete``. ``complete`` requires every documented predicate and an observed
-    ``end_turn`` finish; any absent field is a ``failed`` reason. Classifier 3 (the default) takes
+    ``end_turn`` finish; any absent field is a ``failed`` reason. Classifiers 3 and 4 take
     the finish from the ``stream_event`` bracket: exactly one ``message_start`` whose id and model
     equal the assistant message and the contract, exactly one ``message_delta`` carrying
     ``stop_reason``, one closing ``message_stop``, every content block opened, carried and closed at
     its own index before ``message_delta``, and text deltas, each inside an open ``text`` block, equal
     to the assistant text. The ``result`` event's own ``stop_reason`` is never consulted. The finish
-    is ``observed`` only while that whole binding holds, the enclosing bracket included. Classifier 2
-    (schema 1 ledgers) keeps the released rule: the finish is the assistant event's own ``stop_reason``.
+    is ``observed`` only while that whole binding holds, the enclosing bracket included. Classifier 4
+    (the default, schema 3 ledgers) reads a server-side fallback only from its documented signals;
+    classifier 3 (schema 2 ledgers) also counts ``input_transformations`` on ``message_start``, empty
+    or not. Classifier 2 (schema 1 ledgers) keeps the released rule: the finish is the assistant
+    event's own ``stop_reason``.
     """
     if classifier_version is None:
         classifier_version = CLASSIFIER_VERSION
@@ -945,8 +980,18 @@ def classify_stream(
                     reasons.append(reason)
             for fault in stream["content_block_faults"]:
                 reasons.append(f"stream_schema:content_block_lifecycle:{fault}")
-            if stream["fallback_signals"]:
-                reasons.append("stream_binding:server_side_fallback")
+            if classifier_version == 3:
+                if stream["fallback_signals"]:
+                    reasons.append("stream_binding:server_side_fallback")
+            else:
+                # Classifier 4: a fallback only from its documented signals (see _parse_stream). An empty
+                # input_transformations list on message_start reports that nothing was dropped; any other
+                # value there fails closed under its own name, since one prompt carries no thinking blocks.
+                if (stream["fallback_blocks"] or stream["input_transformations"]["message_delta"]
+                        or observed["fallback_message_iterations"]):
+                    reasons.append("stream_binding:server_side_fallback")
+                if stream["input_transformations"]["message_start_transformed"]:
+                    reasons.append("stream_binding:input_transformed")
             if output is not None and observed["text_delta_text"] != observed["assistant_text"]:
                 reasons.append("stream_binding:text_mismatch")
             finish_stop_reasons.append(bound_stop)

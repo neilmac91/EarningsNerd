@@ -1,6 +1,6 @@
 # Native-evidence delivery adapter (route `claude_code_cli_print`)
 
-**Status:** engineering candidate (`schema_version` 2, `classifier_version` 3; kinds
+**Status:** engineering candidate (`schema_version` 3, `classifier_version` 4; kinds
 `e7_native_delivery_request`, `e7_native_delivery_receipt`, `e7_native_delivery_validation`).
 Non-admitting. It has no readiness, protocol, executor or decision call site, dispatches nothing on
 import, and cannot admit evidence. Its first live use was one synthetic probe on CLI 2.1.273
@@ -22,9 +22,21 @@ capacity or source readiness. Classifier 3 was tightened afterwards, from the tw
 #1035 and its high-tier review: the content-block lifecycle and the bracket's part in `observed`,
 below. Its outcome, reasons and `assistant_completion` stay as they were for every well-formed
 stream. The probe's recorded counts are consistent with a well-formed one, but counts cannot show its
-block indices or delta types, and the private stream was not re-read here. So its retained ledger is
-re-validated at the merged head (`validate_delivery_binding`, offline) before it is relied on again:
-F21 in `tasks/todo.md`. A disagreement there refuses the ledger; it never re-labels it.
+block indices or delta types, and that ledger did not survive to be re-validated: macOS cleared
+`/private/tmp` before F21's offline re-validation ran, so it is gone, not refused.
+
+A third synthetic probe ran on 2026-11-01 against CLI 2.1.286, under schema 2 and classifier 3, within
+the founder's USD 5 approval of that day (route-reported estimate USD 0.114): exit 0, all four requested
+lines matched, and the bracket was well formed (one `message_start`, one `content_block_start`/
+`content_block_stop` pair around 21 `content_block_delta` events, one `message_delta`, one
+`message_stop`). Classifier 3 settled it `failed` on one reason, `stream_binding:server_side_fallback`:
+the `message_start` message carried `input_transformations: []`. That field is preserved thinking's
+report of thinking blocks the API dropped from the input; a client that sends the binding header gets
+it on every response, an empty list when nothing was dropped. The stream carried no `fallback` block
+and only `message` entries in `usage.iterations`, so nothing but the requested model served it.
+Schema 3 and classifier 4 read a fallback only from its documented signals (below). The probe 3 ledger
+stays a schema 2 receipt, read back by classifier 3 exactly as written, and is kept outside
+`/private/tmp` on the releasing machine. A confirming probe at the merged head is F21 in `tasks/todo.md`.
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
 [execution-custody slice](source-review-execution.md) left at step 3: `reserve_attempt` retains the
@@ -111,10 +123,10 @@ Precedence: `unknown` > `compacted` > `truncated` > `failed` > `complete`.
   event; an assistant model absent or different from the contract; an assistant message without a string id (`stream_schema:message_id`) or more than one
   message id; the finish unobserved (`stop_reason_unobserved`) or not `end_turn`; a
   `tool_use` block; empty, non-text or non-encodable `result`; result text not equal to the
-  assistant text blocks; and, under classifier 3, any broken binding listed next.
+  assistant text blocks; and, under classifiers 3 and 4, any broken binding listed next.
 - `complete`: none of the above, which requires an **observed** `end_turn`.
 
-**Identified-assistant completion (classifier 3).** The finish is read from the `stream_event`
+**Identified-assistant completion (classifiers 3 and 4).** The finish is read from the `stream_event`
 lines the CLI forwards with `--include-partial-messages`: exactly one `message_start`
 (`stream_schema:message_start_count:N` otherwise) whose `message.id` is a string equal to the
 assistant event's message id (`stream_schema:message_start_id`, `stream_binding:message_id_mismatch`)
@@ -137,9 +149,16 @@ the text of the open `text` blocks (initial text plus `text_delta` text, in arri
 the assistant text (`stream_binding:text_mismatch`), so a text delta outside an opened `text` block
 never counts toward it; every content block,
 on the stream and in the assistant event, one of `text`/`thinking`/`redacted_thinking`/`tool_use`
-(`stream_schema:content_block_type:<type>`); and no server-side fallback signal — no `fallback` block
-and no `input_transformations` on `message_start`/`message_delta` (`stream_binding:server_side_fallback`),
-because a server-side model switch would otherwise bind to the contract model named in `message_start`.
+(`stream_schema:content_block_type:<type>`); and no server-side fallback signal
+(`stream_binding:server_side_fallback`), because a server-side model switch would otherwise bind to the
+contract model named in `message_start`. Classifier 4 reads the documented signals: a `fallback` block,
+`input_transformations` on `message_delta` (sent there only after a mid-stream fallback), or a
+`fallback_message` entry in any `usage.iterations` (on `message_start`, `message_delta`, the assistant
+event or the result event). On `message_start`, `input_transformations` is preserved thinking's report of
+thinking blocks dropped from the input: an empty list is accepted, and any other value fails as
+`stream_binding:input_transformed`, since one prompt carries no thinking blocks. Classifier 3 (schema 2
+ledgers) counts `input_transformations` on `message_start` or `message_delta`, empty or not, as a
+fallback; that is how probe 3 failed.
 The receipt records the result as `assistant_completion` (`source`, `message_id`, `model`,
 `stop_reason`, `observed`); `observed` is true only when the finish is a string and no identity,
 finish, bracket or text binding reason was recorded: absent, ambiguous or mismatched assistant
@@ -155,15 +174,15 @@ the real stream and its sanitized derivative remain in the private custody ledge
 `partial=False` rows in the delivery owner test preserve this regression without publishing
 session metadata. Classifier 2
 gains one rule: any `stream_event` line makes a schema 1 stream `failed`
-(`stream_schema:unexpected_stream_events`), so a schema 2 ledger cannot be re-read as schema 1.
+(`stream_schema:unexpected_stream_events`), so a schema 2 or 3 ledger cannot be re-read as schema 1.
 
 Every reason is recorded verbatim, so a `failed:stream_schema/*` outcome on a real run is
 diagnosable from `stdout.raw` without a second call; `classify_stream` can be re-applied to that
 retained stream after a classifier revision (`classifier_version` is in the receipt). A ledger is
 re-derived by the classifier its schema pairs with (schema 1 ↔ classifier 2, schema 2 ↔ classifier
-3, integers only); any other pairing is refused as an unsupported receipt, and so are classifier 1
+3, schema 3 ↔ classifier 4, integers only); any other pairing is refused as an unsupported receipt, and so are classifier 1
 receipts (previously refused later, in the re-derivation). The receipt must also match the
-`request.json` published before the spawn (kind, schema, argv), and for schema 2 the
+`request.json` published before the spawn (kind, schema, argv), and for schemas 2 and 3 the
 `assistant_completion` record and `finish_metadata_observed` are part of the receipt/stream agreement,
 so none of these fields can be edited on its own. This is consistency validation, not authentication against an editor who controls
 all retained files: a bracket-less ledger rewritten consistently as schema 1 cannot be
@@ -220,7 +239,7 @@ Its route-reported cost estimate was USD 0.162903 across Fable and auxiliary Hai
 dispatch is established, while the number of physical provider requests and cash charge are
 unobserved. The raw stream stays local because it contains an absolute home path. The second probe
 (2026-10-01, above) ran with `--include-partial-messages`; its raw stream is held privately too,
-since it carries transport and session metadata. Classifier 1
+since it carries transport and session metadata, and so is the third's (2026-11-01). Classifier 1
 receipts remain sealed historical evidence and are not rewritten or silently upgraded by
 classifier 2.
 Full L004 controls remain absent; nothing here confers source-role readiness.
