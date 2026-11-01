@@ -1,6 +1,6 @@
 # Run calls through Stripe's global client on the Stripe threads, never on anyio's default worker threads — one such call can wait minutes
 
-Date: 2026-10-23   Area: ops
+Date: 2026-10-23 (cross-subscription reads updated 2026-10-30, E98)   Area: ops
 
 **Context**: E144 took checkout's and the billing portal's Stripe calls off the event loop with
 `run_in_threadpool`, which runs them on anyio's default worker threads: 40 tokens a process, which the
@@ -22,11 +22,14 @@ run time (a returned walk after the call, so that work has run up to its return)
 `stripe_subscription_reader.py`'s calls keep the default threads: its own client makes one attempt with
 connect and read-inactivity limits of 2 s and 3 s by default (at most 10 s each), not a total deadline
 (`docs/CONFIGURATION.md`), so a Stripe that stops answering frees the thread in seconds unless DNS or a
-slow, progressing response takes longer; the serving-price read runs one at a time per process; and a
-webhook event's read, of its subscription or of its invoice (at most one), runs inside the event's one
-worker unit, so another thread would free nothing. The subscription read also keeps the worker's
-transaction and account lock through it; the invoice read comes before the lock and holds neither, so it
-could leave the default threads only if the event were split into units. The account deletion called
+slow, progressing response takes longer; the serving-price read runs one at a time per process. A
+webhook event's provider reads run inside the event's one worker unit, so another thread would free
+nothing: normally one subscription or invoice read, or two sequential subscription reads (the bound
+subscription, then the candidate) when a created/updated event names another subscription (E98). The
+subscription reads keep the worker's transaction and account lock through both calls, so a cross-ID
+reconciliation can hold the lock for about twice the per-read limits, with the same DNS and progressing-response
+caveat. The invoice read comes before the lock and holds neither. These reads could leave the default
+threads only if the event were split into units. The account deletion called
 Stripe on the event loop; it now hands its whole cancellation (the list, its later pages and the deletes)
 to the Stripe threads as one plain def, `users.py`'s `_cancel_billable_subscriptions`, which finishes its
 walk before it returns. A call queued for the threads still runs after its client has had the request-timeout

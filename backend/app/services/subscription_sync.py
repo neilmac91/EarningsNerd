@@ -162,15 +162,29 @@ def apply_checkout_completed(
     return user
 
 
+def outranks_binding(candidate: dict, bound: dict) -> bool:
+    """Whether another subscription takes the binding, both as Stripe holds them now (E98): the one that
+    grants Pro first, then the newer by Stripe's ``created``, then the higher ID, so the order is total and
+    any arrival order of their events converges on one binding."""
+    def rank(snapshot: dict) -> tuple:
+        grants = subscription_state_grants_pro(snapshot["status"], _ts_to_dt(snapshot.get("trial_end")))
+        return grants, snapshot["created"], snapshot["id"]
+    return rank(candidate) > rank(bound)
+
+
 def apply_subscription_upsert(
-    db: Session, sub_obj: dict, *, user: Optional[User] = None,
+    db: Session, sub_obj: dict, *, user: Optional[User] = None, bound: Optional[dict] = None,
 ) -> Optional[User]:
     """Handle ``customer.subscription.created`` / ``.updated``: full state from the Stripe object.
 
-    While the account is entitled, a state that grants no Pro for a subscription other than the
-    bound one (an old subscription's dunning outcome, a late retry) is ignored, so it cannot unbind
-    a paying replacement. The bound subscription's own events and an entitling one still apply.
-    Returns the affected user, or None for an unknown user or an ignored event.
+    A subscription other than the bound one takes the binding only when it should. With ``bound``,
+    Stripe's current state of the bound subscription (the worker reads both, E98), it must outrank it
+    (``outranks_binding``), so a stale replay of an old subscription's "active" state, which Stripe now
+    holds as canceled, cannot rebind it over a replacement that never activated. Without it (a caller
+    that read nothing), while the account is entitled, a state that grants no Pro is ignored, so an old
+    subscription's dunning outcome or a late retry cannot unbind a paying replacement. The bound
+    subscription's own events still apply. Returns the affected user, or None for an unknown user or
+    an ignored event.
     """
     stripe_sub_id = sub_obj.get("id")
     stripe_customer_id = sub_obj.get("customer")
@@ -183,8 +197,9 @@ def apply_subscription_upsert(
 
     sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
     current_sub_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
-    if (stripe_sub_id and current_sub_id and stripe_sub_id != current_sub_id
-            and not subscription_state_grants_pro(status, trial_end) and is_pro_user(user)):
+    if stripe_sub_id and current_sub_id and stripe_sub_id != current_sub_id and (
+            not outranks_binding(sub_obj, bound) if bound is not None
+            else not subscription_state_grants_pro(status, trial_end) and is_pro_user(user)):
         logger.info(
             "Ignoring Stripe subscription update user_id=%s subscription_id=%s status=%s "
             "reason=not_current_subscription",
