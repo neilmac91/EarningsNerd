@@ -454,8 +454,9 @@ def test_eps_is_never_differenced_across_a_share_split():
     for current, prior in (((110.0, 11.0), (100.0, 1.00)), ((157.5, 1.05), (150.0, 1.50)), ((-1.1, -0.45), (-1.0, -0.02))):
         out = compute_what_changed(_earnings("2026-06-30", *current), _earnings("2026-03-31", *prior))
         assert [i["metric"] for i in out["items"]] == ["net_income"], (current, prior)
-    # A quarter's buybacks, and a cent of EPS whose rounding cannot tell, keep the line.
-    for current, prior in (((103.0, 1.06), (100.0, 1.00)), ((1.6, 0.02), (1.0, 0.01))):
+    # A quarter's buybacks, a cent of EPS whose rounding cannot tell, and a 3-for-2 split at a dime of EPS, where half a
+    # cent either way cannot prove the move (the guard withholds only a proved split), keep the line.
+    for current, prior in (((103.0, 1.06), (100.0, 1.00)), ((1.6, 0.02), (1.0, 0.01)), ((15.0, 0.10), (15.0, 0.15))):
         out = compute_what_changed(_earnings("2026-06-30", *current), _earnings("2026-03-31", *prior))
         assert [i["metric"] for i in out["items"]] == ["net_income", "earnings_per_share"], (current, prior)
         assert out["data_quality"] == "ok"
@@ -468,6 +469,27 @@ def test_eps_is_never_differenced_across_a_share_split():
         ("net_income", 100.0, 300.0), ("earnings_per_share", 1.00, 1.50),
     ]
     assert out["data_quality"] == "ok"
+
+
+def test_a_diluted_pair_across_a_split_gives_way_to_the_filings_own_basic_pair():
+    # A 10-K after a 2:1 split: its blob holds diluted EPS for its own year only, and basic EPS for both years, the
+    # prior one restated. The diluted pair takes its prior from the prior 10-K, before the split, so the guard refuses
+    # it; the basic pair is this filing's own figures for both years, on one share basis, and shows instead.
+    k = {"net_income": _series(("2025-12-31", 100.0), ("2024-12-31", 90.0)),
+         "earnings_per_share": _series(("2025-12-31", 1.00), ("2024-12-31", 0.90)),
+         "eps_diluted": _series(("2025-12-31", 0.99))}
+    prior = {"net_income": _series(("2024-12-31", 90.0)),
+             "earnings_per_share": _series(("2024-12-31", 1.80)),
+             "eps_diluted": _series(("2024-12-31", 1.79))}
+    out = compute_what_changed(k, prior, prior_period_end="2024-12-31", form="10-K")
+    assert [(i["metric"], i["prior"], i["current"]) for i in out["items"]] == [
+        ("net_income", 90.0, 100.0), ("earnings_per_share", 0.90, 1.00),
+    ]
+    assert out["data_quality"] == "ok"
+    # With no clean pair to fall to, the split pair is withheld and the report marked, as before.
+    out = compute_what_changed({**k, "earnings_per_share": _series(("2025-12-31", 1.00))}, prior,
+                               prior_period_end="2024-12-31", form="10-K")
+    assert [i["metric"] for i in out["items"]] == ["net_income"] and out["data_quality"] == "partial"
 
 
 def test_net_income_never_takes_the_year_ago_quarter():

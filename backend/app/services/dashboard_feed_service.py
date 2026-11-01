@@ -87,7 +87,8 @@ _DIRECTION_WORD = {"increase": "up", "decrease": "down", "unchanged": "flat"}
 
 # Invariant 3: a share split moves EPS by its ratio while net income stays; a quarter's buybacks or issuance move the
 # implied share count by a few percent. 1.4, not 1.5, so a 3-for-2 split (exactly 1.5) is caught. EPS is stated to
-# the cent, so each side's implied count is bounded by half a cent of EPS either way.
+# the cent, so each side's implied count is bounded by half a cent of EPS either way. Only a proved split withholds the
+# line: below about 12 cents of EPS after a 3-for-2 split, that rounding can hide the move, and the line is kept.
 _SPLIT_RATIO = 1.4
 _EPS_HALF_CENT = 0.005
 
@@ -239,20 +240,26 @@ def _eps_line(
     side, where a filer tagged no basic EPS: E260.)
 
     A diluted pair is not used where either side's diluted figure exceeds its filing's basic EPS for the same
-    period (the check facts/reconcile.py makes): the line falls to basic. When no key completes a pair, the first
-    key with a current figure comes back without a prior: no EPS line shows, but invariant 2 still checks net
-    income's current sign against it.
+    period (the check facts/reconcile.py makes): the line falls to basic. Nor is a pair whose sides a share split
+    falls between (``_share_basis_moved``): the next key may compare like with like, as this filing's own basic EPS
+    for both years does; when no key does, the first such pair comes back for invariant 3 to withhold and mark. When
+    no key completes a pair, the first key with a current figure comes back without a prior: no EPS line shows, but
+    invariant 2 still checks net income's current sign against it.
     """
     guard_only: Optional[_Line] = None
+    moved: Optional[_Line] = None
     for metric in _EPS_METRICS:
         line = _line(metric, current_xbrl, prior_xbrl, own_period, target)
         if line is None:
             continue
         if line.prior is not None and _diluted_within_basic(line, current_xbrl):
-            return line
+            if not _share_basis_moved(line, current_xbrl):
+                return line
+            if moved is None:
+                moved = line
         if guard_only is None:
             guard_only = _Line(line.metric, line.current, line.current_period, line.current_tag)
-    return guard_only
+    return moved or guard_only
 
 
 def _diluted_within_basic(line: _Line, current_xbrl: Optional[dict]) -> bool:
