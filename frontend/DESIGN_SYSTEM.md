@@ -3081,7 +3081,9 @@ native hover titles as the only way to inspect provenance. Dense quarterly chart
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
 as wide as six glyphs keeps its column; E251), with three quarters of a slot more for each break in a ranked chart's run (E258), so
-a narrow screen never overlaps labels or widens the page.
+a narrow screen never overlaps labels or widens the page. A chart whose model sets a maximum slot (E266, the engine's
+`maxSlot`: Sector peers' 104 px) stops widening there, its seams counted as the minimum counts them, narrower than its
+card and at its left edge; the minimum still wins over it.
 
 Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
 `chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
@@ -3237,7 +3239,12 @@ of them and leaves the slot empty, so the top is always the companies ranked tha
 subject after the top and leaves out a company ranked above it, a gap of three quarters of a slot stands before its bar, the engine's
 gap seam (E258, `cohort.ts` `breaksBefore`), since even spacing would read it as next in rank (CAPM, thirteenth, as the
 eleventh company); a company left out that ties with the subject breaks no run, since the subject still stands at its
-own rank. The footnote then says what the
+own rank. A slot is never wider than 104 px (E266, chief design on #1879; `peerChart.ts` `PEER_MAX_SLOT`), just above the
+101.5 px an eleven-company chart takes on the widest card the page gives (1216 px, from 1280 px up), so a small cohort's
+bars stand a slot apart with the plot at the card's left, its axis under the heading, where filling the card set a pair's
+two bars about 560 px apart at 1280 px; the tooltip still places itself within the card's width. A chart of eleven bars,
+or ten and a gap, lays out as before at every width; one of ten bars (a cohort of ten, or a tie at the cut that leaves
+the eleventh slot empty) takes the maximum at 1280 px, and on a phone only a pair does. The footnote then says what the
 chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
 ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
 slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
@@ -3289,7 +3296,9 @@ metric picked loads and once it draws no chart; the card's chunk never asked for
 start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
 opening where the rule puts it, its sticky gutter exactly when scrolled; and a broken run at 390 and 1280 px, the step
 to the subject's tick three quarters of a slot wider where the chart leaves out a company ranked above it, and no step wider where it
-leaves out none, a tie included, with the DOM checks over each),
+leaves out none, a tie included, with the DOM checks over each; every case's slot no wider than 104 px, and the pair at 390
+and 1280 px with its bars 104 px apart, its plot narrower than its card at the card's left and, at 1280 px, its tooltip
+past the plot's right edge, inside the card),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
 scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is

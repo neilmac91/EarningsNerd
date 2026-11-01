@@ -137,6 +137,10 @@ export interface ChartModel {
   /** What its plot's scroll region and end-of-range status call its categories (a bar chart's `reading`, E251). Unset,
    *  its periods (PERIOD_READING). */
   reading?: ChartReading
+  /** The widest a slot gets, in px (a bar chart's `maxSlot`, E266): the layout plans the chart no wider than its gutter,
+   *  its right pad and this a slot, its gap seams counted, and never narrower than its minimum (layout.ts
+   *  maxChartWidth). Unset, the plot fills its card. */
+  maxSlot?: number
 }
 
 const MARKERS: Marker[] = ['circle', 'square', 'triangle']

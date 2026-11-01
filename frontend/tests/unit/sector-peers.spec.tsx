@@ -43,6 +43,8 @@ vi.mock('@/features/peers/components/SectorPeersCard', async (importOriginal) =>
 })
 
 import { ThemeContext } from '@/components/ThemeProvider'
+import { buildBarChart } from '@/features/analysis/lib/charts/barChart'
+import { layoutChart, maxChartWidth } from '@/features/analysis/lib/charts/layout'
 import { CHART_TOKENS } from '@/features/analysis/lib/charts/theme'
 import type { PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import SectorPeers from '@/features/peers/components/SectorPeers'
@@ -437,5 +439,69 @@ describe('the Sector peers panel (E251)', () => {
     const section = await panelCard()
     fireEvent.change(picker(section), { target: { value: 'total_assets' } })
     expect((await inPlace(section)).textContent).toBe('Sector peers for total assets can’t be shown here.')
+  })
+})
+
+describe('the panel’s widest slot (E266, chief design on #1879)', () => {
+  /** The plot's own width in the card at 390, 1024 and 1280 px, as a browser measures it on a production build; from
+   *  1280 px up the page keeps a 1216 px card, so 1166 px is the widest plot it gives. */
+  const VIEW = { phone: 309, tablet: 910, desktop: 1166 }
+  const SPREAD = answerOf('spread')
+  /** A cohort of `n` from the spread: its first n − 1 companies but the subject, and the subject, in value order and
+   *  ranked afresh. */
+  const cohortOf = (n: number): PeerComparisonResponse => {
+    const others = SPREAD.peers.filter((entry) => !entry.is_subject).slice(0, n - 1)
+    const peers = [...others, SPREAD.subject].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).map((entry, i) => ({ ...entry, rank: i + 1 }))
+    return { ...SPREAD, peer_count: n, peers, subject: peers.find((entry) => entry.is_subject)! }
+  }
+  const modelOf = (answer: PeerComparisonResponse) => buildBarChart(peerChartDef(answer))
+  /** The same chart with no maximum: the plan the panel drew before E266. */
+  const unbounded = (answer: PeerComparisonResponse) => {
+    const { maxSlot, ...def } = peerChartDef(answer)
+    expect(maxSlot).toBe(104)
+    return buildBarChart(def)
+  }
+  /** What a plan draws where: its width, its slot and each company's centre. */
+  const placed = (answer: PeerComparisonResponse, width: number, bounded = true) => {
+    const model = bounded ? modelOf(answer) : unbounded(answer)
+    const layout = layoutChart(model, width, 'card')
+    return { width: layout.width, slot: layout.slot, x: model.periods.map((period) => layout.x(period.key)) }
+  }
+
+  it.each([2, 3, 4, 5, 6, 7, 8, 9, 10])('a cohort of %i at 1280 px: each step 104 px, the plot n × 104 px from its gutter', (n) => {
+    const answer = cohortOf(n)
+    expect(drawn(answer)).toHaveLength(n)
+    const layout = layoutChart(modelOf(answer), VIEW.desktop, 'card')
+    const { x } = placed(answer, VIEW.desktop)
+    expect(x.slice(1).map((centre, i) => centre - x[i]), 'each step').toEqual(Array(n - 1).fill(104))
+    expect(layout.plotRight - layout.plotLeft, 'the plot').toBe(n * 104)
+    expect([layout.plotLeft, layout.width], 'from its gutter, then its right pad').toEqual([layout.gutter, layout.gutter + n * 104 + 8])
+    // Before, the cohort filled the card: every slot wider than 104 px.
+    expect(placed(answer, VIEW.desktop, false).slot).toBeGreaterThan(104)
+  })
+
+  it('on a phone, only a pair changes: from more than 104 px a slot to 104', () => {
+    expect(placed(cohortOf(2), VIEW.phone, false).slot).toBeGreaterThan(104)
+    expect(placed(cohortOf(2), VIEW.phone).slot).toBe(104)
+    for (let n = 3; n <= 11; n++) expect(placed(cohortOf(n), VIEW.phone), `a cohort of ${n}`).toEqual(placed(cohortOf(n), VIEW.phone, false))
+  })
+
+  // The eleven-company charts and the cap's cuts that draw eleven bars, or ten and a gap seam, are as wide as a full
+  // cohort: their widest is past the widest plot the page gives, so at every width they lay out as before.
+  it.each(['spread', 'spread, subject first', 'spread, subject tenth', 'near-equal', 'cap', 'cap, subject fifth', 'cap, subject eleventh',
+    'cap, subject twelfth', 'cap, tie at the tenth', 'cap, all tied'])('%s lays out as before at every width the page gives it', (name) => {
+    const answer = answerOf(name)
+    expect(maxChartWidth(modelOf(answer)), 'its widest').toBeGreaterThanOrEqual(VIEW.desktop)
+    for (const width of Object.values(VIEW)) expect(placed(answer, width), `${width}px`).toEqual(placed(answer, width, false))
+  })
+
+  // A tie at the cut leaves the eleventh slot empty, so 'cap, tie at the eleventh' draws ten bars, as a cohort of ten:
+  // at 1280 px its slot falls from about 111.7 px to 104, and it fills the card at narrower widths as before.
+  it('cap, tie at the eleventh draws ten bars, so it takes the maximum at 1280 px as a cohort of ten does', () => {
+    const answer = answerOf('cap, tie at the eleventh')
+    expect([drawn(answer).length, breaksBefore(answer)]).toEqual([10, false])
+    expect(placed(answer, VIEW.desktop, false).slot).toBeCloseTo(111.7, 1)
+    expect(placed(answer, VIEW.desktop).slot).toBe(104)
+    for (const width of [VIEW.phone, VIEW.tablet]) expect(placed(answer, width), `${width}px`).toEqual(placed(answer, width, false))
   })
 })
