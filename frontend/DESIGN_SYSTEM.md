@@ -573,8 +573,9 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's) is inline-block
                  too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces, above). The
                  external link's square after a link's words ("Original on SEC.gov" and its kin) still parts from them
-                 the same way under 200% text (E279). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's:
-                 each arrow on its last word's line, one box, the words inside the link's 0.25rem inset),
+                 the same way under 200% text, and at the default size where a section name wraps in the Copilot
+                 Sources list (E279). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on
+                 its last word's line, one box, the words inside the link's 0.25rem inset),
                  tests/e2e/reflow-200.spec.ts (the hero example's, Compare periods', the waitlist's and the Copilot
                  message's, and the hero's and the Copilot message's at 1024 and 1280px: each arrow on its last word's
                  line, one box, every line of the words inside it and inside its inset where it has one; the calendar
