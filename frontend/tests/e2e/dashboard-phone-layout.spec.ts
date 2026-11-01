@@ -13,6 +13,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    wrap under the company name instead of widening the card.
  * 5. What changed's chips (E268): under 200% text a chip's figure moves under its label, so the chip
  *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
+ * 6. What changed's header (E272): where the card is narrower than 21rem the date column moves under the
+ *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -211,18 +213,27 @@ const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, strin
 ]
 const CHANGED_FEED = {
   // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E273), so with them the
-  // page's scroll would not be the chips'. The cards' headers stay: at 320px the date column ends 11.7px inside the
-  // viewport in CI's fonts, but in fonts that paint wider it can reach past it (E272), and the page check reads it too.
+  // page's scroll would not be the chips'. The cards' headers stay, and keep inside their cards (E272, below).
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
-    items: CHANGED.map(({ ticker, name, items }, i) => ({
-      filing_id: 200 + i, accession_number: null, company: { id: 50 + i, ticker, name }, filing_type: '10-Q',
-      filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 300 + i, summary_status: 'ready',
-      what_changed: {
-        headline: '', data_quality: 'ok',
-        items: items.map(([metric, label, direction, display, tone]) => ({ metric, label, direction, pct: null, current: 1, prior: 1, display, tone })),
+    items: [
+      ...CHANGED.map(({ ticker, name, items }, i) => ({
+        filing_id: 200 + i, accession_number: null, company: { id: 50 + i, ticker, name }, filing_type: '10-Q',
+        filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 300 + i, summary_status: 'ready',
+        what_changed: {
+          headline: '', data_quality: 'ok',
+          items: items.map(([metric, label, direction, display, tone]) => ({ metric, label, direction, pct: null, current: 1, prior: 1, display, tone })),
+        },
+      })),
+      // E272's long name, whose common words a narrow card must not break, and whose call to action ("Regenerate
+      // summary") wraps on a phone under 200% text, so the arrow's case reads a label that does wrap. No figures,
+      // so the chip cases still read seven chips.
+      {
+        filing_id: 202, accession_number: null, company: { id: 52, ticker: 'IBM', name: 'International Business Machines Corporation' },
+        filing_type: '10-Q', filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 302, summary_status: 'placeholder',
+        what_changed: null,
       },
-    })),
+    ],
   },
 }
 
@@ -282,7 +293,7 @@ function expectTextInside(c: Chip) {
   }
 }
 
-for (const width of [320, 340, 360, 640, 768, 1024]) {
+for (const width of [320, 340, 360, 640, 768, 1024, 1280]) {
   test(`What changed's chips stay inside their row at ${width}px under 200% text`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: 900 })
     await openFeed(page, baseURL!)
@@ -301,12 +312,18 @@ for (const width of [320, 340, 360, 640, 768, 1024]) {
       // The 16px step, which is 32px under 200% text: a pill on one line and a rounded box once it wraps.
       expect(c.radius).toBe('32px')
     }
-    // The bank's longest chip does not fit beside its label at any of these widths: its figure moves under the label's
-    // last line, never beside it.
+    // The bank's longest chip: on a phone and in the two-column feed from 1280px (the second column opens at 40rem,
+    // E272) its figure moves under the label's last line; on the one-column feed's full-width cards from 640 to 1279px
+    // it keeps beside the label, on one line.
     const bank = m.chips.find((c) => c.name?.startsWith('Noninterest income'))!
-    const labelBottom = Math.max(...bank.label.map((line) => line.bottom))
     expect(bank.figure).toHaveLength(1)
-    expect(bank.figure[0].top, 'its figure moves under its label').toBeGreaterThanOrEqual(labelBottom - 0.5)
+    if (width <= 360 || width >= 1280) {
+      const labelBottom = Math.max(...bank.label.map((line) => line.bottom))
+      expect(bank.figure[0].top, 'its figure moves under its label').toBeGreaterThanOrEqual(labelBottom - 0.5)
+    } else {
+      expect(bank.label, 'its label keeps one line').toHaveLength(1)
+      expect(bank.figure[0].top, 'its figure keeps beside its label, on its line').toBeLessThan(bank.label[0].bottom - 0.5)
+    }
   })
 }
 
@@ -323,3 +340,141 @@ test("What changed's chips keep one line at 1440px at the default text size", as
     expect(c.radius).toBe('16px')
   }
 })
+
+/** The What changed card's header and call to action (E272, chief design on #1897): where the card's content box is
+    narrower than the 21rem the header needs side by side, the date column moves under the company line and the name
+    wraps, so each painted line of the name, the ticker and the date column sits inside the card, the company line and
+    the date column never overlap, the name shows whole, and "Read summary" keeps its arrow on its last word's line.
+    Stacked, the logo keeps to the name's first line, and the date ("Aug 3, 2026") keeps whole (chief design on #1900). */
+async function headerGeometry(page: Page) {
+  return page.evaluate(() => {
+    const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    const lines = (node: Node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      return [...range.getClientRects()].filter((r) => r.width > 0).map(box)
+    }
+    return [...document.querySelectorAll<HTMLElement>('[data-what-changed-header]')].map((header) => {
+      const card = header.parentElement!
+      const style = getComputedStyle(card)
+      const outer = card.getBoundingClientRect()
+      const content = {
+        left: outer.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+        right: outer.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+      }
+      const [company, dates] = [...header.children] as HTMLElement[]
+      const [name, ticker] = [...company.lastElementChild!.children] as HTMLElement[]
+      // The logo, where it shows (it gives way below 7.25rem), and the date's own words.
+      const logo = company.children.length > 1 ? (company.firstElementChild as HTMLElement) : null
+      const logoShown = !!logo && getComputedStyle(logo).display !== 'none'
+      const date = dates.lastElementChild!.querySelector('span')!
+      // The call to action's last word: the line box of its last text node's last line, whatever wraps it; and how
+      // many lines its words take.
+      const cta = card.lastElementChild as HTMLElement
+      const walker = document.createTreeWalker(cta, NodeFilter.SHOW_TEXT)
+      const texts: Text[] = []
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+      const lastLines = lines(texts[texts.length - 1])
+      const ctaLines = new Set(texts.flatMap((text) => lines(text).map((line) => Math.round(line.top)))).size
+      // A word of the name painted across two lines, where the word on its own would fit the card's content box: a break
+      // the header could have spared it, with a line of its own or the logo's room (below 7.25rem the logo gives way).
+      const nameText = name.firstChild as Text
+      const splitWords: string[] = []
+      let at = 0
+      for (const word of nameText.data.split(' ')) {
+        const range = document.createRange()
+        range.setStart(nameText, at)
+        range.setEnd(nameText, at + word.length)
+        const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+        const probe = document.createElement('span')
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+        probe.textContent = word
+        name.appendChild(probe)
+        const fits = probe.getBoundingClientRect().width <= content.right - content.left
+        probe.remove()
+        if (tops.size > 1 && fits) splitWords.push(word)
+        at += word.length + 1
+      }
+      return {
+        name: name.textContent!, content,
+        nameLines: lines(name), nameBox: box(name.getBoundingClientRect()), tickerBox: box(ticker.getBoundingClientRect()),
+        dateLines: lines(dates), dateStarts: [...dates.children].map((line) => line.getBoundingClientRect().left),
+        companyBox: box(company.getBoundingClientRect()), datesBox: box(dates.getBoundingClientRect()),
+        nameCut: name.scrollWidth - name.clientWidth, splitWords,
+        arrow: box(cta.querySelector('svg')!.getBoundingClientRect()), lastWord: lastLines[lastLines.length - 1], ctaLines,
+        logo: logoShown ? box(logo!.getBoundingClientRect()) : null,
+        dateText: date.textContent!, dateLineCount: new Set(lines(date).map((line) => Math.round(line.top))).size,
+      }
+    })
+  })
+}
+
+type Header = Awaited<ReturnType<typeof headerGeometry>>[number]
+
+const overlaps = (a: { left: number; right: number; top: number; bottom: number }, b: typeof a) =>
+  a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
+
+function expectHeaderFits(h: Header, stacked: boolean) {
+  // Stacked, the name wraps, so its painted lines are its extent; side by side a long name truncates, and its text runs on
+  // under the clip, so its box is.
+  const name = stacked ? h.nameLines : [h.nameBox]
+  for (const line of [...name, h.tickerBox, ...h.dateLines]) {
+    expect(line.left, `${h.name}: its header starts inside the card`).toBeGreaterThanOrEqual(h.content.left - 0.5)
+    expect(line.right, `${h.name}: its header ends inside the card`).toBeLessThanOrEqual(h.content.right + 0.5)
+  }
+  for (const part of [...name, h.tickerBox]) {
+    for (const date of h.dateLines) expect(overlaps(part, date), `${h.name}: the company line clears the date column`).toBe(false)
+  }
+  if (stacked) {
+    // One column: the date column under the company line and at the card's left edge, and the name whole, wrapped
+    // rather than cut, with no word broken that had room for itself.
+    expect(h.datesBox.top, `${h.name}: the date column sits under the company line`).toBeGreaterThanOrEqual(h.companyBox.bottom - 0.5)
+    for (const left of h.dateStarts) expect(Math.abs(left - h.content.left), `${h.name}: each date line starts at the card's left edge`).toBeLessThanOrEqual(0.5)
+    expect(h.nameCut, `${h.name} shows whole`).toBeLessThanOrEqual(0)
+    expect(h.splitWords, `${h.name}: no word breaks that fits the card`).toEqual([])
+    // The logo keeps to the name's first line, as ActivityLine's dot keeps to its first line (chief design on #1900).
+    if (h.logo) {
+      const first = h.nameLines[0]
+      expect(Math.abs((h.logo.top + h.logo.bottom) / 2 - (first.top + first.bottom) / 2), `${h.name}: the logo keeps to the name's first line`).toBeLessThanOrEqual(1)
+    }
+  } else {
+    // Side by side: the date column beside the company line, at its right.
+    expect(h.datesBox.top, `${h.name}: the date column sits beside the company line`).toBeLessThan(h.companyBox.bottom)
+    expect(h.datesBox.left, `${h.name}: the date column starts after the company line`).toBeGreaterThanOrEqual(h.companyBox.right - 0.5)
+  }
+  expect(h.dateLineCount, `${h.name}: the date "${h.dateText}" keeps whole`).toBe(1)
+  // The arrow sits on the line of the label's last word, right after it, never parted to the card's far edge.
+  expect(h.arrow.top, `${h.name}: the arrow is on its last word's line`).toBeLessThan(h.lastWord.bottom)
+  expect(h.arrow.bottom).toBeGreaterThan(h.lastWord.top)
+  expect(h.arrow.left, `${h.name}: the arrow comes after its last word`).toBeGreaterThanOrEqual(h.lastWord.right - 0.5)
+  expect(h.arrow.left - h.lastWord.right, `${h.name}: the arrow follows its last word`).toBeLessThanOrEqual(10)
+}
+
+for (const width of [320, 340, 360, 640, 768, 1024, 1280]) {
+  test(`What changed's header stacks inside its card at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openFeed(page, baseURL!)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    const headers = await headerGeometry(page)
+    expect(headers).toHaveLength(3)
+    for (const h of headers) expectHeaderFits(h, true)
+    if (width <= 360) {
+      const ibm = headers.find((h) => h.name.startsWith('International'))!
+      expect(ibm.ctaLines, '"Regenerate summary" wraps, so the arrow reads a wrapped label').toBe(2)
+    }
+  })
+}
+
+// At the default size the header stacks where the card is narrower than 21rem (a phone, the two-column feed from 640px
+// and at 1024px) and stays side by side where it is wider (1440px).
+for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, true], [1024, true], [1440, false]] as const) {
+  test(`What changed's header ${stacked ? 'stacks' : 'stays side by side'} inside its card at ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openFeed(page, baseURL!)
+    const headers = await headerGeometry(page)
+    expect(headers).toHaveLength(3)
+    for (const h of headers) expectHeaderFits(h, stacked)
+  })
+}
