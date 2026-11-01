@@ -355,15 +355,11 @@ const SOURCES = execFileSync('git', ['ls-files', '*.tsx', '*.jsx'], { cwd: FRONT
     #1884 (comments 6550067628 and 6550409876); each lands in its own pull request, which lowers its line and the cap. */
 const RESIDUE: Record<string, number> = {
   'features/analysis/components/DataNotesLink.tsx': 1, // the Notes chip shows "Notes a, b" and is named "Review data notes a, b" (D-061's chip)
-  'features/analysis/components/NarrativePane.tsx': 1, // the citation chip shows "[1]" and is named "Citation 1: …", which says what the number is before it
   'features/feedback/components/FeedbackWidget.tsx': 1, // the launcher shows "Feedback" from sm and is named "Send feedback" or "Close feedback", where aria-expanded already says which
   'features/filings/components/FilingIndex.tsx': 1, // the filing row's SEC.gov link shows "SEC.gov" from 48rem (its only words, marked aria-hidden) and is named "View the 10-K filed … on SEC.gov (opens in a new tab)"
-  'features/filings/components/SourceTrace.tsx': 4, // the Source chip's four triggers (the sheet's, the in-app jump, the link, the popover's) show its label ("Quote found in filing") and are named "Source: …", the link adding "(opens in a new tab)"; the demo below copies it
-  'features/filings/components/copilot/CitationChip.tsx': 3, // the Copilot's citation chip (its jump, its link, its popover trigger) shows "[1]" and is named "Citation 1: …", as NarrativePane's is
-  'features/marketing/components/TraceToSourceDemo.tsx': 1, // the landing's demo chip shows "Quote found in filing" and is named "Source: Quote found in filing", as SourceTrace's link is
   'features/watchlist/components/PopularTickerChips.tsx': 1, // the chip shows the ticker and is named "Add AAPL to your watchlist"
 }
-const RESIDUE_MAX = { files: 8, controls: 13 }
+const RESIDUE_MAX = { files: 4, controls: 4 }
 /** The labels the scan cannot read on a control that shows words, per file, with why. */
 const UNREAD: Record<string, number> = {
   'features/admin/components/FeedbackRow.tsx': 1, // admin: the row's link opens with the message's preview, data, then shows "View details", and is named "View details for feedback N"
