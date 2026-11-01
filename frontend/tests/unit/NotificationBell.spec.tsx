@@ -64,10 +64,13 @@ describe('NotificationBell', () => {
     vi.mocked(markNotificationsSeen).mockReset()
   })
 
-  it('shows the unread count badge', async () => {
+  it('shows the unread count badge as a status the name already counts (E68 (3))', async () => {
     vi.mocked(getNotifications).mockResolvedValue(sample)
     renderBell()
-    expect(await screen.findByText('1')).toBeInTheDocument()
+    const badge = await screen.findByText('1')
+    // The badge is aria-hidden: the name already says the count, so a speech user names the bell by its name.
+    expect(badge).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByRole('button', { name: 'Notifications (1 unread)' })).toContainElement(badge)
   })
 
   it('opens the dropdown, lists alerts, and marks them seen', async () => {
