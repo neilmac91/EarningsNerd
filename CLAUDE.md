@@ -206,9 +206,9 @@ backend; `eval-baseline` compares AI output against `backend/evals/baseline_scor
 `continue-on-error`, not a required check).
 `deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/` (migrations
 through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-nerd`/us-west1, job
-images), and skips a commit main has since moved past with backend changes, so an older deploy never
-follows a newer one (`lessons/ops-a-superseded-commit-never-deploys.md`); a failed deploy is not
-retried, so check its conclusion after every such merge. Vercel
+images), and skips a commit main has since moved past with deployable backend changes, so a guarded
+run never deploys an older commit after a newer one (`lessons/ops-a-superseded-commit-never-deploys.md`);
+a failed deploy is not retried, so check its conclusion after every such merge. Vercel
 deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
 `tasks/gcp-deploy-runbook.md`.
 

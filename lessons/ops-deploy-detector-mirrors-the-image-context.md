@@ -29,8 +29,9 @@ Astra agent and integrated after an independent review.
    `backend/tests/`", never "any backend change" or "test-only" (the exclusion is a path prefix, not a
    category: `backend/pytest.ini` and `backend/requirements-dev.txt` are inside the build context and deploy).
 4. After a merge whose only `backend/` paths are excluded, the deploy job's steps are expected to skip and its
-   log carries no `apply_migrations: applied=` line; a merge that touches deployable backend files is still
-   verified by its deploy job's conclusion.
+   log carries no `apply_migrations: applied=` line. A merge that touches deployable backend files is verified by
+   the migration line and health, in its own run or, once main has moved past it, in the newer deploy that carries
+   it: a run skipped as superseded also skips every step (`lessons/ops-a-superseded-commit-never-deploys.md`).
 
 ## Evidence
 

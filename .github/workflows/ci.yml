@@ -842,17 +842,32 @@ jobs:
         # (gate: backend/tests/unit/test_backend_deploy_scope.py; lessons/ops-deploy-detector-mirrors-the-image-context.md).
         # A deploy ships this commit's image, and the group above runs waiting deploys in the order their
         # runs reach this job, not in merge order. So when main has moved past this commit with deployable
-        # backend changes, this deploy is skipped: that newer commit's own run deploys them, and shipping
-        # this one after it would roll production back (2026-10-31: #1863's deploy ran after #1713's;
-        # lessons/ops-a-superseded-commit-never-deploys.md). A failed fetch or diff fails the step: no deploy.
+        # backend changes, this deploy is skipped: a newer backend commit's own run deploys them, and
+        # shipping this one after it would roll production back (2026-10-31: #1863's deploy ran after
+        # #1713's; lessons/ops-a-superseded-commit-never-deploys.md). Main is read only after this commit's
+        # own deployable change is found, by its full ref (a tag named main must not stand in for it), with
+        # three attempts 10 s apart; a failed read or diff fails the step, and nothing deploys. The depth-1 fetch can
+        # mark HEAD shallow, so HEAD^ stops resolving for later steps: none of them reads git history.
+        timeout-minutes: 5
         run: |
           if git diff --name-only --no-renames HEAD^ HEAD | grep -v '^backend/tests/' | grep -qE '^backend/'; then
-            git fetch --no-tags --quiet --depth=1 origin main
+            fetched=false
+            for attempt in 1 2 3; do
+              if git fetch --no-tags --quiet --depth=1 origin refs/heads/main; then
+                fetched=true
+                break
+              fi
+              if [ "$attempt" -lt 3 ]; then sleep 10; fi
+            done
+            if [ "$fetched" != true ]; then
+              echo "::error title=Deploy not attempted::Could not read main's tip, so this deploy cannot tell whether a newer commit supersedes it. Re-run the job."
+              exit 1
+            fi
             tip=$(git rev-parse --verify FETCH_HEAD)
             newer=$(git diff --name-only --no-renames HEAD "$tip")
             if printf '%s\n' "$newer" | grep -v '^backend/tests/' | grep -qE '^backend/'; then
               echo "backend=false" >> "$GITHUB_OUTPUT"
-              echo "Main is at ${tip::7}, past this commit with deployable backend changes; its own run deploys them - skipping this superseded deploy."
+              echo "::notice title=Superseded deploy skipped::Main is at ${tip::7}, past this commit with deployable backend changes; a newer backend commit's run deploys them - skipping this superseded deploy."
             else
               echo "backend=true" >> "$GITHUB_OUTPUT"
             fi
