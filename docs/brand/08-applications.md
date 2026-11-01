@@ -125,8 +125,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   component is deleted, with the `getWaitlistStatus` client it alone called. The example link and the "Join the waitlist" pill carry the brand focus ring.
   The pill, which answered no pointer, rests at the secondary recipe's hover fill and takes its pressed
   fill under the pointer (`hover:bg-brand-border/60`, `dark:hover:bg-brand-border-dark`; E82): on the How
-  it works card its label measures 5.77:1 at rest and 5.33:1 hovered in light, 5.81:1 and 4.50:1 in
-  dark, and `tests/e2e/text-floors.spec.ts` holds both themes at rest and hovered.
+  it works card its label measures 5.77:1 at rest and 5.33:1 hovered in light, 7.35:1 and 5.69:1 in
+  dark (5.81:1 and 4.50:1 before the accent text ink rose, D-071), and `tests/e2e/text-floors.spec.ts` holds both themes at rest and hovered.
   /waitlist, /login, /register, /forgot-password, /check-email, /verify-email, /reset-password,
   /contact, /privacy, /terms, /security, /delete-account, /calendar (its pinned fixture week painted) and
   /search (its results painted), since CI's e2e build turns the calendar and search on, join the routes
