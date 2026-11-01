@@ -34,8 +34,9 @@ DEFAULT_CONCEPT = "revenue"
 
 # The SIC codes whose companies rank on net interest income by default: commercial banks (6021 national,
 # 6022 state, 6029 not elsewhere classified) and savings institutions (6035 federally chartered, 6036 not).
-# Net interest income is a bank's top line on /analysis too, and the facts layer keeps it current for every
-# bank; every other code, broker-dealers (6211) included, ranks on revenue (F69, D-072).
+# Net interest income is a bank's top line on /analysis too, and the companyfacts feed reads it for every
+# company while it skips revenue for SIC 6000-6799; every other code, broker-dealers (6211) included, ranks on
+# revenue (F69, D-072).
 NET_INTEREST_INCOME_SICS = frozenset({"6021", "6022", "6029", "6035", "6036"})
 
 # How far a figure's period end may trail the newest in its group and still rank (F69, D-072). Fiscal
@@ -146,10 +147,12 @@ def get_peers(
 
     # Recency (F69, D-072): a company whose most recent figure ended more than MAX_FIGURE_LAG before the
     # group's newest leaves the ranking before anything is counted, the subject's figure included (the
-    # subject is then surfaced without a value below). Measured from the group's own newest figure, so
-    # the answer needs no clock and a group whose filers all lag keeps its ranking.
-    if latest:
-        floor = max(fact.period_end for _, fact in latest.values()) - MAX_FIGURE_LAG
+    # subject is then surfaced without a value below). Measured from the group's own newest figure with a
+    # value, so the answer needs no clock, a group whose filers all lag keeps its ranking, and a withheld
+    # row, which draws no bar, never pushes the figures that do out of it.
+    dated = [fact.period_end for _, fact in latest.values() if published_value(fact) is not None]
+    if dated:
+        floor = max(dated) - MAX_FIGURE_LAG
         latest = {cid: pair for cid, pair in latest.items() if pair[1].period_end >= floor}
 
     # The cohort is now single-currency by construction, so the response unit is the
@@ -193,7 +196,7 @@ def get_peers(
         if entry["is_subject"]:
             subject = entry
 
-    # The subject may not have a fact for this concept yet — surface it explicitly.
+    # The subject may hold no fact for this concept, or one the window left out: surface it explicitly.
     if subject is None:
         subject = {
             "ticker": company.ticker,

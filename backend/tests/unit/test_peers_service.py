@@ -349,3 +349,26 @@ class TestRecencyWindow:
         result = svc.get_peers(private_db, subject.ticker, "net_margin")
 
         assert [p["ticker"] for p in result["peers"]] == [subject.ticker]
+
+    def test_a_withheld_row_never_moves_the_window(self, private_db):
+        # The window counts from the newest figure with a value: a withheld derived EPS, which draws no bar, dated
+        # two years past the others must not push them out of the ranking.
+        from app.models import FinancialFact
+
+        sic = f"SIC{uuid.uuid4().hex[:8]}"
+        subject, peer, withheld = (_company(private_db, sic=sic) for _ in range(3))
+        _annual(private_db, subject, "eps_diluted", 5.0, date(2024, 12, 31), unit="USD/shares")
+        _annual(private_db, peer, "eps_diluted", 3.0, date(2024, 12, 31), unit="USD/shares")
+        private_db.add(FinancialFact(
+            company_id=withheld.id, concept="eps_diluted", unit="USD/shares", period_end=date(2026, 12, 31),
+            fiscal_year=2026, fiscal_period="FY", value=9.0, form="10-K", accession=uuid.uuid4().hex,
+            source="derived", raw_tag=None, reconciled=False, is_latest=True,
+        ))
+        private_db.commit()
+
+        result = svc.get_peers(private_db, subject.ticker, "eps_diluted")
+
+        assert [(p["ticker"], p["value"], p["rank"]) for p in result["peers"]] == [
+            (subject.ticker, 5.0, 1), (peer.ticker, 3.0, 2), (withheld.ticker, None, None),
+        ]
+        assert result["subject"]["value"] == 5.0
