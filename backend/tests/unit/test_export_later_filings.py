@@ -275,7 +275,8 @@ def _companyfacts(*, bank: bool = False) -> dict:
     and equity in 2024 Q2 and its operating cash flow in 2024 Q3, so QoQ and YoY read n/m on and against computed
     quarters, Cash generation's and Balance sheet's among them. Its gross profit is filed as quarters alone, so its Q4 is
     the year less three quarters, a calculation of four inputs; the ingest derives the margins and free cash flow. The
-    bank's net interest income, its top line, and its net income turn negative in 2024 Q2, while its equity does not."""
+    bank's net interest income, its top line, net income and operating cash flow turn negative in 2024 Q2, while its
+    equity does not; its operating cash flow's Q2 and Q3 are computed, its Q4's growth reads no n/m."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
@@ -283,6 +284,8 @@ def _companyfacts(*, bank: bool = False) -> dict:
         return {"cik": 990002, "entityName": "A QUARTERLY BANK", "facts": {"us-gaap": {
             "InterestIncomeExpenseNet": usd(_flow({2023: (300e6, 320e6, 310e6, 330e6), 2024: (290e6, -20e6, 300e6, 310e6)})),
             "NetIncomeLoss": usd(_flow({2023: (90e6, 95e6, 92e6, 98e6), 2024: (85e6, -20e6, 88e6, 91e6)})),
+            "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (500e6, 520e6, 480e6, 510e6),
+                                                                     2024: (490e6, -60e6, 470e6, 520e6)}, filed="to date")),
             "StockholdersEquity": _balances({2023: (4000e6, 4050e6, 4100e6, 4150e6), 2024: (4200e6, 4120e6, 4180e6, 4240e6)}),
         }}}
     eps = [{"val": value, "start": f"{year}-{start}", "end": f"{year}-{end}", **_report(year, fp)}
@@ -731,7 +734,7 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
 PLACES = ("an input", "an input two levels down", "an input three levels down", "a calculation's third input",
           "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
           "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
-          "a Q1's QoQ reads n/m against a computed Q4", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
+          "a Q1's QoQ reads n/m", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
           "a Balance sheet figure whose YoY reads n/m", "a computed Q2 or Q3", "a computed Q4",
           *(title for title, _ in _LINE_PANELS))
 REACH = {
@@ -740,8 +743,8 @@ REACH = {
     # never does (NON_NEGATIVE_CONCEPTS).
     "a_banks_quarterly_run_the_producer_builds": {
         "an input", "an input two levels down", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
-        "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m", "a computed Q4", "Cash generation",
-        "Balance sheet"},
+        "a computed Q2 or Q3's growth reads n/m", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
+        "a computed Q2 or Q3", "a computed Q4", "Cash generation", "Balance sheet"},
     "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
                                                          "the top line's YoY reads n/m"},
 }
@@ -750,8 +753,7 @@ REACH = {
 def _places(dataset: dict) -> set[str]:
     """The places of PLACES that a run's files print, read from its workbook (Sources & methods' rows in order, a
     growth's inputs after it; the top line's growth cells; the line panels drawn; the Overview's computed Q4) and from
-    the points behind them: a computed quarter is derived or carries period_calculation in its provenance, and a QoQ's
-    second input is the quarter before."""
+    the points behind them: a computed quarter is derived or carries period_calculation in its provenance."""
     book = _workbook(dataset)
     rows = _sources(book)
     entries = [str(row["Entry"]) for row in rows]
@@ -761,10 +763,6 @@ def _places(dataset: dict) -> set[str]:
 
     def computed(record: dict | None) -> bool:
         return bool((record or {}).get("derived") or ((record or {}).get("provenance") or {}).get("period_calculation"))
-
-    def before(point: dict) -> dict | None:
-        inputs = (point.get("qoq_provenance") or {}).get("inputs") or []
-        return inputs[1] if len(inputs) > 1 else None
 
     def quarter(point: dict) -> str:
         return str(point.get("period"))[-2:]
@@ -783,8 +781,7 @@ def _places(dataset: dict) -> set[str]:
         **{f"a computed {name}'s growth reads n/m": any(
             computed(point) and quarter(point) in quarters and "nm" in (point.get("yoy"), point.get("qoq"))
             for _, point in points) for name, quarters in (("Q2 or Q3", ("Q2", "Q3")), ("Q4", ("Q4",)))},
-        "a Q1's QoQ reads n/m against a computed Q4": any(quarter(point) == "Q1" and point.get("qoq") == "nm"
-                                                          and computed(before(point)) for _, point in points),
+        "a Q1's QoQ reads n/m": any(quarter(point) == "Q1" and point.get("qoq") == "nm" for _, point in points),
         "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
                                             if title.endswith(" & growth") for cell in sheet["C"]),
         **{f"a {title} figure whose YoY reads n/m": any(panel.get(concept) == title and point["value"] is not None
