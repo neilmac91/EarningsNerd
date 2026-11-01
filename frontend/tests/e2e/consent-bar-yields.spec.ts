@@ -243,7 +243,7 @@ for (const theme of ['light', 'dark'] as const) {
     for (const consented of [false, true]) {
       test(`a chip-opened source fits its actual top without page scrolling, consented=${consented}`, async ({ page, baseURL }) => {
         await openFiling(page, baseURL!, { theme, consented, earlySource: true })
-        const chip = page.getByRole('button', { name: 'Source: Quote found in filing' }).first()
+        const chip = page.getByRole('button', { name: 'Quote found in filing, source' }).first()
         await expect(chip).toBeVisible()
         expect(await page.evaluate(() => window.scrollY)).toBe(0)
         await chip.click()

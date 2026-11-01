@@ -48,8 +48,8 @@ function doneMessage(overrides: Partial<CopilotMessageData> = {}): CopilotMessag
 describe('CopilotMessage citation chips', () => {
   it('renders a chip for [1] as an anchor to the fragment_url', () => {
     render(<CopilotMessage message={doneMessage()} />)
-    // The inline chip is the anchor whose accessible name is "Citation 1: ...".
-    const chip = screen.getByRole('link', { name: /citation 1: item 7 — md&a/i })
+    // The inline chip is the anchor whose accessible name is "1. Citation: ...".
+    const chip = screen.getByRole('link', { name: /1\. citation: item 7 — md&a/i })
     expect(chip).toHaveAttribute('href', 'https://www.sec.gov/x#:~:text=Revenue')
     expect(chip).toHaveAttribute('target', '_blank')
     expect(chip).toHaveTextContent('[1]')
@@ -110,7 +110,7 @@ describe('CopilotMessage citation chips', () => {
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [9].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
-    const chip = screen.getByRole('link', { name: /citation 9/i })
+    const chip = screen.getByRole('link', { name: /9\. citation/i })
     expect(chip).toHaveTextContent('[9]')
     expect(chip).toHaveAttribute('href', 'https://www.sec.gov/filing')
     expect(chip).toHaveAttribute('data-citation-kind', 'xbrl')
@@ -129,7 +129,7 @@ describe('CopilotMessage citation chips', () => {
     }
     const msg = doneMessage({ content: 'Revenue was $391.0B [f 1].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
-    const chip = screen.getByRole('link', { name: /citation f1/i })
+    const chip = screen.getByRole('link', { name: /f1\. citation/i })
     expect(chip).toHaveTextContent('[F1]') // normalized to the canonical marker
   })
 
@@ -156,19 +156,19 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.getByText('3 matched sources')).toBeInTheDocument()
     // The count is said once (ASK-14): no second "citations · source checks" tally beside it.
     expect(screen.queryByText(/source checks|\d+ citations?\b/i)).not.toBeInTheDocument()
-    const textChip = screen.getByRole('link', { name: /citation 3:/i })
+    const textChip = screen.getByRole('link', { name: /3\. citation:/i })
     expect(textChip).toHaveAttribute('href', excerpt.fragment_url)
     fireEvent.focus(textChip)
-    const textPopover = screen.getByRole('group', { name: /citation 3:/i })
+    const textPopover = screen.getByRole('group', { name: /3\. citation:/i })
     expect(within(textPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(textPopover).queryByText('Numeric source verified')).not.toBeInTheDocument()
     expect(within(textPopover).getByText(excerpt.excerpt)).toBeInTheDocument()
-    fireEvent.focus(screen.getByRole('link', { name: /citation 1:/i }))
-    const factPopover = screen.getByRole('group', { name: /citation 1:/i })
+    fireEvent.focus(screen.getByRole('link', { name: /1\. citation:/i }))
+    const factPopover = screen.getByRole('group', { name: /1\. citation:/i })
     expect(within(factPopover).getByText('Matches filing')).toBeInTheDocument()
     expect(within(factPopover).getByText(/does not check every claim/)).toBeInTheDocument()
-    fireEvent.focus(screen.getByRole('link', { name: /citation 4:/i }))
-    const labelledPopover = screen.getByRole('group', { name: /citation 4:/i })
+    fireEvent.focus(screen.getByRole('link', { name: /4\. citation:/i }))
+    const labelledPopover = screen.getByRole('group', { name: /4\. citation:/i })
     expect(within(labelledPopover).getByText('Quote found in filing')).toBeInTheDocument()
     expect(within(labelledPopover).queryByText('Matches filing')).not.toBeInTheDocument()
     expect(within(labelledPopover).getByText(/does not check every claim/)).toBeInTheDocument()
@@ -181,8 +181,8 @@ describe('CopilotMessage citation chips', () => {
     // The literal marker survives somewhere in the prose.
     expect(screen.getByText(/\[2\]/)).toBeInTheDocument()
     // And there is no citation chip / anchor for [2].
-    expect(screen.queryByRole('link', { name: /citation 2/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /2\. citation/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /2\. citation/i })).not.toBeInTheDocument()
   })
 })
 

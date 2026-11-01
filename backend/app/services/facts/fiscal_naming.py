@@ -4,15 +4,39 @@ The companyfacts writer (``facts/calendar``, ``facts/companyfacts``) and the per
 (``edgar/fiscal_periods``) must give a period one fiscal year, since the fact identity leaves it out
 (``lessons/sec-fact-writers-name-a-period-alike.md``). Both count whole fiscal years back from a period
 whose year is known (``years_back``), and both trust a late or lone annual report's own focus only for
-the year its period ends in or mostly lies in (``focus_years``).
+the year its period ends in or mostly lies in (``focus_years``). It also holds the form rules: the annual
+reports (``ANNUAL_FORMS``), and the proxy and information statements (``is_proxy_form``) whose figures the
+companyfacts collector and the backfill's cross-check never take.
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
+from typing import Any
 
 ANNUAL_FORMS = frozenset({"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A"})
 # A 52/53-week calendar drifts a few days from whole quarters and years; transition periods do not.
 DRIFT_DAYS = 18
+
+# Schedule 14A and 14C submissions: a letter prefix (PRE, PREM, PRER, PREC, PREN, PRRN, DEF, DEFA,
+# DEFM, DEFR, DEFC, DEFN, DFAN, DFRN, PX), an optional space, then 14A or 14C, an optional suffix
+# (PX14A6G, PX14A6N) and /A. No periodic report or registration statement is named so: those start
+# with a digit (10-K, 20-F, 8-K) or a letter and a hyphen (S-1, F-4, N-14), and SC 14D9 and SC 14N
+# are other schedules.
+_PROXY_FORM = re.compile(r"[A-Z]+ ?14[AC][0-9A-Z]*(?:/A)?")
+
+
+def is_proxy_form(form: Any) -> bool:
+    """A proxy or information statement (DEF 14A, DEFA14A, PRE 14C, ...), never a financial report.
+
+    Since 2023 a proxy's pay-versus-performance table tags ``NetIncomeLoss`` (and sometimes other
+    statement lines) for five fiscal years. Companyfacts lists those items under the proxy's own form,
+    filed after the reports it quotes, so a latest-filed rule would take the proxy's figure, which can
+    be rounded, on another basis or at the wrong scale (FedEx's is in dollars, not millions). Every
+    other form stays admitted: 10-K, 10-Q, 20-F, 40-F, 6-K, an 8-K recast, S-1, S-4, 10-KT and their
+    amendments, including a 10-K/A that adds Part III late and carries the same table.
+    """
+    return isinstance(form, str) and _PROXY_FORM.fullmatch(" ".join(form.split()).upper()) is not None
 
 
 def focus_years(end: date) -> tuple[int, int]:

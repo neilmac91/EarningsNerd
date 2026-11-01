@@ -72,7 +72,7 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
         <RequestProbe />
       </FilingViewerProvider>,
     )
-    const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
+    const chip = screen.getByRole('button', { name: 'Quote found in filing, source' })
     fireEvent.mouseEnter(chip)
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
 
@@ -96,7 +96,7 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
       </FilingViewerProvider>,
     )
     expect(peek?.()).toBeNull()
-    const chip = screen.getByRole('button', { name: 'Source: Quote found in filing' })
+    const chip = screen.getByRole('button', { name: 'Quote found in filing, source' })
     fireEvent.click(chip)
     expect(peek?.()).toBe(chip)
   })
@@ -109,7 +109,7 @@ describe('SourceTrace activation with a viewer (fine pointer)', () => {
         <RequestProbe />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Source: Matches filing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Matches filing, source' }))
     expect(screen.getByTestId('probe')).toHaveTextContent('1:Consolidated Statements of Operations')
     expect(onRequestOpen).toHaveBeenCalledTimes(1)
   })
@@ -137,7 +137,7 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
         <OpenerProbe onPeek={(p) => (out.peek = p)} />
       </FilingViewerProvider>,
     )
-    return { onRequestOpen, out, chip: screen.getByRole('button', { name: 'Source: Quote found in filing' }) }
+    return { onRequestOpen, out, chip: screen.getByRole('button', { name: 'Quote found in filing, source' }) }
   }
 
   it('a tap opens the Source detail sheet, never a silent jump: the sheet holds the EDGAR link and the in-app jump', () => {
@@ -175,7 +175,7 @@ describe('SourceTrace activation with a viewer (coarse pointer: the touch sheet)
         <SourceTrace url={URL} verified sectionRef="1A" />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Source: Quote found in filing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Quote found in filing, source' }))
     const sheet = screen.getByRole('dialog', { name: 'Source detail' })
     expect(within(sheet).getByRole('link', { name: PASSAGE_LINK })).toHaveAttribute('href', URL)
     expect(within(sheet).queryByRole('button', { name: 'Show in filing' })).toBeNull()
