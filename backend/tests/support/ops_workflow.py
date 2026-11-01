@@ -28,6 +28,7 @@ RELABEL = "Run fiscal-year relabel script"
 QUARTERLY = "Run quarterly fact repair script"
 LINEAGE = "Run filing lineage backfill script"
 BASELINE = "Run fixed quarterly baseline (read-only)"
+PREVIEW = "Run financial revenue preview (read-only)"
 OPERAND = r"(?:steps\.request\.outputs|inputs)\.operation"  # a step's resolved operation, or a job's input
 NO_DATABASE = {DEPS}  # runs after the proxy for its operations, but opens no database session
 # An `if:` that is one `${{ }}` and nothing else, with no `${{` or `}}` inside it.

@@ -24,7 +24,10 @@ read-only dry run or preview. The quarterly and lineage steps' `if:` is pinned a
 Each step compares the settings its session reports with its own guards before its script runs. Whenever the quarterly repair step
 ran, the step after it keeps the report file the script wrote as an artifact. A batch the script
 refuses as a whole, or a run stopped before its report, writes no file; its log then holds the
-error, or the script's start line, which names the run. Those guards and the read-only transactions
+error, or the script's start line, which names the run. E264's financial revenue preview step runs for
+its one operation, as written, with its keys and its env pinned whole. It only reads, through its fixed
+PGOPTIONS alone, and the step after it keeps its report whenever it ran. The script's own time budget
+ends inside the step's timeout, so a run ends with its summary and its report. Those guards and the read-only transactions
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any committed
@@ -60,6 +63,7 @@ itself, and a shell test of `$OP` in a run script.
 """
 import ast
 import copy
+import importlib
 import os
 import re
 import subprocess
@@ -68,8 +72,8 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE,
-    ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
+    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PREVIEW, PROXY, QUARTERLY, RELABEL,
+    RESOLVE, ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
 DB_COMMAND = re.compile(
@@ -288,7 +292,7 @@ def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_output
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE])
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE, PREVIEW])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -308,6 +312,54 @@ def test_the_baseline_step_is_read_only_through_pgoptions_alone():
     assert ("default_transaction_read_only", "on") in pg_settings(step["env"]["PGOPTIONS"])
     assert re.search(r"^\s*READ_ONLY=on\s*$", step["run"], re.M), "the read-back must expect a read-only session"
     assert "PGOPTIONS=" not in step["run"] and "--apply" not in step["run"]
+
+
+PREVIEW_OPERATION = "financial-revenue-preview"
+PREVIEW_ENV = {  # the step's env, whole: a name added here (a PGHOST, an SEC flag) changes what the run reads or writes
+    "PGOPTIONS": "-c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on",
+    "SEC_RATE_LIMIT_PER_SECOND": "1", "EDGAR_RATE_LIMIT_PER_SEC": "1", "SKIP_REDIS_INIT": "true",
+    "SECRET_KEY": "ops-workflow-secret-key-not-used-0123456789", "STRIPE_SECRET_KEY": "sk_test_ops",
+    "STRIPE_WEBHOOK_SECRET": "whsec_ops", "PWNED_PASSWORD_CHECK_ENABLED": "false",
+    "TICKERS": "${{ steps.request.outputs.tickers }}",
+}
+# The company in flight at the budget's end, at worst: an SEC read of 5 attempts at 20 s with 4 Retry-After waits
+# of 120 s (580 s), then its session's four statements at 120 s each (480 s); then the summary and the report.
+IN_FLIGHT_SECONDS = 1200
+
+
+def test_the_preview_step_only_reads_for_its_one_operation_and_keeps_its_report():
+    """E264's financial revenue preview needs no approval because it only reads. Its step runs for its one
+    operation, with its `if:` pinned as written, and fails with the script. Its keys and its env are pinned
+    whole, so its session is read-only through the step's fixed PGOPTIONS alone: its run expects a read-only
+    session, never changes PGOPTIONS and passes no flag that could write. No approval list names it, and the
+    pre-flight holds it while a main push is in flight. The step after it keeps the report file whenever the
+    preview ran, for 30 days (test_workflow_dispatch_inputs.py runs the step and checks the path it writes)."""
+    at, step = BY_NAME[PREVIEW]
+    assert selected(step) == {PREVIEW_OPERATION}
+    assert step["if"] == f"steps.request.outputs.operation == '{PREVIEW_OPERATION}'", (
+        "no status function: the step keeps GitHub's success(), so a failed step before it stops it")
+    assert set(step) == {"name", "id", "if", "working-directory", "timeout-minutes", "env", "run"}, (
+        "no continue-on-error: a failed or stopped run must fail the step")
+    assert (step["working-directory"], step["timeout-minutes"], step["env"]) == ("backend", "60", PREVIEW_ENV)
+    assert re.search(r"^\s*READ_ONLY=on\s*$", step["run"], re.M), "the readback must expect a read-only session"
+    assert "PGOPTIONS=" not in step["run"] and "--apply" not in step["run"]
+    assert PREVIEW_OPERATION not in selected(OPS["jobs"]["approve-apply"])
+    assert PREVIEW_OPERATION in selected(BY_NAME["Refuse to run while a main push (deploy) is in flight"][1])
+    retain_at, retain = BY_NAME["Retain financial revenue preview report"]
+    assert retain_at > at and retain["if"] == f"always() && steps.{step['id']}.outcome != 'skipped'"
+    assert retain["with"] == {"name": "financial-revenue-preview-${{ github.run_id }}",
+                              "path": "${{ runner.temp }}/financial-revenue-preview/report.json",
+                              "retention-days": "30", "if-no-files-found": "warn"}
+
+
+def test_the_preview_stops_itself_inside_its_steps_timeout():
+    """The preview stops at its own time budget, so a run always ends with its summary line and its report;
+    the step's timeout would kill it mid-company instead. The budget, read from the script the step runs,
+    leaves the step IN_FLIGHT_SECONDS for the company in flight when it ends, the summary and the report."""
+    step = BY_NAME[PREVIEW][1]
+    [script] = RUNNER_SCRIPT.findall(step["run"])
+    preview = importlib.import_module(script.removesuffix(".py").replace("/", "."))
+    assert 0 < preview.TIME_BUDGET_SECONDS <= int(step["timeout-minutes"]) * 60 - IN_FLIGHT_SECONDS
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:

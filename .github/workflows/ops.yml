@@ -9,7 +9,8 @@ name: Ops
 # job already uses. So, since 2026-10-19, does the fiscal-year relabel (P6 of the 2026-10-15 bug
 # hunt, docs/fiscal-year-label-repair.md), and so do the bounded quarterly fact repair
 # (docs/quarterly-data-repair.md) and the lineage backfill for filing-owned legacy calculations
-# (docs/filing-lineage-repair.md). Design constraints:
+# (docs/filing-lineage-repair.md). E264's read-only financial revenue preview runs here too
+# (backend/scripts/financial_revenue_preview.py, whose docstring is its runbook). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries,
@@ -58,8 +59,9 @@ name: Ops
 #     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
 #     paths (the ticker repair, relabel, quarterly repair and lineage backfill scripts) match the
 #     deploy migration step (120s); the read-only detection snapshots full-scan financial_fact, so they
-#     get 600s; excerpt-cohort's stored count takes its file's own 120s. The proxy binary is
-#     checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#     get 600s; excerpt-cohort's stored count takes its file's own 120s, and the financial revenue
+#     preview, which only reads, takes 120s too. The proxy binary is checksum-pinned
+#     (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -93,6 +95,7 @@ on:
           - repair-quarterly-apply
           - repair-lineage-dry-run
           - repair-lineage-apply
+          - financial-revenue-preview
           - sync-companyfacts
           - backfill-filing-history
           - data-quality-report
@@ -108,7 +111,7 @@ on:
         required: false
         default: ""
       tickers:
-        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company); repair-quarterly-dry-run/apply (required, at most 50); repair-quarterly-baseline-80fa90d-dry-run (leave empty; fixed cohort); repair-lineage-* (empty = every company). A SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers: sync-companyfacts; backfill-filing-history (empty = the watchlist cohort); relabel-fy-* (empty = every company); repair-quarterly-dry-run/apply (required, at most 50); repair-quarterly-baseline-80fa90d-dry-run (leave empty; fixed cohort); repair-lineage-* (empty = every company); financial-revenue-preview (at most 50; empty = every SIC 6000-6799 company). A SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -182,7 +185,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -193,9 +196,10 @@ jobs:
               COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
               ;;
-            backfill-filing-history|relabel-fy-dry-run|relabel-fy-apply|repair-lineage-dry-run|repair-lineage-apply)
+            backfill-filing-history|relabel-fy-dry-run|relabel-fy-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview)
               # tickers OPTIONAL (empty => the watchlist cohort for a backfill, every company for a
-              # relabel or a lineage backfill); when given, a comma-separated list ≤50.
+              # relabel or a lineage backfill, every SIC 6000-6799 company for the financial revenue
+              # preview); when given, a comma-separated list ≤50.
               if [ -n "$TICKERS" ]; then
                 [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
                   || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
@@ -488,7 +492,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('repair-quarterly-baseline-80fa90d-dry-run detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout summary-recovery-readout excerpt-cohort', steps.request.outputs.operation)
+        if: contains('repair-quarterly-baseline-80fa90d-dry-run detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview capacity-readout summary-recovery-readout excerpt-cohort', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -625,7 +629,7 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
@@ -823,6 +827,60 @@ jobs:
           EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
           [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
           python scripts/repair_filing_lineage.py "${ARGS[@]}"
+
+      - name: Run financial revenue preview (read-only)
+        id: fi_revenue_preview
+        # backend/scripts/financial_revenue_preview.py (E264 step 2; its docstring is the runbook). For each
+        # financial company (SIC 6000-6799, or the named tickers) synced since E264's deploy, it reads SEC's
+        # companyfacts once through the shared limiter, before the company's session opens. It then compares
+        # the stored revenue and margin rows with what the deployed rule would write. It only reads, so it has
+        # no apply and needs no approval. The session is read-only through this step's own PGOPTIONS, which
+        # the run never changes, and the readback stops the step before the script unless the session reports
+        # this step's settings. The script prints a flushed start line, one JSON line per company and a
+        # summary, and writes its report for the next step to keep. It stops itself at a time budget inside
+        # this step's timeout, so a run always ends with its summary and its report.
+        if: steps.request.outputs.operation == 'financial-revenue-preview'
+        working-directory: backend
+        timeout-minutes: 60
+        env:
+          # Read-only, with the write paths' bounds; DATABASE_URL points at the proxy above.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on
+          # The SEC budgets every SEC-calling process is pinned to (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          TICKERS: ${{ steps.request.outputs.tickers }}
+        run: |
+          set -euo pipefail
+          [ -f scripts/financial_revenue_preview.py ] || { echo "::error::financial revenue preview script not committed yet"; exit 1; }
+          REPORT_DIR="$RUNNER_TEMP/financial-revenue-preview"
+          mkdir -p "$REPORT_DIR"
+          ARGS=(--output "$REPORT_DIR/report.json" --workflow-commit "$GITHUB_SHA")
+          if [ -n "$TICKERS" ]; then ARGS+=(--tickers "$TICKERS"); fi
+          READ_ONLY=on
+          # The settings a session gets through the proxy, read back so this log proves them, and
+          # compared with this step's, so a lost or weakened guard stops the run before the script.
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          python scripts/financial_revenue_preview.py "${ARGS[@]}"
+
+      - name: Retain financial revenue preview report
+        # Whenever the preview step ran, whatever its result, and only then, as for the quarterly repair
+        # report. The script writes its report when it refuses or stops too. Only a step stopped before
+        # the script (the readback), an argv its parser rejects or a crash leaves none; this step then warns.
+        if: always() && steps.fi_revenue_preview.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: financial-revenue-preview-${{ github.run_id }}
+          path: ${{ runner.temp }}/financial-revenue-preview/report.json
+          retention-days: 30
+          if-no-files-found: warn
 
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
