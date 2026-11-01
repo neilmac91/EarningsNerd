@@ -185,7 +185,8 @@ function crossedRungs(own: string, shared = ''): string[] {
  * under the pointer barely shows a hover in dark (light keeps a 1.69:1 step; white is 1.47:1). Such a control steps to
  * white in dark or carries another hover cue: a fill, a border, a ring, a shadow or an underline. Thirteen controls had
  * only the ink step when the dark secondary rose to gray-300. The accent text ink is a faint step too since it rose to
- * #AEDCC2 (D-070): 1.03:1 from the secondary ink, so a control that turns only sage under the pointer carries a cue too.
+ * #AEDCC2 (D-070): 1.03:1 from the secondary ink, so a control that turns only sage under the pointer carries a cue too,
+ * and so does one that rests in the primary ink and turns only sage, a 1.28:1 step.
  *
  * The cue must change something in dark. A `dark:` variant compiles to `:is(.dark *)`, as specific as `:hover` and later
  * in the stylesheet, so a `hover:` cue without `dark:` is overruled in dark by a `dark:` rest or `dark:` hover of the same
@@ -224,9 +225,11 @@ function faintHovers(own: string, shared = ''): string[] {
   const cue = all.some((c) => {
     const property = hovered(c) ? cueProperty(c.bare) : undefined
     if (!property || removed(property)) return false
-    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it. A
-    // decoration colour with no dark resting colour of its own rests in currentColor, the ink, so it steps as the ink does.
-    if (c.variants.includes('dark')) return !(property === 'decoration:colour' && !darkRest(property).length) && !darkRest(property).includes(c.bare)
+    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it. An
+    // underline with no dark resting colour of its own rests in currentColor, the ink, so a hover to currentColor or to
+    // the sage ink itself steps only as the ink does (white or a colour off the ink is a step of its own).
+    if (property === 'decoration:colour' && !darkRest(property).length && /^decoration-(?:current|brand-strong(?:-dark)?)$/.test(c.bare)) return false
+    if (c.variants.includes('dark')) return !darkRest(property).includes(c.bare)
     return !darkRest(property).length && !darkHover(property)
   })
   if (!(restsSecondary || restsPrimary) || cue) return []
@@ -236,7 +239,6 @@ function faintHovers(own: string, shared = ''): string[] {
     return variants.length === 2 && variants.includes('dark') && variants.includes('hover') && faint.test(utility)
   })
 }
-/** Faint hovers a scan of one class list cannot judge, per file and class. Each entry says where its whole recipe is held. */
 /** The count control's kinds, read off the union components/ui/countControl.ts declares, so a kind added there is held. */
 const COUNT_KINDS: CountControlKind[] = (() => {
   const file = path.join(ROOT, 'components/ui/countControl.ts')
@@ -245,6 +247,7 @@ const COUNT_KINDS: CountControlKind[] = (() => {
   const members = alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : alias ? [alias.type] : []
   return members.flatMap((m) => (ts.isLiteralTypeNode(m) && ts.isStringLiteral(m.literal) ? [m.literal.text as CountControlKind] : []))
 })()
+/** Faint hovers a scan of one class list cannot judge, per file and class. Each entry says where its whole recipe is held. */
 const FAINT_HOVER_RESIDUE: Record<string, Record<string, number>> = {
   // The count control's ink, composed with each kind's cue by countControlClass: every kind is held whole below.
   'components/ui/countControl.ts': { 'dark:hover:text-brand-strong-dark': 1 },
@@ -578,6 +581,9 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       // A name in the primary ink that turns only sage steps 1.28:1 in dark; with an underline it is a cue.
       "const name = 'text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark'",
       "const nameLined = 'dark:text-text-primary-dark dark:hover:text-brand-strong-dark dark:hover:underline'",
+      // An underline that steps to white is a step of its own; a primary rest that steps to white is not this rule's.
+      "const whiteLine = 'underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-white'",
+      "const nameWhite = 'dark:text-text-primary-dark dark:hover:text-white'",
       "const split = cx('text-text-secondary-light dark:text-text-secondary-dark', 'dark:hover:!text-text-heading-dark')",
       // A brighter step, or a hover cue that is not ink, is visible in dark.
       "const bright = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white'",
@@ -606,13 +612,13 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '2 dark:hover:text-brand-strong-dark',
       '4 dark:hover:text-brand-strong-dark',
       '6 dark:hover:text-brand-strong-dark',
-      '8 dark:hover:!text-text-heading-dark',
-      '13 dark:hover:!text-text-primary-dark',
-      '14 dark:hover:text-text-primary-dark',
+      '10 dark:hover:!text-text-heading-dark',
+      '15 dark:hover:!text-text-primary-dark',
       '16 dark:hover:text-text-primary-dark',
-      '19 dark:hover:text-text-primary-dark',
-      '20 dark:hover:text-text-primary-dark',
+      '18 dark:hover:text-text-primary-dark',
       '21 dark:hover:text-text-primary-dark',
+      '22 dark:hover:text-text-primary-dark',
+      '23 dark:hover:text-text-primary-dark',
     ])
   })
 

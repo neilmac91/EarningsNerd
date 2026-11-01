@@ -129,7 +129,8 @@ the debug payload panel).
   names take the underline too. Gate: `tests/unit/themePairs.spec.ts`
   ('gives every dark hover a visible step: secondary never turns only primary, or only sage, under
   the pointer', with its planted self-check, every count-control kind as the app composes it, and a
-  primary rest that turns sage; a decoration colour counts only over a resting colour of its own). It reads the resting ink through a same-file string constant in a
+  primary rest that turns sage; an underline's hover to currentColor or to the sage ink counts only over a resting
+  decoration colour of its own, since without one the underline steps as the ink does). It reads the resting ink through a same-file string constant in a
   template slot (`${MUTED}`) too; a resting ink set on an ancestor (a table row) it cannot see.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
