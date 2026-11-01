@@ -50,11 +50,12 @@
  *       files, titles and words, and the date and time they run at, which a script can still read through `Intl`) or
  *       only where this harness and the runtime differ (the runtime blocks clock and randomness reads beyond the three
  *       the harness makes throw, such as `Date()` called without `new`, a `Date` reached through an instance or
- *       `performance.now()`, and the two have different globals and engines, so a change can tell which one it runs
- *       in, by whether `process` or `Temporal` exists, say, and act only in the runtime), and that either calls no
- *       agent of its own (it judges a copy on another copy's votes, say) or reaches one through the lenses' or the
- *       refuters' own call (a helper that builds their prompt and calls `agent`) or through a name built at run time
- *       that the static case does not list (the Function constructor reached as a property, say);
+ *       `performance.now()`; the two have different globals and engines; and each run in the runtime has built-ins of
+ *       its own, where runs here share the host's; so a change can tell which one it runs in, by whether `process` or
+ *       `Temporal` exists or by a mark an earlier run left on `JSON`, say, and act only in the runtime), and that
+ *       either calls no agent of its own (it judges a copy on another copy's votes, say) or reaches one through the
+ *       lenses' or the refuters' own call (a helper that builds their prompt and calls `agent`) or through a name built
+ *       at run time that the static case does not list (the Function constructor reached as a property, say);
  *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none or sets one
  *     outside the three severities, and the highest holding wins whichever refuter gives it: a should-fix raised
  *     to blocker, by one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter
@@ -77,8 +78,8 @@
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
  * to null, and a throwing thunk resolves to null. `budget` has no target, and `workflow` is passed on to `agent` under a
  * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many. As
- * in the runtime, the script runs in strict mode, each run gets its own copy of `args`, parsed from JSON, and
- * `Date.now()`, an argless `new Date()` and `Math.random()` throw.
+ * in the runtime, the script runs in strict mode, each run gets fresh hooks and its own copies of `args` and of each
+ * agent's result, parsed from JSON, and `Date.now()`, an argless `new Date()` and `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -126,44 +127,48 @@ const NO_BUDGET = Object.freeze({ total: null, spent: () => 0, remaining: () => 
 
 function load(): (args: unknown, agent: unknown) => Promise<unknown> {
   const source = readFileSync(SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
-  const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) =>
-    Promise.all(
-      items.map(async (item, index) => {
-        let value: unknown = item
-        try {
-          for (const stage of stages) value = await stage(value, item, index)
-        } catch {
-          return null
-        }
-        return value
-      }),
-    )
-  const parallel = async (thunks: Array<() => Promise<unknown>>) =>
-    Promise.all(thunks.map((thunk) => thunk().catch(() => null)))
-  const log = () => undefined
-  const phase = () => undefined
   // The runtime's clock and randomness throw, as the Workflow reference documents: Date.now(), an argless new Date()
   // and Math.random().
   const throws = (what: string) => (): never => {
     throw new Error(`${what} throws in the Workflow runtime`)
   }
-  const RuntimeDate = new Proxy(Date, {
-    construct: (target, argArray, newTarget) => (argArray.length ? Reflect.construct(target, argArray, newTarget) : throws('new Date()')()),
-    get: (target, key, receiver) => (key === 'now' ? throws('Date.now()') : Reflect.get(target, key, receiver)),
-  })
-  const RuntimeMath = Object.create(Math, { random: { value: throws('Math.random()') } })
   // Strict, as the runtime compiles it: a strict function exposes no `.arguments` property and no stack frame's
   // function. The `arguments` binding still reaches these hooks by position here, though not in the runtime, where the
   // script's top level has none; the static case flags it.
   const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'budget', 'workflow', 'Date', 'Math', `'use strict'; return (async () => {${source}})()`)
+  // The runtime gives each run a context of its own: new hooks, and `args` and each agent's result parsed afresh from
+  // JSON. So nothing a run writes into them, or leaves on a hook, reaches another run or another agent's result. Shared
+  // here, a script that wrote a PR's tier back onto it would turn the cases' batch-tier runs into PR-tier runs, and
+  // one that tagged two lenses' findings in place would fail a case it passes in the runtime.
+  const own = (value: unknown) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)))
   return (args, agent) => {
+    const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) =>
+      Promise.all(
+        items.map(async (item, index) => {
+          let value: unknown = item
+          try {
+            for (const stage of stages) value = await stage(value, item, index)
+          } catch {
+            return null
+          }
+          return value
+        }),
+      )
+    const parallel = async (thunks: Array<() => Promise<unknown>>) =>
+      Promise.all(thunks.map((thunk) => thunk().catch(() => null)))
+    const log = () => undefined
+    const phase = () => undefined
+    const RuntimeDate = new Proxy(Date, {
+      construct: (target, argArray, newTarget) => (argArray.length ? Reflect.construct(target, argArray, newTarget) : throws('new Date()')()),
+      get: (target, key, receiver) => (key === 'now' ? throws('Date.now()') : Reflect.get(target, key, receiver)),
+    })
+    const RuntimeMath = Object.create(Math, { random: { value: throws('Math.random()') } })
+    const stub = agent as (prompt: unknown, o: unknown) => Promise<unknown>
+    const ownAgent = async (prompt: unknown, o: unknown) => own(await stub(prompt, o))
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
     const workflow = (ref: unknown, input?: unknown) =>
-      (agent as (prompt: string, o: { label: string }) => Promise<unknown>)(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
-    // The runtime parses each run's `args` afresh from JSON, so nothing a run writes into them reaches the next run: a
-    // script that wrote a PR's tier back onto it would otherwise turn the cases' batch-tier runs into PR-tier runs.
-    const ownArgs = args === undefined ? undefined : JSON.parse(JSON.stringify(args))
-    return factory(ownArgs, agent, pipeline, parallel, log, phase, NO_BUDGET, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
+      ownAgent(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
+    return factory(own(args), ownAgent, pipeline, parallel, log, phase, NO_BUDGET, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
   }
 }
 
@@ -850,16 +855,18 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
-    const blockerOnly: Findings = { findings: [{ file: 'a.py', title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
+    // A finding whose file is not a string, which the agents' JSON can carry: building its refuter's call reads
+    // `file.split`, so the verification stage throws. (A vote whose fields throw when read cannot reach the script, since
+    // each agent's result arrives parsed from JSON.)
+    const blockerOnly = { findings: [{ file: 7, title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
     const calls: Call[] = []
     const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
       calls.push({ label: o.label, model: o.model, effort: o.effort, prompt, schema: o.schema })
       if (o.label.startsWith('review:')) return blockerOnly
-      // A vote whose fields throw when read: the verification stage throws after its agents returned.
-      return { get refuted(): boolean { throw new Error('unreadable vote') }, reason: 'r' }
+      return { refuted: false, reason: 'r' }
     }
     const [result] = (await load()({ prs: [pr('routine')] }, agent)) as Result[]
-    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(1)
+    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(0)
     expect(titles(result.unverified)).toEqual(['blocker'])
     expect(result.confirmed).toHaveLength(0)
     expect(result.refuted).toHaveLength(0)
