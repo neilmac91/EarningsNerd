@@ -74,17 +74,18 @@
  *   - a refuter that returns nothing leaves the finding unverified, never refuted, and makes the result
  *     `incomplete`, so a should-fix whose required refutation never ran is not clearance;
  *   - a verification that throws keeps its finding (unverified) instead of dropping it. It throws as it can in the
- *     runtime, where `parallel` and `agent` throw once a run has started all the agents it may: the case caps the run at
- *     two agents, so the lens and the first of two blockers' refuters use them and the second blocker's refuters' call
- *     throws;
+ *     runtime, where `parallel`, `pipeline` and `agent` throw once a run has started all the agents it may: the case
+ *     caps the run at two agents, so the lens and one of two blockers' refuters use them and the other blocker's
+ *     refuters' call throws, whichever blocker the script verifies first;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
- * thunk that throws, at once or later, resolves to null; as in the runtime, `parallel` and `agent` themselves throw
- * only once the run has started all the agents it may, which no case but that one reaches. `budget` has no target,
- * and `workflow` is passed on to `agent` under a `workflow:` label, so a guarded call to it runs here as it would in
- * the runtime and counts as one agent too many. As in the runtime, the script runs in strict mode, each run gets fresh
- * hooks and its own copies of `args` and of each agent's result, parsed from JSON, and `Date.now()`, an argless
- * `new Date()` and `Math.random()` throw.
+ * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
+ * function, and `parallel`, `pipeline` and `agent` throw once the run has started all the agents it may (the first two
+ * one timer tick after their call), which no case but that one reaches. `budget` has no target, and `workflow` is
+ * passed on to `agent` under a `workflow:` label, so a guarded call to it runs here as it would in the runtime and
+ * counts as one agent too many. As in the runtime, the script runs in strict mode, each run gets fresh hooks and its
+ * own copies of `args` and of each agent's result, parsed from JSON, and `Date.now()`, an argless `new Date()` and
+ * `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -144,14 +145,22 @@ function load({ agentCap = Infinity }: { agentCap?: number } = {}): (args: unkno
   // one that tagged two lenses' findings in place would fail a case it passes in the runtime.
   const own = (value: unknown) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)))
   return (args, agent) => {
-    // The runtime caps the agents a run may start (at 1000) and checks the cap in `parallel` and `agent`, which throw
-    // once it is reached; the case for a verification that throws sets a cap low enough to reach.
+    // The runtime caps the agents a run may start (at 1000) and checks the cap in `agent` at the call, and in
+    // `parallel` and `pipeline` one timer tick after it, when they are given any work; each throws once the cap is
+    // reached. The case for a verification that throws sets a cap low enough to reach. With no cap the check cannot
+    // fail, so the harness skips the tick and the other cases stay fast.
     let started = 0
     const atCap = () => {
       if (started >= agentCap) throw new Error(`the run has started all ${agentCap} of its agents`)
     }
-    const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) =>
-      Promise.all(
+    const checkCap = async (work: number) => {
+      if (!work || agentCap === Infinity) return
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      atCap()
+    }
+    const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) => {
+      await checkCap(items.length)
+      return Promise.all(
         items.map(async (item, index) => {
           let value: unknown = item
           try {
@@ -162,9 +171,12 @@ function load({ agentCap = Infinity }: { agentCap?: number } = {}): (args: unkno
           return value
         }),
       )
-    // Each thunk settles on its own, as in the runtime: one that throws, synchronously or not, resolves to null.
+    }
+    // Each thunk settles on its own, as in the runtime: one that throws, synchronously or not, resolves to null. As in
+    // the runtime, a thunk that is not a function fails the whole call.
     const parallel = async (thunks: Array<() => Promise<unknown>>) => {
-      if (thunks.length) atCap()
+      if (thunks.some((thunk) => typeof thunk !== 'function')) throw new TypeError('parallel() takes thunks')
+      await checkCap(thunks.length)
       return Promise.all(
         thunks.map(async (thunk) => {
           try {
@@ -880,8 +892,9 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
-    // Two blockers on a run capped at two agents, as the runtime caps a run: the lens and the first blocker's refuter use
-    // the cap, so the second blocker's refuters' `parallel` call throws, and with it that blocker's verification.
+    // Two blockers on a run capped at two agents, as the runtime caps a run: the lens and one blocker's refuter use the
+    // cap, so the other blocker's refuters' call throws, and with it that blocker's verification, whichever blocker the
+    // script verifies first.
     const twoBlockers: Findings = {
       findings: [
         { file: 'a.py', title: 'first blocker', detail: 'd', severity: 'blocker', evidence: 'e' },
@@ -896,8 +909,11 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
     const [result] = (await load({ agentCap: 2 })({ prs: [pr('routine')] }, agent)) as Result[]
     expect(calls.map((c) => c.label.split(':')[0])).toEqual(['review', 'verify'])
-    expect(titles(result.refuted)).toEqual(['first blocker'])
-    expect(titles(result.unverified)).toEqual(['second blocker'])
+    const blockers = ['first blocker', 'second blocker']
+    const served = blockers.filter((title) => calls[1].prompt.includes(title))
+    expect(served, "the refuter's prompt names one blocker").toHaveLength(1)
+    expect(titles(result.refuted)).toEqual(served)
+    expect(titles(result.unverified)).toEqual(blockers.filter((title) => title !== served[0]))
     expect(result.confirmed).toHaveLength(0)
     expect(result.incomplete).toBe(true)
     expect(result.mergeable).toBe(false)
