@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { bonesPlan } from '@/features/analysis/components/TrendChartBones'
 import { BROKEN_BARS, buildBarChart, unitCurrency, type BarChartDef } from '@/features/analysis/lib/charts/barChart'
-import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, SEAM, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, maxChartWidth, MIN_SLOT, minChartWidth, minSlotOf, noteGlyphs, OFF_GLYPH, OFF_ROW, SEAM, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView, type ModelPanel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, perShareMoney, ratioFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
@@ -94,11 +94,20 @@ function expectModelChecks(model: ChartModel, view: ChartView, { chart, notes, w
   // M8: the height depends on the view and mode only, so a card never shifts as its width settles.
   expect(new Set(layouts.map((layout) => layout.height)).size).toBe(1)
   if (view === 'card') expect(layouts[0].height).toBe(320)
-  layouts.forEach((layout, i) => expect(layout.width, 'M6: below the minimum the SVG keeps its width and scrolls in its card').toBe(Math.max(widths[i], minChartWidth(model, view))))
+  // M6: below the minimum the SVG keeps its width and scrolls in its card; above a maximum its model sets (E266, the
+  // Sector peers panel's) it keeps that width at its card's left. Every other model sets none (Infinity), so it fills.
+  layouts.forEach((layout, i) => expect(layout.width, 'M6: the card’s width, between the chart’s minimum and its maximum').toBe(Math.max(Math.min(widths[i], maxChartWidth(model, view)), minChartWidth(model, view))))
   // A7's minimum slot: MIN_SLOT, or more where the chart's widest x tick needs it (minSlotOf).
   const minSlot = minSlotOf(model, view)
   for (const [i, layout] of layouts.entries()) {
     expect(layout.slot, 'A7: a slot never falls below its minimum').toBeGreaterThanOrEqual(minSlot - 1e-9)
+    // E266: a slot never passes the model's maximum, unless its minimum does; a plan narrower than its card stopped there.
+    if (model.maxSlot != null) {
+      expect(layout.slot, 'E266: a slot never passes its maximum, unless its minimum does').toBeLessThanOrEqual(Math.max(model.maxSlot, minSlot) + 1e-9)
+      if (layout.width < widths[i]) expect(layout.slot, 'E266: a plan narrower than its card holds the maximum slot').toBeGreaterThan(model.maxSlot - 1)
+    } else {
+      expect(maxChartWidth(model, view), 'E266: a model that sets no maximum has none').toBe(Infinity)
+    }
     // E251: a slot holds every line of its x tick with 2 px each side, as the strip's cells do, at every width: a ticker
     // is wider than a year.
     for (const period of model.periods) for (const line of period.tick) {
@@ -775,6 +784,61 @@ describe('a gap seam, where a chart’s run breaks (E258)', () => {
     const first = def(false)
     first.categories[0] = { ...first.categories[0], gapBefore: true }
     expect(() => buildBarChart(first)).toThrow('a gap before the first category "CA" breaks no run')
+  })
+})
+
+describe('a maximum slot, past which a chart stops widening (E266)', () => {
+  const KEYS = ['CA', 'CB', 'CC']
+  /** Three companies on a percent axis, the last the chart is about; `maxSlot` as given, and with `gap` the run breaks
+   *  before the last. */
+  const def = (maxSlot?: number, gap = false): BarChartDef => ({
+    id: 'widest', title: 'Widest',
+    categories: KEYS.map((key, i) => ({
+      key, tick: key, long: key, ...(i < 2 ? { context: true as const } : {}), ...(gap && i === 2 ? { gapBefore: true as const } : {}),
+    })),
+    series: { key: 'margin', label: 'Margin', values: [3, 2, 1] },
+    axis: { kind: 'percent' },
+    ...(maxSlot != null ? { maxSlot } : {}),
+  })
+
+  it('lays a card wider than the chart’s widest out at its gutter, its right pad and the maximum a slot, from the card’s left', () => {
+    const model = buildBarChart(def(104))
+    expect(model.maxSlot).toBe(104)
+    for (const width of [502, 800, 1166]) {
+      const layout = layoutChart(model, width, 'card')
+      expect(layout.width, `${width}px`).toBe(layout.gutter + 8 + 3 * 104)
+      expect([layout.plotLeft, layout.slot]).toEqual([layout.gutter, 104])
+      expect(KEYS.map((key) => layout.x(key) - layout.plotLeft)).toEqual([52, 156, 260])
+    }
+    expect(maxChartWidth(model)).toBe(layoutChart(model, 1166, 'card').width)
+  })
+
+  it('counts a gap seam as the minimum does, and fills a card narrower than its widest as before', () => {
+    const broken = layoutChart(buildBarChart(def(104, true)), 1166, 'card')
+    expect(broken.width).toBe(broken.gutter + 8 + (3 + SEAM) * 104)
+    expect(broken.slot).toBe(104)
+    // 105 px over 3.75 slots is 393.75: the width rounds down to the plan's whole pixel, so no slot passes the maximum.
+    const odd = layoutChart(buildBarChart(def(105, true)), 1166, 'card')
+    expect(odd.width).toBe(odd.gutter + 8 + 393)
+    expect(odd.slot).toBeLessThanOrEqual(105)
+    // A card under the widest: the plan is the one a chart with no maximum takes, at the card's width.
+    const [capped, open] = [buildBarChart(def(104)), buildBarChart(def())]
+    for (const width of [250, 342]) expect(plan(capped, layoutChart(capped, width, 'card')), `${width}px`).toEqual(plan(open, layoutChart(open, width, 'card')))
+  })
+
+  it('never narrows a chart past its minimum, which wins over a maximum slot below it', () => {
+    const narrow = buildBarChart(def(20))
+    expect(maxChartWidth(narrow)).toBeLessThan(minChartWidth(narrow))
+    const layout = layoutChart(narrow, 1166, 'card')
+    expect(layout.width).toBe(minChartWidth(narrow))
+    expect(layout.slot).toBeGreaterThanOrEqual(minSlotOf(narrow))
+  })
+
+  it('is none where the model sets none: such a chart fills its card', () => {
+    const model = buildBarChart(def())
+    expect('maxSlot' in model).toBe(false)
+    expect(maxChartWidth(model)).toBe(Infinity)
+    expect(layoutChart(model, 1166, 'card').width).toBe(1166)
   })
 })
 
