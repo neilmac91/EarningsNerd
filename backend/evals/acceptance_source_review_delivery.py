@@ -59,11 +59,13 @@ _LEDGER_CLASSIFIERS = {1: 2, SCHEMA_VERSION: CLASSIFIER_VERSION}
 # server-side model switch, `server_tool_use`, `web_search_tool_result`, unknown kinds) fails closed.
 _CONTENT_BLOCK_TYPES = frozenset({"text", "thinking", "redacted_thinking", "tool_use"})
 # Classifier 3 reasons that break the evidence binding a finish to the identified assistant message:
-# its identity and model, the one finish, the bracket that encloses it, and the text it closes.
-# stream_event_order also covers closure: it requires exactly one message_start and one message_stop.
+# its identity and model, the bracket that encloses it, the stream it is read from, and the text it
+# closes. stream_event_order also covers closure: it requires exactly one message_start and one
+# message_stop. An unreadable line or an untyped stream event could have hidden a second one. An
+# ambiguous or non-string finish needs no prefix: only a string finish is ever observed.
 _BINDING_REASON_PREFIXES = (
-    "stream_schema:message_start", "stream_schema:stop_reason_ambiguous", "stream_schema:message_delta_stop_reason",
-    "stream_schema:stream_event_order", "stream_schema:stream_event_parent", "stream_schema:content_block_lifecycle",
+    "stream_schema:message_start", "stream_schema:stream_event_order", "stream_schema:stream_event_parent",
+    "stream_schema:unparseable_lines", "stream_schema:stream_event_type", "stream_schema:content_block_lifecycle",
     "stream_binding:", "stream_schema:assistant_missing", "stream_schema:message_id", "stream_schema:assistant_model",
     "assistant_model_mismatch", "multiple_assistant_messages",
 )
@@ -680,15 +682,24 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
                     elif index in blocks:
                         block_fault("restarted")
                     else:
+                        # Blocks stream one after another, each at its place in the message: the next
+                        # index, with no other block still open.
+                        if index != len(blocks) or any(block["open"] for block in blocks.values()):
+                            block_fault("sequence")
                         blocks[index] = {"type": block_type, "open": True}
                         if block_type == "text":
                             delta_text_parts.append(initial_text)
                 elif inner_type == "content_block_delta":
                     target = open_block(index)
                     delta = inner.get("delta")
-                    if (target is not None and type(delta) is dict and delta.get("type") == "text_delta"
-                            and type(delta.get("text")) is str):
-                        if target["type"] == "text":
+                    if target is None:
+                        pass
+                    elif type(delta) is not dict or type(delta.get("type")) is not str:
+                        block_fault("delta")
+                    elif delta["type"] == "text_delta":
+                        if type(delta.get("text")) is not str:
+                            block_fault("delta")
+                        elif target["type"] == "text":
                             delta_text_parts.append(delta["text"])
                         else:
                             block_fault("text_delta_block_type")
@@ -1287,7 +1298,9 @@ def _bound_ledger(journal_root: Path, delivery_root: Path, reservation_id: str) 
     if (classification["outcome"] != receipt["outcome"] or classification["reasons"] != receipt["reasons"]
             or classification["output_sha256"] != receipt["output"]["sha256"]
             or classification["classifier_version"] != receipt["classifier_version"]
-            or (receipt["schema_version"] >= 2 and classification["assistant_completion"] != receipt.get("assistant_completion"))):
+            or (receipt["schema_version"] >= 2
+                and (classification["assistant_completion"] != receipt.get("assistant_completion")
+                     or classification["finish_metadata_observed"] != receipt.get("finish_metadata_observed")))):
         raise ValueError("retained delivery receipt disagrees with its retained stream")
     return binding, receipt, files, classification, row
 

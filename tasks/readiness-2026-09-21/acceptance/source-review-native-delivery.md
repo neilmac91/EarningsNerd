@@ -19,9 +19,12 @@ observed the assistant-bound `end_turn`. Its stream carried one `message_start`,
 one `message_stop`, one `content_block_start`/`content_block_stop` pair and 23 `content_block_delta`
 events. That establishes the small-call bracket on that build, not provider ingestion, native-bundle
 capacity or source readiness. Classifier 3 was tightened afterwards, from the two review threads on
-#1035: the content-block lifecycle and the bracket's part in `observed`, below. The tightened rules
-refuse only malformed shapes, which that stream, as its recorded counts describe it, does not have;
-the private stream itself was not re-read for the revision.
+#1035 and its high-tier review: the content-block lifecycle and the bracket's part in `observed`,
+below. Its outcome, reasons and `assistant_completion` stay as they were for every well-formed
+stream. The probe's recorded counts are consistent with a well-formed one, but counts cannot show its
+block indices or delta types, and the private stream was not re-read here. So its retained ledger is
+re-validated at the merged head (`validate_delivery_binding`, offline) before it is relied on again:
+F21 in `tasks/todo.md`. A disagreement there refuses the ledger; it never re-labels it.
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
 [execution-custody slice](source-review-execution.md) left at step 3: `reserve_attempt` retains the
@@ -126,8 +129,10 @@ the last non-ping stream event (`stream_schema:stream_event_order`); no `parent_
 (`stream_schema:stream_event_parent`), no untyped stream event (`stream_schema:stream_event_type`),
 no `error` event (`stream_error_event`); every content block opened by a `content_block_start` at an
 integer index, its deltas and its `content_block_stop` naming that index, and closed before
-`message_delta` (`stream_schema:content_block_lifecycle:<fault>`, the fault one of `index`,
-`unopened`, `closed`, `restarted`, `text_delta_block_type`, `open_at_message_delta` and `unclosed`);
+`message_delta`, one after another at the next index with no other block still open
+(`stream_schema:content_block_lifecycle:<fault>`, the fault one of `index`, `unopened`, `closed`,
+`restarted`, `sequence`, `delta` for a delta that is not an object with a string `type`, or a
+`text_delta` without string `text`, `text_delta_block_type`, `open_at_message_delta` and `unclosed`);
 the text of the open `text` blocks (initial text plus `text_delta` text, in arrival order) equal to
 the assistant text (`stream_binding:text_mismatch`), so a text delta outside an opened `text` block
 never counts toward it; every content block,
@@ -140,7 +145,9 @@ The receipt records the result as `assistant_completion` (`source`, `message_id`
 finish, bracket or text binding reason was recorded: absent, ambiguous or mismatched assistant
 identity/model fields; a broken bracket order or closure (`stream_schema:stream_event_order`, which
 also requires exactly one `message_start` and one `message_stop`); a stream event with a parent tool
-use (`stream_schema:stream_event_parent`); or a content-block lifecycle fault. The finish carries no
+use (`stream_schema:stream_event_parent`); an unreadable line or an untyped stream event, either of
+which could hide a second finish (`stream_schema:unparseable_lines`, `stream_schema:stream_event_type`);
+or a content-block lifecycle fault. The finish carries no
 message id of its own, so the bracket around it is its only link to the assistant message. A bound
 `max_tokens` finish stays observed while the outcome is `truncated`. The result event's `stop_reason` is recorded but never used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
 `stream_schema:message_start_count:0` and `stop_reason_unobserved`;
@@ -157,8 +164,8 @@ re-derived by the classifier its schema pairs with (schema 1 ↔ classifier 2, s
 3, integers only); any other pairing is refused as an unsupported receipt, and so are classifier 1
 receipts (previously refused later, in the re-derivation). The receipt must also match the
 `request.json` published before the spawn (kind, schema, argv), and for schema 2 the
-`assistant_completion` record is part of the receipt/stream agreement, so neither field can be edited
-on its own. This is consistency validation, not authentication against an editor who controls
+`assistant_completion` record and `finish_metadata_observed` are part of the receipt/stream agreement,
+so none of these fields can be edited on its own. This is consistency validation, not authentication against an editor who controls
 all retained files: a bracket-less ledger rewritten consistently as schema 1 cannot be
 distinguished from a legitimate schema 1 dispatch because the journal does not pin argv.
 Historical ledger bytes must remain sealed; compatibility does not authorize rewriting them.
