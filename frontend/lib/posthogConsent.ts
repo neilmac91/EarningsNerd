@@ -57,10 +57,12 @@ export function findPostHogQueues(client: PostHog): PostHogQueues | undefined {
 
 /**
  * posthog-js 1.440.0 runs before_send at capture, not when queued/retried requests leave. Its RetryQueue calls
- * sendRequest directly, bypassing client._send_request. Every request leaves through client._send_request (a name
- * every build keeps) or the retry queue's retriableRequest (batches, unbatched captures and retries alike), so the
- * guard wraps those two and finds the queue by its shape, never by a private name the build renames. It throws a
- * PostHogConsentGuardError when it cannot hold; applyPostHogConsent then turns the client off (failPostHogClosed).
+ * sendRequest directly, bypassing client._send_request. Every request that carries data leaves through
+ * client._send_request (a name every build keeps) or the retry queue's retriableRequest (batches, unbatched captures
+ * and retries alike), so the guard wraps those two and finds the queue by its shape, never by a private name the build
+ * renames. The scripts posthog-js loads (its remote configuration and the extensions that configuration enables) go
+ * around both and carry no event data. The guard throws a PostHogConsentGuardError when it cannot hold;
+ * applyPostHogConsent then turns the client off (failPostHogClosed).
  * Gated against the real builds by tests/unit/posthogConsentGuard.spec.tsx and tests/e2e/telemetry-network.spec.ts,
  * and every name it reaches by tests/unit/posthogShippedMembers.spec.ts; rerun them on SDK upgrades. The generation
  * is request metadata, never event data/headers. Late failures retain it when the SDK copies request options for
@@ -127,13 +129,13 @@ export function installPostHogConsentGuard(client: PostHog): void {
   attach()
 }
 
-/** Whether this client's guard has failed: it then sends nothing for the rest of the page (failPostHogClosed). */
+/** Whether this client's guard has failed: it is then off for the rest of the page (failPostHogClosed). */
 export const postHogGuardFailed = (client: PostHog) => failed.has(client)
 
 /**
  * posthog-js keeps its consent in a store every tab on the origin shares, and reset() clears it. A failed client keeps
  * that store at the visitor's choice, as every healthy tab does, so it never switches another tab off or leaves the
- * store cleared. It never reads the store itself: its own is_capturing stays false.
+ * store cleared. Its own capturing never depends on the store: its is_capturing stays false.
  */
 const mirrorChoice = (client: PostHog) => {
   if (!client.__loaded) return
@@ -147,19 +149,30 @@ const mirrorChoice = (client: PostHog) => {
 
 /**
  * Turns this client off for the rest of the page and reports why, once. Without its guard a withdrawal could not stop
- * queued or retried requests, so a failed client sends nothing after the failure, held per client on four layers:
- * - its own is_capturing reads false (a public name every build keeps), so posthog-js captures nothing and stores
- *   nothing for it;
+ * queued or retried requests, so after the failure nothing more leaves through either wrapper and the client loads no
+ * further script. That holds per client, in three layers:
+ * - its own is_capturing reads false (a public name every build keeps), so posthog-js captures nothing for it;
  * - posthogPrivacy's before_send drops any event that still arrives;
- * - the guard's wrappers drop every request, flags and remote configuration included;
- * - posthog-js's own opt-out is not relied on, since every tab shares that store (mirrorChoice).
- * A request already on the wire is not recalled. Nor does the failure pass silently: the report is a Sentry issue.
- * #1552's guard threw before init and left only a console line, which Sentry kept as a log, raising no issue.
+ * - the guard's wrappers drop every request, flags and remote configuration included, and the client's script loading
+ *   is switched off, so its remote configuration falls back from a script tag to a request the wrappers drop.
+ * posthog-js's own opt-out is not relied on, since every tab shares that store (mirrorChoice). posthog-js still writes
+ * the client's own storage on identity and session changes; lib/analytics.ts identifies only while analytics is
+ * allowed. A request already on the wire is not recalled, and a script loaded before the failure keeps running. Nor
+ * does the failure pass silently: the report is a Sentry issue. #1552's guard threw before init and left only a
+ * console line, which Sentry kept as a log, raising no issue.
  */
 export function failPostHogClosed(client: PostHog, error: unknown): void {
   if (failed.has(client)) return
   failed.add(client)
   client.is_capturing = () => false
+  try {
+    // A public option, read each time posthog-js loads a script. The provider never initializes a failed client, so
+    // one that has not loaded has nothing to load.
+    if (client.__loaded) client.set_config({ disable_external_dependency_loading: true })
+  } catch {
+    // set_config sets the option before it updates the SDK's persistence, which can throw; the other layers hold
+    // either way.
+  }
   console.error('PostHog: analytics is off on this page', error)
   try {
     Sentry.captureException(error, { tags: { posthog_js: String(client.version) } })

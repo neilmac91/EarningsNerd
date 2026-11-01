@@ -30,42 +30,51 @@ when the shape is not found exactly once. A private name the build does keep (po
 `__request_queue`, `__loaded`, `_instance`) may be used, on two conditions: a test on the shipped build pins it, and
 the code fails closed when it is missing.
 
-(b) **Test the code on builds that rename members the way the bundled one does.** That means the entry the app
+(b) **Test the code on the builds the app and the test runner load, and on no other.** That means the entry the app
 bundles, read from the package's own manifest as a bundler reads it (`module`, so long as there is no `exports` or
-`browser` field), and the package entry the test runner resolves (`main` under Vitest). Never test on a CDN or `full`
-build, which keeps the names. A stand-in client mirrors the shipped build: it has no member the build renames.
+`browser` field), and the package entry the test runner resolves (`main` under Vitest). Which other builds keep the
+renamed names changes between releases: in posthog-js 1.440.0 every `no-external` build and the ES5 build keep them,
+while the CDN's `array.js` and `array.full.js` rename them. A stand-in client mirrors the shipped build: it has no
+member the build renames.
 
-(c) **Fail closed, per client, and loudly.** A client the guard cannot hold sends nothing for the rest of the page.
-That is enforced on the client itself, in three layers:
-- its own `is_capturing` reads false, so the SDK neither captures nor stores anything for it;
+(c) **Fail closed, per client, and loudly.** After the failure, nothing more leaves a client the guard cannot hold
+through the paths the guard wraps, and the client loads no further script. That is enforced on the client itself, in
+three layers:
+- its own `is_capturing` reads false, so the SDK captures nothing for it;
 - its `before_send` drops any event that still arrives;
-- the guard's wrappers drop every request, flags and remote configuration included.
+- the guard's wrappers drop every request, flags and remote configuration included, and its script loading is
+  switched off: posthog-js loads its remote configuration and extensions through script tags that no wrapper sees.
 It is never enforced through the SDK's consent store. Every tab shares that store, so another tab's opt-in would
 revive the failed client, and an opt-out the visitor did not choose would switch healthy tabs off. The failed client
 keeps that store at the visitor's choice, as every healthy tab does, so a logout's `reset()` cannot leave it cleared.
 The failure is reported to Sentry as an issue, once per page. The guard is installed only where it is needed (for
-PostHog, after an allow), so a broken guard cannot report from every page view.
+PostHog, after an allow), so a broken guard cannot report from every page view. Capturing nothing is not storing
+nothing: posthog-js writes an identity and session data to the client's own storage while it captures nothing, so
+the app identifies an account only while analytics is allowed.
 
 **Gate.** Partly gated, for posthog-js.
 
 - `frontend/tests/unit/posthogConsentGuard.spec.tsx` runs the guard on real clients from the package entry and the
   `module` build. It plants each failure the guard must survive (queues out of sight, a second queue of either kind,
-  no `__request_queue`), with another tab opted in, flag requests on and a credential URL, and through a logout's
-  `reset()`. It also runs the provider on real clients, before an allow and with each of its failure paths.
-- `frontend/tests/e2e/telemetry-network.spec.ts` runs the transport in Chromium on the `module` build, and fails any
-  test after which a page reported a guard failure.
+  no `__request_queue`), with another tab opted in, flag requests and script loading on and a credential URL, and
+  through a logout's `reset()`. It also runs the provider on real clients, before an allow and with each of its
+  failure paths, and pins that an account is identified only while analytics is allowed.
+- `frontend/tests/e2e/telemetry-network.spec.ts` runs the transport in Chromium on the `module` build. It fails any
+  test after which a page reported a guard failure, or that made a request the fixture does not answer.
 - `frontend/tests/unit/posthogShippedMembers.spec.ts` reads every file under `frontend/` that names posthog-js, and
   fails on a file kind it cannot read. It fails an underscore member that the `module` build lacks, wherever such a
   file reaches it: in code, in a stand-in (an object literal, a class or a parameter property), in a JSX attribute,
-  as a bare string, or in a script held in a string. It also fails a test that loads another posthog-js build (rule
-  (b)), and a manifest field a bundler would read before `module`.
+  as a bare string, or in a script held in a string. It also fails a test that names another posthog-js build (rule
+  (b)), by its file name or a package subpath, and a manifest field a bundler would read before `module`.
 
-Review-checked, each planted as a gap in the scan:
+Review-checked. The scan plants each of these as a stated gap:
 
-- a name assembled at run time;
+- a name or a build path assembled at run time;
+- code held more than two strings deep;
 - a file that handles a PostHog client without naming posthog-js;
-- a kept name read off the wrong object (a name passes when the build has it anywhere);
-- another SDK's internals, and stand-ins for them.
+- a kept name read off the wrong object (a name passes when the build has it anywhere).
+
+The scan does not read another SDK's internals, or stand-ins for them, at all.
 
 **Evidence.** On posthog-js 1.438.12, 1.438.19 and 1.440.0, `dist/module.mjs` and `dist/main.js` contain no
 `_send_retriable_request`, `_retryQueue` or `_requestQueue`. `dist/array.full.no-external.js` keeps them (4, 7 and 6

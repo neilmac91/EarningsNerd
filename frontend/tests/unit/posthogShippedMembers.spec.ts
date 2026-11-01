@@ -20,17 +20,23 @@ import { describe, expect, it } from 'vitest'
  * - sets as a JSX attribute;
  * - passes as a bare string;
  * - holds as code in a string that another context runs (a page script, a Function body).
- * Type positions (indexed types, interfaces, ambient declarations, .d.ts files) and comments are not code. A JSON file
- * runs no code; any other kind of file that names posthog-js fails here until the gate learns to read it.
- * NOT_POSTHOG_MEMBERS lists the underscore names such files use that are not posthog-js members, each with its reason.
+ * Type positions (indexed types, interfaces, ambient declarations and fields, .d.ts files) and comments are not code. A
+ * JSON file runs no code; any other kind of file that names posthog-js fails here until the gate learns to read it.
+ * Prose in a string that names a member by its dotted path (`'client._retryQueue is renamed'`) reads as held code and
+ * fails: reword it, never exempt the name. NOT_POSTHOG_MEMBERS lists the underscore names such files use that are not
+ * posthog-js members, each with its reason.
+ *
+ * Two more checks run here. The manifest has no field a bundler reads before `module`. And no string names a posthog-js
+ * build other than the manifest's own entries, by its file name (alone or in a path) or by a package subpath other
+ * than `package.json` and `react`. Which builds keep the names the entries rename changes between releases: in 1.440.0
+ * every `no-external` build and the ES5 build keep them.
  *
  * Out of reach, as the planted gaps below record:
- * - a name assembled at run time;
+ * - a name or a build path assembled at run time;
+ * - code held more than two strings deep;
  * - a file that handles a PostHog client without naming posthog-js;
- * - a kept name read off the wrong object, since a name passes when the build has it anywhere (only the queues carry
- *   `_instance`).
- * Two more checks run here: the manifest has no field a bundler reads before `module`, and no string names a
- * posthog-js build other than the manifest's own entries (a CDN or `full` build keeps the names the npm builds rename).
+ * - a kept name read off the wrong object, since a name passes when the build has it anywhere (`client._instance`
+ *   passes, though the client's helpers carry `_instance` and the client does not).
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -49,8 +55,12 @@ const CODE = /\.(?:[mc]?[jt]sx?)$/
 const TYPES_ONLY = /\.d\.[mc]?ts$/
 const NOT_CODE = /\.json$/
 const UNDERSCORE = /^_[\w$]*$/
-const BUILD_FILE = /(?:^|[/\\])((?:array|module|main)(?:\.[\w-]+)*\.(?:m?js|cjs))$/
+const BUILD_FILE = /(?:^|[/\\])((?:array|module|main)(?:\.[\w-]+)*\.(?:m?js|cjs))(?:\?[\w=&-]*)?$/
 const ENTRIES = new Set([path.basename(manifest.module), path.basename(manifest.main)])
+// A package subpath, such as `posthog-js/no-external` (its own build) or `posthog-js/dist/...`. The manifest, the React
+// wrapper (which imports the package entry) and the entries' own paths are allowed.
+const SUBPATH = /(?<![\w@.-])posthog-js\/([\w.-]+(?:\/[\w.-]+)*)/g
+const SUBPATHS_ALLOWED = new Set(['package.json', 'react', ...[manifest.module, manifest.main].map(entry => path.posix.normalize(entry))])
 const escape = (name: string) => name.replace(/[$]/g, '\\$&')
 const inBuild = (name: string) => new RegExp(`(?<![\\w$])${escape(name)}(?![\\w$])`).test(shipped)
 const scansFile = (source: string) => source.includes('posthog-js')
@@ -59,7 +69,7 @@ const PROPERTY_MODIFIERS = new Set([ts.SyntaxKind.PublicKeyword, ts.SyntaxKind.P
 const ambient = (node: ts.Node) => ts.canHaveModifiers(node) && Boolean(ts.getModifiers(node)?.some(m => m.kind === ts.SyntaxKind.DeclareKeyword))
 
 function inType(node: ts.Node): boolean {
-  for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+  for (let current: ts.Node | undefined = node; current; current = current.parent) {
     // A class's `extends` clause holds an expression the class runs, though TypeScript files it as a type node.
     if (ts.isExpressionWithTypeArguments(current) && ts.isHeritageClause(current.parent)
       && current.parent.token === ts.SyntaxKind.ExtendsKeyword && ts.isClassLike(current.parent.parent)) return false
@@ -130,12 +140,16 @@ const unknownToBuild = (source: string, fileName: string) =>
     .filter(({ name }) => !(name in NOT_POSTHOG_MEMBERS) && !inBuild(name))
     .map(({ name, line }) => `${fileName}:${line}: ${name}`)
 
-/** Every posthog-js build a string names, other than the manifest's own entries. */
+/**
+ * Every posthog-js build a string names, other than the manifest's own entries. Only files that name posthog-js are
+ * read, so a build's file name counts on its own, as a path segment does in `path.join(packageRoot, 'dist', name)`.
+ */
 function otherBuilds(source: string, fileName: string): string[] {
   const named: string[] = []
   stringsOf(parse(source, fileName), (text) => {
     const build = BUILD_FILE.exec(text)?.[1]
-    if (build && /posthog/.test(text) && !ENTRIES.has(build)) named.push(`${fileName}: ${text}`)
+    const subpaths = Array.from(text.matchAll(SUBPATH), match => match[1]).filter(subpath => !SUBPATHS_ALLOWED.has(subpath))
+    if ((build && !ENTRIES.has(build)) || subpaths.length) named.push(`${fileName}: ${text}`)
   })
   return named
 }
@@ -209,6 +223,7 @@ describe('posthog-js members the shipped build has', () => {
     ['a page script in a template', 'await page.addScriptTag({ content: `window.posthog._retryQueue.unload(${delay})` })'],
     ['a Function body', "new Function('client', 'return client._retryQueue')"],
     ['a JSON stand-in', 'JSON.parse(\'{"_retryQueue": {}}\')'],
+    ['prose naming a member by its dotted path, read as held code', "throw new Error('client._retryQueue is renamed by the build')"],
   ]
   it.each(PLANTED_BREAKS)('flags %s', (_form, planted, fileName = 'planted.ts') => {
     expect(unknownToBuild(planted, fileName)).toHaveLength(1)
@@ -222,6 +237,7 @@ describe('posthog-js members the shipped build has', () => {
     ['a type position', "type Retry = PostHog['_retryQueue']"],
     ['an interface key', "interface Hidden { '_retryQueue': unknown }"],
     ['an ambient class', "declare class Hidden { '_retryQueue': unknown }"],
+    ['an ambient field', 'class Stand { declare _retryQueue: unknown }'],
     ['a comment', '// client._retryQueue is renamed by the build'],
     ['a sentence in a string', "const note = 'the build renames _retryQueue, so the guard finds it by shape'"],
     ['a public name', 'client.capture("event")'],
@@ -231,21 +247,36 @@ describe('posthog-js members the shipped build has', () => {
   })
 
   it.each([
-    ['a CDN array build', "readFileSync('node_modules/posthog-js/dist/array.full.no-external.js')"],
-    ['a full module build', "import(pathToFileURL('node_modules/posthog-js/dist/module.full.js').href)"],
-  ])('flags a test that loads %s, which keeps the names the npm builds rename', (_build, planted) => {
+    ['#1552\'s CDN build, which keeps the names', "readFileSync('node_modules/posthog-js/dist/array.full.no-external.js')"],
+    ['a build named in its own path segment', "page.addScriptTag({ path: path.join(POSTHOG_PACKAGE, 'dist', 'array.full.no-external.js') })"],
+    ['a CommonJS build', "require(path.join(packageRoot, 'dist', 'module.no-external.cjs'))"],
+    ['a build read raw, by a query', "path.join(POSTHOG_PACKAGE, 'dist', 'array.full.no-external.js?raw')"],
+    ['a build in a template on the package path', 'readFileSync(`${POSTHOG_PACKAGE}/dist/array.full.no-external.js`)'],
+    ['a build that renames the names, but is not an entry', "import(pathToFileURL('node_modules/posthog-js/dist/module.full.js').href)"],
+    ['a subpath entry', "await import('posthog-js/no-external')"],
+    ['a nested subpath entry', "await import('posthog-js/full/no-external')"],
+    ['a build by its extensionless subpath', "await import('posthog-js/dist/module.no-external')"],
+  ])('flags a test that loads %s', (_build, planted) => {
     expect(otherBuilds(planted, 'planted.ts')).toHaveLength(1)
   })
   it.each([
     ['the manifest module entry', "path.join(packageRoot, 'dist/module.mjs')"],
+    ['the module entry by subpath', "require.resolve('posthog-js/dist/module.mjs')"],
     ['an extension script', "path.join(POSTHOG_PACKAGE, 'dist', 'lazy-recorder.js')"],
+    ['the package entry', "import posthog from 'posthog-js'"],
+    ['the manifest', "require.resolve('posthog-js/package.json')"],
+    ['the React wrapper', "import { PostHogProvider } from 'posthog-js/react'"],
   ])('passes %s', (_build, planted) => {
     expect(otherBuilds(planted, 'planted.ts')).toEqual([])
   })
 
   // Planted gaps, out of the gate's reach by design (header).
-  it('does not see a name assembled at run time (a stated gap)', () => {
+  it('does not see a name or a build path assembled at run time (a stated gap)', () => {
     expect(unknownToBuild('client[`_${part}Queue`]', 'planted.ts')).toEqual([])
+    expect(otherBuilds("path.join(POSTHOG_PACKAGE, 'dist', `array.${flavour}.js`)", 'planted.ts')).toEqual([])
+  })
+  it('does not read code held more than two strings deep (a stated gap)', () => {
+    expect(unknownToBuild('page.evaluate(\'eval("Function(`return client._retryQueue`)")\')', 'planted.ts')).toEqual([])
   })
   it('does not read a file that handles a client without naming posthog-js (a stated gap)', () => {
     expect(scansFile('export const stand = { _send_retriable_request() {} }')).toBe(false)

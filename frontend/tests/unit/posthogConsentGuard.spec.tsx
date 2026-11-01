@@ -14,9 +14,12 @@ import type { PostHogQueues } from '@/lib/posthogConsent'
  * members. The guard once read `_send_retriable_request` and `_retryQueue` by name, so it threw "Cannot read
  * properties of undefined (reading 'bind')" before posthog.init on every page and production PostHog never started.
  * Each failure the guard must survive is planted on a real client at `loaded`, as a later build might ship it, with
- * its flag requests on and its persistence in browser storage. The client must then send nothing for the rest of the
- * page, store no credential URL, report once, and keep the consent posthog-js stores for every tab at the visitor's
- * choice. The provider runs on real clients too, with each of its failure paths planted.
+ * its flag requests on, its persistence in browser storage and its script loading on, as the app runs it. Nothing the
+ * client then captures or requests may leave, and it may load no script. Those calls must store no credential URL; the
+ * client must report once, and keep the consent posthog-js stores for every tab at the visitor's choice. The provider
+ * runs on real clients too, with each of its failure paths planted, and an account is identified only while analytics
+ * is allowed. SDK_OPTIONS turns script loading off for the other clients: jsdom loads no script, so their remote
+ * configuration arrives only through the request that option falls back to.
  *
  * posthog-js binds fetch and XMLHttpRequest when its module first runs, so both are replaced before any import: every
  * request the SDK makes is answered by the stand-in fetch, and without `withCredentials` the SDK keeps no XHR
@@ -65,6 +68,9 @@ const INGEST = 'https://ingest.invalid'
 const CANARY = 'synthetic-reset-canary'
 const stored = () => JSON.stringify(Array.from({ length: localStorage.length }, (_, i) => [localStorage.key(i), localStorage.getItem(localStorage.key(i)!)]))
 const sent = (event: string) => wire.calls.filter(call => call.events.includes(event)).length
+/** The scripts posthog-js has added to the page from the ingest host. jsdom never fetches them. */
+const postHogScripts = () => Array.from(document.querySelectorAll('script[src]'), script => script.getAttribute('src')!)
+  .filter(src => src.startsWith(INGEST))
 
 // The package's `module` entry, read from its package.json as a bundler reads it.
 const packageRoot = path.dirname(createRequire(import.meta.url).resolve('posthog-js/package.json'))
@@ -97,6 +103,8 @@ afterEach(async () => {
   while (unsubscribes.length) unsubscribes.pop()!()
   vi.useRealTimers()
   for (const client of clients.splice(0)) await client.shutdown()
+  for (const script of Array.from(document.querySelectorAll('script'))) script.remove()
+  window.history.replaceState(null, '', '/') // A test that stops at a credential URL leaves none for the next.
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
@@ -227,10 +235,15 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     // Another tab opts in through posthog-js's consent store, which every tab on the origin shares.
     const tab = otherTab(sdk)
     tab.opt_in_capturing({ captureEventName: false })
-    const { client, guard, applied, capturingAtLoad } = await start(sdk, plant, { advanced_disable_flags: false, persistence: 'localStorage' })
+    const { client, guard, applied, capturingAtLoad } = await start(sdk, plant, {
+      advanced_disable_flags: false, persistence: 'localStorage', disable_external_dependency_loading: false,
+    })
     expect(capturingAtLoad).toBe(true) // The shared opt-in reached this client: only its own failed state can stop it.
     expect(applied).toBe(false)
     expect(client.is_capturing()).toBe(false)
+    // posthog-js loads its remote configuration through a script tag right after `loaded`, past both wrappers. The
+    // failed client loads none, so that configuration falls back to a request the wrappers drop (checked below).
+    expect(postHogScripts()).toEqual([])
 
     // Nothing the failed client captures or requests leaves, sent at once, batched, as flags after an identify or on
     // pagehide through its unguarded retry queue; and on a credential URL it stores nothing it sees.
@@ -258,10 +271,51 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     expect(sentry.captureException.mock.calls[0][0]).toBeInstanceOf(guard.PostHogConsentGuardError)
     expect(sentry.captureException.mock.calls[0][1]).toEqual({ tags: { posthog_js: client.version } })
   })
+
+  it('keeps every tab\'s consent at the choice when a logout\'s reset meets the guard\'s first failure', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const choose = await choices()
+    choose(true)
+    const sdk = await load()
+    const tab = otherTab(sdk)
+    tab.opt_in_capturing({ captureEventName: false })
+    const { client, guard, applied } = await start(sdk)
+    expect(applied).toBe(true)
+    // The guard held until now. reset() clears the store every tab shares, and the application that follows it (as
+    // lib/analytics.ts runs one) is the first to find the queues gone, so it alone can put the store back.
+    const { retry, batch } = guard.findPostHogQueues(client)!
+    hide(client, retry, batch)
+    client.reset()
+    expect(tab.is_capturing()).toBe(false)
+    expect(guard.applyPostHogConsent(client)).toBe(false)
+    expect([tab.is_capturing(), client.is_capturing()]).toEqual([true, false])
+    expect(sentry.captureException).toHaveBeenCalledTimes(1)
+  })
+
+  it('never throws for a failed client, though the SDK throws while it stores the choice', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const choose = await choices()
+    choose(true)
+    const { client, guard, applied } = await start(await load(), (planted, { retry, batch }) => hide(planted, retry, batch))
+    expect(applied).toBe(false)
+    vi.spyOn(client, 'opt_in_capturing').mockImplementation(() => { throw new Error('planted: consent storage is unavailable') })
+    // lib/analytics.ts applies the choice after a logout's reset with nothing around it to catch a throw.
+    expect(guard.applyPostHogConsent(client)).toBe(false)
+    expect(client.opt_in_capturing).toHaveBeenCalled()
+  })
 })
 
 describe('before_send', () => {
-  it('cleans stored attribution even for an event it drops', async () => {
+  // Each reason it drops an event for: a refusal the shared store has not caught up with, a failed guard, a snapshot.
+  const DROPS: Array<[string, string, (choose: (analytics: boolean) => void, client: PostHog) => Promise<void>]> = [
+    ['an event after a refusal', 'refused-event', async choose => choose(false)],
+    ['an event of a client whose guard failed', 'failed-client-event', async (_choose, client) => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      ;(await import('@/lib/posthogConsent')).failPostHogClosed(client, new Error('planted: guard failure'))
+    }],
+    ['a replay snapshot', '$snapshot', async () => undefined],
+  ]
+  it.each(DROPS)('cleans stored attribution even for %s, which it drops', async (_drop, event, plant) => {
     const choose = await choices()
     choose(true)
     const { PostHog } = await import('posthog-js')
@@ -269,9 +323,10 @@ describe('before_send', () => {
     const client = new PostHog()
     clients.push(client)
     client.init(KEY, { ...SDK_OPTIONS, autocapture: false, capture_pageview: false, capture_pageleave: false })
+    await plant(choose, client)
     // posthog-js stores the raw page URL as session attribution before it calls before_send.
     client.register({ $client_session_props: { props: { u: `https://example.test/reset-password?token=${CANARY}` } } })
-    expect(privacy.beforeSendPostHog(client, { event: '$snapshot', properties: {} } as unknown as CaptureResult)).toBeNull()
+    expect(privacy.beforeSendPostHog(client, { event, properties: {} } as unknown as CaptureResult)).toBeNull()
     expect(JSON.stringify(client.persistence?.props)).not.toContain(CANARY)
   })
 
@@ -319,6 +374,9 @@ describe('the provider on the real SDK', () => {
 
     act(() => choose(true))
     expect([posthog.__loaded, posthog.is_capturing(), ready()]).toEqual([true, true, 'true'])
+    // The app leaves posthog-js's script loading on, so a healthy client asks for its remote configuration as a script
+    // (the failed clients below must not).
+    expect(postHogScripts()).toEqual([`${INGEST}/array/${KEY}/config.js`])
     posthog.capture('provider-accepted', {}, { send_instantly: true })
     await vi.waitFor(() => expect(sent('provider-accepted')).toBe(1))
 
@@ -327,6 +385,16 @@ describe('the provider on the real SDK', () => {
     posthog.capture('after-refusal', {}, { send_instantly: true })
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(sent('after-refusal')).toBe(0)
+
+    // posthog-js stores an identity in its cookie and local storage even while capturing is off, so an account is
+    // identified only while analytics is allowed (lib/analytics.ts), whichever page asks.
+    const { analytics } = await import('@/lib/analytics')
+    const holds = (id: string) => (stored() + decodeURIComponent(document.cookie)).includes(id)
+    analytics.identify('synthetic-account-identify-check')
+    expect(holds('synthetic-account-identify-check')).toBe(false)
+    act(() => choose(true))
+    analytics.identify('synthetic-account-identify-check')
+    expect(holds('synthetic-account-identify-check')).toBe(true)
     expect(sentry.captureException).not.toHaveBeenCalled()
   })
 })
@@ -381,6 +449,7 @@ describe('the provider when PostHog cannot run under its guard', () => {
     untouchedBeforeConsent(client, choose)
     act(() => choose(true))
     expect([client.__loaded, ready()]).toEqual([true, 'false'])
+    expect(postHogScripts()).toEqual([]) // No remote configuration script, unlike the healthy provider above.
     // GlobalErrorBoundary's "Try again" mounts the provider again over the loaded client. Seeded not ready, the page-view
     // tracker never mounts, not even for the first commit.
     const capture = vi.spyOn(client, 'capture')
@@ -408,6 +477,7 @@ describe('the provider when PostHog cannot run under its guard', () => {
     untouchedBeforeConsent(client, choose)
     act(() => choose(true))
     expect([client.__loaded, ready()]).toEqual([true, 'false'])
+    expect(postHogScripts()).toEqual([])
     // Off, not only reported: later choices never opt it in, and nothing it captures leaves.
     act(() => choose(false))
     act(() => choose(true))

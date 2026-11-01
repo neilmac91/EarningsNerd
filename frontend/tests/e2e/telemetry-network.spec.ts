@@ -13,7 +13,8 @@ import type { analytics } from '../../lib/analytics'
 // A browser transport test, independent of Next/backend and production environment variables.
 // Every request is fulfilled locally, including the SDK's config, flags, events and replay.
 // It runs the package's `module` entry, the build Next bundles into the app. That build renames the client's private
-// members, as `main` does; the CDN-style array builds keep them, so a guard that read them passed here and threw in
+// members, as `main` does. Other builds keep them (in posthog-js 1.440.0 every `no-external` build, among them the
+// CDN-style `array.full.no-external.js` this spec once loaded), so a guard that read them passed here and threw in
 // production before PostHog could start.
 const POSTHOG_PACKAGE = path.resolve(__dirname, '../../node_modules/posthog-js')
 const POSTHOG_MODULE = path.join(POSTHOG_PACKAGE, (JSON.parse(readFileSync(path.join(POSTHOG_PACKAGE, 'package.json'), 'utf8')) as { module: string }).module)
@@ -71,8 +72,12 @@ function helperScript(): string {
 
 // Every page a test opens through fixture(); test.afterEach reads each one's Sentry reports.
 const fixturePages: Page[] = []
-// SDK extension scripts the package could not serve (route above); test.afterEach fails on any.
-const unservedAssets: string[] = []
+// Requests the fixture does not answer (route above), on the ingest host or any other but the site's; test.afterEach
+// fails on any.
+const unknownRequests: string[] = []
+// What the fixture answers on the ingest host: events, flags, the recorder's endpoint its configuration names, and the
+// remote configuration, asked for first as a script (whose JSON body the browser will not run) and then as JSON.
+const KNOWN_INGEST_PATHS = new RegExp(`^/(?:e|flags|s)/$|^/array/${PROJECT_KEY}/config(?:\\.js)?$`)
 
 async function fixture(page: Page, initialPath: string, batching = false) {
   fixturePages.push(page)
@@ -94,18 +99,22 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     if (url.origin === SITE && request.isNavigationRequest()) {
       return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Telemetry fixture</title><main><h1>Safe page</h1><button>Interact</button></main>' })
     }
-    // Do not continue any request: a new SDK endpoint must remain inside this fixture too.
-    if (url.origin !== INGEST) return route.abort('blockedbyclient')
+    // Do not continue any request: a new SDK endpoint must remain inside this fixture too, and one on another host
+    // fails its test.
+    if (url.origin !== INGEST) {
+      if (url.origin !== SITE) unknownRequests.push(request.url())
+      return route.abort('blockedbyclient')
+    }
     // This build lazy-loads its extensions, the session recorder among them, from /static on the assets host, which
     // is the api host here, under a version segment (/static/1.440.0/lazy-recorder.js). Serve the package's own
     // copies as PostHog's CDN does. With replay off in both the app's configuration and the consent application's
     // stopSessionRecording, no case asks for one; with both off at once, the recorder really loads and starts, and
-    // the replay checks fail. An extension the package cannot serve fails its test (test.afterEach), so a renamed
-    // file cannot quietly turn the recorder back into a JSON response.
+    // the replay checks fail. Any other path fails its test (test.afterEach), so an extension the package cannot
+    // serve, or one asked for under a new path or host, cannot quietly turn the recorder into a JSON response.
     const asset = /^\/static\/(?:[\w.-]+\/)?[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
     if (asset && existsSync(asset)) return route.fulfill({ contentType: 'text/javascript', body: readFileSync(asset) })
-    if (asset) {
-      unservedAssets.push(url.pathname)
+    if (!KNOWN_INGEST_PATHS.test(url.pathname)) {
+      unknownRequests.push(request.url())
       return route.abort('failed')
     }
     wire.push({ url: request.url(), payload: decodeRequest(request) })
@@ -184,7 +193,7 @@ test.afterEach(async () => {
   for (const page of fixturePages.splice(0)) {
     expect(await page.evaluate(() => (window as unknown as HarnessWindow).sentryReports)).toEqual([])
   }
-  expect(unservedAssets.splice(0)).toEqual([])
+  expect(unknownRequests.splice(0)).toEqual([])
 })
 
 // The build renames the client's queue fields; the guard's own lookup finds them by shape.

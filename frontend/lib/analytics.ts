@@ -2,7 +2,7 @@ import posthog from 'posthog-js'
 import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { sanitizeTelemetry } from './telemetryPrivacy'
-import { applyPostHogConsent } from './posthogConsent'
+import { applyPostHogConsent, browserAnalyticsAllowed } from './posthogConsent'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -19,7 +19,9 @@ const safeIdentify = (userId: string, traits?: Record<string, unknown>) => {
   if (typeof window === 'undefined') {
     return
   }
-  posthog.identify(userId, sanitizeTelemetry(traits))
+  // posthog-js stores the identity in its cookie and local storage even while capturing is off (after a refusal in
+  // this tab), so identify only while analytics is allowed, as the consent clause says (lib/consentCopy.ts).
+  if (browserAnalyticsAllowed()) posthog.identify(userId, sanitizeTelemetry(traits))
   // Mirror the identity into Sentry so client errors are attributable to the same user id the
   // backend tags (str(user.id)). Id only — no PII beyond the internal id. Never let it throw.
   try {
