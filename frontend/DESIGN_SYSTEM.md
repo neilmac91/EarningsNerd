@@ -1327,12 +1327,15 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  pill on one line and a rounded box once it wraps (the radius rule below), as Button's narrow
                  state does for a button's label: on a line of its own the one-line chip can be wider than a
                  phone's card under 200% text (the hero example's quality badge, E156; the filing page's source
-                 check, SourceCheckBadge). Its two classes, [@media(max-width:24rem)]:whitespace-normal and
+                 check, SourceCheckBadge; the summary status chip on the dashboard's Your companies rows, E273).
+                 Its two classes, [@media(max-width:24rem)]:whitespace-normal and
                  [@media(max-width:24rem)]:rounded-xl, come after BASE's whitespace-nowrap and rounded-full in
                  the stylesheet, so they win there, where a whitespace-normal or rounded-xl className alone loses
                  to BASE (gates: the hero's markup, tests/e2e/fixtures/hero-example-live-badge.html, held by
                  tests/unit/hero-example-surface.spec.tsx and laid in by tests/e2e/hero-example-badge.spec.ts;
-                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx).
+                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx; the Your
+                 companies chip inside its row and its label inside the chip under 200% text in
+                 tests/e2e/dashboard-phone-layout.spec.ts).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
@@ -1406,6 +1409,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
                  neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
                  5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
+                 On the Your companies rows the chip takes <Badge wrap> (E273): under 200% text No summary
+                 yet's one-line chip is wider than the row at 320 and 340px, so below a 24rem viewport its
+                 label wraps inside the chip, a rounded box at the 16px step. The Watchlist insights cards keep
+                 the one-line chip.
                  The labs research evidence pack's review status (ReviewStatusChip in ResearchEvidencePacks,
                  E140) is a status too, a label alone on the set: "Unreviewed" on neutral-status, not started;
                  "Review needed" on warning-status, which needs the reader; "User reviewed" on success, done.
