@@ -22,14 +22,15 @@ the producer sends it; and evidence on inputs alone), through the real builders:
 6. Inert until the producer: a dataset without the fields prints none of it, and exports byte for byte as it does with
    each of the builders' later-filing seams switched off, as main had them. The datasets include two quarterly runs
    the producer builds from companyfacts, a company's and a bank's, and a reach test holds four quarterly runs to
-   exactly the places they print. What the comparison cannot see: a change outside those seams that alters a dataset
-   without the fields alike in both runs, and a place no run prints; the byte comparison against main's builders is the
-   pull request's.
+   exactly the places they print. What they cannot see: a change outside those seams that alters a dataset without the
+   fields alike in both runs; a place no run prints; and a reading of a place that agrees with the true one on all four
+   runs. The byte comparison against main's builders is the pull request's.
 """
 from __future__ import annotations
 
 import asyncio
 import functools
+import hashlib
 import html as html_lib
 import io
 import json
@@ -272,16 +273,21 @@ def _balances(ends: dict[int, tuple]) -> dict:
 
 def _companyfacts(*, bank: bool = False) -> dict:
     """2023 and 2024 of a company or of a bank. The company's net income turns negative in 2023 Q4 and 2024 Q2, its EPS
-    and equity in 2024 Q2 and its operating cash flow in 2024 Q3, so QoQ and YoY read n/m on and against computed
-    quarters, Cash generation's and Balance sheet's among them. Its gross profit is filed as quarters alone, so its Q4 is
-    the year less three quarters, a calculation of four inputs; the ingest derives the margins and free cash flow. The
-    bank's net interest income, its top line, net income and operating cash flow turn negative in 2024 Q2, while its
-    equity does not; its operating cash flow's Q2 and Q3 are computed, its Q4's growth reads no n/m."""
+    in 2024 Q2, its equity at 2023's year end and in 2024 Q2, and its operating cash flow in 2024 Q1 and Q3, so QoQ and
+    YoY read n/m on and against computed quarters, on a reported Q4 and on a Q1's YoY, Cash generation's and Balance
+    sheet's among them. Its gross
+    profit and net income are filed as quarters alone, so their Q4 is the year less three quarters, a calculation of
+    four inputs; the ingest derives the margins and free cash flow. The bank files fee revenue, which a bank's SIC code
+    skips (_FI_SKIPPED_CONCEPTS), so net interest income stays its top line; that, its net income and its operating cash
+    flow turn negative in 2024 Q2, while its equity does not; its operating cash flow's Q2 and Q3 are computed, its
+    Q4's growth reads no n/m."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
     if bank:
         return {"cik": 990002, "entityName": "A QUARTERLY BANK", "facts": {"us-gaap": {
+            "RevenueFromContractWithCustomerExcludingAssessedTax": usd(_flow({2023: (40e6, 42e6, 41e6, 43e6),
+                                                                              2024: (44e6, 45e6, 46e6, 47e6)})),
             "InterestIncomeExpenseNet": usd(_flow({2023: (300e6, 320e6, 310e6, 330e6), 2024: (290e6, -20e6, 300e6, 310e6)})),
             "NetIncomeLoss": usd(_flow({2023: (90e6, 95e6, 92e6, 98e6), 2024: (85e6, -20e6, 88e6, 91e6)})),
             "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (500e6, 520e6, 480e6, 510e6),
@@ -296,15 +302,16 @@ def _companyfacts(*, bank: bool = False) -> dict:
                                                                           2024: (1150e6, 1250e6, 1300e6, 1400e6)})),
         "GrossProfit": usd(_flow({2023: (400e6, 450e6, 480e6, 520e6), 2024: (460e6, 500e6, 530e6, 570e6)},
                                  filed="quarters")),
-        "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, -50e6), 2024: (125e6, -80e6, 140e6, 160e6)})),
+        "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, -50e6), 2024: (125e6, -80e6, 140e6, 160e6)},
+                                   filed="quarters")),
         "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (200e6, 220e6, 230e6, 250e6),
-                                                                 2024: (210e6, 240e6, -50e6, 300e6)}, filed="to date")),
+                                                                 2024: (-10e6, 240e6, -50e6, 300e6)}, filed="to date")),
         "PaymentsToAcquirePropertyPlantAndEquipment": usd(_flow({2023: (50e6, 50e6, 50e6, 60e6),
                                                                  2024: (60e6, 60e6, 50e6, 70e6)}, filed="to date")),
         "CashAndCashEquivalentsAtCarryingValue": _balances({2023: (500e6, 520e6, 540e6, 600e6),
                                                             2024: (610e6, 580e6, 560e6, 650e6)}),
         "LongTermDebtNoncurrent": _balances({2023: (1000e6, 1000e6, 990e6, 980e6), 2024: (970e6, 1200e6, 1190e6, 1180e6)}),
-        "StockholdersEquity": _balances({2023: (2500e6, 2600e6, 2700e6, 2850e6), 2024: (2950e6, -100e6, 2980e6, 3100e6)}),
+        "StockholdersEquity": _balances({2023: (2500e6, 2600e6, 2700e6, -50e6), 2024: (2950e6, -100e6, 2980e6, 3100e6)}),
         "EarningsPerShareDiluted": {"units": {"USD/shares": eps}},
     }}}
 
@@ -734,7 +741,8 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
 PLACES = ("an input", "an input two levels down", "an input three levels down", "a calculation's third input",
           "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
           "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
-          "a Q1's QoQ reads n/m", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
+          "a Q1's QoQ reads n/m", "a Q1's YoY reads n/m", "a reported Q4's growth reads n/m",
+          "a quarter-sum Q4's growth reads n/m", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
           "a Balance sheet figure whose YoY reads n/m", "a computed Q2 or Q3", "a computed Q4",
           *(title for title, _ in _LINE_PANELS))
 REACH = {
@@ -747,8 +755,8 @@ REACH = {
         "a computed Q2 or Q3", "a computed Q4", "Cash generation", "Balance sheet"},
     "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
                                                          "the top line's YoY reads n/m"},
-    # The one run whose computed Q4 reads n/m with no computed Q2 or Q3 beside it. data-notes.spec.ts pins the capture's
-    # bytes, so it changes only on purpose.
+    # The one run whose computed Q4 reads n/m beside no Q2 or Q3 that _places reads as computed (its projection drops
+    # period_calculation): its bytes are pinned below, so a refreshed capture is read again here.
     "metas_captured_quarterly_run": {"a QoQ in points", "a computed Q4's growth reads n/m", "a Q1's QoQ reads n/m", "Margins",
                                      "Cash generation", "Balance sheet"},
 }
@@ -771,6 +779,9 @@ def _places(dataset: dict) -> set[str]:
     def quarter(point: dict) -> str:
         return str(point.get("period"))[-2:]
 
+    def growths(point: dict) -> tuple:
+        return point.get("yoy"), point.get("qoq")
+
     printed = {
         "an input": any(re.fullmatch(r"Input \d+", entry) for entry in entries),
         "an input two levels down": any(re.fullmatch(r"Input \d+\.\d+", entry) for entry in entries),
@@ -786,6 +797,12 @@ def _places(dataset: dict) -> set[str]:
             computed(point) and quarter(point) in quarters and "nm" in (point.get("yoy"), point.get("qoq"))
             for _, point in points) for name, quarters in (("Q2 or Q3", ("Q2", "Q3")), ("Q4", ("Q4",)))},
         "a Q1's QoQ reads n/m": any(quarter(point) == "Q1" and point.get("qoq") == "nm" for _, point in points),
+        "a Q1's YoY reads n/m": any(quarter(point) == "Q1" and point.get("yoy") == "nm" for _, point in points),
+        "a reported Q4's growth reads n/m": any(quarter(point) == "Q4" and not computed(point) and "nm" in growths(point)
+                                                for _, point in points),
+        "a quarter-sum Q4's growth reads n/m": any(  # the year less three quarters: four inputs
+            quarter(point) == "Q4" and len((point.get("provenance") or {}).get("inputs") or []) == 4
+            and "nm" in growths(point) for _, point in points),
         "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
                                             if title.endswith(" & growth") for cell in sheet["C"]),
         **{f"a {title} figure whose YoY reads n/m": any(panel.get(concept) == title and point["value"] is not None
@@ -798,9 +815,18 @@ def _places(dataset: dict) -> set[str]:
     return {place for place, held in printed.items() if held}
 
 
+def test_metas_capture_is_the_one_reach_holds_to_its_places():
+    """REACH pins META's capture to its places, and those are read from these bytes, which the page's e2e helper pins
+    too (frontend/tests/e2e/fixtures/analysisLayoutApi.ts). A refreshed capture fails here first: read its places again,
+    and keep a run whose computed Q4 alone reads n/m."""
+    assert hashlib.sha256((FIXTURES / "meta-data-notes.json").read_bytes()).hexdigest() == (
+        "67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad")
+
+
 def test_the_inert_gate_reads_quarterly_runs_that_print_every_place_the_seams_reach():
-    # A quarterly run never carries evidence (D5), yet its files print every place of PLACES: each run of REACH prints
-    # exactly its places, so a reading of _places that finds too much fails too, and together they print them all.
+    # A quarterly run never carries evidence (D5), yet its files print every place of PLACES. Each run of REACH prints
+    # exactly its places, so a reading of _places that finds too much fails wherever one of the four runs tells the two
+    # apart; together they print them all.
     inert = {case["name"]: case for case in INERT}
     for name, places in REACH.items():
         dataset = _strip(_inert(inert[name]))
