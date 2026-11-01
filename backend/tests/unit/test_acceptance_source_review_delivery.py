@@ -540,6 +540,7 @@ def test_dispatch_binds_exact_stdin_and_output_and_settles_through_the_journal(t
         (dict(stray_delta=True), "failed", "failed", "stream_schema:content_block_lifecycle:unopened"),
         (dict(malformed_delta="not an object"), "failed", "failed", "stream_schema:content_block_lifecycle:delta"),
         (dict(malformed_delta={"text": "ec"}), "failed", "failed", "stream_schema:content_block_lifecycle:delta"),
+        (dict(malformed_delta={"type": 5}), "failed", "failed", "stream_schema:content_block_lifecycle:delta"),
         (dict(malformed_delta={"type": "text_delta", "text": 7}), "failed", "failed",
          "stream_schema:content_block_lifecycle:delta"),
         # The bracket around the finish (review thread r4243048154): these rows pin the reasons a finish
@@ -1248,3 +1249,33 @@ def test_an_unbound_finish_settles_unobserved_and_its_receipt_cannot_be_edited_t
     receipt_path.write_bytes(_canonical(forged))
     with pytest.raises(ValueError, match="disagrees with its retained stream"):
         validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+
+
+def test_a_schema_1_ledger_as_main_wrote_it_stays_readable_for_an_unknown_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The schema 2 read-back compares assistant_completion and finish_metadata_observed; a schema 1 ledger keeps
+    the released rule. Main's classifier 2 wrote no assistant_completion and set finish_metadata_observed from the
+    assistant stop_reasons even for an unknown outcome, where this classifier 2 path records false, so comparing
+    either field on a schema 1 ledger would refuse one main wrote."""
+    journal_root, delivery_root, reservation, common = _setup(tmp_path)
+    released_argv = delivery._argv
+
+    def argv_without_partial(executable: Path, model: str, limits: dict[str, Any]) -> tuple[str, ...]:
+        return tuple(argument for argument in released_argv(executable, model, limits) if argument != "--include-partial-messages")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(delivery, "SCHEMA_VERSION", 1)
+        patched.setattr(delivery, "CLASSIFIER_VERSION", 2)
+        patched.setattr(delivery, "_argv", argv_without_partial)
+        outcome = deliver_reserved_attempt(journal_root, delivery_root, runner=FakeRoute(_stream(partial=False, omit_result=True)),
+                                           **common)
+    assert outcome["receipt"]["schema_version"] == 1 and outcome["outcome"] == "unknown"
+    receipt_path = Path(outcome["ledger_path"]) / "receipt.json"
+    as_main_wrote = json.loads(receipt_path.read_bytes())
+    as_main_wrote.pop("assistant_completion")
+    as_main_wrote["finish_metadata_observed"] = True  # main's rule: every assistant stop_reason present
+    receipt_path.write_bytes(_canonical(as_main_wrote))
+    validation = validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    assert validation["ledger_schema_version"] == 1 and validation["outcome"] == "unknown"
+    assert validation["journal_status"] == "reserved"

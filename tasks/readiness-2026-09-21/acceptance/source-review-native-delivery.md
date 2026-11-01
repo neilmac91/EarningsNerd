@@ -131,8 +131,8 @@ no `error` event (`stream_error_event`); every content block opened by a `conten
 integer index, its deltas and its `content_block_stop` naming that index, and closed before
 `message_delta`, one after another at the next index with no other block still open
 (`stream_schema:content_block_lifecycle:<fault>`, the fault one of `index`, `unopened`, `closed`,
-`restarted`, `sequence`, `delta` for a delta that is not an object with a string `type`, or a
-`text_delta` without string `text`, `text_delta_block_type`, `open_at_message_delta` and `unclosed`);
+`restarted`, `sequence`, `delta` (a delta that is not an object with a string `type`, or a `text_delta`
+without string `text`), `text_delta_block_type`, `open_at_message_delta` and `unclosed`);
 the text of the open `text` blocks (initial text plus `text_delta` text, in arrival order) equal to
 the assistant text (`stream_binding:text_mismatch`), so a text delta outside an opened `text` block
 never counts toward it; every content block,
