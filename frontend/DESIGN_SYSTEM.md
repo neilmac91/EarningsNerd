@@ -663,7 +663,11 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
-                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
+                 chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
+                 panel), a rung below its light label, so it reads quieter than the up and down chips
+                 (E202 (3), D-073); themePairs.spec.ts's crossed-rung check passes it because its twin
+                 names the flat token, and records the choice there. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
                  600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
                  the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,

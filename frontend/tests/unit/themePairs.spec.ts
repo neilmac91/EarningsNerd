@@ -160,6 +160,10 @@ function unpaired(own: string, shared = ''): string[] {
  * copy in dark, or body copy fades: until the dark secondary rose to gray-300, 140 tertiary sites took secondary-dark as
  * their twin because tertiary-dark (then gray-600) failed as text, and they would all have brightened with it.
  */
+// One pairing crosses on purpose and passes because its twin names another token: the flat direction chip
+// (lib/financialTone's directionChip.flat) rests on text-text-secondary-light and, in dark, on the semantic flat ink
+// flat-dark, tertiary-dark's hex #9CA3AF (4.87:1 in its tint on the panel), so the flat chip reads quieter than the up
+// and down chips beside it. The founder kept it so (E202 (3), D-073); move it to text-secondary-dark only by a new decision.
 const CROSSED_RUNG: Record<string, string> = { 'text-tertiary-light': 'text-secondary-dark', 'text-secondary-light': 'text-tertiary-dark' }
 /** The classes of `own` on a light text rung whose `dark:` twin, in `own` or in `shared`, is the other rung's. */
 function crossedRungs(own: string, shared = ''): string[] {
