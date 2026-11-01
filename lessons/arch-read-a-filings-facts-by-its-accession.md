@@ -16,8 +16,10 @@ review found that, unchecked, they also gave a 10-Q's page an "annual" chart (th
 prior year-end balance FY and stores it under the 10-Q's accession while the 10-Q filed it last),
 an older 10-K a lone oldest-year bar for each line the per-filing writer read no current year of,
 and a 20-F, older or newest, a lone current-year USD bar beside its CNY lines for such a line: an
-early sync's convenience row, or the current sync's at a filer that switched reporting currency
-(Hello Group, Vipshop, JOYY), whose USD list `currency.series_unit` keeps. Condition 4 closes that
+early sync's convenience row, or one a sync before the per-filing pick (#1583) stored at a filer
+that switched reporting currency (Hello Group, Vipshop, JOYY), whose USD list `series_unit` kept; a
+sync now reads such a 20-F's USD items as convenience translations and stores none
+(`currency.filing_currencies`), but the rows already stored stay. Condition 4 closes that
 wherever the writer stored an annual row of the report; a report it stored no annual row of keeps
 the bar (below). Once the WP5b writer stored own-report rows, an older report's line the writer read
 nothing of reached its period end through one and charted its oldest year beside its own, the year

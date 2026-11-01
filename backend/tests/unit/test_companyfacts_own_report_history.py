@@ -267,6 +267,36 @@ class TestTheCensusTakesIngestsOwnReport:
         assert census == _history(meta)
         assert ("revenue", 2018) in census or shape == "another-span"
 
+    @pytest.mark.parametrize("switched", [True, False], ids=["a-switch-to-usd", "cny-alone"])
+    def test_the_census_reads_each_filing_in_its_own_currency_as_ingest_does(self, switched):
+        # The census mirrors the collector's currency pick and foreign skip (``companyfacts_currencies``). Each CNY
+        # 20-F also tags its own year in USD, a convenience translation. After a switch to USD (a USD 20-F for
+        # FY2024 presenting FY2023 in USD), those items are never an own report under any tag: without the skip, FY2023's
+        # across-tag own report would be 20F-2023's translation (127m against the USD report's 128.6m). A filer in
+        # CNY alone is read in CNY, never its USD list.
+        from scripts import restatement_census
+
+        def item(value, year, accn, filed):
+            return {"val": value, "start": f"{year}-01-01", "end": f"{year}-12-31", "accn": accn, "fy": int(accn[-4:]),
+                    "fp": "FY", "form": "20-F", "filed": filed}
+
+        cny = [item(value, year, accn, filed) for accn, filed, values in (
+            ("20F-2022", "2023-04-20", {2021: 700e6, 2022: 800e6}), ("20F-2023", "2024-04-20", {2022: 800e6, 2023: 900e6}))
+            for year, value in values.items()]
+        usd = [item(115e6, 2022, "20F-2022", "2023-04-20"), item(127e6, 2023, "20F-2023", "2024-04-20")]
+        if switched:
+            usd += [item(128.6e6, 2023, "20F-2024", "2025-04-20"), item(140e6, 2024, "20F-2024", "2025-04-20")]
+        payload = {"cik": 1, "entityName": "SWITCHER", "facts": {"us-gaap": {
+            "Revenues": {"units": {"CNY": cny, "USD": usd}}}}}
+        cells, _info = restatement_census.measure_company("SW", payload, False, 10)
+        assert {cell["unit"] for cell in cells} == {"USD" if switched else "CNY"}
+        # No filing restates here, so an own report under any tag gives the winner's own figure.
+        assert [(cell["fy"], cell["across"]["accession"]) for cell in cells if cell["across_gap"] > 0] == []
+        _facts, meta = svc.normalize_companyfacts(1, payload)
+        census = {(cell["concept"], cell["fy"]): (cell["within"]["value"], cell["within"]["accession"])
+                  for cell in cells if cell["within_later"] and cell["within"]["value"] != cell["winner"]["value"]}
+        assert census == _history(meta) == {}
+
     @pytest.mark.parametrize("shape", ["filed-first-under-a-lower-tag", "another-span-wins-the-tag",
                                        "the-own-report-under-two-tags"])
     def test_the_census_across_the_tags_takes_the_winners_span_then_the_earliest_filed_then_the_tags_priority(

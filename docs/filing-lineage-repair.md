@@ -170,7 +170,7 @@ written.
 - **A held row** stays a legacy calculation, as before.
 - **A ratio of an issuer that also reports in another currency** can change which row is current at
   the next companyfacts sync. A ratio with no record never counts as computed from USD operands
-  (`facts/currency._usd_derived`); once its record names USD operands it does, so a sync that stores
+  (`facts/currency._other_derived`); once its record names USD operands it does, so a sync that stores
   the native-currency calculation for the same period demotes it and promotes that one, as #1365
   intended for every ratio with recorded operands. One whose record names native operands can be
   the row such a sync promotes. The `is_latest` change is the sync's, never the backfill's, and, as
