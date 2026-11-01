@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { countControlClass } from '../../components/ui/countControl'
+import { countControlClass, type CountControlKind } from '../../components/ui/countControl'
 
 /**
  * Every colour is a light/dark pair (DESIGN_SYSTEM.md §2, CLAUDE.md rules 11 and 12). The ESLint design
@@ -209,6 +209,8 @@ function faintHovers(own: string, shared = ''): string[] {
   const at = (variants: string[], test: (utility: string) => boolean) =>
     all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.bare))
   const restsSecondary = at(['dark'], (u) => u === 'text-text-secondary-dark')
+  // Primary to sage is 1.28:1 in dark since the accent text ink rose (D-070), near the 1.24:1 step refused above.
+  const restsPrimary = at(['dark'], (u) => u === 'text-text-primary-dark' || u === 'text-text-heading-dark')
   const hovered = (c: { variants: string[] }) => c.variants.includes('hover') || c.variants.includes('group-hover')
   const darkRest = (property: string) => all.filter((c) => c.variants.length === 1 && c.variants[0] === 'dark' && cueProperty(c.bare) === property).map((c) => c.bare)
   const darkHover = (property: string) => all.some((c) => hovered(c) && c.variants.includes('dark') && cueProperty(c.bare) === property)
@@ -222,16 +224,27 @@ function faintHovers(own: string, shared = ''): string[] {
   const cue = all.some((c) => {
     const property = hovered(c) ? cueProperty(c.bare) : undefined
     if (!property || removed(property)) return false
-    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it.
-    return c.variants.includes('dark') ? !darkRest(property).includes(c.bare) : !darkRest(property).length && !darkHover(property)
+    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it. A
+    // decoration colour with no dark resting colour of its own rests in currentColor, the ink, so it steps as the ink does.
+    if (c.variants.includes('dark')) return !(property === 'decoration:colour' && !darkRest(property).length) && !darkRest(property).includes(c.bare)
+    return !darkRest(property).length && !darkHover(property)
   })
-  if (!restsSecondary || cue) return []
+  if (!(restsSecondary || restsPrimary) || cue) return []
+  const faint = restsSecondary ? /^!?text-(?:text-(?:primary|heading)|brand-strong)-dark$/ : /^!?text-brand-strong-dark$/
   return own.split(/\s+/).filter(Boolean).filter((token) => {
     const { variants, utility } = splitClass(token)
-    return variants.length === 2 && variants.includes('dark') && variants.includes('hover') && /^!?text-(?:text-(?:primary|heading)|brand-strong)-dark$/.test(utility)
+    return variants.length === 2 && variants.includes('dark') && variants.includes('hover') && faint.test(utility)
   })
 }
 /** Faint hovers a scan of one class list cannot judge, per file and class. Each entry says where its whole recipe is held. */
+/** The count control's kinds, read off the union components/ui/countControl.ts declares, so a kind added there is held. */
+const COUNT_KINDS: CountControlKind[] = (() => {
+  const file = path.join(ROOT, 'components/ui/countControl.ts')
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const alias = sf.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'CountControlKind')
+  const members = alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : alias ? [alias.type] : []
+  return members.flatMap((m) => (ts.isLiteralTypeNode(m) && ts.isStringLiteral(m.literal) ? [m.literal.text as CountControlKind] : []))
+})()
 const FAINT_HOVER_RESIDUE: Record<string, Record<string, number>> = {
   // The count control's ink, composed with each kind's cue by countControlClass: every kind is held whole below.
   'components/ui/countControl.ts': { 'dark:hover:text-brand-strong-dark': 1 },
@@ -549,7 +562,8 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
     })
     expect(residueProblems(faint, FAINT_HOVER_RESIDUE, 'FAINT_HOVER_RESIDUE', 'faint'), 'step to dark:hover:text-white, or add a hover fill, border or underline').toEqual([])
     // The count control's every kind, composed as the app renders it, carries a cue dark shows.
-    expect((['button', 'link', 'inline', 'summary'] as const).flatMap((kind) => faintHovers(countControlClass(kind)).map((c) => `${kind}: ${c}`))).toEqual([])
+    expect(COUNT_KINDS.length).toBeGreaterThan(3)
+    expect(COUNT_KINDS.flatMap((kind) => faintHovers(countControlClass(kind)).map((c) => `${kind}: ${c}`))).toEqual([])
   })
 
   it('reads a faint dark hover wherever a twin is read (a self-check on a fixed source)', () => {
@@ -558,6 +572,12 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       // Sage alone is as faint in dark since the accent text ink rose (D-070); with its underline it is a cue.
       "const sage = 'text-text-secondary-light hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark'",
       "const sageLined = 'text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:underline'",
+      // A decoration colour with no resting colour of its own steps as the ink does; over a tertiary underline it is a cue.
+      "const inlineBare = 'underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current'",
+      "const inlineRested = 'underline dark:text-text-secondary-dark dark:decoration-text-tertiary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current'",
+      // A name in the primary ink that turns only sage steps 1.28:1 in dark; with an underline it is a cue.
+      "const name = 'text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark'",
+      "const nameLined = 'dark:text-text-primary-dark dark:hover:text-brand-strong-dark dark:hover:underline'",
       "const split = cx('text-text-secondary-light dark:text-text-secondary-dark', 'dark:hover:!text-text-heading-dark')",
       // A brighter step, or a hover cue that is not ink, is visible in dark.
       "const bright = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white'",
@@ -584,13 +604,15 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
     expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 dark:hover:text-text-primary-dark',
       '2 dark:hover:text-brand-strong-dark',
-      '4 dark:hover:!text-text-heading-dark',
-      '9 dark:hover:!text-text-primary-dark',
-      '10 dark:hover:text-text-primary-dark',
-      '12 dark:hover:text-text-primary-dark',
-      '15 dark:hover:text-text-primary-dark',
+      '4 dark:hover:text-brand-strong-dark',
+      '6 dark:hover:text-brand-strong-dark',
+      '8 dark:hover:!text-text-heading-dark',
+      '13 dark:hover:!text-text-primary-dark',
+      '14 dark:hover:text-text-primary-dark',
       '16 dark:hover:text-text-primary-dark',
-      '17 dark:hover:text-text-primary-dark',
+      '19 dark:hover:text-text-primary-dark',
+      '20 dark:hover:text-text-primary-dark',
+      '21 dark:hover:text-text-primary-dark',
     ])
   })
 
@@ -757,7 +779,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
  */
 /** Bright Sage by value, as a stylesheet or an arbitrary class may write it: the token, its hex (an alpha pair after it
     or not) or its rgb()/rgba() in either separator. */
-const BRIGHT_VALUE = /colors\.brand\.bright-dark|#98c5ad(?:[0-9a-f]{2})?(?![0-9a-f])|rgba?\(\s*152[\s,]+197[\s,]+173(?!\d)/i
+const BRIGHT_VALUE = /colors\.brand\.bright-dark|#98c5ad(?:[0-9a-f]{2})?(?![0-9a-f])|rgba?\(\s*152[\s,_]+197[\s,_]+173(?!\d)/i
 const BRIGHT_INK = /^(?:text|decoration|caret|placeholder)-brand-bright-dark(?:\/(?:\d+|\[[^\]]+\]))?$/
 /** An arbitrary value that paints text: `text-[…]`, `decoration-[…]`, `caret-[…]`, `placeholder-[…]`, or an arbitrary property. */
 const ARBITRARY_INK = /^(?:(?:text|decoration|caret|placeholder)-\[|\[(?:color|-webkit-text-fill-color|text-decoration(?:-color)?|caret-color):)/
@@ -801,6 +823,7 @@ describe('Bright Sage stays a fill: brand.bright-dark is no text ink outside the
       "const caret = cx('p-1', on && 'dark:caret-brand-bright-dark')",
       // An arbitrary value that paints text in it, by token or by value; an arbitrary fill is no text.
       "const arbitrary = 'dark:text-[theme(colors.brand.bright-dark)] dark:[color:#98C5AD] dark:bg-[rgb(152,197,173)] text-[13px]'",
+      "const spaced = 'dark:text-[rgb(152_197_173)]'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx', brightInk).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 dark:text-brand-bright-dark',
@@ -809,6 +832,7 @@ describe('Bright Sage stays a fill: brand.bright-dark is no text ink outside the
       '4 dark:caret-brand-bright-dark',
       '5 dark:text-[theme(colors.brand.bright-dark)]',
       '5 dark:[color:#98C5AD]',
+      '6 dark:text-[rgb(152_197_173)]',
     ])
     const css = [
       '.a { @apply dark:text-brand-bright-dark; }',

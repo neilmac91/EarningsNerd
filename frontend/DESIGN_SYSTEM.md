@@ -124,9 +124,12 @@ the debug payload panel).
   text ink rose to Reading Sage `#AEDCC2` (D-070), 1.03:1 from the secondary ink, so a control that
   rests in secondary and turns only sage carries a cue in dark too: the count control's every kind
   (Count control, §4) and three source links, SourceTrace's, CitationChip's and the figure receipt's,
-  which take an underline under the pointer. Gate: `tests/unit/themePairs.spec.ts`
+  which take an underline under the pointer. A name that rests in the primary ink and turns only
+  sage steps 1.28:1 there, near the refused step, so the saved summaries' links and Your companies'
+  names take the underline too. Gate: `tests/unit/themePairs.spec.ts`
   ('gives every dark hover a visible step: secondary never turns only primary, or only sage, under
-  the pointer', with its planted self-check, and every count-control kind as the app composes it). It reads the resting ink through a same-file string constant in a
+  the pointer', with its planted self-check, every count-control kind as the app composes it, and a
+  primary rest that turns sage; a decoration colour counts only over a resting colour of its own). It reads the resting ink through a same-file string constant in a
   template slot (`${MUTED}`) too; a resting ink set on an ancestor (a table row) it cannot see.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
@@ -512,13 +515,13 @@ Count control    A link or control whose label carries a count, a date, an index
                  dark:hover:text-brand-strong-dark under the pointer, keyboard focus drawing the ring
                  below: 'button' adds the brand tint and the pressed fill, 'link' an underline under
                  the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
-                 since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone.
+                 since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone in light.
                  In dark the label rests at #D1D5DB (the secondary ink since 2026-10-25) and turns
                  brand-strong-dark #AEDCC2 under the pointer, about as light as at rest (1.03:1, D-070),
                  fainter than the secondary-to-primary step §2 refuses, so in dark each kind carries a
                  cue besides the ink: 'button' its tint, 'link' its underline, 'inline' an underline
                  that rests in the tertiary ink and turns sage, and 'summary' an underline under the
-                 pointer (dark only; light keeps its 1.58:1 ink step). A link that rests in the
+                 pointer (dark only; light keeps its 1.57:1 ink step). A link that rests in the
                  secondary ink and turns sage does the same (SourceTrace's and CitationChip's source
                  links, the figure receipt's).
                  Its chrome (the ring, a hairline, a selected fill) may be sage where its recipe says
