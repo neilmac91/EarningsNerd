@@ -564,15 +564,17 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  own, never an ink. It serves What changed's call to action (since E272), the feed's "See all N
                  companies" and Your companies' "Open watchlist insights" (E274), and the hero example's "Read the
                  full example summary", the Compare periods card's "Open change report" and the waitlist's "Try a
-                 live example summary" (E275). A link that stands alone and can wrap is inline-block, so it paints one
-                 box, and one with a fill or a set height takes min-h-9, never h-9, so the box grows with its lines:
-                 the dashboard's two links take a 4px inset (-mx-1 px-1) so their ring clears their words, the hero
-                 example's and Compare periods' their px-2 py-2. A link set in a sentence that moves to its own line
-                 whole (the waitlist's) is inline-block too; a prose link keeps a ring per line (box-decoration-clone,
-                 Links in both surfaces, above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each
-                 arrow on its last word's line, one box, the words inside the link's 0.25rem inset) and
-                 tests/e2e/reflow-200.spec.ts (the other three: each arrow on its last word's line, one box, every line
-                 of the words inside it).
+                 live example summary" (E275). Two text links still draw the arrow as a flex row's last item, the
+                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
+                 (E276); a button's arrow (MarketingCta, buttonVariants) stays in its flex row, since the button's box
+                 binds it. A link that stands alone and can wrap is inline-block, so it paints one box, and one with a
+                 fill or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two
+                 links take a 4px inset (-mx-1 px-1) so their ring clears their words, the hero example's and Compare
+                 periods' their px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's)
+                 is inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
+                 above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
+                 word's line, one box, the words inside the link's 0.25rem inset) and tests/e2e/reflow-200.spec.ts (the
+                 other three: each arrow on its last word's line, one box, every line of the words inside it).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
