@@ -190,6 +190,14 @@ FEE_TOTAL = _facts(**{FEE: _years(2025, [23920, 21000, 18800]), NII: _years(2025
                       "NetIncomeLoss": _years(2025, [8000, 7000, 6000])})
 FEE_TOTAL_FACE = _face((NII, "Net interest revenue", "NetInterestIncome", [11750, 10900, 9800]),
                        (FEE, "Total net revenues", "Revenue", [23920, 21000, 18800]))
+# JPM's figures with both of its total elements on the face: the choice's order, not the bank anchors', picks the row.
+JPM_2025_TWO_TOTALS_FACE = [*JPM_2025_FACE, *_face((REV, "Total revenue", "Revenue", [182447, 177556, 158104]))]
+# An insurer whose Revenues line reads below its fee element, so the choice refuses both: the insurer keeps its anchor.
+INSURER = _facts(**{REV: _years(2025, [5000, 4800, 4600]), FEE: _years(2025, [6000, 5800, 5600]),
+                    "PremiumsEarnedNet": _years(2025, [4000, 3900, 3800]),
+                    "NetIncomeLoss": _years(2025, [500, 480, 460])})
+INSURER_FACE = _face(("PremiumsEarnedNet", "Premiums", "Revenue", [4000, 3900, 3800]),
+                     (REV, "Total revenues", "Revenue", [5000, 4800, 4600]))
 
 MATRIX = {
     # name: (facts, face, columns, form, period of report, (profile, revenue), (profile, revenue) without the choice)
@@ -213,6 +221,9 @@ MATRIX = {
         ("bank", (RNOIE, 182447 * M)), ("bank", (RNOIE, 182447 * M))),
     "bank: a lender without a total has none, unchanged (shape)": (
         LENDER, LENDER_FACE, _fy_columns(2025), "10-K", "2025-12-31", ("bank", None), ("bank", None)),
+    "bank: the choice's order picks the net total before Revenues (JPM FY2025 figures, both rows on the face)": (
+        JPM_2025, JPM_2025_TWO_TOTALS_FACE, _fy_columns(2025), "10-K", "2025-12-31",
+        ("bank", (RNOIE, 182447 * M)), ("bank", (REV, 182447 * M))),
     "generic: the net total, never the fee line (AXP FY2025, no statement)": (
         AXP_2025, None, None, "10-K", "2025-12-31", (None, (RNOIE, 72229 * M)), (None, (FEE, 41304 * M))),
     "generic: the quarter's net total, never its fee line (AXP Q3 2025, no statement)": (
@@ -225,9 +236,14 @@ MATRIX = {
         GS_2025, None, None, "10-K", "2025-12-31", (None, (RNOIE, 58283 * M)), (None, None)),
     "generic: a fee-tagged total beside net interest income gives none (PNC FY2019, no statement)": (
         PNC_2019, None, None, "10-K", "2019-12-31", (None, None), (None, (FEE, 17827 * M))),
+    "generic: the choice's order picks the net total before Revenues (JPM FY2025, no statement)": (
+        JPM_2025, None, None, "10-K", "2025-12-31", (None, (RNOIE, 182447 * M)), (None, (REV, 182447 * M))),
     "insurer: its own total, unchanged (MET FY2025)": (
         MET_2025, MET_2025_FACE, _fy_columns(2025), "10-K", "2025-12-31",
         ("insurer", (REV, 77084 * M)), ("insurer", (REV, 77084 * M))),
+    "insurer: its own anchor, where the choice would read nothing (shape)": (
+        INSURER, INSURER_FACE, _fy_columns(2025), "10-K", "2025-12-31",
+        ("insurer", (REV, 5000 * M)), ("insurer", (REV, 5000 * M))),
     "bdc: its total investment income, which the choice would empty, unchanged (shape)": (
         BDC, BDC_FACE, _fy_columns(2025), "10-K", "2025-12-31", ("bdc", (GII, 3000 * M)), ("bdc", (GII, 3000 * M))),
 }
@@ -278,6 +294,16 @@ def test_a_non_financial_filer_never_computes_the_choice(monkeypatch):
     assert calls == [] and rule_only.isdisjoint(instance.queried)
 
 
+def test_a_filer_financial_by_its_sic_code_alone_reads_its_choice(monkeypatch):
+    # edgartools' probe says no (its REIT category, for one, is outside is_financial_institution's list), so the SIC
+    # code the orchestrator hands the choice decides, as it does for the statement reader.
+    result = _extract(monkeypatch, _Instance(AXP_2025), por="2025-12-31", financial=False, sic="6199")
+    assert _revenue(result) == (RNOIE, 72229 * M)
+    monkeypatch.setattr(xbrl_instance, "financial_revenue_concepts", lambda *args, **kwargs: None)
+    control = _extract(monkeypatch, _Instance(AXP_2025), por="2025-12-31", financial=False, sic="6199")
+    assert _revenue(control) == (FEE, 41304 * M)
+
+
 def test_the_flag_off_reads_as_before(monkeypatch):
     company = SimpleNamespace(sic="6211", is_financial_institution=lambda: True)
     filing = SimpleNamespace(form="10-K", period_of_report="2025-12-31", xbrl=lambda: _Instance(AXP_2025))
@@ -316,13 +342,22 @@ def test_the_choice_queries_each_rule_tag_once_from_the_filings_own_instance():
     assert instance.queried == [f"us-gaap:{tag}" for tag in RULE_TAGS]
 
 
-def test_the_choice_reads_the_reporting_currency_and_nothing_after_the_period():
-    # The fee element is the filer's total in CNY. A USD convenience translation of its year would read as a fee line
-    # below the total; a year after the period, whose figures disagree, would be the latest shared year.
+@pytest.mark.parametrize("usd_first", [False, True])
+def test_the_choice_reads_the_reporting_currency_and_nothing_after_the_period(usd_first):
+    # The fee element is the filer's total in CNY. A USD convenience translation of its year, read too, could stand for
+    # that year's fee line below the total; a year after the period, whose figures disagree, would be the latest one.
+    cny = _rows(_years(2025, [72000, 66000, 60000]) + _years(2026, [5000]), "CNY")
+    usd = _rows(_years(2025, [10300]), "USD")
     facts = {f"us-gaap:{RNOIE}": _rows(_years(2025, [72000, 66000, 60000]) + _years(2026, [80000]), "CNY"),
-             f"us-gaap:{FEE}": _rows(_years(2025, [72000, 66000, 60000]) + _years(2026, [5000]), "CNY")
-             + _rows(_years(2025, [10300]), "USD")}
+             f"us-gaap:{FEE}": usd + cny if usd_first else cny + usd}
     assert financial_revenue_concepts(_Instance(facts), FINANCIAL, "6211", "10-K", "2025-12-31") == (RNOIE, FEE)
+
+
+def test_a_figure_in_another_currency_is_never_the_filings_own():
+    # A USD fee figure equal to the CNY total would admit the fee element if it were read, whatever its order.
+    facts = {f"us-gaap:{RNOIE}": _rows(_years(2025, [72000, 66000, 60000]), "CNY"),
+             f"us-gaap:{FEE}": _rows(_years(2025, [72000]), "USD")}
+    assert financial_revenue_concepts(_Instance(facts), FINANCIAL, "6211", "10-K", "2025-12-31") == (RNOIE,)
 
 
 def test_dimensioned_facts_are_not_the_filings_own():
@@ -331,12 +366,15 @@ def test_dimensioned_facts_are_not_the_filings_own():
     assert financial_revenue_concepts(_Instance(facts), FINANCIAL, "6211", "10-K", "2025-12-31") == (FEE,)
 
 
-def test_the_choice_replaces_only_the_bank_and_catch_all_anchors():
+def test_every_profile_is_classified_for_the_choice():
+    # The bank and catch-all profiles read the choice. The insurer and BDC profiles keep their own anchors: an
+    # insurer's total is never its fee line, and a BDC's total investment income is one of the parts the rule reads
+    # beside the fee element, so the choice would empty it. A new profile fails here until it is classified.
     keys = {profile["key"] for profile in FINANCIAL_PROFILES}
-    assert FILING_REVENUE_PROFILES == {"bank", "financial_generic"} and FILING_REVENUE_PROFILES <= keys
+    assert FILING_REVENUE_PROFILES == {"bank", "financial_generic"}
+    assert keys == FILING_REVENUE_PROFILES | {"insurer", "bdc"}
     for profile in FINANCIAL_PROFILES:
-        if profile["key"] in FILING_REVENUE_PROFILES:
-            assert [key for key, _anchors, _std in profile["selectors"]].count("revenue") == 1
+        assert [key for key, _anchors, _std in profile["selectors"]].count("revenue") == 1, profile["key"]
 
 
 # ---------------------------------------------------------------------------
