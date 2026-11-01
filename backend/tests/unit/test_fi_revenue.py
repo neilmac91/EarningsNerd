@@ -243,6 +243,21 @@ def test_a_shared_quarter_never_admits_the_fee_tag_on_its_own(beside, tags):
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
 
 
+def test_a_shared_year_decides_before_a_later_shared_quarter():
+    # EQIX's and O's shape: the fee tag is the REIT's whole total, its Q4 sits beside the year, and lease income is
+    # tagged beside it. The shared year admits the fee tag, so it fills the quarter no total reports yet.
+    payload = _years({REV: {2024: 8.75e9, 2025: 9.22e9}, FEE: {2024: 8.75e9, 2025: 9.22e9},
+                      "OperatingLeaseLeaseIncome": {2025: 1.0e9}})
+    usgaap = payload["facts"]["us-gaap"]
+    usgaap[REV]["units"]["USD"].append(_item(2.4e9, "2025-12-31", "2025-10-01", "K2025"))
+    usgaap[FEE]["units"]["USD"] += [_item(2.4e9, "2025-12-31", "2025-10-01", "K2025"),
+                                    _item(2.5e9, "2026-03-31", "2026-01-01", "Q126", form="10-Q", filed="2026-05-01",
+                                          fp="Q1")]
+    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (REV, FEE)
+    first_quarter = [f for f in _facts(payload) if f["concept"] == "revenue" and f["period_end"] == date(2026, 3, 31)]
+    assert [(round(f["value"] / 1e9, 2), f["raw_tag"]) for f in first_quarter] == [(2.5, f"us-gaap:{FEE}")]
+
+
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_the_authority_reads_the_feeds_revenue(ticker):
     payload = _load(ticker)
