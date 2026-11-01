@@ -25,7 +25,8 @@
  *     - the verbatim case runs two reports identical in every field a refuter sees (one lens's, or on the high tier two
  *       lenses') with every combination of their refuters' answers. No tag can tell them apart, so it holds every answer
  *       to one report: each answer given serves exactly one report, through refuters of different numbers, and each
- *       report lands as the answers it carries decide;
+ *       report lands as the answers it carries decide. For the same reason it compares the refuters' prompts with the
+ *       copies' own as a whole, so refuters that trade prompts pass it;
  *     - the sweep runs, on the high tier, every combination of the seven sets of reporting lenses, zero or one blocker
  *       defect, one to eight should-fix defects and one or two copies, plus three reviews of up to 198 reports in
  *       three copies; on the routine tier, one to four blocker defects with zero or one should-fix defect, in one to
@@ -35,21 +36,25 @@
  *       answer), refute, lower, raise or nothing, drawn per shape, PR, report and refuter. On each tier and PR, every
  *       severity the tier verifies meets every combination of its refuters' answers, `incomplete` and `mergeable` each
  *       come out both ways, and reviews with nits and without both run.
- *     The dynamic cases run each review on three PRs: one numbered 1 with its tier set; one shaped like the call AGENTS.md
- *     §5 documents (a real number, title and branch, base main, the tier on the PR); and one shaped like the handover's
- *     call (a brief, another base, the tier left to the batch or to the default). Each lens's summary names the reports
- *     it made. In every review: no agent runs but the lenses and the refuters; each refuter's prompt is exactly the one
- *     it gets when its report is the review's only finding; each verified report has its own refuters #1 to #N; each
- *     report is confirmed, refuted, left unverified or kept as a nit as its own answers decide, a confirmed or
- *     unverified one at its severity and under its lens; and `incomplete` and `mergeable` match;
- *     - out of reach: a change that acts only on reviews these leave out (a larger review, a batch of several PRs, or a
- *       mix of claims and answers the sweep's draws never produce, such as an exact count of verified reports), only on
- *       what they hold fixed (the form of the files, titles and words) or only on a part of the runtime the harness
- *       does not mirror (a clock or randomness read other than the three it makes throw, such as `Date()` called
- *       without `new`, a `Date` reached through an instance, or `performance.now()`), and that either calls no agent
- *       of its own (it judges a copy on another copy's votes, say) or reaches one through the lenses' or the refuters'
- *       own call (a helper that builds their prompt and calls `agent`) or through a name built at run time that the
- *       static case does not list (the Function constructor reached as a property, say);
+ *     The dynamic cases run each review on three PRs: one numbered 1 with its tier set on the batch; one shaped like
+ *     the call AGENTS.md §5 documents (a real number, title and branch, base main, the tier on the PR); and one shaped
+ *     like the handover's call (a brief, another base, the tier left to the batch or to the default). On the high tier,
+ *     the three take their tier from the batch, the PR and the default. Each lens's summary names the reports it made.
+ *     In every review: no agent runs but the lenses and the refuters; each refuter's prompt is exactly the one it gets
+ *     when its report is the review's only finding (compared as a whole in the verbatim case); each verified report has
+ *     its own refuters #1 to #N; each report is confirmed, refuted, left unverified or kept as a nit as its own answers
+ *     decide, a confirmed or unverified one at its severity and under its lens; and `incomplete` and `mergeable` match;
+ *     - out of reach: a change that acts only on reviews these leave out (a larger review, a batch of several PRs, a
+ *       tier set on both a PR and its batch, a lens that returns nothing, or a mix of claims and answers the sweep's
+ *       draws never produce, such as an exact count of verified reports), only on what they hold fixed (the form of the
+ *       files, titles and words, and the date and time they run at, which a script can still read through `Intl`) or
+ *       only where this harness and the runtime differ (the runtime blocks clock and randomness reads beyond the three
+ *       the harness makes throw, such as `Date()` called without `new`, a `Date` reached through an instance or
+ *       `performance.now()`, and the two have different globals and engines, so a change can tell which one it runs
+ *       in, by whether `process` or `Temporal` exists, say, and act only in the runtime), and that either calls no
+ *       agent of its own (it judges a copy on another copy's votes, say) or reaches one through the lenses' or the
+ *       refuters' own call (a helper that builds their prompt and calls `agent`) or through a name built at run time
+ *       that the static case does not list (the Function constructor reached as a property, say);
  *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none or sets one
  *     outside the three severities, and the highest holding wins whichever refuter gives it: a should-fix raised
  *     to blocker, by one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter
@@ -146,8 +151,9 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
     get: (target, key, receiver) => (key === 'now' ? throws('Date.now()') : Reflect.get(target, key, receiver)),
   })
   const RuntimeMath = Object.create(Math, { random: { value: throws('Math.random()') } })
-  // Strict, as the runtime compiles it: a strict function exposes no `.arguments` and no stack frame's function, so the
-  // script cannot reach these hooks by position.
+  // Strict, as the runtime compiles it: a strict function exposes no `.arguments` property and no stack frame's
+  // function. The `arguments` binding still reaches these hooks by position here, though not in the runtime, where the
+  // script's top level has none; the static case flags it.
   const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'budget', 'workflow', 'Date', 'Math', `'use strict'; return (async () => {${source}})()`)
   return (args, agent) => {
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
@@ -243,12 +249,13 @@ const LOWER: Record<string, string> = { blocker: 'should-fix', 'should-fix': 'ni
 const OTHER: Record<string, string> = { blocker: 'should-fix', 'should-fix': 'blocker' }
 const correction = (r: Report, a: Answer) => (a === 'lower' ? LOWER[r.claimed] : a === 'raise' ? 'blocker' : undefined)
 
-// Each review runs on three PRs: the fixture's, numbered 1 with its tier set on it; one shaped like the call AGENTS.md §5
-// documents (a real number, title and branch, base main, the tier on the PR); and one shaped like the call
-// tasks/handover-wave2-2026-09.md documents (a brief and no tier), with another base, its tier left to the batch
-// (routine) or to the default (high).
+// Each review runs on three PRs: the fixture's, numbered 1 with its tier set on the batch (the script's header takes
+// routine or high there); one shaped like the call AGENTS.md §5 documents (a real number, title and branch, base main,
+// the tier on the PR); and one shaped like the call tasks/handover-wave2-2026-09.md documents (a brief and no tier),
+// with another base, its tier left to the batch (routine) or to the default (high). So on the high tier the tier comes
+// from each of its sources: the batch, the PR and the default.
 const runsOf = (tier: 'high' | 'routine') => [
-  { name: 'PR #1', args: { prs: [pr(tier)] } },
+  { name: 'PR #1', args: { prs: [pr()], tier } },
   { name: 'PR #1873', args: { prs: [{ number: 1873, branch: 'claude/a-real-branch', title: 'fix(api): a real title', base: 'main', tier }] } },
   {
     name: 'PR #1874',
