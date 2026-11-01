@@ -275,14 +275,14 @@ def _companyfacts(*, bank: bool = False) -> dict:
     and equity in 2024 Q2 and its operating cash flow in 2024 Q3, so QoQ and YoY read n/m on and against computed
     quarters, Cash generation's and Balance sheet's among them. Its gross profit is filed as quarters alone, so its Q4 is
     the year less three quarters, a calculation of four inputs; the ingest derives the margins and free cash flow. The
-    bank's net interest income, its top line, turns negative in 2024 Q2."""
+    bank's net interest income, its top line, and its net income turn negative in 2024 Q2, while its equity does not."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
     if bank:
         return {"cik": 990002, "entityName": "A QUARTERLY BANK", "facts": {"us-gaap": {
             "InterestIncomeExpenseNet": usd(_flow({2023: (300e6, 320e6, 310e6, 330e6), 2024: (290e6, -20e6, 300e6, 310e6)})),
-            "NetIncomeLoss": usd(_flow({2023: (90e6, 95e6, 92e6, 98e6), 2024: (85e6, 20e6, 88e6, 91e6)})),
+            "NetIncomeLoss": usd(_flow({2023: (90e6, 95e6, 92e6, 98e6), 2024: (85e6, -20e6, 88e6, 91e6)})),
             "StockholdersEquity": _balances({2023: (4000e6, 4050e6, 4100e6, 4150e6), 2024: (4200e6, 4120e6, 4180e6, 4240e6)}),
         }}}
     eps = [{"val": value, "start": f"{year}-{start}", "end": f"{year}-{end}", **_report(year, fp)}
@@ -740,7 +740,8 @@ REACH = {
     # never does (NON_NEGATIVE_CONCEPTS).
     "a_banks_quarterly_run_the_producer_builds": {
         "an input", "an input two levels down", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
-        "the top line's YoY reads n/m", "a computed Q4", "Cash generation", "Balance sheet"},
+        "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m", "a computed Q4", "Cash generation",
+        "Balance sheet"},
     "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
                                                          "the top line's YoY reads n/m"},
 }
