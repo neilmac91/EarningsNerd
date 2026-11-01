@@ -22,6 +22,11 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 - the push is to `main`, **and**
 - the repository variable `GCP_WIF_PROVIDER` is set (the job is skipped without it), **and**
 - `backend/` changed outside `backend/tests/`, **and**
+- main has not moved past the commit with changes to `backend/` outside `backend/tests/`. When it has,
+  the newer commit's own run deploys them, and deploying this one after it would roll production back.
+  Deploys wait in the order their runs reach the job, not in merge order. The detector reads main's tip
+  with a shallow fetch, and if that read fails the step fails and nothing deploys
+  (`lessons/ops-a-superseded-commit-never-deploys.md`), **and**
 - all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed, **and**
 - `secret-scan` (gitleaks over every branch's history) found no committed credential.
 

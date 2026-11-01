@@ -51,6 +51,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 
 ## Operations: jobs, deploys, billing, CI and environment (read for that work)
 
+- ops-a-superseded-commit-never-deploys.md — Never let an older commit deploy after a newer one: a deploy ships its own commit and waiting deploys run in the order they become ready, so `deploy-backend` skips a commit main has moved past with deployable backend changes, fails rather than deploy when it cannot read main, and back-to-back merges deploy once, as the newest; never roll back by re-running an old deploy (partly gated by `backend/tests/unit/test_backend_deploy_scope.py`; waiting for that deploy's verification before the next backend merge is review-checked)
 - ops-a-flag-several-processes-read-is-set-in-every-env-map.md — List every process that reads a flag and flip it in every deploy map it is configured from, with its job cadence, in one change (partly gated by `backend/tests/unit/test_section_changes_flag_placement.py` for `ENABLE_SECTION_CHANGES`; the next multi-process flag's gate is review-checked)
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub

@@ -840,9 +840,22 @@ jobs:
         # image by backend/.dockerignore, so changes confined to it do not deploy; --no-renames lists
         # both sides of a rename, so a runtime file moved under backend/tests/ still deploys
         # (gate: backend/tests/unit/test_backend_deploy_scope.py; lessons/ops-deploy-detector-mirrors-the-image-context.md).
+        # A deploy ships this commit's image, and the group above runs waiting deploys in the order their
+        # runs reach this job, not in merge order. So when main has moved past this commit with deployable
+        # backend changes, this deploy is skipped: that newer commit's own run deploys them, and shipping
+        # this one after it would roll production back (2026-10-31: #1863's deploy ran after #1713's;
+        # lessons/ops-a-superseded-commit-never-deploys.md). A failed fetch or diff fails the step: no deploy.
         run: |
           if git diff --name-only --no-renames HEAD^ HEAD | grep -v '^backend/tests/' | grep -qE '^backend/'; then
-            echo "backend=true" >> "$GITHUB_OUTPUT"
+            git fetch --no-tags --quiet --depth=1 origin main
+            tip=$(git rev-parse --verify FETCH_HEAD)
+            newer=$(git diff --name-only --no-renames HEAD "$tip")
+            if printf '%s\n' "$newer" | grep -v '^backend/tests/' | grep -qE '^backend/'; then
+              echo "backend=false" >> "$GITHUB_OUTPUT"
+              echo "Main is at ${tip::7}, past this commit with deployable backend changes; its own run deploys them - skipping this superseded deploy."
+            else
+              echo "backend=true" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "backend=false" >> "$GITHUB_OUTPUT"
             echo "No deployable backend changes - skipping deploy."
