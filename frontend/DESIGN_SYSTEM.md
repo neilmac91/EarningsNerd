@@ -596,8 +596,8 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  "Browse {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the
                  square, the Copilot answer's sources (a passage's section name, a figure's "Open the filing on
                  SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the
-                 filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and
-                 the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 filings history note's "Full history on SEC.gov" and the Filing tab's footer "Original on SEC.gov"
+                 (E279; the filing viewer's unmounted drawer went with E280). A button's arrow or square (MarketingCta,
                  buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
                  (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
                  is a square that marks a whole row link (the filing index's row link, the full-text search's result
@@ -614,7 +614,7 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
                  line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
                  its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
-                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
+                 without, so no case reaches it),
                  tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
                  ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
                  row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with
@@ -1906,7 +1906,7 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
                  SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
-                 viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
+                 workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
                  DayDetailDialog, a
                  sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
@@ -1972,7 +1972,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
-                 source and viewer sheets — scrim AND panel) ·
+                 source, rail and workspace sheets: scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
                  site header. The panel follows its scrim in DOM order at that rung. CitationChip portals

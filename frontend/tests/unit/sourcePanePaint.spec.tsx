@@ -103,7 +103,7 @@ describe('the Source pane paints the device only on a passage the server located
       <QueryClientProvider client={client}>
         <FilingViewerProvider>
           {chip}
-          <FilingViewer embedded filingId={3} filingLabel="AAPL 10-K" secUrl={DOCUMENT_URL} />
+          <FilingViewer filingId={3} filingLabel="AAPL 10-K" secUrl={DOCUMENT_URL} />
         </FilingViewerProvider>
       </QueryClientProvider>,
     )

@@ -2,8 +2,8 @@
    dialogAllowlist.spec.ts — guardrail (v3, DS-04)
    -----------------------------------------------------------------------------
    Dialog semantics ship ONLY through ui/Modal plus the documented bespoke layers:
-     - the copilot rail / filing viewer / workspace sheets (the rail and workspace
-       trap focus via useSheetFocusTrap) and SourceTrace's mobile source-detail
+     - the copilot rail / workspace sheets (both trap focus via
+       useSheetFocusTrap) and SourceTrace's mobile source-detail
        sheet — role="dialog";
      - the calendar's DayDetailDialog — a native <dialog> + showModal(), whose top
        layer supplies the focus trap and Escape.
@@ -46,14 +46,13 @@ type Counts = Partial<Record<DialogKind, number>>
 const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 // Shrink-only: lower it when an entry goes; never raise it to fit a new hand-rolled dialog.
-const MAX_ALLOWLIST_SIZE = 6
+const MAX_ALLOWLIST_SIZE = 5
 const ALLOW: Record<string, { counts: Counts; reason: string }> = {
   'components/ui/Modal.tsx': { counts: { layer: 1, role: 1 }, reason: 'the one dialog primitive' },
   'features/filings/components/copilot/AskCopilotRail.tsx': {
     counts: { layer: 2, role: 1 },
     reason: 'existing mobile sheet and scrim both adopt z-modal; one dialog, trapped by useSheetFocusTrap',
   },
-  'features/filings/components/copilot/FilingViewer.tsx': { counts: { layer: 1, role: 1 }, reason: 'bespoke filing-viewer sheet' },
   'features/filings/components/copilot/FilingWorkspace.tsx': {
     counts: { layer: 2, role: 1 },
     reason: 'existing workspace sheet and scrim both adopt z-modal; one dialog, trapped by useSheetFocusTrap',
