@@ -2,7 +2,7 @@
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
-import { ArrowRightIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { FeedItem, WhatChangedItem, WordingChangesSummary } from '@/features/dashboard/api/dashboard-api'
 import { plural } from '@/features/filings/lib/sectionChanges'
 import { formatLocalDate } from '@/lib/format'
@@ -10,6 +10,7 @@ import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Card } from '@/components/ui'
 import { directionChip, type Direction } from '@/lib/financialTone'
+import TrailingArrowLabel from './TrailingArrowLabel'
 
 // A filing counts as "New" for up to two weeks. Because the feed now always shows each company's
 // latest filing regardless of age, this badge is what distinguishes "fresh this week" from "their
@@ -89,21 +90,6 @@ function MetricChip({ item }: { item: WhatChangedItem }) {
   )
 }
 
-/** The call to action's words with the arrow held to the last of them, so a label that wraps carries the arrow onto its
- *  last line instead of parting it to the card's far edge (chief design on #1897, E272). */
-function CallToAction({ label }: { label: string }) {
-  const last = label.lastIndexOf(' ') + 1
-  return (
-    <>
-      {label.slice(0, last)}
-      <span className="whitespace-nowrap">
-        {label.slice(last)}
-        <ArrowRightIcon aria-hidden="true" className="ml-1 inline-block h-4 w-4 align-text-bottom" />
-      </span>
-    </>
-  )
-}
-
 export default function WhatChangedCard({ item }: { item: FeedItem }) {
   const { what_changed: wc, company } = item
   const wording = wordingLine(item.wording_changes)
@@ -166,7 +152,9 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
         {wording && <p className="mt-2 text-xs tnum text-text-secondary-light dark:text-text-secondary-dark">{wording}</p>}
 
         <div className="mt-3 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
-          <CallToAction label={ctaLabel(item.summary_status)} />
+          {/* The arrow keeps with the label's last word, so a label that wraps carries it onto its last line instead of
+              parting it to the card's far edge (chief design on #1897, E272). */}
+          <TrailingArrowLabel label={ctaLabel(item.summary_status)} />
         </div>
       </Card>
     </Link>
