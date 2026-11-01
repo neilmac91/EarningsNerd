@@ -77,9 +77,9 @@
  *     runtime, where `parallel`, `pipeline` and `agent` throw once a run has started all the agents it may: the case
  *     caps the run at two agents, so the lens and one of two blockers' refuters use them and the other blocker's
  *     refuters' call throws, whichever blocker the script verifies first. A script that starts each refuter a timer
- *     tick or a hook layer after its refuters' call never lets that call throw at one PR's cap, so how it treats a
- *     verification that throws stays out of the case's reach (in the runtime an exhausted token budget, or a cap
- *     that other PRs in a batch filled, can still throw one);
+ *     tick or a hook layer later than its refuters' call reads the cap never lets that call throw at one PR's cap, so
+ *     how it treats a verification that throws stays out of the case's reach (in the runtime an exhausted token
+ *     budget, or a cap that other PRs in a batch filled, can still throw one);
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
  * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
@@ -897,8 +897,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
     // Two blockers on a run capped at two agents, as the runtime caps a run: the lens and one blocker's refuter use the
     // cap, so the other blocker's refuters' call throws, and with it that blocker's verification, whichever blocker the
-    // script verifies first. A script that starts each refuter a timer tick or a hook layer after that call is out of
-    // the case's reach, as the header says.
+    // script verifies first. A script that starts each refuter a timer tick or a hook layer later than that call reads
+    // the cap is out of the case's reach, as the header says.
     const twoBlockers: Findings = {
       findings: [
         { file: 'a.py', title: 'first blocker', detail: 'd', severity: 'blocker', evidence: 'e' },
