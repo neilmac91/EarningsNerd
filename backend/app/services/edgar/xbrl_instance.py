@@ -18,6 +18,7 @@ from .instance.concepts import (
 from .instance.core import DURATION_WINDOWS, normalize_form
 from .instance.debt import debt_component_observations
 from .instance.financial_profiles import cash_financial_classification
+from .instance.financial_revenue import financial_revenue_concepts
 from .instance.segments import segment_series_by_member
 from .instance.series import (
     dividend_component_sum_series,
@@ -115,15 +116,16 @@ def _instance_concepts():
 def _statement_metrics(settings, company, xb, base_form, period_of_report, accession_number):
     # Financial institutions: "revenue" has no single generic tag (a bank's ASC-606 fee-income tag
     # is only a subset). Read the industry-correct revenue/component lines from the AS-REPORTED
-    # income statement and suppress the generic keys they replace. Non-financial filers are
-    # untouched, and any failure falls back to the generic fact-query path below.
-    fin_suppress = set()
-    fin_metrics = {}
-    profile_key = None
+    # income statement and suppress the generic keys they replace. Their revenue is read only from the
+    # tags E264's rule chooses from the filing's own facts (E278), on the statement and in the generic
+    # list. Non-financial filers are untouched, and any failure falls back to the generic path below.
+    fin_suppress, fin_metrics, profile_key, revenue_tags = set(), {}, None, None
     if settings.USE_STATEMENT_FINANCIALS:
         sic = getattr(company, "sic", None)
+        revenue_tags = financial_revenue_concepts(xb, company, sic, base_form, period_of_report)
         try:
-            fin = extract_financial_statement_metrics(xb, company, sic, base_form, period_of_report)
+            fin = extract_financial_statement_metrics(
+                xb, company, sic, base_form, period_of_report, revenue_tags=revenue_tags)
         except Exception as exc:  # noqa: BLE001 - never let the statement path break extraction
             logger.warning(f"Financial statement extraction failed for {accession_number}: {exc}")
             fin = None
@@ -132,9 +134,9 @@ def _statement_metrics(settings, company, xb, base_form, period_of_report, acces
             fin_suppress = set(suppress)
             logger.info(
                 f"Statement-based financial revenue for {accession_number} (profile={profile_key}, "
-                f"metrics={sorted(fin_metrics)})"
+                f"metrics={sorted(fin_metrics)}, revenue_tags={revenue_tags})"
             )
-    return fin_suppress, fin_metrics, profile_key
+    return fin_suppress, fin_metrics, profile_key, revenue_tags
 
 
 def _duration_metrics(
@@ -363,9 +365,11 @@ def _extract_from_filing_instance_sync(
             currency_votes[currency] = currency_votes.get(currency, 0) + weight
 
     settings, duration_concepts, instant_concepts = _instance_concepts()
-    fin_suppress, fin_metrics, profile_key = _statement_metrics(
+    fin_suppress, fin_metrics, profile_key, revenue_tags = _statement_metrics(
         settings, company, xb, base_form, period_of_report, accession_number,
     )
+    if revenue_tags is not None:  # a financial filer's generic revenue list is its own choice, too (E278)
+        duration_concepts = {**duration_concepts, "revenue": list(revenue_tags)}
     _duration_metrics(
         duration_concepts, fin_suppress, fin_metrics, xb, base_form, period_of_report,
         result, form, accession_number, filing, cik_padded, _record_currency,

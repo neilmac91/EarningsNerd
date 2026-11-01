@@ -20,7 +20,7 @@ logger = logging.getLogger("app.services.edgar.xbrl_service")
 # v5: retain fiscal-quarter metadata in newly extracted snapshots.
 # v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
 # v7: annual points carry the issuer's fiscal year where the calendar year of their end misnames it.
-_XBRL_CACHE_VERSION = "v9"  # v9 (E260): every path's earnings_per_share is basic only; v8's fallback could be diluted.
+_XBRL_CACHE_VERSION = "v10"  # v10 (E278): a financial filer's revenue is E264's choice; v9's could be its fee line.
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (aware UTC cached_datetime, data_dict)

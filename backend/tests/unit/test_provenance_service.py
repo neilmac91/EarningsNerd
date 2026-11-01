@@ -1393,13 +1393,15 @@ class TestScopeTagsHoldTheirSources:
 
     @staticmethod
     def recorded_candidates() -> dict[str, set[str]]:
-        """Every tag a path may record as ``raw_tag``: the instance extractor's candidates and financial profiles'
-        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's candidates: cash,
-        whose tag it records, and the inline lists (revenue, net income, total assets among them), whose tag it does
-        not today (E184). Classifying each errs on the safe side."""
+        """Every tag a path may record as ``raw_tag``: the instance extractor's candidates, financial profiles'
+        anchors and a financial filer's own revenue choice (E264's tags, E278; ``xbrl_instance.py`` records a tag for
+        some keys only), and the companyfacts path's candidates: cash, whose tag it records, and the inline lists
+        (revenue, net income, total assets among them), whose tag it does not today (E184). Classifying each errs on
+        the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
         from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
+        from app.services.facts.fi_revenue import FEE_TAG, TOTAL_TAGS
 
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
@@ -1408,6 +1410,7 @@ class TestScopeTagsHoldTheirSources:
         for profile in FINANCIAL_PROFILES:
             for key, anchors, _standard_concept in profile["selectors"]:
                 out.setdefault(key, set()).update(anchors)
+        out["revenue"].update((*TOTAL_TAGS, FEE_TAG))  # the tags E264's rule can choose, each recorded as raw_tag
         out.setdefault("cash_and_equivalents", set()).update(CASH_TAG_CANDIDATES)
         for key, tags in TestScopeTagsHoldTheirSources.companyfacts_inline_candidates().items():
             out.setdefault(key, set()).update(tags)

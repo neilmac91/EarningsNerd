@@ -78,7 +78,7 @@ def source_metrics(monkeypatch, sic, category, profile):
     monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", True)
     # The classification/profile inputs are explicit controls, not claims about this fixture issuer.
     monkeypatch.setattr(xbrl_instance, "extract_financial_statement_metrics",
-                        lambda *args: (profile, {}, ()) if profile else None)
+                        lambda *args, **kwargs: (profile, {}, ()) if profile else None)
     raw = xbrl_service._extract_from_filing_instance_sync(CIK, ACC)
     assert len(resolutions) == 1
     metrics = xbrl_service.EdgarXBRLService().extract_standardized_metrics(raw)
