@@ -114,14 +114,22 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       className="block rounded-xl focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       {/* The card is the header's query container. Side by side the header needs about 21rem: the date column's widest
-          line (7.8rem), the ticker (2.8rem), the logo (1.75rem at the default size), three gaps (1.9rem) and some 6.5rem
-          of name. Below that, on a phone, in the two-column feed's narrow bands and under 200% text at every width, the
-          date column moves under the company line, left-aligned, and the name wraps instead of truncating, so it keeps
-          its words (E272, chief design on #1897); the ticker follows the name, under it when the two do not fit. */}
+          line (8.45rem for "10-Q · May 28, 2026"), the ticker (up to 3.3rem for "BRK.B"), the logo (1.75rem at the
+          default size), three gaps (1.9rem) and at least 5.6rem of name. Below that, on a phone and under 200% text at
+          every width, the date column moves under the company line, left-aligned, and the name wraps instead of
+          truncating, so it keeps its words (E272, chief design on #1897); the ticker follows the name, under it when
+          the two do not fit. Below 7.25rem the decorative logo gives way too, as the calendar's event row drops its
+          own, since beside it a phone under 200% text breaks common words ("International", "Laboratories"). */}
       <Card interactive className="h-full p-cap-5 [container-type:inline-size]">
         <div data-what-changed-header className="flex items-start justify-between gap-3 [@container(width<21rem)]:flex-col [@container(width<21rem)]:gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
-            <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
+            <CompanyLogo
+              decorative
+              ticker={company.ticker}
+              name={formatCompanyName(company.name)}
+              size={28}
+              className="[@container(width<7.25rem)]:hidden"
+            />
             <div className="flex min-w-0 items-center gap-2 [@container(width<21rem)]:flex-wrap [@container(width<21rem)]:gap-y-1">
               <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark [@container(width<21rem)]:whitespace-normal [@container(width<21rem)]:[overflow-wrap:anywhere]">
                 {formatCompanyName(company.name)}

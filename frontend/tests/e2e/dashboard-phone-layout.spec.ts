@@ -216,14 +216,24 @@ const CHANGED_FEED = {
   // page's scroll would not be the chips'. The cards' headers stay, and keep inside their cards (E272, below).
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
-    items: CHANGED.map(({ ticker, name, items }, i) => ({
-      filing_id: 200 + i, accession_number: null, company: { id: 50 + i, ticker, name }, filing_type: '10-Q',
-      filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 300 + i, summary_status: 'ready',
-      what_changed: {
-        headline: '', data_quality: 'ok',
-        items: items.map(([metric, label, direction, display, tone]) => ({ metric, label, direction, pct: null, current: 1, prior: 1, display, tone })),
+    items: [
+      ...CHANGED.map(({ ticker, name, items }, i) => ({
+        filing_id: 200 + i, accession_number: null, company: { id: 50 + i, ticker, name }, filing_type: '10-Q',
+        filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 300 + i, summary_status: 'ready',
+        what_changed: {
+          headline: '', data_quality: 'ok',
+          items: items.map(([metric, label, direction, display, tone]) => ({ metric, label, direction, pct: null, current: 1, prior: 1, display, tone })),
+        },
+      })),
+      // E272's long name, whose common words a narrow card must not break, and whose call to action ("Regenerate
+      // summary") wraps on a phone under 200% text, so the arrow's case reads a label that does wrap. No figures,
+      // so the chip cases still read seven chips.
+      {
+        filing_id: 202, accession_number: null, company: { id: 52, ticker: 'IBM', name: 'International Business Machines Corporation' },
+        filing_type: '10-Q', filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 302, summary_status: 'placeholder',
+        what_changed: null,
       },
-    })),
+    ],
   },
 }
 
@@ -283,7 +293,7 @@ function expectTextInside(c: Chip) {
   }
 }
 
-for (const width of [320, 340, 360, 640, 768, 1024]) {
+for (const width of [320, 340, 360, 640, 768, 1024, 1280]) {
   test(`What changed's chips stay inside their row at ${width}px under 200% text`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: 900 })
     await openFeed(page, baseURL!)
@@ -302,12 +312,18 @@ for (const width of [320, 340, 360, 640, 768, 1024]) {
       // The 16px step, which is 32px under 200% text: a pill on one line and a rounded box once it wraps.
       expect(c.radius).toBe('32px')
     }
-    // The bank's longest chip does not fit beside its label at any of these widths: its figure moves under the label's
-    // last line, never beside it.
+    // The bank's longest chip: on a phone and in the two-column feed from 1280px (the second column opens at 40rem,
+    // E272) its figure moves under the label's last line; on the one-column feed's full-width cards from 640 to 1279px
+    // it keeps beside the label, on one line.
     const bank = m.chips.find((c) => c.name?.startsWith('Noninterest income'))!
-    const labelBottom = Math.max(...bank.label.map((line) => line.bottom))
     expect(bank.figure).toHaveLength(1)
-    expect(bank.figure[0].top, 'its figure moves under its label').toBeGreaterThanOrEqual(labelBottom - 0.5)
+    if (width <= 360 || width >= 1280) {
+      const labelBottom = Math.max(...bank.label.map((line) => line.bottom))
+      expect(bank.figure[0].top, 'its figure moves under its label').toBeGreaterThanOrEqual(labelBottom - 0.5)
+    } else {
+      expect(bank.label, 'its label keeps one line').toHaveLength(1)
+      expect(bank.figure[0].top, 'its figure keeps beside its label, on its line').toBeLessThan(bank.label[0].bottom - 0.5)
+    }
   })
 }
 
@@ -347,18 +363,40 @@ async function headerGeometry(page: Page) {
       }
       const [company, dates] = [...header.children] as HTMLElement[]
       const [name, ticker] = [...company.lastElementChild!.children] as HTMLElement[]
-      // The call to action's last word: the line box of its last text node's last line, whatever wraps it.
+      // The call to action's last word: the line box of its last text node's last line, whatever wraps it; and how
+      // many lines its words take.
       const cta = card.lastElementChild as HTMLElement
       const walker = document.createTreeWalker(cta, NodeFilter.SHOW_TEXT)
-      let lastText: Node | null = null
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) lastText = node
-      const lastLines = lines(lastText as Text)
+      const texts: Text[] = []
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+      const lastLines = lines(texts[texts.length - 1])
+      const ctaLines = new Set(texts.flatMap((text) => lines(text).map((line) => Math.round(line.top)))).size
+      // A word of the name painted across two lines, where the word on its own would fit the name's box: a break inside
+      // a word that had room for itself.
+      const nameText = name.firstChild as Text
+      const splitWords: string[] = []
+      let at = 0
+      for (const word of nameText.data.split(' ')) {
+        const range = document.createRange()
+        range.setStart(nameText, at)
+        range.setEnd(nameText, at + word.length)
+        const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+        const probe = document.createElement('span')
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+        probe.textContent = word
+        name.appendChild(probe)
+        const fits = probe.getBoundingClientRect().width <= name.clientWidth
+        probe.remove()
+        if (tops.size > 1 && fits) splitWords.push(word)
+        at += word.length + 1
+      }
       return {
         name: name.textContent!, content,
-        nameLines: lines(name), tickerBox: box(ticker.getBoundingClientRect()), dateLines: lines(dates),
+        nameLines: lines(name), nameBox: box(name.getBoundingClientRect()), tickerBox: box(ticker.getBoundingClientRect()),
+        dateLines: lines(dates), dateStarts: [...dates.children].map((line) => line.getBoundingClientRect().left),
         companyBox: box(company.getBoundingClientRect()), datesBox: box(dates.getBoundingClientRect()),
-        nameCut: name.scrollWidth - name.clientWidth,
-        arrow: box(cta.querySelector('svg')!.getBoundingClientRect()), lastWord: lastLines[lastLines.length - 1],
+        nameCut: name.scrollWidth - name.clientWidth, splitWords,
+        arrow: box(cta.querySelector('svg')!.getBoundingClientRect()), lastWord: lastLines[lastLines.length - 1], ctaLines,
       }
     })
   })
@@ -370,17 +408,23 @@ const overlaps = (a: { left: number; right: number; top: number; bottom: number 
   a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
 
 function expectHeaderFits(h: Header, stacked: boolean) {
-  for (const line of [...h.nameLines, h.tickerBox, ...h.dateLines]) {
+  // Stacked, the name wraps, so its painted lines are its extent; side by side a long name truncates, and its text runs on
+  // under the clip, so its box is.
+  const name = stacked ? h.nameLines : [h.nameBox]
+  for (const line of [...name, h.tickerBox, ...h.dateLines]) {
     expect(line.left, `${h.name}: its header starts inside the card`).toBeGreaterThanOrEqual(h.content.left - 0.5)
     expect(line.right, `${h.name}: its header ends inside the card`).toBeLessThanOrEqual(h.content.right + 0.5)
   }
-  for (const part of [...h.nameLines, h.tickerBox]) {
+  for (const part of [...name, h.tickerBox]) {
     for (const date of h.dateLines) expect(overlaps(part, date), `${h.name}: the company line clears the date column`).toBe(false)
   }
   if (stacked) {
-    // One column: the date column under the company line, and the name whole, wrapped rather than cut.
+    // One column: the date column under the company line and at the card's left edge, and the name whole, wrapped
+    // rather than cut, with no word broken that had room for itself.
     expect(h.datesBox.top, `${h.name}: the date column sits under the company line`).toBeGreaterThanOrEqual(h.companyBox.bottom - 0.5)
+    for (const left of h.dateStarts) expect(Math.abs(left - h.content.left), `${h.name}: each date line starts at the card's left edge`).toBeLessThanOrEqual(0.5)
     expect(h.nameCut, `${h.name} shows whole`).toBeLessThanOrEqual(0)
+    expect(h.splitWords, `${h.name}: no word breaks that fits its line`).toEqual([])
   } else {
     // Side by side: the date column beside the company line, at its right.
     expect(h.datesBox.top, `${h.name}: the date column sits beside the company line`).toBeLessThan(h.companyBox.bottom)
@@ -389,6 +433,7 @@ function expectHeaderFits(h: Header, stacked: boolean) {
   // The arrow sits on the line of the label's last word, right after it, never parted to the card's far edge.
   expect(h.arrow.top, `${h.name}: the arrow is on its last word's line`).toBeLessThan(h.lastWord.bottom)
   expect(h.arrow.bottom).toBeGreaterThan(h.lastWord.top)
+  expect(h.arrow.left, `${h.name}: the arrow comes after its last word`).toBeGreaterThanOrEqual(h.lastWord.right - 0.5)
   expect(h.arrow.left - h.lastWord.right, `${h.name}: the arrow follows its last word`).toBeLessThanOrEqual(10)
 }
 
@@ -400,8 +445,12 @@ for (const width of [320, 340, 360, 640, 768, 1024, 1280]) {
     await page.evaluate(() => document.fonts.ready)
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
     const headers = await headerGeometry(page)
-    expect(headers).toHaveLength(2)
+    expect(headers).toHaveLength(3)
     for (const h of headers) expectHeaderFits(h, true)
+    if (width <= 360) {
+      const ibm = headers.find((h) => h.name.startsWith('International'))!
+      expect(ibm.ctaLines, '"Regenerate summary" wraps, so the arrow reads a wrapped label').toBe(2)
+    }
   })
 }
 
@@ -412,7 +461,7 @@ for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, tru
     await page.setViewportSize({ width, height: 900 })
     await openFeed(page, baseURL!)
     const headers = await headerGeometry(page)
-    expect(headers).toHaveLength(2)
+    expect(headers).toHaveLength(3)
     for (const h of headers) expectHeaderFits(h, stacked)
   })
 }
