@@ -104,10 +104,12 @@ leaker and the victim in that order in one process (`python -m pytest -n 0 -p no
 - a mock is left on the generation singletons, or the guard does not put the real one back;
 - a conftest reset stops holding: the canonical payload, the summary limiter, the delivery and lease
   rows, the `ai_metrics` trigger, or a service method left pinned on its singleton.
-  `monkeypatch.setattr` on an instance saves the old attribute with `getattr`, a bound method, and
-  its undo sets that back on the instance, where it shadows any later class-level patch. Tests reach
-  those singletons through `app.services.edgar.compat` without importing `summary_pipeline`, so the
-  guard finds them where they live;
+  A pin is the class's own bound method set on the instance, where it shadows any later class-level
+  patch. A test that assigns the bound method leaves one, and before pytest 9.2.0 so did undoing
+  `monkeypatch.setattr` on an instance (pytest #10644; 9.2.0 restores the instance's own entry
+  instead). The probe therefore pins by assignment. Tests reach those singletons through
+  `app.services.edgar.compat` without importing `summary_pipeline`, so the guard finds them where
+  they live;
 - `_offline_stream_enrichment` stubs any file but its listed three, or the temp directory of any
   process (the xdist controller and each worker included) outlives its run.
 

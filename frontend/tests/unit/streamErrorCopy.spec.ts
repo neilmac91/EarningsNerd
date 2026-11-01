@@ -599,11 +599,9 @@ describe('the summary stream error sentences the filing page maps', () => {
 
   /** A line kept for a sentence no module writes any more, while a deploy rolls out: the page deploys before the
       backend, which streams the old words until its new revision serves. Each names its successor, whose words it
-      shows, and goes once that deploy is verified (E37: #1869's backend). */
-  const RETIRED_KEYS: Record<string, string> = {
-    "We've temporarily paused new summary generation on your account due to unusually high recent volume. Please try again later or contact support.":
-      "Your account has reached this month's limit for generating summaries, regenerations included. It resets next month. Contact support with any questions.",
-  }
+      shows, and goes once that deploy is verified. None now: E37's one, the ceiling's words before E37, went once
+      #1869's backend deploy was verified. */
+  const RETIRED_KEYS: Record<string, string> = {}
 
   it('keeps no line for a sentence no stage module writes and the endpoint no longer answers with', () => {
     const written = new Set<string>()
