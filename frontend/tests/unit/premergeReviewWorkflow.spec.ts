@@ -29,9 +29,9 @@
  *     - the sweep runs, on the high tier, every combination of the seven sets of reporting lenses, zero or one blocker
  *       defect, one to eight should-fix defects and one or two copies, plus three reviews of up to 198 reports in
  *       three copies; on the routine tier, one to four blocker defects with zero or one should-fix defect, in one to
- *       three copies. About one copy in four, drawn, claims the other serious severity, and in about half the reviews
- *       each reporting lens also reports a nit. A defect's copies share its file, its line (or its lack of one) and its
- *       title, and by turns its evidence, its detail or neither. Each refuter answers hold (twice as often as each other
+ *       three copies. About one copy in four, drawn, claims the other serious severity, and each reporting lens also
+ *       reports a nit about half the time, drawn per lens. A defect's copies share its file, its line (or its lack of
+ *       one) and its title, and by turns its evidence, its detail or neither. Each refuter answers hold (twice as often as each other
  *       answer), refute, lower, raise or nothing, drawn per shape, PR, report and refuter. On each tier and PR, every
  *       severity the tier verifies meets every combination of its refuters' answers, `incomplete` and `mergeable` each
  *       come out both ways, and reviews with nits and without both run.
@@ -45,7 +45,9 @@
  *     - out of reach: a change that acts only on reviews these leave out (a larger review, a batch of several PRs, or a
  *       mix of claims and answers the sweep's draws never produce, such as an exact count of verified reports), only on
  *       what they hold fixed (the form of the files, titles and words) or only on a part of the runtime the harness
- *       does not mirror, and that either calls no agent of its own (it judges a copy on another copy's votes, say) or
+ *       does not mirror (a clock or randomness read other than the three it makes throw, such as `Date()` called
+ *       without `new` or `performance.now()`), and that either calls no agent of its own (it judges a copy on another
+ *       copy's votes, say) or
  *       reaches one through the lenses' or the refuters' own call (a helper that builds their prompt and calls
  *       `agent`) or through a name built at run time that the static case does not list (the Function constructor
  *       reached as a property, say);
@@ -585,7 +587,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       ]
       for (const { name, args } of runsOf(tier)) {
         const where = `${tier}, ${lensSet.join(' + ')} reporting, ${blockers} blocker and ${shoulds} should-fix defect(s), ${copies} cop(ies), ${name}`
-        // Every reporting lens reports every defect `copies` times, and in about half the reviews a nit as well; each copy's
+        // Every reporting lens reports every defect `copies` times, and about half the time (drawn per lens) a nit as well; each copy's
         // tag rides in a field its copies do not share.
         const reports: Report[] = []
         for (const lens of lensSet) {
