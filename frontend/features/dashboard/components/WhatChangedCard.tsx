@@ -89,6 +89,21 @@ function MetricChip({ item }: { item: WhatChangedItem }) {
   )
 }
 
+/** The call to action's words with the arrow held to the last of them, so a label that wraps carries the arrow onto its
+ *  last line instead of parting it to the card's far edge (chief design on #1897, E272). */
+function CallToAction({ label }: { label: string }) {
+  const last = label.lastIndexOf(' ') + 1
+  return (
+    <>
+      {label.slice(0, last)}
+      <span className="whitespace-nowrap">
+        {label.slice(last)}
+        <ArrowRightIcon aria-hidden="true" className="ml-1 inline-block h-4 w-4 align-text-bottom" />
+      </span>
+    </>
+  )
+}
+
 export default function WhatChangedCard({ item }: { item: FeedItem }) {
   const { what_changed: wc, company } = item
   const wording = wordingLine(item.wording_changes)
@@ -98,12 +113,27 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       onClick={() => analytics.dashboardFeedClicked(item.filing_id, company.ticker, item.filing_type)}
       className="block rounded-xl focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
-      <Card interactive className="h-full p-cap-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark">
+      {/* The card is the header's query container. Side by side the header needs about 21rem: the date column's widest
+          line (8.45rem for "10-Q · May 28, 2026"), the ticker (up to 3.3rem for "BRK.B"), the logo (1.75rem at the
+          default size), three gaps (1.9rem) and at least 5.6rem of name. Below that, on a phone and under 200% text at
+          every width, the date column moves under the company line, left-aligned, and the name wraps instead of
+          truncating, so it keeps its words (E272, chief design on #1897); the ticker follows the name, under it when
+          the two do not fit. Stacked, the logo keeps to the name's first line, as ActivityLine's dot does (the line
+          at items-start, the logo nudged by half of the name's line less the logo; chief design on #1900). Below
+          7.25rem the decorative logo gives way too, as the calendar's event row drops its own, since beside it a
+          phone under 200% text breaks common words ("International", "Laboratories"). */}
+      <Card interactive className="h-full p-cap-5 [container-type:inline-size]">
+        <div data-what-changed-header className="flex items-start justify-between gap-3 [@container(width<21rem)]:flex-col [@container(width<21rem)]:gap-2">
+          <div className="flex min-w-0 items-center gap-2.5 [@container(width<21rem)]:items-start">
+            <CompanyLogo
+              decorative
+              ticker={company.ticker}
+              name={formatCompanyName(company.name)}
+              size={28}
+              className="[@container(width<21rem)]:mt-[calc((1.5rem_-_28px)/2)] [@container(width<7.25rem)]:hidden"
+            />
+            <div className="flex min-w-0 items-center gap-2 [@container(width<21rem)]:flex-wrap [@container(width<21rem)]:gap-y-1">
+              <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark [@container(width<21rem)]:whitespace-normal [@container(width<21rem)]:[overflow-wrap:anywhere]">
                 {formatCompanyName(company.name)}
               </span>
               <span className="rounded-full bg-panel-light px-2 py-0.5 font-data text-xs font-semibold text-text-secondary-light dark:bg-background-dark dark:text-text-secondary-dark">
@@ -111,15 +141,17 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
               </span>
             </div>
           </div>
-          <div className="flex flex-shrink-0 flex-col items-end gap-0.5 text-right">
+          <div className="flex flex-shrink-0 flex-col items-end gap-0.5 text-right [@container(width<21rem)]:items-start [@container(width<21rem)]:text-left">
             {isRecentFiling(item.filing_date) && (
               <Badge variant="new" icon={null} className="mb-0.5">New</Badge>
             )}
             {/* "Latest report" (vs "Last filed" in Your companies): this feed shows the newest
                 10-K/10-Q, which can be older than a company's most recent filing of any form. */}
             <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">Latest report</span>
+            {/* The date keeps whole: where the line wraps under 200% text it breaks after the form, not inside the
+                date (chief design on #1900). */}
             <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
+              {item.filing_type} · <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
             </span>
           </div>
         </div>
@@ -137,9 +169,8 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
         )}
         {wording && <p className="mt-2 text-xs tnum text-text-secondary-light dark:text-text-secondary-dark">{wording}</p>}
 
-        <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
-          {ctaLabel(item.summary_status)}
-          <ArrowRightIcon className="h-4 w-4" />
+        <div className="mt-3 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
+          <CallToAction label={ctaLabel(item.summary_status)} />
         </div>
       </Card>
     </Link>

@@ -3,7 +3,13 @@
 backend/.dockerignore excludes tests/ from the image, so the deploy-backend change detector drops
 backend/tests/ before testing for ^backend/, and every deploy step is gated on that decision
 (lessons/ops-deploy-detector-mirrors-the-image-context.md).
+
+A deploy ships its own commit's image, and the deploy group runs waiting deploys in the order their
+runs reach it, not in merge order. So the detector also skips a commit that main has moved past with
+deployable backend changes, which that newer commit's own run deploys; a failed read of main fails
+the step rather than deploying (lessons/ops-a-superseded-commit-never-deploys.md).
 """
+import fnmatch
 import os
 import re
 import subprocess
@@ -14,6 +20,29 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 GIT_CALL = "diff --name-only --no-renames HEAD^ HEAD"
 DEPLOY_GATE = "steps.changes.outputs.backend == 'true'"
+# The detector's read of main, made only after it finds a deployable change of its own: main by its
+# full ref (a tag named main must not stand in for it), then the tip, then main's paths since HEAD.
+MAIN_TIP = "f" * 40
+FETCH_CALL = "fetch --no-tags --quiet --depth=1 origin refs/heads/main"
+TIP_CALL = "rev-parse --verify FETCH_HEAD"
+NEWER_CALL = f"diff --name-only --no-renames HEAD {MAIN_TIP}"
+READ_OF_MAIN = ["fetch", "tip", "newer"]
+# git as the detector calls it, answered from files: the merge's changed paths, and the paths main has
+# changed since this commit. Every call is logged by name, in order. Any other invocation is logged as
+# "unexpected" and fails, so a fallback read after a failed one (rev-parse HEAD) shows in the order.
+# The fetch retry's waits are logged, not slept.
+GIT_STUB = (
+    'git() {\n'
+    '  case "$*" in\n'
+    '    "' + GIT_CALL + '") echo own >> "$TEST_GIT_LOG"; cat "$TEST_CHANGED_PATHS_FILE" ;;\n'
+    '    "' + FETCH_CALL + '") echo fetch >> "$TEST_GIT_LOG" ;;\n'
+    '    "' + TIP_CALL + '") echo tip >> "$TEST_GIT_LOG"; echo "' + MAIN_TIP + '" ;;\n'
+    '    "' + NEWER_CALL + '") echo newer >> "$TEST_GIT_LOG"; cat "$TEST_NEWER_PATHS_FILE" ;;\n'
+    '    *) echo unexpected >> "$TEST_GIT_LOG"; echo "unexpected git invocation: $*" >&2; return 2 ;;\n'
+    '  esac\n'
+    '}\n'
+    'sleep() { echo "sleep-$*" >> "$TEST_GIT_LOG"; }\n'
+)
 
 
 def _workflow():
@@ -58,22 +87,40 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
     for step in later:
         assert step.get("if") == DEPLOY_GATE, f"Deploy step {step.get('name')!r} is not gated"
 
+    # Execute the workflow's actual shell, replacing only git's path inputs. Main has changed nothing
+    # since this commit here, so the decision rests on the merge's own paths.
+    changed = tmp_path / "changed-paths"
+    newer = tmp_path / "newer-paths"
+    newer.write_text("")
+    calls = tmp_path / "git-calls"
+    shell = GIT_STUB + detect["run"]
+    env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed), "TEST_NEWER_PATHS_FILE": str(newer),
+           "TEST_GIT_LOG": str(calls)}
+    for index, (paths, expected) in enumerate(_path_cases()):
+        changed.write_text("".join(f"{path}\n" for path in paths))
+        calls.write_text("")
+        decision = _run_detector(shell, ROOT, env, tmp_path / f"github-output-{index}")
+        assert decision == f"backend={str(expected).lower()}", (
+            f"Incorrect deployment decision for {paths[:3]}: "
+            "exclude backend/tests/ only; keep runtime and mixed changes deployable"
+        )
+        # Main is read only for a commit with a deployable change of its own, and only after that change.
+        assert calls.read_text().split() == ["own"] + (READ_OF_MAIN if expected else []), paths[:3]
+
+
+def _path_cases():
+    """(paths, deployable) cases for the detector's one path rule, which judges this commit's paths and
+    main's newer ones alike: every tracked test, future nested files and near-prefix boundaries, not
+    just current .py tests, beside runtime, migration, container and mixed changes."""
     tracked_tests = subprocess.check_output(
         ["git", "ls-files", "backend/tests/"], cwd=ROOT, text=True
     ).splitlines()
     assert len(tracked_tests) > 100, "The test-only case must cover real tracked test paths"
-    # Execute the workflow's actual shell, replacing only git's changed-path input.
-    # Include future nested files and near-prefix boundaries, not just current .py tests.
-    changed = tmp_path / "changed-paths"
-    shell = (
-        'git() {\n'
-        '  [ "$*" = "' + GIT_CALL + '" ] || { echo "unexpected git invocation: $*" >&2; return 2; }\n'
-        '  cat "$TEST_CHANGED_PATHS_FILE"\n'
-        '}\n'
-    ) + detect["run"]
-    cases = (
+    return (
         ([], False),
         (["docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], False),
+        # A backend/ segment mid-path is not the backend image's tree.
+        (["docs/backend/notes.md", "frontend/features/backend/status.tsx"], False),
         (tracked_tests, False),
         (["backend/tests/new.fixture", "backend/tests/future/deep/unknown.ext"], False),
         # Local verification tooling and its gates/guidance stay outside the backend image.
@@ -94,53 +141,247 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
           "lessons/ops-denied-reads-report-unverified.md",
           "ops/capacity/readout.py", "ops/describe/jobs.py", "ops/describe/service.py", "tasks/todo.md"], False),
         (["backend/app/config.py"], True),
+        (["backend/migrations/new.sql"], True),
+        (["backend/requirements.txt"], True),
         (["backend/migrations/new.sql", "backend/scripts/apply_migrations.sh"], True),
         (["backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt"], True),
         (["backend/tests_support/helper.py", "backend/testsuite.py"], True),
         (["backend/tests/unit/test_example.py", "backend/app/config.py"], True),
     )
-    env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed)}
-    for index, (paths, expected) in enumerate(cases):
-        changed.write_text("".join(f"{path}\n" for path in paths))
-        decision = _run_detector(shell, ROOT, env, tmp_path / f"github-output-{index}")
-        assert decision == f"backend={str(expected).lower()}", (
-            f"Incorrect deployment decision for {paths[:3]}: "
-            "exclude backend/tests/ only; keep runtime and mixed changes deployable"
-        )
 
 
-def test_detector_sees_both_sides_of_a_rename(tmp_path):
-    """A runtime file moved under backend/tests/ still deploys: --no-renames lists its old path."""
-    repo = tmp_path / "repo"
+def _stub_env(tmp_path, newer_paths, own_paths=("backend/app/config.py",)):
+    changed, newer, calls = tmp_path / "changed-paths", tmp_path / "newer-paths", tmp_path / "git-calls"
+    changed.write_text("".join(f"{path}\n" for path in own_paths))
+    newer.write_text("".join(f"{path}\n" for path in newer_paths))
+    calls.write_text("")
+    env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed), "TEST_NEWER_PATHS_FILE": str(newer),
+           "TEST_GIT_LOG": str(calls)}
+    return env, calls
+
+
+def test_a_commit_main_superseded_with_deployable_changes_does_not_deploy(tmp_path):
+    """A deployable merge deploys only if main has changed no deployable backend file since it.
+
+    Main's newer paths are judged by the same cases as a merge's own: a change that would deploy as
+    this commit's supersedes it as main's, so backend/tests/ alone supersedes nothing, a near-prefix
+    path such as backend/tests_support/ does, and a backend/ segment mid-path does not. A skip is
+    annotated, so a job that concludes success having deployed nothing says so."""
+    shell = GIT_STUB + _detect_step(_workflow())["run"]
+    for index, (paths, deployable) in enumerate(_path_cases()):
+        env, calls = _stub_env(tmp_path, paths)
+        output = tmp_path / f"github-output-superseded-{index}"
+        result = subprocess.run(["bash", "-e", "-c", shell], capture_output=True, text=True, cwd=ROOT,
+                                env={**env, "GITHUB_OUTPUT": str(output)}, timeout=30, check=False)
+        assert (result.returncode, result.stderr) == (0, ""), result.stderr
+        assert output.read_text().strip() == f"backend={str(not deployable).lower()}", paths[:3]
+        assert calls.read_text().split() == ["own"] + READ_OF_MAIN
+        skipped = "::notice title=Superseded deploy skipped::Main is at fffffff" in result.stdout
+        assert skipped is deployable and ("superseded deploy" in result.stdout) is deployable, result.stdout
+
+
+def test_each_backend_entry_is_judged_alike_on_both_sides(tmp_path):
+    """One tracked file from each top-level backend/ entry, judged as this commit's change and as main's
+    newer change. It deploys exactly when backend/.dockerignore names no directory it sits in (its
+    single-file patterns, such as .gitignore, are not mirrored), and it deploys this commit exactly when
+    it supersedes an older one. So the detector mirrors the image's directories, and its two sides
+    cannot drift apart, even for an entry that no case names."""
+    shell = GIT_STUB + _detect_step(_workflow())["run"]
+    ignored = [line.strip().rstrip("/") for line in (ROOT / "backend/.dockerignore").read_text().splitlines()
+               if line.strip().endswith("/")]
+    probes = {}
+    for path in subprocess.check_output(["git", "ls-files", "backend/"], cwd=ROOT, text=True).splitlines():
+        probes.setdefault(path.split("/")[1], path)
+    assert {"app", "tests", "migrations", "Dockerfile"} <= probes.keys(), sorted(probes)
+    for entry, path in sorted(probes.items()):
+        own_env, _ = _stub_env(tmp_path, [], own_paths=[path])
+        own = _run_detector(shell, ROOT, own_env, tmp_path / f"github-output-own-{entry}")
+        excluded = path.count("/") > 1 and any(fnmatch.fnmatchcase(entry, pattern) for pattern in ignored)
+        assert own == f"backend={str(not excluded).lower()}", (path, own)
+        newer_env, _ = _stub_env(tmp_path, [path])
+        newer = _run_detector(shell, ROOT, newer_env, tmp_path / f"github-output-newer-{entry}")
+        assert (own == "backend=true") is (newer == "backend=false"), (path, own, newer)
+
+
+def test_each_failed_read_of_main_fails_the_step_and_decides_nothing(tmp_path):
+    """Whichever of the fetch, the tip and the diff fails, the step fails and writes no decision, so
+    nothing deploys rather than a possibly older image. A failed fetch is tried three times, 10 s apart."""
+    base = GIT_STUB + _detect_step(_workflow())["run"]
+    for call, name, sequence in (
+        (FETCH_CALL, "fetch", ["own", "fetch", "sleep-10", "fetch", "sleep-10", "fetch"]),
+        (TIP_CALL, "tip", ["own", "fetch", "tip"]),
+        (NEWER_CALL, "newer", ["own", "fetch", "tip", "newer"]),
+    ):
+        failing = base.replace('  case "$*" in\n',
+                               '  case "$*" in\n    "' + call + '") echo ' + name + ' >> "$TEST_GIT_LOG"; return 1 ;;\n', 1)
+        env, calls = _stub_env(tmp_path, [])
+        output = tmp_path / f"github-output-failed-{name}"
+        result = subprocess.run(["bash", "-e", "-c", failing], capture_output=True, text=True, cwd=ROOT,
+                                env={**env, "GITHUB_OUTPUT": str(output)}, timeout=30, check=False)
+        assert result.returncode != 0, name
+        assert not output.exists() or "backend=" not in output.read_text(), (name, output.read_text())
+        assert calls.read_text().split() == sequence, (name, calls.read_text())
+
+
+def _scratch_repo(tmp_path):
+    """A scratch repository whose origin is a bare repository, reached over file:// as Actions reaches
+    GitHub, and a git runner for it that returns stdout. Inherited GIT_* settings are dropped, so a
+    developer's environment (GIT_DIR, GIT_CONFIG_COUNT) cannot change what the tests see."""
+    repo, origin = tmp_path / "repo", tmp_path / "origin.git"
     repo.mkdir()
     env = {
-        **os.environ, "HOME": str(tmp_path), "GIT_CONFIG_NOSYSTEM": "1",
+        **{key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+        "HOME": str(tmp_path), "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": str(tmp_path / "gitconfig"),
         "GIT_AUTHOR_NAME": "gate", "GIT_AUTHOR_EMAIL": "gate@example.invalid",
         "GIT_COMMITTER_NAME": "gate", "GIT_COMMITTER_EMAIL": "gate@example.invalid",
     }
 
     def git(*args):
-        subprocess.run(
+        return subprocess.run(
             ["git", "-c", "commit.gpgsign=false", *args], cwd=repo, env=env,
             check=True, capture_output=True, text=True, timeout=30,
-        )
+        ).stdout.strip()
 
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], env=env, check=True,
+                   capture_output=True, timeout=30)
     git("init", "-q", "-b", "main")
-    (repo / "backend/app").mkdir(parents=True)
-    (repo / "backend/tests").mkdir(parents=True)
-    (repo / "backend/app/helper.py").write_text("VALUE = 1\n" * 20)
-    (repo / "backend/tests/test_helper.py").write_text("def test_value():\n    assert True\n")
-    git("add", ".")
-    git("commit", "-q", "-m", "runtime file and test")
+    git("remote", "add", "origin", origin.as_uri())
+    return repo, env, git
+
+
+def _commit(repo, git, message, files):
+    for path, text in files.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text(text)
+    git("add", "-A")
+    git("commit", "-q", "-m", message)
+    return git("rev-parse", "HEAD")
+
+
+def _checkout(tmp_path, env, commit, label):
+    """A workspace as actions/checkout leaves it on a push with fetch-depth 2: a fresh repository holding
+    only the commit and its parent (shallow), with origin/main and FETCH_HEAD both naming the commit, so
+    a detector that read either instead of fetching main would see this commit, not main's tip."""
+    workspace = tmp_path / f"checkout-{label}"
+    workspace.mkdir()
+    for args in (("init", "-q"), ("remote", "add", "origin", (tmp_path / "origin.git").as_uri()),
+                 ("-c", "protocol.version=2", "fetch", "-q", "--no-tags", "--prune", "--no-recurse-submodules",
+                  "--depth=2", "origin", f"+{commit}:refs/remotes/origin/main"),
+                 ("checkout", "-q", "--force", "-B", "main", "refs/remotes/origin/main")):
+        subprocess.run(["git", *args], cwd=workspace, env=env, check=True, capture_output=True, timeout=30)
+    return workspace
+
+
+def _decide(tmp_path, env, commit, label):
+    """The detector's decision for a commit, run in its own checkout as each deploy job is."""
+    workspace = _checkout(tmp_path, env, commit, label)
+    output = tmp_path / f"github-output-{label}"
+    result = subprocess.run(["bash", "-e", "-c", _detect_step(_workflow())["run"]], capture_output=True,
+                            text=True, cwd=workspace, env={**env, "GITHUB_OUTPUT": str(output)}, timeout=30,
+                            check=False)
+    assert (result.returncode, result.stderr) == (0, ""), result.stderr
+    return output.read_text().strip(), result.stdout
+
+
+def test_detector_sees_both_sides_of_a_rename(tmp_path):
+    """A runtime file moved under backend/tests/ still deploys: --no-renames lists its old path."""
+    repo, env, git = _scratch_repo(tmp_path)
+    _commit(repo, git, "runtime file and test", {
+        "backend/app/helper.py": "VALUE = 1\n" * 20,
+        "backend/tests/test_helper.py": "def test_value():\n    assert True\n",
+    })
     git("mv", "backend/app/helper.py", "backend/tests/helper.py")
     git("commit", "-q", "-m", "move the runtime file under tests")
-    detect = _detect_step(_workflow())["run"]
-    assert _run_detector(detect, repo, env, tmp_path / "github-output-rename") == "backend=true"
+    moved = git("rev-parse", "HEAD")
+    git("push", "-q", "origin", "HEAD:main")  # main is this commit, so nothing newer supersedes it
+    assert _decide(tmp_path, env, moved, "rename")[0] == "backend=true"
 
-    (repo / "backend/tests/test_helper.py").write_text("def test_value():\n    assert 1 == 1\n")
-    git("commit", "-q", "-am", "change confined to tests")
-    assert _run_detector(detect, repo, env, tmp_path / "github-output-tests") == "backend=false"
+    tests_only = _commit(repo, git, "change confined to tests",
+                         {"backend/tests/test_helper.py": "def test_value():\n    assert 1 == 1\n"})
+    git("push", "-q", "origin", "HEAD:main")
+    assert _decide(tmp_path, env, tests_only, "tests")[0] == "backend=false"
+
+
+def test_a_runtime_file_main_moved_under_tests_supersedes_an_older_commit(tmp_path):
+    """Main moved a runtime file under backend/tests/ after this commit. That move deploys in its own run
+    (--no-renames lists the old path), so this older commit must not deploy after it."""
+    repo, env, git = _scratch_repo(tmp_path)
+    _commit(repo, git, "base", {"backend/app/helper.py": "VALUE = 1\n" * 20, "backend/app/a.py": "A = 0\n",
+                                "backend/tests/test_a.py": "def test_a():\n    assert True\n"})
+    older = _commit(repo, git, "older backend merge", {"backend/app/a.py": "A = 1\n"})
+    git("mv", "backend/app/helper.py", "backend/tests/helper.py")
+    git("commit", "-q", "-m", "move the runtime file under tests")
+    git("push", "-q", "origin", "HEAD:main")
+    assert _decide(tmp_path, env, older, "older")[0] == "backend=false"
+
+
+def test_an_older_deploy_after_a_newer_backend_merge_is_skipped_in_real_git(tmp_path):
+    """The 2026-10-31 order: three backend merges, the newest deploying first. Each older commit's
+    deploy, run once main has moved past it, is skipped; the newest deploys, and so does a commit
+    main has moved past only with changes outside the image (frontend, records, backend/tests/)."""
+    checkout = next(step for step in _workflow()["jobs"]["deploy-backend"]["steps"]
+                    if step.get("uses", "").startswith("actions/checkout@"))
+    assert checkout.get("with", {}).get("fetch-depth") == "2", "_checkout builds its workspace at this depth"
+    repo, env, git = _scratch_repo(tmp_path)
+    _commit(repo, git, "base", {"backend/app/a.py": "A = 0\n", "backend/app/b.py": "B = 0\n"})
+    first = _commit(repo, git, "first backend merge", {"backend/app/a.py": "A = 1\n"})
+    second = _commit(repo, git, "second backend merge", {"backend/app/b.py": "B = 1\n"})
+    third = _commit(repo, git, "third backend merge", {"backend/app/a.py": "A = 2\n"})
+    git("push", "-q", "origin", "HEAD:main")
+
+    def decide(commit, label):
+        return _decide(tmp_path, env, commit, label)
+
+    assert decide(third, "newest")[0] == "backend=true"
+    for commit, label in ((first, "first"), (second, "second")):
+        decision, stdout = decide(commit, label)
+        assert decision == "backend=false" and f"Main is at {third[:7]}" in stdout, (label, stdout)
+
+    # Main moves on with changes the image does not hold: the newest backend merge still deploys.
+    git("checkout", "-q", "main")
+    _commit(repo, git, "records, frontend and tests", {
+        "tasks/todo.md": "row\n", "frontend/app/page.tsx": "export {}\n",
+        "backend/tests/unit/test_a.py": "def test_a():\n    assert True\n",
+    })
+    git("push", "-q", "origin", "HEAD:main")
+    assert decide(third, "newest-after-records")[0] == "backend=true"
+    assert decide(second, "second-after-records")[0] == "backend=false"
+
+
+def test_a_failed_read_of_main_fails_the_detector_and_deploys_nothing(tmp_path):
+    """Without main's tip, the detector cannot tell a current commit from a superseded one: the step
+    fails, and nothing deploys, rather than shipping a possibly older image. The checkout's own
+    FETCH_HEAD, which names this commit, must not stand in for main."""
+    repo, env, git = _scratch_repo(tmp_path)
+    _commit(repo, git, "base", {"backend/app/a.py": "A = 0\n"})
+    head = _commit(repo, git, "backend merge", {"backend/app/a.py": "A = 1\n"})
+    git("push", "-q", "origin", "HEAD:main")
+    workspace = _checkout(tmp_path, env, head, "unreachable")
+    assert (workspace / ".git/FETCH_HEAD").read_text().startswith(head)
+    subprocess.run(["git", "remote", "set-url", "origin", (tmp_path / "unreachable.git").as_uri()],
+                   cwd=workspace, env=env, check=True, capture_output=True, timeout=30)
+    output = tmp_path / "github-output-unreachable"
+    no_wait = "sleep() { :; }\n"  # the retry's waits, not slept here
+    result = subprocess.run(["bash", "-e", "-c", no_wait + _detect_step(_workflow())["run"]], capture_output=True,
+                            text=True, cwd=workspace, env={**env, "GITHUB_OUTPUT": str(output)}, timeout=30,
+                            check=False)
+    assert result.returncode != 0
+    assert "backend=" not in (output.read_text() if output.exists() else "")
+    assert "::error title=Deploy not attempted::" in result.stdout
+
+
+def test_a_tag_named_main_does_not_stand_in_for_main(tmp_path):
+    """git ranks refs/tags/main above refs/heads/main for the short name, so the detector reads main by
+    its full ref: the newest commit deploys even with a stale tag named main on origin."""
+    repo, env, git = _scratch_repo(tmp_path)
+    _commit(repo, git, "base", {"backend/app/a.py": "A = 0\n"})
+    older = _commit(repo, git, "older backend merge", {"backend/app/a.py": "A = 1\n"})
+    newest = _commit(repo, git, "newest backend merge", {"backend/app/a.py": "A = 2\n"})
+    git("push", "-q", "origin", "HEAD:refs/heads/main", f"{older}:refs/tags/main")
+    assert _decide(tmp_path, env, newest, "tagged-newest")[0] == "backend=true"
+    decision, stdout = _decide(tmp_path, env, older, "tagged-older")
+    assert decision == "backend=false" and f"Main is at {newest[:7]}" in stdout, stdout
 
 
 REPORT_STEP = "Report variable-driven rollout switches"

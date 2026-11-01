@@ -18,8 +18,11 @@ from another session.
 **Rule.** Immediately before merging a pull request that changes `backend/` outside `backend/tests/`:
 1. **Main's newest push runs.** Read `ci.yml`'s newest runs on `main` (event `push`). If the newest
    backend-changing push's `deploy-backend` has not finished, or its health is not yet verified, wait.
-   A cancelled or failed `deploy-backend` on a backend-changing push counts as unverified. Re-run that
-   job, since its commit carries every change before it, and verify it before the next merge.
+   A cancelled or failed `deploy-backend` on the newest push that changed `backend/` outside
+   `backend/tests/` counts as unverified. Re-run that job, since its commit carries every change before
+   it, and verify it before the next merge; never re-run an older one's. A job that skips as superseded
+   concludes success but deployed nothing: that newest push's deploy is the one to verify, and
+   `lessons/ops-a-superseded-commit-never-deploys.md` says what to re-run when that one deployed nothing.
 2. **Slot claims.** Read the comments of every open pull request updated since the last verified backend
    deploy for a slot claim: a comment that it is taking the slot, or that asks later merges to hold.
    Honour the claim until that pull request posts its verification.
@@ -70,8 +73,10 @@ Reverting the setting restores the single-pending replacement risk; retain the s
   `cancel-in-progress: false`, the required deploy dependencies and the PR-only cancellation policy.
   That test checks the workflow contract; GitHub implements the queue.
 - **Automatic catch-up remains separate.** The detector still compares `HEAD^` with `HEAD`, not a
-  fully verified deployed baseline. Multi-commit push coverage, stale-head prevention and recovery of
-  a failed or partial rollout need separate work; this queue setting does not supply them.
+  fully verified deployed baseline. It now skips a commit main has moved past with deployable backend
+  changes, so a stale head no longer deploys over a newer one
+  (`lessons/ops-a-superseded-commit-never-deploys.md`). Multi-commit push coverage and recovery of a
+  failed or partial rollout still need separate work; this queue setting does not supply them.
 
 **Evidence.**
 - GitHub's [concurrency guide](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)

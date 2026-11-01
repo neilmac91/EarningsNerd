@@ -26,13 +26,16 @@ interface EarningsNerdLogoProps {
   mode?: LogoMode
 }
 
+// In dark the accent keeps Bright Sage #98C5AD (brand.bright-dark), the live mark's sage and the stacked dark lockup's
+// "Nerd" (D-071; the horizontal dark lockup and the icon-dark asset draw brand.dark #7FB295): the accent text ink,
+// brand.strong-dark, rose to #AEDCC2 for reading, and a logo is not reading text.
 const WORDMARK_INK: Record<LogoMode, { name: string; accent: string }> = {
   auto: {
     name: 'text-text-primary-light dark:text-text-primary-dark',
-    accent: 'text-brand-strong dark:text-brand-strong-dark',
+    accent: 'text-brand-strong dark:text-brand-bright-dark',
   },
   light: { name: 'text-text-primary-light', accent: 'text-brand-strong' },
-  dark: { name: 'text-text-primary-dark', accent: 'text-brand-strong-dark' },
+  dark: { name: 'text-text-primary-dark', accent: 'text-brand-bright-dark' },
 }
 
 function Wordmark({ mode, className }: { mode: LogoMode; className: string }) {

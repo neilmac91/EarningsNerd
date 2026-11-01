@@ -109,7 +109,11 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
               return (
                 // The status cluster drops to a second line only when the name column would fall below
                 // basis-16 (a status badge such as "No summary yet" at ~320–360px); max-w-fit keeps the
-                // link hugging its content otherwise, so wider rows lay out exactly as before.
+                // link hugging its content otherwise, so wider rows lay out exactly as before. On a line of
+                // its own the cluster may be wider than the row under 200% text ("Last filed …", the badge
+                // and the remove button), so it wraps its items, right-aligned, and the badge its label
+                // below a 24rem viewport (Badge's wrap), and it shrinks to the row instead of passing it
+                // (E273). Where it fits, nothing moves: a flex item shrinks only when its line is too narrow for it.
                 <div key={insight.company.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
                   <Link
                     href={`/company/${insight.company.ticker}`}
@@ -117,7 +121,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                   >
                     <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
+                      <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark dark:hover:underline underline-offset-4">
                         {formatCompanyName(insight.company.name)}
                       </div>
                       <div className="truncate font-data text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -125,35 +129,41 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                       </div>
                     </div>
                   </Link>
-                  <div className="ml-auto flex flex-shrink-0 items-center gap-3">
+                  <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
                     <span className="hidden text-xs text-text-tertiary-light sm:inline dark:text-text-tertiary-dark">
                       {latest
                         ? `Last filed ${latest.filing_type} · ${formatLocalDate(latest.filing_date, 'MMM d, yyyy')}`
                         : 'No filings synced yet'}
                     </span>
-                    {latest && (
-                      <SummaryStatusBadge
-                        status={latest.summary_status}
-                        needsRegeneration={latest.needs_regeneration}
-                      />
-                    )}
-                    {/* aria-disabled + aria-busy + an early return while a removal is in flight, not
-                        native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
-                        the glyph's ink, not the element: an element opacity would fade the focus ring too
-                        (DESIGN_SYSTEM §4). */}
-                    <button
-                      onClick={() => {
-                        if (removeMutation.isPending) return
-                        removeMutation.mutate(insight.company.ticker)
-                      }}
-                      aria-disabled={removeMutation.isPending || undefined}
-                      aria-busy={pendingTicker === insight.company.ticker || undefined}
-                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
-                      title="Remove from watchlist"
-                      aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
-                    >
-                      <XIcon className="h-5 w-5" />
-                    </button>
+                    {/* The badge and its remove button keep together, so where the cluster wraps "Last filed …"
+                        takes a line and the pair the next, the button beside its badge; the two part only where
+                        they cannot share a line (a phone under 200% text). */}
+                    <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                      {latest && (
+                        <SummaryStatusBadge
+                          status={latest.summary_status}
+                          needsRegeneration={latest.needs_regeneration}
+                          wrap
+                        />
+                      )}
+                      {/* aria-disabled + aria-busy + an early return while a removal is in flight, not
+                          native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
+                          the glyph's ink, not the element: an element opacity would fade the focus ring too
+                          (DESIGN_SYSTEM §4). */}
+                      <button
+                        onClick={() => {
+                          if (removeMutation.isPending) return
+                          removeMutation.mutate(insight.company.ticker)
+                        }}
+                        aria-disabled={removeMutation.isPending || undefined}
+                        aria-busy={pendingTicker === insight.company.ticker || undefined}
+                        className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error dark:focus-visible:shadow-ring-error-dark aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
+                        title="Remove from watchlist"
+                        aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
+                      >
+                        <XIcon className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )
