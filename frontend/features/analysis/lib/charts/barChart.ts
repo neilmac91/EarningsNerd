@@ -54,6 +54,9 @@ export interface BarChartDef {
   /** What the plot calls its categories (E251; a ranked company chart's companies): its scroll region's name and the
    *  status a step past either end says. Unset, its periods. */
   reading?: ChartReading
+  /** The widest a slot gets, in px (E266; a ranked company chart's): past it the plot stops widening and keeps its
+   *  card's left edge. Unset, the plot fills its card. */
+  maxSlot?: number
 }
 
 /** A1's interval cap: the top line's, the one panel of labelled bars on /analysis. */
@@ -100,6 +103,7 @@ export function buildBarChart(def: BarChartDef): ChartModel {
     id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [],
     ...(def.start != null ? { start: def.start } : {}),
     ...(def.reading ? { reading: def.reading } : {}),
+    ...(def.maxSlot != null ? { maxSlot: def.maxSlot } : {}),
   }
   if (def.unavailable) return { ...frame, panels: [], footnotes: [], unavailable: def.unavailable }
   // chart-1 whatever the metric: one series, so the first slot of A8's order.

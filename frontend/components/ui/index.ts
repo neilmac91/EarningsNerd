@@ -33,3 +33,4 @@ export { MarkedCopy, EnRef } from './MarkedCopy'
 // The marked copy's measure (its margin gives way below it), outside the 'use client' module for server components.
 export { markedBlockInsetClass, markedRowInsetClass } from './markedCopyLayout'
 export { cx } from './cx'
+export { TrailingArrowLabel } from './TrailingArrowLabel'

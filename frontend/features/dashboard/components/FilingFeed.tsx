@@ -5,10 +5,9 @@ import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
+import { GuidanceCard, Skeleton, TrailingArrowLabel, countControlClass, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
-import TrailingArrowLabel from './TrailingArrowLabel'
 import FeedOnboarding from './FeedOnboarding'
 
 // Three rows of the two-column grid. The feed now shows one card per company, so this caps the page

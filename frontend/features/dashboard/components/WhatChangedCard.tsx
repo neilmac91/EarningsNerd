@@ -8,9 +8,8 @@ import { plural } from '@/features/filings/lib/sectionChanges'
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Badge, Card } from '@/components/ui'
+import { Badge, Card, TrailingArrowLabel } from '@/components/ui'
 import { directionChip, type Direction } from '@/lib/financialTone'
-import TrailingArrowLabel from './TrailingArrowLabel'
 
 // A filing counts as "New" for up to two weeks. Because the feed now always shows each company's
 // latest filing regardless of age, this badge is what distinguishes "fresh this week" from "their

@@ -305,6 +305,9 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
           setOwner((current) => (current === 'keyboard' ? null : current))
           cancelEdge()
         }}
+        // No wider than the plan: a plot narrower than its card (a maximum slot, E266) keeps the stop and its focus ring
+        // to the plot, where a plot that fills or scrolls its card leaves it the card's width.
+        style={{ maxWidth: layout.width }}
         className="pointer-events-none absolute inset-0 rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" />
       {readout && (
         <div ref={tipRef} aria-hidden="true" data-chart-tooltip

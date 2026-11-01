@@ -266,6 +266,11 @@ export const minSlotOf = (model: ChartModel, view: ChartView = 'card') => frameO
 /** The index of each period a gap seam stands before (E258), ascending; none on every chart but a broken run's. */
 const seamsOf = (model: ChartModel): number[] => model.periods.flatMap((period, i) => (period.gapBefore ? [i] : []))
 
+/** The width a chart takes at a slot: its gutter, its right pad, and the slot a period and SEAM of one a seam (E258).
+ *  A seam's fraction of a slot can leave part of a pixel, and the plan is in whole pixels, as the PNG export draws it
+ *  (TrendChartPlot), so each bound rounds the way that keeps its slot: the minimum up, the maximum down. */
+const widthAt = (model: ChartModel, gutter: number, slot: number) => gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length)
+
 /** A7: the narrowest width at which every slot keeps its minimum; below it the SVG scrolls in its card. A labelled
  *  chart takes the narrowest whole-pixel width, at most LABELLED_MAX_SLOT a period, at which A4 finds a tier for every
  *  labelled panel, so a phone scrolls a little further rather than print no values; when none does, it keeps its
@@ -273,9 +278,8 @@ const seamsOf = (model: ChartModel): number[] => model.periods.flatMap((period, 
  *  pixel at a time, then the pixel within the last step. */
 export function minChartWidth(model: ChartModel, view: ChartView = 'card'): number {
   const { gutter, minSlot } = frameOf(model, view)
-  // A seam's fraction of a slot can leave part of a pixel (a 37 px slot over 11.75 slots is 434.75), and the plan is in
-  // whole pixels, as the PNG export draws it (TrendChartPlot), so the width rounds up; with no seam it is whole already.
-  const at = (slot: number) => Math.ceil(gutter + RIGHT_PAD + slot * (model.periods.length + SEAM * seamsOf(model).length))
+  // Rounded up (a 37 px slot over 11.75 slots is 434.75); with no seam it is whole already.
+  const at = (slot: number) => Math.ceil(widthAt(model, gutter, slot))
   const fits = (width: number) => !plan(model, width, view).valuesDontFit
   if (!model.panels.some((panel) => panel.marks.some((mark) => mark.labelled)) || fits(at(minSlot))) return at(minSlot)
   for (let slot = minSlot + 1; slot <= LABELLED_MAX_SLOT; slot++) {
@@ -388,8 +392,18 @@ function planNearZero(box: PanelFrame, bars: Bar[], slot: number): Pick<PanelBox
   return { nearZero, nearZeroDropped }
 }
 
+/** E266: the widest a chart is laid out, where its model sets a maximum slot (`ChartModel.maxSlot`, the Sector peers
+ *  panel's): its gutter, its right pad and that slot a period, its seams counted as minChartWidth counts them, rounded
+ *  down so no slot passes it. Past it the plot stops widening and keeps its card's left edge (TrendChartPlot's stage
+ *  takes the plan's width). Unset, there is none. */
+export function maxChartWidth(model: ChartModel, view: ChartView = 'card'): number {
+  return model.maxSlot == null ? Infinity : Math.floor(widthAt(model, frameOf(model, view).gutter, model.maxSlot))
+}
+
+/** The plan at a card's width: no wider than the model's maximum (E266) and never narrower than its minimum, which
+ *  wins where a maximum slot would fall below the minimum one. */
 export function layoutChart(model: ChartModel, containerWidth: number, view: ChartView): ChartLayout {
-  return plan(model, Math.max(containerWidth, minChartWidth(model, view)), view)
+  return plan(model, Math.max(Math.min(containerWidth, maxChartWidth(model, view)), minChartWidth(model, view)), view)
 }
 
 /** The whole plan at a given SVG width. */
