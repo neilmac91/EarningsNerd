@@ -119,9 +119,11 @@ export default function NotificationBell({
       >
         <BellIcon className="h-5 w-5" />
         {/* The count is a number, so it rests in the ink, never on sage (D-030); the sage dot marks an
-            unread row in the list below. */}
+            unread row in the list below. It is a status, not the bell's label: the name already says the
+            count ("Notifications (3 unread)"), so the badge is aria-hidden and a speech user names the bell
+            by its name (WCAG 2.5.3; E68 (3), chief design on #1884). */}
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-text-primary-light text-white dark:bg-text-primary-dark dark:text-background-dark px-1 text-data-xs font-semibold ring-2 ring-background-light dark:ring-background-dark">
+          <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-text-primary-light text-white dark:bg-text-primary-dark dark:text-background-dark px-1 text-data-xs font-semibold ring-2 ring-background-light dark:ring-background-dark">
             {unread > 9 ? '9+' : unread}
           </span>
         )}

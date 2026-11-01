@@ -41,7 +41,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const { n, excerpt, section_ref, verified, fragment_url } = citation
   const viewer = useFilingViewer()
   const header = section_ref || `Excerpt ${n}`
-  const ariaLabel = `Citation ${n}: ${header}`
+  // The number the chip shows comes first, then a full stop, so a speech user says what they see and a
+  // screen reader does not hear "1 citation" as a count (WCAG 2.5.3; chief design on #1884).
+  const ariaLabel = `${n}. Citation: ${header}`
   const marker = `[${n}]`
 
   const triggerRef = useRef<HTMLElement | null>(null)

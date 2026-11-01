@@ -393,7 +393,7 @@ function SourceTraceInner({
   // it is always the sheet's trigger, with the jump and the SEC.gov link inside the sheet.
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
-    'aria-label': `Source: ${chipLabel}`,
+    'aria-label': `${chipLabel}, source`,
     'aria-current': selected ? ('true' as const) : undefined,
     'data-layout-twin': layoutTwin,
     className: sourceTraceChipClass(selected),
@@ -458,7 +458,7 @@ function SourceTraceInner({
       {chipInner}
     </button>
   ) : url ? (
-    <a {...triggerCommon} aria-label={`Source: ${chipLabel} (opens in a new tab)`} href={url} target="_blank" rel="noopener noreferrer">
+    <a {...triggerCommon} aria-label={`${chipLabel}, source (opens in a new tab)`} href={url} target="_blank" rel="noopener noreferrer">
       {chipInner}
     </a>
   ) : (

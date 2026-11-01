@@ -261,8 +261,8 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
         // The Notes chip names exactly the letters the band and the footnotes show (D-061), or is absent.
         const lettered = model.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark))
-        const chip = within(card).queryByRole('button', { name: /^Review data notes / })
-        expect(chip?.getAttribute('aria-label') ?? null, 'the chip and the footnotes name one set of letters').toBe(lettered.length ? `Review data notes ${lettered.join(', ')}` : null)
+        const chip = within(card).queryByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ })
+        expect(chip?.textContent ?? null, 'the chip and the footnotes name one set of letters').toBe(lettered.length ? `Notes ${lettered.join(', ')}` : null)
       })
     })
   }

@@ -30,7 +30,7 @@ describe('SourceTrace in-app highlight (item 1.4)', () => {
     )
     expect(screen.getByTestId('probe')).toHaveTextContent('none')
     // With a viewer mounted the chip is an in-app button (not an external EDGAR link).
-    fireEvent.click(screen.getByRole('button', { name: /source:/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Quote found in filing, source' }))
     expect(screen.getByTestId('probe')).toHaveTextContent(EVIDENCE)
   })
 
@@ -41,7 +41,7 @@ describe('SourceTrace in-app highlight (item 1.4)', () => {
         <RequestProbe />
       </FilingViewerProvider>,
     )
-    fireEvent.click(screen.getByRole('button', { name: /source:/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Quote found in filing, source' }))
     expect(screen.getByTestId('probe')).toHaveTextContent('Consolidated Statements of Operations')
   })
 
@@ -50,7 +50,7 @@ describe('SourceTrace in-app highlight (item 1.4)', () => {
       <SourceTrace url="https://sec.gov/x" verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />,
     )
     // No provider → no in-app highlight → the chip is the EDGAR anchor (unchanged behavior).
-    const link = screen.getByRole('link', { name: /source:/i })
+    const link = screen.getByRole('link', { name: 'Quote found in filing, source (opens in a new tab)' })
     expect(link).toHaveAttribute('href', 'https://sec.gov/x')
   })
 })

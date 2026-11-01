@@ -209,7 +209,7 @@ describe('AskCopilotRail', () => {
     })
     const fetched = mockGetUsage.mock.calls.length
     await act(async () => {
-      captured!.onError("You've used your 3 free Copilot questions. Upgrade to Pro to access this feature.")
+      captured!.onError("You've used your 3 free questions. Upgrade to Pro to access this feature.")
     })
 
     expect(await screen.findByText('You’ve used your 3 free questions.')).toBeInTheDocument()

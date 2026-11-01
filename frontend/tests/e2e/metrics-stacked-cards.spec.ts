@@ -203,8 +203,8 @@ const probe = (page: Page) =>
         color: getComputedStyle(e.closest('td, dd') ?? e).color,
       })),
       takeaways: q('[data-metric-field="takeaway"]', root).map((e) => text(e.firstElementChild)),
-      xbrlChips: q('[data-metric-field="name"] [aria-label^="Source: "]', root).map((e) => e.getAttribute('aria-label')),
-      takeawayChips: q('[data-metric-field="takeaway"] [aria-label^="Source: "]', root).map((e) => e.getAttribute('aria-label')),
+      xbrlChips: q('[data-metric-field="name"] [aria-label*=", source"]', root).map((e) => e.getAttribute('aria-label')),
+      takeawayChips: q('[data-metric-field="takeaway"] [aria-label*=", source"]', root).map((e) => e.getAttribute('aria-label')),
     })
     const state = (root: HTMLElement) => ({
       display: getComputedStyle(root).display,
@@ -437,7 +437,7 @@ for (const theme of ['light', 'dark'] as const) {
       const change = first.locator('[data-metric-field="change"]')
       // the takeaway text is the field's first child; the evidence chip's wrapper is a span too
       const takeaway = first.locator('[data-metric-field="takeaway"] > span:first-child')
-      const chip = first.getByRole('button', { name: 'Source: Quote found in filing' })
+      const chip = first.getByRole('button', { name: 'Quote found in filing, source' })
       for (const [label, loc] of [['value', value], ['change', change], ['takeaway', takeaway], ['chip', chip]] as const) {
         await expect(loc).toBeVisible()
         expect(inside(await rectOf(loc), vp), `${label} inside the viewport`).toBe(true)
@@ -452,7 +452,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('a card chip is a real control: tapping the takeaway chip opens the EN-01 sheet, Escape returns focus to it', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
-      const chip = page.locator(CARD).first().getByRole('button', { name: 'Source: Quote found in filing' })
+      const chip = page.locator(CARD).first().getByRole('button', { name: 'Quote found in filing, source' })
       await chip.scrollIntoViewIfNeeded()
       await chip.tap()
       const sheet = page.getByRole('dialog', { name: 'Source detail' })
@@ -469,7 +469,7 @@ for (const theme of ['light', 'dark'] as const) {
     // now shown, never on a display:none control. Both directions.
     test('rotating with a chip sheet open closes it with its layout and hands focus to the same chip in the other layout', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
-      const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Quote found in filing' })
+      const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Quote found in filing, source' })
       await cardChip.scrollIntoViewIfNeeded()
       await cardChip.tap()
       const sheet = page.getByRole('dialog', { name: 'Source detail' })
@@ -478,7 +478,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.setViewportSize({ width: 844, height: 390 }) // landscape: the table is shown
       await expectSingleLayout(page, 'table')
       await expect(sheet).toHaveCount(0)
-      const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Quote found in filing' })
+      const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Quote found in filing, source' })
       await expect(tableChip).toBeFocused()
 
       await tableChip.tap()
@@ -535,7 +535,7 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
 
   test('a card chip focused at 767 loses its popover with the cards at 768, and focus moves to the same chip in the table', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!)
-    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Quote found in filing' })
+    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Quote found in filing, source' })
     await cardChip.scrollIntoViewIfNeeded()
     await cardChip.focus()
     const popovers = page.getByRole('group', { name: 'Source detail' })
@@ -543,7 +543,7 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
 
     await page.setViewportSize({ width: 768, height: 1024 })
     await expectSingleLayout(page, 'table')
-    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Quote found in filing' })
+    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Quote found in filing, source' })
     await expect(tableChip).toBeFocused()
     // Focus on the table's chip opens its own popover, as focus on any chip does: one surface, anchored
     // to a rendered chip (the card's would sit at the hidden chip's empty rect).
@@ -558,7 +558,7 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
   test('focus on a card chip’s popover link at 767 moves to the same row’s table chip at 768', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!)
     const row = 2 // the third metric: its takeaway carries a verified chip
-    const cardChip = page.locator(CARD).nth(row).getByRole('button', { name: 'Source: Quote found in filing' })
+    const cardChip = page.locator(CARD).nth(row).getByRole('button', { name: 'Quote found in filing, source' })
     await cardChip.scrollIntoViewIfNeeded()
     await cardChip.focus()
     await page.keyboard.press('Tab')
@@ -567,7 +567,7 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
 
     await page.setViewportSize({ width: 768, height: 1024 })
     await expectSingleLayout(page, 'table')
-    await expect(page.locator(`${TABLE} tbody tr`).nth(row).getByRole('button', { name: 'Source: Quote found in filing' })).toBeFocused()
+    await expect(page.locator(`${TABLE} tbody tr`).nth(row).getByRole('button', { name: 'Quote found in filing, source' })).toBeFocused()
   })
 })
 
@@ -579,13 +579,13 @@ test.describe('a hidden chip blurred before the resize (Codex review of #1108)',
   // and no resize at all makes that order deterministic: the blur alone must hand focus to the twin.
   test('a focused card chip hidden without a resize event still hands focus to the same chip in the table', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!)
-    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Quote found in filing' })
+    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Quote found in filing, source' })
     await cardChip.scrollIntoViewIfNeeded()
     await cardChip.focus()
     await page.addStyleTag({
       content: `${CARDS} { display: none !important } ${TABLE} { display: block !important }`,
     })
-    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Quote found in filing' })
+    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Quote found in filing, source' })
     await expect(tableChip).toBeFocused()
     await expect(page.getByRole('group', { name: 'Source detail' })).toHaveCount(1)
   })
@@ -596,7 +596,7 @@ test.describe('a hidden chip blurred before the resize (Codex review of #1108)',
 // still open as the sheet below lg). Closing it must return focus to the same chip in the layout now
 // shown, not to the display:none copy that opened it (focus would fall to <body>).
 const PANE = '[aria-labelledby="source-pane-title"]' // a dialog below lg, an aside on lg+, named "Source" by its header (P-06)
-const VERIFIED = 'Source: Quote found in filing'
+const VERIFIED = 'Quote found in filing, source'
 const ROW = 5 // the sixth metric, so a twin that lost its row would land on another chip
 
 test.describe('the research pane a metric chip opened, across the md switch', () => {
@@ -746,7 +746,7 @@ test.describe('data variants at 390x844', () => {
     expect(tree).toContain('no takeaway')
     expect(tree).not.toContain('—')
     expect(p.cards.takeawayChips).toEqual([])
-    await expect(page.locator(`${SECTION} [aria-label^="Source: Quote found in filing"]`)).toHaveCount(0)
+    await expect(page.locator(`${SECTION} [aria-label^="Quote found in filing, source"]`)).toHaveCount(0)
 
     await openFiling(page, baseURL!, { rows: NO_EVIDENCE })
     const q = await expectParity(page, 'cards', NO_EVIDENCE)
@@ -844,7 +844,7 @@ for (const theme of ['light', 'dark'] as const) {
           expect(shadow).not.toBe('none')
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
-        const source = page.locator('#notable-footnotes').getByRole('button', { name: 'Source: Quote found in filing', exact: true })
+        const source = page.locator('#notable-footnotes').getByRole('button', { name: 'Quote found in filing, source', exact: true })
         await source.focus()
         await page.keyboard.press('Enter')
         const pane = page.getByRole('dialog', { name: 'Source', exact: true })

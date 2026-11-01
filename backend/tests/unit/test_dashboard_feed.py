@@ -1,7 +1,7 @@
 """Dashboard feed — deterministic "what changed" delta (pure) + feed composition (DB)."""
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -96,12 +96,15 @@ def test_matching_negative_signs_are_kept():
 
 
 def test_in_instance_comparative_used_when_no_prior_filing():
-    # No prior filing, but the current filing's own series carries an older comparative period.
+    # No prior filing: an annual report's own prior year is the year its basis names ("Year over year"); an interim
+    # report's own comparative is the year-ago quarter, never the quarter "Quarter over quarter" names (E261).
     current = {"revenue": _series(("2024-03-31", 120.0), ("2023-03-31", 100.0))}
-    out = compute_what_changed(current, None)
+    out = compute_what_changed(current, None, form="10-K")
     assert out is not None
     assert out["items"][0]["direction"] == "up"
     assert out["items"][0]["pct"] == 20.0
+    assert compute_what_changed(current, None, form="10-Q") is None
+    assert compute_what_changed(current, None) is None
 
 
 def test_prior_filing_in_another_reporting_currency_is_never_differenced():
@@ -109,14 +112,17 @@ def test_prior_filing_in_another_reporting_currency_is_never_differenced():
     # own filing's comparative (96), never from the prior filing's USD amount (100).
     current = {"reporting_currency": "EUR", "revenue": _series(("2024-12-31", 120.0), ("2023-12-31", 96.0))}
     prior = {"reporting_currency": "USD", "revenue": _series(("2023-12-31", 100.0))}
-    item = compute_what_changed(current, prior)["items"][0]
+    item = compute_what_changed(current, prior, prior_period_end="2023-12-31", form="10-K")["items"][0]
     assert (item["current"], item["prior"], item["pct"]) == (120.0, 96.0, 25.0)
     # With no comparative of its own, the metric is withheld rather than compared across currencies.
-    assert compute_what_changed({**current, "revenue": _series(("2024-12-31", 120.0))}, prior) is None
+    assert compute_what_changed(
+        {**current, "revenue": _series(("2024-12-31", 120.0))}, prior, prior_period_end="2023-12-31", form="10-K"
+    ) is None
 
 
 def test_currency_guard_needs_two_known_and_different_currencies():
-    current = {"revenue": _series(("2024-12-31", 120.0), ("2023-12-31", 96.0))}
+    # No comparative of its own (which every line would take first, E261), so the prior filing's amount shows.
+    current = {"revenue": _series(("2024-12-31", 120.0))}
     prior = {"revenue": _series(("2023-12-31", 100.0))}
     for current_currency, prior_currency in (
         ("USD", "usd"), ("CNY", "RMB"), ("EUR", None), (None, "USD"), ("EUR", "pure"), ("EUR", "US Dollars"),
@@ -211,22 +217,26 @@ def test_eps_line_never_takes_another_period_than_the_prior_filings():
 
 
 def test_eps_line_without_a_prior_filing_takes_the_filings_own_comparative():
-    # No prior XBRL (the company's first filing here, or a prior filing never extracted): every metric's prior is
-    # the filing's own comparative, the EPS line's too, diluted where that series has one, else basic.
-    assert _eps_items(compute_what_changed(_Q2, None)) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
-    only_basic_comparative = {**_Q2, "eps_diluted": _series(("2026-06-30", 1.00))}
-    assert _eps_items(compute_what_changed(only_basic_comparative, None)) == [
+    # An annual report with no prior XBRL (the company's first filing here, a prior filing never extracted, or one
+    # in another reporting currency) takes its own prior year on every line, the EPS line's too, diluted where that
+    # series has one, else basic. An interim report's own comparative is the year-ago quarter, so it compares
+    # nothing: not under "Quarter over quarter" (E261).
+    annual = {k: [{**e, "form": "10-K"} for e in v] for k, v in _Q2.items()}
+    assert _eps_items(compute_what_changed(annual, None, form="10-K")) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
+    only_basic_comparative = {**annual, "eps_diluted": _series(("2026-06-30", 1.00))}
+    assert _eps_items(compute_what_changed(only_basic_comparative, None, form="10-K")) == [
         ("earnings_per_share", "EPS (basic)", 1.02, 0.81)
     ]
-    # A reporting-currency change discards the prior filing's figures: the restated comparative stands in, and the
-    # prior filing's USD diluted EPS (0.90) is never differenced against EUR.
-    # A prior filing's XBRL that reports none of What changed's metrics names no period, so it is no prior XBRL to
-    # What changed: every line, the EPS line too, takes the filing's own comparative (E261).
-    out = compute_what_changed(_Q2, {})
-    assert [(i["metric"], i["prior"]) for i in out["items"]] == [("net_income", 8.0), ("eps_diluted", 0.80)]
-    eur = {**_Q2, "reporting_currency": "EUR"}
-    usd_prior = {**_Q1, "reporting_currency": "USD"}
-    assert _eps_items(compute_what_changed(eur, usd_prior)) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
+    for prior, period_end in ((None, None), (None, "2026-03-31"), ({}, "2026-03-31"), ({}, None)):
+        assert compute_what_changed(_Q2, prior, prior_period_end=period_end, form="10-Q") is None
+    # A reporting-currency change discards the prior filing's figures: the restated comparative stands in for the
+    # year the prior 10-K reported, and the prior filing's USD diluted EPS (0.90) is never differenced against EUR.
+    eur = {**annual, "reporting_currency": "EUR"}
+    usd_prior = {**_Q1, "reporting_currency": "USD", "net_income": _series(("2025-06-30", 9.0))}
+    out = compute_what_changed(eur, usd_prior, prior_period_end="2025-06-30", form="10-K")
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.00, 0.80)]
+    assert compute_what_changed({**_Q2, "reporting_currency": "EUR"}, {**_Q1, "reporting_currency": "USD"},
+                                prior_period_end="2026-03-31", form="10-Q") is None
 
 
 def test_eps_line_takes_this_filings_restated_figure_for_the_prior_filings_period():
@@ -363,6 +373,218 @@ def test_invariant_two_holds_net_income_to_basic_eps_where_the_filing_reports_it
     assert [i["metric"] for i in out["items"]] == ["revenue"] and out["data_quality"] == "partial"
 
 
+# --------------------------------------------------------------------------- E261: one comparison period
+# Every line compares this filing's own period with ONE comparison period: the prior filing's period of report (the
+# date the change report's basis line prints), else the newest period the prior filing's XBRL reports, else for an
+# annual report its own year before. A line's prior side is this filing's own figure for that period where it reports
+# one, else the prior filing's; a line with neither is withheld.
+
+# The rule 12 gate: each figure encodes its period (YYYYMMDD plus the metric's offset), so a line's prior decodes to
+# the period it came from, and every line of a report decodes to the one period its basis names, or none shows.
+_OFFSET = {"revenue": 0.0, "net_income": 0.1, "earnings_per_share": 0.2, "eps_diluted": 0.15}
+
+
+def _encoded(*periods, metrics=tuple(_OFFSET)):
+    return {metric: _series(*((p, float(p.replace("-", "")) + _OFFSET[metric]) for p in periods)) for metric in metrics}
+
+
+_NOTE_YEAR = ("2025-12-31", "2025-09-30", "2025-06-30", "2025-03-31", "2024-12-31")  # a 10-K with a quarterly note
+_ONE_PERIOD_SCENARIOS = {
+    # name: (current blob, prior blob, prior period of report, form, the period every prior decodes to, or None)
+    "quarter, prior quarter extracted": (
+        _encoded("2026-06-30", "2025-06-30"), _encoded("2026-03-31", "2025-03-31"), "2026-03-31", "10-Q", "20260331"),
+    "quarter, prior quarter partly extracted": (
+        _encoded("2026-06-30", "2025-06-30"), _encoded("2026-03-31", metrics=("revenue",)), "2026-03-31", "10-Q",
+        "20260331"),
+    "quarter, prior quarter never extracted": (_encoded("2026-06-30", "2025-06-30"), None, "2026-03-31", "10-Q", None),
+    "quarter, no prior filing": (_encoded("2026-06-30", "2025-06-30"), None, None, "10-Q", None),
+    "quarter, prior in another currency": (
+        {**_encoded("2026-06-30", "2025-06-30"), "reporting_currency": "EUR"},
+        {**_encoded("2026-03-31"), "reporting_currency": "USD"}, "2026-03-31", "10-Q", None),
+    "year, prior year extracted": (
+        _encoded("2025-12-31", "2024-12-31", "2023-12-31"), _encoded("2024-12-31", "2023-12-31"), "2024-12-31", "10-K",
+        "20241231"),
+    "year, prior never extracted, quarterly note": (_encoded(*_NOTE_YEAR), None, "2024-12-31", "10-K", "20241231"),
+    "year, no prior filing, quarterly note": (_encoded(*_NOTE_YEAR), None, None, "10-K", "20241231"),
+    "year, period of report a few days off": (_encoded("2025-09-27", "2024-09-28"), None, "2024-09-30", "10-K", "20240928"),
+    "year, prior a year behind its own comparatives": (
+        _encoded("2025-12-31", "2024-12-31", "2023-12-31"), None, "2023-12-31", "10-K", "20231231"),
+}
+
+
+@pytest.mark.parametrize("name", list(_ONE_PERIOD_SCENARIOS))
+def test_every_line_compares_the_one_period_its_basis_names(name):
+    current, prior, prior_end, form, expected = _ONE_PERIOD_SCENARIOS[name]
+    out = compute_what_changed(current, prior, prior_period_end=prior_end, form=form)
+    assert {str(int(i["prior"])) for i in (out or {}).get("items", [])} == ({expected} if expected else set())
+
+
+def test_a_restated_year_puts_every_line_on_this_filings_own_figures():
+    # This 10-K restates FY2024 (revenue recast to 85, net income to a loss). Every line takes the restated figure for
+    # the year the basis names, never the prior 10-K's as-filed 90 beside a restated EPS.
+    current = {
+        "revenue": _series(("2025-12-31", 100.0), ("2024-12-31", 85.0)),
+        "net_income": _series(("2025-12-31", 30.0), ("2024-12-31", -2.0)),
+        "earnings_per_share": _series(("2025-12-31", 0.30), ("2024-12-31", -0.02)),
+    }
+    prior = {
+        "revenue": _series(("2024-12-31", 90.0)),
+        "net_income": _series(("2024-12-31", 5.0)),
+        "earnings_per_share": _series(("2024-12-31", 0.05)),
+    }
+    out = compute_what_changed(current, prior, prior_period_end="2024-12-31", form="10-K")
+    assert [(i["metric"], i["prior"], i["current"]) for i in out["items"]] == [
+        ("revenue", 85.0, 100.0), ("net_income", -2.0, 30.0), ("earnings_per_share", -0.02, 0.30),
+    ]
+
+
+def _earnings(period, net_income, eps):
+    return {"net_income": _series((period, net_income)), "earnings_per_share": _series((period, eps))}
+
+
+def test_eps_is_never_differenced_across_a_share_split():
+    # A 10:1 split between two 10-Qs: EPS falls tenfold while net income rises 12%. The EPS line is withheld and the
+    # report marked partial; net income stands (invariant 3).
+    q2 = {**_earnings("2026-06-30", 16599.0, 0.68), "eps_diluted": _series(("2026-06-30", 0.67))}
+    q1 = {**_earnings("2026-03-31", 14881.0, 6.04), "eps_diluted": _series(("2026-03-31", 5.98))}
+    out = compute_what_changed(q2, q1)
+    assert [(i["metric"], i["prior"]) for i in out["items"]] == [("net_income", 14881.0)]
+    assert out["data_quality"] == "partial"
+    # A 1:10 reverse split, a 3-for-2 split (exactly 1.5x), and a micro-cap's reverse split at a few cents of EPS.
+    for current, prior in (((110.0, 11.0), (100.0, 1.00)), ((157.5, 1.05), (150.0, 1.50)), ((-1.1, -0.45), (-1.0, -0.02))):
+        out = compute_what_changed(_earnings("2026-06-30", *current), _earnings("2026-03-31", *prior))
+        assert [i["metric"] for i in out["items"]] == ["net_income"], (current, prior)
+    # A quarter's buybacks, a cent of EPS whose rounding cannot tell, and a 3-for-2 split at a dime of EPS, where half a
+    # cent either way cannot prove the move (the guard withholds only a proved split), keep the line.
+    for current, prior in (((103.0, 1.06), (100.0, 1.00)), ((1.6, 0.02), (1.0, 0.01)), ((15.0, 0.10), (15.0, 0.15))):
+        out = compute_what_changed(_earnings("2026-06-30", *current), _earnings("2026-03-31", *prior))
+        assert [i["metric"] for i in out["items"]] == ["net_income", "earnings_per_share"], (current, prior)
+        assert out["data_quality"] == "ok"
+    # This filing's own figures are on its own share basis, so its own prior year is never held to the check: a real
+    # doubling of the share count between its two years (a stock-funded acquisition) keeps the EPS line.
+    k = {"net_income": _series(("2025-12-31", 300.0), ("2024-12-31", 100.0)),
+         "earnings_per_share": _series(("2025-12-31", 1.50), ("2024-12-31", 1.00))}
+    out = compute_what_changed(k, None, prior_period_end="2024-12-31", form="10-K")
+    assert [(i["metric"], i["prior"], i["current"]) for i in out["items"]] == [
+        ("net_income", 100.0, 300.0), ("earnings_per_share", 1.00, 1.50),
+    ]
+    assert out["data_quality"] == "ok"
+
+
+def test_a_diluted_pair_across_a_split_gives_way_to_the_filings_own_basic_pair():
+    # A 10-K after a 2:1 split: its blob holds diluted EPS for its own year only, and basic EPS for both years, the
+    # prior one restated. The diluted pair takes its prior from the prior 10-K, before the split, so the guard refuses
+    # it; the basic pair is this filing's own figures for both years, on one share basis, and shows instead.
+    k = {"net_income": _series(("2025-12-31", 100.0), ("2024-12-31", 90.0)),
+         "earnings_per_share": _series(("2025-12-31", 1.00), ("2024-12-31", 0.90)),
+         "eps_diluted": _series(("2025-12-31", 0.99))}
+    prior = {"net_income": _series(("2024-12-31", 90.0)),
+             "earnings_per_share": _series(("2024-12-31", 1.80)),
+             "eps_diluted": _series(("2024-12-31", 1.79))}
+    out = compute_what_changed(k, prior, prior_period_end="2024-12-31", form="10-K")
+    assert [(i["metric"], i["prior"], i["current"]) for i in out["items"]] == [
+        ("net_income", 90.0, 100.0), ("earnings_per_share", 0.90, 1.00),
+    ]
+    assert out["data_quality"] == "ok"
+    # With no clean pair to fall to, the split pair is withheld and the report marked, as before.
+    out = compute_what_changed({**k, "earnings_per_share": _series(("2025-12-31", 1.00))}, prior,
+                               prior_period_end="2024-12-31", form="10-K")
+    assert [i["metric"] for i in out["items"]] == ["net_income"] and out["data_quality"] == "partial"
+
+
+def test_net_income_never_takes_the_year_ago_quarter():
+    # The prior 10-Q reports revenue only. Net income's year-ago quarter, a loss beside positive EPS, used to stand in
+    # for the prior quarter and fail invariant 2, withholding both lines. Now no line takes it.
+    q2 = {"revenue": _series(("2026-06-30", 110.0)),
+          "net_income": _series(("2026-06-30", 12.0), ("2025-06-30", -8.0)),
+          "earnings_per_share": _series(("2026-06-30", 1.02), ("2025-06-30", 0.81))}
+    out = compute_what_changed(q2, {"revenue": _series(("2026-03-31", 100.0))}, prior_period_end="2026-03-31", form="10-Q")
+    assert [(i["metric"], i["prior"]) for i in out["items"]] == [("revenue", 100.0)] and out["data_quality"] == "ok"
+
+
+def _spanning(period, value, days):
+    """One figure ending ``period`` that runs ``days`` days (no start when ``days`` is None)."""
+    [entry] = _series((period, value))
+    if days is not None:
+        entry["period_start"] = (date.fromisoformat(period) - timedelta(days=days)).isoformat()
+    return [entry]
+
+
+def test_a_line_never_compares_periods_of_different_lengths():
+    # A 12-week quarter (84 days) against a 16-week one (112) or a half-year (182) is withheld. A 14-week quarter (98)
+    # is within drift, and a figure without a start is taken as it is.
+    current = {"revenue": _spanning("2026-08-15", 84.0, 84)}
+    for prior_days, kept in ((112, False), (182, False), (84, True), (98, True), (None, True)):
+        prior = {"revenue": _spanning("2026-05-23", 112.0, prior_days)}
+        assert (compute_what_changed(current, prior) is not None) is kept, prior_days
+
+
+def test_a_prior_period_within_drift_of_this_ones_compares_nothing():
+    # A prior row dated a few days before this filing's own period (a re-filed quarter, a 52/53-week calendar), on it,
+    # or after it names this filing's own period. The drift that matches a period of report to its context end would
+    # match the filing's own figure, so nothing is compared, rather than a flat 0.0% against itself.
+    q2 = {"revenue": _series(("2026-06-30", 110.0), ("2025-06-30", 90.0)),
+          "net_income": _series(("2026-06-30", 12.0), ("2025-06-30", 8.0))}
+    for prior_end in ("2026-06-27", "2026-06-30", "2026-07-15", "2026-09-30T00:00:00+00:00"):
+        for form in ("10-Q", "10-K"):
+            assert compute_what_changed(q2, None, prior_period_end=prior_end, form=form) is None, (prior_end, form)
+    # A prior filing whose XBRL reports only this filing's own period names no prior period either.
+    assert compute_what_changed(q2, {metric: series[:1] for metric, series in q2.items()}) is None
+
+
+def test_a_series_that_stops_before_this_period_never_stands_for_it():
+    # Net income's newest figure is the year-ago quarter: it stands for this quarter on neither side.
+    current = {"revenue": _series(("2026-06-30", 110.0), ("2025-06-30", 90.0)), "net_income": _series(("2025-06-30", 8.0))}
+    prior = {"revenue": _series(("2026-03-31", 100.0)), "net_income": _series(("2026-03-31", 10.0))}
+    out = compute_what_changed(current, prior, prior_period_end="2026-03-31", form="10-Q")
+    assert [(i["metric"], i["prior"], i["current"]) for i in out["items"]] == [("revenue", 100.0, 110.0)]
+
+
+@pytest.mark.parametrize("year_before", ["2024-09-28", "2024-09-21"])  # FY2025 of 52 weeks (364 days) and 53 (371)
+def test_a_52_or_53_week_year_is_one_year_back(year_before):
+    current = {"revenue": _series(("2025-09-27", 120.0), ("2025-06-28", 31.0), (year_before, 100.0))}
+    out = compute_what_changed(current, None, form="10-K")
+    assert [(i["prior"], i["current"]) for i in out["items"]] == [(100.0, 120.0)]
+
+
+def test_a_transition_period_or_two_years_back_is_not_the_year_before():
+    # A fiscal-year change: the six-month transition period is no year, and the year before it ends 18 months back.
+    # Two years back is not the year before either.
+    for current in ({"revenue": _series(("2025-12-31", 120.0), ("2025-06-30", 55.0), ("2024-06-30", 100.0))},
+                    {"revenue": _series(("2025-12-31", 120.0), ("2023-12-31", 100.0))}):
+        assert compute_what_changed(current, None, form="10-K") is None
+
+
+# E260: a blob extracted since E260 holds a diluted-only filer's EPS under eps_diluted alone, with an empty
+# earnings_per_share; one extracted before (or by the companyfacts fallback) can hold that diluted figure under
+# earnings_per_share and carry no eps_diluted.
+_DILUTED_ONLY_Q2 = {"revenue": _series(("2026-06-30", 110.0)), "net_income": _series(("2026-06-30", 12.0)),
+                    "earnings_per_share": [], "eps_diluted": _series(("2026-06-30", 1.00))}
+
+
+def test_a_diluted_only_10q_against_a_prior_with_its_figure_under_the_basic_key_shows_no_eps_line():
+    # No key carries both sides, so no EPS line shows, where the two were differenced as "EPS (basic)" before E260.
+    prior = {"revenue": _series(("2026-03-31", 100.0)), "net_income": _series(("2026-03-31", 10.0)),
+             "earnings_per_share": _series(("2026-03-31", 0.90))}
+    out = compute_what_changed(_DILUTED_ONLY_Q2, prior, prior_period_end="2026-03-31", form="10-Q")
+    assert _eps_items(out) == []
+    assert [i["metric"] for i in out["items"]] == ["revenue", "net_income"] and out["data_quality"] == "ok"
+    # A prior extracted since E260 carries the diluted figure too, and the pair is the diluted line.
+    prior_since = {**prior, "earnings_per_share": [], "eps_diluted": _series(("2026-03-31", 0.90))}
+    out = compute_what_changed(_DILUTED_ONLY_Q2, prior_since, prior_period_end="2026-03-31", form="10-Q")
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.00, 0.90)]
+
+
+def test_a_diluted_only_10k_compares_its_diluted_figure_with_its_own_prior_year():
+    k = {"net_income": _series(("2025-12-31", 300.0), ("2024-12-31", 250.0)), "earnings_per_share": [],
+         "eps_diluted": _series(("2025-12-31", 1.50), ("2024-12-31", 1.25))}
+    legacy_prior = {"net_income": _series(("2024-12-31", 250.0)), "earnings_per_share": _series(("2024-12-31", 1.25))}
+    for prior in (None, legacy_prior):
+        out = compute_what_changed(k, prior, prior_period_end="2024-12-31", form="10-K")
+        assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.50, 1.25)], prior
+        assert out["data_quality"] == "ok"
+
+
 # --------------------------------------------------------------------------- composition (DB)
 
 @pytest.fixture(scope="module", autouse=True)
@@ -433,7 +655,7 @@ def _multi_feed_scenario(company_specs, *, watchlist_all=True):
 
     ``company_specs``: one dict per company, in the order the companies are created:
         {
-          "filings": [(label, filing_type, date_str, xbrl), ...],  # created in this order (id asc)
+          "filings": [(label, filing_type, date_str, xbrl[, period_end]), ...],  # created in this order (id asc)
           "summary_labels": [label, ...],  # optional; filings that get a ready summary
         }
     Each filing ``label`` must be unique across the whole scenario. Yields a SimpleNamespace with
@@ -459,12 +681,15 @@ def _multi_feed_scenario(company_specs, *, watchlist_all=True):
         db.refresh(company)
         company_ids.append(company.id)
         tickers.append(company.ticker)
-        for label, ftype, date_str, xbrl in spec["filings"]:
+        for label, ftype, date_str, xbrl, *period_end in spec["filings"]:
             filing = Filing(
                 company_id=company.id,
                 accession_number=f"{suffix}-{label}",
                 filing_type=ftype,
                 filing_date=datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc),
+                period_end_date=(
+                    datetime.fromisoformat(period_end[0]).replace(tzinfo=timezone.utc) if period_end else None
+                ),
                 document_url=f"https://sec.example/{suffix}-{label}/doc.htm",
                 sec_url=f"https://sec.example/{suffix}-{label}/",
                 xbrl_data=xbrl,
@@ -708,6 +933,36 @@ def test_compose_feed_what_changed_uses_prior_same_form_not_feed():
         rev = next(i for i in items[0]["what_changed"]["items"] if i["metric"] == "revenue")
         assert rev["direction"] == "up"
         assert rev["pct"] == 20.0
+
+
+@pytest.mark.requires_db
+def test_compose_feed_compares_only_the_period_its_prior_same_form_filing_reported():
+    from app.database import SessionLocal
+
+    def chips(filings):
+        with _multi_feed_scenario([{"filings": filings}]) as ns:
+            db = SessionLocal()
+            try:
+                [item] = compose_feed(db, ns.user_id, limit=20)
+            finally:
+                db.close()
+        changed = item["what_changed"]
+        return changed and [(i["metric"], i["prior"]) for i in changed["items"]]
+
+    q2 = ("q2", "10-Q", "2026-08-01", {"revenue": _series(("2026-06-30", 110.0), ("2025-06-30", 90.0))}, "2026-06-30")
+    # The prior 10-Q was never summarized, or there is none: no chips, rather than revenue "up 22.2%" against the
+    # year-ago quarter under "Quarter over quarter".
+    assert chips([("q1", "10-Q", "2026-05-01", None, "2026-03-31"), q2]) is None
+    assert chips([q2]) is None
+    assert chips([("q1", "10-Q", "2026-05-01", {"revenue": _series(("2026-03-31", 100.0))}, "2026-03-31"), q2]) == [
+        ("revenue", 100.0)
+    ]
+    # The prior row's period end is the period compared, not an older one its stored XBRL happens to hold.
+    assert chips([("q1", "10-Q", "2026-05-01", {"revenue": _series(("2025-12-31", 95.0))}, "2026-03-31"), q2]) is None
+    # An annual report keeps its own year before, with its prior 10-K never extracted or with none on file.
+    k25 = ("k25", "10-K", "2026-02-20", {"revenue": _series(("2025-12-31", 500.0), ("2024-12-31", 440.0))}, "2025-12-31")
+    assert chips([("k24", "10-K", "2025-02-20", None, "2024-12-31"), k25]) == [("revenue", 440.0)]
+    assert chips([k25]) == [("revenue", 440.0)]
 
 
 @pytest.mark.requires_db

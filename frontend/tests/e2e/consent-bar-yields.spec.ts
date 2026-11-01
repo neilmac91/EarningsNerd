@@ -92,7 +92,7 @@ async function openFiling(page: Page, baseURL: string, { theme = 'light', consen
 const bar = (page: Page) => page.getByRole('region', { name: 'Cookie consent' })
 // exact: the summary's "Ask this filing" CTA (AskFilingCallout) and the feedback form's submit share these words.
 const launcher = (page: Page) => page.getByRole('button', { name: 'Source', exact: true })
-const feedbackLauncher = (page: Page) => page.getByRole('button', { name: 'Send feedback', exact: true })
+const feedbackLauncher = (page: Page) => page.getByRole('button', { name: 'Feedback', exact: true })
 const composer = (page: Page) => page.locator(PANE).getByRole('textbox')
 const coachmark = (page: Page) => page.getByText(COACH_TEXT)
 /** The coachmark stays absent for a while (a mount one tick later would pass a one-shot count). */
@@ -243,7 +243,7 @@ for (const theme of ['light', 'dark'] as const) {
     for (const consented of [false, true]) {
       test(`a chip-opened source fits its actual top without page scrolling, consented=${consented}`, async ({ page, baseURL }) => {
         await openFiling(page, baseURL!, { theme, consented, earlySource: true })
-        const chip = page.getByRole('button', { name: 'Source: Quote found in filing' }).first()
+        const chip = page.getByRole('button', { name: 'Quote found in filing, source' }).first()
         await expect(chip).toBeVisible()
         expect(await page.evaluate(() => window.scrollY)).toBe(0)
         await chip.click()

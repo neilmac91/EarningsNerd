@@ -601,11 +601,14 @@ def test_a_report_with_no_annual_row_of_its_own_ranks_its_stand_ins_without_pres
 
 def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
     """Hello Group, Vipshop and JOYY each reported years in USD alone, then switched to CNY with each
-    year again in USD. USD then holds periods CNY lacks, so the sync reads the USD list
-    (``currency.series_unit``) and stores under each CNY report's accession only that report's own year
-    in USD. For a line the per-filing writer read nothing of, that row is the only stand-in, at the
-    newest report as at an older one; their own rows are in CNY, so it never counts. A report from
-    the USD years, whose every cell the sync holds, charts in USD."""
+    year again in USD. A sync before the per-filing pick read the USD list (``series_unit``) and stored
+    under each CNY report's accession that report's own year in USD; an early sync that read the USD
+    lists alone, here, leaves the same rows. The current sync reads the series in the latest annual
+    report's currency, CNY (``currency.filing_currencies``), stores no USD row under a CNY report, and
+    demotes those, which stay stored. For a line the per-filing writer read nothing of, a USD row
+    never counts: the reports' own rows are in CNY. The newest report charts its revenue from the
+    sync's CNY rows at its accession; the older one's only CNY row there, its oldest year, falls short
+    of its period end, so it shows none. A report from the USD years charts its own figures in USD."""
     company = _company(db)
     common = {"form": "20-F", "year_end": "12-31"}
     usd_era = _report(_accession(company, 2013), 2012, filed="2013-04-15", **common,
@@ -616,6 +619,7 @@ def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
     translated = {fy: _report(_accession(company, fy + 1), fy, filed=f"{fy + 1}-04-15", **common, **{
         REV: {fy: 100.0 * (fy - 2009)}, "Assets": {fy: 1000.0 * (fy - 2001)}}) for fy in (2013, 2014)}
     filings = {2012: _filing(db, company, usd_era), **{fy: _filing(db, company, native[fy]) for fy in native}}
+    _sync(db, company, usd_era, translated[2013], translated[2014])  # the USD lists alone
     _sync(db, company, usd_era, native[2013], translated[2013], native[2014], translated[2014])
     _process(db, filings[2012], usd_era)
     for fy in native:
@@ -625,9 +629,9 @@ def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
     for fy in native:
         rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filings[fy].accession_number,
                                                  concept="revenue").all()
-        assert [(row.period_end, row.unit) for row in rows] == [(date(fy, 12, 31), "USD")]
-        chart = _chart(db, filings[fy])
-        assert chart == {"total_assets": _own(native[fy], "Assets")}
+        assert [(row.period_end, row.is_latest) for row in rows if row.unit == "USD"] == [(date(fy, 12, 31), False)]
+    assert _chart(db, filings[2013]) == {"total_assets": _own(native[2013], "Assets")}
+    assert _chart(db, filings[2014]) == {"revenue": _own(native[2014], REV), "total_assets": _own(native[2014], "Assets")}
 
 
 @pytest.mark.parametrize("read_all", [False, True], ids=["assets-only", "the-whole-report"])
