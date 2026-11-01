@@ -322,9 +322,8 @@ PREVIEW_ENV = {  # the step's env, whole: a name added here (a PGHOST, an SEC fl
     "STRIPE_WEBHOOK_SECRET": "whsec_ops", "PWNED_PASSWORD_CHECK_ENABLED": "false",
     "TICKERS": "${{ steps.request.outputs.tickers }}",
 }
-# The company in flight at the budget's end, at worst: an SEC read of 5 attempts at 20 s with 4 Retry-After waits
-# of 120 s (580 s), then its session's four statements at 120 s each (480 s); then the summary and the report.
-IN_FLIGHT_SECONDS = 1200
+TRANSPORT = Path(__file__).resolve().parents[2] / "app/services/facts/transport.py"
+REPORT_SECONDS = 60  # the summary line and the report file, after the company in flight
 
 
 def test_the_preview_step_only_reads_for_its_one_operation_and_keeps_its_report():
@@ -347,19 +346,31 @@ def test_the_preview_step_only_reads_for_its_one_operation_and_keeps_its_report(
     assert PREVIEW_OPERATION in selected(BY_NAME["Refuse to run while a main push (deploy) is in flight"][1])
     retain_at, retain = BY_NAME["Retain financial revenue preview report"]
     assert retain_at > at and retain["if"] == f"always() && steps.{step['id']}.outcome != 'skipped'"
-    assert retain["with"] == {"name": "financial-revenue-preview-${{ github.run_id }}",
+    # One artifact per attempt: a re-run of a stopped preview never meets the first attempt's name.
+    assert retain["with"] == {"name": "financial-revenue-preview-${{ github.run_id }}-${{ github.run_attempt }}",
                               "path": "${{ runner.temp }}/financial-revenue-preview/report.json",
                               "retention-days": "30", "if-no-files-found": "warn"}
 
 
 def test_the_preview_stops_itself_inside_its_steps_timeout():
-    """The preview stops at its own time budget, so a run always ends with its summary line and its report;
-    the step's timeout would kill it mid-company instead. The budget, read from the script the step runs,
-    leaves the step IN_FLIGHT_SECONDS for the company in flight when it ends, the summary and the report."""
+    """The preview stops at its own time budget, so a run ends with its summary line and its report; the step's
+    timeout would kill it mid-company instead. The budget, read from the script the step runs, leaves the step
+    the company in flight at its worst while each SEC attempt ends within its timeouts: the limiter's attempts at
+    the transport's timeout and its Retry-After waits at their cap, then the session's statements at the step's
+    statement_timeout (the figure the script's header states). Raising any of them without the budget fails here."""
+    from app.config import settings
+    from app.services.sec_rate_limiter import MAX_RETRY_AFTER_SECONDS
+
     step = BY_NAME[PREVIEW][1]
     [script] = RUNNER_SCRIPT.findall(step["run"])
     preview = importlib.import_module(script.removesuffix(".py").replace("/", "."))
-    assert 0 < preview.TIME_BUDGET_SECONDS <= int(step["timeout-minutes"]) * 60 - IN_FLIGHT_SECONDS
+    attempts = settings.SEC_MAX_RETRIES
+    per_attempt = float(re.search(r"httpx\.AsyncClient\(timeout=([\d.]+)", TRANSPORT.read_text()).group(1))
+    statement = int(re.search(r"statement_timeout=(\d+)s", step["env"]["PGOPTIONS"]).group(1))
+    in_flight = (attempts * per_attempt + (attempts - 1) * MAX_RETRY_AFTER_SECONDS
+                 + preview.SESSION_STATEMENTS * statement)
+    assert in_flight == 1060, "the script's header states 1,060 s: change both together"
+    assert 0 < preview.TIME_BUDGET_SECONDS + in_flight + REPORT_SECONDS <= int(step["timeout-minutes"]) * 60
 
 
 def _connection_listeners(path: Path) -> list[tuple[str, int, str, str]]:

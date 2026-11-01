@@ -877,7 +877,7 @@ jobs:
         if: always() && steps.fi_revenue_preview.outcome != 'skipped'
         uses: actions/upload-artifact@v7
         with:
-          name: financial-revenue-preview-${{ github.run_id }}
+          name: financial-revenue-preview-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/financial-revenue-preview/report.json
           retention-days: 30
           if-no-files-found: warn

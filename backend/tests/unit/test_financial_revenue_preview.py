@@ -726,6 +726,66 @@ def test_a_company_session_that_is_not_read_only_stops_the_run(db, factory, sec)
     assert report["summary"]["stopped"] == "session_not_read_only" and sec.reads == ["0000000041"]
 
 
+def test_three_database_errors_in_a_row_stop_the_run_before_its_next_sec_read(db, factory, sec):
+    """A company's SEC read comes before its session, so with the database gone each further read is spent for
+    nothing: three database errors in a row stop the run, and a company that reads cleanly resets the count."""
+    for ticker, cik in (("DB1", 51), ("DB2", 52), ("DB3", 53), ("DB4", 54), ("DB5", 55), ("DB6", 56)):
+        sec.payloads[_company(db, ticker, cik).cik] = _total_and_fee(cik)
+    db.commit()
+    opened = []
+
+    class Gone:
+        def __enter__(self):
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        def __exit__(self, *exc):
+            return False
+
+    def sessions():  # the cohort read, DB1, then DB2 and DB3 fail, DB4 reads, then three failures in a row
+        opened.append(1)
+        return factory() if len(opened) in (1, 2, 5) else Gone()
+
+    lines = []
+    args = SimpleNamespace(tickers="", workflow_commit=COMMIT, companyfacts_dir=None)
+    report = preview.run(args, lines.append, session_factory=sessions)
+    assert [line.get("outcome") for line in lines[1:]] == [
+        "previewed", "database_error", "database_error", "previewed", "database_error", "database_error"]
+    assert report["summary"]["stopped"] is None and len(sec.reads) == 6  # never three in a row
+
+    opened.clear()
+    lines.clear()
+    sec.reads.clear()
+    report = preview.run(args, lines.append, session_factory=lambda: opened.append(1) or (
+        factory() if len(opened) == 1 else Gone()))
+    assert [line.get("outcome") for line in lines[1:]] == ["database_error"] * 3 + ["not_run"] * 3
+    assert report["summary"]["stopped"] == "database_errors" and len(sec.reads) == 3
+
+
+def test_a_company_session_issues_no_more_than_its_counted_statements(db, factory, sec):
+    """The Ops gate's bound on the company in flight counts SESSION_STATEMENTS statements a company session, each
+    under the step's statement_timeout. On SQLite the read-only check issues none, so the rest must fit beside it."""
+    blk = json.loads((FIXTURES / "BLK.json").read_text())
+    sec.payloads[_seed(db, "AAA", blk, "6211").cik] = blk
+    db.commit()
+    engine, counts = factory.kw["bind"], []
+
+    def sessions():
+        counts.append(0)
+        return factory()
+
+    def on_cursor(*_args):
+        counts[-1] += 1
+
+    event.listen(engine, "before_cursor_execute", on_cursor)
+    try:
+        args = SimpleNamespace(tickers="AAA", workflow_commit=COMMIT, companyfacts_dir=None)
+        report = preview.run(args, lambda line: None, session_factory=sessions)
+    finally:
+        event.remove(engine, "before_cursor_execute", on_cursor)
+    assert [c["outcome"] for c in report["companies"]] == ["previewed"] and len(counts) == 2
+    assert counts[1] == preview.SESSION_STATEMENTS - 1 == 3  # the currency test, the rows, their filings
+
+
 # --- SEC reads: count, stops, caps, the time budget and the window -----------------------------------------------------
 
 def test_the_script_holds_no_http_client_no_writer_and_no_apply_mode():
@@ -825,7 +885,8 @@ def test_more_companies_to_read_than_the_cap_are_refused_with_their_list_and_pen
     monkeypatch.setattr(preview, "MAX_PREVIEWED", 3)
     code, lines, report = _main(tmp_path, capsys)
     assert code == 0 and len(sec.reads) == 3 and report["summary"]["outcomes"]["pending_resync"] == 2
-    assert (preview.MAX_TICKERS, preview.STOP_AFTER_FAILED_FETCHES, preview.STOP_AFTER_RATE_LIMIT_HITS) == (50, 3, 3)
+    assert (preview.MAX_TICKERS, preview.STOP_AFTER_FAILED_FETCHES, preview.STOP_AFTER_RATE_LIMIT_HITS,
+            preview.STOP_AFTER_DATABASE_ERRORS) == (50, 3, 3, 3)
 
 
 @pytest.mark.parametrize("now,refused", [
@@ -841,6 +902,19 @@ def test_sec_reads_are_refused_in_mondays_scheduled_peak(db, tmp_path, capsys, s
     code, _lines, report = _main(tmp_path, capsys)
 
     assert (report["summary"]["refused"], code, len(sec.reads)) == (("sec_window", 1, 0) if refused else (None, 0, 1))
+
+
+def test_a_run_that_reaches_mondays_peak_stops_before_its_next_sec_read(db, tmp_path, capsys, sec, monkeypatch):
+    """Started just before Monday 06:00 UTC, the run reads SEC until 06:00 and no further: the rest are not_run."""
+    _companies(db, sec, 3)
+    start = datetime(2026, 11, 9, 5, 59, 58, tzinfo=UTC)
+    times = iter(start + timedelta(seconds=s) for s in (0, 1, 2, 3, 4))
+    monkeypatch.setattr(preview, "utcnow", lambda: next(times))
+
+    code, lines, report = _main(tmp_path, capsys)
+
+    assert code == 1 and [line["outcome"] for line in lines[1:-1]] == ["previewed", "not_run", "not_run"]
+    assert report["summary"]["stopped"] == "sec_window" and len(sec.reads) == 1
 
 
 def test_an_offline_run_reads_no_sec_even_in_the_peak_and_reads_each_payload_from_its_file(db, tmp_path, capsys, sec,

@@ -47,10 +47,15 @@ psql first. Here, before the cohort read and in each company's session, a Postgr
 transaction_read_only on; SEC_DISTRIBUTED_LIMIT_ENABLED (its gate stores a row per request) is refused, and so is a
 limiter not at 1 request a second. There is no apply mode, no heartbeat and no writer. Each previewed company costs
 one companyfacts read through facts_service._fetch_companyfacts_sync (the shared limiter), before its session
-opens. It refuses more than 50 tickers or an unknown one, Monday 06:00-08:30 UTC for SEC reads (the scheduled jobs
-already sum to SEC's cap then), and more than 500 companies to read (it lists them, to batch by --tickers). It stops
-after 3 failed reads in a row, 3 rate-limit hits or 2400 s: the company then in flight can take 1,060 s at worst (580 s
-of SEC retries, four 120 s statements), and the step's 60 minutes still hold the report. The rest are not_run. Exit 1 on any failure, refusal or stop.
+opens. It refuses more than 50 tickers or an unknown one, and more than 500 companies to read (it lists them, to batch
+by --tickers). It makes no SEC read on Monday 06:00-08:30 UTC, when pregenerate and backfill-facts overlap the hourly
+scan at SEC's cap: a run started there is refused, and one that reaches 06:00 stops. The daily EFTS jobs can overlap a
+running scan too (earnings-calendar-refresh at 05:30, notable-filings at 08:30 and 18:30, America/New_York): dispatch
+outside those minutes. Before each read it stops after 3 failed reads in a row, 3 rate-limit hits, 3 database errors
+in a row, or 2400 s. The company then in flight takes 1,060 s at worst while each SEC attempt ends within its timeouts
+(580 s of retries, four 120 s statements), so the step's 60 minutes hold the report. A response that trickles in under
+its read timeout could outlast the step, which then keeps the flushed company lines but no report. The rest are
+not_run. Exit 1 on any failure, refusal or stop.
 
   python scripts/financial_revenue_preview.py --output report.json --workflow-commit SHA [--tickers A,B]
   python scripts/financial_revenue_preview.py ... --companyfacts-dir DIR   # offline CIK##########.json, no SEC
@@ -106,6 +111,8 @@ MAX_PREVIEWED = 500
 TIME_BUDGET_SECONDS = 2400
 STOP_AFTER_FAILED_FETCHES = 3
 STOP_AFTER_RATE_LIMIT_HITS = 3
+STOP_AFTER_DATABASE_ERRORS = 3
+SESSION_STATEMENTS = 4  # a company session's: the read-only check, the currency test, its rows, their filings
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 TICKER = re.compile(r"[A-Z0-9][A-Z0-9.-]{0,11}")
 SETS = ("A", "A_tag_only", "B", "B_review", "C1", "C1_review", "C2", "C2_review", "D", "D_review", "E", "E_review",
@@ -162,16 +169,23 @@ def check_read_only(db: Session) -> None:
 
 
 def in_sec_window(now: datetime) -> bool:
-    """Monday 06:00-08:30 UTC, when docs/OPERATIONS.md's scheduled SEC rates already sum to SEC's cap."""
+    """Monday 06:00-08:30 UTC, when pregenerate and backfill-facts overlap the hourly scan at SEC's cap
+    (docs/OPERATIONS.md's sums). The daily EFTS jobs' brief overlaps are left to the dispatcher (the header)."""
     return now.weekday() == 0 and time(6, 0) <= now.time() < time(8, 30)
 
 
-def stop_reason(failed_reads: int, rate_limit_hits: int, elapsed_seconds: float) -> str | None:
-    """Why the run stops before its next SEC read, or None: SEC's health first, then the time budget."""
+def stop_reason(failed_reads: int, rate_limit_hits: int, database_errors: int, elapsed_seconds: float,
+                in_window: bool) -> str | None:
+    """Why the run stops before its next SEC read, or None: SEC's health, then the database's (a read that ends in a
+    database error is spent for nothing), then Monday's scheduled peak, then the time budget."""
     if failed_reads >= STOP_AFTER_FAILED_FETCHES:
         return "failed_fetches"
     if rate_limit_hits >= STOP_AFTER_RATE_LIMIT_HITS:
         return "rate_limit"
+    if database_errors >= STOP_AFTER_DATABASE_ERRORS:
+        return "database_errors"
+    if in_window:
+        return "sec_window"
     return "time_budget" if elapsed_seconds >= TIME_BUDGET_SECONDS else None
 
 
@@ -480,7 +494,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
         if len(to_read) > MAX_PREVIEWED:
             raise Refused("cohort_over_cap", [member.ticker for member in to_read])
         read = fetch or (lambda cik: facts_service._fetch_companyfacts_sync(cik))
-        failed_reads = 0
+        failed_reads = database_errors = 0
         for member in members:
             payload = sets = choice = None
             if not _is_financial_sic(member.sic):
@@ -490,7 +504,9 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
             else:
                 if not stopped:
                     hits = sec_rate_limiter.get_stats()["rate_limit_hits"] - before["rate_limit_hits"]
-                    stopped = stop_reason(failed_reads, hits, (ensure_utc(clock()) - started).total_seconds())
+                    now = ensure_utc(clock())
+                    stopped = stop_reason(failed_reads, hits, database_errors, (now - started).total_seconds(),
+                                          args.companyfacts_dir is None and in_sec_window(now))
                 outcome, fetched = ("not_run", None) if stopped else read_payload(member, args.companyfacts_dir, read)
                 failed_reads = failed_reads + 1 if outcome == "fetch_failed" else 0
                 if outcome is None:
@@ -503,6 +519,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
                         outcome = "database_error"
                     except Exception:  # closed class only: an exception's text never reaches the output
                         outcome = "internal_error"
+                database_errors = database_errors + 1 if outcome == "database_error" else 0
             line = company_line(member, outcome, payload, sets, choice)
             emit(line)
             report["companies"].append({**line, "rows": {k: v for k, v in (sets or {}).items() if v}})
