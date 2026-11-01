@@ -118,17 +118,19 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
           default size), three gaps (1.9rem) and at least 5.6rem of name. Below that, on a phone and under 200% text at
           every width, the date column moves under the company line, left-aligned, and the name wraps instead of
           truncating, so it keeps its words (E272, chief design on #1897); the ticker follows the name, under it when
-          the two do not fit. Below 7.25rem the decorative logo gives way too, as the calendar's event row drops its
-          own, since beside it a phone under 200% text breaks common words ("International", "Laboratories"). */}
+          the two do not fit. Stacked, the logo keeps to the name's first line, as ActivityLine's dot does (the line
+          at items-start, the logo nudged by half of the name's line less the logo; chief design on #1900). Below
+          7.25rem the decorative logo gives way too, as the calendar's event row drops its own, since beside it a
+          phone under 200% text breaks common words ("International", "Laboratories"). */}
       <Card interactive className="h-full p-cap-5 [container-type:inline-size]">
         <div data-what-changed-header className="flex items-start justify-between gap-3 [@container(width<21rem)]:flex-col [@container(width<21rem)]:gap-2">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5 [@container(width<21rem)]:items-start">
             <CompanyLogo
               decorative
               ticker={company.ticker}
               name={formatCompanyName(company.name)}
               size={28}
-              className="[@container(width<7.25rem)]:hidden"
+              className="[@container(width<21rem)]:mt-[calc((1.5rem_-_28px)/2)] [@container(width<7.25rem)]:hidden"
             />
             <div className="flex min-w-0 items-center gap-2 [@container(width<21rem)]:flex-wrap [@container(width<21rem)]:gap-y-1">
               <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark [@container(width<21rem)]:whitespace-normal [@container(width<21rem)]:[overflow-wrap:anywhere]">
@@ -146,8 +148,10 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
             {/* "Latest report" (vs "Last filed" in Your companies): this feed shows the newest
                 10-K/10-Q, which can be older than a company's most recent filing of any form. */}
             <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">Latest report</span>
+            {/* The date keeps whole: where the line wraps under 200% text it breaks after the form, not inside the
+                date (chief design on #1900). */}
             <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
+              {item.filing_type} · <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
             </span>
           </div>
         </div>
