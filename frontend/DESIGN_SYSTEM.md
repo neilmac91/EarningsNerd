@@ -26,7 +26,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
-| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
+| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FF96A1` (text-safe on navy and the panel; level in their chips' tints, 5.72:1 and 5.76:1 on the panel, D-074); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
@@ -687,7 +687,7 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
                  direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
                  chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
-                 panel), a rung below its light label: between the up and down chips (5.72:1 and 4.44:1
+                 panel), a rung below its light label: quieter than the up and down chips (5.72:1 and 5.76:1
                  in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
                  the one text-ramp crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE),
                  which reads a dark twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
@@ -705,7 +705,9 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
                  (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
                  renders the what-changed chip and holds its colour to directionChip for the server's
-                 tone, which no lint can see.
+                 tone, which no lint can see. tests/unit/directionChipContrast.spec.ts holds every
+                 directionChip label, and Badge's beat and miss, at 4.5:1 in its tint on the panel and
+                 the page in both themes, each read from its classes as it ships (E282, D-074).
                  The analysis figure surfaces alone amend the 700-level clause (CLAUDE.md rule 11):
                  their change lines (MetricsTable's, KpiStrip's) take
                  lib/financialTone.dataDirectionText, up text-gain-data dark:text-gain-data-dark
@@ -713,7 +715,7 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  #FECDD3), flat text-text-secondary-light dark:text-note-dark, each held to APCA
                  |Lc| ≥ 75 on the sheet and the panel. Three of the general delta inks miss that tier
                  there: green-700 #15803D is Lc 72.4 on the light sheet and 71.1 on the panel, and in
-                 dark emerald-400 #34D399 is -65.6 / -62.6 and rose-400 #FB7185 -49.7 / -46.7; green-800
+                 dark emerald-400 #34D399 is -65.6 / -62.6 and loss.dark #FF96A1 -61.5 / -58.6; green-800
                  holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
                  lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
                  reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss

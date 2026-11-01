@@ -38,11 +38,14 @@ const gain = {
 const loss = {
   light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
   text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); lib/financialTone directionText resolves to this
-  dark: '#FB7185',  // rose-400 — 7.0:1 on navy, text-safe
+  // Dark delta text: rose-400's hue, lightened to the gain ink's level (E282, D-074). 7.08:1 on panel, 9.08:1 on navy;
+  // a down chip's 12px label is 5.76:1 in its tint on the panel, beside the up chip's 5.72:1, where rose-400 #FB7185
+  // was 4.44:1, under AA (tests/unit/directionChipContrast.spec.ts). The tint below keeps rose-400.
+  dark: '#FF96A1',
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
   // Figure surfaces, APCA |Lc| >= 75: red-700 already holds Lc 78.4 / 77.2 in light; dark needs rose-200,
-  // Lc -83.1 on the dark well and -80.1 on panel (rose-400 is -49.7 / -46.7, the weakest ink on the table).
+  // Lc -83.1 on the dark well and -80.1 on panel (loss.dark is -61.5 / -58.6; rose-400 was -49.7 / -46.7).
   data: '#B91C1C',
   dataDark: '#FECDD3',
 }
