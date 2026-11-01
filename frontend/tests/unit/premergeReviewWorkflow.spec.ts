@@ -488,13 +488,17 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
             return { findings: mine, summary: mine.length ? `reported one defect ${mine.length} time(s)` : 'nothing to report' }
           }
           for (const { name, args } of runsOf(tier)) {
-            // The prompt each refuter number gets when one copy is the review's only finding.
+            // The prompt each refuter number gets when one copy, from a given lens, is the review's only finding; the
+            // refuters' prompts must be exactly those of each copy's own refuters.
             const solo = new Map<string, string>()
-            await run(args, async (prompt: string, o: { label: string }) => {
-              if (o.label.startsWith('review:')) return { findings: o.label.endsWith(`:${lenses[0]}`) ? [copy] : [], summary: 'reported one defect' }
-              solo.set(o.label.slice(o.label.lastIndexOf('#')), prompt)
-              return { refuted: false, reason: 'r' }
-            })
+            for (const lens of new Set(lenses)) {
+              await run(args, async (prompt: string, o: { label: string }) => {
+                if (o.label.startsWith('review:')) return { findings: o.label.endsWith(`:${lens}`) ? [copy] : [], summary: 'reported one defect' }
+                solo.set(`${lens} ${o.label.slice(o.label.lastIndexOf('#'))}`, prompt)
+                return { refuted: false, reason: 'r' }
+              })
+            }
+            const ownPrompts = lenses.flatMap((lens) => Array.from({ length: T.refuters }, (_, k) => solo.get(`${lens} #${k + 1}`))).sort()
             // The refuters' answers by call order; each answer's reason names its call.
             for (let k = 0; k < ANSWERS.length ** (2 * T.refuters); k++) {
               const given: Array<{ answer: Answer; number: string }> = []
@@ -512,7 +516,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
               const problems: string[] = []
               const verifies = calls.filter((c) => c.label.startsWith('verify:'))
               if (calls.length - verifies.length !== T.lenses.length || verifies.length !== 2 * T.refuters) problems.push(`${calls.length - verifies.length} lenses and ${verifies.length} refuters ran`)
-              for (const c of verifies) if (c.prompt !== solo.get(c.label.slice(c.label.lastIndexOf('#')))) problems.push(`${c.label}'s prompt differs from its report's own`)
+              if (!isDeepStrictEqual(verifies.map((c) => c.prompt).sort(), ownPrompts)) problems.push("the refuters' prompts differ from their reports' own")
               // Each report carries the answers it was judged on: every answer given serves exactly one report, through
               // refuters of different numbers, and each report lands as its own answers decide.
               const entries = [
