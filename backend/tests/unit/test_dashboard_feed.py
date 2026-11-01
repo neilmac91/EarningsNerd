@@ -555,6 +555,36 @@ def test_a_transition_period_or_two_years_back_is_not_the_year_before():
         assert compute_what_changed(current, None, form="10-K") is None
 
 
+# E260: a blob extracted since E260 holds a diluted-only filer's EPS under eps_diluted alone, with an empty
+# earnings_per_share; one extracted before (or by the companyfacts fallback) can hold that diluted figure under
+# earnings_per_share and carry no eps_diluted.
+_DILUTED_ONLY_Q2 = {"revenue": _series(("2026-06-30", 110.0)), "net_income": _series(("2026-06-30", 12.0)),
+                    "earnings_per_share": [], "eps_diluted": _series(("2026-06-30", 1.00))}
+
+
+def test_a_diluted_only_10q_against_a_prior_with_its_figure_under_the_basic_key_shows_no_eps_line():
+    # No key carries both sides, so no EPS line shows, where the two were differenced as "EPS (basic)" before E260.
+    prior = {"revenue": _series(("2026-03-31", 100.0)), "net_income": _series(("2026-03-31", 10.0)),
+             "earnings_per_share": _series(("2026-03-31", 0.90))}
+    out = compute_what_changed(_DILUTED_ONLY_Q2, prior, prior_period_end="2026-03-31", form="10-Q")
+    assert _eps_items(out) == []
+    assert [i["metric"] for i in out["items"]] == ["revenue", "net_income"] and out["data_quality"] == "ok"
+    # A prior extracted since E260 carries the diluted figure too, and the pair is the diluted line.
+    prior_since = {**prior, "earnings_per_share": [], "eps_diluted": _series(("2026-03-31", 0.90))}
+    out = compute_what_changed(_DILUTED_ONLY_Q2, prior_since, prior_period_end="2026-03-31", form="10-Q")
+    assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.00, 0.90)]
+
+
+def test_a_diluted_only_10k_compares_its_diluted_figure_with_its_own_prior_year():
+    k = {"net_income": _series(("2025-12-31", 300.0), ("2024-12-31", 250.0)), "earnings_per_share": [],
+         "eps_diluted": _series(("2025-12-31", 1.50), ("2024-12-31", 1.25))}
+    legacy_prior = {"net_income": _series(("2024-12-31", 250.0)), "earnings_per_share": _series(("2024-12-31", 1.25))}
+    for prior in (None, legacy_prior):
+        out = compute_what_changed(k, prior, prior_period_end="2024-12-31", form="10-K")
+        assert _eps_items(out) == [("eps_diluted", "EPS (diluted)", 1.50, 1.25)], prior
+        assert out["data_quality"] == "ok"
+
+
 # --------------------------------------------------------------------------- composition (DB)
 
 @pytest.fixture(scope="module", autouse=True)

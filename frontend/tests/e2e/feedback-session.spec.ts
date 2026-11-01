@@ -37,7 +37,7 @@ for (const theme of ['light', 'dark']) {
     await page.goto('/login?redirect=/terms')
     // A full reload would hide the original regression: Providers must survive this navigation.
     await page.evaluate(() => { document.documentElement.dataset.feedbackSessionTest = 'same-document' })
-    const launcher = page.getByRole('button', { name: 'Send feedback', exact: true })
+    const launcher = page.getByRole('button', { name: 'Feedback', exact: true })
     await expect(launcher).toHaveCount(0)
     await page.getByRole('button', { name: 'Continue with email' }).click()
     await page.locator('input[type="email"]').fill('reader@example.test')

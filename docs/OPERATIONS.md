@@ -667,7 +667,7 @@ Located in `backend/scripts/`:
 head. On every pull-request event while the pull request is a draft the check fails (converting a ready
 pull request back to a draft starts no run), and marking it ready starts the wait; `@codex review` on a
 draft re-runs its newest gate run, which fails again, unless that run is a skip from before #1331, which
-the re-run job refuses (E60 lists the drafts). The script reads the draft flag from the pull
+the re-run job refuses (E60 listed the drafts that carried one; none is open since #1035). The script reads the draft flag from the pull
 request as it is now: a job skipped by its condition reports success, which a required check counts as
 passing, and an event can still describe a draft after the pull request was marked ready, so the job
 never skips on a pull-request event. Draft or not and override or not, it fails at once while the

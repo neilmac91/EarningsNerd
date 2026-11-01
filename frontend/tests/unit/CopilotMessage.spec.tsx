@@ -332,7 +332,7 @@ describe('CopilotMessage follow-up chips', () => {
  * routers/summaries.py).
  */
 describe('statusTintsOnlyForStatus: the Copilot plan card', () => {
-  const TASTE_SPENT = "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
+  const TASTE_SPENT = "You've used your 3 free questions. Upgrade to Pro to access this feature."
   const FAIR_USE =
     "You've reached this month's fair-use limit of 1,000 questions. It resets at the start of next month."
   const errorMessage = (error: string): CopilotMessageData => ({ id: 'e1', role: 'assistant', content: '', status: 'error', error })

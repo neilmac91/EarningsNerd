@@ -78,7 +78,7 @@ describe('Financial origin and source checks', () => {
     expect(summary).toHaveTextContent('1 not in our data, shown as —')
     expect(within(summary as HTMLElement).getByText('a dash')).toHaveClass('sr-only')
     // b is free cash flow's gap, which marks nothing.
-    expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notes a' })).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
     rerender(view({ ...report, snapshot_id: 'locator-two' }))
     expect(container.querySelector('[data-analysis-data-notes] > details > summary')?.textContent).toBe(originalSummary)
@@ -119,7 +119,7 @@ describe('Financial origin and source checks', () => {
     grouped.notes = grouped.notes.map((note, index) => ({ ...note, letter: ['z', 'a'][index], id: `analysis-data-note-${['z', 'a'][index]}` }))
     report.data_notes = decodeDataNotes({ version: 1, notes: grouped.notes, totals: grouped.totals }, report)
     render(<MetricsTable dataset={report} />)
-    expect(screen.getByRole('button', { name: 'Review data notes z' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notes z' })).toBeInTheDocument()
   })
 
   it('counts annual CAGR and percentage-point windows once each, beside every period of the table', () => {
@@ -139,7 +139,7 @@ describe('Financial origin and source checks', () => {
     expect(note).not.toHaveTextContent('years shown')
     expect(screen.getAllByRole('columnheader')).toHaveLength(report.periods.length + 2)
     expect(screen.getByRole('columnheader', { name: 'FY2018–FY2025 CAGR' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notes a' })).toBeInTheDocument()
   })
 
   it('names a comparison note once in the source control and identifies the recorded input carrying it', async () => {
@@ -395,7 +395,7 @@ describe('Financial origin and source checks', () => {
     const { container } = render(<DataNotesProvider dataset={legacy}><DataNotes dataset={legacy} /><MetricsTable dataset={legacy} /></DataNotesProvider>)
     const figure = screen.getByRole('button', { name: /^Revenue, Q4 2023: \$40\.1B, calculated\. View source/ })
     expect(figure.querySelector('[data-note-letter]')).toBeNull()
-    expect(screen.queryByRole('button', { name: /Review data notes/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Notes [a-z]+(, [a-z]+)*$/ })).not.toBeInTheDocument()
     const summary = container.querySelector('[data-analysis-data-notes] summary')!
     expect(summary).not.toHaveTextContent('No figures need review')
     expect(summary.querySelector('[data-note-letter]')).toBeNull()
@@ -420,7 +420,7 @@ describe('Financial origin and source checks', () => {
     const note = document.getElementById('analysis-data-note-a')!
     const disclosure = note.closest('details')!
     expect(disclosure).not.toHaveAttribute('open')
-    screen.getByRole('button', { name: 'Review data notes a' }).focus()
+    screen.getByRole('button', { name: 'Notes a' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(disclosure).toHaveAttribute('open')
     expect(note).toHaveFocus()

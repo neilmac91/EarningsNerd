@@ -4474,7 +4474,7 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         else:
             detail = {
                 "missing": "Filing not found",
-                "taste_refused": "You've used your 3 free Copilot questions.",
+                "taste_refused": "You've used your 3 free questions.",
                 "cap_refused": "You've reached this month's fair-use limit of 0 questions.",
                 "cap_lease_refused": "You've reached this month's fair-use limit of 1 questions.",
             }[case]

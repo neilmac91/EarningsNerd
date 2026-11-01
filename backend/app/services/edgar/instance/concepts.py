@@ -28,13 +28,13 @@ DURATION_CONCEPTS: Dict[str, List[str]] = {
         "NetIncomeLossAvailableToCommonStockholdersBasic",
         "ProfitLossAttributableToOwnersOfParent",  # IFRS
     ],
+    # Basic EPS only (E260): readers name this key "EPS (basic)", so a filer that tags no undimensioned basic
+    # figure (one tagged by share class alone) has none here, never its diluted one; eps_diluted carries that.
     "earnings_per_share": [
         "EarningsPerShareBasic",
-        "EarningsPerShareDiluted",
         "EarningsPerShareBasicAndDiluted",
         # IFRS
         "BasicEarningsLossPerShare",
-        "DilutedEarningsLossPerShare",
     ],
     # P1.5: diluted EPS explicitly, so a report can show basic AND diluted (the figure investors
     # quote) without conflating them — the basic/diluted mismatch the eval kept flagging.

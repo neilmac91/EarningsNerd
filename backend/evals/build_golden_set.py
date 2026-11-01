@@ -57,12 +57,11 @@ METRIC_CONCEPTS: Dict[str, Tuple[str, List[str]]] = {
         "NetIncomeLossAvailableToCommonStockholdersBasic",
         "ProfitLossAttributableToOwnersOfParent",
     ]),
+    # Basic only, as the product's list is since E260; a diluted figure is an accepted alternate (below).
     "eps": ("USD_per_share", [
         "EarningsPerShareBasic",
-        "EarningsPerShareDiluted",
         "EarningsPerShareBasicAndDiluted",
         "BasicEarningsLossPerShare",
-        "DilutedEarningsLossPerShare",
     ]),
 }
 

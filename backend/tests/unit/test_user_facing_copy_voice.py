@@ -259,11 +259,6 @@ EXEMPT: dict[str, tuple[int, str]] = {
         "founder: the unlink detail's 'only sign-in method', which test_auth_flow.py pins (a locked contract "
         "test, CLAUDE.md rule 6), so it takes the account verb only under a contract change its PR documents; F56",
     ),
-    "app/dependencies.py::copilot_taste_exhausted_detail": (
-        1,
-        "E37: the free-allowance detail's 'free Copilot questions'; dependencies.py is Agent A's, so the patch that says "
-        "'free questions' goes to Agent A with #1863, and deletes this entry",
-    ),
     "app/services/trend_analysis/detectors.py": (
         1,
         "founder: the cash-conversion red flag's sentence is in the observation selector's prompt bytes and the "
@@ -279,8 +274,9 @@ EXEMPT: dict[str, tuple[int, str]] = {
 # E217's functional change to summary_stages (F35, D-046; E92) and their four entries went. Lower it with every
 # deletion, in the same diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which
 # the equality holds it to. Raising it for new copy is the one change this gate exists to refuse. 10 when E37 taught it
-# the product name (D-034) and listed the one break that rule found, Agent A's free-allowance detail, in the same commit.
-EXEMPT_CAP = 10
+# the product name (D-034) and listed the one break that rule found, Agent A's free-allowance detail, in the same commit;
+# 9 when that detail said "free questions" (ASK-06) and its entry went.
+EXEMPT_CAP = 9
 
 
 @dataclass(frozen=True)
@@ -874,7 +870,7 @@ def test_the_reader_sees_each_shape_and_lets_the_rest_through():
     source = (BACKEND_DIR / "app/dependencies.py").read_text(encoding="utf-8")
     reader = _Reader(ast.parse(source))
     taste = [node for node, scope in reader.literals if scope == "copilot_taste_exhausted_detail" and id(node) in reader.reached]
-    assert any("free Copilot questions" in _text(node) for node in taste), "copilot_taste_exhausted_detail is no longer read"
+    assert any("free question" in _text(node) for node in taste), "copilot_taste_exhausted_detail is no longer read"
 
 
 # The account verb's planted forms (module docstring; lessons/test-gates-must-be-as-wide-as-their-rule.md), each a

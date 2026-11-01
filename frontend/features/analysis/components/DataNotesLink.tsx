@@ -22,8 +22,10 @@ export default function DataNotesLink({ notes }: { notes: DataNote[] }) {
   const marked = notes.filter(noteMarksFigure)
   if (marked.length === 0) return null
   const letters = marked.map((note) => note.letter).join(', ')
+  // Named by its face, "Notes a, b", with no aria-label, so a speech user says the words they see (WCAG 2.5.3; chief
+  // design on #1884).
   return (
-    <button type="button" className={sourceTraceChipClass(false)} onClick={() => openDataNote(marked[0].id)} aria-label={`Review data notes ${letters}`}>
+    <button type="button" className={sourceTraceChipClass(false)} onClick={() => openDataNote(marked[0].id)}>
       Notes {letters}
     </button>
   )
