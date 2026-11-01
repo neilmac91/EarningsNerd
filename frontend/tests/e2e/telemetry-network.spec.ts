@@ -463,10 +463,12 @@ for (const withdrawal of ['deny', 'clear'] as const) {
 // made it. Each kind is planted here and taken off the record, so this test passes only while every one is recorded.
 test('a request the fixture does not answer is recorded, every core build asked for under /static included', async ({ page }) => {
   await fixture(page, '/pricing')
-  // Every core build the package ships as a script, by the names its dist directory holds, read at run time (which the
-  // member scan does not reach, by design): each arm of the route's refusal is pinned, #1552's array build among them.
-  const builds = readdirSync(path.join(POSTHOG_PACKAGE, 'dist')).filter(name => /^(?:array|module|main)(?:\.[\w-]+)*\.js$/.test(name))
+  // Every core build the package ships as a script or module, by the names its dist directory holds, read at run time
+  // (which the member scan does not reach, by design): each arm of the route's refusal is pinned, #1552's array build
+  // and the module entry itself among them.
+  const builds = readdirSync(path.join(POSTHOG_PACKAGE, 'dist')).filter(name => /^(?:array|module|main)(?:\.[\w-]+)*\.[mc]?js$/.test(name))
   for (const prefix of ['array.', 'module.', 'main.']) expect(builds.some(name => name.startsWith(prefix)), prefix).toBe(true)
+  for (const extension of ['.mjs', '.cjs']) expect(builds.some(name => name.endsWith(extension)), extension).toBe(true)
   const unanswered = [`${INGEST}/i/v0/e/`, ...builds.map(name => `${INGEST}/static/${name}?v=1.440.0`), 'https://elsewhere.invalid/x']
   await page.evaluate(urls => Promise.allSettled(urls.map(url => fetch(url))), unanswered)
   expect(unknownRequests.splice(0).sort()).toEqual([...unanswered].sort())

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
@@ -43,12 +43,24 @@ export function usePostHogUserIdentification(): void {
   const posthogReady = usePostHogReady()
   const lastIdentity = useRef<string | null>(null)
   const guest = user === null
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    // An account deletion and "Log out of all devices" clear the whole cache instead of writing a guest, and React
+    // Query tells no observer of a removed query, so this hook would never see the account go. Catch the removal.
+    const identity = hashKey(queryKeys.currentUser())
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'removed' || event.query.queryHash !== identity) return
+      lastIdentity.current = null
+      analytics.forgetAccount()
+    })
+  }, [queryClient])
 
   useEffect(() => {
     if (!user?.id) {
       // No account: forget the one identified before, in PostHog and Sentry too. Only the dashboard's Log out resets
-      // PostHog itself; the menus' Log out, "Log out of all devices", an account deletion and a lost session reach here
-      // as a guest, and so does a browser PostHog kept identified from an earlier visit once it loads. A login then
+      // PostHog itself; the menus' Log out and a lost session reach here as a guest (the cache clears above reach the
+      // subscription), and so does a browser PostHog kept identified from an earlier visit once it loads. A login then
       // identifies the account again once analytics is allowed; lib/analytics.ts never identifies while it is refused.
       lastIdentity.current = null
       if (guest) analytics.forgetAccount()

@@ -7,7 +7,8 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
- * Rule-12 gate for lessons/frontend-reach-sdk-internals-by-shape-and-test-the-shipped-build.md: no code reaches a
+ * Rule-12 gate for lessons/frontend-reach-sdk-internals-by-shape-and-test-the-shipped-build.md and, by its identity
+ * check, lessons/frontend-an-sdk-that-captures-nothing-can-still-store.md: no code reaches a
  * posthog-js member that the build Next bundles does not have. The npm builds rename some private members while the
  * typings keep them, so `tsc` passes `client._retryQueue` and the shipped code reads undefined: #1552's consent guard
  * threw before `posthog.init` on every page that way.
@@ -34,9 +35,13 @@ import { describe, expect, it } from 'vitest'
  * - a package subpath other than `package.json`, `react` and the entries' own paths.
  * Which builds keep the names the entries rename changes between releases: in 1.440.0 every `no-external` build and
  * the ES5 build keep them. And app code (outside tests/) ties an account to PostHog only through lib/analytics.ts,
- * which waits for consent, since posthog-js stores an identity even while it captures nothing: no `identify` or `alias`
- * read off anything but a name bound to that module's import (called, passed or bound), none destructured, and no key
- * that sets the person (`bootstrap.distinctID`, `register({ distinct_id })`).
+ * which waits for consent, since posthog-js stores an identity even while it captures nothing. The check fails:
+ * - an `identify`, `alias` or `setIdentity` read off anything but a name bound to that module's import (called, passed
+ *   or bound), or destructured;
+ * - a key that sets the person (`bootstrap.distinctID`, `identity_distinct_id`, `register({ distinct_id })`) in an object
+ *   literal or written by assignment;
+ * - either kind named by a bare string, or another declaration of a name bound to the facade;
+ * - any of these in code held in a string.
  *
  * Out of reach, as the planted gaps below record:
  * - a name, a build path or an identify assembled at run time;
@@ -101,6 +106,8 @@ function nameOf(name: ts.Node | undefined): string | undefined {
   if (!name) return undefined
   if (ts.isIdentifier(name) || ts.isPrivateIdentifier(name) || ts.isStringLiteralLike(name)) return name.text
   if (ts.isJsxNamespacedName(name)) return name.name.text
+  // A computed key written as a string literal (`{ ['_retryQueue']: queue }`) names the member all the same.
+  if (ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression)) return name.expression.text
   return undefined
 }
 
@@ -174,19 +181,26 @@ function otherBuilds(source: string, fileName: string): string[] {
   return named
 }
 
-const IDENTITY_MEMBERS = new Set(['identify', 'alias'])
-// Keys that set the person posthog-js reports as: `bootstrap: { distinctID }` at init, `register({ distinct_id })`.
-const IDENTITY_KEYS = new Set(['distinctID', 'distinct_id'])
+// posthog-js 1.440.0's ways to tie an account by call: setIdentity aliases the id it is given.
+const IDENTITY_MEMBERS = new Set(['identify', 'alias', 'setIdentity'])
+// Keys that set the person posthog-js reports as: `bootstrap: { distinctID }` and `identity_distinct_id` at init or in
+// set_config, `register({ distinct_id })`.
+const IDENTITY_KEYS = new Set(['distinctID', 'distinct_id', 'identity_distinct_id'])
 const IDENTITY_HOME = 'lib/analytics.ts'
-// lib/analytics.ts, as the app imports it (`@/lib/analytics`) or a sibling under lib/ does.
-const FACADE_MODULE = /^(?:@\/lib\/|(?:\.\.?\/)+(?:lib\/)?)analytics$/
+
+/** Whether an import names lib/analytics.ts: `@/lib/analytics`, or a relative path that resolves to it from this file. */
+function namesFacade(specifier: string, fileName: string): boolean {
+  if (specifier === '@/lib/analytics') return true
+  if (!specifier.startsWith('.')) return false
+  return path.posix.normalize(path.posix.join(path.posix.dirname(fileName), specifier)) === IDENTITY_HOME.replace(/\.ts$/, '')
+}
 
 /** The local names this file binds to lib/analytics.ts's exports, the default import and `analytics` included. */
 function facadeNames(file: ts.SourceFile): Set<string> {
   const names = new Set<string>()
   for (const statement of file.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
-    if (!FACADE_MODULE.test(statement.moduleSpecifier.text)) continue
+    if (!namesFacade(statement.moduleSpecifier.text, file.fileName)) continue
     const clause = statement.importClause
     if (clause?.name) names.add(clause.name.text)
     if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
@@ -197,33 +211,73 @@ function facadeNames(file: ts.SourceFile): Set<string> {
 }
 
 /**
- * Each way this file ties an account to a PostHog client other than through lib/analytics.ts's facade: an `identify` or
- * `alias` read off anything but a name bound to the facade's import (called, passed or bound), the same names
- * destructured, and a key that sets the person (`distinctID`, `distinct_id`).
+ * Whether this identifier is the name a declaration binds: a variable, a parameter, a destructured name, a function, a
+ * class or an enum. An import is left out, since a second import of a name already bound fails to compile.
  */
-function identityCalls(source: string, fileName: string): string[] {
+function declares(node: ts.Identifier): boolean {
+  const parent = node.parent
+  return (ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isBindingElement(parent) || ts.isFunctionDeclaration(parent)
+    || ts.isFunctionExpression(parent) || ts.isClassDeclaration(parent) || ts.isClassExpression(parent) || ts.isEnumDeclaration(parent))
+    && parent.name === node
+}
+
+const IDENTITY_NAMES = new Set([...IDENTITY_MEMBERS, ...IDENTITY_KEYS])
+const ASSIGNS = (kind: ts.SyntaxKind) => kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment
+
+/**
+ * Each way this source ties an account to a PostHog client other than through lib/analytics.ts's facade, with its line:
+ * - an identity member read off anything but a name bound to the facade's import (called, passed or bound), or
+ *   destructured;
+ * - a key that sets the person, in an object literal (computed keys written as strings included) or written by
+ *   assignment;
+ * - an identity member or key named by a bare string (`Reflect.get(posthog, 'identify')`, `const key = 'distinct_id'`);
+ * - another declaration of a name bound to the facade, which could hold a client in its scope
+ *   (`const analytics = usePostHog()`);
+ * - any of these in code held in a string, two strings deep at most.
+ */
+function identityTies(source: string, fileName: string, depth = 0): Array<{ name: string; line: number }> {
   const file = parse(source, fileName)
   const facade = facadeNames(file)
-  const found: string[] = []
-  const flag = (name: string, node: ts.Node) => found.push(`${fileName}:${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${name}`)
+  const found = new Map<string, { name: string; line: number }>()
+  const flag = (name: string, node: ts.Node) => {
+    const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1
+    found.set(`${name}:${line}`, { name, line })
+  }
   const viaFacade = (receiver: ts.Expression) => ts.isIdentifier(receiver) && facade.has(receiver.text)
+  const keyed = (target: ts.Expression) => ts.isPropertyAccessExpression(target) ? target.name.text
+    : ts.isElementAccessExpression(target) && ts.isStringLiteralLike(target.argumentExpression) ? target.argumentExpression.text : undefined
   const visit = (node: ts.Node) => {
-    if (ts.isPropertyAccessExpression(node) && IDENTITY_MEMBERS.has(node.name.text) && !viaFacade(node.expression)) {
-      flag(node.name.text, node)
-    } else if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression)
-      && IDENTITY_MEMBERS.has(node.argumentExpression.text) && !viaFacade(node.expression)) {
-      flag(node.argumentExpression.text, node)
+    if (ts.isIdentifier(node) && facade.has(node.text) && declares(node)) {
+      flag(`${node.text} declared again`, node)
+    } else if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) && IDENTITY_MEMBERS.has(keyed(node) ?? '')
+      && !viaFacade(node.expression)) {
+      flag(keyed(node)!, node)
     } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
       const name = nameOf(node.propertyName ?? node.name)
       if (name && IDENTITY_MEMBERS.has(name)) flag(name, node)
     } else if ((ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && IDENTITY_KEYS.has(nameOf(node.name) ?? '')) {
       flag(nameOf(node.name)!, node)
+    } else if (ts.isBinaryExpression(node) && ASSIGNS(node.operatorToken.kind) && IDENTITY_KEYS.has(keyed(node.left) ?? '')) {
+      flag(keyed(node.left)!, node)
     }
     ts.forEachChild(node, visit)
   }
   visit(file)
-  return found
+  stringsOf(file, (text, node) => {
+    const parent = node.parent
+    // An element access, a key and a destructured name are read above, by their place in the code.
+    const placed = ts.isElementAccessExpression(parent) || ts.isComputedPropertyName(parent)
+      || ((isMember(parent) || ts.isBindingElement(parent)) && ((parent as ts.BindingElement).propertyName === node || (parent as ts.NamedDeclaration).name === node))
+    if (IDENTITY_NAMES.has(text)) {
+      if (!placed && !inType(node)) flag(text, node)
+    } else if (depth < 2 && /[.[{]/.test(text) && [...IDENTITY_NAMES].some(name => text.includes(name))) {
+      for (const { name } of identityTies(text, 'held.ts', depth + 1)) flag(name, node)
+    }
+  })
+  return [...found.values()]
 }
+
+const identityCalls = (source: string, fileName: string) => identityTies(source, fileName).map(({ name, line }) => `${fileName}:${line}: ${name}`)
 
 const staleNames = (names: Record<string, string>, used: Set<string>) => Object.keys(names).filter(name => !used.has(name))
 
@@ -367,6 +421,7 @@ describe('posthog-js members the shipped build has', () => {
   })
   it('does not read code held more than two strings deep (a stated gap)', () => {
     expect(unknownToBuild('page.evaluate(\'eval("Function(`return client._retryQueue`)")\')', 'planted.ts')).toEqual([])
+    expect(identityCalls('page.evaluate(\'eval("Function(`return posthog.identify(id)`)")\')', 'planted.ts')).toEqual([])
   })
   it('does not read a file that handles a client without naming posthog-js (a stated gap)', () => {
     expect(scansFile('export const stand = { _send_retriable_request() {} }')).toBe(false)
@@ -386,7 +441,7 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     expect(identityCalls(source(IDENTITY_HOME), IDENTITY_HOME)).toHaveLength(1)
   })
 
-  it.each([
+  it.each<[string, string, string?]>([
     ['a direct identify', 'posthog.identify(String(user.id), { plan })'],
     ['an identify through the React hook', 'usePostHog().identify(id)'],
     ['an optional identify', 'posthog?.identify(id)'],
@@ -398,17 +453,37 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     ['a destructured identify', 'const { identify } = posthog'],
     ['a client imported under the facade\'s name', "import analytics from 'posthog-js'\nanalytics.identify(id)"],
     ['a client held under the facade\'s name', 'const analytics = usePostHog()\nanalytics.identify(id)'],
+    ['a setIdentity, which aliases', 'posthog.setIdentity(id, hash)'],
     ['an identity bootstrapped at init', 'posthog.init(key, { bootstrap: { distinctID: id } })'],
+    ['an identity given at init', 'posthog.init(key, { identity_distinct_id: id })'],
+    ['an identity given by set_config', 'posthog.set_config({ identity_distinct_id: id })'],
     ['an identity registered by hand', 'posthog.register({ distinct_id: id })'],
-  ])('flags %s', (_form, planted) => {
-    expect(identityCalls(planted, 'planted.ts')).toHaveLength(1)
+    ['an identity registered by a computed key', "posthog.register({ ['distinct_id']: id })"],
+    ['a client held in a scope under the facade\'s imported name', "import analytics from '@/lib/analytics'\nfunction tie(id: string) { const analytics = usePostHog(); analytics.identify(id) }"],
+    ['a client passed under the facade\'s imported name', "import { analytics } from '@/lib/analytics'\nexport const tie = (analytics: PostHog, id: string) => analytics.identify(id)"],
+    ['a client destructured under the facade\'s imported name', "import analytics from '@/lib/analytics'\nexport function tie({ analytics }: Props) { analytics.identify(id) }"],
+    ['another module called analytics', "import { analytics } from './analytics'\nanalytics.identify(id)", 'app/planted.ts'],
+    ['a method reached by its bare name', "Reflect.get(posthog, 'identify').call(posthog, id)"],
+    ['a method name held in a variable', "const method = 'identify'\nposthog[method](id)"],
+    ['a key written by assignment', 'props.distinct_id = id\nposthog.register(props)'],
+    ['a key written by element access', "props['distinct_id'] ??= id"],
+    ['an identify held as code in a page script', "const tie = <Script id=\"tie\">{'window.posthog.identify(id)'}</Script>", 'planted.tsx'],
+    ['an identify held two strings deep', 'page.evaluate("new Function(\'return posthog.identify(id)\')")'],
+  ])('flags %s', (_form, planted, fileName = 'planted.ts') => {
+    expect(identityCalls(planted, fileName)).toHaveLength(1)
   })
-  it.each([
+  it.each<[string, string, string?]>([
     ['the consent-gated facade', "import analytics from '@/lib/analytics'\nanalytics.identify(String(user.id), { plan })"],
     ['the facade by its named export', "import { analytics } from '@/lib/analytics'\nanalytics.identify(id)"],
-    ['the facade from a sibling under lib/', "import { analytics } from './analytics'\nanalytics.identify(id)"],
+    ['the facade from a sibling under lib/', "import { analytics } from './analytics'\nanalytics.identify(id)", 'lib/planted.ts'],
+    ['the facade by a relative path from another directory', "import analytics from '../lib/analytics'\nanalytics.identify(id)", 'hooks/planted.ts'],
+    ['a key by the facade\'s name in an object', "import analytics from '@/lib/analytics'\nconst tools = { analytics, log: { analytics: true } }"],
+    ['the facade by element access', "import analytics from '@/lib/analytics'\nanalytics['identify'](id)"],
+    ['a read of the person\'s id', 'const id = posthog.get_distinct_id() ?? event.properties.distinct_id'],
+    ['a type position', "type Identify = PostHog['identify']"],
+    ['a sentence in a string', "const note = 'we identify a reader only after an allow.'"],
     ['another call', "posthog.capture('event')"],
-  ])('passes %s', (_form, planted) => {
-    expect(identityCalls(planted, 'planted.ts')).toEqual([])
+  ])('passes %s', (_form, planted, fileName = 'planted.ts') => {
+    expect(identityCalls(planted, fileName)).toEqual([])
   })
 })

@@ -42,8 +42,10 @@ const wire = vi.hoisted(() => {
   globalThis.XMLHttpRequest = class {} as unknown as typeof XMLHttpRequest
   return state
 })
-const sentry = vi.hoisted(() => ({ captureException: vi.fn() }))
-vi.mock('@sentry/nextjs', async (original) => ({ ...(await original<object>()), captureException: sentry.captureException }))
+const sentry = vi.hoisted(() => ({ captureException: vi.fn(), setUser: vi.fn() }))
+vi.mock('@sentry/nextjs', async (original) => ({
+  ...(await original<object>()), captureException: sentry.captureException, setUser: sentry.setUser,
+}))
 vi.mock('next/navigation', () => ({ usePathname: () => '/pricing', useSearchParams: () => new URLSearchParams() }))
 
 async function bytesOf(body: unknown): Promise<Buffer> {
@@ -102,6 +104,7 @@ beforeEach(() => {
   wire.calls.length = 0
   wire.respond = () => 200
   sentry.captureException.mockClear()
+  sentry.setUser.mockClear()
   localStorage.clear()
 })
 
@@ -324,8 +327,20 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     const { retry, batch } = guard.findPostHogQueues(client)!
     hide(client, retry, batch)
     vi.spyOn(client, 'opt_out_capturing').mockImplementation(() => { throw new Error('planted: consent storage is unavailable') })
-    // The refusal reaches the client through its subscription, at the guard's first failure (the catch branch).
-    choose(false)
+    // The refusal reaches the client through its subscription, at the guard's first failure (the catch branch). The
+    // choice's event does not hand a listener's throw back to this call, so the page's error event records any.
+    const thrown: unknown[] = []
+    const onError = (event: ErrorEvent) => {
+      thrown.push(event.error)
+      event.preventDefault()
+    }
+    window.addEventListener('error', onError)
+    try {
+      choose(false)
+    } finally {
+      window.removeEventListener('error', onError)
+    }
+    expect(thrown).toEqual([])
     expect(guard.applyPostHogConsent(client)).toBe(false) // A later application (the failed branch).
     expect(client.opt_out_capturing).toHaveBeenCalledTimes(2)
   })
@@ -478,26 +493,99 @@ describe('an account PostHog keeps when the reader has none', () => {
     return page
   }
 
+  /** A page load with analytics refused: PostHog never loads, so lib/analytics.ts reaches a client that has not. */
+  async function refusedVisit() {
+    cleanup()
+    vi.resetModules()
+    const { PostHog } = await import('posthog-js')
+    const client = new PostHog()
+    clients.push(client)
+    const { choose } = await renderProvider(client)
+    const { analytics } = await import('@/lib/analytics')
+    act(() => choose(false))
+    expect(client.__loaded).toBe(false)
+    return { analytics }
+  }
+
+  /** The page-view tracker's batched $pageview, once it has left (its flush waits a few seconds). */
+  const pageViewSent = () => vi.waitFor(() => expect(sent('$pageview')).toBeGreaterThan(0), { timeout: 8000 })
+
   it('is forgotten once the reader is a guest, and a guest without one is left alone', async () => {
     const { client, analytics, choose } = await identifiedVisit('synthetic-account-forget-check')
     expect(client.get_distinct_id()).toBe('synthetic-account-forget-check')
-    analytics.forgetAccount() // As the identification hook does for a guest, whichever control logged the reader out.
+    const device = client.get_property('$device_id')
+    analytics.forgetAccount() // As the identification hook does once the account goes away, whichever way.
     const anonymous = client.get_distinct_id()
     expect(anonymous).not.toBe('synthetic-account-forget-check')
+    expect(client.get_property('$device_id')).not.toBe(device) // Nothing later ties back to the account by device.
     expect((stored() + decodeURIComponent(document.cookie)).includes('synthetic-account-forget-check')).toBe(false)
+    // reset() clears the consent every tab shares; the visitor's allow is restored, so PostHog stays on.
+    expect(client.is_capturing()).toBe(true)
+    expect(sentry.setUser).toHaveBeenLastCalledWith(null)
+    sentry.setUser.mockClear()
     analytics.forgetAccount()
     expect(client.get_distinct_id()).toBe(anonymous)
+    expect(sentry.setUser).toHaveBeenCalledWith(null) // Sentry's user goes even when PostHog holds no account.
     act(() => choose(false)) // Drains the page-view tracker's batch.
   })
 
   it('is reset before anything is sent when a browser without a session loads PostHog again', async () => {
     const first = await identifiedVisit('synthetic-account-stale-check')
+    const device = first.client.get_property('$device_id') as string
     act(() => first.choose(false)) // Drains the first page load's batch, so nothing of it is still in flight.
+    // The next page's address carries a credential, which nothing that page sends or stores may carry.
+    window.history.replaceState(null, '', `/reset-password?token=${CANARY}`)
     const { client, choose, sinceLoad } = await visit()
     expect(client.get_distinct_id()).not.toBe('synthetic-account-stale-check')
-    client.capture('first-after-stale-load', {}, { send_instantly: true })
-    await vi.waitFor(() => expect(sent('first-after-stale-load')).toBe(1))
-    expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-stale-check'))).toEqual([])
+    expect(client.get_property('$device_id')).not.toBe(device)
+    // reset() clears the privacy seed too; it is written after the reset, so this page keeps its sanitized attribution.
+    expect(client.get_property('$initial_person_info')).toMatchObject({ u: `${window.location.origin}/reset-password` })
+    await pageViewSent() // The page-view tracker's first $pageview, which leaves in a batch.
+    const carries = (value: string) => sinceLoad().filter(call => (call.url + call.text).includes(value))
+    expect([carries('synthetic-account-stale-check'), carries(device), carries(CANARY)]).toEqual([[], [], []])
+    expect((stored() + decodeURIComponent(document.cookie)).includes(CANARY)).toBe(false)
+    act(() => choose(false))
+  }, 20_000)
+
+  it('is reset at the next load, whoever\'s session it is, when the account went away while PostHog was off', async () => {
+    const first = await identifiedVisit('synthetic-account-pending-check')
+    act(() => first.choose(false))
+    // A later page with analytics refused: PostHog does not load there, so forgetting the account leaves word. Sentry's
+    // user, which identify sets whatever the choice, goes too.
+    const refused = await refusedVisit()
+    refused.analytics.identify('synthetic-account-pending-check')
+    expect(sentry.setUser).toHaveBeenLastCalledWith({ id: 'synthetic-account-pending-check' })
+    refused.analytics.forgetAccount()
+    expect(sentry.setUser).toHaveBeenLastCalledWith(null)
+    // Another account then signs in on this browser and allows analytics.
+    ;(await import('@/lib/api/session')).markSessionActive()
+    const { client, choose, sinceLoad } = await visit()
+    expect(client.get_distinct_id()).not.toBe('synthetic-account-pending-check')
+    await pageViewSent()
+    expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-pending-check'))).toEqual([])
+    act(() => choose(false))
+  }, 20_000)
+
+  it('leaves an anonymous browser\'s identity alone across a load', async () => {
+    const first = await visit()
+    const anonymous = first.client.get_distinct_id()
+    act(() => first.choose(false))
+    const { client, choose } = await visit()
+    expect(client.get_distinct_id()).toBe(anonymous)
+    act(() => choose(false))
+  })
+
+  it('starts another account on a fresh identity instead of switching the one PostHog holds', async () => {
+    const { client, analytics, choose } = await identifiedVisit('synthetic-account-first')
+    const device = client.get_property('$device_id')
+    analytics.identify('synthetic-account-first') // The same account again, as after a plan change: nothing resets.
+    expect([client.get_distinct_id(), client.get_property('$device_id')]).toEqual(['synthetic-account-first', device])
+    const flagsBefore = flagsSent()
+    analytics.identify('synthetic-account-second') // Another tab signed in, or a session ended unseen.
+    expect(client.get_distinct_id()).toBe('synthetic-account-second')
+    expect(client.get_property('$device_id')).not.toBe(device)
+    await vi.waitFor(() => expect(sent('$identify')).toBe(2)) // Identified afresh, not switched silently.
+    await vi.waitFor(() => expect(flagsSent()).toBeGreaterThan(flagsBefore))
     act(() => choose(false))
   })
 

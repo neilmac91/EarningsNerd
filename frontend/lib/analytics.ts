@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { sanitizeTelemetry } from './telemetryPrivacy'
 import { applyPostHogConsent, browserAnalyticsAllowed } from './posthogConsent'
+import { markAccountToForget } from './posthogIdentity'
 
 export type SummaryViewIdentity =
   | { state: 'authenticated'; accountId: string }
@@ -21,7 +22,12 @@ const safeIdentify = (userId: string, traits?: Record<string, unknown>) => {
   }
   // posthog-js stores the identity in its cookie and local storage even while capturing is off (after a refusal in
   // this tab), so identify only while analytics is allowed, as the consent clause says (lib/consentCopy.ts).
-  if (browserAnalyticsAllowed()) posthog.identify(userId, sanitizeTelemetry(traits))
+  if (browserAnalyticsAllowed()) {
+    // The browser can still hold another account's identity (another tab signed in, or a session ended unseen): start
+    // this account on a fresh one rather than let posthog-js switch the old one silently.
+    if (identifiedAs() !== null && identifiedAs() !== userId) safeReset()
+    posthog.identify(userId, sanitizeTelemetry(traits))
+  }
   // Mirror the identity into Sentry so client errors are attributable to the same user id the
   // backend tags (str(user.id)). Id only — no PII beyond the internal id. Never let it throw.
   try {
@@ -31,11 +37,16 @@ const safeIdentify = (userId: string, traits?: Record<string, unknown>) => {
   }
 }
 
+/** The account id a loaded client holds, or null when it holds none (anonymous, or not loaded). */
+const identifiedAs = (): string | null =>
+  posthog.__loaded && posthog.get_property('$user_state') === 'identified' ? posthog.get_distinct_id() : null
+
 const safeReset = () => {
   if (typeof window === 'undefined') {
     return
   }
-  posthog.reset()
+  // A new device id too, so later events cannot be tied back to the account through it.
+  posthog.reset(true)
   // The SDK clears its own consent with the identity. Restore only the current validated
   // browser choice; a refusal (including one storage could not save) must remain off.
   // Its answer is not used: a guard that first fails here turns the client off but leaves
@@ -49,15 +60,18 @@ const safeReset = () => {
 }
 
 // posthog-js keeps an identified reader's id in its cookie and local storage, across page loads, until reset(); only
-// the dashboard's Log out calls that itself. A reader with no account (after a logout by any control, an account
-// deletion or a lost session) must carry none: the consent clause ties statistics to an account id while logged in
-// (lib/consentCopy.ts). hooks/usePostHogUserIdentification.ts calls this for a known guest; it resets only an
-// identity the SDK still holds, so repeated calls cost nothing.
+// the dashboard's Log out calls that itself. A reader with no account (after any logout, an account deletion or a lost
+// session) must carry none: the consent clause ties statistics to an account id while logged in (lib/consentCopy.ts).
+// hooks/usePostHogUserIdentification.ts calls this whenever the account goes away. It resets an identity a loaded
+// client still holds; a client that has not loaded cannot reset, so it leaves word for the provider to reset at the
+// next load (lib/posthogIdentity.ts). Repeated calls cost nothing.
 const safeForgetAccount = () => {
   if (typeof window === 'undefined') {
     return
   }
-  if (posthog.__loaded && posthog.get_property('$user_state') === 'identified') {
+  if (!posthog.__loaded) {
+    markAccountToForget()
+  } else if (identifiedAs() !== null) {
     safeReset()
     return
   }

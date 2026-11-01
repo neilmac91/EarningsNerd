@@ -7,6 +7,7 @@ import { useEffect, Suspense, useState } from 'react'
 import { hasActiveSession } from '@/lib/api/session'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
 import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed, postHogGuardFailed } from '@/lib/posthogConsent'
+import { takeAccountToForget } from '@/lib/posthogIdentity'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
 import { initializePostHogPrivacy, postHogPrivacyConfig } from '@/lib/posthogPrivacy'
 import { PostHogReadyContext } from '@/lib/posthogReady'
@@ -84,12 +85,14 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             // finish after a refusal/clear in this or another tab. Never use the choice captured by the init
             // closure to opt back in or start recording.
             try {
+              // posthog-js keeps an identified reader's id across page loads until reset(). Reset it here, before
+              // posthog-js sends its first request for this page, when its account went away while PostHog was not
+              // loaded (lib/posthogIdentity.ts), whoever's session this is now, or when the browser has no session. A
+              // new device id too. The privacy seed is written after it, and the application below restores the
+              // visitor's choice, which reset() clears.
+              const accountGone = takeAccountToForget()
+              if ((accountGone || !hasActiveSession()) && posthog.get_property('$user_state') === 'identified') posthog.reset(true)
               initializePostHogPrivacy(posthog)
-              // posthog-js keeps an identified reader's id across page loads until reset(). A browser with no session
-              // (logged out where PostHog had not loaded, or by a control that did not reset it) must not start under
-              // that id: reset it here, before posthog-js sends its first request for this page. The application
-              // below restores the visitor's choice, which reset() clears.
-              if (!hasActiveSession() && posthog.get_property('$user_state') === 'identified') posthog.reset()
               const guarded = applyPostHogConsent(posthog)
               if (!active) return
               if (guarded) setInitialized(true)

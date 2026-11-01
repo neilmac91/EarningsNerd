@@ -102,6 +102,18 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     expect(identify).not.toHaveBeenCalled()
   })
 
+  // An account deletion and "Log out of all devices" clear the whole cache instead of writing a guest, and React Query
+  // tells no observer of the removed query.
+  it('forgets the account when the cache is cleared', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const { qc } = renderWithReadiness(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    expect(forgetAccount).not.toHaveBeenCalled()
+    act(() => qc.clear())
+    expect(forgetAccount).toHaveBeenCalledTimes(1)
+  })
+
   // A guest carries no account: lib/analytics.ts resets an identity PostHog still holds, from an earlier visit or from a
   // logout by a control that does not reset it, and asks again once PostHog is ready.
   it('forgets any account for a guest, and again once PostHog is ready', async () => {
