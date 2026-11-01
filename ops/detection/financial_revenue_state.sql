@@ -7,13 +7,15 @@
 -- rows (filing_id NULL, source companyfacts) by tag, current or not (the non-current ones are own-report
 -- history rows and demoted winners, the database half of the preview's sets D and E); 2 lists the companies
 -- whose current revenue carries the fee tag, the list E264 reviews by SIC; 3 counts the calculated rows built
--- on a fee-tag revenue operand (set C); 4 lists the current net margins above 100%; 5 checks each named
--- bank's current fiscal-year revenue against its net interest income plus noninterest income; 6 counts the
--- duplicate current rows and 7 lists them; 8 lists the per-filing revenue rows the old cross-check replaced
--- (set F's database half). The preview itself reads SEC's payloads under the deployed rule, which no SQL can.
+-- on a fee-tag revenue operand, its own tag or one in the lineage of a calculated quarter it is (set C); 4
+-- lists the current net margins above 100%; 5 checks each named bank's current fiscal-year revenue against its
+-- net interest income plus noninterest income; 6 counts the duplicate current rows and 7 lists them; 8 lists
+-- the per-filing revenue rows the cross-check replaced, split at E264's deploy (2026-11-01 14:07:03 UTC, when
+-- deploy-backend job 124871048475 had moved every job to the new image) into the old rule's (set F's database
+-- half) and the new rule's. The preview itself reads SEC's payloads under the deployed rule, which no SQL can.
 -- It names companies and counts rows, and changes nothing.
--- Retire: the records PR that closes E264 deletes this file and the unit test that holds its tags, SIC band
--- and margin scale to the code (backend/tests/unit/test_financial_revenue_detection_sql.py).
+-- Retire: the records PR that closes E264 deletes this file and the unit test that holds its tags, SIC band,
+-- margin scale and set 8's premise to the code (backend/tests/unit/test_financial_revenue_detection_sql.py).
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so the sets share one snapshot. Tables: companies,
 -- financial_fact. Each statement gets 120 s and waits at most 10 s for a lock (SET LOCAL below; the step's
@@ -48,7 +50,8 @@ SELECT current_setting('transaction_read_only') AS read_only,
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
            'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
-           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues', 'us-gaap:SalesRevenueNet']::text[] AS total_tags
+           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues',
+                 'us-gaap:SalesRevenueNet']::text[] AS total_tags
 ), fin AS MATERIALIZED (
     SELECT c.id
     FROM companies c
@@ -81,7 +84,8 @@ ORDER BY is_latest DESC, class NULLS LAST, rows DESC, tag;
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
            'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
-           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues', 'us-gaap:SalesRevenueNet']::text[] AS total_tags
+           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues',
+                 'us-gaap:SalesRevenueNet']::text[] AS total_tags
 ), fin AS MATERIALIZED (
     SELECT c.id, c.ticker, c.sic
     FROM companies c
@@ -110,7 +114,8 @@ LIMIT 200;
 
 \echo '3. Calculated rows (source derived) at financial companies with a fee-tag revenue operand, by concept and'
 \echo '   current, then in total (the row with no concept): the revenue quarters a fee row entered and the'
-\echo '   margins over it. companies: how many hold them.'
+\echo '   margins over them. An operand carries the fee tag as its own tag or, when it is a calculated quarter,'
+\echo '   anywhere in its lineage. companies: how many hold them.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
            'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
@@ -135,8 +140,8 @@ WITH params AS (
     FROM calc k
     CROSS JOIN params p
     WHERE json_typeof(k.inputs) = 'array'
-      AND EXISTS (SELECT 1 FROM json_array_elements(k.inputs) i
-                  WHERE i ->> 'concept' = 'revenue' AND i ->> 'raw_tag' = p.fee_tag)
+      AND EXISTS (SELECT 1 FROM json_array_elements(k.inputs) AS i(operand)
+                  WHERE i.operand ->> 'concept' = 'revenue' AND strpos(i.operand::text, p.fee_tag) > 0)
 )
 SELECT concept, is_latest AS current, count(*) AS rows, count(DISTINCT company_id) AS companies
 FROM on_fee
@@ -144,8 +149,8 @@ GROUP BY GROUPING SETS ((concept, is_latest), ())
 ORDER BY concept NULLS LAST, is_latest DESC;
 
 \echo '4. Current net margins above 100% at financial companies, by company, the most first. on_fee: those whose'
-\echo '   revenue operand carries the fee tag. max_margin: the largest, at max_fy and max_fp. all_rows: every'
-\echo '   such margin in the cohort.'
+\echo '   revenue operand carries the fee tag, as in set 3. max_margin: the largest, at max_fy and max_fp. all_rows:'
+\echo '   every such margin in the cohort.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
            'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
@@ -167,21 +172,19 @@ WITH params AS (
     WHERE ff.concept = 'net_margin' AND ff.is_latest AND ff.value > p.full_margin
 ), tagged AS (
     SELECT h.company_id, h.fiscal_year, h.fiscal_period, h.value,
-           (SELECT i.operand ->> 'raw_tag'
-            FROM json_array_elements(CASE WHEN json_typeof(h.inputs) = 'array' THEN h.inputs END)
-                 WITH ORDINALITY AS i(operand, n)
-            WHERE i.operand ->> 'concept' = 'revenue'
-            ORDER BY i.n
-            LIMIT 1) AS revenue_tag
+           EXISTS (SELECT 1
+                   FROM json_array_elements(CASE WHEN json_typeof(h.inputs) = 'array' THEN h.inputs END)
+                        AS i(operand)
+                   WHERE i.operand ->> 'concept' = 'revenue' AND strpos(i.operand::text, p.fee_tag) > 0) AS on_fee
     FROM high h
+    CROSS JOIN params p
 ), per AS (
     SELECT t.company_id, count(*) AS rows,
-           count(*) FILTER (WHERE t.revenue_tag = p.fee_tag) AS on_fee,
+           count(*) FILTER (WHERE t.on_fee) AS on_fee,
            max(t.value) AS max_margin,
            (array_agg(t.fiscal_year ORDER BY t.value DESC, t.fiscal_year DESC))[1] AS max_fy,
            (array_agg(t.fiscal_period ORDER BY t.value DESC, t.fiscal_year DESC))[1] AS max_fp
     FROM tagged t
-    CROSS JOIN params p
     GROUP BY t.company_id
 )
 SELECT fin.ticker, fin.sic, per.rows, per.on_fee, round(per.max_margin, 1) AS max_margin, per.max_fy, per.max_fp,
@@ -191,8 +194,9 @@ JOIN fin ON fin.id = per.company_id
 ORDER BY per.rows DESC, fin.ticker, fin.id
 LIMIT 200;
 
-\echo '5. JPM''s, BAC''s, C''s, WFC''s, GS''s, MS''s, IBKR''s, AXP''s and COF''s current fiscal-year revenue against net'
-\echo '   interest income plus noninterest income at the same period end (current, USD), by bank, newest first.'
+\echo '5. JPM''s, BAC''s, C''s, WFC''s, GS''s, MS''s, IBKR''s, AXP''s and COF''s current fiscal-year revenue'
+\echo '   against net interest income plus noninterest income at the same period end (current, USD), by bank,'
+\echo '   newest first.'
 \echo '   components: their sum, blank when either is missing. gap: |revenue - components| / max(|revenue|,'
 \echo '   |components|). over_1pct: E264''s check fails there.'
 WITH params AS (
@@ -271,13 +275,18 @@ JOIN fin ON fin.id = d.company_id
 ORDER BY d.n DESC, fin.ticker, d.concept, d.period_end, d.fiscal_period
 LIMIT 200;
 
-\echo '8. Per-filing revenue rows at financial companies the old cross-check replaced (source companyfacts, a'
-\echo '   filing owner, provenance outcome replaced), by company, the most first. current: those still current.'
-\echo '   max_gap: the largest |stored - original| / max(|stored|, |original|), the original being the parsed'
-\echo '   figure the authority displaced. The preview compares each with the new authority.'
+\echo '8. Per-filing revenue rows at financial companies the cross-check replaced (source companyfacts, a filing'
+\echo '   owner, provenance outcome replaced), by company, the most old-rule rows first. The writer inserts and'
+\echo '   never rewrites a stored row (facts/upsert.py, held by this file''s unit gate), so a row''s created_at is'
+\echo '   when its rule wrote it. old_rule: those written before E264''s deploy (2026-11-01 14:07:03 UTC), the set'
+\echo '   the cleanup re-inserts; old_current: those still current; max_gap: their largest |stored - original| /'
+\echo '   max(|stored|, |original|), the original being the parsed figure the authority displaced. new_rule: those'
+\echo '   written since (Monday''s backfill-facts, step (3)''s re-insert). The preview compares each old-rule row with'
+\echo '   the new authority.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
-           '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard
+           '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
+           '2026-11-01 14:07:03+00'::timestamptz AS e264_deployed
 ), fin AS MATERIALIZED (
     SELECT c.id, c.ticker, c.sic
     FROM companies c
@@ -285,6 +294,7 @@ WITH params AS (
     WHERE c.sic <> '' AND c.sic COLLATE "C" BETWEEN p.sic_low AND p.sic_high
 ), checked AS MATERIALIZED (
     SELECT ff.company_id, ff.fiscal_year, ff.is_latest, ff.value,
+           ff.created_at IS NULL OR ff.created_at < p.e264_deployed AS old_rule,
            CASE WHEN ff.provenance::text ~ p.json_hazard
                 THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::json
                 ELSE ff.provenance END -> 'checks' -> 'authoritative' AS authoritative_check
@@ -294,23 +304,28 @@ WITH params AS (
     WHERE ff.concept = 'revenue' AND ff.filing_id IS NOT NULL AND ff.source = 'companyfacts'
       AND strpos(ff.provenance::text, '"authoritative"') > 0
 ), replaced AS (
-    SELECT k.company_id, k.fiscal_year, k.is_latest, k.value,
+    SELECT k.company_id, k.fiscal_year, k.is_latest, k.value, k.old_rule,
            CASE WHEN json_typeof(k.authoritative_check -> 'original_value') = 'number'
                 THEN (k.authoritative_check ->> 'original_value')::numeric END AS original_value
     FROM checked k
     WHERE json_typeof(k.authoritative_check) = 'object' AND k.authoritative_check ->> 'outcome' = 'replaced'
 ), per AS (
-    SELECT r.company_id, count(*) AS rows, count(*) FILTER (WHERE r.is_latest) AS current,
-           min(r.fiscal_year) AS first_fy, max(r.fiscal_year) AS last_fy,
-           max(abs(r.value - r.original_value) / NULLIF(greatest(abs(r.value), abs(r.original_value)), 0)) AS max_gap
+    SELECT r.company_id,
+           count(*) FILTER (WHERE r.old_rule) AS old_rule,
+           count(*) FILTER (WHERE r.old_rule AND r.is_latest) AS old_current,
+           min(r.fiscal_year) FILTER (WHERE r.old_rule) AS first_fy,
+           max(r.fiscal_year) FILTER (WHERE r.old_rule) AS last_fy,
+           max(abs(r.value - r.original_value) / NULLIF(greatest(abs(r.value), abs(r.original_value)), 0))
+               FILTER (WHERE r.old_rule) AS max_gap,
+           count(*) FILTER (WHERE NOT r.old_rule) AS new_rule
     FROM replaced r
     GROUP BY r.company_id
 )
-SELECT fin.ticker, fin.sic, per.rows, per.current, per.first_fy, per.last_fy, round(per.max_gap, 4) AS max_gap,
-       count(*) OVER () AS of_n
+SELECT fin.ticker, fin.sic, per.old_rule, per.old_current, per.first_fy, per.last_fy, round(per.max_gap, 4) AS max_gap,
+       per.new_rule, count(*) OVER () AS of_n
 FROM per
 JOIN fin ON fin.id = per.company_id
-ORDER BY per.rows DESC, fin.ticker, fin.id
+ORDER BY per.old_rule DESC, per.new_rule DESC, fin.ticker, fin.id
 LIMIT 200;
 
 COMMIT;

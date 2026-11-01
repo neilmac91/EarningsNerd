@@ -4,15 +4,20 @@
 statement that reads a tag, with the ``us-gaap:`` namespace the collector writes into ``raw_tag``; compares
 ``companies.sic`` as ``facts/concepts.py::_is_financial_sic`` does, as text in byte order between its two literals,
 an empty or NULL code being none; and counts a margin above 100% where ``facts/derive.py`` stores margins as
-percentages. This gate holds every copy to its source, the transaction to READ ONLY, and the file to statements that
-read. Nothing runs the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with the SQL file, whose header
-names it.
+percentages. Its set 8 splits the rows the cross-check replaced at E264's deploy by ``created_at``, which dates a row's
+rule only while the per-filing writer inserts and never rewrites a stored row. This gate holds every copy to its
+source, that premise to the writer, the transaction to READ ONLY, and the file to statements that read. Nothing runs
+the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with the SQL file, whose header names it.
 """
 import inspect
 import re
+import uuid
 from datetime import date
 from pathlib import Path
 
+import pytest
+
+from app.services import facts_service
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import _is_financial_sic
 from app.services.facts.derive import derive_same_period_metrics
@@ -81,6 +86,38 @@ def test_a_margin_above_100_percent_is_above_the_files_threshold():
     facts = [{**scope, "concept": "revenue", "value": 40.0}, {**scope, "concept": "net_income", "value": 40.0}]
     margin = next(f for f in derive_same_period_metrics(facts) if f["concept"] == "net_margin")
     assert margin["value"] == float(thresholds[0])  # a net income equal to revenue is stored as the threshold
+
+
+@pytest.mark.requires_db
+def test_the_writer_never_rewrites_a_stored_row_so_created_at_dates_its_rule():
+    from app.database import SessionLocal
+    from app.models import Company, FinancialFact
+
+    db = SessionLocal()
+    try:
+        suffix = uuid.uuid4().hex[:8]
+        company = Company(cik=suffix, ticker=("T" + suffix).upper(), name=f"Co {suffix}", sic="6211")
+        db.add(company)
+        db.commit()
+        facts = facts_service.normalize_standardized_to_facts(
+            company.id, None, "0000000001-24-000001", "10-K",
+            {"revenue": {"current": {"period": "2024-12-31", "value": 6205.0}}})
+        assert facts_service.upsert_facts(db, facts)["inserted"] == 1
+        columns = [c.name for c in FinancialFact.__table__.columns]
+
+        def stored():
+            db.expire_all()
+            rows = db.query(FinancialFact).filter_by(company_id=company.id)
+            return [{c: getattr(r, c) for c in columns} for r in rows]
+        before = stored()
+        check = {"method": "companyfacts", "original_value": 6205.0, "authoritative_value": 2440.0,
+                 "outcome": "replaced"}
+        later = [dict(f, value=2440.0, source="companyfacts", provenance={"checks": {"authoritative": check}})
+                 for f in facts]  # a later rule's authority at the same identity
+        assert facts_service.upsert_facts(db, later)["inserted"] == 0
+        assert stored() == before
+    finally:
+        db.close()
 
 
 def test_the_file_reads_in_one_bounded_read_only_transaction():
