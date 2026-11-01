@@ -146,7 +146,9 @@ describe('every surface marks and names only the notes that question the number 
     saw('a drawn letter', [...container.querySelectorAll('[data-note-letter]')].map((mark) => mark.getAttribute('data-note-letter')!))
     saw('a chart band letter', [...container.querySelectorAll('[data-analysis-chart] svg [data-text="note"]')].map((letter) => letter.textContent!))
     const names = [...container.querySelectorAll('[aria-label]')].map((element) => element.getAttribute('aria-label')!)
-    saw('a Notes chip', names.filter((name) => name.startsWith('Review data notes ')).flatMap((name) => name.slice('Review data notes '.length).split(', ')))
+    // A Notes chip is named by its face, "Notes a, b" (E68 (3)), so its letters are read from its words.
+    const chipLetters = (chips: Iterable<Element>) => [...chips].flatMap((chip) => /^Notes ([a-z]+(?:, [a-z]+)*)$/.exec(chip.textContent ?? '')?.[1].split(', ') ?? [])
+    saw('a Notes chip', chipLetters(container.querySelectorAll('button')))
     saw('an accessible name', names.flatMap((name) => [...name.matchAll(/data note ([a-z]+)/g)].map((match) => match[1])))
     saw('the fold summary', [...container.querySelectorAll('.markdown-body details > summary')].flatMap((summary) =>
       (/figures carry notes? ([a-z, ]+)$/.exec(summary.textContent ?? '')?.[1] ?? '').split(', ').filter(Boolean)))
@@ -156,8 +158,7 @@ describe('every surface marks and names only the notes that question the number 
     saw('the open data notes', [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')]
       .flatMap((cell) => /([a-z]+)\.$/.exec(cell.textContent ?? '')?.[1] ?? []))
     // A chart card's own chip, every period's tooltip and spoken value (raised by its values stop) and its footnotes.
-    saw('a chart chip', [...container.querySelectorAll('section[data-trend-chart] [aria-label^="Review data notes "]')]
-      .flatMap((chip) => chip.getAttribute('aria-label')!.slice('Review data notes '.length).split(', ')))
+    saw('a chart chip', chipLetters(container.querySelectorAll('section[data-trend-chart] button')))
     const charts = readCharts(container)
     // Blind to no chart and no period: every drawn chart has its values stop, and every period it steps to raises its own
     // tooltip, headed with the period the stop speaks.

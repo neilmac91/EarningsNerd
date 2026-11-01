@@ -868,7 +868,8 @@ def test_endpoint_burst_limit_429_stays_a_plain_rate_limit(client, monkeypatch):
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize(("allowance", "code", "words"), [
-    (3, "free_allowance_exhausted", "You've used your 3 free Copilot questions."),
+    (3, "free_allowance_exhausted", "You've used your 3 free questions."),
+    (1, "free_allowance_exhausted", "You've used your 1 free question."),
     (0, "plan_required", "Ask this Filing is a Pro feature."),
 ])
 def test_endpoint_serialized_taste_refusal_codes_its_case(client, monkeypatch, allowance, code, words):
@@ -2477,7 +2478,7 @@ def test_endpoint_concurrent_free_taste_questions_cannot_exceed_the_allowance(cl
         _insert_lease(uid, QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 403
-        assert "free Copilot questions" in resp.json()["detail"]
+        assert "free questions" in resp.json()["detail"]
         assert resp.json()["code"] == "free_allowance_exhausted"
         monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 403

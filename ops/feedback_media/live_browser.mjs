@@ -49,7 +49,7 @@ async function login(browser, account, theme, contexts) {
   await page.locator('input[type="password"]').fill(account.password)
   await page.locator('button[type="submit"]').click()
   await page.waitForURL(LOCAL_ORIGIN + '/terms')
-  await page.getByRole('button', { name: 'Send feedback', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Feedback', exact: true }).waitFor()
   const cookies = await context.cookies([LOCAL_ORIGIN, LOCAL_ORIGIN + '/api/auth/refresh'])
   for (const name of COOKIE_NAMES) {
     const cookie = cookies.find(value => value.name === name)
@@ -67,7 +67,7 @@ async function screenshot(page, output, name) {
 }
 
 async function submitThroughComposer(page, png, theme, output, lost = false) {
-  await page.getByRole('button', { name: 'Send feedback', exact: true }).click()
+  await page.getByRole('button', { name: 'Feedback', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Send feedback' })
   const message = `Synthetic live feedback ${theme}${lost ? ' recovery' : ''}.\n${LINK}`
   await dialog.getByRole('textbox').fill(message)
