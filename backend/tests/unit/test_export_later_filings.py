@@ -272,15 +272,15 @@ def _balances(ends: dict[int, tuple]) -> dict:
 
 
 def _companyfacts(*, bank: bool = False) -> dict:
-    """2023 and 2024 of a company or of a bank. The company's net income turns negative in 2023 Q4 and 2024 Q2, its EPS
-    in 2024 Q2, its equity at 2023's year end and in 2024 Q2, and its operating cash flow in 2024 Q1 and Q3, so QoQ and
-    YoY read n/m on and against computed quarters, on a reported Q4 and on a Q1's YoY, Cash generation's and Balance
-    sheet's among them. Its gross
-    profit and net income are filed as quarters alone, so their Q4 is the year less three quarters, a calculation of
-    four inputs; the ingest derives the margins and free cash flow. The bank files fee revenue, which a bank's SIC code
-    skips (_FI_SKIPPED_CONCEPTS), so net interest income stays its top line; that, its net income and its operating cash
-    flow turn negative in 2024 Q2, while its equity does not; its operating cash flow's Q2 and Q3 are computed, its
-    Q4's growth reads no n/m."""
+    """2023 and 2024 of a company or of a bank. The company's net income turns negative in 2023 Q4 and 2024 Q2, its
+    operating income in 2023 Q4, its EPS in 2024 Q2, its equity at 2023's year end and in 2024 Q2, and its operating cash
+    flow in 2024 Q1 and Q3, so QoQ and YoY read n/m on and against computed quarters, on a reported Q4 and on a Q1's YoY,
+    Cash generation's and Balance sheet's among them. Its gross profit and net income are filed as quarters alone, so
+    their Q4 is the year less three quarters, a calculation of four inputs; its operating income is filed with its years
+    to date, so its Q4 is the year less nine months. The ingest derives the margins and free cash flow. The bank files fee
+    revenue, which a bank's SIC code skips (_FI_SKIPPED_CONCEPTS), so net interest income stays its top line; that, its
+    net income and its operating cash flow turn negative in 2024 Q2, while its equity does not; its operating cash flow's
+    Q2 and Q3 are computed, its Q4's growth reads no n/m."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
@@ -304,6 +304,7 @@ def _companyfacts(*, bank: bool = False) -> dict:
                                  filed="quarters")),
         "NetIncomeLoss": usd(_flow({2023: (100e6, 120e6, 130e6, -50e6), 2024: (125e6, -80e6, 140e6, 160e6)},
                                    filed="quarters")),
+        "OperatingIncomeLoss": usd(_flow({2023: (150e6, 170e6, 190e6, -40e6), 2024: (180e6, 160e6, 200e6, 230e6)})),
         "NetCashProvidedByUsedInOperatingActivities": usd(_flow({2023: (200e6, 220e6, 230e6, 250e6),
                                                                  2024: (-10e6, 240e6, -50e6, 300e6)}, filed="to date")),
         "PaymentsToAcquirePropertyPlantAndEquipment": usd(_flow({2023: (50e6, 50e6, 50e6, 60e6),
@@ -742,7 +743,8 @@ PLACES = ("an input", "an input two levels down", "an input three levels down", 
           "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
           "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
           "a Q1's QoQ reads n/m", "a Q1's YoY reads n/m", "a reported Q4's growth reads n/m",
-          "a quarter-sum Q4's growth reads n/m", "the top line's YoY reads n/m", "a Cash generation figure whose YoY reads n/m",
+          "a quarter-sum Q4's growth reads n/m", "a year-to-date Q4's YoY reads n/m", "the top line's YoY reads n/m",
+          "a Cash generation figure whose YoY reads n/m",
           "a Balance sheet figure whose YoY reads n/m", "a computed Q2 or Q3", "a computed Q4",
           *(title for title, _ in _LINE_PANELS))
 REACH = {
@@ -803,6 +805,9 @@ def _places(dataset: dict) -> set[str]:
         "a quarter-sum Q4's growth reads n/m": any(  # the year less three quarters: four inputs
             quarter(point) == "Q4" and len((point.get("provenance") or {}).get("inputs") or []) == 4
             and "nm" in growths(point) for _, point in points),
+        "a year-to-date Q4's YoY reads n/m": any(  # the year less its first nine months
+            quarter(point) == "Q4" and (point.get("provenance") or {}).get("formula") == "FY - YTD9"
+            and point.get("yoy") == "nm" for _, point in points),
         "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
                                             if title.endswith(" & growth") for cell in sheet["C"]),
         **{f"a {title} figure whose YoY reads n/m": any(panel.get(concept) == title and point["value"] is not None
@@ -818,7 +823,7 @@ def _places(dataset: dict) -> set[str]:
 def test_metas_capture_is_the_one_reach_holds_to_its_places():
     """REACH pins META's capture to its places, and those are read from these bytes, which the page's e2e helper pins
     too (frontend/tests/e2e/fixtures/analysisLayoutApi.ts). A refreshed capture fails here first: read its places again,
-    and keep a run whose computed Q4 alone reads n/m."""
+    and keep a run whose computed Q4 reads n/m beside no Q2 or Q3 that _places reads as computed."""
     assert hashlib.sha256((FIXTURES / "meta-data-notes.json").read_bytes()).hexdigest() == (
         "67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad")
 
