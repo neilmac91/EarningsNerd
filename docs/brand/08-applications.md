@@ -404,7 +404,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   sage on a direction glyph it can see by its name, its import or a binding the file writes it to (on
   the glyph, on the element whose ink it inherits, or in a map that pairs it with its classes);
   `tests/unit/whatChangedChip.spec.tsx` holds the chip to the direction chip for the server's tone,
-  which no lint can see, and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
+  which no lint can see; `tests/unit/directionChipContrast.spec.ts` holds every direction chip's label
+  at 4.5:1 in its tint in both themes (E282); and `tests/unit/summaryStatusCopy.spec.tsx` holds the status sentences and the
   "Try again" through its refetch.
 - **Notification bell** (`frontend/features/notifications/components/NotificationBell.tsx`): an
   alert reads "New 10-Q from AAPL", the form and ticker in the data face; the unread count rests in

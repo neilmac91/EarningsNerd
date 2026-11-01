@@ -44,7 +44,7 @@ WCAG contrast ratios computed for this page (relative luminance, sRGB) against t
 | brand-bright-dark (Bright Sage: fills, the logo's accent) | `#98C5AD` | 9.80 | 7.64 | 7.84 |
 | brand-fill-dark | `#569272` | 5.16 | 4.02 | 4.13 |
 | gain-dark | `#34D399` | 9.79 | 7.64 | 7.84 |
-| loss-dark | `#FB7185` | 7.00 | 5.45 | 5.60 |
+| loss-dark (since D-074) | `#FF96A1` | 9.08 | 7.08 | 7.27 |
 | success / warning / error / info (dark) | `#22C55E` `#F59E0B` `#F87171` `#60A5FA` | 8.26, 8.77, 6.81, 7.41 | 6.44, 6.83, 5.31, 5.77 | 6.62, 7.02, 5.45, 5.93 |
 | chart-1 … chart-6 | same hexes | 4.85, 5.58, 4.56, 5.52, 4.60, 5.10 | 3.78, 4.35, 3.56, 4.31, 3.58, 3.98 | 3.88, 4.47, 3.65, 4.42, 3.68, 4.09 |
 
