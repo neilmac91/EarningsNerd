@@ -174,6 +174,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/facts/upsert.py::upsert_facts_bulk": {"add": 1, "commit": 1},
         # The same ingest's own-report history rows, which the bulk upsert stores beside its winners.
         "app/services/facts/own_reports.py::insert_history_rows": {"add": 1},
+        # The same ingest, for an IFRS filer: it retires the companyfacts series earlier syncs stored.
+        "app/services/facts/reporting_basis.py::retire_ifrs_series": {"query.update": 1},
     },
     ("app/routers/auth.py", "apple_login"): {
         "app/services/oauth_account_service.py::save_apple_state": {"commit": 1},

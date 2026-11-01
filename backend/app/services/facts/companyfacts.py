@@ -17,6 +17,7 @@ from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.fi_revenue import financial_revenue_tags
 from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
 from app.services.facts.own_reports import own_report_history
+from app.services.facts.reporting_basis import reports_under_ifrs
 from app.services.facts.quarterly import (
     QUARTER_WINDOW, derive_cumulative_quarters, derive_quarter_sum_fallback, reported_fact,
 )
@@ -108,7 +109,7 @@ def normalize_companyfacts(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Classify a raw companyfacts payload into labelled fact dicts (pure; unit-testable).
 
-    Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer — out of
+    Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an IFRS filer, ``reporting_basis`` — out of
     v1 scope) and ``history``, each year's own-report values kept apart from ``facts`` (``own_reports``).
     Emits reported FY/quarter rows and compatible cumulative-flow calculations with operand provenance.
     EPS is reported-only. Cumulative slices feed calculations but are never stored as quarter facts.
@@ -120,9 +121,8 @@ def normalize_companyfacts(
     meta: dict[str, Any] = {"unsupported_ifrs": False, "history": []}
     facts_root = companyfacts.get("facts") if isinstance(companyfacts, dict) else None
     usgaap = facts_root.get("us-gaap") if isinstance(facts_root, dict) else None
-    if not isinstance(usgaap, dict) or not usgaap:
-        if isinstance(facts_root, dict) and isinstance(facts_root.get("ifrs-full"), dict):
-            meta["unsupported_ifrs"] = True
+    if (ifrs := reports_under_ifrs(facts_root)) or not isinstance(usgaap, dict) or not usgaap:
+        meta["unsupported_ifrs"] = ifrs  # an IFRS filer, or no us-gaap data: the sync stores nothing
         return [], meta
 
     duration_values, instant_values = _collect_companyfacts_concepts(usgaap, financial_sic)
