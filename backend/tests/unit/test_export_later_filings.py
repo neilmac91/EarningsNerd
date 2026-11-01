@@ -21,7 +21,7 @@ the producer sends it; and evidence on inputs alone), through the real builders:
 5. Parts the payload lacks are left out, never invented.
 6. Inert until the producer: a dataset without the fields prints none of it, and exports byte for byte as it does with
    each of the builders' later-filing seams switched off, as main had them. The datasets include two quarterly runs
-   the producer builds from companyfacts, a company's and a bank's, and a reach test holds three quarterly runs to
+   the producer builds from companyfacts, a company's and a bank's, and a reach test holds four quarterly runs to
    exactly the places they print. What the comparison cannot see: a change outside those seams that alters a dataset
    without the fields alike in both runs, and a place no run prints; the byte comparison against main's builders is the
    pull request's.
@@ -730,7 +730,7 @@ NEW_WORDS = (LATER_FILING_MESSAGE, "First reported", "first reported", BASIS_CHA
 
 
 # Each place a quarterly run's files print that the seams reach, and the runs of INERT that print exactly the places
-# listed. The gate's reach rests on these three, whatever the page's fixtures come to hold.
+# listed. The gate's reach rests on these four, whatever the page's chart fixtures come to hold.
 PLACES = ("an input", "an input two levels down", "an input three levels down", "a calculation's third input",
           "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
           "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
@@ -747,6 +747,10 @@ REACH = {
         "a computed Q2 or Q3", "a computed Q4", "Cash generation", "Balance sheet"},
     "a_quarterly_run_with_growth_inputs_and_a_yoy_n_m": {"an input", "a YoY that reads n/m, with its inputs",
                                                          "the top line's YoY reads n/m"},
+    # The one run whose computed Q4 reads n/m with no computed Q2 or Q3 beside it. data-notes.spec.ts pins the capture's
+    # bytes, so it changes only on purpose.
+    "metas_captured_quarterly_run": {"a QoQ in points", "a computed Q4's growth reads n/m", "a Q1's QoQ reads n/m", "Margins",
+                                     "Cash generation", "Balance sheet"},
 }
 
 
