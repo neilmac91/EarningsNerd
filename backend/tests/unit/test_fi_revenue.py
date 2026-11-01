@@ -180,7 +180,8 @@ def test_an_insurer_reads_its_total():
     assert [years[y][0] for y in (2022, 2023, 2024, 2025)] == [68.77, 66.905, 70.986, 77.084] and _fee_rows(facts) == []
 
 
-@pytest.mark.parametrize("beside", ["OperatingLeaseLeaseIncome", "InterestIncomeExpenseNet"])
+@pytest.mark.parametrize("beside", ["OperatingLeaseLeaseIncome", "InterestIncomeExpenseNet",
+                                    "GrossInvestmentIncomeOperating"])  # a BDC's total investment income
 def test_no_total_and_other_revenue_beside_the_fee_tag_is_no_revenue(beside):
     years, _ = _fy(_years({FEE: {y: 450e6 for y in range(2022, 2026)}, beside: {y: 60e6 for y in range(2022, 2026)}}))
     assert years == {}
@@ -258,6 +259,21 @@ def test_a_shared_year_decides_before_a_later_shared_quarter():
     assert [(round(f["value"] / 1e9, 2), f["raw_tag"]) for f in first_quarter] == [(2.5, f"us-gaap:{FEE}")]
 
 
+@pytest.mark.parametrize("fee_2022,tags", [(19.9e9, (REV, FEE)), (3.1e9, (REV,)), (12.95e9, (REV, FEE))])
+def test_a_fee_tag_a_year_admits_fills_no_period_below_a_part_beside_it(fee_2022, tags):
+    # PNC's shape: the fee tag carries the total at FY2021, the last year a total reports. At FY2022 it reads the total
+    # again, only the fee subset, or a total that is all net interest income, rounded below the 13.0B of it beside it.
+    # A total is never below one of its parts, within the cross-check's tolerance.
+    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, FEE: {2021: 19.2e9, 2022: fee_2022},
+                      "InterestIncomeExpenseNet": {2021: 12.0e9, 2022: 13.0e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+    years, _ = _fy(payload)
+    authority = {end.year for (concept, end), _v in extract_authoritative_values(payload, financial=True).items()
+                 if concept == "revenue"}
+    filled = ((round(fee_2022 / 1e9, 3), FEE), True) if FEE in tags else (None, False)
+    assert (years.get(2022), 2022 in authority) == filled
+
+
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_the_authority_reads_the_feeds_revenue(ticker):
     payload = _load(ticker)
@@ -312,12 +328,14 @@ def _calls(path, name):
             and getattr(node.func, "id", getattr(node.func, "attr", None)) == name]
 
 
-_AUTHORITY = "extract_authoritative_values"
+# The functions that read a financial filer's revenue only when told it is one: each keyword defaults to False, the
+# generic reading, so a call that drops it quietly reads the fee line again.
+_FILER = {"extract_authoritative_values": "financial", "normalize_companyfacts": "financial_sic"}
 
 
-def _authority_uses(path):
-    """Each use of extract_authoritative_values in ``path`` as (scope, how): "call" for a direct call that passes
-    financial=, "bare" for a direct call without it, and "other" for a use that would hide a call from the gate (an
+def _filer_uses(path):
+    """Each use of a ``_FILER`` function in ``path`` as (name, scope, how): "call" for a direct call that passes its
+    keyword, "bare" for a direct call without it, and "other" for a use that would hide a call from the gate (an
     aliased import, a bound name, a partial, an argument). A name built at run time (getattr with a string) is beyond
     an AST walk."""
     tree = ast.parse(path.read_text())
@@ -333,17 +351,17 @@ def _authority_uses(path):
 
     def named(node):
         name = getattr(node, "id", getattr(node, "attr", None))
-        return isinstance(node, (ast.Name, ast.Attribute)) and name == _AUTHORITY
+        return name if isinstance(node, (ast.Name, ast.Attribute)) and name in _FILER else None
 
     uses, direct = [], set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and named(node.func):
+        if isinstance(node, ast.Call) and (name := named(node.func)):
             direct.add(node.func)
-            uses.append((scope(node), "call" if any(k.arg == "financial" for k in node.keywords) else "bare"))
+            uses.append((name, scope(node), "call" if any(k.arg == _FILER[name] for k in node.keywords) else "bare"))
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            uses += [(scope(node), "other") for alias in node.names
-                     if alias.name.split(".")[-1] == _AUTHORITY and alias.asname not in (None, _AUTHORITY)]
-    return uses + [(scope(node), "other") for node in ast.walk(tree) if named(node) and node not in direct]
+            uses += [(name, scope(node), "other") for alias in node.names
+                     if (name := alias.name.split(".")[-1]) in _FILER and alias.asname not in (None, name)]
+    return uses + [(named(node), scope(node), "other") for node in ast.walk(tree) if named(node) and node not in direct]
 
 
 @pytest.mark.parametrize("source,how", [
@@ -353,22 +371,29 @@ def _authority_uses(path):
      "functools.partial(extract_authoritative_values)\n", "other"),
     ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p)\n", "bare"),
     ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p, financial=True)\n", "call"),
+    ("from app.services import facts_service\nfacts_service.normalize_companyfacts(1, p)\n", "bare"),
+    ("from app.services import facts_service\nfacts_service.normalize_companyfacts(1, p, financial=True)\n", "bare"),
+    ("from app.services.facts.companyfacts import normalize_companyfacts\n"
+     "normalize_companyfacts(1, p, financial_sic=s)\n", "call"),
 ])
-def test_the_authority_gate_reads_every_form_it_names(tmp_path, source, how):
+def test_the_filer_gate_reads_every_form_it_names(tmp_path, source, how):
     path = tmp_path / "planted.py"
     path.write_text(source)
-    assert [found for _scope, found in _authority_uses(path)] == [how]
+    assert [found for _name, _scope, found in _filer_uses(path)] == [how]
 
 
-def test_every_authority_call_names_its_filer():
-    """Rule 12: every use of extract_authoritative_values in app/, scripts/ and evals/ is a direct call that passes
-    financial=, but E211's temporary proxy step: one bare call, in _Planner.__init__, whose one financial company
-    (JPM) files no ASC 606 tag. It leaves with E211 (todo E206), and the pin fails once it is stale."""
-    found = Counter((path.relative_to(BACKEND).as_posix(), scope, how)
+def test_every_authority_and_normalizer_call_names_its_filer():
+    """Rule 12: every use of extract_authoritative_values or normalize_companyfacts in app/, scripts/ and evals/ is a
+    direct call that passes its keyword (financial=, financial_sic=), but E211's temporary proxy step: one bare
+    authority call, in _Planner.__init__, whose one financial company (JPM) files no ASC 606 tag. It leaves with E211
+    (todo E206), and the pin fails once it is stale."""
+    found = Counter((path.relative_to(BACKEND).as_posix(), name, scope, how)
                     for root in ("app", "scripts", "evals") for path in (BACKEND / root).rglob("*.py")
-                    if _AUTHORITY in path.read_text()  # a use the walk can read names it
-                    for scope, how in _authority_uses(path) if how != "call")
-    assert found == {("app/services/proxy_fact_repair.py", "_Planner.__init__", "bare"): 1}
+                    if any(fn in path.read_text() for fn in _FILER)  # a use the walk can read names it
+                    for name, scope, how in _filer_uses(path) if how != "call")
+    assert found == {
+        ("app/services/proxy_fact_repair.py", "extract_authoritative_values", "_Planner.__init__", "bare"): 1,
+    }
 
 
 def test_the_collector_and_the_census_read_the_same_choice():

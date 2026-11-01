@@ -10,10 +10,11 @@ per-period merge (the first tag with data wins a period):
    later one fills periods the earlier ones lack only on evidence that it measures the same thing: its value at the
    latest period it shares with them matches a value they reported there (WFC, MS, JPM; never IBKR's gross Revenues
    beside its net total). Sharing none, it does not fill. Periods are years where two tags share any, else quarters.
-2. The fee element last, so it fills only periods no total reports, and only when it is the filer's total: at the
-   latest year it shares with the totals its value matches theirs (ICE, NDAQ, EQIX, O, PNC), or it shares no year
-   with them, matches them at the latest quarter they share if they share one (a quarter can refuse it, never admit
-   it), and no period of it carries positive interest, premium, investment or lease revenue beside it (BLK, TROW).
+2. The fee element last, so it fills only periods no total reports, and only when it is the filer's total. Either
+   its value matches the totals' at the latest year it shares with them (ICE, NDAQ, EQIX, O, PNC) and no period it
+   fills reads below the interest, premium, investment or lease revenue beside it, a total never being below one of
+   its parts; or it shares no year with them, matches them at the latest quarter they share if they share one (a
+   quarter can refuse it, never admit it), and no period of it carries such revenue beside it at all (BLK, TROW).
 
 A lender without a total gets no revenue row (SYF): its top line stays its net interest income.
 """
@@ -26,11 +27,11 @@ from app.services.facts.currency import admitted_items
 
 TOTAL_TAGS = ("RevenuesNetOfInterestExpense", "Revenues", "SalesRevenueNet")
 FEE_TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
-NON_606_TAGS = (  # revenue outside ASC 606: interest, premiums, investment income, leases
+NON_606_TAGS = (  # revenue outside ASC 606: interest, premiums, investment income (a BDC's whole total), leases
     "InterestIncomeExpenseNet", "InterestAndDividendIncomeOperating", "InterestIncomeOperating", "NoninterestIncome",
-    "PremiumsEarnedNet", "NetInvestmentIncome", "OperatingLeaseLeaseIncome", "LeaseIncome",
-    "OperatingLeasesIncomeStatementLeaseRevenue",
-)
+    "PremiumsEarnedNet", "NetInvestmentIncome", "GrossInvestmentIncomeOperating", "OperatingLeaseLeaseIncome",
+    "LeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue",
+)  # not InvestmentIncomeNet: NDAQ, ICE and BX tag nonoperating income with it beside a fee line that is their total
 _Items = dict[tuple[date, str], list[tuple[str, float]]]
 
 
@@ -80,9 +81,11 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
             held.setdefault(key, values)
     shared = _shared(fee, held)  # the years both report, else the quarters
     agrees = bool(shared) and _matches(_read(fee[max(shared)]), held[max(shared)])
+    beside = [(key, v) for tag in NON_606_TAGS for key, got in _items(usgaap, tag, unit, foreign).items()
+              if key in fee for _, v in got if v > 0]  # positive non-606 revenue at a period the fee tag reports
     if shared and (max(shared)[1] == "FY" or not agrees):  # a shared year decides; a shared quarter can only refuse
-        admit = agrees
+        admit = agrees and not any(  # where the fee tag fills a period, it is no smaller than a part beside it
+            key not in held and _read(fee[key]) < (1 - CROSS_CHECK_TOLERANCE) * v for key, v in beside)
     else:
-        beside = [_items(usgaap, tag, unit, foreign) for tag in NON_606_TAGS]
-        admit = bool(fee) and not any(v > 0 for key in fee for got in beside for _, v in got.get(key, ()))
+        admit = bool(fee) and not beside
     return (*chosen, FEE_TAG) if admit else tuple(chosen)
