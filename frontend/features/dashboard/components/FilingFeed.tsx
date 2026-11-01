@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRightIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
 import { GuidanceCard, Skeleton, countControlClass, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
+import TrailingArrowLabel from './TrailingArrowLabel'
 import FeedOnboarding from './FeedOnboarding'
 
 // Three rows of the two-column grid. The feed now shows one card per company, so this caps the page
@@ -122,13 +122,17 @@ export default function FilingFeed({
           {hasMore && (
             <div className="mt-4 text-right">
               {/* The label carries a count, so the link rests in the secondary ink and turns sage under
-                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. */}
+                  the pointer (the count control, DESIGN_SYSTEM.md; D-030): one text run, one underline. Its
+                  arrow keeps with its last word, so under 200% text, where the label wraps on a phone, it
+                  sits after "companies" rather than between the lines (E274). inline-block keeps the wrapped
+                  link one box, so its focus ring draws one outline around both lines, and the inset (its
+                  negative margin keeps the words in place, as NotableFilingLine's rows do) keeps the ring's
+                  rounded corners off the words, where a wrapped line runs to the box's edge. */}
               <Link
                 href="/dashboard/watchlist"
-                className={cx('inline-flex items-center gap-1 rounded-lg text-sm font-medium', countControlClass('link'))}
+                className={cx('-mx-1 inline-block rounded-lg px-1 text-sm font-medium', countControlClass('link'))}
               >
-                {overflowLabel}
-                <ArrowRightIcon className="h-4 w-4" />
+                <TrailingArrowLabel>{overflowLabel}</TrailingArrowLabel>
               </Link>
             </div>
           )}

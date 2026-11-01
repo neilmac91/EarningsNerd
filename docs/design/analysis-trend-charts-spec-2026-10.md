@@ -529,6 +529,32 @@ says so; everything else follows the spec.
   in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; and the start above, a first, an early,
   a middle and a late subject, at 300, 390 and 1280 px. `peerChartDef` refuses a subject that draws no bar, the refusal
   `chartPlan.ts`'s first `peerBarCases` held.
+- **A break in a ranked chart's run (E258).** Where the panel draws its subject after the top companies and leaves out a
+  company ranked above it, even spacing read the subject as next in rank: CAPM, thirteenth of fourteen, stood as the
+  eleventh bar, and only the rank line, the footnote and the tooltip said otherwise (chief design's recommendation on
+  #1868). The engine gains a gap seam for it, while every chart without one keeps its model, plan and readout byte for
+  byte: the six golden plans are unchanged, and the sweeps over every analysis dataset, bar case and peer case pass as
+  before.
+  - A `BarCategory` can be `gapBefore` (`barChart.ts`), carried as `ChartPeriod.gapBefore`; `buildBarChart` refuses one
+    before the first category, where no run breaks. The layout (`layout.ts`) sets `SEAM`, three quarters of a slot, of
+    empty plot before that period's slot (chief design on #1880: the step to the subject, 1.75 slots, nearly doubles
+    the run's own gaps and stays short of the two slots one company left out would leave; half a slot read as uneven
+    spacing). The slots share the plot with each seam (the plot over n periods and three quarters of a slot a seam), each period from a seam on moves `SEAM` slots right, the last column still closes the plot, and
+    `minChartWidth` widens by `SEAM` of a slot a seam, rounded up to the plan's whole pixel. The gap is no slot's: `slotAt` reads none over it, and A7's
+    sticky gutter cuts no column there (`gutterCover` keeps the gutter's own width). The plan carries `count` and
+    `seams`, and the bones draw a bar a period from `count`, since the plot's width over its slot also counts a seam.
+  - The panel sets it on its subject when `cohort.ts` `breaksBefore` holds: the chart draws the subject after the top
+    and leaves out a company ranked strictly above it. A company left out that ties with the subject breaks nothing:
+    where every company ties ('cap, all tied'), or the subject ties with the companies left out, it still stands at its
+    own rank, next after the top.
+  - Gates: `chart-engine.spec.ts` (the seam's geometry at three widths, its gap read by no slot and cut by no gutter,
+    the narrowest width, the bones' count and the refusal; the reading sweep now pins the cover to the exact edge of
+    the column the gutter's own edge cuts, and scrolls a broken run into each seam and the column past it);
+    `sector-peers.spec.tsx` (the cap table's step between each pair of bars, three quarters of a slot more before the subject in
+    'cap', 'cap, subject twelfth' and 'cap, tie at the tenth' and none in the four other cases, and a subject tied with
+    the companies left out); and `tests/e2e/company-sector-peers.spec.ts` (four cap cases at 390 and 1280 px, each step
+    read from the plot's own x ticks, with the DOM checks over each). `fixtures/chartChecks.ts` reads a slot as the
+    narrowest step between neighbouring ticks, so its columns stay a slot wide across a seam.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

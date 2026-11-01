@@ -21,7 +21,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 
 | Role | Light | Dark | Use for |
 |------|-------|------|---------|
-| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #98C5AD` (text/links) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
+| **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #AEDCC2` (text/links: APCA Lc −75.5 on panel, −78.4 on navy) / `brand-bright-dark #98C5AD` (Bright Sage: the primary hover, the C5 emphasis fill in both themes, the logo's accent, dots drawn on their own, lines and two callout tints; never text outside the logo) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
@@ -44,13 +44,22 @@ The analysis figure surfaces (the metrics table's sheet and the KPI cards) are a
 |Lc| ≥ 90; change lines, headings and labels ≥ 75, as is the KPI's 24px/600 value; marks and the
 missing-value dash ≥ 60; rules ≥ 15, and a hovered row's rules ≥ 30. Gate:
 `tests/unit/figureSurfaceInks.spec.ts` (every pair the surfaces draw, in both themes).
+The accent text ink, the sage of every link and every secondary or ghost button label (12px/600 at the
+smallest), reads at that label tier in both themes, |Lc| ≥ 75 on its panel and page: `brand-strong` is 79.3 on
+the light panel and 75.1 on cream, and its dark twin `brand-strong-dark` `#AEDCC2` (Reading Sage), the same
+OKLCH hue and chroma, is −75.5 on the dark panel and −78.4 on navy. As `#98C5AD` (Bright Sage) the dark
+Export Excel label measured −62.2 (E202 (2), D-071); Bright Sage stays as `brand-bright-dark`, a fill, and is
+no text ink outside the logo. In dark Reading Sage sits close to the figure surfaces' gain ink `#B6E4CE`
+(OKLab 0.026 apart, where light's accent and gain are 0.056); sage never carries a number (brandCopyRules.spec.ts
+rule 2), so the two never mark one thing. Gates: `tests/unit/figureSurfaceInks.spec.ts` (the tier, and the twin
+on Deep Sage's hue and chroma) and `tests/unit/themePairs.spec.ts` (Bright Sage stays a fill).
 
 **The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
 is behind it). The words on it are the primary ink pair: a marked block's excerpt is 15.4:1 on the light
 tint and 12.7:1 on the dark tint over navy, and the Source pane's located passage takes the primary ink
 too (D-044, set when the reader's secondary ink, then `#9CA3AF`, measured 4.49:1 on the dark tint over
 the slate panel). The marker and its twin sit beside the tint, not on it, in `brand-strong` (5.9:1 on
-cream, 9.8:1 on navy).
+cream, 12.4:1 on navy in Reading Sage, D-071).
 Gate: tests/e2e/risk-evidence-rows.spec.ts measures the marker, the twin and the excerpt in both themes.
 
 ## 2. Theme-responsiveness is mandatory
@@ -93,7 +102,7 @@ the debug payload panel).
   planted self-check) and `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
-- **A dark hover steps where the eye can see it: secondary never turns only primary under the
+- **A dark hover steps where the eye can see it: secondary never turns only primary, or only sage, under the
   pointer.** Dark primary `#EAECEF` and dark secondary `#D1D5DB` are 1.24:1 apart (1.05:1 before
   primary rose from `#D7DADC`, 2026-10-25; `tests/unit/figureSurfaceInks.spec.ts` keeps the step at
   1.2:1 or more; light's pair is 1.69:1), so a control that rests in secondary and only turns primary
@@ -111,9 +120,17 @@ the debug payload panel).
   and a translucent tint would show the page through the corner it overhangs; Toast). A sortable
   heading on the figure sheet, which rests in secondary, steps to white the same way. A state
   marked by the same step does the same: the
-  pricing page's selected billing label takes white in dark. Gate: `tests/unit/themePairs.spec.ts`
-  ('gives every dark hover a visible step: secondary never turns only primary under the pointer',
-  with its planted self-check). It reads the resting ink through a same-file string constant in a
+  pricing page's selected billing label takes white in dark. Sage alone is as faint since the accent
+  text ink rose to Reading Sage `#AEDCC2` (D-071), 1.03:1 from the secondary ink, so a control that
+  rests in secondary and turns only sage carries a cue in dark too: the count control's every kind
+  (Count control, §4) and three source links, SourceTrace's, CitationChip's and the figure receipt's,
+  which take an underline under the pointer. A name that rests in the primary ink and turns only
+  sage steps 1.28:1 there, near the refused step, so the saved summaries' links and Your companies'
+  names take the underline too. Gate: `tests/unit/themePairs.spec.ts`
+  ('gives every dark hover a visible step: secondary never turns only primary, or only sage, under
+  the pointer', with its planted self-check, every count-control kind as the app composes it, and a
+  primary rest that turns sage; an underline's hover to currentColor or to the sage ink counts only over a resting
+  decoration colour of its own, since without one the underline steps as the ink does). It reads the resting ink through a same-file string constant in a
   template slot (`${MUTED}`) too; a resting ink set on an ancestor (a table row) it cannot see.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
@@ -411,7 +428,7 @@ summary row's share dialog, each press said in a status line inside the dialog a
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
-                 DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
+                 DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-bright-dark,
                  active bg-brand-fill-dark.  White-on-fill-dark is 3.7:1 — never revert to it.
 
 Secondary button <Button variant="secondary">  — brand hairline on transparent; tints on hover
@@ -509,10 +526,15 @@ Count control    A link or control whose label carries a count, a date, an index
                  dark:hover:text-brand-strong-dark under the pointer, keyboard focus drawing the ring
                  below: 'button' adds the brand tint and the pressed fill, 'link' an underline under
                  the pointer, 'inline' (a link set among lines of text) keeps its underline at rest,
-                 since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone.
+                 since its ink no longer marks it, and 'summary' (a disclosure's) turns sage alone in light.
                  In dark the label rests at #D1D5DB (the secondary ink since 2026-10-25) and turns
-                 brand-strong-dark #98C5AD under the pointer, a little darker than at rest, so the hue
-                 carries the change.
+                 brand-strong-dark #AEDCC2 under the pointer, about as light as at rest (1.03:1, D-071),
+                 fainter than the secondary-to-primary step §2 refuses, so in dark each kind carries a
+                 cue besides the ink: 'button' its tint, 'link' its underline, 'inline' an underline
+                 that rests in the tertiary ink and turns sage, and 'summary' an underline under the
+                 pointer (dark only; light keeps its 1.57:1 ink step). A link that rests in the
+                 secondary ink and turns sage does the same (SourceTrace's and CitationChip's source
+                 links, the figure receipt's).
                  Its chrome (the ring, a hairline, a selected fill) may be sage where its recipe says
                  so; the label's ink never. Never a sage label with the count in a span of its own:
                  the control then rests in sage while it carries a value, and the rule keeps sage for
@@ -533,6 +555,17 @@ Count control    A link or control whose label carries a count, a date, an index
                  file's bindings (a same-file variable, a same-file function's return) and inside an
                  app component in it that turns its children or a count of its own sage. The two
                  labels outside the helper are review-checked, and so is what the header names.
+Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link) is TrailingArrowLabel
+                 (features/dashboard/components/TrailingArrowLabel.tsx): the last word and the arrow in one no-wrap
+                 run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow onto
+                 its last line, never between the lines or to the far edge. It takes its words as children, so a
+                 count in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above). It serves
+                 What changed's call to action (since E272), the feed's "See all N companies" and Your companies'
+                 "Open watchlist insights" (E274). A link that stands alone and can wrap is inline-block with a 4px
+                 inset (-mx-1 px-1), so it paints one box and its ring clears its words; a prose link keeps a ring
+                 per line (box-decoration-clone, Links in both surfaces, above). Gate:
+                 tests/e2e/dashboard-phone-layout.spec.ts (each arrow on its last word's line, one box, the words
+                 inside the link's 0.25rem inset).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -1327,12 +1360,15 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  pill on one line and a rounded box once it wraps (the radius rule below), as Button's narrow
                  state does for a button's label: on a line of its own the one-line chip can be wider than a
                  phone's card under 200% text (the hero example's quality badge, E156; the filing page's source
-                 check, SourceCheckBadge). Its two classes, [@media(max-width:24rem)]:whitespace-normal and
+                 check, SourceCheckBadge; the summary status chip on the dashboard's Your companies rows, E273).
+                 Its two classes, [@media(max-width:24rem)]:whitespace-normal and
                  [@media(max-width:24rem)]:rounded-xl, come after BASE's whitespace-nowrap and rounded-full in
                  the stylesheet, so they win there, where a whitespace-normal or rounded-xl className alone loses
                  to BASE (gates: the hero's markup, tests/e2e/fixtures/hero-example-live-badge.html, held by
                  tests/unit/hero-example-surface.spec.tsx and laid in by tests/e2e/hero-example-badge.spec.ts;
-                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx).
+                 the source check's two classes in tests/unit/fundamentals-trend-chart.spec.tsx; the Your
+                 companies chip inside its row and its label inside the chip under 200% text in
+                 tests/e2e/dashboard-phone-layout.spec.ts).
 
 Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, admin invites); never a raw
                  <input type="checkbox">. Checked: light brand-strong under the forms plugin's white
@@ -1406,6 +1442,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  the chips beside them), No summary yet and Pending the quiet chip (10.31 and 4.98:1: the
                  neutral-status ink is the tertiary one, 5.44:1 in light, and dark drops the white/5 fill,
                  5.78:1), and Generating the brand tint (5.77 and 5.93:1, now 6.70 and 5.77:1).
+                 On the Your companies rows the chip takes <Badge wrap> (E273): under 200% text No summary
+                 yet's one-line chip is wider than the row at 320 and 340px, so below a 24rem viewport its
+                 label wraps inside the chip, a rounded box at the 16px step. The Watchlist insights cards keep
+                 the one-line chip.
                  The labs research evidence pack's review status (ReviewStatusChip in ResearchEvidencePacks,
                  E140) is a status too, a label alone on the set: "Unreviewed" on neutral-status, not started;
                  "Review needed" on warning-status, which needs the reader; "User reviewed" on success, done.
@@ -2685,7 +2725,7 @@ never a tint. The content cards below it on the page keep `shadow-e2` in light. 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
 search glow. Every promotional headline accent uses `BrandEmphasis`, the shared C5 treatment
 below, in all homepage variants, the authentication pane and the waitlist. The phrase uses dark
-ink on solid sage. Sage ink stays for links and the wordmark's italic.
+ink on solid sage. Sage ink stays for links (Reading Sage in dark) and the wordmark's italic (Bright Sage in dark).
 `.mockup-frame` is flat navy (the decorative slate gradient is retired), 16px radius, paired with
 `shadow-e3`; its title-bar traffic-light dots are gone. Marketing cards use the `<Card>` recipe
 (panel + hairline + e2, brighten on hover); the popular-company chips are the same surface at e1,
@@ -2698,9 +2738,10 @@ phrase span, `.en-mark.en-hero-emphasis`, and loads the existing
 `next/font/local`, with genuine italic, weight 600, optical sizing and `font-synthesis: none`.
 This local face does not change the root fonts (`app/fonts.ts`, one instance each, which `app/layout.tsx`
 and `app/global-error.tsx` import, E147) or the root font variables; the broader web/brand-image italic
-decision (E79) remains separate work. The class uses solid `brand.strong-dark` (`#98C5AD`) in both themes, opaque
-`text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
-That is a local fill/ink role exception, with no new palette token, hairline, shadow or interaction.
+decision (E79) remains separate work. The class uses solid `brand.bright-dark` (`#98C5AD`, Bright Sage) in both
+themes, opaque `text.primary.light` (`#1A1A17`) in light and `background.dark` (`#0B1120`) at 90% in dark.
+That is a local fill/ink role exception, with no hairline, shadow or interaction; Bright Sage became a token of its
+own when the dark accent text ink rose to Reading Sage (D-071), so the fill D-057 names did not move.
 Its inline block uses line-height `.9`, padding `calc(.04em - 1px) .18em .06em`, inline margins
 `-.1em`, the existing `.5rem` radius and baseline alignment. The 1px top trim keeps the fill off
 the preceding line's descender at default text size. The heading isolates a local stacking context;
@@ -3039,7 +3080,8 @@ Firefox are unchecked). Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
-as wide as six glyphs keeps its column; E251), so a narrow screen never overlaps labels or widens the page.
+as wide as six glyphs keeps its column; E251), with three quarters of a slot more for each break in a ranked chart's run (E258), so
+a narrow screen never overlaps labels or widens the page.
 
 Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through the engine's
 `chartTokens(dark).series` (E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a
@@ -3191,7 +3233,11 @@ the peers endpoint answers as a one-metric bar chart of the companies with a val
 descending), as many as its eleven slots hold, never leaving out a company a slot could hold but for a tie at the cut: a
 cohort of eleven or fewer whole; a larger one the top eleven where the subject ranks among them, else the top ten and
 then the subject. The top never parts a tie: a cut that would separate two companies of one rank moves up to the first
-of them and leaves the slot empty, so the top is always the companies ranked that high. The footnote then says what the
+of them and leaves the slot empty, so the top is always the companies ranked that high. Where the chart draws the
+subject after the top and leaves out a company ranked above it, a gap of three quarters of a slot stands before its bar, the engine's
+gap seam (E258, `cohort.ts` `breaksBefore`), since even spacing would read it as next in rank (CAPM, thirteenth, as the
+eleventh company); a company left out that ties with the subject breaks no run, since the subject still stands at its
+own rank. The footnote then says what the
 chart shows ("The chart shows the top 10 of the 14 companies ranked, and CAPM.", "the top 11 of the 14 companies
 ranked", "the top 9 …" where a tie sits at the tenth), counted as the rank line counts, and where one rank fills every
 slot, so no top can be named, the count alone ("The chart shows 11 of the 12 companies ranked."). The company the page is about is
@@ -3206,8 +3252,10 @@ company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), 
 with the rank kept on one line (no-break spaces);
 the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
 September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
-ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
-option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
+ranks on, its `concept`, so a commercial bank or savings institution, whose industry ranks on net interest income by
+default (SIC 6021, 6022, 6029, 6035, 6036; F69), says so in the picker's first option, the plot's name, the rank line,
+the footnote and the readout. The endpoint leaves out a company whose figure ended more than 548 days before its
+group's newest (F69), so the years the chart sets side by side are at most eighteen months apart. The card: the heading, `h2` at `text-xl`; the rank
 line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which
 counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
 FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
@@ -3239,7 +3287,9 @@ build, the computed inks by role, every printed value the fixture's and the DOM 
 D6's marks, in both themes at 390 and 1280 px, and under 200% text at 390, 360 and 320 px; the heading row's height while a
 metric picked loads and once it draws no chart; the card's chunk never asked for with production's answer; and the
 start in a browser at 300, 390 and 1280 px, the subject first, near-equal's fourth, the spread's sixth and its tenth, each
-opening where the rule puts it, its sticky gutter exactly when scrolled),
+opening where the rule puts it, its sticky gutter exactly when scrolled; and a broken run at 390 and 1280 px, the step
+to the subject's tick three quarters of a slot wider where the chart leaves out a company ranked above it, and no step wider where it
+leaves out none, a tie included, with the DOM checks over each),
 `tests/e2e/company-first-load.spec.ts` (no script of the company route's first load, read from the build's manifests,
 holds what only a module of the engine the card pulls in, or the card, holds, and the page's own chunk is among the
 scripts read) and `backend/tests/unit/test_peers_fixture_contract.py` (the fixture the panel is

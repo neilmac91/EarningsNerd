@@ -15,6 +15,11 @@ import { test, expect, type Page } from '@playwright/test'
  *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
  * 6. What changed's header (E272): where the card is narrower than 21rem the date column moves under the
  *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
+ * 7. Your companies' status clusters (E273): under 200% text a row's cluster wraps its items and its badge's
+ *    label and stays inside its row; at the default size it keeps one line.
+ * 8. The arrow links (E274): where "See all N companies" or "Open watchlist insights" wraps under 200% text,
+ *    the arrow keeps with the last word, the link paints one box for its focus ring, and the words keep
+ *    the link's 0.25rem inset, clear of the ring's rounded corners.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -212,8 +217,7 @@ const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, strin
   ] },
 ]
 const CHANGED_FEED = {
-  // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E273), so with them the
-  // page's scroll would not be the chips'. The cards' headers stay, and keep inside their cards (E272, below).
+  // No watchlist rows, so the page's scroll is the chips' alone; the rows have their own cases (E273, below). The cards' headers stay, and keep inside their cards (E272, below).
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
     items: [
@@ -476,5 +480,205 @@ for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, tru
     const headers = await headerGeometry(page)
     expect(headers).toHaveLength(3)
     for (const h of headers) expectHeaderFits(h, stacked)
+  })
+}
+
+/** Each Your companies row's status cluster against its row (E273): every item it shows ("Last filed …" from sm, the
+    status badge, the remove button) inside the row's content box, the badge's label painted inside the badge, the
+    items' boxes, so a case can tell one line from several, and where the cluster wraps, how: "Last filed …" keeps
+    one line wherever its words fit the row, and the remove button keeps beside its badge wherever the two fit it. */
+async function clusterGeometry(page: Page) {
+  return page.evaluate(() => {
+    const doc = document.documentElement
+    return {
+      sideways: doc.scrollWidth - doc.clientWidth,
+      rows: [...document.querySelectorAll<HTMLElement>('button[aria-label^="Remove "]')].map((button) => {
+        // Anchored on the row, the element that holds the company link, so a wrapper round the button cannot move the
+        // walk: the cluster is the row's last child, "Last filed …" its first and the pair (the badge and the button)
+        // its last. `walk` says whether the page has that shape, so a case fails rather than measure the wrong boxes.
+        const row = button.closest<HTMLElement>('div:has(> a[href^="/company/"])')!
+        const cluster = row.lastElementChild as HTMLElement
+        const pair = cluster.lastElementChild as HTMLElement
+        const style = getComputedStyle(row)
+        const box = row.getBoundingClientRect()
+        const content = { left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
+        const leaves = [...cluster.children].flatMap((item) => (item === pair ? [...pair.children] : [item]))
+        const items = leaves.filter((item) => getComputedStyle(item).display !== 'none').map((item) => {
+          const r = item.getBoundingClientRect()
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }
+        })
+        const badge = pair.querySelector<HTMLElement>('span.inline-flex')
+        const range = document.createRange()
+        if (badge) range.selectNodeContents(badge)
+        const badgeBox = badge?.getBoundingClientRect()
+        const badgeStyle = badge ? getComputedStyle(badge) : null
+        const badgeLines = badge ? [...range.getClientRects()].filter((r) => r.width > 0) : []
+        const width = content.right - content.left
+        // "Last filed …", where it shows: the lines its words take, and whether on one line they would fit the row.
+        const last = cluster.firstElementChild as HTMLElement
+        let lastFiled: { lines: number; fits: boolean } | null = null
+        if (getComputedStyle(last).display !== 'none') {
+          const words = document.createRange()
+          words.selectNodeContents(last)
+          const lines = new Set([...words.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size
+          const probe = document.createElement('span')
+          probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+          probe.textContent = last.textContent
+          last.appendChild(probe)
+          lastFiled = { lines, fits: probe.getBoundingClientRect().width <= width }
+          probe.remove()
+        }
+        // The badge and its remove button: whether they share a line, and whether, the badge's label on one line, the
+        // two would fit the row together (the badge, the cluster's column gap, the button).
+        const buttonBox = button.getBoundingClientRect()
+        const middle = (r: DOMRect) => (r.top + r.bottom) / 2
+        const pairFits = !!badgeBox && new Set(badgeLines.map((r) => Math.round(r.top))).size === 1 &&
+          badgeBox.width + parseFloat(getComputedStyle(cluster).columnGap) + buttonBox.width <= width
+        return {
+          name: button.getAttribute('aria-label')!, content, items, lastFiled, pairFits,
+          walk: {
+            pairHoldsButton: pair.contains(button),
+            lastFiledFirst: /^(Last filed|No filings)/.test(cluster.firstElementChild?.textContent ?? ''),
+            badgeFound: !!badge,
+          },
+          buttonBesideBadge: !!badgeBox && Math.abs(middle(badgeBox) - middle(buttonBox)) <= 2,
+          badgeText: badgeLines.map((r) => ({ left: r.left, right: r.right })),
+          badgeContent: badgeBox && badgeStyle
+            ? { left: badgeBox.left + parseFloat(badgeStyle.paddingLeft), right: badgeBox.right - parseFloat(badgeStyle.paddingRight) }
+            : null,
+        }
+      }),
+    }
+  })
+}
+
+for (const width of [320, 340, 360, 375, 390, 430, 640, 768, 1024]) {
+  test(`Your companies' status clusters stay inside their rows at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openDashboard(page, TYPICAL, baseURL!)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    const m = await clusterGeometry(page)
+    expect(m.rows).toHaveLength(COMPANIES.length)
+    expect(m.sideways, 'the page does not scroll sideways').toBe(0)
+    for (const row of m.rows) {
+      expect(row.walk, `${row.name}: the row, its cluster and its pair are where the walk reads them`).toEqual({ pairHoldsButton: true, lastFiledFirst: true, badgeFound: true })
+      for (const item of row.items) {
+        expect(item.left, `${row.name}: the cluster starts inside its row`).toBeGreaterThanOrEqual(row.content.left - 0.5)
+        expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
+      }
+      for (const line of row.badgeText) {
+        expect(line.left, `${row.name}: the badge's label starts inside the badge`).toBeGreaterThanOrEqual(row.badgeContent!.left - 0.5)
+        expect(line.right, `${row.name}: the badge's label ends inside the badge`).toBeLessThanOrEqual(row.badgeContent!.right + 0.5)
+      }
+      if (row.lastFiled?.fits) expect(row.lastFiled.lines, `${row.name}: "Last filed …" keeps one line where it fits the row`).toBe(1)
+      if (row.pairFits) expect(row.buttonBesideBadge, `${row.name}: the remove button keeps beside its badge where the two fit the row`).toBe(true)
+    }
+  })
+}
+
+for (const width of [320, 390, 1024, 1440]) {
+  test(`Your companies' status clusters keep one line at ${width}px at the default size`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openDashboard(page, TYPICAL, baseURL!)
+    const m = await clusterGeometry(page)
+    expect(m.rows).toHaveLength(COMPANIES.length)
+    for (const row of m.rows) {
+      expect(row.walk, `${row.name}: the row, its cluster and its pair are where the walk reads them`).toEqual({ pairHoldsButton: true, lastFiledFirst: true, badgeFound: true })
+      const middles = row.items.map((item) => (item.top + item.bottom) / 2)
+      expect(Math.max(...middles) - Math.min(...middles), `${row.name}: its cluster keeps one line`).toBeLessThanOrEqual(2)
+      for (const item of row.items) expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
+    }
+  })
+}
+
+/** The dashboard's two links with a trailing arrow (E274): the feed's "See all N companies" under its cards and the
+    Your companies card's "Open watchlist insights", fed the five watched companies' rows so the feed's three cards
+    link to the rest: "See all 5 companies". Wherever a label wraps, the arrow sits inside its last word's line,
+    right after it, never between the lines; the link paints one box, so its focus ring draws one outline around
+    every line of it; and its words and arrow keep the link's 0.25rem inset from that box (4px, 8px under 200% text),
+    so the ring's rounded corners never cross them, and stay inside the link's row. A smaller floor let a 2 or 3px
+    inset pass under 200% text with the ring's curve across the "5" (E274's review). */
+const FEED_WITH_ROWS: Overrides = Object.fromEntries(
+  Object.entries(CHANGED_FEED).filter(([pathname]) => pathname !== '/api/watchlist/insights'),
+)
+
+async function arrowLinkGeometry(page: Page, name: string) {
+  return page.getByRole('link', { name, exact: true }).evaluate((link) => {
+    const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    const lines = (node: Node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      return [...range.getClientRects()].filter((r) => r.width > 0).map(box)
+    }
+    const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT)
+    const texts: Text[] = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+    const lastLines = lines(texts[texts.length - 1])
+    return {
+      boxes: link.getClientRects().length,
+      painted: texts.flatMap(lines),
+      lineCount: new Set(texts.flatMap((text) => lines(text).map((line) => Math.round(line.top)))).size,
+      lastWord: lastLines[lastLines.length - 1],
+      arrow: box(link.querySelector('svg')!.getBoundingClientRect()),
+      link: box(link.getBoundingClientRect()),
+      row: box(link.parentElement!.getBoundingClientRect()),
+      // The inset the link's px-1 gives: 0.25rem of the root's font size.
+      inset: parseFloat(getComputedStyle(document.documentElement).fontSize) / 4,
+    }
+  })
+}
+
+function expectArrowWithLastWord(g: Awaited<ReturnType<typeof arrowLinkGeometry>>) {
+  expect(g.boxes, 'the link paints one box, so its focus ring draws one outline').toBe(1)
+  expect(g.arrow.top, "the arrow sits inside its last word's line").toBeGreaterThanOrEqual(g.lastWord.top - 2)
+  expect(g.arrow.bottom, "the arrow sits inside its last word's line").toBeLessThanOrEqual(g.lastWord.bottom + 2)
+  expect(g.arrow.left, 'the arrow comes after its last word').toBeGreaterThanOrEqual(g.lastWord.right - 0.5)
+  expect(g.arrow.left - g.lastWord.right, 'the arrow follows its last word').toBeLessThanOrEqual(10)
+  for (const part of [...g.painted, g.arrow]) {
+    expect(part.left, 'the words and arrow start inside the row').toBeGreaterThanOrEqual(g.row.left - 0.5)
+    expect(part.right, 'the words and arrow end inside the row').toBeLessThanOrEqual(g.row.right + 0.5)
+    expect(part.left - g.link.left, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
+    expect(g.link.right - part.right, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
+  }
+}
+
+// Each link with the widest width the cases below test at which its label wraps under 200% text with room to spare,
+// so a case says when it reads a wrapped label. Where a label stops wrapping is the font's to say: in one Chromium with
+// CI's fonts "See all 5 companies" wrapped up to 356px and "Open watchlist insights" up to 397px, and CI's own runner
+// wrapped "See all 5 companies" at 360px too. So a wider case asserts no count; the arrow's checks hold on one line or
+// on two.
+const ARROW_LINKS: Array<[name: string, wrapsTo: number]> = [['See all 5 companies', 340], ['Open watchlist insights', 390]]
+
+for (const width of [320, 340, 360, 375, 390, 640, 1024]) {
+  test(`the dashboard's arrow links keep their arrow with their last word at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await signIn(page, TYPICAL, baseURL!, FEED_WITH_ROWS)
+    await page.goto('/dashboard')
+    await expect(page.locator('[data-what-changed-chip]')).toHaveCount(7)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    for (const [name, wrapsTo] of ARROW_LINKS) {
+      const g = await arrowLinkGeometry(page, name)
+      expectArrowWithLastWord(g)
+      if (width <= wrapsTo) expect(g.lineCount, `${name} wraps here, so the case reads a wrapped label`).toBe(2)
+    }
+  })
+}
+
+for (const width of [320, 1440]) {
+  test(`the dashboard's arrow links keep one line at ${width}px at the default text size`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await signIn(page, TYPICAL, baseURL!, FEED_WITH_ROWS)
+    await page.goto('/dashboard')
+    await expect(page.locator('[data-what-changed-chip]')).toHaveCount(7)
+    await page.evaluate(() => document.fonts.ready)
+    for (const [name] of ARROW_LINKS) {
+      const g = await arrowLinkGeometry(page, name)
+      expect(g.lineCount, `${name} keeps one line`).toBe(1)
+      expectArrowWithLastWord(g)
+    }
   })
 }
