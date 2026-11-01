@@ -222,17 +222,20 @@ the debug payload panel).
   hands react-markdown resting in sage; and `tests/e2e/prose-links.spec.ts`, which reads what the
   cascade paints.
   **A link that opens a new tab** (`target="_blank"`) says so in its name (E281; chief design on
-  #1918): a sighted reader has the square, a screen reader only the name. After its label it carries
-  a hidden tail that brings its own space,
-  `{' '}<span className="sr-only">(opens in a new tab)</span>`: a space written inside the sr-only
-  span is lost where an engine adds no separator for the span's box
-  (`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). Where an `aria-label` names the
-  link already, or its text must stay as written (the footer's Logo.dev attribution, a feedback
-  message read literally), the label ends in " (opens in a new tab)" instead. The square, and a text
-  arrow (↗) where a link draws one, is `aria-hidden`. The terms page's "SEC EDGAR" link stays silent
-  until the founder's go-ahead on the legal pages' text. Gate: `tests/unit/newTabCue.spec.ts` (every
-  element written with `target="_blank"` says so by the tail or by its label, any other `_blank`
-  fails as unread, and the terms page's link is its one residue).
+  #1918): a sighted reader has the square, a screen reader only the name. After its label it carries a
+  hidden tail that brings its own space, `{' '}<span className="sr-only">(opens in a new tab)</span>`:
+  a space written inside the sr-only span is lost where an engine adds no separator for the span's box
+  (`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). The tail suits a link that ends its
+  line: inside running text, with words after the link, the tail's written space paints inside the
+  link's box, under its underline and focus ring (4.45px at 16px; chief design on #1921). So where a
+  link sits inside running text, where an `aria-label` names it already, or where its text must stay
+  as written (the footer's Logo.dev attribution, a feedback message read literally), its label ends in
+  " (opens in a new tab)" instead. The square, and a text arrow (↗) where a link draws one, is
+  `aria-hidden`. The terms page's "SEC EDGAR" link, inside running text, stays silent until the
+  founder's go-ahead on the legal pages' text, then takes the label form. Gate:
+  `tests/unit/newTabCue.spec.ts` (every element written with `target="_blank"` says so by the tail or
+  by its label, a tail with words after it in its parent fails as inline, any other `_blank` fails as
+  unread, and the terms page's link is its one residue).
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
   as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary

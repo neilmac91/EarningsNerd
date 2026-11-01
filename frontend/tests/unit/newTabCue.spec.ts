@@ -25,6 +25,12 @@
    is trusted to set no aria-labelledby. The tail is read in the element's
    children at any depth, and only where it reaches the name: a tail that
    carries aria-hidden, or sits in an element that does, says nothing. The
+   tail suits a link that ends its line. Where words follow the link in its
+   parent (JSX text or a string with more than whitespace, before any element;
+   read out of braces, conditions and parentheses), the tail's written space
+   paints inside the link's box, under its underline and focus ring, so such a
+   link takes the label form and a tail there fails as inline (chief design on
+   #1921). An element after the link is not read: it may be a block. The
    residue, held by name: the terms page's link, on a legal page whose text
    waits on the founder's go-ahead. A glyph that marks the new tab says
    nothing itself: inside a new-tab link, an ArrowSquareOutIcon takes
@@ -44,7 +50,7 @@ const CUE = '(opens in a new tab)'
 // The links that may stay silent, each until its own decision: the terms page's, whose text waits on the founder.
 const RESIDUE = ['app/terms/page.tsx <a>']
 
-type Verdict = 'tail' | 'label' | 'silent' | 'unread'
+type Verdict = 'tail' | 'label' | 'silent' | 'unread' | 'inline'
 
 interface Site {
   file: string
@@ -163,6 +169,36 @@ function inTarget(node: ts.Node, sourceFile: ts.SourceFile): boolean {
   return false
 }
 
+/** The JSX children `node` sits among and its index there, read out of braces, conditions and parentheses; null where
+    it stands alone (a component's root, a variable's value). */
+function placeOf(node: ts.Node): { children: ts.NodeArray<ts.JsxChild>; index: number } | null {
+  let child: ts.Node = node
+  for (let up = node.parent; up; child = up, up = up.parent) {
+    if (ts.isJsxElement(up) || ts.isJsxFragment(up)) {
+      const index = up.children.indexOf(child as ts.JsxChild)
+      return index < 0 ? null : { children: up.children, index }
+    }
+    if (!(ts.isJsxExpression(up) || ts.isParenthesizedExpression(up) || ts.isConditionalExpression(up) || ts.isBinaryExpression(up))) return null
+  }
+  return null
+}
+
+/** True where words follow `element` in its parent: JSX text, or a string in braces, with more than whitespace, before
+    any element (an element may be a block, so the scan stops there) or other expression. */
+function wordsAfter(element: ts.JsxElement): boolean {
+  const place = placeOf(element)
+  if (!place) return false
+  for (const next of place.children.slice(place.index + 1)) {
+    const text = ts.isJsxText(next) ? next.text
+      : ts.isJsxExpression(next) && next.expression && ts.isStringLiteralLike(next.expression) ? next.expression.text
+      : ts.isJsxExpression(next) && !next.expression ? ''
+      : null
+    if (text == null) return false
+    if (/\S/.test(text)) return true
+  }
+  return false
+}
+
 /** Every new-tab element in `source` with what its name says, and each '_blank' elsewhere as unread. */
 function newTabSites(source: string, file: string): Site[] {
   const sourceFile = parse(source, file)
@@ -173,7 +209,9 @@ function newTabSites(source: string, file: string): Site[] {
       const target = node.attributes.properties.find((attribute) => attributeName(attribute, sourceFile) === 'target')
       if (target && ts.isJsxAttribute(target) && target.initializer && literalTexts(target.initializer).includes('_blank')) {
         const spoken = ts.isJsxOpeningElement(node) ? spokenGlyphs(node.parent.children, sourceFile) : []
-        sites.push({ file, line: at(node), tag: node.tagName.getText(sourceFile), verdict: verdictOf(node, sourceFile), spoken })
+        const verdict = verdictOf(node, sourceFile)
+        const inline = verdict === 'tail' && ts.isJsxOpeningElement(node) && wordsAfter(node.parent)
+        sites.push({ file, line: at(node), tag: node.tagName.getText(sourceFile), verdict: inline ? 'inline' : verdict, spoken })
       }
     } else if (ts.isStringLiteralLike(node) && node.text === '_blank' && !inTarget(node, sourceFile)) {
       sites.push({ file, line: at(node), tag: '_blank', verdict: 'unread', spoken: [] })
@@ -184,7 +222,7 @@ function newTabSites(source: string, file: string): Site[] {
   return sites
 }
 
-describe('a link that opens a new tab says so (DESIGN_SYSTEM.md §4, Links in both surfaces)', () => {
+describe('a link that opens a new tab says so (DESIGN_SYSTEM.md §3, Links in both surfaces)', () => {
   const sites = sourceFiles(ROOT, SCAN_DIRS).flatMap((file) => newTabSites(fs.readFileSync(path.join(ROOT, file), 'utf8'), file))
 
   it('reads the new-tab links of both forms', () => {
@@ -207,6 +245,10 @@ describe('a link that opens a new tab says so (DESIGN_SYSTEM.md §4, Links in bo
 
   it('holds the residue exactly: each entry is a silent link the scan finds', () => {
     expect(sites.filter((site) => site.verdict === 'silent').map(place)).toEqual(RESIDUE)
+  })
+
+  it('keeps the tail to a link that ends its line: inside running text a link takes the label form', () => {
+    expect(sites.filter((site) => site.verdict === 'inline').map(where)).toEqual([])
   })
 
   it('lets no glyph inside a new-tab link speak: its square and its text arrow are aria-hidden', () => {
@@ -251,6 +293,21 @@ describe('the new-tab reader, on planted sources', () => {
         export const C = ({ u }: { u: string }) => <a href={u} target="_self">Open</a>
       `),
     ).toEqual(['a silent', 'a label'])
+  })
+
+  it('reads a tail inside running text as inline, out of braces and a condition, and a tail that ends its line as a tail', () => {
+    expect(
+      verdicts(`
+        export const A = ({ u }: { u: string }) => <p>See the <a href={u} target="_blank">original{' '}<span className="sr-only">(opens in a new tab)</span></a> for more.</p>
+        export const B = ({ u }: { u: string }) => <p>Check{' '}<a href={u} target="_blank">SEC EDGAR{' '}<span className="sr-only">(opens in a new tab)</span></a>{' '}
+          before relying on it.</p>
+        export const C = ({ u }: { u?: string }) => <p>Check {u && <a href={u} target="_blank">SEC EDGAR{' '}<span className="sr-only">(opens in a new tab)</span></a>}.</p>
+        export const D = ({ u }: { u: string }) => <p>Read it on{' '}<a href={u} target="_blank">SEC.gov{' '}<span className="sr-only">(opens in a new tab)</span></a>{' '}
+        </p>
+        export const E = ({ u }: { u: string }) => <p><a href={u} target="_blank">Open{' '}<span className="sr-only">(opens in a new tab)</span></a> <span>more</span></p>
+        export const F = ({ u }: { u: string }) => <p>See <a href={u} target="_blank" aria-label="SEC EDGAR (opens in a new tab)">SEC EDGAR</a> before relying on it.</p>
+      `),
+    ).toEqual(['a inline', 'a inline', 'a inline', 'a tail', 'a tail', 'a label'])
   })
 
   it('reads a spoken glyph inside a new-tab link, at any depth: a square without aria-hidden, a text arrow outside a hidden element', () => {
