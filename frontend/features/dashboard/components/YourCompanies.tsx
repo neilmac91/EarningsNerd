@@ -168,7 +168,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
               href="/dashboard/watchlist"
               className="-mx-1 inline-block rounded-lg px-1 text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
-              <TrailingArrowLabel label="Open watchlist insights" />
+              <TrailingArrowLabel>Open watchlist insights</TrailingArrowLabel>
             </Link>
           </div>
         </>

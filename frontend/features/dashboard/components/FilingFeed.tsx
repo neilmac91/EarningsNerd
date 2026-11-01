@@ -132,7 +132,7 @@ export default function FilingFeed({
                 href="/dashboard/watchlist"
                 className={cx('-mx-1 inline-block rounded-lg px-1 text-sm font-medium', countControlClass('link'))}
               >
-                <TrailingArrowLabel label={overflowLabel} />
+                <TrailingArrowLabel>{overflowLabel}</TrailingArrowLabel>
               </Link>
             </div>
           )}

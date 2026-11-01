@@ -154,7 +154,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
         <div className="mt-3 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
           {/* The arrow keeps with the label's last word, so a label that wraps carries it onto its last line instead of
               parting it to the card's far edge (chief design on #1897, E272). */}
-          <TrailingArrowLabel label={ctaLabel(item.summary_status)} />
+          <TrailingArrowLabel>{ctaLabel(item.summary_status)}</TrailingArrowLabel>
         </div>
       </Card>
     </Link>

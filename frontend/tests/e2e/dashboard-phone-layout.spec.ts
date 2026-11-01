@@ -15,6 +15,9 @@ import { test, expect, type Page } from '@playwright/test'
  *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
  * 6. What changed's header (E272): where the card is narrower than 21rem the date column moves under the
  *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
+ * 7. The arrow links (E274): where "See all N companies" or "Open watchlist insights" wraps under 200% text,
+ *    the arrow keeps with the last word, the link paints one box for its focus ring, and the words keep
+ *    the link's 0.25rem inset, clear of the ring's rounded corners.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -470,8 +473,9 @@ for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, tru
     Your companies card's "Open watchlist insights", fed the five watched companies' rows so the feed's three cards
     link to the rest: "See all 5 companies". Wherever a label wraps, the arrow sits inside its last word's line,
     right after it, never between the lines; the link paints one box, so its focus ring draws one outline around
-    every line of it; and its words and arrow stay inset from that box, so the ring's rounded corners never cross
-    them, and inside the link's row. */
+    every line of it; and its words and arrow keep the link's 0.25rem inset from that box (4px, 8px under 200% text),
+    so the ring's rounded corners never cross them, and stay inside the link's row. A smaller floor let a 2 or 3px
+    inset pass under 200% text with the ring's curve across the "5" (E274's review). */
 const FEED_WITH_ROWS: Overrides = Object.fromEntries(
   Object.entries(CHANGED_FEED).filter(([pathname]) => pathname !== '/api/watchlist/insights'),
 )
@@ -496,6 +500,8 @@ async function arrowLinkGeometry(page: Page, name: string) {
       arrow: box(link.querySelector('svg')!.getBoundingClientRect()),
       link: box(link.getBoundingClientRect()),
       row: box(link.parentElement!.getBoundingClientRect()),
+      // The inset the link's px-1 gives: 0.25rem of the root's font size.
+      inset: parseFloat(getComputedStyle(document.documentElement).fontSize) / 4,
     }
   })
 }
@@ -509,13 +515,14 @@ function expectArrowWithLastWord(g: Awaited<ReturnType<typeof arrowLinkGeometry>
   for (const part of [...g.painted, g.arrow]) {
     expect(part.left, 'the words and arrow start inside the row').toBeGreaterThanOrEqual(g.row.left - 0.5)
     expect(part.right, 'the words and arrow end inside the row').toBeLessThanOrEqual(g.row.right + 0.5)
-    expect(part.left - g.link.left, "the words and arrow keep off the ring's corners").toBeGreaterThanOrEqual(2)
-    expect(g.link.right - part.right, "the words and arrow keep off the ring's corners").toBeGreaterThanOrEqual(2)
+    expect(part.left - g.link.left, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
+    expect(g.link.right - part.right, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
   }
 }
 
-// Each link with the widest width at which its label still wraps under 200% text, so a case says when it reads a
-// wrapped label.
+// Each link with the widest width the cases below test at which its label wraps under 200% text, so a case says
+// when it reads a wrapped label. Swept a pixel at a time, "See all 5 companies" wraps up to 356px and "Open watchlist
+// insights" up to 397px.
 const ARROW_LINKS: Array<[name: string, wrapsTo: number]> = [['See all 5 companies', 340], ['Open watchlist insights', 390]]
 
 for (const width of [320, 340, 360, 375, 390, 640, 1024]) {
