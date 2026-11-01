@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const getCurrentUserSafe = vi.fn()
@@ -122,6 +122,27 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     await qc.refetchQueries({ type: 'all' })
     await waitFor(() => expect(identify).toHaveBeenCalledTimes(2))
     expect(identify).toHaveBeenLastCalledWith('7', { is_pro: true, plan: 'pro' })
+  })
+
+  // A logout resets PostHog's identity and lib/analytics.ts identifies nothing while analytics is refused, so after a
+  // refusal, a logout and a login to the same account, the next allow must identify the account again.
+  it('identifies the same account again after a logout and login, once PostHog is ready again', async () => {
+    getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
+    getSubscriptionStatus.mockResolvedValue({ is_pro: false })
+    const { qc, setReady } = renderWithReadiness(true)
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(1))
+    setReady(false) // A refusal.
+    // React Query tells its observers on a timer, so each step waits for the hook to see it.
+    const settle = (user: unknown) => act(async () => {
+      qc.setQueryData(queryKeys.currentUser(), user)
+      await new Promise((r) => setTimeout(r, 20))
+    })
+    await settle(null) // A logout (resetAccountQueries).
+    await settle({ id: 7, email: 'u@x.com', is_pro: false }) // A login to the same account.
+    expect(identify).toHaveBeenCalledTimes(1) // Not while analytics is refused.
+    setReady(true) // The next allow.
+    await waitFor(() => expect(identify).toHaveBeenCalledTimes(2))
+    expect(identify).toHaveBeenLastCalledWith('7', { is_pro: false, plan: 'free' })
   })
 
   // A failed refetch keeps the earlier read's data while the query reports the error (Codex r4331603917 on #1448).

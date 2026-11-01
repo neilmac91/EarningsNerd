@@ -38,6 +38,8 @@ const safeReset = () => {
   posthog.reset()
   // The SDK clears its own consent with the identity. Restore only the current validated
   // browser choice; a refusal (including one storage could not save) must remain off.
+  // Its answer is not used: a guard that first fails here turns the client off but leaves
+  // PostHogReadyContext true until the next consent event (posthog-js 1.440.0 cannot fail here).
   if (posthog.__loaded) applyPostHogConsent(posthog)
   try {
     Sentry.setUser(null)

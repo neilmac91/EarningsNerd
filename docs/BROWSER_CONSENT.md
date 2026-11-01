@@ -57,7 +57,8 @@ those entry points on SDK upgrades.
 Capturing nothing is not storing nothing: posthog-js writes an identity to its cookie and local
 storage on `identify()` and `reset()`, and session data when something reads the session, even
 while capturing is off. [analytics.ts](../frontend/lib/analytics.ts) therefore identifies an
-account only while analytics is allowed.
+account only while analytics is allowed, and app code identifies through it alone. After a logout
+and a login made while analytics is refused, the next allow identifies the account again.
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -87,14 +88,17 @@ do not certify every version of Vercel's remotely served script or recall its di
   identified only while analytics is allowed.
 - [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) reads every
   file under `frontend/` that names posthog-js. It fails an underscore member that code, a test
-  stand-in or a script held in a string reaches and the `module` build lacks. It also fails a test
-  that names another posthog-js build, by its file name or a package subpath. Its header lists what
-  stays out of its reach.
+  stand-in or a script held in a string reaches and the `module` build lacks. It also fails a
+  string that names another copy of the client (a core build other than the manifest's entries,
+  the `no-external` sub-package, the compiled source or a package subpath), and app code that
+  identifies an account anywhere but `lib/analytics.ts`. Its header lists what stays out of its
+  reach.
 - [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
   `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
   including remote configuration, and the SDK's lazy-loaded extensions come from the package's own
-  copies, as PostHog's CDN serves them. A request it does not answer, on the ingest host or any
-  other, fails the test that made it. It checks queued batches, unload, offline retry and its
+  copies, as PostHog's CDN serves them, never one of its core builds. A request it does not answer,
+  on the ingest host or on any host but the fixture site, fails the test that made it. It checks
+  queued batches, unload, offline retry and its
   resumption after a new allow, late failure, two-tab withdrawal and disabled replay even when
   fixture configuration enables it.
 

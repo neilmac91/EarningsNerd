@@ -44,7 +44,13 @@ export function usePostHogUserIdentification(): void {
   const lastIdentity = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!user?.id || !posthogReady) return
+    // A logout resets PostHog's identity (lib/analytics.ts), so forget the account identified before it: a login to the
+    // same account identifies it again once analytics is allowed. lib/analytics.ts never identifies while it is refused.
+    if (!user?.id) {
+      lastIdentity.current = null
+      return
+    }
+    if (!posthogReady) return
     // Respect the analytics opt-in: PostHog is opted-out without it, and we shouldn't touch Sentry's
     // user either. (null preferences = no choice yet → wait for consent.)
     if (getCookiePreferences()?.analytics !== true) return

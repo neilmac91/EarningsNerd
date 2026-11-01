@@ -50,7 +50,7 @@ keeps that store at the visitor's choice, as every healthy tab does, so a logout
 The failure is reported to Sentry as an issue, once per page. The guard is installed only where it is needed (for
 PostHog, after an allow), so a broken guard cannot report from every page view. Capturing nothing is not storing
 nothing: posthog-js writes an identity and session data to the client's own storage while it captures nothing, so
-the app identifies an account only while analytics is allowed.
+the app identifies an account only while analytics is allowed, through one facade (`lib/analytics.ts`).
 
 **Gate.** Partly gated, for posthog-js.
 
@@ -59,17 +59,21 @@ the app identifies an account only while analytics is allowed.
   no `__request_queue`), with another tab opted in, flag requests and script loading on and a credential URL, and
   through a logout's `reset()`. It also runs the provider on real clients, before an allow and with each of its
   failure paths, and pins that an account is identified only while analytics is allowed.
-- `frontend/tests/e2e/telemetry-network.spec.ts` runs the transport in Chromium on the `module` build. It fails any
-  test after which a page reported a guard failure, or that made a request the fixture does not answer.
+- `frontend/tests/e2e/telemetry-network.spec.ts` runs the transport in Chromium on the `module` build, and serves
+  none of the package's other core builds. It fails any test after which a page reported a guard failure, or that
+  made a request the fixture does not answer on the ingest host or on any host but the fixture site.
 - `frontend/tests/unit/posthogShippedMembers.spec.ts` reads every file under `frontend/` that names posthog-js, and
   fails on a file kind it cannot read. It fails an underscore member that the `module` build lacks, wherever such a
   file reaches it: in code, in a stand-in (an object literal, a class or a parameter property), in a JSX attribute,
-  as a bare string, or in a script held in a string. It also fails a test that names another posthog-js build (rule
-  (b)), by its file name or a package subpath, and a manifest field a bundler would read before `module`.
+  as a bare string, or in a script held in a string. It also fails a string that names another copy of the client
+  (rule (b)): a core build other than the manifest's entries in any token of the string, the `no-external`
+  sub-package, the compiled source, or a package subpath. It fails a manifest field a bundler would read before
+  `module`, and app code that identifies an account anywhere but `lib/analytics.ts`.
 
 Review-checked. The scan plants each of these as a stated gap:
 
-- a name or a build path assembled at run time;
+- a name, a build path or an identify call assembled at run time, or an identify through a destructured reference;
+- the `full` sub-package, or a compiled source file other than `posthog-core`, named by a bare path segment;
 - code held more than two strings deep;
 - a file that handles a PostHog client without naming posthog-js;
 - a kept name read off the wrong object (a name passes when the build has it anywhere).
@@ -78,6 +82,6 @@ The scan does not read another SDK's internals, or stand-ins for them, at all.
 
 **Evidence.** On posthog-js 1.438.12, 1.438.19 and 1.440.0, `dist/module.mjs` and `dist/main.js` contain no
 `_send_retriable_request`, `_retryQueue` or `_requestQueue`. `dist/array.full.no-external.js` keeps them (4, 7 and 6
-hits in 1.440.0). On main's tree, the scan names the 13 places that read them: the old guard, the transport e2e and
-both stand-ins. The unit gate and the e2e fail on #1552's guard with its production error. Pull request #1881
+hits in 1.440.0). On main's tree, the scan names 13 places that read a member the build lacks: the old guard, the
+transport e2e and both stand-ins. Twelve read those three names; the e2e also read the batch queue's `_queue`. The unit gate and the e2e fail on #1552's guard with its production error. Pull request #1881
 records those mutation proofs and a production-build check.

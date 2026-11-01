@@ -13,9 +13,9 @@ import type { analytics } from '../../lib/analytics'
 // A browser transport test, independent of Next/backend and production environment variables.
 // Every request is fulfilled locally, including the SDK's config, flags, events and replay.
 // It runs the package's `module` entry, the build Next bundles into the app. That build renames the client's private
-// members, as `main` does. Other builds keep them (in posthog-js 1.440.0 every `no-external` build, among them the
-// CDN-style `array.full.no-external.js` this spec once loaded), so a guard that read them passed here and threw in
-// production before PostHog could start.
+// members, as `main` does. Some other builds keep them (in posthog-js 1.440.0 every `no-external` build and the ES5
+// build, among them the CDN-style `array.full.no-external.js` this spec once loaded), so a guard that read them passed
+// here and threw in production before PostHog could start.
 const POSTHOG_PACKAGE = path.resolve(__dirname, '../../node_modules/posthog-js')
 const POSTHOG_MODULE = path.join(POSTHOG_PACKAGE, (JSON.parse(readFileSync(path.join(POSTHOG_PACKAGE, 'package.json'), 'utf8')) as { module: string }).module)
 const SITE = 'https://telemetry-fixture.invalid'
@@ -110,8 +110,11 @@ async function fixture(page: Page, initialPath: string, batching = false) {
     // copies as PostHog's CDN does. With replay off in both the app's configuration and the consent application's
     // stopSessionRecording, no case asks for one; with both off at once, the recorder really loads and starts, and
     // the replay checks fail. Any other path fails its test (test.afterEach), so an extension the package cannot
-    // serve, or one asked for under a new path or host, cannot quietly turn the recorder into a JSON response.
-    const asset = /^\/static\/(?:[\w.-]+\/)?[\w.-]+\.js$/.test(url.pathname) ? path.join(POSTHOG_PACKAGE, 'dist', path.basename(url.pathname)) : null
+    // serve, or one asked for under a new path or host, cannot quietly turn the recorder into a JSON response. The
+    // package's core builds are never served here: only the manifest's module entry, loaded above, may run.
+    const name = path.basename(url.pathname)
+    const asset = /^\/static\/(?:[\w.-]+\/)?[\w.-]+\.js$/.test(url.pathname) && !/^(?:array|module|main)\./.test(name)
+      ? path.join(POSTHOG_PACKAGE, 'dist', name) : null
     if (asset && existsSync(asset)) return route.fulfill({ contentType: 'text/javascript', body: readFileSync(asset) })
     if (!KNOWN_INGEST_PATHS.test(url.pathname)) {
       unknownRequests.push(request.url())
@@ -455,3 +458,13 @@ for (const withdrawal of ['deny', 'clear'] as const) {
     expect(events(wire).map(event => event.event)).not.toContain('queued-before-remote-history')
   })
 }
+
+// The tripwire itself: a request the fixture does not answer is recorded, so test.afterEach would fail the test that
+// made it. Each kind is planted here and taken off the record, so this test passes only while every one is recorded.
+test('a request the fixture does not answer is recorded, a core build asked for under /static included', async ({ page }) => {
+  await fixture(page, '/pricing')
+  // main.js is a core build the package ships (an entry, so the member scan passes this string); /static serves none.
+  const unanswered = [`${INGEST}/i/v0/e/`, `${INGEST}/static/main.js?v=1.440.0`, 'https://elsewhere.invalid/x']
+  await page.evaluate(urls => Promise.allSettled(urls.map(url => fetch(url))), unanswered)
+  expect(unknownRequests.splice(0).sort()).toEqual([...unanswered].sort())
+})

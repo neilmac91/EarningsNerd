@@ -18,8 +18,8 @@ import type { PostHogQueues } from '@/lib/posthogConsent'
  * client then captures or requests may leave, and it may load no script. Those calls must store no credential URL; the
  * client must report once, and keep the consent posthog-js stores for every tab at the visitor's choice. The provider
  * runs on real clients too, with each of its failure paths planted, and an account is identified only while analytics
- * is allowed. SDK_OPTIONS turns script loading off for the other clients: jsdom loads no script, so their remote
- * configuration arrives only through the request that option falls back to.
+ * is allowed. SDK_OPTIONS turns script loading, flags and remote configuration off for the other clients, since jsdom
+ * loads no script.
  *
  * posthog-js binds fetch and XMLHttpRequest when its module first runs, so both are replaced before any import: every
  * request the SDK makes is answered by the stand-in fetch, and without `withCredentials` the SDK keeps no XHR
@@ -296,12 +296,16 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const choose = await choices()
     choose(true)
-    const { client, guard, applied } = await start(await load(), (planted, { retry, batch }) => hide(planted, retry, batch))
-    expect(applied).toBe(false)
+    const { client, guard, applied } = await start(await load())
+    expect(applied).toBe(true)
     vi.spyOn(client, 'opt_in_capturing').mockImplementation(() => { throw new Error('planted: consent storage is unavailable') })
-    // lib/analytics.ts applies the choice after a logout's reset with nothing around it to catch a throw.
+    // lib/analytics.ts applies the choice after a logout's reset with nothing around it to catch a throw. Neither the
+    // application that first finds the guard broken (the catch branch) nor a later one (the failed branch) may throw.
+    const { retry, batch } = guard.findPostHogQueues(client)!
+    hide(client, retry, batch)
     expect(guard.applyPostHogConsent(client)).toBe(false)
-    expect(client.opt_in_capturing).toHaveBeenCalled()
+    expect(guard.applyPostHogConsent(client)).toBe(false)
+    expect(client.opt_in_capturing).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -395,6 +399,9 @@ describe('the provider on the real SDK', () => {
     act(() => choose(true))
     analytics.identify('synthetic-account-identify-check')
     expect(holds('synthetic-account-identify-check')).toBe(true)
+    // The allowed identify sends `$identify` once its async gzip finishes. Wait for it: it would otherwise reach the
+    // stand-in fetch during a later test and read as that test's client sending.
+    await vi.waitFor(() => expect(sent('$identify')).toBe(1))
     expect(sentry.captureException).not.toHaveBeenCalled()
   })
 })

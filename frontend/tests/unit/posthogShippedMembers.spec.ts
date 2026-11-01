@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,13 +26,20 @@ import { describe, expect, it } from 'vitest'
  * fails: reword it, never exempt the name. NOT_POSTHOG_MEMBERS lists the underscore names such files use that are not
  * posthog-js members, each with its reason.
  *
- * Two more checks run here. The manifest has no field a bundler reads before `module`. And no string names a posthog-js
- * build other than the manifest's own entries, by its file name (alone or in a path) or by a package subpath other
- * than `package.json` and `react`. Which builds keep the names the entries rename changes between releases: in 1.440.0
- * every `no-external` build and the ES5 build keep them.
+ * Three more checks run here. The manifest has no field a bundler reads before `module`. No string names another copy
+ * of the client, in any of its tokens (a path segment, a URL before its query or hash, markup held as text):
+ * - a core build other than the manifest's entries, by its file name, or without its extension where the package
+ *   ships that file;
+ * - the `no-external` sub-package, or the compiled source (`posthog-core`);
+ * - a package subpath other than `package.json`, `react` and the entries' own paths.
+ * Which builds keep the names the entries rename changes between releases: in 1.440.0 every `no-external` build and
+ * the ES5 build keep them. And app code (outside tests/) identifies an account (`identify`, `alias`) only through
+ * lib/analytics.ts, which waits for consent, since posthog-js stores an identity even while it captures nothing.
  *
  * Out of reach, as the planted gaps below record:
- * - a name or a build path assembled at run time;
+ * - a name, a build path or an identify call assembled at run time, or an identify reached through a destructured
+ *   reference;
+ * - the `full` sub-package, or a compiled source file other than `posthog-core`, named by a bare path segment;
  * - code held more than two strings deep;
  * - a file that handles a PostHog client without naming posthog-js;
  * - a kept name read off the wrong object, since a name passes when the build has it anywhere (`client._instance`
@@ -55,8 +62,17 @@ const CODE = /\.(?:[mc]?[jt]sx?)$/
 const TYPES_ONLY = /\.d\.[mc]?ts$/
 const NOT_CODE = /\.json$/
 const UNDERSCORE = /^_[\w$]*$/
-const BUILD_FILE = /(?:^|[/\\])((?:array|module|main)(?:\.[\w-]+)*\.(?:m?js|cjs))(?:\?[\w=&-]*)?$/
+const CORE_BUILD = /^(?:array|module|main)(?:\.[\w-]+)*\.(?:m?js|cjs)$/
+// A core build's name without its extension counts only where the package ships that file, so `module` (a script
+// type) and `module.exports` pass.
+const CORE_BUILD_STEM = /^(?:array|module|main)(?:\.[\w-]+)+$/
+const DIST = new Set(readdirSync(path.join(packageRoot, 'dist')))
+const OTHER_COPIES = new Set(['no-external', 'posthog-core', 'posthog-core.js'])
+const TOKEN_BREAK = /[^\w.@-]+/
 const ENTRIES = new Set([path.basename(manifest.module), path.basename(manifest.main)])
+const namesOtherCopy = (token: string) => (CORE_BUILD.test(token) && !ENTRIES.has(token))
+  || (CORE_BUILD_STEM.test(token) && ['.js', '.mjs', '.cjs'].some(ext => DIST.has(token + ext) && !ENTRIES.has(token + ext)))
+  || OTHER_COPIES.has(token)
 // A package subpath, such as `posthog-js/no-external` (its own build) or `posthog-js/dist/...`. The manifest, the React
 // wrapper (which imports the package entry) and the entries' own paths are allowed.
 const SUBPATH = /(?<![\w@.-])posthog-js\/([\w.-]+(?:\/[\w.-]+)*)/g
@@ -141,17 +157,41 @@ const unknownToBuild = (source: string, fileName: string) =>
     .map(({ name, line }) => `${fileName}:${line}: ${name}`)
 
 /**
- * Every posthog-js build a string names, other than the manifest's own entries. Only files that name posthog-js are
- * read, so a build's file name counts on its own, as a path segment does in `path.join(packageRoot, 'dist', name)`.
+ * Every string that names another copy of the client than the manifest's entries. Only files that name posthog-js are
+ * read, so a build's name counts as any token of a string, as a path segment does in `path.join(packageRoot, 'dist',
+ * name)` or a file name does before a URL's query.
  */
 function otherBuilds(source: string, fileName: string): string[] {
   const named: string[] = []
   stringsOf(parse(source, fileName), (text) => {
-    const build = BUILD_FILE.exec(text)?.[1]
+    const copies = text.split(TOKEN_BREAK).filter(namesOtherCopy)
     const subpaths = Array.from(text.matchAll(SUBPATH), match => match[1]).filter(subpath => !SUBPATHS_ALLOWED.has(subpath))
-    if ((build && !ENTRIES.has(build)) || subpaths.length) named.push(`${fileName}: ${text}`)
+    if (copies.length || subpaths.length) named.push(`${fileName}: ${text}`)
   })
   return named
+}
+
+const IDENTITY_CALLS = new Set(['identify', 'alias'])
+const IDENTITY_HOME = 'lib/analytics.ts'
+
+/** Each call that would tie an account to a PostHog client, other than through lib/analytics.ts's `analytics` facade. */
+function identityCalls(source: string, fileName: string): string[] {
+  const file = parse(source, fileName)
+  const calls: string[] = []
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))) {
+      const callee = node.expression
+      const name = ts.isPropertyAccessExpression(callee) ? callee.name.text
+        : ts.isStringLiteralLike(callee.argumentExpression) ? callee.argumentExpression.text : undefined
+      const viaFacade = ts.isIdentifier(callee.expression) && callee.expression.text === 'analytics'
+      if (name && IDENTITY_CALLS.has(name) && !viaFacade) {
+        calls.push(`${fileName}:${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${name}`)
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  return calls
 }
 
 const staleNames = (names: Record<string, string>, used: Set<string>) => Object.keys(names).filter(name => !used.has(name))
@@ -223,6 +263,7 @@ describe('posthog-js members the shipped build has', () => {
     ['a page script in a template', 'await page.addScriptTag({ content: `window.posthog._retryQueue.unload(${delay})` })'],
     ['a Function body', "new Function('client', 'return client._retryQueue')"],
     ['a JSON stand-in', 'JSON.parse(\'{"_retryQueue": {}}\')'],
+    ['code held two strings deep', 'page.evaluate("new Function(\'return client._retryQueue\')")'],
     ['prose naming a member by its dotted path, read as held code', "throw new Error('client._retryQueue is renamed by the build')"],
   ]
   it.each(PLANTED_BREAKS)('flags %s', (_form, planted, fileName = 'planted.ts') => {
@@ -256,6 +297,15 @@ describe('posthog-js members the shipped build has', () => {
     ['a subpath entry', "await import('posthog-js/no-external')"],
     ['a nested subpath entry', "await import('posthog-js/full/no-external')"],
     ['a build by its extensionless subpath', "await import('posthog-js/dist/module.no-external')"],
+    ['a build by its extensionless path segment', "require(path.join(POSTHOG_PACKAGE, 'dist', 'module.no-external'))"],
+    ['a build URL with a version query', "page.addScriptTag({ url: `${INGEST}/static/array.full.no-external.js?v=1.440.0` })"],
+    ['a build URL with an interpolated query', 'page.addScriptTag({ url: `${INGEST}/static/array.full.no-external.js?v=${version}` })'],
+    ['a build URL with a hash', "fetch('/static/array.full.no-external.js#build')"],
+    ['a build in markup held as text', 'route.fulfill({ body: \'<script src="/static/array.full.no-external.js"></script>\' })'],
+    ['a build in page code held in a string', "page.addScriptTag({ content: `document.head.append(Object.assign(document.createElement('script'), { src: '/static/array.full.no-external.js' }))` })"],
+    ['the no-external sub-package by its directory', "require(path.join(packageRoot, 'no-external'))"],
+    ['the nested no-external sub-package by its directories', "require(path.join(packageRoot, 'full', 'no-external'))"],
+    ['the compiled source of the client', "require(path.join(packageRoot, 'lib', 'src', 'posthog-core.js'))"],
   ])('flags a test that loads %s', (_build, planted) => {
     expect(otherBuilds(planted, 'planted.ts')).toHaveLength(1)
   })
@@ -266,14 +316,22 @@ describe('posthog-js members the shipped build has', () => {
     ['the package entry', "import posthog from 'posthog-js'"],
     ['the manifest', "require.resolve('posthog-js/package.json')"],
     ['the React wrapper', "import { PostHogProvider } from 'posthog-js/react'"],
+    ['a module script', "page.addScriptTag({ type: 'module', content: script })"],
+    ['a dotted word the package does not ship', "const target = 'module.exports'"],
   ])('passes %s', (_build, planted) => {
     expect(otherBuilds(planted, 'planted.ts')).toEqual([])
   })
 
   // Planted gaps, out of the gate's reach by design (header).
-  it('does not see a name or a build path assembled at run time (a stated gap)', () => {
+  it('does not see a name, a build path or an identify assembled at run time or destructured (a stated gap)', () => {
     expect(unknownToBuild('client[`_${part}Queue`]', 'planted.ts')).toEqual([])
     expect(otherBuilds("path.join(POSTHOG_PACKAGE, 'dist', `array.${flavour}.js`)", 'planted.ts')).toEqual([])
+    expect(identityCalls('posthog[`ident${suffix}`](id)', 'planted.ts')).toEqual([])
+    expect(identityCalls('const { identify } = posthog\nidentify(id)', 'planted.ts')).toEqual([])
+  })
+  it('does not see the full sub-package or another compiled source file by a bare path segment (a stated gap)', () => {
+    expect(otherBuilds("require(path.join(packageRoot, 'full'))", 'planted.ts')).toEqual([])
+    expect(otherBuilds("require(path.join(packageRoot, 'lib', 'src', 'remote-config.js'))", 'planted.ts')).toEqual([])
   })
   it('does not read code held more than two strings deep (a stated gap)', () => {
     expect(unknownToBuild('page.evaluate(\'eval("Function(`return client._retryQueue`)")\')', 'planted.ts')).toEqual([])
@@ -283,5 +341,32 @@ describe('posthog-js members the shipped build has', () => {
   })
   it('passes a kept name read off the wrong object (a stated gap)', () => {
     expect(unknownToBuild('client._instance', 'planted.ts')).toEqual([])
+  })
+})
+
+describe('an account reaches PostHog only through lib/analytics.ts', () => {
+  const appCode = code.filter(file => !file.startsWith('tests/') && file !== IDENTITY_HOME)
+
+  it('no app code that names posthog-js identifies an account outside lib/analytics.ts', () => {
+    expect(appCode).toEqual(expect.arrayContaining(['app/posthog-provider.tsx', 'lib/posthogConsent.ts']))
+    expect(appCode.flatMap(file => identityCalls(source(file), file))).toEqual([])
+    // The facade's own call, which waits for consent, is the one the check sees there.
+    expect(identityCalls(source(IDENTITY_HOME), IDENTITY_HOME)).toHaveLength(1)
+  })
+
+  it.each([
+    ['a direct identify', 'posthog.identify(String(user.id), { plan })'],
+    ['an identify through the React hook', 'usePostHog().identify(id)'],
+    ['an optional identify', 'posthog?.identify(id)'],
+    ['an identify by element access', "posthog['identify'](id)"],
+    ['an alias', 'posthog.alias(id)'],
+  ])('flags %s', (_form, planted) => {
+    expect(identityCalls(planted, 'planted.ts')).toHaveLength(1)
+  })
+  it.each([
+    ['the consent-gated facade', 'analytics.identify(String(user.id), { plan })'],
+    ['another call', "posthog.capture('event')"],
+  ])('passes %s', (_form, planted) => {
+    expect(identityCalls(planted, 'planted.ts')).toEqual([])
   })
 })
