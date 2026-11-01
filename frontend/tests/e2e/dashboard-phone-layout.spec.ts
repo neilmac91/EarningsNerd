@@ -371,8 +371,8 @@ async function headerGeometry(page: Page) {
       for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
       const lastLines = lines(texts[texts.length - 1])
       const ctaLines = new Set(texts.flatMap((text) => lines(text).map((line) => Math.round(line.top)))).size
-      // A word of the name painted across two lines, where the word on its own would fit the name's box: a break inside
-      // a word that had room for itself.
+      // A word of the name painted across two lines, where the word on its own would fit the card's content box: a break
+      // the header could have spared it, with a line of its own or the logo's room (below 7.25rem the logo gives way).
       const nameText = name.firstChild as Text
       const splitWords: string[] = []
       let at = 0
@@ -385,7 +385,7 @@ async function headerGeometry(page: Page) {
         probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
         probe.textContent = word
         name.appendChild(probe)
-        const fits = probe.getBoundingClientRect().width <= name.clientWidth
+        const fits = probe.getBoundingClientRect().width <= content.right - content.left
         probe.remove()
         if (tops.size > 1 && fits) splitWords.push(word)
         at += word.length + 1
@@ -424,7 +424,7 @@ function expectHeaderFits(h: Header, stacked: boolean) {
     expect(h.datesBox.top, `${h.name}: the date column sits under the company line`).toBeGreaterThanOrEqual(h.companyBox.bottom - 0.5)
     for (const left of h.dateStarts) expect(Math.abs(left - h.content.left), `${h.name}: each date line starts at the card's left edge`).toBeLessThanOrEqual(0.5)
     expect(h.nameCut, `${h.name} shows whole`).toBeLessThanOrEqual(0)
-    expect(h.splitWords, `${h.name}: no word breaks that fits its line`).toEqual([])
+    expect(h.splitWords, `${h.name}: no word breaks that fits the card`).toEqual([])
   } else {
     // Side by side: the date column beside the company line, at its right.
     expect(h.datesBox.top, `${h.name}: the date column sits beside the company line`).toBeLessThan(h.companyBox.bottom)
