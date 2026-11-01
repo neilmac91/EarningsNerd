@@ -41,10 +41,12 @@ describe('Footer product links', () => {
   it('carries the Logo.dev attribution link the free plan requires, in the form its attribution page gives', async () => {
     // A commercial site on Logo.dev's Community plan shows `<a href="https://logo.dev">Logos provided by
     // Logo.dev</a>` on a public page; the footer is on every public page. Dropping or rewording it would
-    // pass every other gate and break a licence condition silently.
+    // pass every other gate and break a licence condition silently. The link opens a new tab and says so in its
+    // aria-label (E281), so its text stays the attribution's phrase alone.
     const { getByRole } = await renderFooter()
-    const link = getByRole('link', { name: 'Logos provided by Logo.dev' })
+    const link = getByRole('link', { name: 'Logos provided by Logo.dev (opens in a new tab)' })
     expect(link).toHaveAttribute('href', 'https://logo.dev')
+    expect(link.textContent).toBe('Logos provided by Logo.dev')
   })
 
   it('never links to the hidden full-text search product', async () => {

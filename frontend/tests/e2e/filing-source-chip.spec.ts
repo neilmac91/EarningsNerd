@@ -74,7 +74,7 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
         const pane = page.locator(PANE)
         await expect(pane.getByText('The full filing text is not available to view in-app yet.')).toBeVisible()
         await expect(pane.getByRole('link', { name: /open the original on sec\.gov/i })).toHaveAttribute('href', DOCUMENT)
-        await expect(pane.getByRole('link', { name: 'Original on SEC.gov', exact: true })).toHaveAttribute('href', DOCUMENT)
+        await expect(pane.getByRole('link', { name: 'Original on SEC.gov (opens in a new tab)', exact: true })).toHaveAttribute('href', DOCUMENT)
         // Opening on the Filing tab neither focuses the composer nor shows the Ask teaser.
         expect(await activeName(page)).not.toBe('TEXTAREA')
         await expect(pane.getByRole('textbox')).toHaveCount(0)

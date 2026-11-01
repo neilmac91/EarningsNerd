@@ -100,11 +100,15 @@ function srOnly(node: ts.JsxChild, sourceFile: ts.SourceFile): boolean {
   )
 }
 
-/** The children a reader sees: no whitespace-only text, no empty expression (a JSX comment is one), no sr-only element. */
+/** True where the child renders only whitespace: whitespace text, or a string of it in braces (`{' '}`, the space a hidden
+    name tail brings before it). */
+const blank = (child: ts.JsxChild) =>
+  (ts.isJsxText(child) && child.text.trim() === '') ||
+  (ts.isJsxExpression(child) && !!child.expression && ts.isStringLiteralLike(child.expression) && child.expression.text.trim() === '')
+
+/** The children a reader sees: no whitespace, no empty expression (a JSX comment is one), no sr-only element. */
 const visible = (children: ts.NodeArray<ts.JsxChild>, sourceFile: ts.SourceFile) =>
-  children.filter(
-    (child) => !(ts.isJsxText(child) && child.text.trim() === '') && !(ts.isJsxExpression(child) && !child.expression) && !srOnly(child, sourceFile),
-  )
+  children.filter((child) => !blank(child) && !(ts.isJsxExpression(child) && !child.expression) && !srOnly(child, sourceFile))
 
 type Rendered = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
 
@@ -424,8 +428,9 @@ describe('the trailing-arrow reader, on planted sources', () => {
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
       )
+      export const C = ({ u }: { u: string }) => <a href={u} className="inline-flex gap-1">Open <ArrowSquareOutIcon />{' '}<span className="sr-only">(opens in a new tab)</span></a>
     `)
-    expect(sites.map((site) => `${site.tag} ${site.binds} ${site.glyph}`)).toEqual(['a null ArrowSquareOutIcon', 'a null ArrowSquareOutIcon'])
+    expect(sites.map((site) => `${site.tag} ${site.binds} ${site.glyph}`)).toEqual(['a null ArrowSquareOutIcon', 'a null ArrowSquareOutIcon', 'a null ArrowSquareOutIcon'])
   })
 
   it('finds the square a same-file component draws alone, the fragment that draws it with its cue, and a component that draws one', () => {

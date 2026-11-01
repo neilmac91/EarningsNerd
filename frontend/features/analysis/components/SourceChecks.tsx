@@ -17,7 +17,7 @@ export default function SourceChecks({ values }: { values: (QualityValue & { lab
         {unavailable.map((value, index) => <p key={`unavailable-${index}`}>{value.label}: unavailable. {qualityReasons(value).join(' ')}</p>)}
         {values.map((value, index) => {
           const href = sourceUrl(value.source_url ?? value.provenance?.source_url)
-          return href ? <p key={index}><a href={href} target="_blank" rel="noopener noreferrer" className={cx('rounded', countControlClass('inline'))}>{value.label} · original SEC filing</a></p> : null
+          return href ? <p key={index}><a href={href} target="_blank" rel="noopener noreferrer" className={cx('rounded', countControlClass('inline'))}>{value.label} · original SEC filing{' '}<span className="sr-only">(opens in a new tab)</span></a></p> : null
         })}
       </div>
     </details>
