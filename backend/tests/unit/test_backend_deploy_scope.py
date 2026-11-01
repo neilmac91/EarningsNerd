@@ -9,6 +9,7 @@ runs reach it, not in merge order. So the detector also skips a commit that main
 deployable backend changes, which that newer commit's own run deploys; a failed read of main fails
 the step rather than deploying (lessons/ops-a-superseded-commit-never-deploys.md).
 """
+import fnmatch
 import os
 import re
 import subprocess
@@ -140,6 +141,8 @@ def _path_cases():
           "lessons/ops-denied-reads-report-unverified.md",
           "ops/capacity/readout.py", "ops/describe/jobs.py", "ops/describe/service.py", "tasks/todo.md"], False),
         (["backend/app/config.py"], True),
+        (["backend/migrations/new.sql"], True),
+        (["backend/requirements.txt"], True),
         (["backend/migrations/new.sql", "backend/scripts/apply_migrations.sh"], True),
         (["backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt"], True),
         (["backend/tests_support/helper.py", "backend/testsuite.py"], True),
@@ -179,9 +182,13 @@ def test_a_commit_main_superseded_with_deployable_changes_does_not_deploy(tmp_pa
 
 def test_each_backend_entry_is_judged_alike_on_both_sides(tmp_path):
     """One tracked file from each top-level backend/ entry, judged as this commit's change and as main's
-    newer change: it deploys this commit exactly when it supersedes an older one. So the detector's two
-    sides cannot drift apart, even for an entry that no case names."""
+    newer change. It deploys exactly when backend/.dockerignore names no directory it sits in (its
+    single-file patterns, such as .gitignore, are not mirrored), and it deploys this commit exactly when
+    it supersedes an older one. So the detector mirrors the image's directories, and its two sides
+    cannot drift apart, even for an entry that no case names."""
     shell = GIT_STUB + _detect_step(_workflow())["run"]
+    ignored = [line.strip().rstrip("/") for line in (ROOT / "backend/.dockerignore").read_text().splitlines()
+               if line.strip().endswith("/")]
     probes = {}
     for path in subprocess.check_output(["git", "ls-files", "backend/"], cwd=ROOT, text=True).splitlines():
         probes.setdefault(path.split("/")[1], path)
@@ -189,6 +196,8 @@ def test_each_backend_entry_is_judged_alike_on_both_sides(tmp_path):
     for entry, path in sorted(probes.items()):
         own_env, _ = _stub_env(tmp_path, [], own_paths=[path])
         own = _run_detector(shell, ROOT, own_env, tmp_path / f"github-output-own-{entry}")
+        excluded = path.count("/") > 1 and any(fnmatch.fnmatchcase(entry, pattern) for pattern in ignored)
+        assert own == f"backend={str(not excluded).lower()}", (path, own)
         newer_env, _ = _stub_env(tmp_path, [path])
         newer = _run_detector(shell, ROOT, newer_env, tmp_path / f"github-output-newer-{entry}")
         assert (own == "backend=true") is (newer == "backend=false"), (path, own, newer)

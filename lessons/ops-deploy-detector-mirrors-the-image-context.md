@@ -23,7 +23,9 @@ Astra agent and integrated after an independent review.
 2. Every step after the detector is gated on its output (`if: steps.changes.outputs.backend == 'true'`).
    The gate `backend/tests/unit/test_backend_deploy_scope.py` executes the detector's actual shell on every
    tracked `backend/tests/` path, future nested paths, near-prefix boundaries (`backend/tests_support/`),
-   runtime, migration, container and mixed changes, and on a real-git rename; it also asserts the gating,
+   runtime, migration, container and mixed changes, on a real-git rename, and on one tracked file from
+   every top-level `backend/` entry, judged on both sides against the directories `.dockerignore`
+   names; it also asserts the gating,
    that `backend-tests` stays unconditional, and that the step keeps GitHub's default shell (the pipeline's
    exit status relies on `bash -e` without `pipefail`).
 3. When `.dockerignore` gains or loses an entry, change the detector's one path rule (its `deployable`
