@@ -117,7 +117,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                   >
                     <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
+                      <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark dark:hover:underline underline-offset-4">
                         {formatCompanyName(insight.company.name)}
                       </div>
                       <div className="truncate font-data text-sm text-text-secondary-light dark:text-text-secondary-dark">

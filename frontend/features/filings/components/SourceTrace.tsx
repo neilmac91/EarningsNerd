@@ -123,7 +123,7 @@ export function SourceTracePanelBody({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 rounded-sm text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+          className="mt-2 flex items-center gap-1 rounded-sm text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:underline underline-offset-4 dark:focus-visible:shadow-ring-brand-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {sourceLinkLabel(url)}

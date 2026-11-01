@@ -36,7 +36,7 @@ export default function TrialBanner({ isPro, status, trialEnd, className = '' }:
       </div>
       <Link
         href="/pricing"
-        className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-3 py-1.5 text-xs font-semibold transition"
+        className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-bright-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-3 py-1.5 text-xs font-semibold transition"
       >
         Keep Pro
       </Link>
