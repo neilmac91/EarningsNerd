@@ -12,10 +12,10 @@ Production call sequence (from ``_fallback_to_company_facts``):
     data = <companyfacts JSON>                     # facts.us-gaap.<Concept>.units.<unit>[]
     result = service._parse_company_facts(data, target_accession)
 
-``_parse_company_facts`` returns a dict of six metric buckets::
+``_parse_company_facts`` returns a dict of seven metric buckets::
 
     {"revenue", "net_income", "total_assets",
-     "total_liabilities", "cash_and_equivalents", "earnings_per_share"}
+     "total_liabilities", "cash_and_equivalents", "earnings_per_share", "eps_diluted"}
 
 each a list of records containing ``{"period", "value", "form", "accn"}`` newest-period-first.
 Cash records additionally retain ``raw_tag`` naming the selected qualified companyfacts concept.
@@ -30,7 +30,7 @@ behaviors on realistic data:
   * stale-concept anti-shadowing — the live
     ``RevenueFromContractWithCustomerExcludingAssessedTax`` tag wins over the
     retired ``Revenues`` tag (last used FY2019);
-  * EPS candidate order — Basic is preferred over Diluted on a period-end tie.
+  * EPS by measure — basic EPS fills earnings_per_share and diluted EPS fills eps_diluted.
 """
 
 import json
@@ -59,7 +59,7 @@ def parsed(companyfacts: dict) -> dict:
     return EdgarXBRLService()._parse_company_facts(companyfacts, TARGET_ACCESSION)
 
 
-def test_output_schema_is_the_six_metric_buckets(parsed: dict):
+def test_output_schema_is_the_seven_metric_buckets(parsed: dict):
     """The parser returns exactly these buckets, in this order, each a list."""
     assert list(parsed.keys()) == [
         "revenue",
@@ -68,6 +68,7 @@ def test_output_schema_is_the_six_metric_buckets(parsed: dict):
         "total_liabilities",
         "cash_and_equivalents",
         "earnings_per_share",
+        "eps_diluted",
     ]
     assert all(isinstance(v, list) for v in parsed.values())
 
@@ -102,9 +103,9 @@ def test_total_assets_series_matches_fixture(parsed: dict):
 
 
 def test_eps_series_prefers_basic_over_diluted(parsed: dict):
-    # EPS uses USD/shares units. On a period-end tie the candidate order
-    # (EarningsPerShareBasic before EarningsPerShareDiluted) keeps Basic, so the
-    # 2023 figure is 6.34 (Basic), NOT 6.21 (Diluted).
+    # EPS uses USD/shares units. earnings_per_share takes the basic figures and
+    # eps_diluted the diluted ones: the 2023 basic figure is 6.34, the diluted 6.21.
+    assert [e["value"] for e in parsed["eps_diluted"]] == pytest.approx([6.21, 5.09, 3.92])
     eps = parsed["earnings_per_share"]
     assert [e["period"] for e in eps] == ["2023-12-31", "2022-12-31", "2021-12-31"]
     assert [e["value"] for e in eps] == pytest.approx([6.34, 5.20, 4.01])
