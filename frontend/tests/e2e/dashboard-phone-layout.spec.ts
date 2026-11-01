@@ -11,6 +11,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    44px target), so a typical name fits whole beside the title at 375px.
  * 4. Watchlist insights cards: an explicit phone track, and below sm the ticker and status badges
  *    wrap under the company name instead of widening the card.
+ * 5. What changed's chips (E268): under 200% text a chip's figure moves under its label, so the chip
+ *    narrows to its row instead of passing its card or scrolling the page.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -65,21 +67,25 @@ function fixture(pathname: string, who: Who): unknown {
   }
 }
 
-async function signIn(page: Page, who: Who, baseURL: string) {
+/** Responses that replace the fixture's for one test, by path. */
+type Overrides = Record<string, unknown>
+
+async function signIn(page: Page, who: Who, baseURL: string, overrides: Overrides = {}) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   // Credentialed cross-origin responses need these two; Playwright answers any preflight itself.
   const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, (route) => {
-    const body = fixture(new URL(route.request().url()).pathname, who)
+    const pathname = new URL(route.request().url()).pathname
+    const body = pathname in overrides ? overrides[pathname] : fixture(pathname, who)
     return body === undefined
       ? route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } })
       : route.fulfill({ status: 200, headers: cors, json: body })
   })
 }
 
-async function openDashboard(page: Page, who: Who, baseURL: string) {
-  await signIn(page, who, baseURL)
+async function openDashboard(page: Page, who: Who, baseURL: string, overrides: Overrides = {}) {
+  await signIn(page, who, baseURL, overrides)
   await page.goto('/dashboard')
   await expect(page.getByRole('link', { name: 'Open watchlist insights' })).toBeVisible()
   await expect(page.getByText('Latest report').first()).toBeVisible()
@@ -178,3 +184,110 @@ for (const width of [320, 375, 390, 1440]) {
     }
   })
 }
+
+/** Chromium's own text setting doubled (standard 32, fixed 26), as reflow-200.spec.ts doubles it, confirmed taken. */
+async function doubleText(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe('32px')
+}
+
+/** What changed's chips (E268, chief design's review of #1877): a typical card's three and a bank's four, the bank's
+    "Noninterest income +103.9%" the longest, with the EPS name the dashboard took in E259 ("EPS (diluted)"). Under 200%
+    text a chip that could not move its figure under its label held itself at least 267px wide: the bank card made the
+    page scroll at 320 and 360px, and a typical card's chips passed its border at 320, 340 and 1024px. */
+const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, string, 'up' | 'down', string, 'gain' | 'loss']> }> = [
+  { ticker: 'AAPL', name: 'Apple Inc.', items: [
+    ['revenue', 'Revenue', 'up', '+6.4%', 'gain'],
+    ['net_income', 'Net income', 'down', '−3.0%', 'loss'],
+    ['eps_diluted', 'EPS (diluted)', 'up', '+2.1%', 'gain'],
+  ] },
+  { ticker: 'JPM', name: 'JPMorgan Chase & Co.', items: [
+    ['net_interest_income', 'Net interest income', 'up', '+4.2%', 'gain'],
+    ['noninterest_income', 'Noninterest income', 'up', '+103.9%', 'gain'],
+    ['net_income', 'Net income', 'up', '+12.0%', 'gain'],
+    ['eps_diluted', 'EPS (diluted)', 'up', '+14.5%', 'gain'],
+  ] },
+]
+const CHANGED_FEED = {
+  // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E271), so with them the
+  // page's scroll would not be the chips'.
+  '/api/watchlist/insights': [],
+  '/api/dashboard/feed': {
+    items: CHANGED.map(({ ticker, name, items }, i) => ({
+      filing_id: 200 + i, accession_number: null, company: { id: 50 + i, ticker, name }, filing_type: '10-Q',
+      filing_date: '2026-08-03', period_end_date: '2026-06-30', summary_id: 300 + i, summary_status: 'ready',
+      what_changed: {
+        headline: '', data_quality: 'ok',
+        items: items.map(([metric, label, direction, display, tone]) => ({ metric, label, direction, pct: null, current: 1, prior: 1, display, tone })),
+      },
+    })),
+  },
+}
+
+/** The dashboard with the two What changed cards and no watchlist rows: it waits for the seven chips, since with no
+    watchlist the page shows no "Open watchlist insights" link to wait for. */
+async function openFeed(page: Page, baseURL: string) {
+  await signIn(page, TYPICAL, baseURL, CHANGED_FEED)
+  await page.goto('/dashboard')
+  await expect(page.locator('[data-what-changed-chip]')).toHaveCount(7)
+  await page.evaluate(() => document.fonts.ready)
+}
+
+/** Each chip's box against its row and its card, and its label's and figure's tops. */
+async function chipGeometry(page: Page) {
+  return page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    chips: [...document.querySelectorAll<HTMLElement>('[data-what-changed-chip]')].map((chip) => {
+      const box = chip.getBoundingClientRect()
+      const row = chip.parentElement!.getBoundingClientRect()
+      const card = chip.closest('a')!.getBoundingClientRect()
+      // The chip's own group of two: its label, then its figure.
+      const [label, figure] = [...chip.querySelector(':scope > span')!.children] as HTMLElement[]
+      return {
+        name: chip.textContent, left: box.left, right: box.right, height: box.height,
+        rowLeft: row.left, rowRight: row.right, cardLeft: card.left, cardRight: card.right,
+        labelTop: label.getBoundingClientRect().top, figureTop: figure.getBoundingClientRect().top,
+        radius: getComputedStyle(chip).borderTopLeftRadius,
+      }
+    }),
+  }))
+}
+
+for (const width of [320, 340, 360, 768, 1024]) {
+  test(`What changed's chips stay inside their row at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openFeed(page, baseURL!)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+
+    const m = await chipGeometry(page)
+    expect(m.chips).toHaveLength(7)
+    expect(m.scrollWidth, 'the page does not scroll sideways').toBe(m.clientWidth)
+    for (const c of m.chips) {
+      expect(c.left, `${c.name} starts inside its row`).toBeGreaterThanOrEqual(c.rowLeft - 0.5)
+      expect(c.right, `${c.name} ends inside its row`).toBeLessThanOrEqual(c.rowRight + 0.5)
+      expect(c.right, `${c.name} ends inside its card`).toBeLessThanOrEqual(c.cardRight)
+      // The 16px step, which is 32px under 200% text: a pill on one line and a rounded box once it wraps.
+      expect(c.radius).toBe('32px')
+    }
+    // Where it does not fit beside its label, the figure moves under it: the bank's longest chip at a phone's width.
+    if (width <= 360) {
+      const bank = m.chips.find((c) => c.name?.startsWith('Noninterest income'))!
+      expect(bank.figureTop, 'its figure moves under its label').toBeGreaterThan(bank.labelTop)
+    }
+  })
+}
+
+test("What changed's chips keep one line at 1440px at the default text size", async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await openFeed(page, baseURL!)
+  const m = await chipGeometry(page)
+  expect(m.chips).toHaveLength(7)
+  for (const c of m.chips) {
+    expect(c.figureTop, `${c.name} keeps its figure beside its label`).toBe(c.labelTop)
+    expect(c.radius).toBe('16px')
+  }
+})
