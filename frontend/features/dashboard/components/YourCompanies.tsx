@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowRightIcon, XIcon } from '@/lib/icons'
+import { XIcon } from '@/lib/icons'
 import { removeFromWatchlist, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
@@ -15,6 +15,7 @@ import { Card, GuidanceCard, Skeleton } from '@/components/ui'
 import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
+import TrailingArrowLabel from './TrailingArrowLabel'
 
 interface YourCompaniesProps {
   insights: WatchlistInsight[] | undefined
@@ -170,12 +171,14 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
             })}
           </Card>
           <div className="mt-4 text-right">
+            {/* As the feed's "See all" link (E274): the arrow keeps with the last word, so under 200% text, where
+                the label wraps on a phone, it sits after "insights" rather than between the lines; inline-block
+                keeps the link one box for its ring, and the inset keeps the ring's corners off the words. */}
             <Link
               href="/dashboard/watchlist"
-              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className="-mx-1 inline-block rounded-lg px-1 text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
-              Open watchlist insights
-              <ArrowRightIcon className="h-4 w-4" />
+              <TrailingArrowLabel>Open watchlist insights</TrailingArrowLabel>
             </Link>
           </div>
         </>

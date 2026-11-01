@@ -555,6 +555,17 @@ Count control    A link or control whose label carries a count, a date, an index
                  file's bindings (a same-file variable, a same-file function's return) and inside an
                  app component in it that turns its children or a count of its own sage. The two
                  labels outside the helper are review-checked, and so is what the header names.
+Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link) is TrailingArrowLabel
+                 (features/dashboard/components/TrailingArrowLabel.tsx): the last word and the arrow in one no-wrap
+                 run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow onto
+                 its last line, never between the lines or to the far edge. It takes its words as children, so a
+                 count in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above). It serves
+                 What changed's call to action (since E272), the feed's "See all N companies" and Your companies'
+                 "Open watchlist insights" (E274). A link that stands alone and can wrap is inline-block with a 4px
+                 inset (-mx-1 px-1), so it paints one box and its ring clears its words; a prose link keeps a ring
+                 per line (box-decoration-clone, Links in both surfaces, above). Gate:
+                 tests/e2e/dashboard-phone-layout.spec.ts (each arrow on its last word's line, one box, the words
+                 inside the link's 0.25rem inset).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -3236,8 +3247,10 @@ company ("AAPL · Apple Inc. · #3 of 9 · FY2025 · year ended Sep 27, 2025"), 
 with the rank kept on one line (no-break spaces);
 the values stop says the same in its own order, "Apple Inc., AAPL, this company, rank 3 of 9, FY2025, year ended
 September 27, 2025. Revenue: …", a derived figure "Calculated". Every label is the metric the answer
-ranks on, its `concept`, so a bank asked for revenue that answers net interest income says so in the picker's first
-option, the plot's name, the rank line, the footnote and the readout. The card: the heading, `h2` at `text-xl`; the rank
+ranks on, its `concept`, so a commercial bank or savings institution, whose industry ranks on net interest income by
+default (SIC 6021, 6022, 6029, 6035, 6036; F69), says so in the picker's first option, the plot's name, the rank line,
+the footnote and the readout. The endpoint leaves out a company whose figure ended more than 548 days before its
+group's newest (F69), so the years the chart sets side by side are at most eighteen months apart. The card: the heading, `h2` at `text-xl`; the rank
 line in the secondary ink ("AAPL ranks #3 of 9 on revenue", over the companies with a value, never `peer_count`, which
 counts withheld entries; no percentile); the picker, the retired panel's nine metrics, their labels and formats from
 FEATURED, the compact select at Financial trends' one width (`w-56`); the footnote in the tertiary ink ("Companies with the
