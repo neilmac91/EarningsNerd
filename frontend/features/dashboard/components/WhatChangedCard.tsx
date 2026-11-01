@@ -66,16 +66,18 @@ function MetricChip({ item }: { item: WhatChangedItem }) {
   const tone = TONE[item.tone] ?? item.direction ?? 'flat'
   const shown = item.direction !== 'flat' && item.display
   // Under 200% text a chip's label and figure can need two lines ("Noninterest income +103.9%" on a bank's card at 320px):
-  // the figure moves under its label, so the chip narrows to its row instead of passing it (E268, chief design on #1877),
-  // and the chip takes the 16px radius of a chip that can wrap (DESIGN.md's radius scale): a pill on one line, a rounded
-  // box once it wraps. The glyph stays beside the group, centred, as the other wrapping chips keep theirs.
+  // the figure moves under its label, and a word still wider than the group breaks inside it, the house's last resort
+  // ([overflow-wrap:anywhere], as on the legal pages: "Noninterest" in the two-column feed at 640 and 1024px), so the chip
+  // shrinks to its row instead of passing it (E268, chief design on #1877). It takes the 16px radius of a chip that can
+  // wrap (DESIGN.md's radius scale): a pill on one line, a rounded box once it wraps. The glyph stays beside the group,
+  // centred, as the other wrapping chips keep theirs.
   return (
     <span
       data-what-changed-chip
-      className={`inline-flex max-w-full items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-medium ${directionChip[tone]}`}
+      className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-medium ${directionChip[tone]}`}
     >
       <Icon aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0" />
-      <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1 [overflow-wrap:anywhere]">
         <span>{item.label}</span>
         {shown ? (
           <span className="font-data font-semibold">{item.display}</span>

@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test'
  * 4. Watchlist insights cards: an explicit phone track, and below sm the ticker and status badges
  *    wrap under the company name instead of widening the card.
  * 5. What changed's chips (E268): under 200% text a chip's figure moves under its label, so the chip
- *    narrows to its row instead of passing its card or scrolling the page.
+ *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -84,8 +84,8 @@ async function signIn(page: Page, who: Who, baseURL: string, overrides: Override
   })
 }
 
-async function openDashboard(page: Page, who: Who, baseURL: string, overrides: Overrides = {}) {
-  await signIn(page, who, baseURL, overrides)
+async function openDashboard(page: Page, who: Who, baseURL: string) {
+  await signIn(page, who, baseURL)
   await page.goto('/dashboard')
   await expect(page.getByRole('link', { name: 'Open watchlist insights' })).toBeVisible()
   await expect(page.getByText('Latest report').first()).toBeVisible()
@@ -210,8 +210,9 @@ const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, strin
   ] },
 ]
 const CHANGED_FEED = {
-  // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E271), so with them the
-  // page's scroll would not be the chips'.
+  // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E273), so with them the
+  // page's scroll would not be the chips'. The cards' headers stay: at 320px the date column ends 11.7px inside the
+  // viewport in CI's fonts, but in fonts that paint wider it can reach past it (E272), and the page check reads it too.
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
     items: CHANGED.map(({ ticker, name, items }, i) => ({
@@ -234,28 +235,54 @@ async function openFeed(page: Page, baseURL: string) {
   await page.evaluate(() => document.fonts.ready)
 }
 
-/** Each chip's box against its row and its card, and its label's and figure's tops. */
+/** Each chip's box against its row and its card, and where Chromium paints its label and figure: their text's line
+    boxes through a Range (as admin-invite-chip-reflow.spec.ts reads EmailChipsInput's chip), so text that spills out of
+    its own box still counts, against the chip's content box (inside its border and padding). */
 async function chipGeometry(page: Page) {
-  return page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    chips: [...document.querySelectorAll<HTMLElement>('[data-what-changed-chip]')].map((chip) => {
-      const box = chip.getBoundingClientRect()
-      const row = chip.parentElement!.getBoundingClientRect()
-      const card = chip.closest('a')!.getBoundingClientRect()
-      // The chip's own group of two: its label, then its figure.
-      const [label, figure] = [...chip.querySelector(':scope > span')!.children] as HTMLElement[]
-      return {
-        name: chip.textContent, left: box.left, right: box.right, height: box.height,
-        rowLeft: row.left, rowRight: row.right, cardLeft: card.left, cardRight: card.right,
-        labelTop: label.getBoundingClientRect().top, figureTop: figure.getBoundingClientRect().top,
-        radius: getComputedStyle(chip).borderTopLeftRadius,
-      }
-    }),
-  }))
+  return page.evaluate(() => {
+    const lines = (el: Element | undefined) => {
+      if (!el?.firstChild) return []
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      return [...range.getClientRects()].map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }))
+    }
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      chips: [...document.querySelectorAll<HTMLElement>('[data-what-changed-chip]')].map((chip) => {
+        const box = chip.getBoundingClientRect()
+        const style = getComputedStyle(chip)
+        const row = chip.parentElement!.getBoundingClientRect()
+        const card = chip.closest('a')!.getBoundingClientRect()
+        // The chip's own group of two: its label, then its figure.
+        const [label, figure] = [...chip.querySelector(':scope > span')!.children]
+        return {
+          name: chip.textContent, left: box.left, right: box.right,
+          rowLeft: row.left, rowRight: row.right, cardRight: card.right,
+          content: {
+            left: box.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+            right: box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+          },
+          label: lines(label), figure: lines(figure),
+          radius: style.borderTopLeftRadius,
+        }
+      }),
+    }
+  })
 }
 
-for (const width of [320, 340, 360, 768, 1024]) {
+type Chip = Awaited<ReturnType<typeof chipGeometry>>['chips'][number]
+
+/** Every line of the chip's label and figure is painted inside its content box: a word that cannot break, or a figure
+    held beside a label that cannot narrow, runs past it. */
+function expectTextInside(c: Chip) {
+  for (const line of [...c.label, ...c.figure]) {
+    expect(line.left, `${c.name}: its text starts inside the chip`).toBeGreaterThanOrEqual(c.content.left - 0.5)
+    expect(line.right, `${c.name}: its text ends inside the chip`).toBeLessThanOrEqual(c.content.right + 0.5)
+  }
+}
+
+for (const width of [320, 340, 360, 640, 768, 1024]) {
   test(`What changed's chips stay inside their row at ${width}px under 200% text`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: 900 })
     await openFeed(page, baseURL!)
@@ -270,14 +297,16 @@ for (const width of [320, 340, 360, 768, 1024]) {
       expect(c.left, `${c.name} starts inside its row`).toBeGreaterThanOrEqual(c.rowLeft - 0.5)
       expect(c.right, `${c.name} ends inside its row`).toBeLessThanOrEqual(c.rowRight + 0.5)
       expect(c.right, `${c.name} ends inside its card`).toBeLessThanOrEqual(c.cardRight)
+      expectTextInside(c)
       // The 16px step, which is 32px under 200% text: a pill on one line and a rounded box once it wraps.
       expect(c.radius).toBe('32px')
     }
-    // Where it does not fit beside its label, the figure moves under it: the bank's longest chip at a phone's width.
-    if (width <= 360) {
-      const bank = m.chips.find((c) => c.name?.startsWith('Noninterest income'))!
-      expect(bank.figureTop, 'its figure moves under its label').toBeGreaterThan(bank.labelTop)
-    }
+    // The bank's longest chip does not fit beside its label at any of these widths: its figure moves under the label's
+    // last line, never beside it.
+    const bank = m.chips.find((c) => c.name?.startsWith('Noninterest income'))!
+    const labelBottom = Math.max(...bank.label.map((line) => line.bottom))
+    expect(bank.figure).toHaveLength(1)
+    expect(bank.figure[0].top, 'its figure moves under its label').toBeGreaterThanOrEqual(labelBottom - 0.5)
   })
 }
 
@@ -287,7 +316,10 @@ test("What changed's chips keep one line at 1440px at the default text size", as
   const m = await chipGeometry(page)
   expect(m.chips).toHaveLength(7)
   for (const c of m.chips) {
-    expect(c.figureTop, `${c.name} keeps its figure beside its label`).toBe(c.labelTop)
+    expect(c.label, `${c.name} keeps its label on one line`).toHaveLength(1)
+    expect(c.figure, `${c.name} keeps its figure on one line`).toHaveLength(1)
+    expect(c.figure[0].top, `${c.name} keeps its figure beside its label`).toBe(c.label[0].top)
+    expectTextInside(c)
     expect(c.radius).toBe('16px')
   }
 })

@@ -2588,8 +2588,9 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
   Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
   (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
   turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
-  admin email chip in EmailChipsInput, the dashboard's What changed chip in WhatChangedCard, its figure
-  under its label where the two do not fit, and `<Badge wrap>` below a 24rem viewport).
+  admin email chip in EmailChipsInput, the dashboard's What changed chip in WhatChangedCard (its figure
+  moves under its label where the two do not fit beside each other, and a word wider than the chip
+  breaks inside it), and `<Badge wrap>` below a 24rem viewport).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.

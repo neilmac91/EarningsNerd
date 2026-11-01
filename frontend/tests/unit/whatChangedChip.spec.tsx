@@ -92,15 +92,16 @@ describe('the what-changed chip', () => {
   })
 
   it('lets its figure wrap under its label at the 16px radius of a chip that can wrap (E268)', () => {
-    // jsdom applies no stylesheet, so the classes are the claim; dashboard-phone-layout.spec.ts measures the wrap at
-    // 320 to 1024px under 200% text.
+    // jsdom applies no stylesheet, so the classes are the claim; dashboard-phone-layout.spec.ts measures the wrap and
+    // the painted text at 320 to 1024px under 200% text.
     render(<WhatChangedCard item={feedItem([metric({ metric: 'nii', label: 'Noninterest income', display: '+103.9%' })])} />)
     const chip = chipOf('Noninterest income')
-    expect(chip).toHaveClass('inline-flex', 'max-w-full', 'rounded-xl')
+    expect(chip).toHaveClass('inline-flex', 'rounded-xl')
     expect(chip).not.toHaveClass('rounded-full')
     const label = screen.getByText('Noninterest income')
     const group = label.parentElement!
-    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap')
+    // A word wider than the group breaks inside it, the house's last resort, rather than run into the chip's border.
+    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap', '[overflow-wrap:anywhere]')
     expect(group).toContainElement(screen.getByText('+103.9%'))
     expect(chip.querySelector('svg[data-glyph]')).toHaveClass('flex-shrink-0')
   })
