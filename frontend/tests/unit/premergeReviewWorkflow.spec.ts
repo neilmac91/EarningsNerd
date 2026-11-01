@@ -46,11 +46,10 @@
  *       mix of claims and answers the sweep's draws never produce, such as an exact count of verified reports), only on
  *       what they hold fixed (the form of the files, titles and words) or only on a part of the runtime the harness
  *       does not mirror (a clock or randomness read other than the three it makes throw, such as `Date()` called
- *       without `new` or `performance.now()`), and that either calls no agent of its own (it judges a copy on another
- *       copy's votes, say) or
- *       reaches one through the lenses' or the refuters' own call (a helper that builds their prompt and calls
- *       `agent`) or through a name built at run time that the static case does not list (the Function constructor
- *       reached as a property, say);
+ *       without `new`, a `Date` reached through an instance, or `performance.now()`), and that either calls no agent
+ *       of its own (it judges a copy on another copy's votes, say) or reaches one through the lenses' or the refuters'
+ *       own call (a helper that builds their prompt and calls `agent`) or through a name built at run time that the
+ *       static case does not list (the Function constructor reached as a property, say);
  *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none or sets one
  *     outside the three severities, and the highest holding wins whichever refuter gives it: a should-fix raised
  *     to blocker, by one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter
@@ -73,7 +72,7 @@
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
  * to null, and a throwing thunk resolves to null. `budget` has no target, and `workflow` is passed on to `agent` under a
  * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many. As
- * in the runtime, `Date.now()`, an argless `new Date()` and `Math.random()` throw.
+ * in the runtime, the script runs in strict mode, and `Date.now()`, an argless `new Date()` and `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -147,7 +146,9 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
     get: (target, key, receiver) => (key === 'now' ? throws('Date.now()') : Reflect.get(target, key, receiver)),
   })
   const RuntimeMath = Object.create(Math, { random: { value: throws('Math.random()') } })
-  const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'budget', 'workflow', 'Date', 'Math', `return (async () => {${source}})()`)
+  // Strict, as the runtime compiles it: a strict function exposes no `.arguments` and no stack frame's function, so the
+  // script cannot reach these hooks by position.
+  const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'budget', 'workflow', 'Date', 'Math', `'use strict'; return (async () => {${source}})()`)
   return (args, agent) => {
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
     const workflow = (ref: unknown, input?: unknown) =>
@@ -206,8 +207,9 @@ const AGENT_USES = ['lensPrompt', 'refuterPrompt']
 const REACHING_NAMES = new Set(['workflow', 'budget', 'arguments', 'eval', 'Function', 'globalThis', 'global', 'self', 'window'])
 
 // Each reference to `agent` in `source`, as the prompt builder it is called directly on or as the code that holds or
-// calls it otherwise, and each use of a reaching name or `this`, sorted. A property name or an object key spelled like
-// one of them is not a reference.
+// calls it otherwise, and each use of a reaching name or `this`, sorted. The name after a dot and an object literal's
+// key spelled like one of them are not references; any other spelling counts (a destructured key, a method or a class
+// field named `agent`), which keeps the check strict.
 function agentUses(source: string): string[] {
   const file = ts.createSourceFile('premerge-review.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
   const uses: string[] = []
@@ -653,10 +655,12 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it("lets a PR's own tier beat the batch tier", async () => {
-    const { agent } = stub()
+    const { agent, calls } = stub()
     const results = (await load()({ prs: [pr('high'), pr()], tier: 'routine' }, agent)) as Result[]
     expect(results.map((r) => r.tier)).toEqual(['high', 'routine'])
     expect(results.map((r) => r.agents)).toEqual([3 + 6 * 2, 2])
+    // The agents a batch actually runs, not only the ones it reports: a stage that fires only in a batch shows here.
+    expect(calls).toHaveLength(3 + 6 * 2 + 2)
   })
 
   it('reviews a PR with no tier as high', async () => {
