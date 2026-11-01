@@ -47,15 +47,15 @@ const FLOOR = 4.5
 
 /** A number as CSS spells one (`1`, `0.14`, `.5`): `1.` and `.` are not, and the browser drops a declaration with one. */
 const NUMBER = String.raw`(?:\d+(?:\.\d+)?|\.\d+)`
-const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+const HEX = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const RGB = new RegExp(String.raw`^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(${NUMBER})\s*)?\)$`)
 
-/** A hex (#rgb, #rrggbb, #rrggbbaa) or a comma-separated rgb()/rgba(), or null: a channel over 255 or an alpha over 1,
+/** A hex (#rgb, #rgba, #rrggbb, #rrggbbaa) or a comma-separated rgb()/rgba(), or null: a channel over 255 or an alpha over 1,
  *  which the browser would clamp, is not read as written but refused. */
 function parse(value: string): Rgba | null {
   const hex = HEX.exec(value)
   if (hex) {
-    const digits = hex[1].length === 3 ? [...hex[1]].map((c) => c + c).join('') : hex[1]
+    const digits = hex[1].length <= 4 ? [...hex[1]].map((c) => c + c).join('') : hex[1]
     const [r, g, b, a = 255] = (digits.match(/../g) as string[]).map((v) => parseInt(v, 16))
     return [r, g, b, a / 255]
   }
@@ -249,8 +249,8 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     expect(underTheFloor('plant', down.replace('dark:bg-loss-soft-dark', 'dark:bg-loss-soft-dark/20'))).toEqual([
       'plant: bg-loss-soft-dark/20 sets an opacity on a colour with its own alpha, which Tailwind replaces',
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB71]'))).toEqual([
-      'plant: text-[#FB71] looks like a colour this spec cannot read',
+    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB718]'))).toEqual([
+      'plant: text-[#FB718] looks like a colour this spec cannot read',
     ])
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[var(--ink)]'))).toEqual([
       'plant: text-[var(--ink)] looks like a colour this spec cannot read',
@@ -261,6 +261,8 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
       "plant: text-loss-dark/[1.]'s opacity cannot be read as one between 0 and 1",
     ])
     for (const [from, to] of [
+      ['dark:text-loss-dark', 'text-[rgba(255,150,161,1.)]'],
+      ['dark:text-loss-dark', 'text-[rgba(255,150,161,0.)]'],
       ['dark:text-loss-dark', 'text-[rgba(251,113,133,.)]'],
       ['dark:text-loss-dark', 'text-[rgba(251,113,133,2)]'],
       ['dark:text-loss-dark', 'text-[rgb(300,113,133)]'],
@@ -268,8 +270,13 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     ]) {
       expect(underTheFloor('plant', down.replace(from, `dark:${to}`))).toEqual([`plant: ${to} looks like a colour this spec cannot read`])
     }
-    // White's #fff, the dark tint idiom (bg-white/5), is read: the flat chip on it reads above the floor.
+    // White's #fff, the dark tint idiom (bg-white/5), is read: the flat chip on it reads above the floor, and #fff and
+    // #ffff read as white (white on white is 1:1).
     expect(underTheFloor('plant', directionChip.flat.replace('dark:bg-flat-dark/10', 'dark:bg-white/5'))).toEqual([])
+    expect(underTheFloor('plant', 'text-loss-text bg-loss-soft dark:text-[#ffff] dark:bg-white')).toEqual([
+      'plant (dark) on the panel: 1.00:1 in its tint, under 4.5:1',
+      'plant (dark) on the page: 1.00:1 in its tint, under 4.5:1',
+    ])
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/98'))).toEqual([
       "plant: text-loss-dark/98's opacity is off Tailwind's scale, so it emits no CSS for it",
     ])

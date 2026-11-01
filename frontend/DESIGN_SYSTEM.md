@@ -1395,7 +1395,8 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt); their labels hold 4.5:1 in
-                 their tints in both themes (tests/unit/directionChipContrast.spec.ts, E282). `new` is the brand tint, `brand`'s
+                 their tints in both themes (tests/unit/directionChipContrast.spec.ts, E282).
+                 `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
                  dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
                  caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one

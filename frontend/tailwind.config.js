@@ -40,8 +40,8 @@ const loss = {
   text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); lib/financialTone directionText resolves to this
   // Dark delta text: rose-400's hue, lightened until a down chip reads level with an up chip (E282, D-074; OKLCH L 0.79,
   // near the gain ink's 0.77). 7.08:1 on panel, 9.08:1 on navy; a down chip's 12px label is 5.76:1 in its tint on the
-  // panel, beside the up chip's 5.72:1, where rose-400 #FB7185
-  // was 4.44:1, under AA (tests/unit/directionChipContrast.spec.ts). The tint below keeps rose-400.
+  // panel, beside the up chip's 5.72:1, where rose-400 #FB7185 was 4.44:1, under AA
+  // (tests/unit/directionChipContrast.spec.ts). The tint below keeps rose-400.
   dark: '#FF96A1',
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
