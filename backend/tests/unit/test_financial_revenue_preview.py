@@ -777,6 +777,7 @@ def test_a_ticker_list_is_refused_before_any_sec_read(db, tmp_path, capsys, sec,
 
 def test_more_companies_to_read_than_the_cap_are_refused_with_their_list_and_pending_ones_cost_nothing(
         db, tmp_path, capsys, sec, monkeypatch):
+    assert preview.MAX_PREVIEWED == 500  # the run cap E264's step (2) fixed; the founder batches by tickers above it
     to_read = _companies(db, sec, 3)
     _companies(db, sec, 2, synced=OLD, start=200)
     monkeypatch.setattr(preview, "MAX_PREVIEWED", 2)
