@@ -15,6 +15,7 @@ import ast
 import copy
 import json
 import uuid
+from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
 
@@ -214,6 +215,34 @@ def test_the_fee_tag_is_judged_at_the_latest_year_it_shares():
     assert 2025 not in years and _fee_rows(facts) == []
 
 
+def _quarter_shape(fee_q1_2017, beside=None):
+    """AXP's shape as SEC served it from its Q1 2018 10-Q until its FY2018 10-K: the net total's FY2017 and Q1 2017
+    (from the 10-K), and the fee tag's Q1 2017 and Q1 2018 (from the 10-Qs), so the two share a quarter but no year."""
+    usgaap = {RNOIE: {"units": {"USD": [_item(33.5e9, "2017-12-31", "2017-01-01", "K17", filed="2018-02-15"),
+                                        _item(7.9e9, "2017-03-31", "2017-01-01", "K17", filed="2018-02-15")]}},
+              FEE: {"units": {"USD": [_item(fee_q1_2017, "2017-03-31", "2017-01-01", "Q117", form="10-Q",
+                                            filed="2017-04-25", fp="Q1"),
+                                      _item(6.6e9, "2018-03-31", "2018-01-01", "Q118", form="10-Q", filed="2018-04-25",
+                                            fp="Q1")]}}}
+    if beside:
+        usgaap[beside] = {"units": {"USD": [_item(1.0e9, "2018-03-31", "2018-01-01", "Q118", form="10-Q",
+                                                  filed="2018-04-25", fp="Q1")]}}
+    return {"facts": {"us-gaap": usgaap}}
+
+
+def test_a_shared_quarter_refuses_a_fee_tag_below_the_total():
+    payload = _quarter_shape(6.0e9)  # 6.0 against the total's 7.9
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
+    assert _fee_rows(_facts(payload)) == []
+
+
+@pytest.mark.parametrize("beside,tags", [(None, (RNOIE, FEE)), ("InterestIncomeExpenseNet", (RNOIE,))])
+def test_a_shared_quarter_never_admits_the_fee_tag_on_its_own(beside, tags):
+    # The fee tag matches the total at the one quarter they share; whether it fills Q1 2018 is the component test's.
+    payload = _quarter_shape(7.9e9, beside)
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+
+
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_the_authority_reads_the_feeds_revenue(ticker):
     payload = _load(ticker)
@@ -231,24 +260,27 @@ def test_the_default_authority_is_unchanged():
 
 
 @pytest.mark.parametrize("ticker", TICKERS)
-def test_never_the_fee_line_where_a_total_reports_more_at_any_cutoff(ticker):
-    """Rule 12: replayed as SEC served it each March, no revenue row (or calculation operand) carries the fee tag at a
-    period any total tag reports more than 1% above it, in the full fixture; the fee-subset filers carry none at all."""
+def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker):
+    """Rule 12: replayed as SEC served it at every filing date in the fixture, each state the payload passed through,
+    no revenue row (or calculation operand) carries the fee tag at a period any total tag reports more than 1% above
+    it, in the full fixture; the fee-subset filers carry none at all."""
     full = _load(ticker)
     totals: dict = {}
     for tag in fi_revenue.TOTAL_TAGS:
         listed = full["facts"]["us-gaap"].get(tag, {}).get("units", {}).get("USD", [])
         for key, _start, value, _item_ in admitted_items(listed, instant=False):
             totals.setdefault(key, []).append(value)
-    for year in range(2013, 2028):
-        rows = _fee_rows(_facts(_as_of(full, f"{year}-03-31")))
-        assert not (rows and ticker in ("IBKR", "AMT", "AXP", "KKR", "MET")), (year, rows[:1])
+    filed = sorted({i["filed"] for node in full["facts"]["us-gaap"].values() for items in node["units"].values()
+                    for i in items})
+    for cutoff in filed:
+        rows = _fee_rows(_facts(_as_of(full, cutoff)))
+        assert not (rows and ticker in ("IBKR", "AMT", "AXP", "KKR", "MET")), (cutoff, rows[:1])
         for fact in rows:
             for tag, start, end, value in _operands(fact):
                 start = date.fromisoformat(start) if isinstance(start, str) else start
                 end = date.fromisoformat(end) if isinstance(end, str) else end
                 larger = [v for v in totals.get((end, _classify_duration(start, end)), []) if v > value * 1.01]
-                assert larger == [], (year, end, value)
+                assert larger == [], (cutoff, end, value)
 
 
 def test_the_total_tags_stay_out_of_the_generic_registries():
@@ -265,14 +297,63 @@ def _calls(path, name):
             and getattr(node.func, "id", getattr(node.func, "attr", None)) == name]
 
 
+_AUTHORITY = "extract_authoritative_values"
+
+
+def _authority_uses(path):
+    """Each use of extract_authoritative_values in ``path`` as (scope, how): "call" for a direct call that passes
+    financial=, "bare" for a direct call without it, and "other" for a use that would hide a call from the gate (an
+    aliased import, a bound name, a partial, an argument). A name built at run time (getattr with a string) is beyond
+    an AST walk."""
+    tree = ast.parse(path.read_text())
+    parent = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+    def scope(node):
+        names = []
+        while node in parent:
+            node = parent[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.append(node.name)
+        return ".".join(reversed(names)) or "<module>"
+
+    def named(node):
+        name = getattr(node, "id", getattr(node, "attr", None))
+        return isinstance(node, (ast.Name, ast.Attribute)) and name == _AUTHORITY
+
+    uses, direct = [], set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and named(node.func):
+            direct.add(node.func)
+            uses.append((scope(node), "call" if any(k.arg == "financial" for k in node.keywords) else "bare"))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            uses += [(scope(node), "other") for alias in node.names
+                     if alias.name.split(".")[-1] == _AUTHORITY and alias.asname not in (None, _AUTHORITY)]
+    return uses + [(scope(node), "other") for node in ast.walk(tree) if named(node) and node not in direct]
+
+
+@pytest.mark.parametrize("source,how", [
+    ("from app.services.facts.reconcile import extract_authoritative_values as read\nread(p)\n", "other"),
+    ("from app.services import facts_service\nread = facts_service.extract_authoritative_values\nread(p)\n", "other"),
+    ("import functools\nfrom app.services.facts.reconcile import extract_authoritative_values\n"
+     "functools.partial(extract_authoritative_values)\n", "other"),
+    ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p)\n", "bare"),
+    ("from app.services.facts import reconcile\nreconcile.extract_authoritative_values(p, financial=True)\n", "call"),
+])
+def test_the_authority_gate_reads_every_form_it_names(tmp_path, source, how):
+    path = tmp_path / "planted.py"
+    path.write_text(source)
+    assert [found for _scope, found in _authority_uses(path)] == [how]
+
+
 def test_every_authority_call_names_its_filer():
-    """Rule 12: every caller of extract_authoritative_values in app/, scripts/ and evals/ passes financial=, but E211's
-    temporary proxy step, whose one financial company (JPM) files no ASC 606 tag; it leaves with E211 (todo E206)."""
-    allowed = {"app/services/proxy_fact_repair.py"}
-    missing = sorted({p.relative_to(BACKEND).as_posix() for root in ("app", "scripts", "evals")
-                      for p in (BACKEND / root).rglob("*.py") for call in _calls(p, "extract_authoritative_values")
-                      if not any(k.arg == "financial" for k in call.keywords)} - allowed)
-    assert missing == []
+    """Rule 12: every use of extract_authoritative_values in app/, scripts/ and evals/ is a direct call that passes
+    financial=, but E211's temporary proxy step: one bare call, in _Planner.__init__, whose one financial company
+    (JPM) files no ASC 606 tag. It leaves with E211 (todo E206), and the pin fails once it is stale."""
+    found = Counter((path.relative_to(BACKEND).as_posix(), scope, how)
+                    for root in ("app", "scripts", "evals") for path in (BACKEND / root).rglob("*.py")
+                    if _AUTHORITY in path.read_text()  # a use the walk can read names it
+                    for scope, how in _authority_uses(path) if how != "call")
+    assert found == {("app/services/proxy_fact_repair.py", "_Planner.__init__", "bare"): 1}
 
 
 def test_the_collector_and_the_census_read_the_same_choice():

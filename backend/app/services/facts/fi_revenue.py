@@ -12,8 +12,8 @@ per-period merge (the first tag with data wins a period):
    beside its net total). Sharing none, it does not fill. Periods are years where two tags share any, else quarters.
 2. The fee element last, so it fills only periods no total reports, and only when it is the filer's total: at the
    latest year it shares with the totals its value matches theirs (ICE, NDAQ, EQIX, O, PNC), or it shares no year
-   with them and no period of it carries positive interest, premium, investment or lease revenue beside it (BLK,
-   TROW).
+   with them, matches them at the latest quarter they share if they share one (a quarter can refuse it, never admit
+   it), and no period of it carries positive interest, premium, investment or lease revenue beside it (BLK, TROW).
 
 A lender without a total gets no revenue row (SYF): its top line stays its net interest income.
 """
@@ -78,8 +78,10 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
         chosen.append(tag)
         for key, values in series.items():
             held.setdefault(key, values)
-    if years := [key for key in set(fee) & set(held) if key[1] == "FY"]:
-        admit = _matches(_read(fee[max(years)]), held[max(years)])
+    shared = _shared(fee, held)  # the years both report, else the quarters
+    agrees = bool(shared) and _matches(_read(fee[max(shared)]), held[max(shared)])
+    if shared and (max(shared)[1] == "FY" or not agrees):  # a shared year decides; a shared quarter can only refuse
+        admit = agrees
     else:
         beside = [_items(usgaap, tag, unit, foreign) for tag in NON_606_TAGS]
         admit = bool(fee) and not any(v > 0 for key in fee for got in beside for _, v in got.get(key, ()))
