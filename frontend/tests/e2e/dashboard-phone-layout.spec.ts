@@ -347,7 +347,8 @@ test("What changed's chips keep one line at 1440px at the default text size", as
 /** The What changed card's header and call to action (E272, chief design on #1897): where the card's content box is
     narrower than the 21rem the header needs side by side, the date column moves under the company line and the name
     wraps, so each painted line of the name, the ticker and the date column sits inside the card, the company line and
-    the date column never overlap, the name shows whole, and "Read summary" keeps its arrow on its last word's line. */
+    the date column never overlap, the name shows whole, and "Read summary" keeps its arrow on its last word's line.
+    Stacked, the logo keeps to the name's first line, and the date ("Aug 3, 2026") keeps whole (chief design on #1900). */
 async function headerGeometry(page: Page) {
   return page.evaluate(() => {
     const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
@@ -366,6 +367,10 @@ async function headerGeometry(page: Page) {
       }
       const [company, dates] = [...header.children] as HTMLElement[]
       const [name, ticker] = [...company.lastElementChild!.children] as HTMLElement[]
+      // The logo, where it shows (it gives way below 7.25rem), and the date's own words.
+      const logo = company.children.length > 1 ? (company.firstElementChild as HTMLElement) : null
+      const logoShown = !!logo && getComputedStyle(logo).display !== 'none'
+      const date = dates.lastElementChild!.querySelector('span')!
       // The call to action's last word: the line box of its last text node's last line, whatever wraps it; and how
       // many lines its words take.
       const cta = card.lastElementChild as HTMLElement
@@ -400,6 +405,8 @@ async function headerGeometry(page: Page) {
         companyBox: box(company.getBoundingClientRect()), datesBox: box(dates.getBoundingClientRect()),
         nameCut: name.scrollWidth - name.clientWidth, splitWords,
         arrow: box(cta.querySelector('svg')!.getBoundingClientRect()), lastWord: lastLines[lastLines.length - 1], ctaLines,
+        logo: logoShown ? box(logo!.getBoundingClientRect()) : null,
+        dateText: date.textContent!, dateLineCount: new Set(lines(date).map((line) => Math.round(line.top))).size,
       }
     })
   })
@@ -428,11 +435,17 @@ function expectHeaderFits(h: Header, stacked: boolean) {
     for (const left of h.dateStarts) expect(Math.abs(left - h.content.left), `${h.name}: each date line starts at the card's left edge`).toBeLessThanOrEqual(0.5)
     expect(h.nameCut, `${h.name} shows whole`).toBeLessThanOrEqual(0)
     expect(h.splitWords, `${h.name}: no word breaks that fits the card`).toEqual([])
+    // The logo keeps to the name's first line, as ActivityLine's dot keeps to its first line (chief design on #1900).
+    if (h.logo) {
+      const first = h.nameLines[0]
+      expect(Math.abs((h.logo.top + h.logo.bottom) / 2 - (first.top + first.bottom) / 2), `${h.name}: the logo keeps to the name's first line`).toBeLessThanOrEqual(1)
+    }
   } else {
     // Side by side: the date column beside the company line, at its right.
     expect(h.datesBox.top, `${h.name}: the date column sits beside the company line`).toBeLessThan(h.companyBox.bottom)
     expect(h.datesBox.left, `${h.name}: the date column starts after the company line`).toBeGreaterThanOrEqual(h.companyBox.right - 0.5)
   }
+  expect(h.dateLineCount, `${h.name}: the date "${h.dateText}" keeps whole`).toBe(1)
   // The arrow sits on the line of the label's last word, right after it, never parted to the card's far edge.
   expect(h.arrow.top, `${h.name}: the arrow is on its last word's line`).toBeLessThan(h.lastWord.bottom)
   expect(h.arrow.bottom).toBeGreaterThan(h.lastWord.top)
