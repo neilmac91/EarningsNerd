@@ -24,6 +24,11 @@ export interface BarCategory {
    *  the context ink, never a series colour, at the growth bars' narrower width, the cue colour alone cannot give a
    *  colour-blind reader (layout.ts). Its mark stays chart-1, so M9's order is the series' own. */
   context?: true
+  /** The chart's run breaks before this category (E258): categories it leaves out stand between it and the one before,
+   *  so the layout sets three quarters of a slot of empty plot before its slot (layout.ts `SEAM`), and even spacing never reads as an
+   *  unbroken run. A ranked company chart's subject drawn after the top companies, past ones it leaves out. Never on the
+   *  first category, before which there is no run to break. */
+  gapBefore?: true
 }
 
 /** The value axis. A money axis takes its series' XBRL unit, whose currency the amounts carry: "USD", "CNY", or a currency
@@ -86,9 +91,11 @@ export function buildBarChart(def: BarChartDef): ChartModel {
   }
   // A start that names no category would leave the chart opening where its caller did not ask.
   if (def.start != null && !seen.has(def.start)) throw new Error(`buildBarChart ${def.id}: the start "${def.start}" names no category`)
+  // A gap before the first bar would break no run, and would only push the plot's first slot off its gutter.
+  if (def.categories[0]?.gapBefore) throw new Error(`buildBarChart ${def.id}: a gap before the first category "${def.categories[0].key}" breaks no run`)
   // One-line ticks, so the layout's one-line x axis: 'annual' is all layout.ts reads `mode` for. No legend (the card names
   // its one series), no notes band, and no value strip, since every value prints on its bar.
-  const periods = def.categories.map(({ key, tick, long }): ChartPeriod => ({ key, tick: [tick], long }))
+  const periods = def.categories.map(({ key, tick, long, gapBefore }): ChartPeriod => ({ key, tick: [tick], long, ...(gapBefore ? { gapBefore } : {}) }))
   const frame = {
     id: def.id, title: def.title, subtitle: def.subtitle ?? '', mode: 'annual' as const, periods, legend: [], notesBand: null, strip: [],
     ...(def.start != null ? { start: def.start } : {}),

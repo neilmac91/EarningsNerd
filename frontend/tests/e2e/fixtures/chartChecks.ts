@@ -154,7 +154,10 @@ export async function measurePlots(scope: Page | Locator): Promise<PlotReport[]>
     const start = Number(stop?.getAttribute('aria-valuenow') ?? -1)
     const last = Number(stop?.getAttribute('aria-valuemax') ?? -1)
     const centres = [...svg.querySelectorAll('text[data-text="x"]')].map((tick) => Number(tick.getAttribute('x')))
-    const slot = panels.length && centres.length ? (panels[0].right - panels[0].left) / centres.length : 0
+    // A slot is the pitch of neighbouring ticks. The step across a gap seam is wider (E258), so the slot is the narrowest
+    // step, and the plot's whole width where it has one period.
+    const steps = centres.slice(1).map((centre, i) => centre - centres[i])
+    const slot = steps.length ? Math.min(...steps) : panels.length && centres.length ? panels[0].right - panels[0].left : 0
     const columns = centres.map((centre) => ({ left: centre - slot / 2 - viewport.scrollLeft, right: centre + slot / 2 - viewport.scrollLeft }))
     const cover = overlay ? Number(overlay.querySelector('rect')?.getAttribute('width') ?? 0) : (panels[0]?.left ?? 0)
     const texts: Record<string, string[]> = {}

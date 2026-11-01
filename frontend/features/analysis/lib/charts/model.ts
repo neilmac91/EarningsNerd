@@ -20,6 +20,9 @@ export interface ChartPeriod {
   key: string
   tick: [string] | [string, string]
   long: string
+  /** The chart's run breaks before this category (a bar chart's `gapBefore`, E258): the layout sets a seam of empty plot
+   *  before its slot (layout.ts `SEAM`). Never on the first category. */
+  gapBefore?: true
 }
 
 export interface ModelPoint {

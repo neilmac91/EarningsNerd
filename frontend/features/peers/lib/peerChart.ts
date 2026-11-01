@@ -2,7 +2,8 @@
  * The Sector peers panel's chart (E251): a cohort as the trend charts' engine draws it, a one-metric bar chart
  * (`buildBarChart`) of the companies the panel draws (cohort.ts `drawn`), the subject in chart-1 and every other company
  * a context bar in the context ink, at the narrower width; the chart starting at the subject, so a phone opens on it,
- * and naming its categories companies. And the describer its values stop and tooltip read each company through. Pure,
+ * and naming its categories companies; a gap before a subject the bars' order would misrank (E258, cohort.ts
+ * `breaksBefore`). And the describer its values stop and tooltip read each company through. Pure,
  * so the panel and the engine's sweeps over every cohort the panel shows (tests/unit/chartPlan.ts, chart-engine.spec.ts,
  * chart-readout.spec.ts, trend-charts-v2.spec.tsx) build them the same way.
  */
@@ -12,7 +13,7 @@ import { periodHeader, readouts, type PeriodReadout, type ReadoutDescriber } fro
 import type { FmtKind } from '@/features/fundamentals/lib/featuredMetrics'
 import type { PeerComparisonResponse, PeerEntry } from '@/features/peers/api/peers-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { drawn, metricOf, rankOf } from './cohort'
+import { breaksBefore, drawn, metricOf, rankOf } from './cohort'
 
 /** What the plot calls its categories: its scroll region reads "Scroll horizontally to view all companies.", and a
  *  step past either end says "First company." or "Last company.". */
@@ -81,9 +82,12 @@ export function peerChartDef(answer: PeerComparisonResponse): BarChartDef {
   const metric = metricOf(answer.concept)
   if (!metric) throw new Error(`peerChartDef: no metric names "${answer.concept}"`)
   const entries = drawn(answer)
-  const categories = slotsOf(entries)
   const subject = entries.findIndex((entry) => entry.is_subject)
   if (subject < 0) throw new Error(`peerChartDef: the subject ${answer.subject.ticker} draws no bar on ${answer.concept}, so a chart that starts at it draws none`)
+  // A subject drawn past companies ranked above it that the chart leaves out stands after a gap (E258), so its bar never
+  // reads as next in rank; it is never the first bar, since the top companies come before it.
+  const broken = breaksBefore(answer)
+  const categories = slotsOf(entries).map((slot, i) => (broken && i === subject ? { ...slot, gapBefore: true as const } : slot))
   return {
     id: 'sector-peers',
     // The plot announces "{title} chart", and its values stop "{title} chart values".
