@@ -13,6 +13,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    wrap under the company name instead of widening the card.
  * 5. What changed's chips (E268): under 200% text a chip's figure moves under its label, so the chip
  *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
+ * 6. What changed's header (E272): where the card is narrower than 21rem the date column moves under the
+ *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -211,8 +213,7 @@ const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, strin
 ]
 const CHANGED_FEED = {
   // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E273), so with them the
-  // page's scroll would not be the chips'. The cards' headers stay: at 320px the date column ends 11.7px inside the
-  // viewport in CI's fonts, but in fonts that paint wider it can reach past it (E272), and the page check reads it too.
+  // page's scroll would not be the chips'. The cards' headers stay, and keep inside their cards (E272, below).
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
     items: CHANGED.map(({ ticker, name, items }, i) => ({
@@ -323,3 +324,95 @@ test("What changed's chips keep one line at 1440px at the default text size", as
     expect(c.radius).toBe('16px')
   }
 })
+
+/** The What changed card's header and call to action (E272, chief design on #1897): where the card's content box is
+    narrower than the 21rem the header needs side by side, the date column moves under the company line and the name
+    wraps, so each painted line of the name, the ticker and the date column sits inside the card, the company line and
+    the date column never overlap, the name shows whole, and "Read summary" keeps its arrow on its last word's line. */
+async function headerGeometry(page: Page) {
+  return page.evaluate(() => {
+    const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    const lines = (node: Node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      return [...range.getClientRects()].filter((r) => r.width > 0).map(box)
+    }
+    return [...document.querySelectorAll<HTMLElement>('[data-what-changed-header]')].map((header) => {
+      const card = header.parentElement!
+      const style = getComputedStyle(card)
+      const outer = card.getBoundingClientRect()
+      const content = {
+        left: outer.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+        right: outer.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+      }
+      const [company, dates] = [...header.children] as HTMLElement[]
+      const [name, ticker] = [...company.lastElementChild!.children] as HTMLElement[]
+      // The call to action's last word: the line box of its last text node's last line, whatever wraps it.
+      const cta = card.lastElementChild as HTMLElement
+      const walker = document.createTreeWalker(cta, NodeFilter.SHOW_TEXT)
+      let lastText: Node | null = null
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) lastText = node
+      const lastLines = lines(lastText as Text)
+      return {
+        name: name.textContent!, content,
+        nameLines: lines(name), tickerBox: box(ticker.getBoundingClientRect()), dateLines: lines(dates),
+        companyBox: box(company.getBoundingClientRect()), datesBox: box(dates.getBoundingClientRect()),
+        nameCut: name.scrollWidth - name.clientWidth,
+        arrow: box(cta.querySelector('svg')!.getBoundingClientRect()), lastWord: lastLines[lastLines.length - 1],
+      }
+    })
+  })
+}
+
+type Header = Awaited<ReturnType<typeof headerGeometry>>[number]
+
+const overlaps = (a: { left: number; right: number; top: number; bottom: number }, b: typeof a) =>
+  a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
+
+function expectHeaderFits(h: Header, stacked: boolean) {
+  for (const line of [...h.nameLines, h.tickerBox, ...h.dateLines]) {
+    expect(line.left, `${h.name}: its header starts inside the card`).toBeGreaterThanOrEqual(h.content.left - 0.5)
+    expect(line.right, `${h.name}: its header ends inside the card`).toBeLessThanOrEqual(h.content.right + 0.5)
+  }
+  for (const part of [...h.nameLines, h.tickerBox]) {
+    for (const date of h.dateLines) expect(overlaps(part, date), `${h.name}: the company line clears the date column`).toBe(false)
+  }
+  if (stacked) {
+    // One column: the date column under the company line, and the name whole, wrapped rather than cut.
+    expect(h.datesBox.top, `${h.name}: the date column sits under the company line`).toBeGreaterThanOrEqual(h.companyBox.bottom - 0.5)
+    expect(h.nameCut, `${h.name} shows whole`).toBeLessThanOrEqual(0)
+  } else {
+    // Side by side: the date column beside the company line, at its right.
+    expect(h.datesBox.top, `${h.name}: the date column sits beside the company line`).toBeLessThan(h.companyBox.bottom)
+    expect(h.datesBox.left, `${h.name}: the date column starts after the company line`).toBeGreaterThanOrEqual(h.companyBox.right - 0.5)
+  }
+  // The arrow sits on the line of the label's last word, right after it, never parted to the card's far edge.
+  expect(h.arrow.top, `${h.name}: the arrow is on its last word's line`).toBeLessThan(h.lastWord.bottom)
+  expect(h.arrow.bottom).toBeGreaterThan(h.lastWord.top)
+  expect(h.arrow.left - h.lastWord.right, `${h.name}: the arrow follows its last word`).toBeLessThanOrEqual(10)
+}
+
+for (const width of [320, 340, 360, 640, 768, 1024, 1280]) {
+  test(`What changed's header stacks inside its card at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openFeed(page, baseURL!)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    const headers = await headerGeometry(page)
+    expect(headers).toHaveLength(2)
+    for (const h of headers) expectHeaderFits(h, true)
+  })
+}
+
+// At the default size the header stacks where the card is narrower than 21rem (a phone, the two-column feed from 640px
+// and at 1024px) and stays side by side where it is wider (1440px).
+for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, true], [1024, true], [1440, false]] as const) {
+  test(`What changed's header ${stacked ? 'stacks' : 'stays side by side'} inside its card at ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openFeed(page, baseURL!)
+    const headers = await headerGeometry(page)
+    expect(headers).toHaveLength(2)
+    for (const h of headers) expectHeaderFits(h, stacked)
+  })
+}
