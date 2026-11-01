@@ -646,7 +646,8 @@ Located in `backend/scripts/`:
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
   `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or
-  `--backfill-company-sic` and otherwise exits before application initialization.
+  `--backfill-company-sic` and otherwise exits before application initialization. `--tickers`
+  confines every mode to the named companies, and one that names none exits there too.
 - `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
   value-identical rows, flag columns only (unstored identities are counted, never inserted; dry
   run by default; `--apply` writes; `--tickers`, `--limit`)
