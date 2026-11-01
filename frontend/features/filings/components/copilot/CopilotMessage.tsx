@@ -3,14 +3,13 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { ActivityLine, Button, countControlClass, cx, noticeTint } from '@/components/ui'
+import { ActivityLine, Button, TrailingArrowLabel, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 import { sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 import {
   ArrowClockwiseIcon,
-  ArrowRightIcon,
   ArrowSquareOutIcon,
   BracketsCurlyIcon,
   ChatCircleTextIcon,
@@ -437,10 +436,9 @@ export default function CopilotMessage({
             {ticker && (
               <Link
                 href={`/company/${encodeURIComponent(ticker)}`}
-                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
+                className={`${hint ? 'mt-1.5 ' : ''}-mx-1 inline-block rounded-sm px-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
               >
-                Browse {ticker}’s other filings
-                <ArrowRightIcon className="h-3 w-3" />
+                <TrailingArrowLabel arrowClassName="ml-1 h-3 w-3">{`Browse ${ticker}’s other filings`}</TrailingArrowLabel>
               </Link>
             )}
           </div>

@@ -2,7 +2,7 @@ import { answerLegalReadiness, legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN, SUMMARY } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
 import { answerSearch, runSearch, SEARCH_QUERY } from './fixtures/searchApi'
 import { ACCESS_COPY } from '../../features/marketing/lib/access'
 
@@ -2853,7 +2853,16 @@ for (const width of [390, 360, 320]) {
     where it was h-9): the arrow sits inside its last word's line, right after it, and every line of the link's words
     lies inside its box. Each case holds a label to more than one line where it wraps with room to spare, so it reads a
     wrapped label; where a label stops wrapping is the font's to say (E274's CI runner wrapped a label 4px past the local
-    edge), so no case holds one to a single line. */
+    edge), so no case holds one to a single line.
+
+    E276 (#1911's review) adds the Copilot message's "Browse AAPL’s other filings", the next step a not-disclosed answer
+    offers: an inline-flex row whose 12px arrow, with no aria-hidden, sat 29px above the last of three lines at 320px and
+    13px above the last of two from 360 to 414px and in the desktop pane, 79 to 201px right of its last word. The link is
+    reached by asking, so its entry carries a reach step. It stands alone, so it takes the dashboard links' 4px inset
+    (E274) and its ring clears its words; an entry with an inset holds every line and the arrow inside it, and the
+    hero's and Compare periods' 0.5rem with it. The calendar card's "View full calendar" took the same remedy and has
+    no case: its home page row is filled on the server, and CI's e2e build runs no backend, so the row omits itself
+    (tests/unit/trailingArrowRun.spec.ts holds its markup). */
 const ARROW_CHANGE_REPORT = {
   has_prior: true,
   comparison_basis: 'Year over year',
@@ -2868,15 +2877,73 @@ const ARROW_CHANGE_REPORT = {
   key_changes: null,
   has_changes: true,
 }
-const ARROW_LINKS: Array<{ name: string; path: string; wrapsTo: number; open: (page: Page, baseURL: string) => Promise<void> }> = [
-  { name: 'Read the full example summary', path: '/', wrapsTo: 414, open: answerGuest },
+// A not-disclosed answer in the wire shape copilot-api.ts admits for one: no citations and two or three follow-ups.
+const NOT_DISCLOSED = {
+  type: 'complete',
+  kind: 'not_disclosed',
+  answer: 'This filing does not break out operating margin by product line.',
+  grounded: 0,
+  citations: [],
+  followups: ['What drove net sales in fiscal 2025?', 'How did Services revenue change?'],
+}
+/** The filing page for a Pro reader, its Ask stream (and the stream's preflight) answered with NOT_DISCLOSED. */
+async function answerNotDisclosed(page: Page, baseURL: string) {
+  await answerApi(page, baseURL, 'pro')
+  const cors = {
+    'access-control-allow-origin': new URL(baseURL).origin,
+    'access-control-allow-credentials': 'true',
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+  }
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/ask-stream',
+    (route) =>
+      route.request().method() === 'OPTIONS'
+        ? route.fulfill({ status: 204, headers: cors })
+        : route.fulfill({
+            status: 200,
+            headers: { ...cors, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
+            body: `data: ${JSON.stringify(NOT_DISCLOSED)}\n\n`,
+          }),
+  )
+  // The first-run coachmark seen: it is not under test.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('en:copilot-coachmark-v1', '1')
+    } catch {}
+  })
+}
+/** Opens the Source pane and asks, so the not-disclosed answer shows its next step. */
+async function askNotDisclosed(page: Page) {
+  const launcher = page.locator('button[aria-label="Source"]')
+  await expect(launcher).toBeVisible()
+  await launcher.click()
+  const composer = page.locator(PANE).getByPlaceholder('Ask about this filing…')
+  await composer.fill('What was the operating margin by product line?')
+  await composer.press('Enter')
+}
+const ARROW_LINKS: Array<{
+  name: string
+  path: string
+  wrapsTo: number
+  open: (page: Page, baseURL: string) => Promise<void>
+  /** What brings the link out once the page is open, where the page does not show it on load. */
+  reach?: (page: Page) => Promise<void>
+  /** The label wraps on a desktop too under 200% text, so the link has cases at 1024 and 1280px. */
+  desktop?: true
+  /** The link's own inset in rem, which its words and its arrow keep inside its box, so its ring clears them. */
+  inset?: number
+}> = [
+  { name: 'Read the full example summary', path: '/', wrapsTo: 414, open: answerGuest, desktop: true, inset: 0.5 },
   { name: 'Try a live example summary', path: '/waitlist', wrapsTo: 414, open: answerGuest },
   {
     name: 'Open change report',
     path: '/company/AAPL',
     wrapsTo: 414,
     open: (page, baseURL) => answerSite(page, baseURL, false, { path: '/api/summaries/filing/11/what-changed', status: 200, body: ARROW_CHANGE_REPORT }),
+    inset: 0.5,
   },
+  { name: 'Browse AAPL’s other filings', path: '/filing/3', wrapsTo: 414, open: answerNotDisclosed, reach: askNotDisclosed, desktop: true, inset: 0.25 },
 ]
 
 async function trailingArrowGeometry(link: Locator) {
@@ -2914,6 +2981,7 @@ async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW
   })
   await l.open(page, baseURL)
   await page.goto(l.path)
+  if (l.reach) await l.reach(page)
   const link = page.getByRole('link', { name: l.name, exact: true })
   await expect(link).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
@@ -2932,6 +3000,13 @@ async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW
     expect(part.top, `${at}: every line of its words lies inside the link`).toBeGreaterThanOrEqual(g.link.top - 0.5)
     expect(part.bottom, `${at}: every line of its words lies inside the link`).toBeLessThanOrEqual(g.link.bottom + 0.5)
   }
+  if (l.inset) {
+    const px = l.inset * parseFloat(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize))
+    for (const part of [...g.painted, g.arrow]) {
+      expect(part.left, `${at}: its words and its arrow keep the link's ${l.inset}rem inset, so its ring clears them`).toBeGreaterThanOrEqual(g.link.left + px - 0.5)
+      expect(part.right, `${at}: its words and its arrow keep the link's ${l.inset}rem inset, so its ring clears them`).toBeLessThanOrEqual(g.link.right - px + 0.5)
+    }
+  }
 }
 
 for (const width of [320, 360, 390, 414]) {
@@ -2948,13 +3023,16 @@ for (const width of [320, 360, 390, 414]) {
 /** From lg the hero example's card narrows beside the headline, so under 200% text its link wraps again: three lines
     at 1024px and two from 1100 to 1366px (chief design's measure on #1911, 6556730911). On main its arrow sat 40px
     above the last line at 1024px and 20px up from 1100 to 1366px. The phone cases stop at 414px, so a class that
-    applies from lg alone could bring the fault back unseen; these two hold the band. */
+    applies from lg alone could bring the fault back unseen; these two hold the band. The Copilot link wraps on a
+    desktop too, in the Source pane, whose width does not grow with the screen: two lines from 1024 to 1440px (E276). */
+const DESKTOP_ARROW_LINKS = ARROW_LINKS.filter((l) => l.desktop)
 for (const width of [1024, 1280]) {
-  test.describe(`a ${width}px screen at 200% text, the hero example's arrow link`, () => {
+  test.describe(`a ${width}px screen at 200% text, the arrow links that wrap on a desktop`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: false, hasTouch: false })
-    const hero = ARROW_LINKS[0]
-    test(`${hero.path}: "${hero.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
-      await expectTrailingArrow(page, baseURL!, hero, width, true, true)
-    })
+    for (const l of DESKTOP_ARROW_LINKS) {
+      test(`${l.path}: "${l.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
+        await expectTrailingArrow(page, baseURL!, l, width, true, true)
+      })
+    }
   })
 }
