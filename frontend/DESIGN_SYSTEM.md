@@ -573,8 +573,10 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  periods' their px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's)
                  is inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
                  above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
-                 word's line, one box, the words inside the link's 0.25rem inset) and tests/e2e/reflow-200.spec.ts (the
-                 other three: each arrow on its last word's line, one box, every line of the words inside it).
+                 word's line, one box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the
+                 other three, and the hero example's at 1024 and 1280px: each arrow on its last word's line, one box,
+                 every line of the words inside it) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke-
+                 class in any arrowClassName or in the classes the component writes on its run and its arrow).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use

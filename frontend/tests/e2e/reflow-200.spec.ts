@@ -2903,37 +2903,58 @@ async function trailingArrowGeometry(link: Locator) {
   })
 }
 
+/** Opens the link's page under 200% text and holds its arrow to its last word and its lines to its box. A desktop
+    doubles the text with its own check, since the 24rem query matches only on a phone. */
+async function expectTrailingArrow(page: Page, baseURL: string, l: (typeof ARROW_LINKS)[number], width: number, wraps: boolean, desktop = false) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('theme', 'light')
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+    } catch {}
+  })
+  await l.open(page, baseURL)
+  await page.goto(l.path)
+  const link = page.getByRole('link', { name: l.name, exact: true })
+  await expect(link).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  if (desktop) await doubleTextOnADesktop(page, false)
+  else await doubleText(page)
+  await settle(page)
+  const g = await trailingArrowGeometry(link)
+  const at = `${l.name} at ${width}px and 200% text`
+  if (wraps) expect(g.lineCount, `${at}: wraps here, so the case reads a wrapped label`).toBeGreaterThan(1)
+  expect(g.boxes, `${at}: the link is one box, so its ring and its hover fill hold every line`).toBe(1)
+  expect(g.arrow.top, `${at}: the arrow sits inside its last word's line`).toBeGreaterThanOrEqual(g.lastWord.top - 2)
+  expect(g.arrow.bottom, `${at}: the arrow sits inside its last word's line`).toBeLessThanOrEqual(g.lastWord.bottom + 2)
+  expect(g.arrow.left, `${at}: the arrow comes after its last word`).toBeGreaterThanOrEqual(g.lastWord.right - 0.5)
+  expect(g.arrow.left - g.lastWord.right, `${at}: the arrow follows its last word`).toBeLessThanOrEqual(12)
+  for (const part of [...g.painted, g.arrow]) {
+    expect(part.top, `${at}: every line of its words lies inside the link`).toBeGreaterThanOrEqual(g.link.top - 0.5)
+    expect(part.bottom, `${at}: every line of its words lies inside the link`).toBeLessThanOrEqual(g.link.bottom + 0.5)
+  }
+}
+
 for (const width of [320, 360, 390, 414]) {
   test.describe(`a ${width}px phone at 200% text, the arrow links outside the dashboard`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: true, hasTouch: true })
     for (const l of ARROW_LINKS) {
       test(`${l.path}: "${l.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
-        await page.addInitScript(() => {
-          try {
-            localStorage.setItem('theme', 'light')
-            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
-          } catch {}
-        })
-        await l.open(page, baseURL!)
-        await page.goto(l.path)
-        const link = page.getByRole('link', { name: l.name, exact: true })
-        await expect(link).toBeVisible()
-        await page.evaluate(() => document.fonts.ready)
-        await doubleText(page)
-        await settle(page)
-        const g = await trailingArrowGeometry(link)
-        const at = `${l.name} at ${width}px and 200% text`
-        if (width <= l.wrapsTo) expect(g.lineCount, `${at}: wraps here, so the case reads a wrapped label`).toBeGreaterThan(1)
-        expect(g.boxes, `${at}: the link is one box, so its ring and its hover fill hold every line`).toBe(1)
-        expect(g.arrow.top, `${at}: the arrow sits inside its last word's line`).toBeGreaterThanOrEqual(g.lastWord.top - 2)
-        expect(g.arrow.bottom, `${at}: the arrow sits inside its last word's line`).toBeLessThanOrEqual(g.lastWord.bottom + 2)
-        expect(g.arrow.left, `${at}: the arrow comes after its last word`).toBeGreaterThanOrEqual(g.lastWord.right - 0.5)
-        expect(g.arrow.left - g.lastWord.right, `${at}: the arrow follows its last word`).toBeLessThanOrEqual(12)
-        for (const part of [...g.painted, g.arrow]) {
-          expect(part.top, `${at}: every line of its words lies inside the link`).toBeGreaterThanOrEqual(g.link.top - 0.5)
-          expect(part.bottom, `${at}: every line of its words lies inside the link`).toBeLessThanOrEqual(g.link.bottom + 0.5)
-        }
+        await expectTrailingArrow(page, baseURL!, l, width, width <= l.wrapsTo)
       })
     }
+  })
+}
+
+/** From lg the hero example's card narrows beside the headline, so under 200% text its link wraps again: three lines
+    at 1024px and two from 1100 to 1366px (chief design's measure on #1911, 6556730911). On main its arrow sat 40px
+    above the last line at 1024px and 20px up from 1100 to 1366px. The phone cases stop at 414px, so a class that
+    applies from lg alone could bring the fault back unseen; these two hold the band. */
+for (const width of [1024, 1280]) {
+  test.describe(`a ${width}px screen at 200% text, the hero example's arrow link`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: false, hasTouch: false })
+    const hero = ARROW_LINKS[0]
+    test(`${hero.path}: "${hero.name}" keeps its arrow with its last word and its lines inside the link at ${width}px and 200% text`, async ({ page, baseURL }) => {
+      await expectTrailingArrow(page, baseURL!, hero, width, true, true)
+    })
   })
 }
