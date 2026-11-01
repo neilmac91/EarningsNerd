@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { ArrowSquareOutIcon } from '@/lib/icons'
-import { cx } from '@/components/ui'
+import { TrailingArrowLabel, cx } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { periodKind, periodLabel } from '@/features/filings/lib/filingPeriod'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
@@ -139,9 +138,8 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
         {original && (
           <>
             <Sep />
-            <a href={original} target="_blank" rel="noopener noreferrer" className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}>
-              Original on SEC.gov
-              <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            <a href={original} target="_blank" rel="noopener noreferrer" className={cx(IDENTITY_LINK, 'inline-block')}>
+              <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Original on SEC.gov</TrailingArrowLabel>
             </a>
           </>
         )}

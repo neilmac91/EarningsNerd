@@ -99,7 +99,11 @@ the debug payload panel).
   brightened (2026-10-25), every tertiary site that had borrowed secondary-dark (140 swept, four by hand,
   three in globals.css) was twinned back to tertiary-dark, so it keeps today's ink. Gates:
   `tests/unit/themePairs.spec.ts` ('keeps tertiary and secondary on their own rungs in dark', with its
-  planted self-check) and `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
+  planted self-check; it reads a dark twin by its ink, so a token of tertiary's or secondary's hex counts as
+  that rung, and lists its one decided crossing, the flat direction chip on flat-dark: D-073, §4 Delta text;
+  the light key stays by name, so the figure surfaces' note pair, held by figureSurfaceInks.spec.ts, is
+  outside it) and
+  `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
 - **A dark hover steps where the eye can see it: secondary never turns only primary, or only sage, under the
@@ -555,35 +559,53 @@ Count control    A link or control whose label carries a count, a date, an index
                  file's bindings (a same-file variable, a same-file function's return) and inside an
                  app component in it that turns its children or a count of its own sage. The two
                  labels outside the helper are review-checked, and so is what the header names.
-Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link, a text-link call to
-                 action) is <TrailingArrowLabel> (components/ui since E275): the last word and the arrow in one no-wrap
-                 run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow onto
-                 its last line, never between the lines or to the far edge. It takes its words as children, so a
-                 count in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above);
-                 arrowClassName sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its
-                 own, never an ink. It serves What changed's call to action (since E272), the feed's "See all N
-                 companies" and Your companies' "Open watchlist insights" (E274), and the hero example's "Read the
-                 full example summary", the Compare periods card's "Open change report" and the waitlist's "Try a
-                 live example summary" (E275), and the Copilot message's "Browse {ticker}'s other filings" and the
-                 calendar card's "View full calendar" (E276). A button's arrow (MarketingCta, buttonVariants) stays in
-                 its flex row, since the button's box binds it. A link that stands alone and can wrap is inline-block,
-                 so it paints one box, and one with a fill or a set height takes min-h-9, never h-9, so the box grows
-                 with its lines: the dashboard's two links, the Copilot message's and the calendar card's take a 4px
-                 inset (-mx-1 px-1) so their ring clears their words, the hero example's and Compare periods' their
-                 px-2 py-2. A link set in a sentence that moves to its own line whole (the waitlist's) is inline-block
-                 too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces, above). The
-                 external link's square after a link's words ("Original on SEC.gov" and its kin) still parts from them
-                 the same way under 200% text, and at the default size where a section name wraps in the Copilot
-                 Sources list (E279). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on
-                 its last word's line, one box, the words inside the link's 0.25rem inset),
-                 tests/e2e/reflow-200.spec.ts (the hero example's, Compare periods', the waitlist's and the Copilot
-                 message's, and the hero's and the Copilot message's at 1024 and 1280px: each arrow on its last word's
-                 line, one box, every line of the words inside it and inside its inset where it has one; the calendar
-                 card's row is filled on the server, which CI's e2e build runs without, so no case reaches it),
-                 tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon after its
-                 words, and no TrailingArrowLabel sits in a flex or grid row) and tests/unit/trailingArrowInk.spec.ts
-                 (no text-, fill- or stroke- class in any arrowClassName or in the classes the component writes on its
-                 run and its arrow).
+Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link, a text-link call to action)
+                 is <TrailingArrowLabel> (components/ui since E275): the arrow and its last word's last letter in one
+                 no-wrap run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow
+                 onto its last line, never between the lines or to the far edge. A word has no break inside it, so the
+                 last word stays whole with the arrow after it wherever it fits its line; where the word alone is wider
+                 than its line, it breaks inside as its control lets a word break (overflow-wrap), the arrow after its
+                 last part, never running past the control as a no-wrap word did (E279: a Copilot source's
+                 "Performance" in its 110px row at 320px under 200% text). It takes its words as children, so a count
+                 in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above); arrowClassName
+                 sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its own, never an
+                 ink. glyph="external" draws the external link's square in its place, for a link to the original on
+                 SEC.gov (E279). Where a link carries a new-tab cue, the cue follows the label, <span
+                 className="sr-only"> (opens in a new tab)</span>, so the label's children stay one string; of E279's
+                 links only the Copilot sources carry one, and the other new-tab links wait on E281. The run is a plain
+                 inline span: as an inline-flex or inline-block box it would be an atomic inline, and a line could
+                 break before it, parting the last letter and its glyph from the rest of the word. It serves What
+                 changed's call to action (since E272), the feed's "See all N companies" and Your companies' "Open
+                 watchlist insights" (E274), and the hero example's "Read the full example summary", the Compare
+                 periods card's "Open change report" and the waitlist's "Try a live example summary" (E275), and the
+                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
+                 (E276); with the square, the Copilot answer's sources (a passage's section name, a figure's "Open the
+                 filing on SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov",
+                 the filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov"
+                 and the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
+                 (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
+                 is a square that marks a whole row link (the filing index's row link, the full-text search's result
+                 row). A link that stands alone and can wrap is inline-block, so it paints one box, and one with a fill
+                 or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two links,
+                 the Copilot message's, the calendar card's and the Filing tab footer's take a 4px inset (-mx-1 px-1)
+                 so their ring clears their words, the hero example's and Compare periods' their px-2 py-2. A link set
+                 in a sentence that moves to its own line whole (the waitlist's, the filings history note's) is
+                 inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
+                 above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
+                 word's line, one box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the
+                 hero example's, Compare periods', the waitlist's, the Copilot message's and E279's square links, the
+                 hero's, the Copilot message's and the Copilot sources' at 1024 and 1280px too, and the sources'
+                 passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
+                 line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
+                 its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
+                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
+                 tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
+                 ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
+                 row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with
+                 the last letter and its marks, the glyph aria-hidden) and tests/unit/trailingArrowInk.spec.ts (no
+                 text-, fill- or stroke- class in any arrowClassName or in the classes the component writes on its run
+                 and its glyph).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
@@ -663,7 +685,12 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
-                 direction chip (the dashboard's what-changed metrics) takes directionChip. Never sage on
+                 direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
+                 chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
+                 panel), a rung below its light label: between the up and down chips (5.72:1 and 4.44:1
+                 in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
+                 the one text-ramp crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE),
+                 which reads a dark twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
                  600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
                  the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
@@ -2637,8 +2664,8 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  sentence, without a button's label or a prefix. A later tab switch says nothing more.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
-                 composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
-                 screen reader (D-030).
+                 composes countControlClass('link') with the new-tab square after its last word
+                 (TrailingArrowLabel, E279), "(opens in a new tab)" for a screen reader (D-030).
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,

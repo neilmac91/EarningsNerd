@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Fragment, type ReactNode } from 'react'
-import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
-import { cx } from '@/components/ui'
+import { CheckCircleIcon } from '@/lib/icons'
+import { TrailingArrowLabel, cx } from '@/components/ui'
 import CompanyLogo from '@/components/CompanyLogo'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
@@ -95,10 +95,9 @@ export function CompanyIdentity({ company, latest, summaryReady = false, actions
                 href={edgarCompanyUrl(company.cik)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}
+                className={cx(IDENTITY_LINK, 'inline-block')}
               >
-                Company on SEC.gov
-                <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Company on SEC.gov</TrailingArrowLabel>
               </a>
             ),
           ]}

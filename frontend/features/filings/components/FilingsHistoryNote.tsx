@@ -1,6 +1,5 @@
-import { ArrowSquareOutIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
-import { cx } from '@/components/ui'
+import { TrailingArrowLabel, cx } from '@/components/ui'
 import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
 import { IDENTITY_LINK } from '@/features/filings/components/FilingIdentity'
 
@@ -33,10 +32,9 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
         href={edgarUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}
+        className={cx(IDENTITY_LINK, 'inline-block')}
       >
-        Full history on SEC.gov
-        <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
+        <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Full history on SEC.gov</TrailingArrowLabel>
       </a>
     </p>
   )
