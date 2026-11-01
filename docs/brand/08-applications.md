@@ -510,7 +510,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   bold "Data notes" lead and no heading, a full grid printing whole on one page with its summary line;
   the workbook prints a marked figure's letter through its number format ('#,##0" a"'), so the cell stays
   a number and its column widens to hold it, names a letter in a comment only where it marks and keys its
-  letters under the Metrics grid. A window reads
+  letters under the Metrics grid. Each comment's box is sized to its text (E262): as wide as its longest
+  line, up to 40 characters, and as tall as its lines wrap to at that width, at a character width and a
+  line height that hold the note in Calibri 11, the workbook's font, and in Tahoma, which Excel gives the
+  notes it writes; openpyxl's default box, 144 by 79 pixels, cut a longer note off where the reader
+  hovered its cell (`backend/tests/unit/test_export_comment_boxes.py`). A window reads
   "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by
