@@ -31,7 +31,9 @@ import { openCompany, PEERS, type Theme } from './fixtures/companyPeersApi'
  * eleventh', 'cap, all tied'), every step is a slot; the DOM checks hold over each; and at 1280px the subject's column as
  * the checks read it is the one its hover wash paints. The widest slot (E266): every case's slot is no wider than 104 px,
  * and at 390 and 1280px the pair's two bars stand 104 px apart in a plot narrower than its card, at its left, with the
- * subject's tooltip at 1280px past the plot's right edge, inside the card. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
+ * subject's tooltip at 1280px past the plot's right edge, inside the card. On a phone under 200% text at 390 and 320px
+ * (E267), the subject's tooltip stands taller than its plot and covers the next company's bar; a tap there closes it,
+ * and the next tap pins that company's tooltip. Under 200% text at 390, 360 and 320px, the page does not scroll sideways and
  * the heading, the rank line and the picker stay inside the card. While a metric picked loads, and once its answer
  * draws no chart, the heading row keeps its height, at 390 and 1280px. With production's own answer, a company ranked
  * alone (peer_count 1, JPM's on 2026-10-31), the panel never asks for the card's chunk: once the page has handled that
@@ -324,6 +326,52 @@ for (const width of [390, 1280] as const) {
         expect(placed.x + placed.width, `${label}: past the plot's right edge`).toBeGreaterThan(box.x + box.width)
         expect(placed.x + placed.width, `${label}: inside the card`).toBeLessThanOrEqual(viewport.x + viewport.width + 0.5)
       }
+    })
+  })
+}
+
+// E267 (chief design's check of #1868): on a phone under 200% text the tooltip stands taller than its plot and spans the
+// view, so it covers the other bars, and a tap meant for a covered bar lands on the tooltip. That tap closes it, and the
+// next tap on the bar pins the bar's own tooltip.
+for (const width of [390, 320]) {
+  test.describe(`Sector peers' tooltip on a phone at ${width}px under 200% text`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
+
+    test('a tap on the tooltip over a bar it covers closes it, and the next tap pins that bar (E267)', async ({ page, baseURL }) => {
+      await openCompany(page, baseURL!, 'spread', 'light', { doubled: true })
+      await expect
+        .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).fontSize), { message: 'the 200% text setting took: the root computes to 32px' })
+        .toBe('32px')
+      const plot = sectorPeers(page).getByTestId('peers-chart')
+      const svg = plot.getByRole('img', { name: 'Revenue chart', exact: true })
+      await expect(svg).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const viewport = plot.locator('[data-analysis-chart-scroll]')
+      await viewport.scrollIntoViewIfNeeded()
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+      const frame = (await viewport.boundingBox())!
+      const box = (await svg.boundingBox())!
+      // Each company's tick, at its centre on the page, among those the view shows.
+      const ticks = (await svg.locator('text[data-text="x"]').evaluateAll((nodes) => nodes.map((node) => {
+        const r = node.getBoundingClientRect()
+        return { ticker: node.textContent ?? '', x: r.x + r.width / 2 }
+      }))).filter((tick) => tick.x > frame.x && tick.x < frame.x + frame.width).sort((a, b) => a.x - b.x)
+      // The plot opens at the subject, its column centred; the company ranked after it stands right of it, in view.
+      const subject = ticks.find((tick) => tick.ticker === SUBJECT)!
+      const next = ticks[ticks.indexOf(subject) + 1]
+      expect(next, `${width}px: a company in view right of the subject`).toBeDefined()
+      await page.touchscreen.tap(subject.x, box.y + box.height / 2)
+      const tip = plot.locator('[data-chart-tooltip]')
+      await expect(tip.locator('p')).toHaveText(new RegExp(`^${SUBJECT} · `))
+      const placed = (await tip.boundingBox())!
+      // The case the row names: the tooltip taller than its plot, over the next company's bar.
+      expect(placed.height, `${width}px: the tooltip stands taller than its plot`).toBeGreaterThan(box.height)
+      expect(next.x > placed.x && next.x < placed.x + placed.width, `${width}px: the tooltip covers ${next.ticker}'s bar`).toBe(true)
+      const y = Math.max(placed.y, box.y) + 24
+      await page.touchscreen.tap(next.x, y)
+      await expect(tip, `${width}px: a tap on the tooltip closes it`).toHaveCount(0)
+      await page.touchscreen.tap(next.x, y)
+      await expect(tip.locator('p'), `${width}px: the next tap pins ${next.ticker}'s tooltip`).toHaveText(new RegExp(`^${next.ticker} · `))
     })
   })
 }
