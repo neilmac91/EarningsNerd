@@ -72,12 +72,15 @@ export function summaryNextStep(status: string, needsRegeneration: boolean): str
 export default function SummaryStatusBadge({
   status,
   needsRegeneration,
+  wrap = false,
 }: {
   status: string
   needsRegeneration: boolean
+  /** Badge's narrow state: below a 24rem viewport the label may wrap where the chip does not fit (Badge's `wrap`). */
+  wrap?: boolean
 }) {
   const { label, variant } = summaryStatusBadge(status, needsRegeneration)
   return (
-    <Badge variant={variant}>{label}</Badge>
+    <Badge variant={variant} wrap={wrap}>{label}</Badge>
   )
 }

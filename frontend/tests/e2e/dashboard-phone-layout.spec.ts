@@ -15,6 +15,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    narrows to its row instead of passing its card or scrolling the page, and its text stays inside it.
  * 6. What changed's header (E272): where the card is narrower than 21rem the date column moves under the
  *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
+ * 7. Your companies' status clusters (E273): under 200% text a row's cluster wraps its items and its badge's
+ *    label and stays inside its row; at the default size it keeps one line.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -212,8 +214,7 @@ const CHANGED: Array<{ ticker: string; name: string; items: Array<[string, strin
   ] },
 ]
 const CHANGED_FEED = {
-  // No watchlist rows: under 200% text a row's status cluster passes a phone's width on its own (E273), so with them the
-  // page's scroll would not be the chips'. The cards' headers stay, and keep inside their cards (E272, below).
+  // No watchlist rows, so the page's scroll is the chips' alone; the rows have their own cases (E273, below). The cards' headers stay, and keep inside their cards (E272, below).
   '/api/watchlist/insights': [],
   '/api/dashboard/feed': {
     items: CHANGED.map(({ ticker, name, items }, i) => ({
@@ -414,5 +415,80 @@ for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, tru
     const headers = await headerGeometry(page)
     expect(headers).toHaveLength(2)
     for (const h of headers) expectHeaderFits(h, stacked)
+  })
+}
+
+/** Each Your companies row's status cluster against its row (E273): every item it shows ("Last filed …" from sm, the
+    status badge, the remove button) inside the row's content box, the badge's label painted inside the badge, and
+    the items' boxes, so a case can tell one line from several. */
+async function clusterGeometry(page: Page) {
+  return page.evaluate(() => {
+    const doc = document.documentElement
+    return {
+      sideways: doc.scrollWidth - doc.clientWidth,
+      rows: [...document.querySelectorAll<HTMLElement>('button[aria-label^="Remove "]')].map((button) => {
+        // The button sits with its badge in a pair, the pair after "Last filed …" in the cluster, the cluster in the row.
+        const pair = button.parentElement!
+        const cluster = pair.parentElement!
+        const row = cluster.parentElement!
+        const style = getComputedStyle(row)
+        const box = row.getBoundingClientRect()
+        const content = { left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
+        const leaves = [...cluster.children].flatMap((item) => (item === pair ? [...pair.children] : [item]))
+        const items = leaves.filter((item) => getComputedStyle(item).display !== 'none').map((item) => {
+          const r = item.getBoundingClientRect()
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }
+        })
+        const badge = cluster.querySelector<HTMLElement>('span.inline-flex')
+        const range = document.createRange()
+        if (badge) range.selectNodeContents(badge)
+        const badgeBox = badge?.getBoundingClientRect()
+        const badgeStyle = badge ? getComputedStyle(badge) : null
+        return {
+          name: button.getAttribute('aria-label')!, content, items,
+          badgeText: badge ? [...range.getClientRects()].filter((r) => r.width > 0).map((r) => ({ left: r.left, right: r.right })) : [],
+          badgeContent: badgeBox && badgeStyle
+            ? { left: badgeBox.left + parseFloat(badgeStyle.paddingLeft), right: badgeBox.right - parseFloat(badgeStyle.paddingRight) }
+            : null,
+        }
+      }),
+    }
+  })
+}
+
+for (const width of [320, 340, 360, 375, 390, 640, 768, 1024]) {
+  test(`Your companies' status clusters stay inside their rows at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openDashboard(page, TYPICAL, baseURL!)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    const m = await clusterGeometry(page)
+    expect(m.rows).toHaveLength(COMPANIES.length)
+    expect(m.sideways, 'the page does not scroll sideways').toBe(0)
+    for (const row of m.rows) {
+      for (const item of row.items) {
+        expect(item.left, `${row.name}: the cluster starts inside its row`).toBeGreaterThanOrEqual(row.content.left - 0.5)
+        expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
+      }
+      for (const line of row.badgeText) {
+        expect(line.left, `${row.name}: the badge's label starts inside the badge`).toBeGreaterThanOrEqual(row.badgeContent!.left - 0.5)
+        expect(line.right, `${row.name}: the badge's label ends inside the badge`).toBeLessThanOrEqual(row.badgeContent!.right + 0.5)
+      }
+    }
+  })
+}
+
+for (const width of [320, 390, 1024, 1440]) {
+  test(`Your companies' status clusters keep one line at ${width}px at the default size`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await openDashboard(page, TYPICAL, baseURL!)
+    const m = await clusterGeometry(page)
+    expect(m.rows).toHaveLength(COMPANIES.length)
+    for (const row of m.rows) {
+      const middles = row.items.map((item) => (item.top + item.bottom) / 2)
+      expect(Math.max(...middles) - Math.min(...middles), `${row.name}: its cluster keeps one line`).toBeLessThanOrEqual(2)
+      for (const item of row.items) expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
+    }
   })
 }
