@@ -69,6 +69,13 @@ describe('TrailingArrowLabel holds its glyph with the last letter (DESIGN_SYSTEM
     expect(r.before).toBe('Le caf')
   })
 
+  it('keeps the run a plain inline span: its one class is whitespace-nowrap', () => {
+    // As an inline-flex or inline-block box the run would be an atomic inline, and a line could break before it, parting
+    // the last letter and its glyph from the rest of the word ("Performanc e"); chief design on #1918 (5729280088).
+    const { container } = render(<TrailingArrowLabel glyph="external">Original on SEC.gov</TrailingArrowLabel>)
+    expect(container.querySelector('span')!.className).toBe('whitespace-nowrap')
+  })
+
   it('draws the arrow by default and the square for glyph="external", one glyph, aria-hidden, in the run', () => {
     const arrow = rendered('See all')
     const square = rendered('Original on SEC.gov', 'external')

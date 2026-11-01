@@ -2878,7 +2878,8 @@ for (const width of [390, 360, 320]) {
     The run holds the last word's last letter, not the word: a no-wrap last word ran 70px past a source's 110px
     row at 320px under 200% text, so every entry now holds its lines and its glyph inside the link side to side as well.
     The filing viewer drawer's "Open original" has no case: no route mounts the drawer (the app mounts the viewer
-    embedded), and the unit gate holds its markup. */
+    embedded), and the unit gate holds its markup. The Filing tab's footer link stands alone in its row, so it takes the
+    4px inset and its entry holds its words and its square inside it (chief design on #1918, 5729280088). */
 const ARROW_CHANGE_REPORT = {
   has_prior: true,
   comparison_basis: 'Year over year',
@@ -3003,9 +3004,11 @@ const ARROW_LINKS: Array<{
   { name: `${MDA_SERVICES} (opens in a new tab)`, place: 'a passage source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true, defaultSize: true },
   { name: 'Open the filing on SEC.gov (opens in a new tab)', place: 'a figure source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true },
   { name: 'Original on SEC.gov', place: 'the identity line', path: '/filing/3', wrapsTo: 360, open: openFiling },
-  { name: 'Company on SEC.gov', path: '/company/AAPL', wrapsTo: 360, open: openCompany },
+  // At 360px its one-line run is 3.5px too wide in a local CI-font build and fits in CI's: it wraps with room to spare
+  // at 320px alone (43.5px), so only 320px asks for a wrapped label (chief design on #1918).
+  { name: 'Company on SEC.gov', path: '/company/AAPL', wrapsTo: 320, open: openCompany },
   { name: 'Full history on SEC.gov', path: '/company/AAPL', wrapsTo: 414, open: openCompany },
-  { name: 'Original on SEC.gov', place: 'the Filing tab', path: '/filing/3', wrapsTo: 320, open: openFiling, reach: openFilingTab, within: inThePane },
+  { name: 'Original on SEC.gov', place: 'the Filing tab', path: '/filing/3', wrapsTo: 320, open: openFiling, reach: openFilingTab, within: inThePane, inset: 0.25 },
 ]
 const titleOf = (l: (typeof ARROW_LINKS)[number]) => `${l.path}${l.place ? ` (${l.place})` : ''}: "${l.name}"`
 

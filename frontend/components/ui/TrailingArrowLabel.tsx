@@ -8,9 +8,12 @@ import { cx } from './cx'
  * letter, not the whole last word: a word has no break inside it, so where the word fits its line it stays whole with
  * the glyph after it, and where the word alone is wider than its line (a Copilot source's section name in a 110px row at
  * 320px under 200% text) it still breaks inside as its control lets a word break (overflow-wrap), the glyph after its
- * last part, rather than running past the control as a no-wrap word would (E279). The glyph is the arrow, or with
- * `glyph="external"` the external link's square; it is aria-hidden, so the control's name is the label's words alone,
- * and a link that opens a new tab says so itself, with an sr-only cue after this label, so the label stays one string.
+ * last part, rather than running past the control as a no-wrap word would (E279). The run is a plain inline span
+ * (whitespace-nowrap and nothing else): as an inline-flex or inline-block box it would be an atomic inline, and a line
+ * could break before it, parting the last letter and its glyph from the rest of the word. The glyph is the arrow, or with
+ * `glyph="external"` the external link's square; it is aria-hidden, so the control's name is the label's words alone.
+ * Where a link says it opens a new tab, the cue is the caller's, an sr-only span after this label, so the label stays one
+ * string (E281 brings the cue to every new-tab link).
  * The run adds no ink or decoration of its own: the words keep their control's one text run, its colour and its
  * underline. The label comes as children, not as a prop of its own, so a count in it stays where brandCopyRules.spec.ts
  * rule 2 reads a component's words (its children), and the count control's ink stays the gate's to hold (D-030).

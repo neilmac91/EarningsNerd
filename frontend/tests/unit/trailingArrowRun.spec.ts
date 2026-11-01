@@ -66,8 +66,8 @@ const ROW = /(?:^|:)!?(?:inline-)?(?:flex|grid)!?$/
 const BUTTONS = new Set(['Button', 'MarketingCta'])
 // The row marks, by file and the tag that lays the square out: a square that marks a whole row link, not a label's
 // words. The filing index's row link, whose square stands alone below 48rem and follows its one word "SEC.gov" from
-// there (chief design on #1914, 5728343724), and the full-text search's result row, whose square stands at the row's
-// top right beside its lines (E279).
+// there, and the full-text search's result row, whose square stands at the row's top right beside its lines (both ruled
+// by chief design on #1918, 5729280088).
 const ROW_MARKS = ['features/filings/components/FilingIndex.tsx <a>', 'features/search/components/FullTextSearch.tsx <>']
 
 interface Site {

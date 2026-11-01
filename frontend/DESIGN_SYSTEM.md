@@ -566,38 +566,42 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above); arrowClassName
                  sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its own, never an
                  ink. glyph="external" draws the external link's square in its place, for a link to the original on
-                 SEC.gov (E279); a link that opens a new tab says so after the label, <span className="sr-only"> (opens
-                 in a new tab)</span>, so the label's children stay one string. It serves What changed's call to action
-                 (since E272), the feed's "See all N companies" and Your companies' "Open watchlist insights" (E274),
-                 and the hero example's "Read the full example summary", the Compare periods card's "Open change
-                 report" and the waitlist's "Try a live example summary" (E275), and the Copilot message's "Browse
-                 {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the square, the
-                 Copilot answer's sources (a passage's section name, a figure's "Open the filing on SEC.gov"), the
-                 filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the filings history
-                 note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and the filing viewer
-                 drawer's "Open original" (E279). A button's arrow or square (MarketingCta, buttonVariants) stays in
-                 its flex row, since the button's box binds it. A glyph that leads its words (the source links in
-                 SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor is a square that marks
-                 a whole row link (the filing index's row link, the full-text search's result row). A link that stands
-                 alone and can wrap is inline-block, so it paints one box, and one with a fill or a set height takes
-                 min-h-9, never h-9, so the box grows with its lines: the dashboard's two links, the Copilot message's
-                 and the calendar card's take a 4px inset (-mx-1 px-1) so their ring clears their words, the hero
-                 example's and Compare periods' their px-2 py-2. A link set in a sentence that moves to its own line
-                 whole (the waitlist's, the filings history note's) is inline-block too; a prose link keeps a ring per
-                 line (box-decoration-clone, Links in both surfaces, above). Gates:
-                 tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last word's line, one
-                 box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the hero example's,
-                 Compare periods', the waitlist's, the Copilot message's and E279's square links, the hero's, the
-                 Copilot message's and the Copilot sources' at 1024 and 1280px too, and the sources' passage link at
-                 the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's line, one box,
-                 every line of the words inside it, side to side as well as top to bottom, and inside its inset where
-                 it has one; the calendar card's row is filled on the server, which CI's e2e build runs without, and no
-                 route mounts the filing viewer's drawer, so no case reaches either),
+                 SEC.gov (E279). Where a link carries a new-tab cue, the cue follows the label, <span
+                 className="sr-only"> (opens in a new tab)</span>, so the label's children stay one string; of E279's
+                 links only the Copilot sources carry one, and the other new-tab links wait on E281. The run is a plain
+                 inline span: as an inline-flex or inline-block box it would be an atomic inline, and a line could
+                 break before it, parting the last letter and its glyph from the rest of the word. It serves What
+                 changed's call to action (since E272), the feed's "See all N companies" and Your companies' "Open
+                 watchlist insights" (E274), and the hero example's "Read the full example summary", the Compare
+                 periods card's "Open change report" and the waitlist's "Try a live example summary" (E275), and the
+                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
+                 (E276); with the square, the Copilot answer's sources (a passage's section name, a figure's "Open the
+                 filing on SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov",
+                 the filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov"
+                 and the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
+                 (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
+                 is a square that marks a whole row link (the filing index's row link, the full-text search's result
+                 row). A link that stands alone and can wrap is inline-block, so it paints one box, and one with a fill
+                 or a set height takes min-h-9, never h-9, so the box grows with its lines: the dashboard's two links,
+                 the Copilot message's, the calendar card's and the Filing tab footer's take a 4px inset (-mx-1 px-1)
+                 so their ring clears their words, the hero example's and Compare periods' their px-2 py-2. A link set
+                 in a sentence that moves to its own line whole (the waitlist's, the filings history note's) is
+                 inline-block too; a prose link keeps a ring per line (box-decoration-clone, Links in both surfaces,
+                 above). Gates: tests/e2e/dashboard-phone-layout.spec.ts (the dashboard's: each arrow on its last
+                 word's line, one box, the words inside the link's 0.25rem inset), tests/e2e/reflow-200.spec.ts (the
+                 hero example's, Compare periods', the waitlist's, the Copilot message's and E279's square links, the
+                 hero's, the Copilot message's and the Copilot sources' at 1024 and 1280px too, and the sources'
+                 passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
+                 line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
+                 its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
+                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
                  tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
                  ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
-                 row), tests/unit/TrailingArrowLabel.spec.tsx (the run holds the glyph with the last letter and its
-                 marks, the glyph aria-hidden) and tests/unit/trailingArrowInk.spec.ts (no text-, fill- or stroke-
-                 class in any arrowClassName or in the classes the component writes on its run and its glyph).
+                 row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with
+                 the last letter and its marks, the glyph aria-hidden) and tests/unit/trailingArrowInk.spec.ts (no
+                 text-, fill- or stroke- class in any arrowClassName or in the classes the component writes on its run
+                 and its glyph).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
