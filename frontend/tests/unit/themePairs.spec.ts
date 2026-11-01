@@ -169,10 +169,12 @@ function unpaired(own: string, shared = ''): string[] {
  */
 const CROSSED_RUNG: Record<string, string> = { 'text-tertiary-light': 'text-secondary-dark', 'text-secondary-light': 'text-tertiary-dark' }
 /** The dark twin is read by the ink it paints, so a crossing cannot pass under another token's name: flat-dark and
-    chart-ref-dark are tertiary-dark's #9CA3AF, note-dark is secondary-dark's #D1D5DB. */
+    chart-ref-dark are tertiary-dark's #9CA3AF, note-dark is secondary-dark's #D1D5DB. The light key stays by name, so
+    the figure surfaces' note pair (note-light #636A77 with note-dark #D1D5DB), a role of its own measured on its own
+    ground by figureSurfaceInks.spec.ts, is outside this check. */
 const COLOUR_VALUE = new Map(colourValues(TAILWIND.theme.extend.colors))
 const sameInk = (twin: string, rung: string) => twin === rung || (COLOUR_VALUE.has(twin) && COLOUR_VALUE.get(twin) === COLOUR_VALUE.get(rung))
-/** Crossings kept on purpose, per file and class, each by its decision. The flat direction chip (directionChip.flat)
+/** Crossings of the text ramp kept on purpose, per file and class, each by its decision. The flat direction chip (directionChip.flat)
     rests on text-text-secondary-light and, in dark, on the semantic flat ink flat-dark (#9CA3AF, 4.87:1 in its tint on
     the panel), between the up and down chips (5.72:1 and 4.44:1 in theirs) where secondary-dark's 8.40:1 would
     outshine both. The founder kept it so (E202 (3), D-073); moving it to text-secondary-dark empties this entry, and
@@ -570,6 +572,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       // A twin is read by its ink: flat-dark is tertiary-dark's hex, note-dark secondary-dark's.
       "const flat = 'text-text-secondary-light dark:text-flat-dark'",
       "const note = 'text-text-tertiary-light dark:text-note-dark'",
+      "const faded = 'text-text-secondary-light dark:text-flat-dark/70'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 text-text-tertiary-light',
@@ -577,6 +580,7 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '3 placeholder:text-text-tertiary-light',
       '7 text-text-secondary-light',
       '8 text-text-tertiary-light',
+      '9 text-text-secondary-light',
     ])
     const css = ':is(.markdown-body) a { @apply underline decoration-text-tertiary-light;\n  @apply dark:decoration-text-secondary-dark; }'
     expect(applyFindings(css, 'probe.css', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual(['1 decoration-text-tertiary-light'])
