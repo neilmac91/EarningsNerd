@@ -468,8 +468,9 @@ for (const [width, stacked] of [[320, true], [360, true], [390, true], [640, tru
 }
 
 /** Each Your companies row's status cluster against its row (E273): every item it shows ("Last filed …" from sm, the
-    status badge, the remove button) inside the row's content box, the badge's label painted inside the badge, and
-    the items' boxes, so a case can tell one line from several. */
+    status badge, the remove button) inside the row's content box, the badge's label painted inside the badge, the
+    items' boxes, so a case can tell one line from several, and where the cluster wraps, how: "Last filed …" keeps
+    one line wherever its words fit the row, and the remove button keeps beside its badge wherever the two fit it. */
 async function clusterGeometry(page: Page) {
   return page.evaluate(() => {
     const doc = document.documentElement
@@ -493,9 +494,32 @@ async function clusterGeometry(page: Page) {
         if (badge) range.selectNodeContents(badge)
         const badgeBox = badge?.getBoundingClientRect()
         const badgeStyle = badge ? getComputedStyle(badge) : null
+        const badgeLines = badge ? [...range.getClientRects()].filter((r) => r.width > 0) : []
+        const width = content.right - content.left
+        // "Last filed …", where it shows: the lines its words take, and whether on one line they would fit the row.
+        const last = cluster.firstElementChild as HTMLElement
+        let lastFiled: { lines: number; fits: boolean } | null = null
+        if (getComputedStyle(last).display !== 'none') {
+          const words = document.createRange()
+          words.selectNodeContents(last)
+          const lines = new Set([...words.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size
+          const probe = document.createElement('span')
+          probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+          probe.textContent = last.textContent
+          last.appendChild(probe)
+          lastFiled = { lines, fits: probe.getBoundingClientRect().width <= width }
+          probe.remove()
+        }
+        // The badge and its remove button: whether they share a line, and whether, the badge's label on one line, the
+        // two would fit the row together (the badge, the cluster's column gap, the button).
+        const buttonBox = button.getBoundingClientRect()
+        const middle = (r: DOMRect) => (r.top + r.bottom) / 2
+        const pairFits = !!badgeBox && new Set(badgeLines.map((r) => Math.round(r.top))).size === 1 &&
+          badgeBox.width + parseFloat(getComputedStyle(cluster).columnGap) + buttonBox.width <= width
         return {
-          name: button.getAttribute('aria-label')!, content, items,
-          badgeText: badge ? [...range.getClientRects()].filter((r) => r.width > 0).map((r) => ({ left: r.left, right: r.right })) : [],
+          name: button.getAttribute('aria-label')!, content, items, lastFiled, pairFits,
+          buttonBesideBadge: !!badgeBox && Math.abs(middle(badgeBox) - middle(buttonBox)) <= 2,
+          badgeText: badgeLines.map((r) => ({ left: r.left, right: r.right })),
           badgeContent: badgeBox && badgeStyle
             ? { left: badgeBox.left + parseFloat(badgeStyle.paddingLeft), right: badgeBox.right - parseFloat(badgeStyle.paddingRight) }
             : null,
@@ -524,6 +548,8 @@ for (const width of [320, 340, 360, 375, 390, 640, 768, 1024]) {
         expect(line.left, `${row.name}: the badge's label starts inside the badge`).toBeGreaterThanOrEqual(row.badgeContent!.left - 0.5)
         expect(line.right, `${row.name}: the badge's label ends inside the badge`).toBeLessThanOrEqual(row.badgeContent!.right + 0.5)
       }
+      if (row.lastFiled?.fits) expect(row.lastFiled.lines, `${row.name}: "Last filed …" keeps one line where it fits the row`).toBe(1)
+      if (row.pairFits) expect(row.buttonBesideBadge, `${row.name}: the remove button keeps beside its badge where the two fit the row`).toBe(true)
     }
   })
 }
