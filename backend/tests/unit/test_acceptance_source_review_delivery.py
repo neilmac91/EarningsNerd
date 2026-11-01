@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
 import stat
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -156,6 +158,7 @@ def _stream(
     stray_delta: bool = False, malformed_delta: Any = None, start_transformations: Any = "absent",
     delta_transformations: Any = "absent", iterations: list[str] | None = None, result_iterations: list[str] | None = None,
     start_iterations: list[str] | None = None, assistant_iterations: list[str] | None = None,
+    start_event_transformations: Any = "absent", raw_delta_usage: Any = "absent", raw_iterations: Any = "absent",
 ) -> bytes:
     """A synthetic ``claude -p --output-format stream-json --verbose --include-partial-messages`` stream.
 
@@ -170,6 +173,8 @@ def _stream(
     message_start message (where CLI 2.1.286 sent ``[]``) or in the message_delta delta;
     ``iterations``/``result_iterations``/``start_iterations``/``assistant_iterations`` give the usage of
     message_delta, the result, message_start and the assistant event its iteration types.
+    ``start_event_transformations`` puts the field on the message_start event object instead;
+    ``raw_delta_usage`` replaces message_delta's usage, and ``raw_iterations`` its iterations, verbatim.
     """
     init = {"type": "system", "subtype": "init", "model": model, "tools": None if tools is None else list(tools),
             "session_id": STREAM_SESSION, "cwd": "/elsewhere", "apiKeySource": "none"}
@@ -211,6 +216,8 @@ def _stream(
             started["usage"] = {"input_tokens": 12, "output_tokens": 1,
                                 "iterations": [{"type": kind, "input_tokens": 1, "output_tokens": 1} for kind in start_iterations]}
         start = _stream_event({"type": "message_start", "message": started})
+        if start_event_transformations != "absent":
+            start["event"]["input_transformations"] = start_event_transformations
         events.append(start)
         if duplicate_start:
             events.append(dict(start))
@@ -283,7 +290,10 @@ def _stream(
         delta_usage: dict[str, Any] = {"output_tokens": 3}
         if iterations is not None:
             delta_usage["iterations"] = [{"type": kind, "input_tokens": 1, "output_tokens": 1} for kind in iterations]
-        message_delta = _stream_event({"type": "message_delta", "delta": delta, "usage": delta_usage},
+        if raw_iterations != "absent":
+            delta_usage["iterations"] = raw_iterations
+        message_delta = _stream_event({"type": "message_delta", "delta": delta,
+                                       "usage": delta_usage if raw_delta_usage == "absent" else raw_delta_usage},
                                       parent="tu_0" if finish_parent else None)
         if input_transformations:
             message_delta["event"]["input_transformations"] = [{"type": "model_fallback", "from": model, "to": "claude-other"}]
@@ -506,6 +516,22 @@ def test_dispatch_binds_exact_stdin_and_output_and_settles_through_the_journal(t
         (dict(result_iterations=["fallback_message", "message"]), "failed", "failed", "stream_binding:server_side_fallback"),
         (dict(start_iterations=["fallback_message"]), "failed", "failed", "stream_binding:server_side_fallback"),
         (dict(assistant_iterations=["message", "fallback_message"]), "failed", "failed", "stream_binding:server_side_fallback"),
+        # Any other usage iteration type, or a malformed one, fails closed under its own name; a usage that is not an
+        # object carries no iterations. The field on the message_start event object reads as on its message.
+        (dict(iterations=["message", "compaction"]), "failed", "failed", "stream_binding:usage_iteration_type:compaction"),
+        (dict(raw_iterations={"type": "fallback_message"}), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_iterations=7), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_iterations=["fallback_message"]), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_iterations=[{"type": 5}]), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_iterations=None), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_delta_usage="not an object"), "complete", "eligible", None),
+        (dict(raw_delta_usage=7), "complete", "eligible", None),
+        (dict(start_event_transformations=[]), "complete", "eligible", None),
+        (dict(start_event_transformations=[{"type": "thinking_dropped"}]), "failed", "failed", "stream_binding:input_transformed"),
+        (dict(start_transformations=[], start_event_transformations=[{"type": "thinking_dropped"}]), "failed", "failed",
+         "stream_binding:input_transformed"),
+        (dict(assistant_extra_block="fallback"), "failed", "failed",
+         ("stream_schema:content_block_type:fallback", "stream_binding:server_side_fallback")),
         (dict(server_tool_block=True), "failed", "failed", "stream_schema:content_block_type:server_tool_use"),
         (dict(assistant_extra_block="web_search_tool_result"), "failed", "failed",
          "stream_schema:content_block_type:web_search_tool_result"),
@@ -1334,7 +1360,7 @@ def test_a_schema_2_ledger_keeps_classifier_3s_verdict_and_classifier_4_cannot_r
     assert current["finish_metadata_observed"] is True
     assert current["observed"]["stream_events"]["input_transformations"] == {
         "message_start": 1, "message_start_transformed": 0, "message_delta": 0}
-    assert current["observed"]["fallback_message_iterations"] == 0
+    assert current["observed"]["usage_iteration_types"] == ["message"]
     # A transformed input is named for what it is, not as a fallback, and leaves the finish unobserved.
     dropped = classify_stream(_stream(start_transformations=[{"type": "thinking_dropped"}]), exit_code=0, timed_out=False,
                               model_requested=MODEL, provider_version=VERSION)
@@ -1348,6 +1374,13 @@ def test_a_schema_2_ledger_keeps_classifier_3s_verdict_and_classifier_4_cannot_r
     receipt = outcome["receipt"]
     assert receipt["schema_version"] == 2 and receipt["classifier_version"] == 3
     assert receipt["outcome"] == "failed" and receipt["reasons"] == ["stream_binding:server_side_fallback"]
+    # The ledger as main wrote it: main's parser recorded none of the observations classifier 4 added.
+    receipt_path = Path(outcome["ledger_path"]) / "receipt.json"
+    as_main_wrote = json.loads(receipt_path.read_bytes())
+    for key in ("fallback_blocks", "input_transformations"):
+        as_main_wrote["stream"]["stream_events"].pop(key)
+    as_main_wrote["stream"].pop("usage_iteration_types")
+    receipt_path.write_bytes(_canonical(as_main_wrote))
     assert settle_delivery(journal_root, delivery_root, reservation_id=reservation["reservation_id"])["status"] == "failed"
     validation = validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
     assert validation["ledger_schema_version"] == 2 and validation["classifier_version"] == 3
@@ -1374,3 +1407,214 @@ def test_a_schema_2_ledger_keeps_classifier_3s_verdict_and_classifier_4_cannot_r
     (ledger / "request.json").write_bytes(original_request)
     (ledger / "receipt.json").write_bytes(original_receipt)
     assert validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])["outcome"] == "failed"
+
+
+def test_a_settled_schema_3_verdict_cannot_be_relabelled_by_classifier_3(tmp_path: Path) -> None:
+    """The reverse of the schema 2 case. Classifier 3 reads no usage.iterations, so a schema 3 ledger failed only on a
+    fallback_message iteration would re-derive complete if rewritten as schema 2; once settled, the journal refuses it."""
+    journal_root, delivery_root, reservation, common = _setup(tmp_path)
+    outcome = deliver_reserved_attempt(journal_root, delivery_root,
+                                       runner=FakeRoute(_stream(iterations=["message", "fallback_message"])), **common)
+    assert outcome["receipt"]["schema_version"] == 3 and outcome["receipt"]["reasons"] == ["stream_binding:server_side_fallback"]
+    assert settle_delivery(journal_root, delivery_root, reservation_id=reservation["reservation_id"])["status"] == "failed"
+    ledger = Path(outcome["ledger_path"])
+    forged_request = json.loads((ledger / "request.json").read_bytes())
+    forged_request["schema_version"] = 2
+    (ledger / "request.json").write_bytes(_canonical(forged_request))
+    forged = json.loads((ledger / "receipt.json").read_bytes())
+    forged.update({"schema_version": 2, "classifier_version": 3, "outcome": "complete", "reasons": [],
+                   "finish_metadata_observed": True, "assistant_completion": {**forged["assistant_completion"], "observed": True},
+                   "request_sha256": _sha(_canonical(forged_request))})
+    (ledger / "receipt.json").write_bytes(_canonical(forged))
+    with pytest.raises(ValueError, match="not admissible"):
+        validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+
+
+@pytest.mark.parametrize(
+    ("stream", "classifier_3", "classifier_4"),
+    [
+        (dict(start_transformations=[]), ["stream_binding:server_side_fallback"], []),
+        (dict(start_event_transformations=[]), ["stream_binding:server_side_fallback"], []),
+        (dict(start_transformations=[{"type": "thinking_dropped"}]), ["stream_binding:server_side_fallback"],
+         ["stream_binding:input_transformed"]),
+        (dict(delta_transformations=[]), ["stream_binding:server_side_fallback"], ["stream_binding:server_side_fallback"]),
+        (dict(input_transformations=True), ["stream_binding:server_side_fallback"], ["stream_binding:server_side_fallback"]),
+        (dict(fallback_block=True), ["stream_schema:content_block_type:fallback", "stream_binding:server_side_fallback"],
+         ["stream_schema:content_block_type:fallback", "stream_binding:server_side_fallback"]),
+        (dict(assistant_extra_block="fallback"), ["stream_schema:content_block_type:fallback"],
+         ["stream_schema:content_block_type:fallback", "stream_binding:server_side_fallback"]),
+        (dict(iterations=["message", "fallback_message"]), [], ["stream_binding:server_side_fallback"]),
+        (dict(result_iterations=["message", "compaction"]), [], ["stream_binding:usage_iteration_type:compaction"]),
+        (dict(raw_iterations={"type": "fallback_message"}), [], ["stream_binding:usage_iteration_type:invalid"]),
+    ],
+)
+def test_classifiers_3_and_4_each_read_the_fallback_signals_by_their_own_rule(
+    stream: dict[str, Any], classifier_3: list[str], classifier_4: list[str]
+) -> None:
+    """Classifier 3 stays as schema 2 ledgers were written (any input_transformations, a stream fallback block, no
+    usage.iterations); classifier 4 reads the documented signals. Exact reasons, so neither rule borrows the other's."""
+    raw = _stream(**stream)
+    for version, expected in ((3, classifier_3), (4, classifier_4)):
+        result = classify_stream(raw, exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION,
+                                 classifier_version=version)
+        assert result["reasons"] == expected, (version, result["reasons"])
+        assert result["outcome"] == ("failed" if expected else "complete"), version
+        assert result["finish_metadata_observed"] is not any(reason.startswith("stream_binding:") for reason in expected), version
+
+
+def _probe_script() -> Any:
+    """backend/scripts/native_delivery_probe.py, the founder's probe runner, loaded as other tests load scripts."""
+    spec = importlib.util.spec_from_file_location("native_delivery_probe", Path(__file__).resolve().parents[2] / "scripts/native_delivery_probe.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_probe_retain_root_is_durable_outside_the_repository_and_written_once(tmp_path: Path) -> None:
+    """macOS cleared /private/tmp and lost the 2026-10-01 probe's ledger; the dispatch roots must sit outside any
+    `.claude` ancestor, which on the releasing machine means a temporary directory, so plan refuses a retain root
+    the evidence would not survive in."""
+    probe = _probe_script()
+    temp, home, repo = tmp_path / "temp", tmp_path / "home", tmp_path / "repo"
+    for directory in (temp / "probe", home / "Documents" / "ledgers", home / "Library" / "Mobile Documents" / "ledgers",
+                      home / "ledgers", repo / "ledgers"):
+        directory.mkdir(parents=True)
+
+    def refusal(value: str) -> str | None:
+        return probe._retain_root(value, "engineering-probe-x", temp_roots=(temp,), home=home, repository=repo)[1]
+
+    target, clean = probe._retain_root(str(home / "ledgers"), "engineering-probe-x", temp_roots=(temp,), home=home,
+                                       repository=repo)
+    assert clean is None and target == (home / "ledgers" / "engineering-probe-x").resolve()
+    assert "absolute path" in refusal("ledgers")
+    assert "existing directory" in refusal(str(home / "missing"))
+    assert "temporary directory" in refusal(str(temp)) and "temporary directory" in refusal(str(temp / "probe"))
+    assert "iCloud-synced" in refusal(str(home / "Documents" / "ledgers"))
+    assert "iCloud-synced" in refusal(str(home / "Library" / "Mobile Documents" / "ledgers"))
+    assert "inside the repository" in refusal(str(repo)) and "inside the repository" in refusal(str(repo / "ledgers"))
+    (home / "ledgers" / "engineering-probe-x").mkdir()
+    assert "already exists" in refusal(str(home / "ledgers"))
+    # By default the machine's own temporary directory and this repository are refused.
+    real_temp = Path(tempfile.mkdtemp())
+    try:
+        assert "temporary directory" in probe._retain_root(str(real_temp), "engineering-probe-x")[1]
+    finally:
+        real_temp.rmdir()
+    assert "inside the repository" in probe._retain_root(str(Path(__file__).resolve().parents[1]), "engineering-probe-x")[1]
+    assert "retain_root" in probe._MANIFEST_KEYS and probe.EXIT_RETAIN == 6
+
+
+def test_probe_retains_a_copy_that_validates_and_reports_one_that_does_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    probe = _probe_script()
+    journal_root, delivery_root, reservation, common = _setup(tmp_path)
+    outcome = deliver_reserved_attempt(journal_root, delivery_root, runner=FakeRoute(_stream()), **common)
+    settle_delivery(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    keep = tmp_path / "keep"
+    keep.mkdir()
+    retained = probe._retain_copy(journal_root, delivery_root, keep / "probe", reservation_id=reservation["reservation_id"])
+    assert retained == {"path": str(keep / "probe"), "valid": True, "outcome": "complete", "journal_status": "eligible",
+                        "classifier_version": 4, "ledger_schema_version": 3}
+    copy = validate_delivery_binding(keep / "probe" / "journal", keep / "probe" / "delivery",
+                                     reservation_id=reservation["reservation_id"])
+    assert copy["outcome"] == "complete" and copy["journal_status"] == "eligible"
+    # A copy that does not validate is reported, never repaired: here the original's retained stream changed.
+    stdout = Path(outcome["ledger_path"]) / "stdout.raw"
+    stdout.write_bytes(stdout.read_bytes() + b"\n")
+    broken = probe._retain_copy(journal_root, delivery_root, keep / "again", reservation_id=reservation["reservation_id"])
+    assert broken["valid"] is False and "retained delivery file changed" in broken["error"]
+    # A target that already exists is refused, not merged into.
+    taken = probe._retain_copy(journal_root, delivery_root, keep / "probe", reservation_id=reservation["reservation_id"])
+    assert taken["valid"] is False and taken["error"].startswith("FileExistsError")
+    # The copy is checked byte for byte against the original before it is validated: a changed, extra or missing
+    # file makes the trees differ, and such a copy is reported as differing.
+    source, copied = tmp_path / "tree-a", tmp_path / "tree-b"
+    (source / "nested").mkdir(parents=True)
+    (source / "nested" / "file").write_bytes(b"1")
+    shutil.copytree(source, copied)
+    assert probe._same_tree(source, copied)
+    (copied / "nested" / "file").write_bytes(b"2")
+    assert not probe._same_tree(source, copied)
+    (copied / "nested" / "file").write_bytes(b"1")
+    (copied / "extra").write_bytes(b"")
+    assert not probe._same_tree(source, copied)
+    (copied / "extra").unlink()
+    (copied / "nested" / "file").unlink()
+    assert not probe._same_tree(source, copied)
+    monkeypatch.setattr(probe, "_same_tree", lambda source, copy: False)
+    lossy = probe._retain_copy(journal_root, delivery_root, keep / "lossy", reservation_id=reservation["reservation_id"])
+    assert lossy == {"path": str(keep / "lossy"), "valid": False, "error": "the copy differs from the original"}
+
+
+def test_probe_run_retains_a_validated_copy_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                      capsys: pytest.CaptureFixture[str]) -> None:
+    """The founder's runner against a fake `claude` that answers the token request from the prompt it is given:
+    plan refuses a bad retain root before anything is written; run dispatches once, settles, copies the journal and
+    ledger into the retain root and validates the copy (exit 0); a copy that does not validate exits 6."""
+    probe = _probe_script()
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(probe, "_temp_roots", lambda: ())  # pytest's tmp_path is itself under the temp directory
+    fake_cli = tmp_path / "bin" / "claude"
+    fake_cli.parent.mkdir()
+    fake_cli.write_text(
+        "#!" + sys.executable + "\n"
+        "import json, re, sys\n"
+        "if sys.argv[1:] == ['--version']:\n"
+        "    print('2.1.285 (Claude Code)'); sys.exit(0)\n"
+        "prompt = sys.stdin.read()\n"
+        "model = sys.argv[sys.argv.index('--model') + 1]\n"
+        "labels = re.search(r'values of (.+?), one per line', prompt).group(1).split(', ')\n"
+        "values = dict(re.findall(r'(TOKEN-[0-9]{4}): ([0-9a-f]{64})', prompt))\n"
+        "text = '\\n'.join(values[label] for label in labels)\n"
+        "def ev(inner):\n"
+        "    print(json.dumps({'type': 'stream_event', 'event': inner, 'session_id': 's', 'parent_tool_use_id': None}))\n"
+        "print(json.dumps({'type': 'system', 'subtype': 'init', 'model': model, 'tools': [], 'claude_code_version': '2.1.285',\n"
+        "                  'session_id': 's'}))\n"
+        "ev({'type': 'message_start', 'message': {'id': 'm1', 'model': model, 'stop_reason': None, 'content': [],\n"
+        "                                         'input_transformations': []}})\n"
+        "ev({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})\n"
+        "ev({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': text}})\n"
+        "print(json.dumps({'type': 'assistant', 'session_id': 's', 'message': {'id': 'm1', 'model': model, 'stop_reason': None,\n"
+        "                  'usage': {'input_tokens': 1, 'output_tokens': 1}, 'content': [{'type': 'text', 'text': text}]}}))\n"
+        "ev({'type': 'content_block_stop', 'index': 0})\n"
+        "ev({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},\n"
+        "    'usage': {'output_tokens': 1, 'iterations': [{'type': 'message'}]}})\n"
+        "ev({'type': 'message_stop'})\n"
+        "print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': text, 'num_turns': 1,\n"
+        "                  'usage': {'input_tokens': 1, 'output_tokens': 1, 'iterations': [{'type': 'message'}]},\n"
+        "                  'total_cost_usd': 0, 'session_id': 's'}))\n"
+    )
+    fake_cli.chmod(fake_cli.stat().st_mode | stat.S_IXUSR)
+    (tmp_path / "roots").mkdir()
+    (tmp_path / "keep").mkdir()
+
+    def manifest(name: str, retain_root: str) -> dict[str, Any]:
+        return {"probe_id": f"engineering-probe-{name}", "programme_id": f"engineering-probe-{name}",
+                "accession_number": "0000000000-26-000099", "cli_path": str(fake_cli), "expected_cli_version": "2.1.285",
+                "version_confound": False, "model": MODEL, "journal_root": str(tmp_path / "roots" / f"{name}-journal"),
+                "delivery_root": str(tmp_path / "roots" / f"{name}-delivery"), "retain_root": retain_root,
+                "limits": {"max_stdin_bytes": 65536, "timeout_seconds": 60, "max_budget_usd": 1}, "passthrough_env": [],
+                "fixture": {"seed": name, "token_count": 8, "echo_tokens": [2, 7]}, "drift_plan": "-", "cost_accounting": "-"}
+
+    refused = manifest("refused", "keep")
+    assert any("retain_root must be an absolute path" in reason for reason in probe.plan(refused)["preflight_refusals"])
+    assert probe.run(refused) == probe.EXIT_REFUSED and not (tmp_path / "roots" / "refused-journal").exists()
+
+    clean = manifest("clean", str(tmp_path / "keep"))
+    assert probe.plan(clean)["preflight_refusals"] == []
+    assert probe.run(clean) == 0
+    target = tmp_path / "keep" / "engineering-probe-clean"
+    result = json.loads((target / "delivery" / "probe-result.json").read_text())
+    assert result["outcome"] == "complete" and result["fidelity"]["exact"] is True
+    assert result["retained_copy"] == {"path": str(target.resolve()), "valid": True, "outcome": "complete",
+                                       "journal_status": "eligible", "classifier_version": 4, "ledger_schema_version": 3}
+    assert json.loads((tmp_path / "roots" / "clean-delivery" / "probe-result.json").read_text()) == result
+    assert validate_delivery_binding(target / "journal", target / "delivery",
+                                     reservation_id=result["reservation_id"])["outcome"] == "complete"
+
+    monkeypatch.setattr(probe, "_retain_copy", lambda *args, **kwargs: {"path": "-", "valid": False, "error": "lost"})
+    assert probe.run(manifest("unretained", str(tmp_path / "keep"))) == probe.EXIT_RETAIN
+    assert "RETAINED COPY DID NOT VALIDATE (lost)" in capsys.readouterr().out
