@@ -76,16 +76,19 @@
  *   - a verification that throws keeps its finding (unverified) instead of dropping it. It throws as it can in the
  *     runtime, where `parallel`, `pipeline` and `agent` throw once a run has started all the agents it may: the case
  *     caps the run at two agents, so the lens and one of two blockers' refuters use them and the other blocker's
- *     refuters' call throws, whichever blocker the script verifies first;
+ *     refuters' call throws, whichever blocker the script verifies first. A script that starts each refuter a timer
+ *     tick or a hook layer after its refuters' call never lets that call throw at one PR's cap, so how it treats a
+ *     verification that throws stays out of the case's reach (in the runtime an exhausted token budget, or a cap
+ *     that other PRs in a batch filled, can still throw one);
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
  * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
- * function, and `parallel`, `pipeline` and `agent` throw once the run has started all the agents it may (the first two
- * one timer tick after their call), which no case but that one reaches. `budget` has no target, and `workflow` is
- * passed on to `agent` under a `workflow:` label, so a guarded call to it runs here as it would in the runtime and
- * counts as one agent too many. As in the runtime, the script runs in strict mode, each run gets fresh hooks and its
- * own copies of `args` and of each agent's result, parsed from JSON, and `Date.now()`, an argless `new Date()` and
- * `Math.random()` throw.
+ * function, and `parallel`, `pipeline` and `agent` throw once the run has started all the agents it may (`agent`
+ * reads the cap at its call, the other two one timer tick after theirs), which no case but that one reaches. `budget`
+ * has no target, and `workflow` is passed on to `agent` under a `workflow:` label, so a guarded call to it runs here
+ * as it would in the runtime and counts as one agent too many. As in the runtime, the script runs in strict mode, each
+ * run gets fresh hooks and its own copies of `args` and of each agent's result, parsed from JSON, and `Date.now()`, an
+ * argless `new Date()` and `Math.random()` throw.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -894,7 +897,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
     // Two blockers on a run capped at two agents, as the runtime caps a run: the lens and one blocker's refuter use the
     // cap, so the other blocker's refuters' call throws, and with it that blocker's verification, whichever blocker the
-    // script verifies first.
+    // script verifies first. A script that starts each refuter a timer tick or a hook layer after that call is out of
+    // the case's reach, as the header says.
     const twoBlockers: Findings = {
       findings: [
         { file: 'a.py', title: 'first blocker', detail: 'd', severity: 'blocker', evidence: 'e' },
