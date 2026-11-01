@@ -106,8 +106,8 @@ describe.each([
   {
     name: 'CitationChip',
     chip: citationChip,
-    trigger: () => screen.getByRole('button', { name: /citation 1: item 7 — md&a/i }),
-    popover: () => screen.queryByRole('group', { name: /citation 1: item 7 — md&a/i }),
+    trigger: () => screen.getByRole('button', { name: /1\. citation: item 7 — md&a/i }),
+    popover: () => screen.queryByRole('group', { name: /1\. citation: item 7 — md&a/i }),
     action: () => screen.getByRole('link', { name: /open original/i }),
   },
 ])('$name popover keyboard contract', ({ chip, trigger, popover, action }) => {
@@ -270,12 +270,12 @@ describe.each([
 describe('CitationChip and an IME', () => {
   it('an Escape that ends an IME composition is not taken by the citation card', () => {
     render(<Page chip={citationChip} />)
-    const t = screen.getByRole('button', { name: /citation 1: item 7 — md&a/i })
+    const t = screen.getByRole('button', { name: /1\. citation: item 7 — md&a/i })
     fireEvent.mouseEnter(t)
-    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /1\. citation: item 7 — md&a/i })).toBeInTheDocument()
     // Not prevented: the composition, not the card, owns this key.
     expect(fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true })).toBe(true)
-    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /1\. citation: item 7 — md&a/i })).toBeInTheDocument()
   })
 })
 
@@ -303,9 +303,9 @@ describe('CitationChip without a viewer', () => {
         <button type="button">after</button>
       </>,
     )
-    const link = screen.getByRole('link', { name: /citation 1/i })
+    const link = screen.getByRole('link', { name: /1\. citation/i })
     act(() => link.focus())
-    expect(screen.getByRole('group', { name: /citation 1/i })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /1\. citation/i })).toBeInTheDocument()
     // Not prevented: the browser's own Tab proceeds as usual.
     expect(fireEvent.keyDown(link, { key: 'Tab' })).toBe(true)
     expect(document.activeElement).toBe(link)

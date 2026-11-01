@@ -241,7 +241,7 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
 const dialog = () => document.querySelector<HTMLElement>('[aria-labelledby="source-pane-title"]')!
 const chip = () => screen.getByRole('button', { name: 'Quote found in filing, source' })
 const filingTab = () => screen.getByRole('tab', { name: /filing/i })
-const answerChip = () => screen.getByRole('button', { name: /^Citation 1:/ })
+const answerChip = () => screen.getByRole('button', { name: /^1\. Citation:/ })
 
 describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
   beforeEach(() => window.localStorage.clear())
@@ -725,7 +725,7 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       act(() => {
         vi.advanceTimersByTime(200)
       })
-      expect(screen.queryByRole('group', { name: /^Citation 1:/ })).toBeNull()
+      expect(screen.queryByRole('group', { name: /^1\. Citation:/ })).toBeNull()
       fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
       expect(dialog()).toHaveAttribute('aria-hidden', 'true')
       expect(document.activeElement).toBe(c)

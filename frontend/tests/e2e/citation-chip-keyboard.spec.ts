@@ -37,7 +37,7 @@ const ANSWER = {
 }
 const LAUNCHER = 'button[aria-label="Source"]'
 const SUMMARY_CHIP = 'Quote found in filing, source'
-const CARD = '[role="group"][aria-label^="Citation 1:"]'
+const CARD = '[role="group"][aria-label^="1. Citation:"]'
 
 async function openFiling(page: Page, baseURL: string) {
   await answerApi(page, baseURL, 'pro')
@@ -77,7 +77,7 @@ async function ask(page: Page) {
   const composer = page.locator(PANE).getByPlaceholder('Ask about this filing…')
   await composer.fill('What drove revenue?')
   await composer.press('Enter')
-  const chip = page.locator(PANE).getByRole('button', { name: /^Citation 1:/ })
+  const chip = page.locator(PANE).getByRole('button', { name: /^1\. Citation:/ })
   await expect(chip).toBeVisible()
   // Keep the pointer off the answer so no hover card competes with the keyboard.
   await page.mouse.move(5, 5)
@@ -164,7 +164,7 @@ for (const vp of [
       await page.keyboard.press('ArrowLeft')
       await expect(page.locator(PANE).getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
       await expect(page.locator(PANE).getByPlaceholder('Ask about this filing…')).toBeFocused()
-      await expect(page.locator(PANE).getByRole('button', { name: /^Citation 1:/ })).toBeVisible()
+      await expect(page.locator(PANE).getByRole('button', { name: /^1\. Citation:/ })).toBeVisible()
     })
 
     test('a summary chip that opened the pane gets focus back after a citation followed from the answer', async ({ page, baseURL }) => {
