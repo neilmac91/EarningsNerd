@@ -1906,7 +1906,7 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
                  SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
-                 viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
+                 workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
                  DayDetailDialog, a
                  sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
@@ -1972,7 +1972,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
-                 source and viewer sheets — scrim AND panel) ·
+                 source, rail and workspace sheets: scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
                  site header. The panel follows its scrim in DOM order at that rung. CitationChip portals

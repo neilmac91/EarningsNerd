@@ -2,8 +2,8 @@
    dialogAllowlist.spec.ts — guardrail (v3, DS-04)
    -----------------------------------------------------------------------------
    Dialog semantics ship ONLY through ui/Modal plus the documented bespoke layers:
-     - the copilot rail / filing viewer / workspace sheets (the rail and workspace
-       trap focus via useSheetFocusTrap) and SourceTrace's mobile source-detail
+     - the copilot rail / workspace sheets (both trap focus via
+       useSheetFocusTrap) and SourceTrace's mobile source-detail
        sheet — role="dialog";
      - the calendar's DayDetailDialog — a native <dialog> + showModal(), whose top
        layer supplies the focus trap and Escape.
