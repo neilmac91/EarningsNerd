@@ -73,10 +73,11 @@
  *   - a lens that returns nothing makes the result `incomplete` and not mergeable;
  *   - a refuter that returns nothing leaves the finding unverified, never refuted, and makes the result
  *     `incomplete`, so a should-fix whose required refutation never ran is not clearance;
- *   - a verification that throws keeps its finding (unverified) instead of dropping it;
+ *   - a verification that throws keeps its finding (unverified) instead of dropping it: a vote that throws when read
+ *     stands in for the throw, and only this case passes the agents' results uncopied, since in the runtime none can;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
- * to null, and a throwing thunk resolves to null. `budget` has no target, and `workflow` is passed on to `agent` under a
+ * to null, and a thunk that throws, at once or later, resolves to null, so the call never rejects. `budget` has no target, and `workflow` is passed on to `agent` under a
  * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many. As
  * in the runtime, the script runs in strict mode, each run gets fresh hooks and its own copies of `args` and of each
  * agent's result, parsed from JSON, and `Date.now()`, an argless `new Date()` and `Math.random()` throw.
@@ -122,10 +123,7 @@ const VERDICT_SCHEMA = {
   required: ['refuted', 'reason'],
 }
 
-// The runtime's token budget when no target is set, as the Workflow reference documents it.
-const NO_BUDGET = Object.freeze({ total: null, spent: () => 0, remaining: () => Infinity })
-
-function load(): (args: unknown, agent: unknown) => Promise<unknown> {
+function load({ rawResults = false }: { rawResults?: boolean } = {}): (args: unknown, agent: unknown) => Promise<unknown> {
   const source = readFileSync(SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
   // The runtime's clock and randomness throw, as the Workflow reference documents: Date.now(), an argless new Date()
   // and Math.random().
@@ -154,8 +152,17 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
           return value
         }),
       )
+    // Each thunk settles on its own, as in the runtime: one that throws, synchronously or not, resolves to null.
     const parallel = async (thunks: Array<() => Promise<unknown>>) =>
-      Promise.all(thunks.map((thunk) => thunk().catch(() => null)))
+      Promise.all(
+        thunks.map(async (thunk) => {
+          try {
+            return await thunk()
+          } catch {
+            return null
+          }
+        }),
+      )
     const log = () => undefined
     const phase = () => undefined
     const RuntimeDate = new Proxy(Date, {
@@ -163,12 +170,15 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
       get: (target, key, receiver) => (key === 'now' ? throws('Date.now()') : Reflect.get(target, key, receiver)),
     })
     const RuntimeMath = Object.create(Math, { random: { value: throws('Math.random()') } })
+    // The runtime's token budget when no target is set, as the Workflow reference documents it.
+    const budget = Object.freeze({ total: null, spent: () => 0, remaining: () => Infinity })
     const stub = agent as (prompt: unknown, o: unknown) => Promise<unknown>
-    const ownAgent = async (prompt: unknown, o: unknown) => own(await stub(prompt, o))
+    // `rawResults` hands the script each result as the stub made it, for the one case whose vote must throw when read.
+    const ownAgent = rawResults ? stub : async (prompt: unknown, o: unknown) => own(await stub(prompt, o))
     // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
     const workflow = (ref: unknown, input?: unknown) =>
       ownAgent(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
-    return factory(own(args), ownAgent, pipeline, parallel, log, phase, NO_BUDGET, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
+    return factory(own(args), ownAgent, pipeline, parallel, log, phase, budget, workflow, RuntimeDate, RuntimeMath) as Promise<unknown>
   }
 }
 
@@ -855,18 +865,18 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
-    // A finding whose file is not a string, which the agents' JSON can carry: building its refuter's call reads
-    // `file.split`, so the verification stage throws. (A vote whose fields throw when read cannot reach the script, since
-    // each agent's result arrives parsed from JSON.)
-    const blockerOnly = { findings: [{ file: 7, title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
+    const blockerOnly: Findings = { findings: [{ file: 'a.py', title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
     const calls: Call[] = []
     const agent = async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
       calls.push({ label: o.label, model: o.model, effort: o.effort, prompt, schema: o.schema })
       if (o.label.startsWith('review:')) return blockerOnly
-      return { refuted: false, reason: 'r' }
+      // A vote whose fields throw when read: the verification stage throws after its agents returned. No vote can do
+      // that in the runtime, where each result is schema-checked and arrives as a copy, so this case alone takes the
+      // results uncopied, to pin the script's fallback for a verification that throws.
+      return { get refuted(): boolean { throw new Error('unreadable vote') }, reason: 'r' }
     }
-    const [result] = (await load()({ prs: [pr('routine')] }, agent)) as Result[]
-    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(0)
+    const [result] = (await load({ rawResults: true })({ prs: [pr('routine')] }, agent)) as Result[]
+    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(1)
     expect(titles(result.unverified)).toEqual(['blocker'])
     expect(result.confirmed).toHaveLength(0)
     expect(result.refuted).toHaveLength(0)
