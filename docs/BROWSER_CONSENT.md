@@ -65,8 +65,9 @@ none. The identification hook forgets the account whenever it goes away: when th
 guest (any logout control, a lost session) and when the account query leaves the cache (an account
 deletion and "Log out of all devices" clear it). Forgetting resets a loaded client, with a new
 device id. A client that has not loaded (analytics refused, or not chosen yet) cannot reset, so a
-flag in local storage, which names no account, asks the provider to reset at the next load,
-whoever's session it is then. The provider also resets an id kept from an earlier visit for a
+flag in local storage asks the provider to reset at the next load, whoever's session it is then.
+The flag names no account, and it is left only where PostHog has stored something, which needs an
+allow first: a browser that never allowed analytics gets none. The provider also resets an id kept from an earlier visit for a
 browser without a session. Either reset comes before posthog-js sends anything for the page.
 After a logout and a login made while analytics is refused, the next allow identifies the account
 again. Whether a refusal should also clear PostHog's own storage is a founder decision

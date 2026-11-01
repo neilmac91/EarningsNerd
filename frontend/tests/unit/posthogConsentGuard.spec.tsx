@@ -451,12 +451,15 @@ describe('the provider on the real SDK', () => {
 // A reader with no account carries none: hooks/usePostHogUserIdentification.ts forgets it once the reader is a guest,
 // and the provider resets one a browser without a session kept from an earlier visit before posthog-js sends anything.
 describe('an account PostHog keeps when the reader has none', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    // posthog-js persists to cookies too, which the file's beforeEach leaves; each case starts from none.
+  // posthog-js persists to cookies too, which the file's beforeEach leaves; each case starts from none.
+  const clearCookies = () => {
     for (const cookie of document.cookie.split(';')) {
       document.cookie = `${cookie.split('=')[0].trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
     }
+  }
+  beforeEach(() => {
+    vi.resetModules()
+    clearCookies()
   })
   afterEach(async () => {
     ;(await import('@/lib/api/session')).clearSessionActive()
@@ -565,6 +568,24 @@ describe('an account PostHog keeps when the reader has none', () => {
     expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-pending-check'))).toEqual([])
     act(() => choose(false))
   }, 20_000)
+
+  it('leaves word only where PostHog has stored something, so a browser that never allowed analytics stores none', async () => {
+    const word = () => localStorage.getItem('en_posthog_forget_account')
+    ;(await refusedVisit()).analytics.forgetAccount()
+    expect(word()).toBeNull()
+    // PostHog's entry as the cookie that holds the identity, or in local storage where cookies cannot hold it.
+    const entries = [
+      () => { document.cookie = 'ph_phc_synthetic_entry_posthog=%7B%7D; path=/' },
+      () => localStorage.setItem('ph_phc_synthetic_entry_posthog', '{}'),
+    ]
+    for (const plant of entries) {
+      localStorage.clear()
+      clearCookies()
+      plant()
+      ;(await refusedVisit()).analytics.forgetAccount()
+      expect(word()).toBe('1')
+    }
+  })
 
   it('leaves an anonymous browser\'s identity alone across a load', async () => {
     const first = await visit()

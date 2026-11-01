@@ -30,7 +30,8 @@ choice stop what posthog-js captures and sends, but its reviews found what it st
 - Forget the account at the one place that sees every way it goes away, not at each control that ends a session.
   `frontend/hooks/usePostHogUserIdentification.ts` calls `analytics.forgetAccount()` for every known guest and when the
   current-user query leaves the cache. Forgetting resets a held identity with a new device id. Where the SDK has not
-  loaded, it leaves a flag that names no account (`frontend/lib/posthogIdentity.ts`).
+  loaded, it leaves a flag that names no account (`frontend/lib/posthogIdentity.ts`), and only where the SDK has
+  stored something, so a browser that never allowed analytics stores nothing for it.
 - Reset an identity kept from an earlier visit before the SDK's first request, when that flag is set (whoever's session
   it is now) or the browser has no session. The provider (`frontend/app/posthog-provider.tsx`) does it in `loaded`,
   which posthog-js runs before its remote configuration and flags.
@@ -49,6 +50,7 @@ choice stop what posthog-js captures and sends, but its reviews found what it st
   - a browser without a session that loads PostHog again starts on a fresh identity, and none of its requests carries
     the old one;
   - so does a browser whose account went while PostHog was off, though another account's session is active by then;
+    the flag is left only where PostHog has stored something;
   - an anonymous identity is kept across a load, and one kept while the browser's session goes on stays;
   - another account starts on a fresh identity and is identified afresh.
 - `frontend/tests/unit/posthog-user-identification.spec.tsx` pins that the hook asks to forget for every guest, again
