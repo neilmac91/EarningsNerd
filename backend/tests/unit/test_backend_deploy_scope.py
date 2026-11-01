@@ -86,19 +86,36 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
     for step in later:
         assert step.get("if") == DEPLOY_GATE, f"Deploy step {step.get('name')!r} is not gated"
 
-    tracked_tests = subprocess.check_output(
-        ["git", "ls-files", "backend/tests/"], cwd=ROOT, text=True
-    ).splitlines()
-    assert len(tracked_tests) > 100, "The test-only case must cover real tracked test paths"
     # Execute the workflow's actual shell, replacing only git's path inputs. Main has changed nothing
     # since this commit here, so the decision rests on the merge's own paths.
-    # Include future nested files and near-prefix boundaries, not just current .py tests.
     changed = tmp_path / "changed-paths"
     newer = tmp_path / "newer-paths"
     newer.write_text("")
     calls = tmp_path / "git-calls"
     shell = GIT_STUB + detect["run"]
-    cases = (
+    env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed), "TEST_NEWER_PATHS_FILE": str(newer),
+           "TEST_GIT_LOG": str(calls)}
+    for index, (paths, expected) in enumerate(_path_cases()):
+        changed.write_text("".join(f"{path}\n" for path in paths))
+        calls.write_text("")
+        decision = _run_detector(shell, ROOT, env, tmp_path / f"github-output-{index}")
+        assert decision == f"backend={str(expected).lower()}", (
+            f"Incorrect deployment decision for {paths[:3]}: "
+            "exclude backend/tests/ only; keep runtime and mixed changes deployable"
+        )
+        # Main is read only for a commit with a deployable change of its own, and only after that change.
+        assert calls.read_text().split() == ["own"] + (READ_OF_MAIN if expected else []), paths[:3]
+
+
+def _path_cases():
+    """(paths, deployable) cases for the detector's one path rule, which judges this commit's paths and
+    main's newer ones alike: every tracked test, future nested files and near-prefix boundaries, not
+    just current .py tests, beside runtime, migration, container and mixed changes."""
+    tracked_tests = subprocess.check_output(
+        ["git", "ls-files", "backend/tests/"], cwd=ROOT, text=True
+    ).splitlines()
+    assert len(tracked_tests) > 100, "The test-only case must cover real tracked test paths"
+    return (
         ([], False),
         (["docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], False),
         # A backend/ segment mid-path is not the backend image's tree.
@@ -128,23 +145,11 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         (["backend/tests_support/helper.py", "backend/testsuite.py"], True),
         (["backend/tests/unit/test_example.py", "backend/app/config.py"], True),
     )
-    env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed), "TEST_NEWER_PATHS_FILE": str(newer),
-           "TEST_GIT_LOG": str(calls)}
-    for index, (paths, expected) in enumerate(cases):
-        changed.write_text("".join(f"{path}\n" for path in paths))
-        calls.write_text("")
-        decision = _run_detector(shell, ROOT, env, tmp_path / f"github-output-{index}")
-        assert decision == f"backend={str(expected).lower()}", (
-            f"Incorrect deployment decision for {paths[:3]}: "
-            "exclude backend/tests/ only; keep runtime and mixed changes deployable"
-        )
-        # Main is read only for a commit with a deployable change of its own, and only after that change.
-        assert calls.read_text().split() == ["own"] + (READ_OF_MAIN if expected else []), paths[:3]
 
 
-def _stub_env(tmp_path, newer_paths):
+def _stub_env(tmp_path, newer_paths, own_paths=("backend/app/config.py",)):
     changed, newer, calls = tmp_path / "changed-paths", tmp_path / "newer-paths", tmp_path / "git-calls"
-    changed.write_text("backend/app/config.py\n")
+    changed.write_text("".join(f"{path}\n" for path in own_paths))
     newer.write_text("".join(f"{path}\n" for path in newer_paths))
     calls.write_text("")
     env = {**os.environ, "TEST_CHANGED_PATHS_FILE": str(changed), "TEST_NEWER_PATHS_FILE": str(newer),
@@ -155,31 +160,38 @@ def _stub_env(tmp_path, newer_paths):
 def test_a_commit_main_superseded_with_deployable_changes_does_not_deploy(tmp_path):
     """A deployable merge deploys only if main has changed no deployable backend file since it.
 
-    Main's newer paths get the same exclusion as the merge's own: backend/tests/ alone supersedes
-    nothing, a near-prefix path such as backend/tests_support/ does, and a backend/ segment mid-path
-    does not. A skip is annotated, so a green job that deployed nothing says so."""
+    Main's newer paths are judged by the same cases as a merge's own: a change that would deploy as
+    this commit's supersedes it as main's, so backend/tests/ alone supersedes nothing, a near-prefix
+    path such as backend/tests_support/ does, and a backend/ segment mid-path does not. A skip is
+    annotated, so a job that concludes success having deployed nothing says so."""
     shell = GIT_STUB + _detect_step(_workflow())["run"]
-    cases = (
-        ([], True),
-        (["frontend/app/page.tsx", "tasks/todo.md", "docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], True),
-        (["backend/tests/unit/test_example.py", "backend/tests/future/deep/unknown.ext"], True),
-        (["docs/backend/notes.md", "frontend/features/backend/status.tsx"], True),
-        (["backend/app/services/summary_pipeline.py"], False),
-        (["backend/requirements.txt"], False),
-        (["backend/migrations/new.sql"], False),
-        (["backend/tests_support/helper.py"], False),
-        (["frontend/app/page.tsx", "backend/app/config.py"], False),
-    )
-    for index, (paths, expected) in enumerate(cases):
+    for index, (paths, deployable) in enumerate(_path_cases()):
         env, calls = _stub_env(tmp_path, paths)
         output = tmp_path / f"github-output-superseded-{index}"
         result = subprocess.run(["bash", "-e", "-c", shell], capture_output=True, text=True, cwd=ROOT,
                                 env={**env, "GITHUB_OUTPUT": str(output)}, timeout=30, check=False)
         assert (result.returncode, result.stderr) == (0, ""), result.stderr
-        assert output.read_text().strip() == f"backend={str(expected).lower()}", paths
+        assert output.read_text().strip() == f"backend={str(not deployable).lower()}", paths[:3]
         assert calls.read_text().split() == ["own"] + READ_OF_MAIN
         skipped = "::notice title=Superseded deploy skipped::Main is at fffffff" in result.stdout
-        assert skipped is (not expected) and ("superseded deploy" in result.stdout) is (not expected), result.stdout
+        assert skipped is deployable and ("superseded deploy" in result.stdout) is deployable, result.stdout
+
+
+def test_each_backend_entry_is_judged_alike_on_both_sides(tmp_path):
+    """One tracked file from each top-level backend/ entry, judged as this commit's change and as main's
+    newer change: it deploys this commit exactly when it supersedes an older one. So the detector's two
+    sides cannot drift apart, even for an entry that no case names."""
+    shell = GIT_STUB + _detect_step(_workflow())["run"]
+    probes = {}
+    for path in subprocess.check_output(["git", "ls-files", "backend/"], cwd=ROOT, text=True).splitlines():
+        probes.setdefault(path.split("/")[1], path)
+    assert {"app", "tests", "migrations", "Dockerfile"} <= probes.keys(), sorted(probes)
+    for entry, path in sorted(probes.items()):
+        own_env, _ = _stub_env(tmp_path, [], own_paths=[path])
+        own = _run_detector(shell, ROOT, own_env, tmp_path / f"github-output-own-{entry}")
+        newer_env, _ = _stub_env(tmp_path, [path])
+        newer = _run_detector(shell, ROOT, newer_env, tmp_path / f"github-output-newer-{entry}")
+        assert (own == "backend=true") is (newer == "backend=false"), (path, own, newer)
 
 
 def test_each_failed_read_of_main_fails_the_step_and_decides_nothing(tmp_path):

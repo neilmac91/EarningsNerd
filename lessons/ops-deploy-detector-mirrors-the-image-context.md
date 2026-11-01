@@ -15,9 +15,11 @@ Astra agent and integrated after an independent review.
 
 ## Rule
 
-1. The deploy change detector excludes exactly the paths `backend/.dockerignore` excludes from the image
-   (today `backend/tests/`), and runs `git diff --name-only --no-renames` so both sides of a rename are
-   listed — a runtime file moved under an excluded path still deploys (the image loses it).
+1. The deploy change detector excludes the tracked directories `backend/.dockerignore` excludes from the
+   image (today `backend/tests/`), and runs `git diff --name-only --no-renames` so both sides of a rename
+   are listed — a runtime file moved under an excluded path still deploys (the image loses it). The
+   ignore file's single-file patterns are not mirrored: `backend/.gitignore`, the one tracked file it
+   excludes, still deploys an image whose content is unchanged.
 2. Every step after the detector is gated on its output (`if: steps.changes.outputs.backend == 'true'`).
    The gate `backend/tests/unit/test_backend_deploy_scope.py` executes the detector's actual shell on every
    tracked `backend/tests/` path, future nested paths, near-prefix boundaries (`backend/tests_support/`),
