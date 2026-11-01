@@ -16,12 +16,16 @@ import { directionChip } from '@/lib/financialTone'
  * tailwind.config.js: the label's ink over the chip's tint, the tint composited on the ground. Light reads the bare
  * classes; dark reads the `dark:` ones, and a chip with no dark ink or tint keeps its light one there, as the
  * stylesheet does. A chip with no ink or no tint, two of either in one theme (the stylesheet's order, which this spec
- * does not read, would pick one), a colour-like value it cannot read, an opacity modifier on a colour that carries its
- * own alpha (Tailwind replaces that alpha, which this spec does not model), or an ink or tint under any other variant
- * (a hover, a breakpoint: the chip is measured as it rests) fails, so nothing falls back to a default. A tint's
- * opacity (`bg-flat-dark/10`), an ink's (`text-loss-dark/70`) and an rgba token's alpha are applied. Out of reach: a
- * class a caller adds beside the recipe, and a hand-rolled tint of the same tokens, such as the insider panel's Buys
- * and Sells tiles, which pair the tokens Badge's beat and miss pair.
+ * does not read, would pick one), a colour-like value it cannot read (an arbitrary value that is not a hex, an rgb() or
+ * a length, such as `text-[var(--x)]`), an opacity modifier on a colour that carries its own alpha (Tailwind replaces
+ * that alpha, which this spec does not model), an ink or tint under any other variant (a hover, a breakpoint: the chip
+ * is measured as it rests), an opacity utility below 100 under any variant (`opacity-`, `text-opacity-`,
+ * `bg-opacity-`), or an arbitrary property (`[color:...]`) fails, so nothing falls back to a default. A tint's opacity
+ * modifier (`bg-flat-dark/10`), an ink's (`text-loss-dark/70`, `/[70%]`) and an rgba token's alpha are applied, and
+ * each composite is rounded to 8-bit channels, as the browser paints it. The grounds are the panel and the page; the
+ * auth shell's example sits on a glass card whose dark ground lies between the two (its light tint is opaque). Out of
+ * reach: a class a caller adds beside the recipe, and a hand-rolled tint of the same tokens, such as the insider
+ * panel's Buys and Sells tiles, which pair the tokens Badge's beat and miss pair.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -42,10 +46,11 @@ function parse(value: string): Rgba | null {
   return null
 }
 
+/** One colour over an opaque ground, rounded to 8-bit channels as the browser paints it. */
 const over = (top: Rgba, ground: Rgba): Rgba => [
-  top[0] * top[3] + ground[0] * (1 - top[3]),
-  top[1] * top[3] + ground[1] * (1 - top[3]),
-  top[2] * top[3] + ground[2] * (1 - top[3]),
+  Math.round(top[0] * top[3] + ground[0] * (1 - top[3])),
+  Math.round(top[1] * top[3] + ground[1] * (1 - top[3])),
+  Math.round(top[2] * top[3] + ground[2] * (1 - top[3])),
   1,
 ]
 const channel = (v: number) => {
@@ -60,6 +65,10 @@ const ratio = (a: Rgba, b: Rgba) => {
 
 /** Splits a class at its variant colons, never inside an arbitrary value's brackets. */
 const classParts = (cls: string) => cls.split(/:(?![^[]*\])/)
+/** An arbitrary value Tailwind reads as something other than a colour (`text-[13px]`, `bg-[url(...)]`). */
+const NOT_A_COLOUR = /^(length:|url\(|position:|size:|[\d.]+(px|rem|em|%)?$)/
+/** An opacity utility (`opacity-60`, `dark:text-opacity-60`, `bg-opacity-[.5]`) that fades what it is on. */
+const OPACITY = /^(text-|bg-)?opacity-(.+)$/
 
 /** A text- or bg- colour utility, resolved with its opacity; null when the utility sets no colour (`text-xs`). A colour it
  *  cannot read comes back as `colour: null`, with a failure saying why, so its theme never falls back to another. */
@@ -75,7 +84,7 @@ function colourOf(utility: string, where: string, failures: string[]): { kind: '
     const inner = name.slice(1, -1)
     colour = parse(inner)
     if (!colour) {
-      if (!/^(#|rgb)/i.test(inner)) return null
+      if (NOT_A_COLOUR.test(inner)) return null
       failures.push(`${where}: ${utility} looks like a colour this spec cannot read`)
       return { kind, colour: null }
     }
@@ -89,7 +98,8 @@ function colourOf(utility: string, where: string, failures: string[]): { kind: '
     }
   }
   if (modifier !== undefined) {
-    const alpha = /^\d+$/.test(modifier) ? Number(modifier) / 100 : /^\[([\d.]+)\]$/.test(modifier) ? Number(modifier.slice(1, -1)) : NaN
+    const arbitrary = /^\[([\d.]+)(%?)\]$/.exec(modifier)
+    const alpha = /^\d+$/.test(modifier) ? Number(modifier) / 100 : arbitrary ? Number(arbitrary[1]) / (arbitrary[2] ? 100 : 1) : NaN
     if (!Number.isFinite(alpha)) {
       failures.push(`${where}: ${utility}'s opacity cannot be read`)
       return { kind, colour: null }
@@ -109,7 +119,17 @@ function chipColours(name: string, className: string, failures: string[]): Recor
   for (const cls of className.split(/\s+/).filter(Boolean)) {
     const parts = classParts(cls)
     const utility = parts.pop() as string
-    const resolved = colourOf(utility.replace(/^!/, ''), name, failures)
+    const bare = utility.replace(/^!/, '')
+    const fade = OPACITY.exec(bare)
+    if (fade && fade[2] !== '100') {
+      failures.push(`${name}: ${cls} fades the chip, which this spec does not measure`)
+      continue
+    }
+    if (bare.startsWith('[')) {
+      failures.push(`${name}: ${cls} is an arbitrary property this spec does not read`)
+      continue
+    }
+    const resolved = colourOf(bare, name, failures)
     if (!resolved) continue
     const theme = parts.length === 0 ? 'light' : parts.length === 1 && parts[0] === 'dark' ? 'dark' : null
     if (theme === null || utility.startsWith('!')) {
@@ -177,16 +197,18 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     expect(recipes.flatMap(([name, cls]) => underTheFloor(name, cls))).toEqual([])
   })
 
-  it('fails a faint label, an opacity, a missing or doubled colour, an unmeasured variant and a value it cannot read', () => {
+  it('fails a faint label, an opacity, a missing or doubled colour, an unmeasured variant and a value or property it cannot read', () => {
     const down = directionChip.down
     // rose-400, the dark loss ink before E282: 4.44:1 in its tint on the panel.
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB7185]'))).toEqual([
       'plant (dark) on the panel: 4.44:1 in its tint, under 4.5:1',
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/70'))).toEqual([
-      'plant (dark) on the panel: 3.65:1 in its tint, under 4.5:1',
-      'plant (dark) on the page: 4.45:1 in its tint, under 4.5:1',
-    ])
+    for (const faded of ['dark:text-loss-dark/70', 'dark:text-loss-dark/[70%]', 'dark:text-loss-dark/[0.7]']) {
+      expect(underTheFloor('plant', down.replace('dark:text-loss-dark', faded))).toEqual([
+        'plant (dark) on the panel: 3.64:1 in its tint, under 4.5:1',
+        'plant (dark) on the page: 4.45:1 in its tint, under 4.5:1',
+      ])
+    }
     expect(underTheFloor('plant', 'text-loss-text dark:text-loss-dark')).toEqual(['plant (light): no tint', 'plant (dark): no tint'])
     expect(underTheFloor('plant', `${down} dark:text-gain-dark`)).toEqual(['plant (dark): 2 inks'])
     expect(underTheFloor('plant', `${down} hover:text-loss-light`)).toEqual([
@@ -197,6 +219,18 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     ])
     expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB71]'))).toEqual([
       'plant: text-[#FB71] looks like a colour this spec cannot read',
+    ])
+    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[var(--ink)]'))).toEqual([
+      'plant: text-[var(--ink)] looks like a colour this spec cannot read',
+    ])
+    expect(underTheFloor('plant', `${down} text-[13px]`)).toEqual([])
+    // Tailwind emits an opacity utility after the ink, so it fades the label: refused, not measured.
+    for (const fade of ['dark:text-opacity-60', 'opacity-60', 'dark:opacity-50', 'bg-opacity-90']) {
+      expect(underTheFloor('plant', `${down} ${fade}`)).toEqual([`plant: ${fade} fades the chip, which this spec does not measure`])
+    }
+    expect(underTheFloor('plant', `${down} dark:text-opacity-100`)).toEqual([])
+    expect(underTheFloor('plant', `${down} dark:[color:#FB7185]`)).toEqual([
+      'plant: dark:[color:#FB7185] is an arbitrary property this spec does not read',
     ])
     // A dark chip with no dark classes keeps its light ink and tint, as the stylesheet does.
     expect(underTheFloor('plant', 'text-loss-text bg-loss-soft')).toEqual([])
