@@ -46,7 +46,8 @@ export const dataDirectionText: Record<Direction, string> = {
  *  Label ink = the 700-level TEXT tokens (AA inside the tint); the 600s stay on the
  *  border only. Matches Badge's beat/miss recipe — the two primitives now agree.
  *  The flat chip's dark label is the semantic flat ink, flat-dark #9CA3AF (4.87:1 in its tint on the panel), a rung
- *  below its light label, so it reads quieter than the up and down chips (E202 (3), D-073; themePairs.spec.ts). */
+ *  below its light label, between the up and down chips (5.72:1 and 4.44:1) where secondary-dark would outshine both
+ *  (E202 (3), D-073; themePairs.spec.ts's CROSSED_RUNG_RESIDUE holds it). */
 export const directionChip: Record<Direction, string> = {
   up: 'text-gain-text bg-gain-soft border-gain-light/20 dark:text-gain-dark dark:bg-gain-soft-dark dark:border-gain-dark/20',
   down: 'text-loss-text bg-loss-soft border-loss-light/20 dark:text-loss-dark dark:bg-loss-soft-dark dark:border-loss-dark/20',

@@ -99,7 +99,9 @@ the debug payload panel).
   brightened (2026-10-25), every tertiary site that had borrowed secondary-dark (140 swept, four by hand,
   three in globals.css) was twinned back to tertiary-dark, so it keeps today's ink. Gates:
   `tests/unit/themePairs.spec.ts` ('keeps tertiary and secondary on their own rungs in dark', with its
-  planted self-check) and `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
+  planted self-check; it reads a twin by its ink, so a token of tertiary's or secondary's hex counts as that
+  rung, and lists its one decided crossing, the flat direction chip on flat-dark: D-073, §4 Delta text) and
+  `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
 - **A dark hover steps where the eye can see it: secondary never turns only primary, or only sage, under the
@@ -665,9 +667,10 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
                  direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
                  chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
-                 panel), a rung below its light label, so it reads quieter than the up and down chips
-                 (E202 (3), D-073); themePairs.spec.ts's crossed-rung check passes it because its twin
-                 names the flat token, and records the choice there. Never sage on
+                 panel), a rung below its light label: between the up and down chips (5.72:1 and 4.44:1
+                 in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
+                 the one crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE), which
+                 reads a twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
                  a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
                  600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
                  the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
