@@ -15,10 +15,9 @@ fills either key and fails a name that does not belong to it:
 ``test_every_file_naming_a_diluted_eps_tag_is_read_here`` holds that list of places to a search, so a list in a fifth
 file fails until it is read here.
 
-``EarningsPerShareBasicAndDiluted`` states both measures at once and belongs to both keys. The companyfacts fallback
-keeps its diluted candidate until it writes an ``eps_diluted`` series of its own, a change to the locked T9 anchor
-(``test_companyfacts_fixture.py``) that E260's second pull request carries. ``_FALLBACK_RESIDUE`` names that one
-candidate, and fails once the fallback drops it, so the entry leaves in the same change.
+``EarningsPerShareBasicAndDiluted`` states both measures at once and belongs to both keys. Since E260's second pull
+request the companyfacts fallback writes an ``eps_diluted`` series of its own, so no list keeps a diluted candidate for
+the basic key (the founder approved that change to the locked T9 anchor, ``test_companyfacts_fixture.py``).
 """
 
 import ast
@@ -35,8 +34,6 @@ from evals.build_golden_set import METRIC_CONCEPTS
 
 pytestmark = pytest.mark.unit
 
-# The companyfacts fallback's diluted candidate for the basic key, kept until it writes its own eps_diluted (E260).
-_FALLBACK_RESIDUE = ("EarningsPerShareDiluted",)
 # ifrs-full names the instance path tries after its us-gaap ones; the facts layer reads us-gaap companyfacts only.
 _IFRS_EPS = frozenset({"BasicEarningsLossPerShare", "DilutedEarningsLossPerShare"})
 # A diluted EPS tag in any form (``EarningsPerShareBasicAndDiluted`` names both measures and is not matched).
@@ -68,12 +65,11 @@ def _fallback_lists() -> dict[str, list[str]]:
 
 
 def _basic_key_lists() -> dict[str, list[str]]:
-    fallback = _fallback_lists()["earnings_per_share"]
     return {
         "instance path": list(DURATION_CONCEPTS["earnings_per_share"]),
         "eval harness": list(METRIC_CONCEPTS["eps"][1]),
         "facts layer": list(COMPANYFACTS_DURATION_TAGS["earnings_per_share"]),
-        "companyfacts fallback": [name for name in fallback if name not in _FALLBACK_RESIDUE],
+        "companyfacts fallback": _fallback_lists()["earnings_per_share"],
     }
 
 
@@ -81,7 +77,7 @@ def _diluted_key_lists() -> dict[str, list[str]]:
     return {
         "instance path": list(DURATION_CONCEPTS["eps_diluted"]),
         "facts layer": list(COMPANYFACTS_DURATION_TAGS["eps_diluted"]),
-        "companyfacts fallback": _fallback_lists().get("eps_diluted", []),
+        "companyfacts fallback": _fallback_lists()["eps_diluted"],
     }
 
 
@@ -97,16 +93,10 @@ def test_every_basic_key_candidate_names_basic_eps(source):
 @pytest.mark.parametrize("source", ["instance path", "facts layer", "companyfacts fallback"])
 def test_every_diluted_key_candidate_names_diluted_eps(source):
     names = _diluted_key_lists()[source]
-    # The fallback writes no eps_diluted until E260's second pull request; test_the_lists_are_read pins that.
-    assert names or source == "companyfacts fallback", f"{source}: no candidates read"
+    assert names, f"{source}: no candidates read"
     assert [name for name in names if "Diluted" not in name] == [], (
         f"{source}: a candidate for eps_diluted (\"EPS (diluted)\") names no diluted measure"
     )
-
-
-def test_the_fallback_residue_is_still_in_the_fallback():
-    # When the fallback writes its own eps_diluted and drops the diluted candidate, delete the residue entry with it.
-    assert set(_FALLBACK_RESIDUE) <= set(_fallback_lists()["earnings_per_share"])
 
 
 @pytest.mark.parametrize("key", ["earnings_per_share", "eps_diluted"])
@@ -121,9 +111,7 @@ def test_the_lists_are_read():
     assert lists["total_assets"] == ["Assets"]
     assert lists["earnings_per_share"][0] == "EarningsPerShareBasic"
     assert "cash_and_equivalents" not in lists
-    # When E260's second pull request gives the fallback its own eps_diluted, delete this line: the diluted test then
-    # reads that list.
-    assert "eps_diluted" not in lists
+    assert lists["eps_diluted"][0] == "EarningsPerShareDiluted"
 
 
 def test_every_file_naming_a_diluted_eps_tag_is_read_here():

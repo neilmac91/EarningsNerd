@@ -210,6 +210,7 @@ def parse_company_facts(
         "total_liabilities": [],
         "cash_and_equivalents": [],
         "earnings_per_share": [],
+        "eps_diluted": [],
     }
 
     normalized_accession = target_accession.replace("-", "") if target_accession else None
@@ -231,7 +232,10 @@ def parse_company_facts(
         cash_data, cash_tag = select_fact_data_with_concept(us_gaap, normalized_accession, CASH_TAG_CANDIDATES)
         append_items(result, normalized_accession, "cash_and_equivalents", cash_data, cash_tag)
         append_items(result, normalized_accession, "earnings_per_share", select_fact_data(
-            us_gaap, normalized_accession, ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
+            us_gaap, normalized_accession, ["EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"],
+            unit_keys=("USD/shares", "USD", "pure")))
+        append_items(result, normalized_accession, "eps_diluted", select_fact_data(
+            us_gaap, normalized_accession, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
             unit_keys=("USD/shares", "USD", "pure")))
 
     except Exception as e:

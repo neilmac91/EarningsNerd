@@ -234,10 +234,10 @@ def _eps_line(
     """What changed's one EPS line, or None when the filing reports no EPS for its own period.
 
     Both sides come from ONE key, the first of ``_EPS_METRICS`` whose pair is complete, each side as every line takes
-    it (``_line``). A blob stored before P1.5 (2026-06-14) or by the companyfacts fallback carries no
+    it (``_line``). A blob stored before P1.5 (2026-06-14), or by the companyfacts fallback before E260, carries no
     ``eps_diluted``, so a pair that needs it from such a blob takes the basic line, though a 10-K's own restated
     prior year still completes the diluted pair. (``earnings_per_share`` itself can hold a diluted figure, on either
-    side, where a filer tagged no basic EPS: E260.)
+    side, in a blob extracted before E260 where a filer tagged no basic EPS.)
 
     A diluted pair is not used where either side's diluted figure exceeds its filing's basic EPS for the same
     period (the check facts/reconcile.py makes): the line falls to basic. Nor is a pair whose sides a share split

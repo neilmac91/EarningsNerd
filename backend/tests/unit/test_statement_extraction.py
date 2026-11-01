@@ -223,3 +223,37 @@ def test_company_facts_eps_uses_per_share_units():
     }}}
     result = service._parse_company_facts(facts_data, accn)
     assert result["earnings_per_share"][0]["value"] == 7.49
+
+
+def _per_share(*facts):
+    return {"units": {"USD/shares": [
+        {"end": end, "start": start, "val": val, "form": "10-K", "accn": accn, "filed": "2026-02-01"}
+        for end, start, val, accn in facts
+    ]}}
+
+
+def test_company_facts_eps_takes_each_measure_into_its_own_key():
+    # E260: a filer that tags basic EPS only by share class files no undimensioned basic figure, so the fallback's
+    # "EPS (basic)" key stays empty and its diluted figure fills eps_diluted, never earnings_per_share.
+    service = EdgarXBRLService()
+    accn = "0000000000-26-000005"
+    diluted_only = {"facts": {"us-gaap": {"EarningsPerShareDiluted": _per_share(
+        ("2025-12-31", "2025-01-01", 1.25, accn), ("2024-12-31", "2024-01-01", 1.10, accn))}}}
+    result = service._parse_company_facts(diluted_only, accn)
+    assert result["earnings_per_share"] == []
+    assert [item["value"] for item in result["eps_diluted"]] == [1.25, 1.10]
+
+    both = {"facts": {"us-gaap": {
+        "EarningsPerShareBasic": _per_share(("2025-12-31", "2025-01-01", 1.30, accn)),
+        "EarningsPerShareDiluted": _per_share(("2025-12-31", "2025-01-01", 1.25, accn)),
+    }}}
+    result = service._parse_company_facts(both, accn)
+    assert [item["value"] for item in result["earnings_per_share"]] == [1.30]
+    assert [item["value"] for item in result["eps_diluted"]] == [1.25]
+
+    # One BasicAndDiluted tag states both measures, so it fills both keys.
+    combined = {"facts": {"us-gaap": {"EarningsPerShareBasicAndDiluted": _per_share(
+        ("2025-12-31", "2025-01-01", 0.42, accn))}}}
+    result = service._parse_company_facts(combined, accn)
+    assert [item["value"] for item in result["earnings_per_share"]] == [0.42]
+    assert [item["value"] for item in result["eps_diluted"]] == [0.42]
