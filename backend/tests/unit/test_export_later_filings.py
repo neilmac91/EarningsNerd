@@ -23,8 +23,9 @@ the producer sends it; and evidence on inputs alone), through the real builders:
    each of the builders' later-filing seams switched off, as main had them. The datasets include two quarterly runs
    the producer builds from companyfacts, a company's and a bank's, and a reach test holds four quarterly runs to
    exactly the places they print. What they cannot see: a change outside those seams that alters a dataset without the
-   fields alike in both runs; a place no run prints; and a reading of a place that agrees with the true one on all four
-   runs. The byte comparison against main's builders is the pull request's.
+   fields alike in both runs; a place no run prints, or one a run prints that PLACES does not name, which a payload
+   edit can take away unseen; and a reading of a place that agrees with the true one on all four runs. The byte
+   comparison against main's builders is the pull request's.
 """
 from __future__ import annotations
 
@@ -273,14 +274,15 @@ def _balances(ends: dict[int, tuple]) -> dict:
 
 def _companyfacts(*, bank: bool = False) -> dict:
     """2023 and 2024 of a company or of a bank. The company's net income turns negative in 2023 Q4 and 2024 Q2, its
-    operating income in 2023 Q4, its EPS in 2024 Q2, its equity at 2023's year end and in 2024 Q2, and its operating cash
-    flow in 2024 Q1 and Q3, so QoQ and YoY read n/m on and against computed quarters, on a reported Q4 and on a Q1's YoY,
-    Cash generation's and Balance sheet's among them. Its gross profit and net income are filed as quarters alone, so
-    their Q4 is the year less three quarters, a calculation of four inputs; its operating income is filed with its years
-    to date, so its Q4 is the year less nine months. The ingest derives the margins and free cash flow. The bank files fee
-    revenue, which a bank's SIC code skips (_FI_SKIPPED_CONCEPTS), so net interest income stays its top line; that, its
-    net income and its operating cash flow turn negative in 2024 Q2, while its equity does not; its operating cash flow's
-    Q2 and Q3 are computed, its Q4's growth reads no n/m."""
+    operating income in 2023 Q4, its EPS in 2024 Q2, its equity at 2023's year end and in 2024 Q2, and its operating
+    cash flow in 2024 Q1 and Q3, so QoQ and YoY read n/m on and against computed quarters, on a reported Q4 and on a
+    Q1's YoY, Cash generation's and Balance sheet's among them. Its gross profit and net income are filed as quarters
+    alone, so their Q4 is the year less three quarters, a calculation of four inputs; its operating income is filed with
+    its years to date, so its Q4 is the year less nine months: that Q4's QoQ reads n/m against a reported Q3, and 2024
+    Q1's QoQ and 2024 Q4's YoY read n/m against it. The ingest derives the margins and free cash flow. The bank files
+    fee revenue, which a bank's SIC code skips (_FI_SKIPPED_CONCEPTS), so net interest income stays its top line; that,
+    its net income and its operating cash flow turn negative in 2024 Q2, while its equity does not; its operating cash
+    flow's Q2 and Q3 are computed, its Q4's growth reads no n/m."""
     def usd(items: list[dict]) -> dict:
         return {"units": {"USD": items}}
 
@@ -743,7 +745,9 @@ PLACES = ("an input", "an input two levels down", "an input three levels down", 
           "a QoQ in points", "a QoQ that reads n/m, with its inputs", "a YoY that reads n/m, with its inputs",
           "a computed Q2 or Q3's growth reads n/m", "a computed Q4's growth reads n/m",
           "a Q1's QoQ reads n/m", "a Q1's YoY reads n/m", "a reported Q4's growth reads n/m",
-          "a quarter-sum Q4's growth reads n/m", "a year-to-date Q4's YoY reads n/m", "the top line's YoY reads n/m",
+          "a quarter-sum Q4's growth reads n/m", "a year-to-date Q4's YoY reads n/m",
+          "a year-to-date Q4's QoQ reads n/m against a reported Q3", "a Q1's QoQ reads n/m against a year-to-date Q4",
+          "a YoY that reads n/m against a year-to-date Q4", "the top line's YoY reads n/m",
           "a Cash generation figure whose YoY reads n/m",
           "a Balance sheet figure whose YoY reads n/m", "a computed Q2 or Q3", "a computed Q4",
           *(title for title, _ in _LINE_PANELS))
@@ -784,6 +788,13 @@ def _places(dataset: dict) -> set[str]:
     def growths(point: dict) -> tuple:
         return point.get("yoy"), point.get("qoq")
 
+    def year_to_date(record: dict) -> bool:  # a Q4 that is the year less its first nine months
+        return ((record or {}).get("provenance") or {}).get("formula") == "FY - YTD9"
+
+    def against(point: dict, growth: str) -> dict:  # the record a growth compares against: its second input
+        inputs = (point.get(f"{growth}_provenance") or {}).get("inputs") or []
+        return inputs[1] if len(inputs) > 1 and isinstance(inputs[1], dict) else {}
+
     printed = {
         "an input": any(re.fullmatch(r"Input \d+", entry) for entry in entries),
         "an input two levels down": any(re.fullmatch(r"Input \d+\.\d+", entry) for entry in entries),
@@ -805,9 +816,16 @@ def _places(dataset: dict) -> set[str]:
         "a quarter-sum Q4's growth reads n/m": any(  # the year less three quarters: four inputs
             quarter(point) == "Q4" and len((point.get("provenance") or {}).get("inputs") or []) == 4
             and "nm" in growths(point) for _, point in points),
-        "a year-to-date Q4's YoY reads n/m": any(  # the year less its first nine months
-            quarter(point) == "Q4" and (point.get("provenance") or {}).get("formula") == "FY - YTD9"
-            and point.get("yoy") == "nm" for _, point in points),
+        "a year-to-date Q4's YoY reads n/m": any(
+            quarter(point) == "Q4" and year_to_date(point) and point.get("yoy") == "nm" for _, point in points),
+        "a year-to-date Q4's QoQ reads n/m against a reported Q3": any(
+            quarter(point) == "Q4" and year_to_date(point) and point.get("qoq") == "nm"
+            and (against(point, "qoq").get("provenance") or {}).get("method") == "reported" for _, point in points),
+        "a Q1's QoQ reads n/m against a year-to-date Q4": any(
+            quarter(point) == "Q1" and point.get("qoq") == "nm" and year_to_date(against(point, "qoq"))
+            for _, point in points),
+        "a YoY that reads n/m against a year-to-date Q4": any(
+            point.get("yoy") == "nm" and year_to_date(against(point, "yoy")) for _, point in points),
         "the top line's YoY reads n/m": any(cell.value == "n/m" for title, sheet in sheets.items()
                                             if title.endswith(" & growth") for cell in sheet["C"]),
         **{f"a {title} figure whose YoY reads n/m": any(panel.get(concept) == title and point["value"] is not None
