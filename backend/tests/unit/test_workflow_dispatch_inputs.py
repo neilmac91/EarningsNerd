@@ -455,12 +455,19 @@ def _run_preview_step(tmp_path, tickers, **kwargs):
 @pytest.mark.parametrize("tickers, args", [("", ""), ("JPM,BAC", " --tickers JPM,BAC")])
 def test_the_preview_reads_its_session_back_first_and_runs_read_only(tmp_path, tickers, args):
     """The preview passes the report file the next step keeps and the commit this run checked out, and the
-    tickers only when given. The step's read-only PGOPTIONS reach the readback and the script unchanged."""
+    tickers only when given. The step's read-only PGOPTIONS reach the readback and the script unchanged.
+    The script's own parser reads that argv, so a flag renamed on one side alone fails here, not on the runner."""
+    from scripts.financial_revenue_preview import build_parser
+
     _, result, calls = _run_preview_step(tmp_path, tickers)
     assert result.returncode == 0, result.stderr
     report = tmp_path / "temp" / "financial-revenue-preview" / "report.json"
     assert [call for call in calls if call.startswith("python ")] == [
         f"python scripts/financial_revenue_preview.py --output {report} --workflow-commit {COMMIT}{args}"]
+    [argv] = [call.split()[2:] for call in calls if call.startswith("python ")]
+    parsed = build_parser().parse_args(argv)
+    assert (parsed.output, parsed.workflow_commit, parsed.tickers, parsed.companyfacts_dir) == (
+        report, COMMIT, tickers or None, None)
     assert [call for call in calls if call.startswith("PGOPTIONS=")] == [f"PGOPTIONS={PREVIEW_GUARDS}"] * 2
     assert calls[0].startswith("psql "), "the readback runs before the script"
     assert report.parent.is_dir(), "the report's directory exists before the script writes it"
