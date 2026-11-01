@@ -533,6 +533,17 @@ Count control    A link or control whose label carries a count, a date, an index
                  file's bindings (a same-file variable, a same-file function's return) and inside an
                  app component in it that turns its children or a count of its own sage. The two
                  labels outside the helper are review-checked, and so is what the header names.
+Trailing arrow   A label with a trailing arrow (a card's call to action, a "See all" link) is TrailingArrowLabel
+                 (features/dashboard/components/TrailingArrowLabel.tsx): the last word and the arrow in one no-wrap
+                 run, the arrow aria-hidden and with no ink of its own, so a label that wraps carries the arrow onto
+                 its last line, never between the lines or to the far edge. It takes its words as children, so a
+                 count in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above). It serves
+                 What changed's call to action (since E272), the feed's "See all N companies" and Your companies'
+                 "Open watchlist insights" (E274). A link that stands alone and can wrap is inline-block with a 4px
+                 inset (-mx-1 px-1), so it paints one box and its ring clears its words; a prose link keeps a ring
+                 per line (box-decoration-clone, Links in both surfaces, above). Gate:
+                 tests/e2e/dashboard-phone-layout.spec.ts (each arrow on its last word's line, one box, the words
+                 inside the link's 0.25rem inset).
 Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
                  destructive + invalid fields use shadow-ring-error / shadow-ring-error-dark. Opaque 3px rings
                  hold at least 3:1 on page, panel and tinted control surfaces. Clipped regions use
