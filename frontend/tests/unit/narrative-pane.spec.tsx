@@ -169,8 +169,8 @@ describe('NarrativePane readable evidence', () => {
   it('names original filing links by their source, figure and period', () => {
     const sources = operands.map((operand) => ({ ...operand, source_url: 'https://www.sec.gov/Archives/edgar/data/1326801/000132680126000001/meta-20260630.htm' }))
     render(<NarrativePane state={doneState({ completion: doneCompletion({ citations: sources }) })} />)
-    expect(screen.getByRole('link', { name: 'Original filing for source 1: free cash flow, Q2 2026' })).toHaveAttribute('href', sources[0].source_url)
-    expect(screen.getByRole('link', { name: 'Original filing for source 2: net income, Q2 2026' })).toHaveAttribute('href', sources[1].source_url)
+    expect(screen.getByRole('link', { name: 'Original filing for source 1: free cash flow, Q2 2026 (opens in a new tab)' })).toHaveAttribute('href', sources[0].source_url)
+    expect(screen.getByRole('link', { name: 'Original filing for source 2: net income, Q2 2026 (opens in a new tab)' })).toHaveAttribute('href', sources[1].source_url)
   })
 
   it.each(['legacy', 'structured'] as const)('keeps every letter in a long %s evidence summary and restores disclosures after print', (mode) => {

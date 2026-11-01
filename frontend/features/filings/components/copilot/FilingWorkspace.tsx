@@ -351,6 +351,7 @@ export default function FilingWorkspace({
         className="-mx-1 inline-block rounded-sm px-1 text-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:decoration-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
       >
         <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Original on SEC.gov</TrailingArrowLabel>
+        {' '}<span className="sr-only">(opens in a new tab)</span>
       </a>
     </div>
   ) : null

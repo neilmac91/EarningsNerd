@@ -56,7 +56,7 @@ describe('research evidence pack workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save as new evidence' }))
     const card = within(screen.getByRole('article', { name: 'Evidence 1' }))
     expect(card.getByText('Selected paragraph 1.')).toBeInTheDocument()
-    expect(card.getByRole('link', { name: 'Open SEC original ↗' })).toHaveAttribute('href', filing(1).document_url)
+    expect(card.getByRole('link', { name: /^Open SEC original ?\(opens in a new tab\)$/ })).toHaveAttribute('href', filing(1).document_url)
     expect(card.queryByText('First paragraph 1.')).not.toBeInTheDocument()
     load('2'); await screen.findByText('First paragraph 2.')
     fireEvent.click(card.getByRole('button', { name: 'Compare selected source' }))

@@ -93,8 +93,8 @@ describe('filing redlines prototype', () => {
     submit()
     expect(await screen.findByText('Later disclosure.')).toBeInTheDocument()
     expect(screen.getByText('Earlier disclosure.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open earlier original ↗' })).toHaveAttribute('href', filing(1).document_url)
-    expect(screen.getByRole('link', { name: 'Open later original ↗' })).toHaveAttribute('href', filing(2).document_url)
+    expect(screen.getByRole('link', { name: /^Open earlier original ?\(opens in a new tab\)$/ })).toHaveAttribute('href', filing(1).document_url)
+    expect(screen.getByRole('link', { name: /^Open later original ?\(opens in a new tab\)$/ })).toHaveAttribute('href', filing(2).document_url)
     expect(screen.getByText(filing(2).accession_number)).toBeInTheDocument()
     expect(screen.getByText(/full-filing coverage has not been verified/)).toBeInTheDocument()
     expect(api.contents).toEqual([1, 2])
@@ -150,7 +150,7 @@ describe('filing redlines prototype', () => {
     selectCached()
     submit()
     expect(await screen.findByRole('alert')).toHaveTextContent('Cached text is unavailable')
-    expect(screen.getByRole('link', { name: 'Open later original ↗' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^Open later original ?\(opens in a new tab\)$/ })).toBeInTheDocument()
     expect(screen.queryByText(/No paragraph changes/)).not.toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Added in the later text paragraphs' })).not.toBeInTheDocument()
   })
@@ -236,7 +236,7 @@ describe('filing redlines prototype', () => {
     const added = screen.getByRole('region', { name: 'Added in the later text' })
     expect(within(added).getByText('The newly selected filing.')).toBeInTheDocument()
     expect(screen.queryByText('Stale content.')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open later original ↗' })).toHaveAttribute('href', filing(3).document_url)
+    expect(screen.getByRole('link', { name: /^Open later original ?\(opens in a new tab\)$/ })).toHaveAttribute('href', filing(3).document_url)
   })
 
   it('editing either ID clears previously displayed results and source links', async () => {

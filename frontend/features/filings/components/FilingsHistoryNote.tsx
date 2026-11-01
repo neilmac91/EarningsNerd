@@ -35,6 +35,7 @@ export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHis
         className={cx(IDENTITY_LINK, 'inline-block')}
       >
         <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Full history on SEC.gov</TrailingArrowLabel>
+        {' '}<span className="sr-only">(opens in a new tab)</span>
       </a>
     </p>
   )

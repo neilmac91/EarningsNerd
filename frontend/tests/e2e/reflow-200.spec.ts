@@ -3000,15 +3000,15 @@ const ARROW_LINKS: Array<{
   },
   { name: 'Browse AAPL’s other filings', path: '/filing/3', wrapsTo: 414, open: answerNotDisclosed, reach: askInThePane, desktop: true, inset: 0.25 },
   // The external link's square (E279): the Copilot answer's sources, the filing and company pages' SEC.gov links, the
-  // filings history note's and the Filing tab's footer. A source's name carries its sr-only new-tab cue.
+  // filings history note's and the Filing tab's footer. Each name carries its sr-only new-tab cue (E281).
   { name: `${MDA_SERVICES} (opens in a new tab)`, place: 'a passage source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true, defaultSize: true },
   { name: 'Open the filing on SEC.gov (opens in a new tab)', place: 'a figure source', path: '/filing/3', wrapsTo: 414, open: answerCited, reach: askInThePane, within: inThePane, desktop: true },
-  { name: 'Original on SEC.gov', place: 'the identity line', path: '/filing/3', wrapsTo: 360, open: openFiling },
+  { name: 'Original on SEC.gov (opens in a new tab)', place: 'the identity line', path: '/filing/3', wrapsTo: 360, open: openFiling },
   // At 360px its one-line run is 3.5px too wide in a local CI-font build and fits in CI's: it wraps with room to spare
   // at 320px alone (43.5px), so only 320px asks for a wrapped label (chief design on #1918).
-  { name: 'Company on SEC.gov', path: '/company/AAPL', wrapsTo: 320, open: openCompany },
-  { name: 'Full history on SEC.gov', path: '/company/AAPL', wrapsTo: 414, open: openCompany },
-  { name: 'Original on SEC.gov', place: 'the Filing tab', path: '/filing/3', wrapsTo: 320, open: openFiling, reach: openFilingTab, within: inThePane, inset: 0.25 },
+  { name: 'Company on SEC.gov (opens in a new tab)', path: '/company/AAPL', wrapsTo: 320, open: openCompany },
+  { name: 'Full history on SEC.gov (opens in a new tab)', path: '/company/AAPL', wrapsTo: 414, open: openCompany },
+  { name: 'Original on SEC.gov (opens in a new tab)', place: 'the Filing tab', path: '/filing/3', wrapsTo: 320, open: openFiling, reach: openFilingTab, within: inThePane, inset: 0.25 },
 ]
 const titleOf = (l: (typeof ARROW_LINKS)[number]) => `${l.path}${l.place ? ` (${l.place})` : ''}: "${l.name}"`
 

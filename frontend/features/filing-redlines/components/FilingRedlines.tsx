@@ -33,7 +33,8 @@ function SourceIdentity({ label, source, fictional }: { label: string; source: R
       <p className="font-data text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{source.accession}</p>
       {source.originalUrl ? (
         <a href={source.originalUrl} target="_blank" rel="noopener noreferrer" className={sourceLinkClass}>
-          Open {label.toLowerCase()} original ↗
+          Open {label.toLowerCase()} original <span aria-hidden="true">↗</span>
+          {' '}<span className="sr-only">(opens in a new tab)</span>
         </a>
       ) : (
         <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">

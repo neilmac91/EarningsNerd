@@ -229,7 +229,7 @@ function HeroExample({
                   <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
                     <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                     {PASSAGE_FOUND}
-                    <span className="sr-only"> (opens in a new tab)</span>
+                    {' '}<span className="sr-only">(opens in a new tab)</span>
                   </a>
                 </div>
               )}
@@ -258,6 +258,7 @@ function HeroExample({
             : isFallback
               ? "Figures from the company's filed data\u00a0· check them on SEC.gov"
               : 'Source filing\u00a0· check the figures on SEC.gov'}
+          {' '}<span className="sr-only">(opens in a new tab)</span>
         </a>
 
         {/* Into the real example: a text link (the hero's primary action lives beside the headline). It stands alone,
