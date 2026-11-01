@@ -422,13 +422,45 @@ def test_each_per_filing_verdict_and_the_feed_identities_per_filing_rows_hold(db
     assert whys[ids["quarter"]] == ["filing_reachable", "lineage_outside_choice", "probe_no_authority"]
 
 
+def _quarterly(cik):
+    """A total for FY2023 (its 10-K) and Q1 2024 (its 10-Q): the choice is that total alone."""
+    return _payload(cik, **{RNOIE: [_item(400e6, "2023-12-31", "2023-01-01", _accn(cik, 24)),
+                                    _item(100e6, "2024-03-31", "2024-01-01", _accn(cik, 24, 5), "10-Q", "Q1",
+                                          "2024-05-01")]})
+
+
+def test_a_same_value_row_outside_the_choice_a_gap_past_half_a_percent_and_a_calculation_with_no_lineage(
+        db, tmp_path, capsys, sec):
+    """The sync skips a row stored at the batch's own identity: the same value under a tag the choice leaves out is
+    A_tag_only (reported, never for cleanup), and a 0.7% gap is A (the feed's tolerance is 0.5%, not the
+    cross-check's 1%). A calculation stored before 2026-10-10 records no lineage and stays C2, never C2_review."""
+    company = _company(db, "QTA", 17)
+    tag_only = _row(db, company, fiscal_year=2023, period_start=date(2023, 1, 1), period_end=date(2023, 12, 31),
+                    value=400e6, accession=_accn(17, 24), raw_tag=f"us-gaap:{FEE}")
+    near = _row(db, company, fiscal_year=2024, fiscal_period="Q1", period_start=date(2024, 1, 1),
+                period_end=date(2024, 3, 31), value=100.7e6, accession=_accn(17, 24, 5), raw_tag=f"us-gaap:{RNOIE}")
+    facts_service._persist_companyfacts_payload(db, company, _quarterly(17))  # both identities are skipped
+    company.facts_synced_at = NEW
+    legacy = _row(db, company, source="derived", raw_tag=None, provenance=None, fiscal_year=2023, fiscal_period="Q4",
+                  period_start=date(2023, 10, 1), period_end=date(2023, 12, 31), value=110e6, accession=_accn(17, 24))
+    db.commit()
+    sec.payloads[company.cik] = _quarterly(17)
+
+    code, _lines, report = _main(tmp_path, capsys, "--tickers", "QTA")
+
+    assert code == 0
+    assert {i: r["deployed"]["value"] for i, r in _set(report, "QTA", "A_tag_only").items()} == {tag_only.id: 400e6}
+    assert {i: r["gap"] for i, r in _set(report, "QTA", "A").items()} == {near.id: round(0.7e6 / 100.7e6, 6)}
+    assert {i: r["why"] for i, r in _set(report, "QTA", "C2").items()} == {
+        legacy.id: ["filing_unreachable", "lineage_legacy"]}
+    assert not _set(report, "QTA", "C2_review") and not _set(report, "QTA", "missing")
+
+
 def test_a_stale_current_row_at_a_key_the_batch_fills_is_k_from_either_writer_and_as_a_legacy_quarter_twin(
         db, tmp_path, capsys, sec):
     """The writer demotes only when it inserts: where the batch's identity was already stored, a current row of
     either writer at the key stays current, and so does a quarter twin stored with no fiscal period (the D1 rule)."""
-    q1 = _accn(13, 24, 5)
-    payload = _payload(13, **{RNOIE: [_item(400e6, "2023-12-31", "2023-01-01", _accn(13, 24)),
-                                      _item(100e6, "2024-03-31", "2024-01-01", q1, "10-Q", "Q1", "2024-05-01")]})
+    q1, payload = _accn(13, 24, 5), _quarterly(13)
     company = _company(db, "QTR", 13)
     facts_service._persist_companyfacts_payload(db, company, payload)
     company.facts_synced_at = NEW
