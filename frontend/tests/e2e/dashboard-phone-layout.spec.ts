@@ -17,6 +17,9 @@ import { test, expect, type Page } from '@playwright/test'
  *    company line and the name wraps whole, and the call to action keeps its arrow on its last word.
  * 7. Your companies' status clusters (E273): under 200% text a row's cluster wraps its items and its badge's
  *    label and stays inside its row; at the default size it keeps one line.
+ * 8. The arrow links (E274): where "See all N companies" or "Open watchlist insights" wraps under 200% text,
+ *    the arrow keeps with the last word, the link paints one box for its focus ring, and the words keep
+ *    the link's 0.25rem inset, clear of the ring's rounded corners.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -586,6 +589,96 @@ for (const width of [320, 390, 1024, 1440]) {
       const middles = row.items.map((item) => (item.top + item.bottom) / 2)
       expect(Math.max(...middles) - Math.min(...middles), `${row.name}: its cluster keeps one line`).toBeLessThanOrEqual(2)
       for (const item of row.items) expect(item.right, `${row.name}: the cluster ends inside its row`).toBeLessThanOrEqual(row.content.right + 0.5)
+    }
+  })
+}
+
+/** The dashboard's two links with a trailing arrow (E274): the feed's "See all N companies" under its cards and the
+    Your companies card's "Open watchlist insights", fed the five watched companies' rows so the feed's three cards
+    link to the rest: "See all 5 companies". Wherever a label wraps, the arrow sits inside its last word's line,
+    right after it, never between the lines; the link paints one box, so its focus ring draws one outline around
+    every line of it; and its words and arrow keep the link's 0.25rem inset from that box (4px, 8px under 200% text),
+    so the ring's rounded corners never cross them, and stay inside the link's row. A smaller floor let a 2 or 3px
+    inset pass under 200% text with the ring's curve across the "5" (E274's review). */
+const FEED_WITH_ROWS: Overrides = Object.fromEntries(
+  Object.entries(CHANGED_FEED).filter(([pathname]) => pathname !== '/api/watchlist/insights'),
+)
+
+async function arrowLinkGeometry(page: Page, name: string) {
+  return page.getByRole('link', { name, exact: true }).evaluate((link) => {
+    const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+    const lines = (node: Node) => {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      return [...range.getClientRects()].filter((r) => r.width > 0).map(box)
+    }
+    const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT)
+    const texts: Text[] = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent!.trim()) texts.push(node as Text)
+    const lastLines = lines(texts[texts.length - 1])
+    return {
+      boxes: link.getClientRects().length,
+      painted: texts.flatMap(lines),
+      lineCount: new Set(texts.flatMap((text) => lines(text).map((line) => Math.round(line.top)))).size,
+      lastWord: lastLines[lastLines.length - 1],
+      arrow: box(link.querySelector('svg')!.getBoundingClientRect()),
+      link: box(link.getBoundingClientRect()),
+      row: box(link.parentElement!.getBoundingClientRect()),
+      // The inset the link's px-1 gives: 0.25rem of the root's font size.
+      inset: parseFloat(getComputedStyle(document.documentElement).fontSize) / 4,
+    }
+  })
+}
+
+function expectArrowWithLastWord(g: Awaited<ReturnType<typeof arrowLinkGeometry>>) {
+  expect(g.boxes, 'the link paints one box, so its focus ring draws one outline').toBe(1)
+  expect(g.arrow.top, "the arrow sits inside its last word's line").toBeGreaterThanOrEqual(g.lastWord.top - 2)
+  expect(g.arrow.bottom, "the arrow sits inside its last word's line").toBeLessThanOrEqual(g.lastWord.bottom + 2)
+  expect(g.arrow.left, 'the arrow comes after its last word').toBeGreaterThanOrEqual(g.lastWord.right - 0.5)
+  expect(g.arrow.left - g.lastWord.right, 'the arrow follows its last word').toBeLessThanOrEqual(10)
+  for (const part of [...g.painted, g.arrow]) {
+    expect(part.left, 'the words and arrow start inside the row').toBeGreaterThanOrEqual(g.row.left - 0.5)
+    expect(part.right, 'the words and arrow end inside the row').toBeLessThanOrEqual(g.row.right + 0.5)
+    expect(part.left - g.link.left, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
+    expect(g.link.right - part.right, "the words and arrow keep the link's inset, off the ring's corners").toBeGreaterThanOrEqual(g.inset - 0.5)
+  }
+}
+
+// Each link with the widest width the cases below test at which its label wraps under 200% text with room to spare,
+// so a case says when it reads a wrapped label. Where a label stops wrapping is the font's to say: in one Chromium with
+// CI's fonts "See all 5 companies" wrapped up to 356px and "Open watchlist insights" up to 397px, and CI's own runner
+// wrapped "See all 5 companies" at 360px too. So a wider case asserts no count; the arrow's checks hold on one line or
+// on two.
+const ARROW_LINKS: Array<[name: string, wrapsTo: number]> = [['See all 5 companies', 340], ['Open watchlist insights', 390]]
+
+for (const width of [320, 340, 360, 375, 390, 640, 1024]) {
+  test(`the dashboard's arrow links keep their arrow with their last word at ${width}px under 200% text`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await signIn(page, TYPICAL, baseURL!, FEED_WITH_ROWS)
+    await page.goto('/dashboard')
+    await expect(page.locator('[data-what-changed-chip]')).toHaveCount(7)
+    await doubleText(page)
+    await page.evaluate(() => document.fonts.ready)
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+    for (const [name, wrapsTo] of ARROW_LINKS) {
+      const g = await arrowLinkGeometry(page, name)
+      expectArrowWithLastWord(g)
+      if (width <= wrapsTo) expect(g.lineCount, `${name} wraps here, so the case reads a wrapped label`).toBe(2)
+    }
+  })
+}
+
+for (const width of [320, 1440]) {
+  test(`the dashboard's arrow links keep one line at ${width}px at the default text size`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await signIn(page, TYPICAL, baseURL!, FEED_WITH_ROWS)
+    await page.goto('/dashboard')
+    await expect(page.locator('[data-what-changed-chip]')).toHaveCount(7)
+    await page.evaluate(() => document.fonts.ready)
+    for (const [name] of ARROW_LINKS) {
+      const g = await arrowLinkGeometry(page, name)
+      expect(g.lineCount, `${name} keeps one line`).toBe(1)
+      expectArrowWithLastWord(g)
     }
   })
 }

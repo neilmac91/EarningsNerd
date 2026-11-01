@@ -79,9 +79,9 @@ export function breaksBefore(answer: PeerComparisonResponse): boolean {
   return valued(answer).some((entry) => !shown.includes(entry) && entry.rank != null && entry.rank < rank)
 }
 
-/** Why an answer draws no chart: it ranks a metric the panel cannot name or format ('concept'); the subject's own figure
- *  is missing, where the service synthesises a subject that holds no fact, or withheld ('subject'); or fewer than two
- *  companies have a value ('few'). */
+/** Why an answer draws no chart: it ranks a metric the panel cannot name or format ('concept'); the subject's own
+ *  figure is missing, where the service synthesises a subject that holds no fact or one too old to rank, or withheld
+ *  ('subject'); or fewer than two companies have a value ('few'). */
 export type NoCohort = 'concept' | 'subject' | 'few'
 
 /** The first reason, in that order, an answer is no cohort the panel shows, or null where it is one. Never `peer_count`,

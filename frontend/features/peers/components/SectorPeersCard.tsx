@@ -49,11 +49,11 @@ const croppedLine = ({ shown, of, top, subject }: { shown: number; of: number; t
     : `The chart shows the top ${top} of the ${of} companies ranked${subject ? `, and ${subject.ticker}` : ''}.`
 /** Added to the footnote where a drawn value needs a source check. */
 const NEEDS_A_CHECK = 'Some figures here need a source check. Sources & checks lists them.'
-/** In the plot's place, for a metric picked whose answer draws no chart, the reason cohort.ts `noCohort` found, the first
- *  that stops it: the company's own figure missing (it holds no fact for the metric) or withheld, either of which is
- *  "unavailable", as Sources & checks and the analysis data notes name a figure there is none of; fewer than two
- *  companies with a figure, which with the company's own means no other company has one; or an answer ranked on a
- *  metric the panel cannot name or format. */
+/** In the plot's place, for a metric picked whose answer draws no chart, the reason cohort.ts `noCohort` found, the
+ *  first that stops it: the company's own figure missing (it holds no fact for the metric, or one more than 548 days
+ *  behind its group's newest) or withheld, either of which is "unavailable", as Sources & checks and the analysis data
+ *  notes name a figure there is none of; fewer than two companies with a figure, which with the company's own means no
+ *  other company has one; or an answer ranked on a metric the panel cannot name or format. */
 function NoCohortLine({ why, label, ticker }: { why: NoCohort; label: string; ticker: string }): ReactNode {
   if (why === 'subject') return <><span className="font-data">{ticker}</span>’s {inSentence(label)} is unavailable, so it can’t be ranked.</>
   if (why === 'few') return `Too few sector peers have ${inSentence(label)} figures to compare.`
