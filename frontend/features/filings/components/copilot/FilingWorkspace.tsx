@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
-import { ArrowSquareOutIcon, FileTextIcon } from '@/lib/icons'
+import { FileTextIcon } from '@/lib/icons'
+import { TrailingArrowLabel } from '@/components/ui'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS, PANE_TITLE_ID } from './SecondaryPaneTabs'
 import CopilotCoachmark from './CopilotCoachmark'
@@ -338,16 +339,18 @@ export default function FilingWorkspace({
     document.getElementById(PANE_TAB_IDS[activeView])?.focus({ preventScroll: true })
   }, [activeView, paneOpen])
 
-  // The Filing tab's footer: the original on SEC.gov, quiet and always reachable.
+  // The Filing tab's footer: the original on SEC.gov, quiet and always reachable. The link stands alone in its row, so it
+  // takes the 4px inset (-mx-1 px-1) that keeps its ring off its words and moves none of them (DESIGN_SYSTEM.md §4,
+  // Trailing arrow; chief design on #1918).
   const openOriginal = isHttpUrl(secUrl) ? (
     <div className="flex items-center border-t border-border-light px-4 py-3 dark:border-white/10">
       <a
         href={secUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-sm text-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:decoration-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
+        className="-mx-1 inline-block rounded-sm px-1 text-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:decoration-brand-border-dark dark:focus-visible:shadow-ring-brand-dark"
       >
-        Original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
+        <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Original on SEC.gov</TrailingArrowLabel>
       </a>
     </div>
   ) : null
