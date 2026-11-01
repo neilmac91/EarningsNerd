@@ -21,8 +21,8 @@ and keep its severity fix.
 
 **Rule**:
 - Never cut a review tier's agents for cost alone: AGENTS.md §5 sets the tier, and the founder wants the effort spent.
-- One refuter pair per report is part of the tier: never share a pair among the reports several lenses make of one
-  defect, since each pair is an independent chance for a real defect to stand (partly gated by
+- One refuter pair per report is part of the tier: never share a pair among the reports of one defect, from one lens or
+  several, since each pair is an independent chance for a real defect to stand (partly gated by
   `frontend/tests/unit/premergeReviewWorkflow.spec.ts`, whose header lists the reviews it runs and what stays out of
   its reach).
 - When a stage can no longer change what ships (its findings are reproduced and fixed), replace it with one that can: an
@@ -38,10 +38,13 @@ counted them. The founder's message followed the stop, and three fresh Opus lens
 the push: no blockers, and their should-fix findings rode that push.
 
 #1855, merged as 2a2136f6 on 2026-10-31; its body gives the 380-to-278 count, the 5-of-34 split and the 2026-10-31
-decision. The spec's gate case parses the script for its agent calls, then runs reviews of many shapes in which every
-refuter's answer is drawn on its own. It fails when an agent other than the lenses and the refuters runs, when a
-refuter is shown anything its report alone would not show it, or when a report's outcome differs from what its own
-refuters' answers give. Two review rounds of the gate, with two refuters on each finding, found forms of grouping that
-its earlier versions let through: a larger review, votes coupled by title, a refuter shown other reports' words, and an
-agent reached through an alias. The gate as it landed kills every rule-breaking mutant those rounds built, and its
-header names what remains out of its reach.
+decision. The spec gates the pair per report in three cases: one parses the script for every way to an agent and is
+scored on planted sources; one runs a defect reported twice with every combination of its refuters' answers; one sweeps
+reviews of many shapes, each refuter's answer drawn on its own. They fail when an agent other than the lenses and the
+refuters runs, when a refuter is shown anything its report alone would not show it, or when a report's outcome, or the
+review's, differs from what each report's own refuters' answers give. Three review rounds of the gate, with two
+refuters on each finding, found forms of grouping that its earlier versions let through: a larger review, votes coupled
+by title or by a quoted line, a refuter shown other reports' words or a lens's summary, an agent reached through an
+alias or the runtime's `workflow`, a missing vote borrowed on a real PR, and draws that tied a report's two refuters
+together. Of the mutants those rounds built, the gate as it landed kills every one that breaks the rule in the reviews
+it runs, and its header names what remains out of its reach.

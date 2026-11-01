@@ -4,41 +4,54 @@
  * The Python gate `backend/tests/unit/test_agent_workflow_rules.py` checks the script's text. Text
  * checks keep missing JavaScript corner cases (a spread that overrides `model`, a tier key that is
  * undefined for one tier, a loosened vote count), so this spec runs the script itself with stubbed
- * `agent`/`pipeline`/`parallel` and asserts what every stage actually receives and returns:
+ * `agent`/`pipeline`/`parallel` and the runtime's other hooks, and asserts what every stage actually receives and returns:
  *   - every agent call carries a literal, non-premium model and the effort the tier promises;
  *   - the agent counts per tier (records 1, routine 1 + 1 per blocker, high 3 + 2 per serious finding);
  *   - every refuter, on every tier, answers in the one-verdict schema, pinned exactly (types and enums included),
  *     and its prompt asks for a correction only when the claimed severity is wrong;
  *   - every verified report gets its own refuters, the high tier's two on Opus or the routine tier's one on Sonnet,
- *     even when several lenses report one defect (the founder removed #1855's shared refuters on 2026-11-01;
- *     lessons/ops-replace-a-redundant-review-stage-never-drop-it.md):
- *     - statically, the script, parsed, names `agent` exactly twice, each time calling it directly on a prompt that
- *       lensPrompt or refuterPrompt builds, so no stage calls an agent through a call of its own, an alias, `.call`
- *       or a property;
- *     - dynamically, each refuter answers hold, refute, lower, raise or nothing, drawn per report, refuter and seed,
- *       and the result is compared with the judge's rules applied to each report's own answers alone. The reviews:
- *       on the high tier, every combination of one to three lenses, one to eight should-fix defects and one or two
- *       copies, each with a blocker, plus three of up to 198 reports in three copies; on the routine tier, one to
- *       four blocker defects in one to three copies. The copies of a defect share its file, its line (or its lack of
- *       one) and its title, and a lens's second copy of the last defect claims the other serious severity. Each runs
- *       on a PR numbered 1 and on one with a real number, title and branch. In each: no agent runs but the lenses
- *       and the refuters; each refuter's prompt is exactly the one it gets when its report is the review's only
- *       finding; each verified report has its own refuters #1 to #N; and each report is confirmed, refuted or left
- *       unverified, at its severity and under its lens, as its own answers decide, with `incomplete` and `mergeable`
- *       to match;
- *     - out of reach: a stage that reuses the refuters' own call (a helper that builds the refuter prompt and calls
- *       `agent`) or reaches an agent by a name built at run time, and that acts only on reviews those shapes do not
- *       include, or only on what they hold fixed (the clock, randomness, the runtime);
+ *     even when one defect is reported more than once, by one lens or by several (the founder removed #1855's shared
+ *     refuters on 2026-11-01; lessons/ops-replace-a-redundant-review-stage-never-drop-it.md). Three cases gate it:
+ *     - the static case parses the script: it must refer to `agent` exactly twice, each time calling it directly on a
+ *       prompt that lensPrompt or refuterPrompt builds, and name none of the ways the runtime or this harness offers to
+ *       another agent or to a binding by a name built at run time (`workflow`, `budget`, `arguments`, `eval`,
+ *       `Function`, `globalThis`, `global`, `self`, `window`, `this`). So a stage that calls an agent through a new call,
+ *       a prompt held in a variable, an alias, `.call`, `.apply`, a property or one of those names fails, and so does a
+ *       renamed prompt builder, which means updating the check. The case also scores the check on sources planted into
+ *       a stand-in with the script's two calls, each marked flagged, look-alike or gap;
+ *     - the exhaustive case runs one defect reported twice (by one lens twice, or on the high tier by two lenses;
+ *       claimed alike or not) with every combination of its refuters' answers;
+ *     - the sweep runs, on the high tier, every combination of the seven sets of reporting lenses, zero or one blocker
+ *       defect, one to eight should-fix defects and one or two copies, plus three reviews of up to 198 reports in
+ *       three copies; on the routine tier, one to four blocker defects with zero or one should-fix defect, in one to
+ *       three copies. About one copy in four, drawn, claims the other serious severity. A defect's copies share its
+ *       file, its line (or its lack of one) and its title, and by turns its evidence, its detail or neither. Each
+ *       refuter answers hold (twice as often as each other answer), refute, lower, raise or nothing, drawn per shape,
+ *       PR, report and refuter. On each tier and PR, every severity the tier verifies meets every combination of its
+ *       refuters' answers, and `incomplete` and `mergeable` each come out both ways.
+ *     The exhaustive case and the sweep run each review on a PR numbered 1 with its tier set, and on one shaped like the
+ *     documented call: a real number, title and branch, a brief, another base, and the tier left to the batch (routine)
+ *     or to the default (high). Each lens's summary names the reports it made. In every review: no agent runs but the
+ *     lenses and the refuters; each refuter's prompt is exactly the one it gets when its report is the review's only
+ *     finding; each verified report has its own refuters #1 to #N; each report is confirmed, refuted or left unverified
+ *     as its own answers decide, a confirmed or unverified one at its severity and under its lens; and `incomplete`
+ *     and `mergeable` match;
+ *     - out of reach: a change that acts only on reviews these leave out (a larger review, a batch of several PRs, or a
+ *       mix of claims and answers the sweep's draws never produce, such as an exact count of verified reports) or only
+ *       on what they hold fixed (the form of the files, titles and words, the runtime's clock and randomness), and
+ *       that either calls no agent of its own (it judges a copy on another copy's votes, say) or reaches one through
+ *       the lenses' or the refuters' own call (a helper that builds their prompt and calls `agent`) or through a name
+ *       built at run time that the static case does not list (the Function constructor reached as a property, say);
  *   - each refuter holds a finding at its corrected severity, or at the claimed one when it sets none or sets one
  *     outside the three severities, and the highest holding wins whichever refuter gives it: a should-fix raised
  *     to blocker, by one refuter or both, is a confirmed blocker and blocks the merge, even when the other refuter
  *     restates or lowers it; a lowering needs every refuter of the tier (both on the high tier), so a claimed
  *     blocker that one refuter lowers while the other is silent still blocks the merge, while the routine tier's
  *     one refuter lowers a blocker alone; two lowerings that agree confirm the finding at the lower severity, nit
- *     included, and two that disagree confirm it at the higher of the two; a raise never outlives a refutation: a
- *     finding one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises at
- *     once, is refuted, and a claimed blocker one of its two refuters refutes is refuted; a finding with a vote
- *     missing stays unverified at its claimed severity whatever the other refuter holds;
+ *     included, and two that disagree confirm it at the higher of the two; no correction outlives a refutation: a
+ *     finding one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises or
+ *     lowers at once, is refuted, and a claimed blocker one of its two refuters refutes is refuted; a finding with a
+ *     vote missing stays unverified at its claimed severity whatever the other refuter holds;
  *   - a missing tier reviews as high, an unknown tier or a batch-wide `records` fails before any agent;
  *   - a complete vote lands where it should: every unrefuted finding in `confirmed`, a blocker there
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
@@ -49,11 +62,13 @@
  *   - a verification that throws keeps its finding (unverified) instead of dropping it;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
- * to null, and a throwing thunk resolves to null.
+ * to null, and a throwing thunk resolves to null. `budget` has no target, and `workflow` is passed on to `agent` under a
+ * `workflow:` label, so a guarded call to it runs here as it would in the runtime and counts as one agent too many.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -91,6 +106,9 @@ const VERDICT_SCHEMA = {
   required: ['refuted', 'reason'],
 }
 
+// The runtime's token budget when no target is set, as the Workflow reference documents it.
+const NO_BUDGET = Object.freeze({ total: null, spent: () => 0, remaining: () => Infinity })
+
 function load(): (args: unknown, agent: unknown) => Promise<unknown> {
   const source = readFileSync(SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
   const pipeline = async (items: unknown[], ...stages: Array<(...a: unknown[]) => unknown>) =>
@@ -109,8 +127,13 @@ function load(): (args: unknown, agent: unknown) => Promise<unknown> {
     Promise.all(thunks.map((thunk) => thunk().catch(() => null)))
   const log = () => undefined
   const phase = () => undefined
-  const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', `return (async () => {${source}})()`)
-  return (args, agent) => factory(args, agent, pipeline, parallel, log, phase) as Promise<unknown>
+  const factory = new Function('args', 'agent', 'pipeline', 'parallel', 'log', 'phase', 'budget', 'workflow', `return (async () => {${source}})()`)
+  return (args, agent) => {
+    // `workflow` runs a saved workflow whose agents count as this run's own, so it reaches the stub as one more agent.
+    const workflow = (ref: unknown, input?: unknown) =>
+      (agent as (prompt: string, o: { label: string }) => Promise<unknown>)(JSON.stringify({ ref, input }), { label: `workflow:${JSON.stringify(ref)}` })
+    return factory(args, agent, pipeline, parallel, log, phase, NO_BUDGET, workflow) as Promise<unknown>
+  }
 }
 
 type Result = {
@@ -118,9 +141,9 @@ type Result = {
   agents: number
   incomplete: boolean
   mergeable: boolean
-  confirmed: Array<{ title: string; severity: string; detail?: string; lens?: string }>
-  refuted: Array<{ title: string }>
-  unverified: Array<{ title: string; severity: string }>
+  confirmed: Array<{ title: string; severity: string; detail?: string; evidence?: string; lens?: string }>
+  refuted: Array<{ title: string; reasons?: string[] }>
+  unverified: Array<{ title: string; severity: string; detail?: string; evidence?: string; lens?: string }>
   nits: unknown[]
 }
 
@@ -151,6 +174,147 @@ const titles = (xs: Array<{ title: string }>) => xs.map((x) => x.title).sort()
 const severities = (r: Result) => Object.fromEntries(r.confirmed.map((c) => [c.title, c.severity]))
 
 const pr = (tier?: string) => ({ number: 1, branch: 'x', title: 'T', base: 'main', ...(tier ? { tier } : {}) })
+
+// The static half of the pair-per-report gate. The script may refer to `agent` exactly twice, each time calling it
+// directly on the prompt one of these builds.
+const AGENT_USES = ['lensPrompt', 'refuterPrompt']
+// Names that reach an agent, or a binding by a name built at run time, without naming `agent`: the runtime's `workflow`
+// (its agents count as this run's own) and `budget` (a stage that reads it can only be fitting the agents to their cost,
+// which AGENTS.md §5's fixed counts rule out); `arguments`, which reaches this harness's hooks by position; and `eval`,
+// `Function` and the global object's names, which reach a binding by a name built at run time.
+const REACHING_NAMES = new Set(['workflow', 'budget', 'arguments', 'eval', 'Function', 'globalThis', 'global', 'self', 'window'])
+
+// Each reference to `agent` in `source`, as the prompt builder it is called directly on or as the code that holds or
+// calls it otherwise, and each use of a reaching name or `this`, sorted. A property name or an object key spelled like
+// one of them is not a reference.
+function agentUses(source: string): string[] {
+  const file = ts.createSourceFile('premerge-review.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+  const uses: string[] = []
+  const isKey = (node: ts.Node) => (ts.isPropertyAccessExpression(node.parent) || ts.isPropertyAssignment(node.parent)) && node.parent.name === node
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === 'agent' && !isKey(node)) {
+      const call = node.parent
+      const first = ts.isCallExpression(call) && call.expression === node ? call.arguments[0] : undefined
+      uses.push(first && ts.isCallExpression(first) && ts.isIdentifier(first.expression) ? first.expression.text : `agent held or called otherwise: ${call.getText(file).slice(0, 80)}`)
+    } else if ((ts.isIdentifier(node) && REACHING_NAMES.has(node.text) && !isKey(node)) || node.kind === ts.SyntaxKind.ThisKeyword) {
+      uses.push(`a reaching name: ${node.parent.getText(file).slice(0, 80)}`)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  return uses.sort()
+}
+
+// The dynamic half: reviews whose every refuter answers on its own, compared with the judge AGENTS.md §5 describes,
+// applied to each report's own refuters' answers alone.
+type Answer = 'hold' | 'refute' | 'lower' | 'raise' | 'missing'
+type Report = { id: string; lens: string; title: string; claimed: string; file: string; line?: number; detail: string; evidence: string }
+type Tier = { lenses: string[]; refuters: number; verify: string[]; model: string; effort?: string }
+const ANSWERS: Answer[] = ['hold', 'refute', 'lower', 'raise', 'missing']
+const REFUTING: Record<'high' | 'routine', Tier> = {
+  high: { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], refuters: 2, verify: ['blocker', 'should-fix'], model: 'opus' },
+  routine: { lenses: ['combined'], refuters: 1, verify: ['blocker'], model: 'sonnet', effort: 'medium' },
+}
+const RANK: Record<string, number> = { nit: 1, 'should-fix': 2, blocker: 3 }
+const LOWER: Record<string, string> = { blocker: 'should-fix', 'should-fix': 'nit' }
+const OTHER: Record<string, string> = { blocker: 'should-fix', 'should-fix': 'blocker' }
+const correction = (r: Report, a: Answer) => (a === 'lower' ? LOWER[r.claimed] : a === 'raise' ? 'blocker' : undefined)
+
+// Each review runs on two PRs: the fixture's, numbered 1 with its tier set on it, and one shaped like the call
+// tasks/handover-wave2-2026-09.md documents (a brief, no tier), with a real number, title and branch and another base,
+// its tier left to the batch (routine) or to the default (high).
+const runsOf = (tier: 'high' | 'routine') => [
+  { name: 'PR #1', args: { prs: [pr(tier)] } },
+  {
+    name: 'PR #1873',
+    args: { prs: [{ number: 1873, branch: 'claude/a-real-branch', title: 'fix(api): a real title', base: 'release', brief: 'WS-6' }], ...(tier === 'routine' ? { tier } : {}) },
+  },
+]
+
+const tagsIn = (reports: Report[], text: string) => reports.filter((r) => text.includes(r.id))
+const finding = (r: Report) => ({ file: r.file, ...(r.line ? { line: r.line } : {}), title: r.title, detail: r.detail, severity: r.claimed, evidence: r.evidence })
+
+// Runs one review of `reports` on `args`. Each lens reports its own reports, with a summary that names them; each
+// refuter answers as `answerOf` gives for the one report its prompt names, and puts that report's tag in its reason.
+async function reviewWith(run: ReturnType<typeof load>, args: unknown, reports: Report[], answerOf: (r: Report, n: number) => Answer) {
+  const calls: Call[] = []
+  const [result] = (await run(args, async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
+    calls.push({ label: o.label, model: o.model, effort: o.effort, prompt, schema: o.schema })
+    if (o.label.startsWith('review:')) {
+      const mine = reports.filter((r) => r.lens === o.label.split(':').pop())
+      return { findings: mine.map(finding), summary: mine.length ? `reported ${mine.map((r) => r.id).join(', ')}` : 'nothing to report' }
+    }
+    const r = tagsIn(reports, prompt)[0]
+    const n = Number(o.label.split('#').pop())
+    const a = r ? answerOf(r, n) : 'refute'
+    if (a === 'missing') return null
+    const corrected = r ? correction(r, a) : undefined
+    return { refuted: a === 'refute', reason: `${r?.id} #${n}`, ...(corrected ? { corrected_severity: corrected } : {}) }
+  })) as Result[]
+  return { calls, result }
+}
+
+// The prompt each refuter of each of `verified` gets when that report is its review's only finding.
+async function soloPrompts(run: ReturnType<typeof load>, args: unknown, verified: Report[]) {
+  const solo = new Map<string, string>()
+  for (const r of verified) {
+    const { calls } = await reviewWith(run, args, [r], () => 'hold')
+    for (const c of calls.filter((x) => x.label.startsWith('verify:'))) solo.set(`${r.id}${c.label.slice(c.label.lastIndexOf('#'))}`, c.prompt)
+  }
+  return solo
+}
+
+// Checks one review against the rule. Returns what broke it (nothing when the rule holds) and the outcome its reports'
+// own answers give. The checks are plain comparisons, asserted once per review, which keeps the exhaustive case fast.
+function ownVerdictProblems(T: Tier, reports: Report[], calls: Call[], result: Result, solo: Map<string, string>, answerOf: (r: Report, n: number) => Answer) {
+  const problems: string[] = []
+  const same = (got: unknown, want: unknown, what: string) => {
+    if (!isDeepStrictEqual(got, want)) problems.push(`${what}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`)
+  }
+  const verified = reports.filter((r) => T.verify.includes(r.claimed))
+  // The lenses and the tier's refuters of every verified report are the only agents.
+  same(calls.map((c) => c.label.split(':')[0]).sort(), [...Array(T.lenses.length).fill('review'), ...Array(verified.length * T.refuters).fill('verify')], 'agents run')
+  same(result.agents, T.lenses.length + verified.length * T.refuters, 'agents counted')
+  if ('groups' in result) problems.push('the result carries groups')
+  // Each refuter is shown exactly what it would be shown were its report the review's only finding, so nothing of
+  // another report reaches it, in any form; it answers in the one-verdict schema, on the tier's model.
+  const seen = new Map<string, string[]>()
+  for (const call of calls.filter((c) => c.label.startsWith('verify:'))) {
+    const shown = tagsIn(reports, call.prompt)
+    if (shown.length !== 1) {
+      problems.push(`${call.label} is shown ${shown.map((r) => r.id).join(', ') || 'no report'}`)
+      continue
+    }
+    const n = call.label.slice(call.label.lastIndexOf('#'))
+    if (call.prompt !== solo.get(`${shown[0].id}${n}`)) problems.push(`${call.label} for ${shown[0].id} differs from its report's own prompt`)
+    same([call.model, call.effort, call.schema], [T.model, T.effort, VERDICT_SCHEMA], `${call.label}: model, effort and schema`)
+    seen.set(shown[0].id, [...(seen.get(shown[0].id) ?? []), n])
+  }
+  // Every verified report has its own refuters, #1 to #N.
+  same([...seen.keys()].sort(), verified.map((r) => r.id).sort(), 'reports with refuters')
+  for (const r of verified) same(seen.get(r.id)?.sort(), Array.from({ length: T.refuters }, (_, k) => `#${k + 1}`), `${r.id}'s refuters`)
+  // Every report lands where its own answers put it; a confirmed or unverified one at the severity they give it and
+  // under the lens that found it.
+  const want = reports.map((r) => {
+    if (!T.verify.includes(r.claimed)) return [r.id, 'unverified', r.claimed, r.lens]
+    const votes = Array.from({ length: T.refuters }, (_, k) => answerOf(r, k + 1)).filter((a) => a !== 'missing')
+    if (votes.length < T.refuters) return [r.id, 'unverified', r.claimed, r.lens]
+    if (votes.includes('refute')) return [r.id, 'refuted']
+    return [r.id, 'confirmed', votes.map((a) => correction(r, a) ?? r.claimed).reduce((x, y) => (RANK[y] > RANK[x] ? y : x)), r.lens]
+  })
+  const ids = (text: string) => tagsIn(reports, text).map((r) => r.id).join(' and ')
+  const got = [
+    ...result.confirmed.map((c) => [ids(`${c.detail} ${c.evidence}`), 'confirmed', c.severity, String(c.lens)]),
+    ...result.refuted.map((x) => [ids((x.reasons ?? []).join(' ')), 'refuted']),
+    ...result.unverified.map((u) => [ids(`${u.detail} ${u.evidence}`), 'unverified', u.severity, String(u.lens)]),
+  ]
+  same(got.sort(), want.sort(), 'verdicts')
+  const incomplete = want.some(([id, kind]) => kind === 'unverified' && verified.some((r) => r.id === id))
+  const mergeable = !incomplete && !want.some(([, kind, severity]) => kind !== 'refuted' && severity === 'blocker')
+  same(result.incomplete, incomplete, 'incomplete')
+  same(result.mergeable, mergeable, 'mergeable')
+  return { problems, incomplete, mergeable }
+}
 
 describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   it('runs records on one Sonnet lens, routine on one Opus lens plus a Sonnet refuter per blocker, high on three Opus lenses plus two Opus refuters per serious finding', async () => {
@@ -186,132 +350,165 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
   })
 
-  it('gives every verified report its own refuters on both tiers, each shown that report alone and judged on its own votes, whatever the lenses, defects, copies, claims and votes: nothing groups the copies or shares their refuters, votes or view', async () => {
-    // Statically: the script names `agent` exactly twice, each time calling it directly on a prompt that lensPrompt or
-    // refuterPrompt builds, so no stage calls an agent of its own through a new call, an alias, `.call` or a property.
-    const sourceFile = ts.createSourceFile(SCRIPT, readFileSync(SCRIPT, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
-    const uses: string[] = []
-    const visit = (node: ts.Node): void => {
-      if (ts.isIdentifier(node) && node.text === 'agent') {
-        const call = node.parent
-        const first = ts.isCallExpression(call) && call.expression === node ? call.arguments[0] : undefined
-        uses.push(first && ts.isCallExpression(first) && ts.isIdentifier(first.expression) ? first.expression.text : `not a call on a built prompt: ${node.parent.getText(sourceFile).slice(0, 60)}`)
-      }
-      ts.forEachChild(node, visit)
-    }
-    visit(sourceFile)
-    expect(uses.sort()).toEqual(['lensPrompt', 'refuterPrompt'])
-
-    // Dynamically, against the judge AGENTS.md §5 describes, applied to each report's own refuters' answers alone.
-    type Answer = 'hold' | 'refute' | 'lower' | 'raise' | 'missing'
-    type Report = { id: string; lens: string; title: string; claimed: string; file: string; line?: number; detail: string; evidence: string }
-    const RANK: Record<string, number> = { nit: 1, 'should-fix': 2, blocker: 3 }
-    const LOWER: Record<string, string> = { blocker: 'should-fix', 'should-fix': 'nit' }
-    const fnv = (text: string) => {
-      let h = 2166136261
-      for (let k = 0; k < text.length; k++) h = Math.imul(h ^ text.charCodeAt(k), 16777619) >>> 0
-      return h
-    }
-    const run = load()
-    // [tier, lenses that report, blocker defects, should-fix defects, copies of every defect per lens]: on the high
-    // tier every combination of one to three lenses, one to eight should-fix defects and one or two copies, and three
-    // larger reviews (up to 198 reports); on the routine tier, one to four blocker defects in one to three copies.
-    type Shape = [string, number, number, number, number]
-    const SHAPES: Shape[] = [
-      ...[1, 2, 3].flatMap((l) => [1, 2, 3, 4, 5, 6, 7, 8].flatMap((s) => [1, 2].map((c): Shape => ['high', l, 1, s, c]))),
-      ['high', 1, 3, 9, 3], ['high', 2, 2, 12, 3], ['high', 3, 2, 20, 3],
-      ...[1, 2, 4].flatMap((b) => [0, 1].flatMap((s) => [1, 2, 3].map((c): Shape => ['routine', 1, b, s, c]))),
+  it("refers to `agent` only in the lenses' call and the refuters' call, each on its own built prompt, and names no other way to an agent: scored on planted sources, flagged, look-alike and gap", () => {
+    expect(agentUses(readFileSync(SCRIPT, 'utf8')), 'the script may call agent only directly on lensPrompt(…) and refuterPrompt(…), once each').toEqual(AGENT_USES)
+    // The planted cases go into a stand-in with the script's two calls, so they score the check, not the script's wording.
+    const script = [
+      "const lensPrompt = (pr, key) => 'review ' + key",
+      "const refuterPrompt = (pr, f, i) => 'refute ' + f.title + ', skeptic #' + (i + 1)",
+      'const judge = (f, votes) => ({ ...f, votes })',
+      'const results = await pipeline(PRS, async (pr) => {',
+      "  const findings = await parallel(LENSES.map((key) => () => agent(lensPrompt(pr, key), { label: 'review:' + key })))",
+      '  return parallel(findings.flat().map((f) => () =>',
+      "    parallel([0, 1].map((i) => () => agent(refuterPrompt(pr, f, i), { label: 'verify:' + f.file + '#' + (i + 1) }))).then((votes) => judge(f, votes))))",
+      '})',
+      'return results.filter(Boolean)',
+    ].join('\n')
+    expect(agentUses(script), 'the stand-in').toEqual(AGENT_USES)
+    const END = 'return results.filter(Boolean)'
+    const PIPELINE = 'const results = await pipeline('
+    const add = (code: string) => (src: string) => src.replace(END, `${code}\n${END}`)
+    const helper = (call: string, helperCall: string, definition: string) => (src: string) => src.replace(call, helperCall).replace(PIPELINE, `${definition}\n${PIPELINE}`)
+    const PLANTED: Array<[string, 'flag' | 'clean' | 'gap', (src: string) => string]> = [
+      // Flagged: a stage that reaches an agent outside the two calls.
+      ['a new call on a prompt of its own', 'flag', add("const groups = await agent(groupPrompt(results), { label: 'group', model: 'sonnet' })")],
+      ['a call on a prompt held in a variable', 'flag', add("const p = lensPrompt(PRS[0], 'correctness')\nawait agent(p, {})")],
+      ['a third call on a built prompt', 'flag', add("await agent(lensPrompt(PRS[0], 'correctness'), {})")],
+      ['an optional call', 'flag', add('await agent?.(refuterPrompt(PRS[0], {}, 0), {})')],
+      ['an alias', 'flag', add('const ask = agent')],
+      ['`.call`', 'flag', add('await agent.call(null, groupPrompt(results), {})')],
+      ['`.apply`', 'flag', add('await agent.apply(null, [groupPrompt(results), {}])')],
+      ['a property', 'flag', add('const stages = { ask: agent }')],
+      ['a shorthand property', 'flag', add('const tools = { agent }')],
+      ['a helper on any prompt', 'flag', add('const ask = (p, o) => agent(p, o)')],
+      ['a call after a `//` inside a string', 'flag', add("const url = 'https://example.com//'; await agent(groupPrompt(results), {})")],
+      ["the runtime's `workflow`, guarded", 'flag', add("const groups = typeof workflow === 'function' ? await workflow('dedupe-findings', results) : null")],
+      ["the runtime's `budget`", 'flag', add('const lean = budget.total !== null && budget.remaining() < 100000')],
+      ['`arguments`', 'flag', add('const ask = arguments[1]')],
+      ['`eval`', 'flag', add("const ask = eval('ag' + 'ent')")],
+      ['`Function`', 'flag', add("const ask = Function('return ag' + 'ent')()")],
+      ['`globalThis`', 'flag', add("const ask = globalThis['ag' + 'ent']")],
+      ['`this`', 'flag', add("const ask = this['ag' + 'ent']")],
+      // Look-alikes: code that reaches no agent.
+      ['`agent(` inside a string', 'clean', add("const s = 'agent(groupPrompt(results), {})'")],
+      ['`agent(` inside a template', 'clean', add('const t = `agent(' + '${PRS.length})`')],
+      ['`agent(` inside comments', 'clean', add('// agent(groupPrompt(results))\n/* agent(groupPrompt(results)) */')],
+      ['words that contain it', 'clean', add('const agents = 1\nconst agentCount = agents + results.length')],
+      ['a key and a property named `agent`', 'clean', add("const stamped = results.map((r) => ({ ...r, agent: 'premerge' }))\nconst first = stamped.length ? stamped[0].agent : null")],
+      // Gaps the header names: the static case passes them, and only the dynamic cases can catch them, in their reviews.
+      ["a helper that builds the refuters' prompt and calls `agent`", 'gap', helper('agent(refuterPrompt(pr, f, i), {', 'askRefuter(pr, f, i, {', 'const askRefuter = (pr, f, i, o) => agent(refuterPrompt(pr, f, i), o)')],
+      ["a helper that builds the lenses' prompt and calls `agent`", 'gap', helper('agent(lensPrompt(pr, key), {', 'askLens(pr, key, {', 'const askLens = (pr, key, o) => agent(lensPrompt(pr, key), o)')],
+      ["a change that calls no agent: a copy judged on another copy's votes", 'gap', (src) => src.replace('.then((votes) => judge(f, votes))', '.then((votes) => judge(f, votesOfFirstCopy(f, votes)))')],
+      ['the Function constructor reached as a property', 'gap', add("const ask = [].constructor.constructor('return ag' + 'ent')()")],
     ]
-    for (const [tier, lensCount, blockers, shoulds, copies] of SHAPES) {
-      const T = tier === 'high'
-        ? { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], refuters: 2, verify: ['blocker', 'should-fix'], model: 'opus', effort: undefined }
-        : { lenses: ['combined'], refuters: 1, verify: ['blocker'], model: 'sonnet', effort: 'medium' }
+    for (const [name, mark, plant] of PLANTED) {
+      const planted = plant(script)
+      expect(planted, `${name}: the plant must change the script`).not.toBe(script)
+      const passes = JSON.stringify(agentUses(planted)) === JSON.stringify(AGENT_USES)
+      expect(passes ? (mark === 'flag' ? 'missed' : mark) : mark === 'flag' ? 'flag' : `flagged, though ${mark}`, name).toBe(mark)
+    }
+  })
+
+  it("judges each of two reports of one defect on its own refuters' answers alone, for every combination of those answers, on both tiers and both PRs, from one lens or two, claimed alike or not", async () => {
+    const run = load()
+    for (const tier of ['high', 'routine'] as const) {
+      const T = REFUTING[tier]
+      // One lens's two copies, or (high only) two lenses' one each, of one defect: same file, line, title and evidence.
+      const arrangements = tier === 'high' ? [['tests-and-gates', 'tests-and-gates'], ['rules-and-brief', 'correctness']] : [['combined', 'combined']]
+      const claims = [['should-fix', 'should-fix'], ['blocker', 'blocker'], ['should-fix', 'blocker'], ['blocker', 'should-fix']]
+      for (const lenses of arrangements) {
+        for (const claimed of claims) {
+          const reports: Report[] = lenses.map((lens, k) => ({
+            id: `[#00${k}]`, lens, title: 'one defect', claimed: claimed[k], file: 'src/one.py', line: 12,
+            detail: `[#00${k}] one defect, in the ${lens} lens's words`, evidence: 'src/one.py:12 is the line both reports quote',
+          }))
+          const verified = reports.filter((r) => T.verify.includes(r.claimed))
+          const slots = verified.length * T.refuters
+          for (const { name, args } of runsOf(tier)) {
+            const solo = await soloPrompts(run, args, verified)
+            for (let k = 0; k < ANSWERS.length ** slots; k++) {
+              const answerOf = (r: Report, n: number) => ANSWERS[Math.floor(k / ANSWERS.length ** (verified.indexOf(r) * T.refuters + n - 1)) % ANSWERS.length]
+              const where = `${tier}, ${lenses.join(' then ')}, claimed ${claimed.join(' then ')}, ${name}, answers ${verified.flatMap((r) => Array.from({ length: T.refuters }, (_, n) => answerOf(r, n + 1))).join(' ')}`
+              const { calls, result } = await reviewWith(run, args, reports, answerOf)
+              expect(ownVerdictProblems(T, reports, calls, result, solo, answerOf).problems, where).toEqual([])
+            }
+          }
+        }
+      }
+    }
+  }, 120_000)
+
+  it('gives every verified report its own refuters on both tiers, each shown that report alone and judged on its own votes, in every review the sweep runs: nothing groups the copies or shares their refuters, votes or view', async () => {
+    const run = load()
+    // FNV-1a, then murmur3's 32-bit finalizer, so every character of the key reaches the low bits the draws read
+    // (FNV-1a's lowest bit alone is the parity of the key's characters, which tied a report's two refuters together).
+    const draw = (key: string) => {
+      let h = 2166136261
+      for (let k = 0; k < key.length; k++) h = Math.imul(h ^ key.charCodeAt(k), 16777619)
+      h = Math.imul(h ^ (h >>> 16), 0x85ebca6b)
+      h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35)
+      return (h ^ (h >>> 16)) >>> 0
+    }
+    // A refuter holds the claim twice as often as it gives each other answer.
+    const POOL: Answer[] = ['hold', ...ANSWERS]
+    const HIGH = REFUTING.high.lenses
+    const LENS_SETS = [1, 2, 3, 4, 5, 6, 7].map((m) => HIGH.filter((_, k) => m & (1 << k)))
+    // [tier, lenses that report, blocker defects, should-fix defects, copies of every defect per lens].
+    type Shape = ['high' | 'routine', string[], number, number, number]
+    const SHAPES: Shape[] = [
+      ...LENS_SETS.flatMap((lenses) => [0, 1].flatMap((b) => [1, 2, 3, 4, 5, 6, 7, 8].flatMap((s) => [1, 2].map((c): Shape => ['high', lenses, b, s, c])))),
+      ['high', [HIGH[0]], 3, 9, 3], ['high', [HIGH[1], HIGH[2]], 2, 12, 3], ['high', HIGH, 2, 20, 3],
+      ...[1, 2, 3, 4].flatMap((b) => [0, 1].flatMap((s) => [1, 2, 3].map((c): Shape => ['routine', ['combined'], b, s, c]))),
+    ]
+    // What the draws gave on each tier and PR: each claimed severity's combinations of answers, and each outcome of a
+    // review with a report to verify.
+    const met = new Map<string, Set<string>>()
+    const meet = (key: string, value: string) => met.set(key, (met.get(key) ?? new Set<string>()).add(value))
+    for (const [tier, lensSet, blockers, shoulds, copies] of SHAPES) {
+      const T = REFUTING[tier]
       const defects = [
         ...Array.from({ length: blockers }, (_, k) => ({ title: `blocker ${k + 1}`, file: `src/a${k + 1}.py`, line: 7 as number | undefined, claimed: 'blocker' })),
         ...Array.from({ length: shoulds }, (_, k) => ({ title: `should-fix ${k + 1}`, file: `src/b${k + 1}.py`, line: k % 2 ? 9 : undefined, claimed: 'should-fix' })),
       ]
-      // Every reporting lens reports every defect `copies` times. The copies of a defect share its file, line (or its
-      // lack of one) and title; each copy carries its own numbered tag in its detail and evidence, and a lens's second
-      // copy of the last defect claims the other serious severity.
-      const reports: Report[] = []
-      for (const lens of T.lenses.slice(0, lensCount)) {
-        for (const [d, defect] of defects.entries()) {
-          for (let copy = 1; copy <= copies; copy++) {
-            const id = `[#${String(reports.length).padStart(3, '0')}]`
-            const claimed = d === defects.length - 1 && copy === 2 ? (defect.claimed === 'blocker' ? 'should-fix' : 'blocker') : defect.claimed
-            reports.push({
-              id, lens, title: defect.title, claimed, file: defect.file, line: defect.line,
-              detail: `${id} ${defect.title}, in the ${lens} lens's words, copy ${copy}`,
-              evidence: `${id} the ${lens} lens's evidence of ${defect.title}, copy ${copy}`,
-            })
+      for (const { name, args } of runsOf(tier)) {
+        const where = `${tier}, ${lensSet.join(' + ')} reporting, ${blockers} blocker and ${shoulds} should-fix defect(s), ${copies} cop(ies), ${name}`
+        // Every reporting lens reports every defect `copies` times; each copy's tag rides in a field its copies do not share.
+        const reports: Report[] = []
+        for (const lens of lensSet) {
+          for (const [d, defect] of defects.entries()) {
+            for (let copy = 1; copy <= copies; copy++) {
+              const id = `[#${String(reports.length).padStart(3, '0')}]`
+              reports.push({
+                id, lens, title: defect.title, file: defect.file, line: defect.line,
+                claimed: draw(`${where}: the claim of ${id}`) % 4 === 0 ? OTHER[defect.claimed] : defect.claimed,
+                detail: d % 3 === 1 ? `${defect.title}, worded alike by every copy` : `${id} ${defect.title}, in the ${lens} lens's words, copy ${copy}`,
+                evidence: d % 3 === 0 ? `${defect.file}${defect.line ? `:${defect.line}` : ''} is the line every copy quotes` : `${id} the ${lens} lens's evidence of ${defect.title}, copy ${copy}`,
+              })
+            }
           }
         }
+        const verified = reports.filter((r) => T.verify.includes(r.claimed))
+        const answerOf = (r: Report, n: number): Answer => POOL[draw(`${where}: ${r.id} #${n}`) % POOL.length]
+        const solo = await soloPrompts(run, args, verified)
+        const { calls, result } = await reviewWith(run, args, reports, answerOf)
+        const outcome = ownVerdictProblems(T, reports, calls, result, solo, answerOf)
+        expect(outcome.problems, where).toEqual([])
+        for (const r of verified) meet(`${tier}, ${name}, claimed ${r.claimed}`, Array.from({ length: T.refuters }, (_, k) => answerOf(r, k + 1)).join(' + '))
+        if (verified.length) {
+          meet(`${tier}, ${name}`, `incomplete ${outcome.incomplete}`)
+          meet(`${tier}, ${name}`, `mergeable ${outcome.mergeable}`)
+        }
       }
-      const finding = (r: Report) => ({ file: r.file, ...(r.line ? { line: r.line } : {}), title: r.title, detail: r.detail, severity: r.claimed, evidence: r.evidence })
-      const tagged = (prompt: string) => reports.filter((r) => prompt.includes(r.id))
-      const verified = reports.filter((r) => T.verify.includes(r.claimed))
-      // Seed 0 draws each refuter's answer from all five, a missing vote included, on a PR numbered 1; seed 1 draws from
-      // the four votes, on a PR with a real number, title and branch.
-      for (const seed of [0, 1]) {
-        const where = `${tier}, ${lensCount} lens(es), ${blockers} blocker and ${shoulds} should-fix defect(s), ${copies} cop(ies), seed ${seed}`
-        const thePr = seed === 0 ? pr(tier) : { number: 1873, branch: 'claude/a-real-branch', title: 'fix(api): a real title', base: 'main', tier }
-        // The prompt each refuter of a report gets when that report is its review's only finding.
-        const solo = new Map<string, string>()
-        for (const r of verified) {
-          await run({ prs: [thePr] }, async (prompt: string, o: { label: string }) => {
-            if (o.label.startsWith('review:')) return { findings: o.label.endsWith(`:${r.lens}`) ? [finding(r)] : [], summary: 's' }
-            solo.set(`${r.id}${o.label.slice(o.label.lastIndexOf('#'))}`, prompt)
-            return { refuted: false, reason: 'r' }
-          })
-        }
-        const pool: Answer[] = seed === 0 ? ['hold', 'hold', 'refute', 'lower', 'raise', 'missing'] : ['hold', 'hold', 'refute', 'lower', 'raise']
-        const answer = (r: Report, n: number): Answer => pool[fnv(`${r.id}#${n}@${seed}`) % pool.length]
-        const correction = (r: Report, a: Answer) => (a === 'lower' ? LOWER[r.claimed] : a === 'raise' ? 'blocker' : undefined)
-        const calls: Call[] = []
-        const [result] = (await run({ prs: [thePr] }, async (prompt: string, o: { label: string; model?: unknown; effort?: unknown; schema?: unknown }) => {
-          calls.push({ label: o.label, model: o.model, effort: o.effort, prompt, schema: o.schema })
-          if (o.label.startsWith('review:')) return { findings: reports.filter((r) => r.lens === o.label.split(':').pop()).map(finding), summary: 's' }
-          const r = tagged(prompt)[0]
-          const n = Number(o.label.split('#').pop())
-          const a = r ? answer(r, n) : 'refute'
-          if (a === 'missing') return null
-          const corrected = r ? correction(r, a) : undefined
-          return { refuted: a === 'refute', reason: `${r?.id} #${n}`, ...(corrected ? { corrected_severity: corrected } : {}) }
-        })) as Result[]
-        // What each report's own answers give it.
-        const want = { confirmed: [] as string[][], refuted: [] as string[], unverified: [] as string[][] }
-        for (const r of reports) {
-          const votes = T.verify.includes(r.claimed) ? Array.from({ length: T.refuters }, (_, k) => answer(r, k + 1)).filter((a) => a !== 'missing') : []
-          if (!T.verify.includes(r.claimed) || votes.length < T.refuters) want.unverified.push([r.id, r.claimed])
-          else if (votes.includes('refute')) want.refuted.push(r.id)
-          else want.confirmed.push([r.id, votes.map((a) => correction(r, a) ?? r.claimed).reduce((x, y) => (RANK[y] > RANK[x] ? y : x)), r.lens])
-        }
-        // The lenses and the tier's refuters of every verified report are the only agents.
-        expect(calls.map((c) => c.label.split(':')[0]).sort(), where).toEqual([...Array(T.lenses.length).fill('review'), ...Array(verified.length * T.refuters).fill('verify')])
-        expect(result.agents, where).toBe(T.lenses.length + verified.length * T.refuters)
-        expect(result, where).not.toHaveProperty('groups')
-        // Each refuter is shown exactly what it would be shown were its report the review's only finding, so nothing of
-        // another report reaches it, in any form; it answers in the one-verdict schema, on the tier's model.
-        const seen = new Map<string, string[]>()
-        for (const call of calls.filter((c) => c.label.startsWith('verify:'))) {
-          const shown = tagged(call.prompt)
-          expect(shown.map((r) => r.id), `${where}: ${call.label}`).toHaveLength(1)
-          const n = call.label.slice(call.label.lastIndexOf('#'))
-          expect(call.prompt === solo.get(`${shown[0].id}${n}`), `${where}: ${call.label} for ${shown[0].id} differs from its report's own prompt`).toBe(true)
-          expect([call.model, call.effort, call.schema], `${where}: ${call.label}`).toEqual([T.model, T.effort, VERDICT_SCHEMA])
-          seen.set(shown[0].id, [...(seen.get(shown[0].id) ?? []), n])
-        }
-        // Every verified report has its own refuters, #1 to #N.
-        expect([...seen.keys()].sort(), where).toEqual(verified.map((r) => r.id).sort())
-        for (const r of verified) expect(seen.get(r.id)?.sort(), `${where}: ${r.id}`).toEqual(Array.from({ length: T.refuters }, (_, k) => `#${k + 1}`))
-        // Every report lands where its own answers put it, at the severity they give it, under the lens that found it.
-        const idOf = (text: string) => text.match(/\[#\d{3}\]/)?.[0] ?? text
-        expect(result.confirmed.map((c) => [idOf(String(c.detail)), c.severity, String(c.lens)]).sort(), where).toEqual(want.confirmed.sort())
-        expect(result.refuted.map((x) => idOf((x as { reasons?: string[] }).reasons?.join(' ') ?? '')).sort(), where).toEqual(want.refuted.sort())
-        expect(result.unverified.map((u) => [idOf(String((u as { detail?: string }).detail)), u.severity]).sort(), where).toEqual(want.unverified.sort())
-        const incomplete = verified.some((r) => want.unverified.some(([id]) => id === r.id))
-        expect(result.incomplete, where).toBe(incomplete)
-        expect(result.mergeable, where).toBe(!incomplete && !want.confirmed.some(([, s]) => s === 'blocker') && !want.unverified.some(([, s]) => s === 'blocker'))
+    }
+    // On each tier and PR, every severity the tier verifies met every combination of its refuters' answers, and both
+    // outcomes of `incomplete` and of `mergeable` occurred: a draw that ties answers together, or reviews that fix an
+    // outcome, fail here.
+    for (const tier of ['high', 'routine'] as const) {
+      const T = REFUTING[tier]
+      const combos = T.refuters === 2 ? ANSWERS.flatMap((a) => ANSWERS.map((b) => `${a} + ${b}`)) : [...ANSWERS]
+      for (const { name } of runsOf(tier)) {
+        for (const claimed of T.verify) expect([...(met.get(`${tier}, ${name}, claimed ${claimed}`) ?? [])].sort(), `${tier}, ${name}, claimed ${claimed}`).toEqual([...combos].sort())
+        expect([...(met.get(`${tier}, ${name}`) ?? [])].sort(), `${tier}, ${name}`).toEqual(['incomplete false', 'incomplete true', 'mergeable false', 'mergeable true'])
       }
     }
   }, 120_000)
@@ -476,15 +673,17 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
   })
 
-  it('refutes a finding one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises at once: a raise never outlives a refutation', async () => {
+  it('refutes a finding one refuter raises to blocker while the other refutes it, or whose one vote refutes and raises or lowers at once: no correction outlives a refutation', async () => {
     const all = ['should-correctness', 'should-rules-and-brief', 'should-tests-and-gates']
-    // The third row has one vote refute and raise at once, with the other refuter holding the claim.
-    for (const [raiser, refuter] of [['#1', '#2'], ['#2', '#1'], ['#1', '#1']]) {
-      const s = stub(undefined, { findings: shouldOnly, refuted: (label) => label.endsWith(refuter), corrected: (label) => (label.endsWith(raiser) ? 'blocker' : undefined) })
+    // The last two rows have one vote refute and correct at once, raising and then lowering, with the other refuter
+    // holding the claim.
+    for (const [corrected, corrector, refuter] of [['blocker', '#1', '#2'], ['blocker', '#2', '#1'], ['blocker', '#1', '#1'], ['nit', '#1', '#1']]) {
+      const s = stub(undefined, { findings: shouldOnly, refuted: (label) => label.endsWith(refuter), corrected: (label) => (label.endsWith(corrector) ? corrected : undefined) })
       const [r] = (await load()({ prs: [pr('high')] }, s.agent)) as Result[]
-      expect(r.confirmed, `${raiser} raises, ${refuter} refutes`).toHaveLength(0)
-      expect(titles(r.refuted), `${raiser} raises, ${refuter} refutes`).toEqual(all)
-      expect(r.mergeable, `${raiser} raises, ${refuter} refutes`).toBe(true)
+      const where = `${corrector} sets ${corrected}, ${refuter} refutes`
+      expect(r.confirmed, where).toHaveLength(0)
+      expect(titles(r.refuted), where).toEqual(all)
+      expect(r.mergeable, where).toBe(true)
     }
   })
 
