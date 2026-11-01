@@ -23,7 +23,8 @@ and keep its severity fix.
 - Never cut a review tier's agents for cost alone: AGENTS.md §5 sets the tier, and the founder wants the effort spent.
 - One refuter pair per report is part of the tier: never share a pair among the reports several lenses make of one
   defect, since each pair is an independent chance for a real defect to stand (partly gated by
-  `frontend/tests/unit/premergeReviewWorkflow.spec.ts`, for reviews of up to 54 reports).
+  `frontend/tests/unit/premergeReviewWorkflow.spec.ts`, whose header lists the reviews it runs and what stays out of
+  its reach).
 - When a stage can no longer change what ships (its findings are reproduced and fixed), replace it with one that can: an
   independent review of the fix diff, briefed with the code and not your conclusions, before the push.
 - Where a push draws a paid eval run (`ops-reserve-eval-baseline-before-each-push.md`), review the fix commit before
@@ -37,7 +38,10 @@ counted them. The founder's message followed the stop, and three fresh Opus lens
 the push: no blockers, and their should-fix findings rode that push.
 
 #1855, merged as 2a2136f6 on 2026-10-31; its body gives the 380-to-278 count, the 5-of-34 split and the 2026-10-31
-decision. The spec now runs reviews where one to three lenses report the same defects once or twice each, every copy
-sharing its file, line and title. It fails when an agent other than the lenses and the refuters runs, when a refuter's
-prompt carries another report's words, when a report lacks its own refuters #1 and #2, or when refuting one copy takes
-another with it. A grouping that starts only above those reviews' size (54 reports) is out of its reach.
+decision. The spec's gate case parses the script for its agent calls, then runs reviews of many shapes in which every
+refuter's answer is drawn on its own. It fails when an agent other than the lenses and the refuters runs, when a
+refuter is shown anything its report alone would not show it, or when a report's outcome differs from what its own
+refuters' answers give. Two review rounds of the gate, with two refuters on each finding, found forms of grouping that
+its earlier versions let through: a larger review, votes coupled by title, a refuter shown other reports' words, and an
+agent reached through an alias. The gate as it landed kills every rule-breaking mutant those rounds built, and its
+header names what remains out of its reach.
