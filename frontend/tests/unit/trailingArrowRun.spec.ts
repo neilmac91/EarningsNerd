@@ -1,24 +1,33 @@
 /* =============================================================================
-   trailingArrowRun.spec.ts: a trailing arrow keeps with its last word
+   trailingArrowRun.spec.ts: a trailing glyph keeps with its last word
    -----------------------------------------------------------------------------
-   A label with a trailing arrow is TrailingArrowLabel: its last word and its
-   arrow in one no-wrap run, so a label that wraps under 200% text carries the
-   arrow onto its last line (DESIGN_SYSTEM.md §4, Trailing arrow; E272, E274,
-   E275, E276). An arrow drawn as the last item of a flex row after the words
-   parts from them when they wrap: it sits at the row's far edge, centred on
-   the box, never after the last word. Review found the fault link by link, so
-   this scan fails any element whose last child is a bare ArrowRightIcon after
-   its words (text, an expression or an element before it), whatever the
-   element: a Link, an a, or a span inside one.
+   A label with a trailing glyph is TrailingArrowLabel: its glyph and its last
+   word's last letter in one no-wrap run, so a label that wraps under 200% text
+   carries the glyph onto its last line (DESIGN_SYSTEM.md §4, Trailing arrow;
+   E272, E274, E275, E276, E279). The glyph is the arrow, or the external link's square
+   (glyph="external"). A glyph drawn as the last item of a flex row after the
+   words parts from them when they wrap: it sits at the row's far edge, centred
+   on the box, never after the last word. Review found the fault link by link,
+   so this scan fails any element whose last child is a bare ArrowRightIcon or
+   ArrowSquareOutIcon after its words (text, an expression or an element
+   before it), whatever the element: a Link, an a, or a span inside one.
 
-   A button's arrow stays in its flex row, since the button's box binds it: an
+   What a reader sees decides it, so the scan reads past what a screen reader
+   alone hears: an sr-only element (a new-tab cue) is neither words nor the
+   last child. And it reads a glyph where a fragment, or a component of the
+   same file, draws only one: the Copilot Sources list's locator drew its
+   square through such a component (OpensOriginal, before E279).
+
+   A button's glyph stays in its flex row, since the button's box binds it: an
    element styled by buttonVariants() (its class attribute calls it), a Button
-   and a MarketingCta pass, and so does the component's own run. An arrow
-   alone (an icon link) and an arrow before the words are no trailing arrow.
+   and a MarketingCta pass, and so does the component's own run. A glyph alone
+   (an icon link) and a glyph before the words are no trailing glyph. So are
+   the row marks, held by name below: a square that marks a whole row link,
+   not a label's words.
 
    The remedy holds only outside a flex or grid row: in one, the label's words
-   and its last word's run are two items, so the run sits beside the wrapped
-   words, not after them. So an element with a TrailingArrowLabel among its
+   and its run are two items, so the run sits beside the wrapped words, not
+   after them. So an element with a TrailingArrowLabel among its
    children also fails where its class attributes make it a flex or grid row
    at any width (flex, inline-flex, grid or inline-grid, behind any variant):
    a link that stands alone and can wrap is inline-block.
@@ -26,11 +35,12 @@
    It reads each file's TypeScript AST (tests/unit/classListScan.ts's parser),
    so comments never count. It looks through a fragment to the element that
    lays its children out, and through a conditional (`&&`, `||`, `??`, a
-   ternary's arms) to the arrow or the label it may render. Out of reach: an
-   arrow a component renders after children it is passed, an arrow or a label
-   held in a variable, and other glyphs after a link's words (a caret, and the
-   external link's square, which E279 brings in). Planted cases hold the
-   reader.
+   ternary's arms) to the glyph or the label it may render. Out of reach: a
+   glyph a component renders after children it is passed, a glyph or a label
+   held in a variable (FigureReceipt's and SourceTrace's chip glyphs lead their
+   words), a component from another file, a glyph inside an element of its own
+   (which may be an icon control, not part of the label), and other glyphs
+   after a link's words (a caret). Planted cases hold the reader.
 ============================================================================= */
 
 import fs from 'node:fs'
@@ -43,27 +53,53 @@ const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const COMPONENT = 'components/ui/TrailingArrowLabel.tsx'
 const LABEL = 'TrailingArrowLabel'
-const ARROW = 'ArrowRightIcon'
+// The trailing glyphs: the arrow, and the external link's square (E279).
+const GLYPHS = new Set(['ArrowRightIcon', 'ArrowSquareOutIcon'])
 // A class that makes its element a flex or grid row, behind any variant prefix and with `!` either side.
 const ROW = /(?:^|:)!?(?:inline-)?(?:flex|grid)!?$/
-// The button components whose box binds the arrow (DESIGN_SYSTEM.md §4, Trailing arrow).
+// The button components whose box binds the glyph (DESIGN_SYSTEM.md §4, Trailing arrow).
 const BUTTONS = new Set(['Button', 'MarketingCta'])
+// The row marks, by file and the tag that lays the square out: a square that marks a whole row link, not a label's
+// words. The filing index's row link, whose square stands alone below 48rem and follows its one word "SEC.gov" from
+// there (chief design on #1914, 5728343724), and the full-text search's result row, whose square stands at the row's
+// top right beside its lines (E279).
+const ROW_MARKS = ['features/filings/components/FilingIndex.tsx <a>', 'features/search/components/FullTextSearch.tsx <>']
 
 interface Site {
   file: string
   line: number
   tag: string
-  // Why the arrow stands: a button's box binds it, or the component's own run.
-  binds: 'button' | 'component' | null
+  // The glyph or glyphs the last child may draw, joined by '|'.
+  glyph: string
+  // Why the glyph stands: a button's box binds it, it marks a row, or it is the component's own run.
+  binds: 'button' | 'row' | 'component' | null
 }
 
 type Element = ts.JsxElement
 
 const tagOf = (element: Element, sourceFile: ts.SourceFile) => element.openingElement.tagName.getText(sourceFile)
 
-/** The children that render: no whitespace-only text, no empty expression (a JSX comment is one). */
-const rendered = (children: ts.NodeArray<ts.JsxChild>) =>
-  children.filter((child) => !(ts.isJsxText(child) && child.text.trim() === '') && !(ts.isJsxExpression(child) && !child.expression))
+/** A site's file and the tag that lays its glyph out, as ROW_MARKS writes it: `<a>`, or `<>` for a fragment no element
+    lays out. */
+const placeOf = (site: { file: string; tag: string }) => `${site.file} ${site.tag === '<>' ? '<>' : `<${site.tag}>`}`
+
+/** True where the node is an element whose class attributes carry sr-only: words for a screen reader alone. */
+function srOnly(node: ts.JsxChild, sourceFile: ts.SourceFile): boolean {
+  const attributes = ts.isJsxElement(node) ? node.openingElement.attributes : ts.isJsxSelfClosingElement(node) ? node.attributes : null
+  return (attributes?.properties ?? []).some(
+    (attribute) =>
+      ts.isJsxAttribute(attribute) &&
+      CLASS_ATTRIBUTE.test(attribute.name.getText(sourceFile)) &&
+      !!attribute.initializer &&
+      literalTexts(attribute.initializer).flatMap(tokensOf).includes('sr-only'),
+  )
+}
+
+/** The children a reader sees: no whitespace-only text, no empty expression (a JSX comment is one), no sr-only element. */
+const visible = (children: ts.NodeArray<ts.JsxChild>, sourceFile: ts.SourceFile) =>
+  children.filter(
+    (child) => !(ts.isJsxText(child) && child.text.trim() === '') && !(ts.isJsxExpression(child) && !child.expression) && !srOnly(child, sourceFile),
+  )
 
 type Rendered = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment
 
@@ -82,9 +118,67 @@ function branches(node: ts.Node): Rendered[] {
   return []
 }
 
+const nameOf = (node: Rendered, sourceFile: ts.SourceFile) =>
+  ts.isJsxFragment(node) ? null : (ts.isJsxElement(node) ? node.openingElement.tagName : node.tagName).getText(sourceFile)
+
 /** True where `node` is a JSX element of that name. */
-const named = (node: Rendered, name: string, sourceFile: ts.SourceFile) =>
-  !ts.isJsxFragment(node) && (ts.isJsxElement(node) ? node.openingElement.tagName : node.tagName).getText(sourceFile) === name
+const named = (node: Rendered, name: string, sourceFile: ts.SourceFile) => nameOf(node, sourceFile) === name
+
+/** The glyphs `node` draws where it draws nothing else a reader sees: a glyph, a component of `drawers` (the file's own
+    components that draw only a glyph), or a fragment whose one visible child may draw one. Empty where it draws more. */
+function glyphsDrawn(node: Rendered, drawers: Map<string, string[]>, sourceFile: ts.SourceFile): string[] {
+  const name = nameOf(node, sourceFile)
+  if (name !== null) return GLYPHS.has(name) ? [name] : drawers.get(name) ?? []
+  const children = visible(node.children, sourceFile)
+  return children.length === 1 ? branches(children[0]).flatMap((branch) => glyphsDrawn(branch, drawers, sourceFile)) : []
+}
+
+/** What a function returns at its top: an expression body, or each return statement that is not a nested function's. */
+function returned(fn: ts.SignatureDeclaration & { body?: ts.Node }): ts.Expression[] {
+  if (!fn.body) return []
+  if (!ts.isBlock(fn.body)) return [fn.body as ts.Expression]
+  const out: ts.Expression[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isReturnStatement(node)) {
+      if (node.expression) out.push(node.expression)
+    } else if (!ts.isFunctionLike(node)) ts.forEachChild(node, visit)
+  }
+  ts.forEachChild(fn.body, visit)
+  return out
+}
+
+/** The file's components (a capitalized function or a capitalized const bound to one) that may draw a glyph and nothing
+    else a reader sees, with the glyphs each draws; a component drawn by another such component counts too. */
+function glyphDrawers(sourceFile: ts.SourceFile): Map<string, string[]> {
+  const components: Array<[string, ts.SignatureDeclaration & { body?: ts.Node }]> = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name && /^[A-Z]/.test(node.name.text)) components.push([node.name.text, node])
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      /^[A-Z]/.test(node.name.text) &&
+      node.initializer &&
+      (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
+    ) {
+      components.push([node.name.text, node.initializer])
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  // Until no set grows: a component read before the one it draws through gains that one's glyphs on the next pass.
+  const drawers = new Map<string, string[]>()
+  for (let changed = true; changed; ) {
+    changed = false
+    for (const [name, fn] of components) {
+      const glyphs = [...new Set(returned(fn).flatMap(branches).flatMap((branch) => glyphsDrawn(branch, drawers, sourceFile)))].sort()
+      if (glyphs.length && glyphs.join('|') !== (drawers.get(name) ?? []).join('|')) {
+        drawers.set(name, glyphs)
+        changed = true
+      }
+    }
+  }
+  return drawers
+}
 
 /** The element that lays out a fragment's children: its nearest element ancestor, through any expression, or none
     where the fragment is what a component returns. */
@@ -109,20 +203,29 @@ function styledAsButton(element: Element): boolean {
   return found
 }
 
-/** Every element or fragment in `source` whose last rendered child is, or may render, a bare ArrowRightIcon after its
-    words. A fragment's row is its host element's, so the host's tag and button styling decide it. */
+/** Every element or fragment in `source` whose last visible child is, or may draw, a bare glyph after its words. A
+    fragment's row is its host element's, so the host's tag and button styling decide it. */
 function trailingArrowSites(source: string, file: string): Site[] {
   const sourceFile = parse(source, file)
+  const drawers = glyphDrawers(sourceFile)
   const sites: Site[] = []
   const visit = (node: ts.Node): void => {
     if (ts.isJsxElement(node) || ts.isJsxFragment(node)) {
-      const children = rendered(node.children)
+      const children = visible(node.children, sourceFile)
       const last = children[children.length - 1]
-      if (last && children.length > 1 && branches(last).some((branch) => named(branch, ARROW, sourceFile))) {
+      const glyphs = last && children.length > 1 ? [...new Set(branches(last).flatMap((branch) => glyphsDrawn(branch, drawers, sourceFile)))].sort() : []
+      if (glyphs.length) {
         const host = ts.isJsxElement(node) ? node : hostOf(node)
         const tag = host ? tagOf(host, sourceFile) : '<>'
-        const binds = file === COMPONENT ? 'component' : host && (BUTTONS.has(tag) || styledAsButton(host)) ? 'button' : null
-        sites.push({ file, line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1, tag, binds })
+        const binds =
+          file === COMPONENT
+            ? 'component'
+            : host && (BUTTONS.has(tag) || styledAsButton(host))
+              ? 'button'
+              : ROW_MARKS.includes(placeOf({ file, tag }))
+                ? 'row'
+                : null
+        sites.push({ file, line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1, tag, glyph: glyphs.join('|'), binds })
       }
     }
     ts.forEachChild(node, visit)
@@ -166,39 +269,50 @@ function labelParents(source: string, file: string): Parent[] {
   return parents
 }
 
-const where = (site: Site) => `${site.file}:${site.line} <${site.tag}>`
+const where = (site: Site) => `${placeOf(site)}:${site.line} ${site.glyph}`
 
-describe('a trailing arrow keeps with its last word (DESIGN_SYSTEM.md §4, Trailing arrow)', () => {
+describe('a trailing glyph keeps with its last word (DESIGN_SYSTEM.md §4, Trailing arrow)', () => {
   const sources = sourceFiles(ROOT, SCAN_DIRS).map((file) => ({ file, source: fs.readFileSync(path.join(ROOT, file), 'utf8') }))
   const sites = sources.flatMap(({ file, source }) => trailingArrowSites(source, file))
   const parents = sources.flatMap(({ file, source }) => labelParents(source, file))
 
-  it('reads the arrows that stand: the buttons that bind theirs, and the component run', () => {
-    const standing = sites.filter((site) => site.binds !== null).map((site) => `${site.file} ${site.binds}`)
-    // One of each kind the scan lets stand, so a reader that finds no trailing arrow at all fails here.
+  it('reads the glyphs that stand: the buttons that bind theirs, and the component run with both glyphs', () => {
+    const standing = sites.filter((site) => site.binds === 'button' || site.binds === 'component').map((site) => `${site.file} ${site.binds} ${site.glyph}`)
+    // One of each kind the scan lets stand, the square's button among them, so a reader that finds no trailing arrow or
+    // no square at all fails here.
     expect(standing).toEqual(
       expect.arrayContaining([
-        `${COMPONENT} component`,
-        'features/marketing/components/LandingHero.tsx button',
-        'app/company/[ticker]/page-client.tsx button',
+        `${COMPONENT} component ArrowRightIcon|ArrowSquareOutIcon`,
+        'features/marketing/components/LandingHero.tsx button ArrowRightIcon',
+        'app/company/[ticker]/page-client.tsx button ArrowRightIcon',
+        'features/filings/components/copilot/FilingViewer.tsx button ArrowSquareOutIcon',
       ]),
     )
   })
 
-  it('finds no label that ends in a bare arrow after its words: it takes TrailingArrowLabel', () => {
+  it('reads the two row marks, and only those', () => {
+    expect(sites.filter((site) => site.binds === 'row').map(placeOf)).toEqual(ROW_MARKS)
+  })
+
+  it('finds no label that ends in a bare glyph after its words: it takes TrailingArrowLabel', () => {
     expect(sites.filter((site) => site.binds === null).map(where)).toEqual([])
   })
 
   it('reads every TrailingArrowLabel caller, and sets none in a flex or grid row', () => {
-    // The eight callers (E272, E274, E275, E276), so a reader that finds no label fails here.
+    // The thirteen callers (E272, E274, E275, E276, E279), so a reader that finds no label fails here.
     expect([...new Set(parents.map((parent) => parent.file))].sort()).toEqual([
       'app/waitlist/page.tsx',
       'features/calendar/components/ReportingThisWeek.tsx',
+      'features/companies/components/CompanyIdentity.tsx',
       'features/dashboard/components/FilingFeed.tsx',
       'features/dashboard/components/WhatChangedCard.tsx',
       'features/dashboard/components/YourCompanies.tsx',
       'features/filings/components/ComparePeriodsCard.tsx',
+      'features/filings/components/FilingIdentity.tsx',
+      'features/filings/components/FilingsHistoryNote.tsx',
       'features/filings/components/copilot/CopilotMessage.tsx',
+      'features/filings/components/copilot/FilingViewer.tsx',
+      'features/filings/components/copilot/FilingWorkspace.tsx',
       'features/marketing/components/HeroExample.tsx',
     ])
     expect(parents.filter((parent) => parent.rows.length > 0).map((parent) => `${parent.file}:${parent.line} <${parent.tag}> ${parent.rows.join(' ')}`)).toEqual([])
@@ -206,7 +320,7 @@ describe('a trailing arrow keeps with its last word (DESIGN_SYSTEM.md §4, Trail
 })
 
 describe('the trailing-arrow reader, on planted sources', () => {
-  const planted = (source: string) => trailingArrowSites(source, 'planted.tsx')
+  const planted = (source: string, file = 'planted.tsx') => trailingArrowSites(source, file)
   const faults = (source: string) => planted(source).filter((site) => site.binds === null).map((site) => site.tag)
 
   it('finds a bare arrow after words, an expression or an element, in a link, an a or a span', () => {
@@ -271,6 +385,83 @@ describe('the trailing-arrow reader, on planted sources', () => {
     expect(sites.map((site) => `${site.tag} ${site.binds}`)).toEqual(['Button button'])
   })
 
+  it('finds the square after words, with its new-tab cue after it or not, and names the glyph', () => {
+    const sites = planted(`
+      export const A = ({ u }: { u: string }) => <a href={u} className="inline-flex items-center gap-1">Original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" /></a>
+      export const B = ({ u }: { u: string }) => (
+        <a href={u} className="inline-flex gap-1">
+          <span className="min-w-0 break-words">Item 7. MD&A</span>
+          <ArrowSquareOutIcon aria-hidden="true" />
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )
+    `)
+    expect(sites.map((site) => `${site.tag} ${site.binds} ${site.glyph}`)).toEqual(['a null ArrowSquareOutIcon', 'a null ArrowSquareOutIcon'])
+  })
+
+  it('finds the square a same-file component draws alone, the fragment that draws it with its cue, and a component that draws one', () => {
+    expect(
+      faults(`
+        function OpensOriginal() {
+          return (
+            <>
+              <ArrowSquareOutIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+              <span className="sr-only"> (opens in a new tab)</span>
+            </>
+          )
+        }
+        const Cue = ({ arrow }: { arrow: boolean }) => (arrow ? <ArrowRightIcon /> : <OpensOriginal />)
+        export const A = ({ u }: { u: string }) => <a href={u} className="inline-flex gap-1"><span>Item 7. MD&A</span><OpensOriginal /></a>
+        export const B = ({ u }: { u: string }) => <a href={u}>Open <><ArrowSquareOutIcon /><span className="sr-only"> (opens in a new tab)</span></></a>
+        export const C = ({ u }: { u: string }) => <a href={u}>Open <Cue arrow={false} /></a>
+      `),
+    ).toEqual(['a', 'a', 'a'])
+  })
+
+  it('passes a square before its words, a square alone, the remedy with its cue, and an sr-only name in place of words', () => {
+    expect(
+      planted(`
+        export const A = ({ u }: { u: string }) => (
+          <a href={u} className="mt-2 flex items-center gap-1">
+            <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+            Open the passage on SEC.gov
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )
+        export const B = ({ u }: { u: string }) => <a href={u} aria-label="SEC.gov"><ArrowSquareOutIcon /></a>
+        export const C = ({ u }: { u: string }) => (
+          <a href={u} className="inline-block">
+            <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">Item 7. MD&A</TrailingArrowLabel>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )
+        export const D = ({ u }: { u: string }) => <a href={u}><span className="sr-only">The filing on SEC.gov</span><ArrowSquareOutIcon /></a>
+        function Label() { return <span>Open</span> }
+        export const E = ({ u }: { u: string }) => <a href={u}><Label /></a>
+      `),
+    ).toEqual([])
+  })
+
+  it('reads a component that draws words beside its glyph, or its glyph inside an element, as no glyph', () => {
+    expect(
+      faults(`
+        function Badge() { return <><ArrowSquareOutIcon /> SEC.gov</> }
+        function Chip() { return <span className="inline-flex"><ArrowSquareOutIcon /></span> }
+        export const A = ({ u }: { u: string }) => <a href={u}>Open <Badge /></a>
+        export const B = ({ u }: { u: string }) => <a href={u}>Open <Chip /></a>
+      `),
+    ).toEqual([])
+  })
+
+  it('lets a button bind the square, and reads a row mark by its file and tag alone', () => {
+    const button = planted(`export const A = ({ u }: { u: string }) => <a href={u} className={buttonVariants({ variant: 'primary', size: 'sm' })}>Open the original on SEC.gov <ArrowSquareOutIcon /></a>`)
+    expect(button.map((site) => `${site.binds} ${site.glyph}`)).toEqual(['button ArrowSquareOutIcon'])
+    const row = `export const A = ({ u }: { u: string }) => <a href={u} className="inline-flex h-11 w-11"><span className="hidden">SEC.gov</span><ArrowSquareOutIcon /></a>`
+    expect(planted(row, 'features/filings/components/FilingIndex.tsx').map((site) => site.binds)).toEqual(['row'])
+    expect(planted(row).map((site) => site.binds)).toEqual([null])
+    expect(planted(`export const A = ({ u }: { u: string }) => <><span>Open</span><a href={u}>See all <ArrowSquareOutIcon /></a></>`, 'features/filings/components/FilingIndex.tsx').map((site) => `${site.tag} ${site.binds}`)).toEqual(['a row'])
+  })
+
   it('finds a label set in a flex or grid row, behind a variant or in a joiner, and passes one outside it', () => {
     const parents = labelParents(
       `
@@ -281,9 +472,10 @@ describe('the trailing-arrow reader, on planted sources', () => {
         export const E = () => <div className="flex-1 grid-cols-2"><TrailingArrowLabel>See all</TrailingArrowLabel></div>
         export const F = ({ show }: { show: boolean }) => <Link href="/f" className="inline-flex">{show && <TrailingArrowLabel>See all</TrailingArrowLabel>}</Link>
         export const G = ({ x }: { x: boolean }) => <Link href="/g" className="flex">{x ? <><TrailingArrowLabel>See all</TrailingArrowLabel></> : null}</Link>
+        export const H = ({ u }: { u: string }) => <a href={u} className="inline-flex gap-1"><TrailingArrowLabel glyph="external">Original on SEC.gov</TrailingArrowLabel><span className="sr-only"> (opens in a new tab)</span></a>
       `,
       'planted.tsx',
     )
-    expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], ['!grid'], [], [], ['inline-flex'], ['flex']])
+    expect(parents.map((parent) => parent.rows)).toEqual([['inline-flex'], ['sm:flex'], ['!grid'], [], [], ['inline-flex'], ['flex'], ['inline-flex']])
   })
 })
