@@ -929,6 +929,30 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect(tooltip(), 'a press outside the chart').toBeNull()
   })
 
+  it('a tap on the tooltip itself closes it, where a mouse that presses it keeps it (E267)', () => {
+    const { plot, tooltip, readouts, model } = setup()
+    const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+    const third = layout.plotLeft + layout.slot * 3 + 2
+    const on = (target: Element, x: number, pointerType: string) => {
+      pointer(target, 'pointerdown', x, pointerType)
+      pointer(target, 'pointerup', x, pointerType)
+    }
+    on(plot, third, 'touch')
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[3].header)
+    // On a phone a tall tooltip covers the bars, so a tap meant for one lands on the tooltip, over another period's slot.
+    on(tooltip()!, layout.plotLeft + layout.slot * 4 + 2, 'touch')
+    expect(tooltip(), 'a tap on the pinned tooltip').toBeNull()
+    on(plot, layout.plotLeft + layout.slot * 4 + 2, 'touch')
+    expect(tooltip()!.querySelector('p'), 'the next tap pins the period under it').toHaveTextContent(readouts[4].header)
+    on(plot, layout.plotLeft + layout.slot * 4 + 2, 'touch')
+    expect(tooltip()).toBeNull()
+    // A mouse reads by hover and rests on the tooltip (WCAG 1.4.13): pressing it keeps its period.
+    pointer(plot, 'pointermove', third, 'mouse')
+    pointer(tooltip()!, 'pointermove', layout.plotLeft + layout.slot * 4 + 2, 'mouse')
+    on(tooltip()!, layout.plotLeft + layout.slot * 4 + 2, 'mouse')
+    expect(tooltip()!.querySelector('p'), 'a click on a hovered tooltip').toHaveTextContent(readouts[3].header)
+  })
+
   it('a new window starts again at its newest period, even when it holds the period the keyboard was on', () => {
     const { stop, rerender, ds } = setup()
     const last = ds.periods.length - 1

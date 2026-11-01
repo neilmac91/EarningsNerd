@@ -3245,11 +3245,14 @@ and "Notes" and covers any column or value the edge would cut, so no value shows
 scroll's start there is none. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
-is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+is hoverable; a tap pins it until a second tap on its period, a tap on the tooltip itself or a press outside, and a
+swipe pins nothing (E267: on a phone under 200% text a tooltip can stand taller than its plot and cover the other
+bars, so a tap meant for a covered bar lands on the tooltip and closes it). Escape dismisses a
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
+themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` and, for the tap on a tooltip over the bars it covers,
+`tests/e2e/company-sector-peers.spec.ts` (E267). CI's required `e2e-tests` job runs them all
 unconditionally after E195 retires the separate chart job and its flag guards (F67).
 
 **Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws
