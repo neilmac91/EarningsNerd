@@ -111,12 +111,14 @@ export default function Footer() {
 
         {/* Logo.dev's Community plan asks a commercial site for this link on a public page, in the form
             its attribution page gives (the whole phrase as the link text); its dashboard loads the page
-            to find it. tests/unit/Footer.spec.tsx holds the link. */}
+            to find it. tests/unit/Footer.spec.tsx holds the link. It opens a new tab and says so in its
+            aria-label (E281), so its text stays the attribution's phrase alone. */}
         <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           <a
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Logos provided by Logo.dev (opens in a new tab)"
             className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             Logos provided by Logo.dev

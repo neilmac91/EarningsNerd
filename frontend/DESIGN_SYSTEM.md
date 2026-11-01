@@ -221,6 +221,18 @@ the debug payload panel).
   `tests/unit/fixtures/brandRule2Styles.css`; its markdown-link check, which fails an `a` the app
   hands react-markdown resting in sage; and `tests/e2e/prose-links.spec.ts`, which reads what the
   cascade paints.
+  **A link that opens a new tab** (`target="_blank"`) says so in its name (E281; chief design on
+  #1918): a sighted reader has the square, a screen reader only the name. After its label it carries
+  a hidden tail that brings its own space,
+  `{' '}<span className="sr-only">(opens in a new tab)</span>`: a space written inside the sr-only
+  span is lost where an engine adds no separator for the span's box
+  (`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). Where an `aria-label` names the
+  link already, or its text must stay as written (the footer's Logo.dev attribution, a feedback
+  message read literally), the label ends in " (opens in a new tab)" instead. The square, and a text
+  arrow (↗) where a link draws one, is `aria-hidden`. The terms page's "SEC EDGAR" link stays silent
+  until the founder's go-ahead on the legal pages' text. Gate: `tests/unit/newTabCue.spec.ts` (every
+  element written with `target="_blank"` says so by the tail or by its label, any other `_blank`
+  fails as unread, and the terms page's link is its one residue).
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
   as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
@@ -570,19 +582,19 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  in them stays where brandCopyRules.spec.ts rule 2 reads it (Count control, above); arrowClassName
                  sizes and spaces the arrow (ml-1 h-4 w-4 unless given) and may give it a motion of its own, never an
                  ink. glyph="external" draws the external link's square in its place, for a link to the original on
-                 SEC.gov (E279). Where a link carries a new-tab cue, the cue follows the label, <span
-                 className="sr-only"> (opens in a new tab)</span>, so the label's children stay one string; of E279's
-                 links only the Copilot sources carry one, and the other new-tab links wait on E281. The run is a plain
-                 inline span: as an inline-flex or inline-block box it would be an atomic inline, and a line could
-                 break before it, parting the last letter and its glyph from the rest of the word. It serves What
-                 changed's call to action (since E272), the feed's "See all N companies" and Your companies' "Open
-                 watchlist insights" (E274), and the hero example's "Read the full example summary", the Compare
-                 periods card's "Open change report" and the waitlist's "Try a live example summary" (E275), and the
-                 Copilot message's "Browse {ticker}'s other filings" and the calendar card's "View full calendar"
-                 (E276); with the square, the Copilot answer's sources (a passage's section name, a figure's "Open the
-                 filing on SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov",
-                 the filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov"
-                 and the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 SEC.gov (E279). A link that opens a new tab says so after the label, {' '}<span
+                 className="sr-only">(opens in a new tab)</span>, so the label's children stay one string (A link that
+                 opens a new tab, under Links in both surfaces; E281). The run is a plain inline span: as an
+                 inline-flex or inline-block box it would be an atomic inline, and a line could break before it,
+                 parting the last letter and its glyph from the rest of the word. It serves What changed's call to
+                 action (since E272), the feed's "See all N companies" and Your companies' "Open watchlist insights"
+                 (E274), and the hero example's "Read the full example summary", the Compare periods card's "Open
+                 change report" and the waitlist's "Try a live example summary" (E275), and the Copilot message's
+                 "Browse {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the
+                 square, the Copilot answer's sources (a passage's section name, a figure's "Open the filing on
+                 SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the
+                 filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and
+                 the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
                  buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
                  (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
                  is a square that marks a whole row link (the filing index's row link, the full-text search's result

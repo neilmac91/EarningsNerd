@@ -239,9 +239,9 @@ describe('the evidence dialog gives both filings (D11)', () => {
     // Two links, each named for its filing: the visible words carry no figure (brand rule 2), the name adds form and day.
     expect(linkText(dialog)).toEqual(['Open its own annual report on SEC.gov', 'Open the later filing on SEC.gov'])
     expect(linkText(dialog).join(' ')).not.toMatch(/\d/)
-    const ownLink = within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for Revenue, FY2018' })
+    const ownLink = within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for Revenue, FY2018 (opens in a new tab)' })
     expect(ownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/')
-    const shownLink = within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })
+    const shownLink = within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018 (opens in a new tab)' })
     expect(shownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/')
     expect(dialog).toHaveTextContent('Filing 0001532176-19-000009')
     expect(dialog).toHaveTextContent('Filing 0001804220-21-000008')
@@ -256,7 +256,7 @@ describe('the evidence dialog gives both filings (D11)', () => {
     expect(within(dialog).getByRole('heading', { name: 'Source filing' })).toBeInTheDocument()
     expect(dialog).not.toHaveTextContent(/First reported|As filed|later filing/)
     expect(linkText(dialog)).toEqual(['Open original SEC filing'])
-    expect(within(dialog).getByRole('link', { name: 'Open original SEC filing for Revenue, FY2017' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Open original SEC filing for Revenue, FY2017 (opens in a new tab)' })).toBeInTheDocument()
   })
 
   it('leaves out each part the payload does not carry, never inventing a form or a day', async () => {
@@ -265,8 +265,8 @@ describe('the evidence dialog gives both filings (D11)', () => {
     const dialog = await dialogFor(dataset, /^Revenue, FY2018: /)
     expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report. A later filing reports $5.1B, shown here.')
     expect(dialog).not.toHaveTextContent(/undefined|null|Invalid|filed \(|\(\)/)
-    expect(within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov for Revenue, FY2018' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K) for Revenue, FY2018' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov for Revenue, FY2018 (opens in a new tab)' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K) for Revenue, FY2018 (opens in a new tab)' })).toBeInTheDocument()
   })
 
   it.each([
@@ -321,8 +321,8 @@ describe('the evidence dialog gives both filings (D11)', () => {
     const inputs = within(dialog).getAllByRole('listitem')
     const revenue = inputs.find((item) => /^revenue/i.test(item.textContent ?? ''))!
     expect(revenue).toHaveTextContent('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
-    expect(within(revenue).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
-    expect(within(revenue).getByRole('link', { name: 'Open the later filing on SEC.gov (filed 8 Feb 2021) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
+    expect(within(revenue).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for revenue, 2018-01-01 to 2018-12-31 (opens in a new tab)' })).toBeInTheDocument()
+    expect(within(revenue).getByRole('link', { name: 'Open the later filing on SEC.gov (filed 8 Feb 2021) for revenue, 2018-01-01 to 2018-12-31 (opens in a new tab)' })).toBeInTheDocument()
     const netIncome = inputs.find((item) => /^net income/i.test(item.textContent ?? ''))!
     expect(netIncome).not.toHaveTextContent('First reported')
     expect(within(netIncome).getByRole('link', { name: /^Open original SEC filing for net income/ })).toBeInTheDocument()

@@ -106,7 +106,7 @@ export default function FigureReceipt({
         <span>
           <FormCodeText text={`Open the ${form} on SEC.gov`} />
         </span>
-        <span className="sr-only"> (opens in a new tab)</span>
+        {' '}<span className="sr-only">(opens in a new tab)</span>
       </a>
     </Card>
   )
