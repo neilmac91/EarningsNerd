@@ -30,7 +30,7 @@ function render(ui: ReactNode) {
   return { ...renderTesting(ui, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> }), client }
 }
 
-function Harness({ filingId = 1, embedded = true }: { filingId?: number; embedded?: boolean } = {}) {
+function Harness({ filingId = 1 }: { filingId?: number } = {}) {
   const v = useFilingViewer()!
   const citation: CopilotCitation = {
     n: 1,
@@ -47,7 +47,7 @@ function Harness({ filingId = 1, embedded = true }: { filingId?: number; embedde
       <button type="button" onClick={() => v.requestHighlight(citation)}>
         cite
       </button>
-      <FilingViewer embedded={embedded} filingId={filingId} filingLabel="AAPL 10-K" secUrl="https://sec.gov/x" />
+      <FilingViewer filingId={filingId} filingLabel="AAPL 10-K" secUrl="https://sec.gov/x" />
     </>
   )
 }
@@ -149,18 +149,6 @@ describe('FilingViewer (embedded)', () => {
     expect(screen.queryByText('Outdated previous filing')).not.toBeInTheDocument()
     expect(fetchFilingContent).toHaveBeenCalledTimes(2)
     expect(fetchFilingContent).toHaveBeenLastCalledWith(2)
-  })
-
-  it('the standalone drawer still loads on its first citation and reuses the text on reopening', async () => {
-    render(<FilingViewerProvider><Harness embedded={false} /></FilingViewerProvider>)
-    expect(fetchFilingContent).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
-    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Close filing viewer' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
-    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
-    expect(fetchFilingContent).toHaveBeenCalledTimes(1)
   })
 
   // EN-01: the pane's states after a chip activation are truthful, and every one of them keeps the

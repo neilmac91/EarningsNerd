@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
+import { ArrowClockwiseIcon, ArrowSquareOutIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
 import ReaderTable from './ReaderTable'
-import { buttonVariants, SkeletonText, TrailingArrowLabel } from '@/components/ui'
+import { buttonVariants, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
@@ -35,31 +35,28 @@ interface FilingViewerProps {
   // The original document for "Open original" and the empty/error-state CTA: `document_url`, then
   // `sec_url` (the page derives it with `originalDocumentUrl`; the folder index is the fallback only).
   secUrl: string | null
-  // When true, render body-only inside FilingWorkspace's secondary-pane shell (no fixed drawer, no
-  // own header/close). Visibility is driven by the shared `activeView` ('filing') from context, and
-  // the component stays mounted so loaded content/highlight survive switching back to the answer.
-  embedded?: boolean
 }
 
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 
 /**
- * In-app filing reader (P7 / 1.1). Opens when a Copilot citation requests a highlight (via
- * FilingViewerContext) or when the user selects the "Filing" tab, lazy-loads the cached filing
- * markdown, renders it, and scrolls to + flash-highlights the cited passage in place. The SEC deep
- * link stays available as "open original". In `embedded` mode the surrounding shell owns the chrome.
+ * In-app filing reader (P7 / 1.1), the body of the Source pane's Filing tab: FilingWorkspace's shell owns
+ * its chrome (the tabs, the close and the "Original on SEC.gov" footer). It shows while the shared view
+ * (FilingViewerContext's `activeView`) is 'filing', which the Filing tab or a Copilot citation's highlight
+ * request selects, lazy-loads the cached filing markdown, renders it, and scrolls to and highlights the
+ * cited passage in place. It stays mounted, so loaded text and the highlight survive a switch back to the
+ * answer. The standalone drawer no route mounted went with E280.
  */
-export default function FilingViewer({ filingId, filingLabel, secUrl, embedded = false }: FilingViewerProps) {
+export default function FilingViewer({ filingId, filingLabel, secUrl }: FilingViewerProps) {
   const viewer = useFilingViewer()
-  const [localOpen, setLocalOpen] = useState(false)
   const [passageMissing, setPassageMissing] = useState(false)
   // The mounted text or status box is the retry's destination: success focuses the loaded reader
   // (or empty result); another failure keeps the focused Retry inside its retained alert.
   const contentRef = useRef<HTMLDivElement>(null)
   const handledNonce = useRef(0)
 
-  // Embedded: visibility follows the shared view state. Standalone: local citation-driven open state.
-  const active = embedded ? viewer?.activeView === 'filing' : localOpen
+  // Visibility follows the shared view state.
+  const active = viewer?.activeView === 'filing'
 
   // The content query owns the single in-flight request for this filing, including a tab activation
   // and a citation in the same commit. Loaded text stays fresh across view switches; a failed read
@@ -85,16 +82,14 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
 
   const request = viewer?.request ?? null
 
-  // A citation chip requested a highlight: (standalone) open the drawer, and load if we haven't yet.
+  // A citation chip requested a highlight: load if we haven't yet.
   useEffect(() => {
     if (!request || request.nonce === handledNonce.current) return
     handledNonce.current = request.nonce
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the standalone drawer open in response to an external citation request (nonce-gated, runs once per click)
-    if (!embedded) setLocalOpen(true)
     setPassageMissing(false)
     // A fresh citation also retries a failed read. Join any request already started by activation.
     if (failedRef.current) void refetch({ cancelRefetch: false })
-  }, [request, refetch, embedded])
+  }, [request, refetch])
 
   // Once content is rendered and a citation is pending, find + highlight the passage: in the device's
   // paint only where the server located it, in the neutral find paint otherwise (D-044).
@@ -118,26 +113,9 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   // Tear down any lingering highlight when the viewer unmounts (pane closed / page left).
   useEffect(() => () => clearCitationHighlight(), [])
 
-  const close = () => {
-    clearCitationHighlight()
-    setLocalOpen(false)
-  }
-
-  const openOriginal = isHttpUrl(secUrl) ? (
-    <a
-      href={secUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-block text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-    >
-      <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">Open original</TrailingArrowLabel>
-      {' '}<span className="sr-only">(opens in a new tab)</span>
-    </a>
-  ) : null
-
-  // Shared inner content: the loading / empty / error / ready states.
-  const inner = (
-    <>
+  // The loading / empty / error / ready states.
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
       {(status === 'idle' || status === 'loading') && (
         // SkeletonText carries its own role="status": the wrapper stays role-less.
         <div className="flex-1 space-y-3 px-6 py-8">
@@ -210,42 +188,6 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </div>
         </div>
       )}
-    </>
-  )
-
-  // --- Embedded: body only (the shell provides chrome + tabs + close + "open original"). ---
-  if (embedded) {
-    return <div className="flex min-h-0 flex-1 flex-col">{inner}</div>
-  }
-
-  // --- Standalone overlay drawer (citation-driven). ---
-  if (!localOpen) return null
-
-  return (
-    <div
-      role="dialog"
-      aria-label={`${filingLabel} · filing text`}
-      className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-[var(--site-header-h,4rem)] lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{filingLabel} · filing text</h2>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {openOriginal}
-          <button
-            type="button"
-            onClick={close}
-            aria-label="Close filing viewer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {inner}
     </div>
   )
 }
