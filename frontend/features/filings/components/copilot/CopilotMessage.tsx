@@ -311,7 +311,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
                         <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">{sourceLinkLabel(c.fragment_url)}</TrailingArrowLabel>
-                        <span className="sr-only"> (opens in a new tab)</span>
+                        {' '}<span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
@@ -328,7 +328,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                     {isHttpUrl(c.fragment_url) ? (
                       <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={LOCATOR_LINK}>
                         <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3 w-3">{c.section_ref ?? 'View in filing'}</TrailingArrowLabel>
-                        <span className="sr-only"> (opens in a new tab)</span>
+                        {' '}<span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : c.section_ref ? (
                       <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>

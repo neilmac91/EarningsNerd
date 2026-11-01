@@ -140,6 +140,7 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
             <Sep />
             <a href={original} target="_blank" rel="noopener noreferrer" className={cx(IDENTITY_LINK, 'inline-block')}>
               <TrailingArrowLabel glyph="external" arrowClassName="ml-1 h-3.5 w-3.5">Original on SEC.gov</TrailingArrowLabel>
+              {' '}<span className="sr-only">(opens in a new tab)</span>
             </a>
           </>
         )}
