@@ -6,6 +6,7 @@ const getCurrentUserSafe = vi.fn()
 const getSubscriptionStatus = vi.fn()
 const getCookiePreferences = vi.fn()
 const identify = vi.fn()
+const forgetAccount = vi.fn()
 
 vi.mock('@/features/auth/api/auth-api', () => ({
   getCurrentUserSafe: () => getCurrentUserSafe(),
@@ -17,7 +18,10 @@ vi.mock('@/components/CookieConsent', () => ({
   getCookiePreferences: () => getCookiePreferences(),
 }))
 vi.mock('@/lib/analytics', () => ({
-  analytics: { identify: (...args: unknown[]) => identify(...args) },
+  analytics: {
+    identify: (...args: unknown[]) => identify(...args),
+    forgetAccount: (...args: unknown[]) => forgetAccount(...args),
+  },
 }))
 
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
@@ -59,6 +63,7 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     getSubscriptionStatus.mockReset()
     getCookiePreferences.mockReset()
     identify.mockReset()
+    forgetAccount.mockReset()
     getCookiePreferences.mockReturnValue({ analytics: true })
   })
 
@@ -69,6 +74,7 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     await waitFor(() =>
       expect(identify).toHaveBeenCalledWith('7', { is_pro: false, plan: 'free' }),
     )
+    expect(forgetAccount).not.toHaveBeenCalled() // Neither while the account loads nor once it is known.
   })
 
   it('identifies a pro subscriber as pro (subscription is authoritative over the mirror)', async () => {
@@ -94,6 +100,16 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     renderProbe()
     await new Promise((r) => setTimeout(r, 50))
     expect(identify).not.toHaveBeenCalled()
+  })
+
+  // A guest carries no account: lib/analytics.ts resets an identity PostHog still holds, from an earlier visit or from a
+  // logout by a control that does not reset it, and asks again once PostHog is ready.
+  it('forgets any account for a guest, and again once PostHog is ready', async () => {
+    getCurrentUserSafe.mockResolvedValue(null)
+    const { setReady } = renderWithReadiness(false)
+    await waitFor(() => expect(forgetAccount).toHaveBeenCalledTimes(1))
+    setReady(true)
+    await waitFor(() => expect(forgetAccount).toHaveBeenCalledTimes(2))
   })
 
   // The consent clause (lib/consentCopy.ts) says a logged-in reader's statistics are tied to their account id, so a
@@ -124,7 +140,8 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
     expect(identify).toHaveBeenLastCalledWith('7', { is_pro: true, plan: 'pro' })
   })
 
-  // A logout resets PostHog's identity and lib/analytics.ts identifies nothing while analytics is refused, so after a
+  // Any logout (the dashboard's, the menus', "Log out of all devices", a lost session) makes the reader a guest, whose
+  // account lib/analytics.ts forgets, and lib/analytics.ts identifies nothing while analytics is refused. So after a
   // refusal, a logout and a login to the same account, the next allow must identify the account again.
   it('identifies the same account again after a logout and login, once PostHog is ready again', async () => {
     getCurrentUserSafe.mockResolvedValue({ id: 7, email: 'u@x.com', is_pro: false })
@@ -138,6 +155,7 @@ describe('usePostHogUserIdentification (roadmap 2.4)', () => {
       await new Promise((r) => setTimeout(r, 20))
     })
     await settle(null) // A logout (resetAccountQueries).
+    expect(forgetAccount).toHaveBeenCalledTimes(1)
     await settle({ id: 7, email: 'u@x.com', is_pro: false }) // A login to the same account.
     expect(identify).toHaveBeenCalledTimes(1) // Not while analytics is refused.
     setReady(true) // The next allow.

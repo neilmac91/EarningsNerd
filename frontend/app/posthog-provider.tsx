@@ -4,6 +4,7 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState } from 'react'
+import { hasActiveSession } from '@/lib/api/session'
 import { subscribeCookiePreferences } from '@/lib/browserConsent'
 import { applyPostHogConsent, browserAnalyticsAllowed, failPostHogClosed, postHogGuardFailed } from '@/lib/posthogConsent'
 import { sanitizeTelemetryUrl } from '@/lib/telemetryPrivacy'
@@ -84,6 +85,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             // closure to opt back in or start recording.
             try {
               initializePostHogPrivacy(posthog)
+              // posthog-js keeps an identified reader's id across page loads until reset(). A browser with no session
+              // (logged out where PostHog had not loaded, or by a control that did not reset it) must not start under
+              // that id: reset it here, before posthog-js sends its first request for this page. The application
+              // below restores the visitor's choice, which reset() clears.
+              if (!hasActiveSession() && posthog.get_property('$user_state') === 'identified') posthog.reset()
               const guarded = applyPostHogConsent(posthog)
               if (!active) return
               if (guarded) setInitialized(true)

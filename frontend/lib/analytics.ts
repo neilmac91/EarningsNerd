@@ -48,6 +48,26 @@ const safeReset = () => {
   }
 }
 
+// posthog-js keeps an identified reader's id in its cookie and local storage, across page loads, until reset(); only
+// the dashboard's Log out calls that itself. A reader with no account (after a logout by any control, an account
+// deletion or a lost session) must carry none: the consent clause ties statistics to an account id while logged in
+// (lib/consentCopy.ts). hooks/usePostHogUserIdentification.ts calls this for a known guest; it resets only an
+// identity the SDK still holds, so repeated calls cost nothing.
+const safeForgetAccount = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+  if (posthog.__loaded && posthog.get_property('$user_state') === 'identified') {
+    safeReset()
+    return
+  }
+  try {
+    Sentry.setUser(null)
+  } catch {
+    /* monitoring must never break the app */
+  }
+}
+
 export const analytics = {
   identify: (userId: string, traits?: Record<string, unknown>) => {
     safeIdentify(userId, traits)
@@ -55,6 +75,10 @@ export const analytics = {
 
   reset: () => {
     safeReset()
+  },
+
+  forgetAccount: () => {
+    safeForgetAccount()
   },
 
   signupStarted: (source?: string) => {

@@ -28,18 +28,20 @@ import { describe, expect, it } from 'vitest'
  *
  * Three more checks run here. The manifest has no field a bundler reads before `module`. No string names another copy
  * of the client, in any of its tokens (a path segment, a URL before its query or hash, markup held as text):
- * - a core build other than the manifest's entries, by its file name, or without its extension where the package
- *   ships that file;
+ * - a core build other than the manifest's entries, by its file name, or by a dotted name without its extension where
+ *   the package ships that file (`module.no-external`);
  * - the `no-external` sub-package, or the compiled source (`posthog-core`);
  * - a package subpath other than `package.json`, `react` and the entries' own paths.
  * Which builds keep the names the entries rename changes between releases: in 1.440.0 every `no-external` build and
- * the ES5 build keep them. And app code (outside tests/) identifies an account (`identify`, `alias`) only through
- * lib/analytics.ts, which waits for consent, since posthog-js stores an identity even while it captures nothing.
+ * the ES5 build keep them. And app code (outside tests/) ties an account to PostHog only through lib/analytics.ts,
+ * which waits for consent, since posthog-js stores an identity even while it captures nothing: no `identify` or `alias`
+ * read off anything but a name bound to that module's import (called, passed or bound), none destructured, and no key
+ * that sets the person (`bootstrap.distinctID`, `register({ distinct_id })`).
  *
  * Out of reach, as the planted gaps below record:
- * - a name, a build path or an identify call assembled at run time, or an identify reached through a destructured
- *   reference;
- * - the `full` sub-package, or a compiled source file other than `posthog-core`, named by a bare path segment;
+ * - a name, a build path or an identify assembled at run time;
+ * - a core build named by a bare, dotless path segment (`array`, `module`), the `full` sub-package, or a compiled
+ *   source file other than `posthog-core`, named by a bare path segment;
  * - code held more than two strings deep;
  * - a file that handles a PostHog client without naming posthog-js;
  * - a kept name read off the wrong object, since a name passes when the build has it anywhere (`client._instance`
@@ -63,8 +65,9 @@ const TYPES_ONLY = /\.d\.[mc]?ts$/
 const NOT_CODE = /\.json$/
 const UNDERSCORE = /^_[\w$]*$/
 const CORE_BUILD = /^(?:array|module|main)(?:\.[\w-]+)*\.(?:m?js|cjs)$/
-// A core build's name without its extension counts only where the package ships that file, so `module` (a script
-// type) and `module.exports` pass.
+// A dotted core build name without its extension counts where the package ships that file (`module.no-external`), so
+// `module.exports` passes. A bare `array` or `module` segment would match too much code and prose, so it is out of
+// reach (planted below).
 const CORE_BUILD_STEM = /^(?:array|module|main)(?:\.[\w-]+)+$/
 const DIST = new Set(readdirSync(path.join(packageRoot, 'dist')))
 const OTHER_COPIES = new Set(['no-external', 'posthog-core', 'posthog-core.js'])
@@ -171,27 +174,55 @@ function otherBuilds(source: string, fileName: string): string[] {
   return named
 }
 
-const IDENTITY_CALLS = new Set(['identify', 'alias'])
+const IDENTITY_MEMBERS = new Set(['identify', 'alias'])
+// Keys that set the person posthog-js reports as: `bootstrap: { distinctID }` at init, `register({ distinct_id })`.
+const IDENTITY_KEYS = new Set(['distinctID', 'distinct_id'])
 const IDENTITY_HOME = 'lib/analytics.ts'
+// lib/analytics.ts, as the app imports it (`@/lib/analytics`) or a sibling under lib/ does.
+const FACADE_MODULE = /^(?:@\/lib\/|(?:\.\.?\/)+(?:lib\/)?)analytics$/
 
-/** Each call that would tie an account to a PostHog client, other than through lib/analytics.ts's `analytics` facade. */
+/** The local names this file binds to lib/analytics.ts's exports, the default import and `analytics` included. */
+function facadeNames(file: ts.SourceFile): Set<string> {
+  const names = new Set<string>()
+  for (const statement of file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!FACADE_MODULE.test(statement.moduleSpecifier.text)) continue
+    const clause = statement.importClause
+    if (clause?.name) names.add(clause.name.text)
+    if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+      for (const element of clause.namedBindings.elements) names.add(element.name.text)
+    }
+  }
+  return names
+}
+
+/**
+ * Each way this file ties an account to a PostHog client other than through lib/analytics.ts's facade: an `identify` or
+ * `alias` read off anything but a name bound to the facade's import (called, passed or bound), the same names
+ * destructured, and a key that sets the person (`distinctID`, `distinct_id`).
+ */
 function identityCalls(source: string, fileName: string): string[] {
   const file = parse(source, fileName)
-  const calls: string[] = []
+  const facade = facadeNames(file)
+  const found: string[] = []
+  const flag = (name: string, node: ts.Node) => found.push(`${fileName}:${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${name}`)
+  const viaFacade = (receiver: ts.Expression) => ts.isIdentifier(receiver) && facade.has(receiver.text)
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))) {
-      const callee = node.expression
-      const name = ts.isPropertyAccessExpression(callee) ? callee.name.text
-        : ts.isStringLiteralLike(callee.argumentExpression) ? callee.argumentExpression.text : undefined
-      const viaFacade = ts.isIdentifier(callee.expression) && callee.expression.text === 'analytics'
-      if (name && IDENTITY_CALLS.has(name) && !viaFacade) {
-        calls.push(`${fileName}:${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${name}`)
-      }
+    if (ts.isPropertyAccessExpression(node) && IDENTITY_MEMBERS.has(node.name.text) && !viaFacade(node.expression)) {
+      flag(node.name.text, node)
+    } else if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression)
+      && IDENTITY_MEMBERS.has(node.argumentExpression.text) && !viaFacade(node.expression)) {
+      flag(node.argumentExpression.text, node)
+    } else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
+      const name = nameOf(node.propertyName ?? node.name)
+      if (name && IDENTITY_MEMBERS.has(name)) flag(name, node)
+    } else if ((ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && IDENTITY_KEYS.has(nameOf(node.name) ?? '')) {
+      flag(nameOf(node.name)!, node)
     }
     ts.forEachChild(node, visit)
   }
   visit(file)
-  return calls
+  return found
 }
 
 const staleNames = (names: Record<string, string>, used: Set<string>) => Object.keys(names).filter(name => !used.has(name))
@@ -306,6 +337,7 @@ describe('posthog-js members the shipped build has', () => {
     ['the no-external sub-package by its directory', "require(path.join(packageRoot, 'no-external'))"],
     ['the nested no-external sub-package by its directories', "require(path.join(packageRoot, 'full', 'no-external'))"],
     ['the compiled source of the client', "require(path.join(packageRoot, 'lib', 'src', 'posthog-core.js'))"],
+    ['the compiled source of the client without its extension', "require(path.join(packageRoot, 'lib', 'src', 'posthog-core'))"],
   ])('flags a test that loads %s', (_build, planted) => {
     expect(otherBuilds(planted, 'planted.ts')).toHaveLength(1)
   })
@@ -323,13 +355,13 @@ describe('posthog-js members the shipped build has', () => {
   })
 
   // Planted gaps, out of the gate's reach by design (header).
-  it('does not see a name, a build path or an identify assembled at run time or destructured (a stated gap)', () => {
+  it('does not see a name, a build path or an identify assembled at run time (a stated gap)', () => {
     expect(unknownToBuild('client[`_${part}Queue`]', 'planted.ts')).toEqual([])
     expect(otherBuilds("path.join(POSTHOG_PACKAGE, 'dist', `array.${flavour}.js`)", 'planted.ts')).toEqual([])
     expect(identityCalls('posthog[`ident${suffix}`](id)', 'planted.ts')).toEqual([])
-    expect(identityCalls('const { identify } = posthog\nidentify(id)', 'planted.ts')).toEqual([])
   })
-  it('does not see the full sub-package or another compiled source file by a bare path segment (a stated gap)', () => {
+  it('does not see a dotless core build, the full sub-package or another compiled source file by a bare path segment (a stated gap)', () => {
+    expect(otherBuilds("require(path.join(packageRoot, 'dist', 'array'))", 'planted.ts')).toEqual([])
     expect(otherBuilds("require(path.join(packageRoot, 'full'))", 'planted.ts')).toEqual([])
     expect(otherBuilds("require(path.join(packageRoot, 'lib', 'src', 'remote-config.js'))", 'planted.ts')).toEqual([])
   })
@@ -360,11 +392,21 @@ describe('an account reaches PostHog only through lib/analytics.ts', () => {
     ['an optional identify', 'posthog?.identify(id)'],
     ['an identify by element access', "posthog['identify'](id)"],
     ['an alias', 'posthog.alias(id)'],
+    ['an identify called through call', 'posthog.identify.call(posthog, id)'],
+    ['an identify bound for later', 'const tie = posthog.identify.bind(posthog)'],
+    ['an identify passed as a value', '[id].forEach(posthog.identify, posthog)'],
+    ['a destructured identify', 'const { identify } = posthog'],
+    ['a client imported under the facade\'s name', "import analytics from 'posthog-js'\nanalytics.identify(id)"],
+    ['a client held under the facade\'s name', 'const analytics = usePostHog()\nanalytics.identify(id)'],
+    ['an identity bootstrapped at init', 'posthog.init(key, { bootstrap: { distinctID: id } })'],
+    ['an identity registered by hand', 'posthog.register({ distinct_id: id })'],
   ])('flags %s', (_form, planted) => {
     expect(identityCalls(planted, 'planted.ts')).toHaveLength(1)
   })
   it.each([
-    ['the consent-gated facade', 'analytics.identify(String(user.id), { plan })'],
+    ['the consent-gated facade', "import analytics from '@/lib/analytics'\nanalytics.identify(String(user.id), { plan })"],
+    ['the facade by its named export', "import { analytics } from '@/lib/analytics'\nanalytics.identify(id)"],
+    ['the facade from a sibling under lib/', "import { analytics } from './analytics'\nanalytics.identify(id)"],
     ['another call', "posthog.capture('event')"],
   ])('passes %s', (_form, planted) => {
     expect(identityCalls(planted, 'planted.ts')).toEqual([])

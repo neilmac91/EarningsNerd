@@ -37,6 +37,8 @@ const sdk = vi.hoisted(() => {
     stopSessionRecording: () => undefined,
     debug: () => undefined,
     identify: (() => undefined) as (id: string, traits?: Record<string, unknown>) => void,
+    get_property: (() => undefined) as (name: string) => unknown,
+    reset: () => undefined,
   }
   // As in posthog-js's npm builds: no _send_retriable_request, and the queue fields renamed. The consent guard
   // finds the queues by shape (lib/posthogConsent.ts); tests/unit/posthogConsentGuard.spec.tsx runs the real builds.

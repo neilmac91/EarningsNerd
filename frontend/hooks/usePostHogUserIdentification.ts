@@ -42,12 +42,16 @@ export function usePostHogUserIdentification(): void {
 
   const posthogReady = usePostHogReady()
   const lastIdentity = useRef<string | null>(null)
+  const guest = user === null
 
   useEffect(() => {
-    // A logout resets PostHog's identity (lib/analytics.ts), so forget the account identified before it: a login to the
-    // same account identifies it again once analytics is allowed. lib/analytics.ts never identifies while it is refused.
     if (!user?.id) {
+      // No account: forget the one identified before, in PostHog and Sentry too. Only the dashboard's Log out resets
+      // PostHog itself; the menus' Log out, "Log out of all devices", an account deletion and a lost session reach here
+      // as a guest, and so does a browser PostHog kept identified from an earlier visit once it loads. A login then
+      // identifies the account again once analytics is allowed; lib/analytics.ts never identifies while it is refused.
       lastIdentity.current = null
+      if (guest) analytics.forgetAccount()
       return
     }
     if (!posthogReady) return
@@ -76,5 +80,5 @@ export function usePostHogUserIdentification(): void {
     lastIdentity.current = identity
 
     analytics.identify(String(user.id), { is_pro: isPro, plan: isPro ? 'pro' : 'free' })
-  }, [user?.id, subscription, subscriptionFailed, posthogReady])
+  }, [user?.id, guest, subscription, subscriptionFailed, posthogReady])
 }

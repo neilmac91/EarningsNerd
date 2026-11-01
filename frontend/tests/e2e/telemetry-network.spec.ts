@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Request } from '@playwright/test'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import ts from 'typescript'
@@ -461,10 +461,13 @@ for (const withdrawal of ['deny', 'clear'] as const) {
 
 // The tripwire itself: a request the fixture does not answer is recorded, so test.afterEach would fail the test that
 // made it. Each kind is planted here and taken off the record, so this test passes only while every one is recorded.
-test('a request the fixture does not answer is recorded, a core build asked for under /static included', async ({ page }) => {
+test('a request the fixture does not answer is recorded, every core build asked for under /static included', async ({ page }) => {
   await fixture(page, '/pricing')
-  // main.js is a core build the package ships (an entry, so the member scan passes this string); /static serves none.
-  const unanswered = [`${INGEST}/i/v0/e/`, `${INGEST}/static/main.js?v=1.440.0`, 'https://elsewhere.invalid/x']
+  // Every core build the package ships as a script, by the names its dist directory holds, read at run time (which the
+  // member scan does not reach, by design): each arm of the route's refusal is pinned, #1552's array build among them.
+  const builds = readdirSync(path.join(POSTHOG_PACKAGE, 'dist')).filter(name => /^(?:array|module|main)(?:\.[\w-]+)*\.js$/.test(name))
+  for (const prefix of ['array.', 'module.', 'main.']) expect(builds.some(name => name.startsWith(prefix)), prefix).toBe(true)
+  const unanswered = [`${INGEST}/i/v0/e/`, ...builds.map(name => `${INGEST}/static/${name}?v=1.440.0`), 'https://elsewhere.invalid/x']
   await page.evaluate(urls => Promise.allSettled(urls.map(url => fetch(url))), unanswered)
   expect(unknownRequests.splice(0).sort()).toEqual([...unanswered].sort())
 })

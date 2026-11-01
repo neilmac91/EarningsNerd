@@ -27,13 +27,15 @@ import type { PostHogQueues } from '@/lib/posthogConsent'
  */
 const wire = vi.hoisted(() => {
   const state = {
-    calls: [] as Array<{ url: string; events: string[] }>,
+    calls: [] as Array<{ url: string; events: string[]; text: string }>,
     decode: (_body: unknown): Promise<string[]> => Promise.resolve([]),
+    text: (_body: unknown): Promise<string> => Promise.resolve(''),
     respond: (_events: string[]): number | Promise<number> => 200,
   }
   globalThis.fetch = (async (input: unknown, init?: { body?: unknown }) => {
-    const call = { url: String(input), events: [] as string[] }
+    const call = { url: String(input), events: [] as string[], text: '' }
     state.calls.push(call)
+    call.text = await state.text(init?.body).catch(() => '')
     call.events = await state.decode(init?.body).catch((error: unknown) => [`undecodable: ${String(error)} (${Object.prototype.toString.call(init?.body)})`])
     return new Response('{}', { status: await state.respond(call.events) })
   }) as typeof fetch
@@ -49,15 +51,19 @@ async function bytesOf(body: unknown): Promise<Buffer> {
   return Buffer.from(ArrayBuffer.isView(body) ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) : body as ArrayBuffer)
 }
 
+/** A request body as the JSON it carries, whether sent as text, form data or gzip. */
+async function bodyData(body: unknown): Promise<unknown> {
+  if (typeof body === 'string') {
+    return JSON.parse(body.startsWith('data=') ? Buffer.from(new URLSearchParams(body).get('data')!, 'base64').toString() : body)
+  }
+  const bytes = await bytesOf(body)
+  return JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString())
+}
+
+wire.text = async (body) => body === undefined || body === null ? '' : JSON.stringify(await bodyData(body))
 wire.decode = async (body) => {
   if (body === undefined || body === null) return []
-  let data: unknown
-  if (typeof body === 'string') {
-    data = JSON.parse(body.startsWith('data=') ? Buffer.from(new URLSearchParams(body).get('data')!, 'base64').toString() : body)
-  } else {
-    const bytes = await bytesOf(body)
-    data = JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString())
-  }
+  const data = await bodyData(body)
   const batch = (data as { batch?: unknown })?.batch
   const items = Array.isArray(data) ? data : Array.isArray(batch) ? batch : [data]
   return items.flatMap(item => typeof (item as { event?: unknown })?.event === 'string' ? [(item as { event: string }).event] : [])
@@ -68,6 +74,7 @@ const INGEST = 'https://ingest.invalid'
 const CANARY = 'synthetic-reset-canary'
 const stored = () => JSON.stringify(Array.from({ length: localStorage.length }, (_, i) => [localStorage.key(i), localStorage.getItem(localStorage.key(i)!)]))
 const sent = (event: string) => wire.calls.filter(call => call.events.includes(event)).length
+const flagsSent = () => wire.calls.filter(call => call.url.includes('/flags/')).length
 /** The scripts posthog-js has added to the page from the ingest host. jsdom never fetches them. */
 const postHogScripts = () => Array.from(document.querySelectorAll('script[src]'), script => script.getAttribute('src')!)
   .filter(src => src.startsWith(INGEST))
@@ -307,6 +314,21 @@ describe.each(ENTRIES)('the consent guard on %s', (_entry, load) => {
     expect(guard.applyPostHogConsent(client)).toBe(false)
     expect(client.opt_in_capturing).toHaveBeenCalledTimes(2)
   })
+
+  it('never throws for a failed client under a refusal either, though the SDK throws while it stores it', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const choose = await choices()
+    choose(true)
+    const { client, guard, applied } = await start(await load())
+    expect(applied).toBe(true)
+    const { retry, batch } = guard.findPostHogQueues(client)!
+    hide(client, retry, batch)
+    vi.spyOn(client, 'opt_out_capturing').mockImplementation(() => { throw new Error('planted: consent storage is unavailable') })
+    // The refusal reaches the client through its subscription, at the guard's first failure (the catch branch).
+    choose(false)
+    expect(guard.applyPostHogConsent(client)).toBe(false) // A later application (the failed branch).
+    expect(client.opt_out_capturing).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('before_send', () => {
@@ -397,12 +419,95 @@ describe('the provider on the real SDK', () => {
     analytics.identify('synthetic-account-identify-check')
     expect(holds('synthetic-account-identify-check')).toBe(false)
     act(() => choose(true))
+    const flagsBefore = flagsSent()
     analytics.identify('synthetic-account-identify-check')
     expect(holds('synthetic-account-identify-check')).toBe(true)
-    // The allowed identify sends `$identify` once its async gzip finishes. Wait for it: it would otherwise reach the
-    // stand-in fetch during a later test and read as that test's client sending.
+    // The allowed identify sends `$identify` once its async gzip finishes and reloads flags after a short debounce, and
+    // the page-view tracker's `$pageview` waits in a batch. Let the first two leave and drain the batch with a refusal:
+    // any of them would otherwise reach the stand-in fetch during a later test and read as that test's client sending.
     await vi.waitFor(() => expect(sent('$identify')).toBe(1))
+    await vi.waitFor(() => expect(flagsSent()).toBeGreaterThan(flagsBefore))
+    act(() => choose(false))
     expect(sentry.captureException).not.toHaveBeenCalled()
+  })
+})
+
+// posthog-js keeps an identified reader's id across page loads until reset(), and only the dashboard's Log out reset it.
+// A reader with no account carries none: hooks/usePostHogUserIdentification.ts forgets it once the reader is a guest,
+// and the provider resets one a browser without a session kept from an earlier visit before posthog-js sends anything.
+describe('an account PostHog keeps when the reader has none', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    // posthog-js persists to cookies too, which the file's beforeEach leaves; each case starts from none.
+    for (const cookie of document.cookie.split(';')) {
+      document.cookie = `${cookie.split('=')[0].trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    }
+  })
+  afterEach(async () => {
+    ;(await import('@/lib/api/session')).clearSessionActive()
+    vi.doUnmock('posthog-js')
+    vi.resetModules()
+  })
+
+  /**
+   * A page load of the app's provider and lib/analytics.ts on a fresh client, after an allow. The client reads what an
+   * earlier page load stored, as a reload's would. (The package entry's own client survives vi.resetModules, since
+   * Vitest leaves node_modules out of it, so each page load gets its own.)
+   */
+  async function visit() {
+    cleanup()
+    vi.resetModules()
+    const { PostHog } = await import('posthog-js')
+    const client = new PostHog()
+    clients.push(client)
+    const before = wire.calls.length
+    const { choose } = await renderProvider(client)
+    const { analytics } = await import('@/lib/analytics')
+    act(() => choose(true))
+    expect(client.__loaded).toBe(true)
+    return { client, analytics, choose, sinceLoad: () => wire.calls.slice(before) }
+  }
+
+  /** A page load that identifies the reader, once identify's requests have left. */
+  async function identifiedVisit(id: string) {
+    const page = await visit()
+    const flagsBefore = flagsSent()
+    page.analytics.identify(id)
+    await vi.waitFor(() => expect(sent('$identify')).toBe(1))
+    await vi.waitFor(() => expect(flagsSent()).toBeGreaterThan(flagsBefore))
+    return page
+  }
+
+  it('is forgotten once the reader is a guest, and a guest without one is left alone', async () => {
+    const { client, analytics, choose } = await identifiedVisit('synthetic-account-forget-check')
+    expect(client.get_distinct_id()).toBe('synthetic-account-forget-check')
+    analytics.forgetAccount() // As the identification hook does for a guest, whichever control logged the reader out.
+    const anonymous = client.get_distinct_id()
+    expect(anonymous).not.toBe('synthetic-account-forget-check')
+    expect((stored() + decodeURIComponent(document.cookie)).includes('synthetic-account-forget-check')).toBe(false)
+    analytics.forgetAccount()
+    expect(client.get_distinct_id()).toBe(anonymous)
+    act(() => choose(false)) // Drains the page-view tracker's batch.
+  })
+
+  it('is reset before anything is sent when a browser without a session loads PostHog again', async () => {
+    const first = await identifiedVisit('synthetic-account-stale-check')
+    act(() => first.choose(false)) // Drains the first page load's batch, so nothing of it is still in flight.
+    const { client, choose, sinceLoad } = await visit()
+    expect(client.get_distinct_id()).not.toBe('synthetic-account-stale-check')
+    client.capture('first-after-stale-load', {}, { send_instantly: true })
+    await vi.waitFor(() => expect(sent('first-after-stale-load')).toBe(1))
+    expect(sinceLoad().filter(call => (call.url + call.text).includes('synthetic-account-stale-check'))).toEqual([])
+    act(() => choose(false))
+  })
+
+  it('is kept while the browser\'s session goes on', async () => {
+    const first = await identifiedVisit('synthetic-account-session-check')
+    act(() => first.choose(false))
+    ;(await import('@/lib/api/session')).markSessionActive()
+    const { client, choose } = await visit()
+    expect(client.get_distinct_id()).toBe('synthetic-account-session-check')
+    act(() => choose(false))
   })
 })
 

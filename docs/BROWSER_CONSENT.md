@@ -57,8 +57,14 @@ those entry points on SDK upgrades.
 Capturing nothing is not storing nothing: posthog-js writes an identity to its cookie and local
 storage on `identify()` and `reset()`, and session data when something reads the session, even
 while capturing is off. [analytics.ts](../frontend/lib/analytics.ts) therefore identifies an
-account only while analytics is allowed, and app code identifies through it alone. After a logout
-and a login made while analytics is refused, the next allow identifies the account again.
+account only while analytics is allowed, and app code identifies through it alone. posthog-js also
+keeps an identified reader's id across page loads until `reset()`, which only the dashboard's Log
+out called. So a reader with no account carries none: the identification hook forgets it once the
+reader is a guest (any logout control, an account deletion, a lost session), and the provider
+resets an id kept from an earlier visit, for a browser without a session, before posthog-js sends
+anything for the page. After a logout and a login made while analytics is refused, the next allow
+identifies the account again. Whether a refusal should also clear PostHog's own storage is a
+founder decision (`tasks/todo.md` F70).
 
 A request already dispatched cannot be recalled, and withdrawal does not erase previously
 received provider data. There is no claim of historical erasure here. Native transport work
@@ -85,13 +91,17 @@ do not certify every version of Vercel's remotely served script or recall its di
   calls store no credential URL, it keeps the store every tab shares at the visitor's choice
   through a logout's reset, and it reaches Sentry once. It runs the provider on real clients: off
   before an allow, on after it, off after a refusal, with each failure path planted, and an account
-  identified only while analytics is allowed.
+  identified only while analytics is allowed. An identity is forgotten once the reader has no
+  account, and one kept from an earlier visit is reset before a browser without a session sends
+  anything; [posthog-user-identification.spec.tsx](../frontend/tests/unit/posthog-user-identification.spec.tsx)
+  pins that the hook asks for it on every way the account goes away.
 - [posthogShippedMembers.spec.ts](../frontend/tests/unit/posthogShippedMembers.spec.ts) reads every
   file under `frontend/` that names posthog-js. It fails an underscore member that code, a test
   stand-in or a script held in a string reaches and the `module` build lacks. It also fails a
   string that names another copy of the client (a core build other than the manifest's entries,
   the `no-external` sub-package, the compiled source or a package subpath), and app code that
-  identifies an account anywhere but `lib/analytics.ts`. Its header lists what stays out of its
+  ties an account to PostHog anywhere but `lib/analytics.ts` (an `identify` or `alias` off another
+  receiver, or a key that sets the person). Its header lists what stays out of its
   reach.
 - [telemetry-network.spec.ts](../frontend/tests/e2e/telemetry-network.spec.ts) runs the package's
   `module` build, the one Next bundles, in Chromium. Every request is fulfilled or blocked locally,
