@@ -84,9 +84,10 @@ def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)
 
 def copilot_taste_exhausted_detail(allowance: int) -> str:
     """The upsell shown when a Free user's lifetime Copilot taste is spent (also raised by the
-    serialized admission when concurrent questions would exceed it)."""
+    serialized admission when concurrent questions would exceed it). It names no product (D-034) and
+    counts its questions as the rail's own spent line does: "free question" for one, "free questions" else."""
     return (
-        f"You've used your {allowance} free Copilot questions. {_UPGRADE_HINT}"
+        f"You've used your {allowance} free question{'' if allowance == 1 else 's'}. {_UPGRADE_HINT}"
         if allowance
         else f"Ask this Filing is a Pro feature. {_UPGRADE_HINT}"
     )

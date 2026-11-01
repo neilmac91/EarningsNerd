@@ -50,7 +50,7 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
       title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`Citation ${citation.n}: ${label}. ${display}${described ? `, ${described}` : ''}`}
+      aria-label={`${citation.n}. Citation: ${label}. ${display}${described ? `, ${described}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />

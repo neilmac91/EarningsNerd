@@ -205,6 +205,22 @@ def _suite_schema():
     yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _import_session_local_binders():
+    """Import every app module that copies ``SessionLocal`` at import before the first test (E263).
+
+    A fixture that patches ``database.SessionLocal`` would otherwise hand its temporary factory to any such module a
+    test body imports for the first time, for the rest of the process. ``tests/support/session_local_binders.py``
+    lists them; ``tests/unit/test_session_local_binders.py`` holds the list to the code.
+    """
+    import importlib
+
+    from tests.support.session_local_binders import SESSION_LOCAL_BINDERS
+
+    for name in SESSION_LOCAL_BINDERS:
+        importlib.import_module(name)
+
+
 @pytest.fixture(autouse=True)
 def _reset_delivery_ownership():
     """Durable delivery ownership rows (E11b-1) must not leak between tests.
@@ -231,9 +247,10 @@ def _reset_delivery_ownership():
 def _isolate_summary_limiter():
     """Request allowances belong to one test, even when tests reuse a stand-in account id.
 
-    Avoid importing a router for tests that do not use it. Check again at teardown because the
-    running test may be the first to import it. The ordered probes in test_suite_isolation.py
-    exhaust one account's allowance, then require an empty limiter in the next test.
+    The router is already loaded: ``_import_session_local_binders`` imports it before the first test
+    (E263). It is read from ``sys.modules`` rather than imported here, and checked again at teardown,
+    so this reset never depends on that order. The ordered probes in test_suite_isolation.py exhaust
+    one account's allowance, then require an empty limiter in the next test.
     """
     def clear_loaded_limiter():
         summaries = sys.modules.get("app.routers.summaries")
@@ -326,8 +343,9 @@ def _no_mock_left_on_generation_singletons():
     the harness mock back after the harness restored production, for the rest of the process
     (``test_sec_rate_limiter`` then read the mock's canned text). Undo such overrides first, with
     ``monkeypatch.context()`` inside the block. A leak fails the leaking test's teardown and is
-    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method that
-    monkeypatch's undo left pinned on a singleton is cleared too, covered by an ordered probe pair there.
+    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it. A method left
+    pinned on a singleton (an assigned bound method; before pytest 9.2.0, also monkeypatch's undo) is
+    cleared too, covered by an ordered probe pair there.
     """
     before = [(target, dict(vars(target))) for target in _generation_singletons()]
     seen = {id(target) for target, _ in before}
@@ -366,11 +384,11 @@ def _service_singletons():
 
 
 def _clear_pinned_methods():
-    # monkeypatch.setattr on an instance saves the old attribute with getattr, which returns a bound
-    # method, and its undo sets that back on the instance: the class's own method, pinned there, where
-    # it would shadow a later class-level patch in whichever tests ran after it; tests patch these
-    # singletons this way across dozens of files. A pin behaves exactly like the class's method, so it
-    # is cleared silently rather than failing the test.
+    # A bound method of the class's own, set on the instance, is a pin: it would shadow a later
+    # class-level patch in whichever tests ran after it. Before pytest 9.2.0, monkeypatch's undo of
+    # setattr on an instance left one (pytest #10644), and tests patch these singletons that way across
+    # dozens of files; a test that assigns the bound method still leaves one. A pin behaves exactly like
+    # the class's method, so it is cleared silently rather than failing the test.
     for target in _service_singletons():
         for name, value in list(vars(target).items()):
             if getattr(value, "__self__", None) is target and getattr(value, "__func__", None) is getattr(type(target), name, None):
@@ -717,7 +735,7 @@ def _offline_stream_enrichment(request):
 
     with ExitStack() as stack:
         for seam in ("get_xbrl_data", "get_filing_sections"):
-            # patch.object (not monkeypatch) deletes the instance attribute on exit, so nothing
-            # is left behind on the shared xbrl_service singleton.
+            # patch.object deletes the instance attribute on exit (as monkeypatch does from pytest
+            # 9.2.0), so nothing is left behind on the shared xbrl_service singleton.
             stack.enter_context(patch.object(summary_pipeline.xbrl_service, seam, AsyncMock(return_value=None)))
         yield

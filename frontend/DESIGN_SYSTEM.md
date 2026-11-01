@@ -257,6 +257,16 @@ variant anywhere in the app's source, and no other `opacity-*` class, except beh
 that carries `aria-disabled` or on a use of a shared control that renders one with the caller's className:
 `<Button loading>`, RetryButton, AlertBell).
 
+A control that shows words keeps them at the start of its accessible name (WCAG 2.5.3, label in name;
+`lessons/frontend-hidden-name-tails-bring-their-own-space.md`). An `aria-label` replaces what a control shows, so a
+control with words takes none, and where its name needs more than it shows it adds a visually hidden tail after a
+written space (`Open filing{' '}<span className="sr-only">(10-K, …)</span>`), or it takes a label that begins with its
+words. A keyboard hint (`kbd`) stays out of the name, and so may a status the name already says, a count or a glyph
+marked `aria-hidden`. `aria-hidden` never takes a control's words out of its label, since a speech user still sees them.
+An icon alone is named by its label. Gate: `tests/unit/labelInName.spec.ts`, over every control whose label the app's
+source writes in an attribute or a plain object spread. No control fails it: the residue it opened with on #1884 was
+fixed with the words chief design ruled there (E68 (3)). Its UNREAD lists the labels it cannot read (a prop, data).
+
 A Retry of a failed query is
 `<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef} />`, never a hand-rolled
 `<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
@@ -2420,7 +2430,7 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  `features/filings/lib/evidenceLabels.ts` (product-wide: "Matches filing", "Linked, not checked",
                  "Quote found in filing", "Section linked", and "Quote not found" for a passage it could not
                  find that names no section, whose panel says the link opens the filing); the accessible name
-                 is "Source: <label>", with
+                 is "<label>, source" (label in name: the words it shows come first; chief design on #1884), with
                  " (opens in a new tab)" where the chip is itself the link, and the panel's link reads "Open
                  the filing on SEC.gov" ("the passage" for a text-fragment URL). The panel's status line rests
                  in the ink with only its check in sage, since a figure's note states the filed amounts (D-030;
@@ -2578,7 +2588,9 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
   Chips are full while they keep to one line (Badge); a chip whose label can wrap takes 16
   (`rounded-xl`) instead, a pill on one line and a rounded box once it wraps, since a 9999px radius
   turns a wrapped chip into a capsule whose curve crosses its text (SourceTrace's provenance chip, the
-  admin email chip in EmailChipsInput, and `<Badge wrap>` below a 24rem viewport).
+  admin email chip in EmailChipsInput, the dashboard's What changed chip in WhatChangedCard (its figure
+  moves under its label where the two do not fit beside each other, and a word wider than the chip
+  breaks inside it), and `<Badge wrap>` below a 24rem viewport).
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
