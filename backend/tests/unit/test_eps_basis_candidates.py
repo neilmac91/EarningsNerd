@@ -12,6 +12,9 @@ fills either key and fails a name that does not belong to it:
 - the companyfacts fallback's inline candidate lists, read from ``parse_company_facts``'s source
   (``edgar/xbrl_companyfacts.py``).
 
+``test_every_file_naming_a_diluted_eps_tag_is_read_here`` holds that list of places to a search, so a list in a fifth
+file fails until it is read here.
+
 ``EarningsPerShareBasicAndDiluted`` states both measures at once and belongs to both keys. The companyfacts fallback
 keeps its diluted candidate until it writes an ``eps_diluted`` series of its own, a change to the locked T9 anchor
 (``test_companyfacts_fixture.py``) that E260's second pull request carries. ``_FALLBACK_RESIDUE`` names that one
@@ -20,6 +23,8 @@ candidate, and fails once the fallback drops it, so the entry leaves in the same
 
 import ast
 import inspect
+import re
+from pathlib import Path
 
 import pytest
 
@@ -34,21 +39,31 @@ pytestmark = pytest.mark.unit
 _FALLBACK_RESIDUE = ("EarningsPerShareDiluted",)
 # ifrs-full names the instance path tries after its us-gaap ones; the facts layer reads us-gaap companyfacts only.
 _IFRS_EPS = frozenset({"BasicEarningsLossPerShare", "DilutedEarningsLossPerShare"})
+# A diluted EPS tag in any form (``EarningsPerShareBasicAndDiluted`` names both measures and is not matched).
+_DILUTED_EPS_TAG = re.compile(r"EarningsPerShareDiluted|DilutedEarningsLossPerShare|PerDilutedShare")
+# The files of the four lists above, the only ones that name such a tag.
+_FILES_READ = {
+    "app/services/edgar/instance/concepts.py",
+    "app/services/edgar/xbrl_companyfacts.py",
+    "app/services/facts/concepts.py",
+}
 
 
 def _fallback_lists() -> dict[str, list[str]]:
-    """``parse_company_facts``'s inline candidates, in order, per key: each ``append_items(result, accession, "<key>",
-    select_fact_data(us_gaap, accession, [<tags>], ...))``. A key filled any other way (cash, from a selected tag) is
-    not one of these lists and is skipped."""
+    """``parse_company_facts``'s inline candidates per key, every call's: each ``append_items(result, accession,
+    "<key>", select_fact_data(us_gaap, accession, [<tags>], ...))``. Cash, filled from a selected tag, is the one key
+    filled another way; a fill of any other key in another shape fails here, so no list goes unread."""
     out: dict[str, list[str]] = {}
     for node in ast.walk(ast.parse(inspect.getsource(xbrl_companyfacts.parse_company_facts))):
         if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "append_items"):
             continue
         key, select = node.args[2], node.args[3] if len(node.args) > 3 else None
-        if not (isinstance(select, ast.Call) and getattr(select.func, "id", None) == "select_fact_data"):
+        assert isinstance(key, ast.Constant), "read each key as a literal"
+        if key.value == "cash_and_equivalents":
             continue
-        assert isinstance(key, ast.Constant) and isinstance(select.args[2], ast.List), "read each list as a literal"
-        out[key.value] = [element.value for element in select.args[2].elts]
+        assert isinstance(select, ast.Call) and getattr(select.func, "id", None) == "select_fact_data", key.value
+        assert isinstance(select.args[2], ast.List), f"{key.value}: read each list as a literal"
+        out.setdefault(key.value, []).extend(element.value for element in select.args[2].elts)
     return out
 
 
@@ -81,7 +96,10 @@ def test_every_basic_key_candidate_names_basic_eps(source):
 
 @pytest.mark.parametrize("source", ["instance path", "facts layer", "companyfacts fallback"])
 def test_every_diluted_key_candidate_names_diluted_eps(source):
-    assert [name for name in _diluted_key_lists()[source] if "Diluted" not in name] == [], (
+    names = _diluted_key_lists()[source]
+    # The fallback writes no eps_diluted until E260's second pull request; test_the_lists_are_read pins that.
+    assert names or source == "companyfacts fallback", f"{source}: no candidates read"
+    assert [name for name in names if "Diluted" not in name] == [], (
         f"{source}: a candidate for eps_diluted (\"EPS (diluted)\") names no diluted measure"
     )
 
@@ -103,3 +121,17 @@ def test_the_lists_are_read():
     assert lists["total_assets"] == ["Assets"]
     assert lists["earnings_per_share"][0] == "EarningsPerShareBasic"
     assert "cash_and_equivalents" not in lists
+    # When E260's second pull request gives the fallback its own eps_diluted, delete this line: the diluted test then
+    # reads that list.
+    assert "eps_diluted" not in lists
+
+
+def test_every_file_naming_a_diluted_eps_tag_is_read_here():
+    # A list in another file fills a key this gate does not read: read it above and name its file, or keep the tag out.
+    backend = Path(__file__).resolve().parents[2]
+    found = {
+        path.relative_to(backend).as_posix()
+        for folder in ("app", "evals", "scripts") for path in sorted((backend / folder).rglob("*.py"))
+        if _DILUTED_EPS_TAG.search(path.read_text(encoding="utf-8"))
+    }
+    assert found == _FILES_READ
