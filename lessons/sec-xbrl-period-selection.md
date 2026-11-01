@@ -18,13 +18,20 @@ read the generic revenue tuple, whose first tag is the ASC 606 fee subset beside
 insurer's or REIT's total: they read `facts/fi_revenue.financial_revenue_tags` (the reported
 total; the fee tag only on evidence that it is that total), and every
 `normalize_companyfacts` and `extract_authoritative_values` call outside tests names its
-filer, both gated by `backend/tests/unit/test_fi_revenue.py` (E264). E211's proxy step still
-reads the generic tuple (E206), and the instance path's lists are E278. Concept list
-ORDERINGS encode tag priority — reordering one changes which tag wins on multi-tagged
-filers, so treat the lists as behavior, not style.
+filer, both gated by `backend/tests/unit/test_fi_revenue.py` (E264). The per-filing path reads
+the same rule over the chosen filing's own facts and nothing else: its choice
+(`edgar/instance/financial_revenue.py`) is the only revenue anchor of the statement reader's
+bank and catch-all profiles and the generic list's only revenue candidate, for a financial filer
+whose filing tags one of the rule's elements, gated by
+`backend/tests/unit/test_instance_financial_revenue.py`, and every call of the statement reader
+passes it, gated by `test_fi_revenue.py`'s call-site check (E278; its segment table and the
+companyfacts fallback are still open there). E211's proxy step still reads the generic tuple
+(E206). Concept list ORDERINGS encode tag priority — reordering one changes which tag wins on
+multi-tagged filers, so treat the lists as behavior, not style.
 
 **Evidence**: `backend/app/services/edgar/instance_extractor.py`;
 `facts_service` companyfacts ingest + `test_companyfacts_ingest.py` (PR #552);
 T9 anchor `test_companyfacts_fixture.py`; the S4 concept-list-unification deferral
 (PR #551 body) documenting the ordering hazard; E264's `facts/fi_revenue.py` and
-`backend/tests/fixtures/companyfacts_fi/`.
+`backend/tests/fixtures/companyfacts_fi/`; E278's `edgar/instance/financial_revenue.py`, which
+moved IBKR's FY2019 10-K from its $2.58B gross Revenues to its $1.94B net total on SEC's filing.

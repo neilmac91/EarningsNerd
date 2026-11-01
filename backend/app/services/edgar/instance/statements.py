@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .core import _iso_date, _numeric, logger, normalize_form
 from .financial_profiles import FINANCIAL_PROFILES, is_financial_institution
+from .financial_revenue import FILING_REVENUE_PROFILES
 
 
 def _concept_local(concept: Any) -> str:
@@ -179,6 +180,8 @@ def extract_financial_statement_metrics(
     form: str,
     period_of_report: str,
     max_items: int = 5,
+    *,
+    revenue_tags: Optional[Tuple[str, ...]] = None,
 ) -> Optional[Tuple[str, Dict[str, Tuple[List[Tuple[str, float]], str]], Tuple[str, ...]]]:
     """Industry-correct revenue for a financial institution, from its as-reported income statement.
 
@@ -189,7 +192,8 @@ def extract_financial_statement_metrics(
     Accepts the FIRST profile (bank → insurer → bdc → financial_generic) whose ``required`` metrics
     all resolve on this statement — not merely one whose detect-concept is present. That is what
     routes a broker-dealer/asset-manager (net-interest line but no non-interest-income total) past the
-    ``bank`` profile to its genuine reported total.
+    ``bank`` profile to its genuine reported total. ``revenue_tags``, the filing's own choice
+    (``financial_revenue_concepts``, E278), replaces the revenue anchors of ``FILING_REVENUE_PROFILES``.
     """
     if not is_financial_institution(company, sic):
         return None
@@ -207,6 +211,8 @@ def extract_financial_statement_metrics(
             continue  # quick pre-filter; catch-all (empty detect) always considered
         metrics: Dict[str, Tuple[List[Tuple[str, float]], str]] = {}
         for key, anchors, expected_std in profile["selectors"]:
+            if key == "revenue" and revenue_tags is not None and profile["key"] in FILING_REVENUE_PROFILES:
+                anchors = revenue_tags
             series, raw_tag = _select_statement_series(
                 df, anchors, expected_std, period_cols, period_of_report, max_items
             )

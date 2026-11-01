@@ -9,8 +9,7 @@ from app.utils.datetimes import utcnow
 # Preserve the logger name used before this module was extracted.
 logger = logging.getLogger("app.services.edgar.xbrl_service")
 
-# Cache key version — bump whenever extraction semantics change so stale
-# entries written by the previous logic cannot be served under the same key.
+# Cache key version: bump it whenever extraction semantics change, so the previous logic's entries age out unread.
 # v2: accession-aware primary path (issue #240); v1 entries could hold the
 # latest 10-K's figures for any accession and must age out unread.
 # v3: financial-institution revenue via the as-reported income statement (filing 528 / MCB fix) —
@@ -20,7 +19,8 @@ logger = logging.getLogger("app.services.edgar.xbrl_service")
 # v5: retain fiscal-quarter metadata in newly extracted snapshots.
 # v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
 # v7: annual points carry the issuer's fiscal year where the calendar year of their end misnames it.
-_XBRL_CACHE_VERSION = "v9"  # v9 (E260): every path's earnings_per_share is basic only; v8's fallback could be diluted.
+# v8, v9 (E260): earnings_per_share is basic only, first on the instance path (v8), then on every path (v9).
+_XBRL_CACHE_VERSION = "v10"  # v10 (E278): a financial filer's revenue is E264's choice; v9's could be its fee line.
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (aware UTC cached_datetime, data_dict)
