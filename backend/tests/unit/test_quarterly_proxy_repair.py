@@ -611,8 +611,14 @@ def test_a_proxy_winner_no_sync_healed_is_retired_and_the_10k_winner_inserted(db
     assert again["revisions"] == 0 and _counts(again["proxy"]) == {}
 
 
-def test_a_stored_then_demoted_10k_row_is_promoted(db, monkeypatch):
+@pytest.mark.parametrize("synced", [False, True], ids=["as-planted", "after-a-sync-involving-eur"])
+def test_a_stored_then_demoted_10k_row_is_promoted(db, monkeypatch, synced):
+    # A sync that involves another currency (a stored EUR row) leaves the stored 10-K rows behind P26's, as a sync in
+    # USD alone does, so the step plans the same repair.
     company, payload = _demoted(db, monkeypatch)
+    if synced:
+        _a_stored_eur_row(db, company)
+        _resync(db, company, payload)
     _assert_planted_proxy_rows(db, company, _MRK_PROXY_ROWS)
     plan = _preview(db, company, payload)
     assert _counts(plan["proxy"]) == {"retired": 6, "promoted": 5, "corrected": 1}
@@ -623,6 +629,27 @@ def test_a_stored_then_demoted_10k_row_is_promoted(db, monkeypatch):
     # The loop corrects this row too; it composes on the step's promotion rather than undoing it.
     [q4] = _rows(db, company, concept="net_income", fiscal_period="Q4", is_latest=True)
     assert (q4.accession, q4.source, q4.provenance["formula"]) == (_accn(company, "K25"), "derived", "FY - YTD9")
+
+
+@pytest.mark.parametrize("synced", [False, True], ids=["as-planted", "after-a-sync-involving-eur"])
+def test_a_stored_then_demoted_10k_row_with_another_value_is_corrected(db, monkeypatch, synced):
+    # The K25 FY2025 row stored behind P26's holds another figure than today's winner (an older normalizer read another
+    # tag of the same 10-K; the tag is outside the identity). The step corrects it as it promotes it. A sync that
+    # involves another currency never makes it current in its place: the upsert skips the stored identity and the
+    # newer-filing rule leaves the key as found behind P26's row, so the step still corrects it.
+    company, payload = _demoted(db, monkeypatch)
+    [k25] = [r for r in _rows(db, company, concept="net_income", fiscal_period="FY", accession=_accn(company, "K25"))
+             if r.period_end.year == 2025]
+    k25.value = Decimal("17000000000")
+    db.commit()
+    if synced:
+        _a_stored_eur_row(db, company)
+        _resync(db, company, payload)
+        assert not db.get(FinancialFact, k25.id).is_latest
+    assert _counts(_preview(db, company, payload)["proxy"]) == {"retired": 6, "promoted": 4, "corrected": 2}
+    _apply(db, company, payload)
+    k25 = db.get(FinancialFact, k25.id)
+    assert (k25.is_latest, float(k25.value)) == (True, 18_254e6)
 
 
 @pytest.mark.parametrize(("parsed", "start"), [
@@ -1194,9 +1221,9 @@ def _a_stored_eur_row(db, company):
 ])
 @pytest.mark.parametrize("synced", [False, True], ids=["as-planted", "after-a-sync-involving-eur"])
 def test_a_disagreeing_filing_row_refuses(db, monkeypatch, clause, parsed, start, fiscal_year, synced):
-    # A sync that involves another currency makes the batch's own row current where a proxy row held the key (#1583: a
-    # proxy's row is never a newer filing's), but never a filing row that disagrees with the batch's figure
-    # (``fiscal_naming.filing_row_agrees``): the key stays as found, and the step refuses as before the sync.
+    # A sync that involves another currency leaves the key as main does: the 10-K's identity is stored behind P26's
+    # current row, so the upsert skips it and the newer-filing rule leaves the key as found (#1583 never protects a
+    # proxy's row, but leaves a stored identity behind it), and the step refuses as before the sync.
     company, payload, filing = _filed_behind(db, monkeypatch, "CCD", parsed=parsed, start=start)
     report = _filing_row(db, filing)
     if fiscal_year is not None:
@@ -2662,6 +2689,25 @@ def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_fili
             _refuses(db, company, later, refused)
 
 
+def test_a_sync_involving_another_currency_clears_the_current_figure_refusal_without_the_later_10ks_filing(monkeypatch):
+    # docs/quarterly-data-repair.md, "A company synced since #1682": a sync in USD alone stores K27's row behind the
+    # filing row until K27's Filing is stored; a sync that involves another currency dates K27's row by its `filed` in
+    # the payload (``currency._filed``) and makes it current over the filing row (``_promote_batch_rows``), so the
+    # current-figure refusal clears with no Filing, and the step leaves and lists the row.
+    with _database() as db:
+        company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch)
+        _resync(db, company, payload)
+        later = _with_k27(company, payload, RESTATED_AGAIN)
+        [row] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        _refuses(db, company, later, _refusal(db, (row.id, _current_figure("18254000000", "18900000000"))))
+        _a_stored_eur_row(db, company)
+        _resync(db, company, later)
+        [k27] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31), fiscal_period="FY")
+                 if r.accession == _accn(company, "K27")]
+        assert (db.get(FinancialFact, row.id).is_latest, k27.is_latest) == (False, True)
+        assert [e["fact_id"] for e in _preview(db, company, later)["proxy"]["left_report_backed"]] == [row.id]
+
+
 @pytest.mark.parametrize(("parsed", "quoted", "refused"), [(18_420e6, 18_254e6, False), (18_380e6, 18_560e6, True)],
                          ids=["row-within-1pct-witness-off", "row-off-witness-within-1pct"])
 def test_set5s_current_figure_refusal_reads_the_rows_own_value_not_its_witness(monkeypatch, parsed, quoted, refused):
@@ -3396,24 +3442,24 @@ def test_principal_review_5718798403_item_2_set_2_judges_a_retained_scale_up_at_
 
 @pytest.mark.parametrize(("fy2026", "agrees"), [(4_500e6, False), (44_330e6, False), (4_433e6 * 1.005, True)],
                          ids=["10k_1.5pct_off", "10k_10x_the_value", "10k_0.5pct_off"])
-def test_a_sync_involving_another_currency_never_makes_a_retained_scale_up_current_over_the_proxys_row(
+def test_a_sync_involving_another_currency_leaves_a_retained_scale_up_behind_the_proxys_row_for_the_step(
         db, monkeypatch, fy2026, agrees):
-    # The FY2026 10-K's row holds the year's winner's identity behind P26's current row. A sync that involves another
-    # currency (a stored EUR row) makes the batch's own row current where a proxy row held the key, and that row is
-    # this one; it does so only where the row agrees with the winner (``fiscal_naming.filing_row_agrees``, set 2's own
-    # test). More than 1% off, the sync leaves P26's row current and the step refuses the company on value, as on a
-    # sync in USD alone; 0.5% off, the sync promotes the row and demotes P26's, so the step retires nothing.
+    # The FY2026 10-K's row holds the year's winner's identity behind P26's current row. A sync that involves
+    # another currency (a stored EUR row) leaves it there, as a sync in USD alone does: the upsert skips the
+    # stored identity and the newer-filing rule leaves the key as found behind P26's row. So the step judges the
+    # row as it would after a sync in USD alone: more than 1% off the winner, it refuses the company on value;
+    # 0.5% off, set 2 promotes it.
     company, payload, filing = _retained_at_the_winners_identity(db, monkeypatch, "PRE", fy2026)
     _a_stored_eur_row(db, company)
     _resync(db, company, payload)
     row = _filing_row(db, filing)
-    current = _rows(db, company, concept="net_income", period_end=date(2026, 5, 31), is_latest=True)
-    if agrees:
-        assert [r.id for r in current] == [row.id] and not _current_proxy_rows(db, company)
-        assert _preview(db, company, payload)["proxy"]["retired"] == 0
-        return
-    [p26] = current
+    [p26] = _rows(db, company, concept="net_income", period_end=date(2026, 5, 31), is_latest=True)
     assert (p26.form, row.is_latest) == ("DEF 14A", False)
+    if agrees:
+        plan = _preview(db, company, payload)["proxy"]
+        assert [(e["fact_id"], e["winner_accession"]) for e in plan["rows"] if e["action"] == "promoted"] == [
+            (p26.id, row.accession)]
+        return
     _refuses(db, company, payload, _refusal(db, (p26.id, f"the filing row holding the 10-K's identity (fact {row.id}) "
                                                          "disagrees with the 10-K on: value")))
 

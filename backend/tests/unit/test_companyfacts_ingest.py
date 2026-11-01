@@ -4150,14 +4150,14 @@ class TestProxyStatementItemsSync:
         self, monkeypatch, shape, order,
     ):
         # Where a sync involves another currency than USD (an 8-K the payload reads as EUR, or a filer
-        # reporting in EUR), the currency step keeps a stored row of a newer filing: one the payload does
-        # not name, filed after its newest (``Guard.ids``: a lagging payload here), and a current row of
-        # a filing filed after the batch row's own (``Guard.later``, which also holds the ratios, and
-        # ``_promote_batch_rows``). A proxy statement's row is none of these (``is_proxy_form``): its
-        # figures never win a period. So the sync makes the 10-K's row current at every key a proxy row
-        # held, where main's upsert skips a stored-then-demoted amount, and the 10-K's margin current
-        # where the proxy's revenue named one, unless the 10-K's is stored: a stored ratio's identity is
-        # skipped, as on main, and the journaled repair's proxy step recomputes it.
+        # reporting in EUR), the currency step protects a stored row of a newer filing: one the payload
+        # does not name, filed after its newest (``Guard.ids``: a lagging payload here), and has the
+        # upsert keep a current row of a filing filed after the batch row's own (``Guard.later``, which
+        # also holds the ratios). A proxy statement's row is neither (``is_proxy_form``), as main's
+        # upsert never protects it: the sync inserts the 10-K's rows current and demotes the proxy's, the
+        # margin a proxy's revenue named too. Where the 10-K's identities were stored first and then
+        # demoted, the upsert skips them and the newer-filing rule (``_promote_batch_rows``) leaves each
+        # key as found behind the proxy's current row, as main leaves it, for the proxy step (E211).
         from app.database import SessionLocal
         from app.models import FinancialFact
         from app.services.facts import currency
@@ -4195,20 +4195,23 @@ class TestProxyStatementItemsSync:
         assert current("net_income") == {year: (value, unit, "P26", "DEF 14A") for year, value in _MRK_PROXY.items()}
         assert current("net_margin")[2021][2:] == ("P26", "DEF 14A")
         svc._persist_companyfacts_payload(db, company, payload(proxy=order != "lagging-payload"))
+        if order == "report-stored-then-demoted":
+            proxy_won = {year: (value, unit, "P26", "DEF 14A") for year, value in _MRK_PROXY.items()}
+            assert current("net_income") == proxy_won
+            assert current("revenue")[2021][2:] == current("net_margin")[2021][2:] == ("P26", "DEF 14A")
+            db.close()
+            return
         latest_10k = {2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "K25"}
         assert current("net_income") == {year: (value, unit, latest_10k[year], "10-K")
                                          for year, value in _MRK_INCOME.items()}
         assert current("net_income", "Q4")[2025][2:] == ("K25", "10-K")
         assert current("revenue")[2021] == (_MRK_REVENUE[2021], unit, "K23", "10-K")
-        stored_ratio = order == "report-stored-then-demoted"
         margin = current("net_margin")[2021]
-        assert margin[0] == pytest.approx((12_345e6 / 47_000e6 if stored_ratio else
-                                           _MRK_INCOME[2021] / _MRK_REVENUE[2021]) * 100)
-        assert margin[2:] == (("P26", "DEF 14A") if stored_ratio else ("K23", "10-K"))
+        assert margin[0] == pytest.approx(_MRK_INCOME[2021] / _MRK_REVENUE[2021] * 100)
+        assert margin[2:] == ("K23", "10-K")
         assert db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin", fiscal_period="FY",
                                                  period_end=date(2021, 12, 31), is_latest=True).count() == 1
-        proxies = db.query(FinancialFact).filter_by(company_id=company.id, form="DEF 14A", is_latest=True)
-        assert [row.concept for row in proxies] == (["net_margin"] if stored_ratio else [])
+        assert not db.query(FinancialFact).filter_by(company_id=company.id, form="DEF 14A", is_latest=True).count()
         db.close()
 
     def test_a_proxy_row_never_displaced_a_10k_listed_locally(self, monkeypatch):
