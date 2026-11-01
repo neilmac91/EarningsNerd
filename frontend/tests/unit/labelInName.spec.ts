@@ -354,10 +354,9 @@ const SOURCES = execFileSync('git', ['ls-files', '*.tsx', '*.jsx'], { cwd: FRONT
 /** The controls that fail today, per file, each with what waits on its fix (E68 (3)). Chief design ruled each fix's words on
     #1884 (comments 6550067628 and 6550409876); each lands in its own pull request, which lowers its line and the cap. */
 const RESIDUE: Record<string, number> = {
-  'features/analysis/components/DataNotesLink.tsx': 1, // the Notes chip shows "Notes a, b" and is named "Review data notes a, b" (D-061's chip)
   'features/feedback/components/FeedbackWidget.tsx': 1, // the launcher shows "Feedback" from sm and is named "Send feedback" or "Close feedback", where aria-expanded already says which
 }
-const RESIDUE_MAX = { files: 2, controls: 2 }
+const RESIDUE_MAX = { files: 1, controls: 1 }
 /** The labels the scan cannot read on a control that shows words, per file, with why. */
 const UNREAD: Record<string, number> = {
   'features/admin/components/FeedbackRow.tsx': 1, // admin: the row's link opens with the message's preview, data, then shows "View details", and is named "View details for feedback N"
