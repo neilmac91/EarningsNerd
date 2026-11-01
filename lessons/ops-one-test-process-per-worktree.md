@@ -75,6 +75,17 @@ in `backend/tests/unit/test_forced_run_excerpt_is_private.py` now holds the work
 join cancels its waiter, then releases and drains it, and asserts that cancellation occurred.
 Cleanup releases any started worker on failure; the application and result assertions are unchanged.
 
+**A module that copied a patched factory (2026-10-31, E263).** Run serially, `test_data_completeness.py` followed
+by `test_filing_section_service.py`'s operator-script case failed (`assert 0 >= 1`): no JobRun row. Two tests in
+the first file imported `job_run_service` inside their bodies, under a fixture that had patched
+`database.SessionLocal` with a temporary SQLite factory. `job_run_service` runs
+`from app.database import SessionLocal` at its top level, so its first import copied the temporary factory, and
+the test's `monkeypatch.setattr(job_run_service, "SessionLocal", ...)` restored that same copy at teardown. Every
+later JobRun write in the process went to the disposed temporary file. The parallel suite missed it whenever an
+earlier test in the worker had imported `job_run_service` first. Ten `app/` modules copy the factory at import;
+`backend/tests/conftest.py` now imports each one before the first test (`tests/support/session_local_binders.py`
+lists them), so none is first imported under a patched factory.
+
 **Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
 tests still share that database and every module-level global, in whatever order xdist produces (and
 pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's
@@ -104,19 +115,26 @@ leaker and the victim in that order in one process (`python -m pytest -n 0 -p no
 - a mock is left on the generation singletons, or the guard does not put the real one back;
 - a conftest reset stops holding: the canonical payload, the summary limiter, the delivery and lease
   rows, the `ai_metrics` trigger, or a service method left pinned on its singleton.
-  `monkeypatch.setattr` on an instance saves the old attribute with `getattr`, a bound method, and
-  its undo sets that back on the instance, where it shadows any later class-level patch. Tests reach
-  those singletons through `app.services.edgar.compat` without importing `summary_pipeline`, so the
-  guard finds them where they live;
+  A pin is the class's own bound method set on the instance, where it shadows any later class-level
+  patch. A test that assigns the bound method leaves one, and before pytest 9.2.0 so did undoing
+  `monkeypatch.setattr` on an instance (pytest #10644; 9.2.0 restores the instance's own entry
+  instead). The probe therefore pins by assignment. Tests reach those singletons through
+  `app.services.edgar.compat` without importing `summary_pipeline`, so the guard finds them where
+  they live;
 - `_offline_stream_enrichment` stubs any file but its listed three, or the temp directory of any
   process (the xdist controller and each worker included) outlives its run.
 
-It runs the probe pairs in a fixed order in a fresh serial process, because `-n auto` and random
-order can split or reverse a definition-order pair. A `test_probe_*` or `test_isolation_*` function
+`test_suite_isolation.py` runs the probe pairs in a fixed order in a fresh serial process, because `-n auto` and
+random order can split or reverse a definition-order pair. A `test_probe_*` or `test_isolation_*` function
 outside that order fails it. `backend/tests/unit/test_wall_clock_bounds.py` fails on an assert that
 requires elapsed time to stay under a bound, except for the listed guards whose bound is many times
 what they measure. CI's backend step runs the same parallel `python -m pytest`, so every PR exercises
 a different test-to-worker split.
+
+`backend/tests/unit/test_session_local_binders.py` fails when a module under `app/` copies `SessionLocal` at import
+and `tests/support/session_local_binders.py` does not list it, or the list names a module that no longer does. A copy
+is an import of it from `app.database`, or a read of `database.SessionLocal` in code that runs at import: the top
+level, a class body, a function's decorators or default values.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
 `70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section. The
