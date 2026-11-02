@@ -525,7 +525,9 @@ unused since generation became account-required in #619; kept because migrations
   (neither the payload's series, nor the own currency it reads for a filing, nor a stored amount or
   per-share row of its concepts, current or not, is in another; `facts/currency.py::_another_currency`),
   the step's by-currency parts find nothing to demote, so only its newer-filing protection and its
-  convergence act. Every sync
+  convergence act. Neither keeps a current feed row (no filing owner) of a filing the payload names,
+  which the upsert's own Filing-date rule decides, and the convergence makes the batch's stored row
+  current only where it holds the batch's own figure. Every sync
   demotes, never deletes, every current row of its concepts at a period with a fiscal period,
   whatever its source or filing and for a USD series too, whose unit is another currency amount or
   per-share unit, or which is an amount or per-share row under a filing whose own currency is

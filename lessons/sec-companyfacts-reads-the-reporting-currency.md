@@ -52,11 +52,15 @@ the newer filing's own, which main kept; dating every row by its own filing (`_f
 that shape, and E198 lifted the gate with every USD shape checked against its CNY twin
 (`test_a_usd_filers_sync_converges_as_one_in_another_currency_does`). Where no currency but USD is
 involved the step's by-currency parts find nothing, so its newer-filing protection and convergence
-alone act. Lifting it reached the newer-filing rule to USD filers too: where the sync first inserts
-the payload's own row, a current row of a filing filed after it stays current, under another tag
-too (PNC's 8-K recast of FY2017 revenue, 15,252M, over its FY2018 10-K's 16,329M under `Revenues`,
-where main's insert had demoted the 8-K's row), the policy the convergence holds for a restatement
-under a lower-priority tag; read such a key against its filings. Plant the state earlier syncs stored
+alone act. Lifting it as it stood would have shown two wrong figures where main showed the right one,
+so two rules hold for every sync. A current feed row (no filing owner) of a filing the payload names is
+never kept by the newer-filing rule: the payload reads that filing otherwise now, so the upsert's own
+Filing-date rule decides it, as on main (R1u; kept by its date alone, PNC's 8-K recast of FY2017
+revenue, the ASC 606 line an older rule read, 15,252M, stayed current over its FY2018 10-K's 16,329M
+total). And the batch's stored row is made current only where it holds the batch's own figure (R2): a
+stored identity can hold another (the old cross-check's replacement of a filing row with a proxy's
+figure, an older rule's reading), which its repair, not a sync, corrects; such a key is left as found.
+Plant the state earlier syncs stored
 through `tests/support/sync_eras.py` (every USD sync in production's history was the upsert alone),
 and read a repair's or preview's cohort against the syncs since the deploy: the first sync of a
 company since then converges its keys (`ops/detection/usd_sync_convergence.sql` sizes them).

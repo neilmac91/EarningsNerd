@@ -321,7 +321,12 @@ def _oracle(rows, payload):
     return out
 
 
-def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_row(db, factory, tmp_path, capsys, sec):
+@pytest.mark.parametrize("resync_since_e198", [False, True], ids=["resynced-before-e198", "resynced-since-e198"])
+def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_row(db, factory, tmp_path, capsys, sec,
+                                                                                  resync_since_e198):
+    # The deployed resync runs as production ran it (before E198), and again as a sync since E198 runs it: E198 changes
+    # no value, tag or identity a writer stores, and its convergence keeps no feed row of a named filing (R1u) nor
+    # promotes another figure (R2), so every set reads the same on both, which shows E264's instants need not move.
     offline = tmp_path / "companyfacts"
     offline.mkdir()
     payloads = {}
@@ -329,7 +334,7 @@ def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_ro
     assert {path.stem for path in fixtures} - set(SIC) == {"BXSL"}  # a BDC with no SIC code; any other needs one
     for path in (path for path in fixtures if path.stem != "BXSL"):
         payloads[path.stem] = json.loads(path.read_text())
-        _seed(db, path.stem, payloads[path.stem], SIC[path.stem])
+        _seed(db, path.stem, payloads[path.stem], SIC[path.stem], resync_since_e198=resync_since_e198)
         shutil.copy(path, offline / f"CIK{int(payloads[path.stem]['cik']):010d}.json")
 
     code, lines, report = _main(tmp_path, capsys, "--companyfacts-dir", str(offline))

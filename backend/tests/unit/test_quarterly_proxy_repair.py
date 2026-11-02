@@ -2476,6 +2476,27 @@ def test_a_backed_row_not_current_whose_original_the_10k_confirms_is_restored_be
             assert repair.snapshot(db.get(FinancialFact, backer.id)) == stale
 
 
+
+def test_a_sync_since_e198_never_makes_current_the_replaced_comparative_at_the_winners_identity(monkeypatch):
+    # The state above, then a sync since E198 before the repair runs. The FY2026 10-K's comparative holds the year's
+    # 10-K winner's identity, but the old cross-check replaced its figure with P27's (18,254 where the 10-K reads
+    # 18,600). The convergence makes the batch's stored row current only where it holds the batch's own figure (R2), so
+    # the key is left as found: the FY2025 10-K's stale row stays current and the comparative stays behind, and set 4
+    # restores the comparative as it does when no sync ran, refusing and listing nothing. Promoted on its identity alone,
+    # the replaced comparative went current at P27's figure, and the repair met another state than it reads.
+    with _synced_before_and_since_1682(monkeypatch, _behind_a_stale_own_report) as states:
+        for db, company, payload, filing in states.values():
+            _sync_since_e198(db, company, payload)
+            row = _filing_row(db, filing)
+            assert (row.is_latest, row.source, float(row.value)) == (False, "companyfacts", 18_254e6)
+            [backer] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31),
+                                         fiscal_period="FY", filing_id=None) if r.accession == _accn(company, "K25")]
+            assert backer.is_latest and float(backer.value) == 18_254e6
+            applied = _apply(db, company, payload)["proxy"]
+            assert (applied["filing_rows_restored"], applied["left_report_backed"]) == (1, [])
+            restored = _filing_row(db, filing)
+            assert (restored.is_latest, restored.source, float(restored.value)) == (False, "edgar_xbrl", 18_600e6)
+
 def test_a_backed_row_not_current_at_the_winners_identity_whose_original_the_10k_contradicts_is_listed(monkeypatch):
     # DWB's shape with the recorded original contradicted too (parse 17,000 against the 10-K's 18,600): the FY2026
     # 10-K's comparative holds the year's 10-K winner's identity, but the FY2025 10-K's stale row, which backs its

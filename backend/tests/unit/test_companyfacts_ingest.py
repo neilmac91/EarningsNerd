@@ -10,6 +10,7 @@ keep each scenario's trap visible in the test itself.
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -3497,6 +3498,63 @@ class TestNativeReportingCurrencySync:
         db.close()
 
 
+    def test_a_named_filings_feed_row_an_older_rule_stored_never_holds_its_key_against_the_payloads_winner(self):
+        # E198 (R1u), on PNC's companyfacts of 2026-11-02 (tests/fixtures/companyfacts_fi/PNC.json). Synced while its SIC
+        # code was blank, the generic tuple read FY2017 revenue from the ASC 606 element, whose latest item is an 8-K's
+        # recast (0000713676-20-000117, filed 2020-08-04, 15,252M), and stored it current, a feed row (no filing owner).
+        # Under its bank SIC code the deployed rule reads Revenues first, so the payload's winner there is the FY2018
+        # 10-K's 16,329M (0000713676-19-000015), a new identity the next sync inserts. The 8-K is a filing the payload
+        # names and now reads otherwise, so the newer-filing rule never keeps its feed row: the upsert's own rule decides
+        # it, as on main, and with no Filing row for the 8-K it yields. Kept by its date alone, the fee line's 15,252M
+        # stayed current over the total.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        payload = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi" / "PNC.json").read_text())
+        company = _new_company(db, sic=None)
+        _checked_sync(db, company, payload, final=True)
+
+        def fy2017():
+            return sorted((r.accession, float(r.value), r.is_latest) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept="revenue", period_end=date(2017, 12, 31), fiscal_period="FY"))
+
+        assert fy2017() == [("0000713676-20-000117", 15_252e6, True)]
+        company.sic = "6021"
+        db.commit()
+        _checked_sync(db, company, payload, final=True)
+        assert fy2017() == [("0000713676-19-000015", 16_329e6, True), ("0000713676-20-000117", 15_252e6, False)]
+        db.close()
+
+    @pytest.mark.parametrize("currency", ["USD", "CNY"])
+    def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency):
+        # E198 (R2). A filer synced through K24 (FY2024 revenue 1200), a feed row with no Filing row. The per-filing
+        # writer then stored K24A's FY2024 row behind it, its own rule counting the undated feed row as newer, but at
+        # another figure than the 10-K/A reports (1250 where its item reads 1300: the old cross-check's replacement, or
+        # an older rule's reading). The sync naming K24A has that identity as its winner and skips it. The convergence
+        # makes the batch's stored row current only where it holds the batch's own figure, so the key is left as found:
+        # K24's 1200, a figure a filing reported, stays current, never the stored 1250 no filing reported. Its repair, not
+        # a sync, corrects the stored identity.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+
+        def cur(payload):
+            return _suffixed(_in_currency(payload, currency), tag)
+
+        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True)
+        _store_per_filing(db, company, cur(_with_amendment(_lagging_usd_payload(fresh=True))), f"K24A{tag}", "10-K/A",
+                          "2025-04-01", edit=lambda fact: {**fact, "value": 1250.0} if fact["concept"] == "revenue" else fact,
+                          writer=svc.upsert_facts)
+        _checked_sync(db, company, cur(_with_amendment(_lagging_usd_payload(fresh=True))), final=True)
+        assert sorted((float(r.value), r.accession.removesuffix(tag), r.is_latest) for r in db.query(FinancialFact).filter_by(
+            company_id=company.id, concept="revenue", period_end=date(2024, 12, 31))) == [
+            (1200.0, "K24", True), (1250.0, "K24A", False)]
+        db.close()
+
 def _quarter_restated_payload(*, q1_25):
     """``_lagging_usd_payload(fresh=True)`` with Q1 2024 revenue from its 10-Q (Q1-24, filed 2024-05-05, 250);
     when ``q1_25``, also the next year's Q1 10-Q (Q1-25, filed 2025-05-05), restating Q1 2024 at 260 beside
@@ -3817,9 +3875,11 @@ def _checked_sync(db, company, payload, *, final=False):
     batch's own row (its winner's unit and accession, so in the series currency), unless a row of a filing filed
     strictly after the winner's own filing (each by its Filing row's date, else its filing's ``filed`` in the
     payload, else its provenance ``filed_at``), in the winner's unit and under a filing not ``_foreign`` to the
-    series, was current before the sync: that row stays current. There, and where the row to make current is
-    quarantined or a quarter's unlabelled twin in its unit is current, the key is left as found (no row current
-    there that was not current before). ``final``, a sync whose payload names every stored filing (checked), also
+    series, was current before the sync: that row stays current, unless it is a feed row (no filing owner) of a filing
+    the payload names and the sync inserts the winner, where the upsert's own Filing-date rule decides it (R1u). There,
+    and where the row to make current is quarantined, holds another figure than the batch's (R2), or is a quarter
+    whose unlabelled twin in its unit is current, the key is left as found (no row current there that was not current
+    before). ``final``, a sync whose payload names every stored filing (checked), also
     proves no switch and leaves no key to a protected row."""
     from unittest import mock
 
@@ -3863,16 +3923,25 @@ def _checked_sync(db, company, payload, *, final=False):
         assert not (final and held)  # nor leaves a key to a protected row
         twins = {(*key[:2], row[0]) for key, rows in after.items() if key[2] is None for row in rows if row[2]}
         winners = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], filed(
-            f["accession"], None)) for f in facts if _is_amount(f["unit"]) and f["fiscal_period"]}
+            f["accession"], None), f["value"]) for f in facts if _is_amount(f["unit"]) and f["fiscal_period"]}
         wrong = {}
+
+        def upsert_keeps(row, winner):  # the upsert's own rule: a Filing row filed after the winner's, or with none
+            return row[1] in dates and (winner[1] not in dates or (dates[row[1]], row[1]) > (dates[winner[1]], winner[1]))
+
         for key in {*winners, *held}:
             found = [row[:2] for row in after.get(key, ()) if row[2]]
             kept = {row[:2] for row in before.get(key, ()) if row[2]}
             pick = held.get(key) or next(row for row in after[key] if row[:2] == winners[key][:2])
+            inserted = key not in held and not any(row[:2] == winners[key][:2] for row in before.get(key, ()))
+            # A later filing's current row keeps the key, except a feed row (no filing owner) of a filing the payload
+            # names where the sync inserts its winner: the upsert's own rule decides that row, as on main (R1u).
             newer = [] if key in held else [
                 row[:2] for row in before.get(key, ()) if row[2] and row[0] == winners[key][0]
-                and filed(row[1], row[5]) > winners[key][2] and not _foreign(row[1], view.currency, view, guard.own)]
-            if newer or pick[4] or key[2] in ("Q1", "Q2", "Q3", "Q4") and (*key[:2], pick[0]) in twins:
+                and filed(row[1], row[5]) > winners[key][2] and not _foreign(row[1], view.currency, view, guard.own)
+                and not (inserted and row[6] and row[1] in view.known and not upsert_keeps(row, winners[key]))]
+            other_figure = key not in held and not math.isclose(pick[7], winners[key][3], rel_tol=1e-9, abs_tol=0.0)
+            if newer or pick[4] or other_figure or key[2] in ("Q1", "Q2", "Q3", "Q4") and (*key[:2], pick[0]) in twins:
                 if not set(found) <= kept:
                     wrong[key] = ("left as found", found, sorted(kept))
             elif found != [pick[:2]]:
@@ -3891,7 +3960,7 @@ def _is_amount(unit):
 
 def _amount_rows(db, company_id):
     """The company's amount and per-share rows by key (concept, period_end, fiscal_period), each as (unit,
-    accession, is_latest, id, quarantined, provenance filed_at)."""
+    accession, is_latest, id, quarantined, provenance filed_at, no filing owner, value)."""
     from app.models import FinancialFact
 
     rows = {}
@@ -3900,7 +3969,7 @@ def _amount_rows(db, company_id):
             provenance = row.provenance if isinstance(row.provenance, dict) else {}
             rows.setdefault((row.concept, row.period_end, row.fiscal_period), []).append(
                 (row.unit, row.accession, bool(row.is_latest), row.id, provenance.get("validation") == "unavailable",
-                 provenance.get("filed_at")))
+                 provenance.get("filed_at"), row.filing_id is None, float(row.value)))
     return rows
 
 
