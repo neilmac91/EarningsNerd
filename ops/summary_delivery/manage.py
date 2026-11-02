@@ -27,8 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ops.feedback_media.manage import Cloud as BaseCloud  # noqa: E402
-from ops.summary_delivery import instance, spec  # noqa: E402
+from ops.summary_delivery import auth, instance, spec  # noqa: E402
 
 APPLY_SECONDS = 40 * 60
 CLEANUP_SECONDS = 25 * 60
@@ -61,9 +60,9 @@ def request_deadline(deadline: float):
         signal.signal(signal.SIGALRM, previous)
 
 
-class Cloud(BaseCloud):
+class Cloud:
     def __init__(self):
-        super().__init__()
+        self.credentials = auth.AccessToken()
         self.calls = 0
         self.cleanup_calls = 0
         self.cleaning = False
@@ -73,6 +72,7 @@ class Cloud(BaseCloud):
     def begin_cleanup(self):
         if self.cleanup_deadline is None:
             self.cleanup_deadline = time.monotonic() + CLEANUP_SECONDS
+            self.credentials.clear()
         self.cleaning = True
 
     def call(self, *args, timeout=None, **kwargs):
@@ -96,13 +96,18 @@ class Cloud(BaseCloud):
                 or not isinstance(args[1], str) or not re.fullmatch(r"[A-Za-z0-9_@.:/=?&%-]+", args[1])):
             raise spec.Refused("cloud_transport_boundary")
         body = kwargs.get("body")
+        request_ends = started + timeout
+        token = self.credentials.get(request_ends)
+        remaining = request_ends - time.monotonic()
+        if remaining <= 0:
+            raise spec.Refused("cloud_operation_deadline")
         request = Request(f"https://{args[0]}.googleapis.com/{args[1]}",
                           data=None if body is None else spec.canonical(body),
                           method=kwargs.get("method", "GET"),
-                          headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
+                          headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
         try:
-            with request_deadline(started + timeout):
-                with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
+            with request_deadline(request_ends):
+                with build_opener(NoRedirect()).open(request, timeout=min(timeout, remaining)) as response:
                     content = response.read(2 * 1024 * 1024 + 1)
             if len(content) > 2 * 1024 * 1024:
                 raise spec.Refused("cloud_response_bound")
@@ -111,6 +116,10 @@ class Cloud(BaseCloud):
                 raise ValueError
             return decoded
         except HTTPError as exc:
+            if exc.code == 401:
+                # The current operation is never replayed. A later independent
+                # request/reconciliation can obtain a fresh SDK credential.
+                self.credentials.clear()
             if exc.code == 404 and kwargs.get("missing_ok"):
                 return None
             raise spec.Refused("cloud_operation_refused") from None

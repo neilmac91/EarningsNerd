@@ -53,6 +53,17 @@ conservative compatibility prerequisite because Google's current permission matr
 and audit reference disagree on whether operations-list needs `get` or `list`.
 Standalone cleanup does not require unrelated create/connect permissions.
 
+The controller obtains a private token and its actual expiry through the SDK's
+`config config-helper --force-auth-refresh` credential projection. It refreshes
+120seconds before expiry, caps a cache interval at one hour, and invalidates the
+cache once on cleanup entry. The bounded refresh subprocess consumes the same
+remaining request/phase deadline as HTTP. An HTTP401 invalidates the cache but
+does not replay the current operation; later independent/reconciliation requests
+may refresh. Credential output never enters plans, receipts, argv or logs. This
+uses the same SDK refresh interface as Google's
+[container registry helper](https://github.com/google/go-containerregistry/blob/main/pkg/v1/google/auth.go),
+without extending token lifetime or changing the shared feedback controller.
+
 ## Fixed resource contract
 
 All resources are in `earnings-nerd/us-west1`:

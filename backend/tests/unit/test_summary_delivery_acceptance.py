@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import pytest
@@ -331,7 +332,7 @@ def test_effective_ingress_checks_detect_inherited_public_invocation(monkeypatch
 
 
 def test_cleanup_budget_is_independent_of_exhausted_apply(monkeypatch):
-    monkeypatch.setattr(manage.BaseCloud, "__init__", lambda self: setattr(self, "token", "private-test-token"))
+    monkeypatch.setattr(manage.auth.AccessToken, "get", lambda self, deadline: "private-test-token")
     class Reply:
         def __enter__(self):
             return self
@@ -349,12 +350,99 @@ def test_cleanup_budget_is_independent_of_exhausted_apply(monkeypatch):
     assert cloud.cleanup_calls == 1
 
 
+def test_cleanup_renews_expired_sdk_credentials_without_replaying_resource_mutations(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    now, issued, credentials, seen = [0.0], {}, [], []
+    monkeypatch.setattr(manage.time, "monotonic", lambda: now[0])
+    manifest = document()["manifest"]
+    backend = FakeCloud(manifest)
+
+    def refresh(argv, **kwargs):
+        assert argv == ["gcloud", "config", "config-helper", "--force-auth-refresh",
+                        "--format=json(credential.access_token,credential.token_expiry)", "--quiet"]
+        assert kwargs["stderr"] == subprocess.DEVNULL and 0 < kwargs["timeout"] <= 15
+        token = "private-synthetic-token-" + str(len(credentials))
+        credentials.append(token)
+        issued[token] = now[0] + 300  # Model a short-lived credential, not a promised GHA lifetime.
+        expiry = (datetime.now(timezone.utc) + timedelta(seconds=300)).isoformat()
+        kwargs["stdout"].write(json.dumps({"credential": {"access_token": token, "token_expiry": expiry}}).encode())
+        return SimpleNamespace(returncode=0)
+
+    class Reply:
+        def __init__(self, body):
+            self.body = body
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def read(self, count):
+            return json.dumps(self.body).encode()
+
+    class Opener:
+        def open(self, request, timeout):
+            parsed = urlsplit(request.full_url)
+            token = request.headers["Authorization"].removeprefix("Bearer ")
+            seen.append((parsed.hostname, parsed.path, request.method, token))
+            assert token in issued and issued[token] > now[0], "expired credential reached resource API"
+            path = parsed.path.removeprefix("/") + ("?" + parsed.query if parsed.query else "")
+            result = backend.call(parsed.hostname.removesuffix(".googleapis.com"), path,
+                                  method=request.method, body=json.loads(request.data) if request.data else None)
+            if result is None:
+                raise HTTPError(request.full_url, 404, "missing", None, None)
+            return Reply(result)
+
+    monkeypatch.setattr(manage.auth.subprocess, "run", refresh)
+    monkeypatch.setattr(manage, "build_opener", lambda *a: Opener())
+    cloud = manage.Cloud()
+    cloud.call("cloudresourcemanager", "v1/projects/earnings-nerd:getIamPolicy", method="POST", body={})
+    now[0] = 49 * 60
+    original = cloud.call
+
+    def lifecycle_elapsed(api, path, **kwargs):
+        if api == "run" and kwargs.get("method") == "DELETE":
+            now[0] += 3 * 60  # Elapsed work between requests, within each240s Run-operation allowance.
+        return original(api, path, **kwargs)
+
+    cloud.call = lifecycle_elapsed
+    result = manage.cleanup(cloud, manifest)
+    assert result["state"] == "removed" and not backend.rows
+    assert len(credentials) >= 4 and cloud.cleanup_deadline > now[0]
+    mutations = [(host, path, method) for host, path, method, _ in seen if method == "DELETE"]
+    assert len(mutations) == len(set(mutations)) == 10  #9 original resources plus isolated SQL instance.
+    assert all(value not in json.dumps(result) + capsys.readouterr().out for value in credentials)
+
+
+def test_auth_time_consumes_request_budget_and_401_does_not_replay_mutation(monkeypatch):
+    now, requested, cleared = [100.0], [], []
+    monkeypatch.setattr(manage.time, "monotonic", lambda: now[0])
+
+    def token(self, deadline):
+        assert deadline == 105.0
+        now[0] += 2
+        return "private-fixture"
+
+    class Opener:
+        def open(self, request, timeout):
+            requested.append((request.method, timeout))
+            raise HTTPError(request.full_url, 401, "private-provider-error", None, None)
+
+    monkeypatch.setattr(manage.auth.AccessToken, "get", token)
+    monkeypatch.setattr(manage.auth.AccessToken, "clear", lambda self: cleared.append(True))
+    monkeypatch.setattr(manage, "build_opener", lambda *a: Opener())
+    cloud = manage.Cloud()
+    cloud.deadline = 105.0
+    with pytest.raises(spec.Refused, match="cloud_operation_refused"):
+        cloud.call("sqladmin", instance.BASE + "/instances", method="POST", body={})
+    assert requested == [("POST", 3)] and cleared == [True] and cloud.calls == 1
+
+
 def test_cloud_deadlines_bound_requests_and_preserve_fresh_cleanup_margin(monkeypatch):
     import yaml
 
     clock, waits = [100.0], []
     monkeypatch.setattr(manage.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(manage.BaseCloud, "__init__", lambda self: setattr(self, "token", "private-test-token"))
+    monkeypatch.setattr(manage.auth.AccessToken, "get", lambda self, deadline: "private-test-token")
 
     class Reply:
         def __enter__(self):
@@ -437,7 +525,7 @@ def test_whole_http_deadline_interrupts_real_header_and_body_trickles(monkeypatc
                 return urlopen(target, timeout=timeout)  # Real urllib transport; no external host.
 
         monkeypatch.setattr(manage, "build_opener", lambda *args: Opener())
-        monkeypatch.setattr(manage.BaseCloud, "__init__", lambda self: setattr(self, "token", "private-fixture"))
+        monkeypatch.setattr(manage.auth.AccessToken, "get", lambda self, deadline: "private-fixture")
         cloud = manage.Cloud()
         if consumer != "cloud":
             monkeypatch.setattr(cloud, "call", lambda *a, **k: {"token": "private-fixture"})
