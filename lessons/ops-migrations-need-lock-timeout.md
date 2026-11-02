@@ -1,6 +1,6 @@
 # Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 
-**Date:** 2026-09-04 · **Area:** ops / migrations / CI
+**Date:** 2026-09-04 (rule 6: 2026-11-02, #1955) · **Area:** ops / migrations / CI
 
 ## Context
 
@@ -43,6 +43,17 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
    relation and skips with a NOTICE, and the ledger records the file — so the script ends every run
    with `SELECT … FROM pg_index WHERE NOT indisvalid` and exits 1 on any hit (remedy in its output:
    `DROP INDEX CONCURRENTLY`, then delete the file's `migration_ledger` row).
+6. A `DO` block is one statement, so it holds every lock it takes until it ends: its catalog guard bounds what
+   runs, not how long the locks last. Dropping a foreign key takes ACCESS EXCLUSIVE on the table it references as
+   well as on its own (the reference's triggers are on both), so for a reference to `users` every signed-in request
+   queues behind the drop while it waits for the lock. Replace a reference in one statement (drop the old one, add
+   the new one `NOT VALID`: catalog only), validate it in a statement of its own (SHARE UPDATE EXCLUSIVE on the table,
+   ROW SHARE on the one it references, which stop no read or write), and give the file a `lock_timeout` of a few
+   seconds when it locks a hot table. PB-02 (#1955) first held all three steps in one block, and its comment claimed
+   the lock ended before the validation; the chief and PB-05 found it. Read each statement's locks from PostgreSQL,
+   not from memory: `test_postgres_each_pb02_migration_statement_holds_only_the_locks_its_comments_name` holds them
+   for `20261102_trend_analysis_creator_set_null.sql` (2 s) and the ledger it ships with on CI's PostgreSQL; for any
+   other file the rule is review-checked.
 
 Enforced by `backend/tests/unit/test_migration_lock_safety.py` (job knobs and proxy checksum pin in
 `ci.yml`; PGOPTIONS, SQLSTATE-only retry, the blocker dump and the INVALID-index exit in `backend/scripts/apply_migrations.sh`,

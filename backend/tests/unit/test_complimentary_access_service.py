@@ -14,6 +14,7 @@ changed after its dry run.
 """
 import hashlib
 import json
+import os
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -302,6 +303,43 @@ def test_the_runbooks_example_manifest_is_one_the_command_accepts():
     manifest, digest = load_manifest(example.group(1).encode())
     assert manifest.action == "grant" and len(manifest.accounts) >= 1 and len(digest) == 64
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
+
+
+# Where nothing of the repository's own is kept: dependencies, build output, test reports and caches.
+_NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-results", "playwright-report",
+                       "__pycache__", ".pytest_cache", ".ruff_cache"}
+
+
+def _manifest_shaped(root: Path):
+    """Each JSON file under ``root``, and each fenced json block of its Markdown, that names ``email_sha256``: every
+    manifest the command runs carries the key, so the rest cannot be one (a key spelled with escapes is not looked for:
+    the gate stops a manifest saved or pasted by mistake, not one disguised)."""
+    for folder, subfolders, files in os.walk(root):
+        subfolders[:] = [name for name in subfolders if name not in _NOT_THE_REPOSITORY]
+        for name in files:
+            path = Path(folder) / name
+            if name.endswith(".json") and b"email_sha256" in (raw := path.read_bytes()):
+                yield path, raw
+            elif name.endswith(".md") and b"email_sha256" in (raw := path.read_bytes()):
+                for block in re.findall(r"```json\n(.*?)```", raw.decode("utf-8", "replace"), re.S):
+                    yield path, block.encode()
+
+
+def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
+    """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
+    candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
+    (rule 12). Pasting one into an issue or a pull request stays a review check."""
+    accepted = []
+    for path, raw in _manifest_shaped(REPO):
+        try:
+            load_manifest(raw)
+        except ManifestError:
+            continue
+        accepted.append(path.relative_to(REPO).as_posix())
+    assert accepted == ["docs/ops/complimentary-access.md"], (
+        "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
+        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
+    )
 
 
 # --------------------------------------------------------------------------- dry run and refusals

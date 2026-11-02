@@ -115,7 +115,8 @@ report prints the cohort, and the readout counts grants by it, so it reaches the
 names no person, as the example's does.
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
-as a workflow input: the repository and its Actions logs are public.
+as a workflow input: the repository and its Actions logs are public. A committed one fails
+`test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example`; the rest is review-checked.
 
 ## Procedure
 
