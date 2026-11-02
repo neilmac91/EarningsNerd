@@ -32,8 +32,8 @@ Out of reach (review-checked):
   (planted in GAPS);
 - a key FORMULAS inherits from Object.prototype (`toString`), which formulaWords reads as a function where
   formula_text falls back;
-- a formula the producer writes that FORMULAS does not word, which the page and both files print as stored
-  ("FY - (Q1 + Q2 + Q3)", a Q4 calculated from the year less its three quarters, facts/quarterly.py).
+- whether FORMULAS words every formula the producer writes: a new one prints as stored, each underscore a space, on
+  the page and in both files alike, until it is worded here and there.
 """
 from __future__ import annotations
 
