@@ -7,11 +7,14 @@ Filing row for each 10-K and 10-Q accession it names, as the app lists filings, 
 fetcher seam: no network). Every surface then reads the stored rows, and every figure it prints is held to them:
 
 - the Multi-Period Analysis dataset, annual (the last ten years) and quarterly (the last twelve quarters): each value
-  is the stored current row of its period and concept, in that row's unit, at that row's accession, and every link it
-  carries, its own and its inputs', opens that accession's own filing (its primary document, else its folder);
+  is the stored current row of its period and concept, in that row's unit, at that row's accession; a reported value
+  links its own filing (its primary document, else its folder), and every reported input, of a calculated value or of
+  a change, at any depth, links its own accession's filing (a calculated input links its row's own filing or nothing,
+  and its own inputs carry the links);
 - the analysis workbook: each Metrics cell is its point's value (a percent series in hundredths), and the Sources &
-  methods sheet lists each value with its accession and link;
-- the analysis PDF: each value prints with its unit and its link;
+  methods sheet lists each value and each of its inputs with its value, unit, accession and link;
+- the analysis PDF: under its metric's own heading, each value's item prints it with its unit, its own link and each
+  of its inputs' links;
 - Financial trends: each 10-K's chart reads that filing's own rows at its accession, the year it reports its own;
 - the Sector peers panel: the subject's figure is its stored current row of its industry's concept (net interest
   income for a bank, revenue otherwise) for its latest year.
@@ -25,6 +28,7 @@ balance sheet and cash flows; a 20-F filer's, in its own currency); retire it wi
 import asyncio
 import io
 import json
+from html import escape
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,7 +41,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, SessionLocal
 from app.models import Company, Filing, FinancialFact
 from app.services import trend_analysis_service
-from app.services.analysis_export_metadata import period_label, raw_value_text
+from app.services.analysis_export_metadata import operand_records, period_label, raw_value_text
 from app.services.excel_export_service import build_analysis_workbook
 from app.services.export_service import ExportService
 from app.services.fact_provenance import published_value
@@ -169,17 +173,28 @@ def _valued(dataset: dict):
                 yield series, point
 
 
-def _links(point: dict) -> list[str]:
-    """Every link a point carries: its own and each input's, at any depth."""
-    links = [point.get("source_url")]
+def _inputs(provenance: dict | None):
+    """Every input of a calculation, at any depth: an input's own inputs follow it."""
+    for operand in (provenance or {}).get("inputs") or ():
+        yield operand
+        yield from _inputs(operand.get("provenance"))
 
-    def operands(provenance):
-        for operand in (provenance or {}).get("inputs") or ():
-            links.append(operand.get("source_url"))
-            operands(operand.get("provenance"))
 
-    operands(point.get("provenance"))
-    return [link for link in links if link]
+def _opens(cik: str, accession: str) -> tuple[str, str]:
+    """The links that open an accession's own filing: its folder and its primary document."""
+    return build_sec_archive_url(cik, accession), _document(cik, accession)
+
+
+def _item(html: str, label: str, printed: str) -> str:
+    """The PDF's Sources & methods item that opens with ``printed`` under its metric's own heading, its inputs' list
+    included, up to the next item of that metric."""
+    head = f"<h3>{escape(label)}</h3>"
+    start = html.index(head) + len(head)
+    end = html.find("<h3>", start)
+    section = html[start:end if end != -1 else len(html)]
+    begin = section.index(f"<li><strong>{printed}")
+    after = section.find("<li><strong>", begin + 1)  # an input's item never opens with a bold label
+    return section[begin:after if after != -1 else len(section)]
 
 
 @pytest.mark.parametrize("ticker", list(CORPUS))
@@ -195,11 +210,21 @@ def test_every_analysis_figure_is_its_stored_current_row_and_links_its_own_filin
             assert (point["value"], point["unit"], point["accession"]) == (
                 published_value(row), row.unit, row.accession), (ticker, series["concept"], point["period"])
             assert point["unit"] in ("USD", "USD/shares", "pure"), (ticker, series["concept"], point["unit"])
-            folder = build_sec_archive_url(company.cik, point["accession"])
-            if point.get("source_url"):
-                assert point["source_url"] in (folder, _document(company.cik, point["accession"])), point["source_url"]
-            for link in _links(point):
-                assert link.startswith(f"https://www.sec.gov/Archives/edgar/data/{company.cik}/"), link
+            provenance = point.get("provenance") or {}
+            assert provenance.get("method") in ("reported", "calculated"), (ticker, series["concept"], point["period"])
+            if provenance["method"] == "reported":  # its own filing; a calculated value links its inputs'
+                assert point.get("source_url") in _opens(company.cik, point["accession"]), (ticker, point["period"])
+                assert provenance.get("source_url") == point["source_url"], (ticker, point["period"])
+            else:
+                assert list(_inputs(provenance)), (ticker, series["concept"], point["period"])
+            for key in ("provenance", "yoy_provenance", "qoq_provenance"):  # the value's inputs, and each change's
+                for operand in _inputs(point.get(key)):
+                    opens = _opens(company.cik, operand["accession"])
+                    if (operand.get("provenance") or {}).get("method") == "reported":
+                        assert operand.get("source_url") in opens, (ticker, point["period"], key, operand["concept"])
+                    else:  # a calculated input links its row's own filing or nothing: its own inputs carry the links
+                        assert operand.get("source_url") in (None, *opens), (ticker, point["period"], key)
+                        assert list(_inputs(operand.get("provenance"))), (ticker, point["period"], key)
             checked += 1
     assert checked, ticker
 
@@ -212,23 +237,33 @@ def test_the_workbook_and_the_pdf_print_every_figure_the_page_shows(corpus, tick
         metrics, sources = workbook["Metrics"], workbook["Sources & methods"]
         columns = {cell.value: cell.column for cell in metrics[1]}
         rows = {metrics.cell(row=index, column=2).value: index for index in range(2, metrics.max_row + 1)}
-        listed = {(row[3], row[1], row[12], row[15]) for row in sources.iter_rows(min_row=2, values_only=True)
-                  if row[2] == "Value"}
+        listed: dict[tuple, set] = {}  # (metric, period) -> its (entry, concept, value, unit, accession, link) rows
+        for row in sources.iter_rows(min_row=2, values_only=True):
+            listed.setdefault((row[0], row[1]), set()).add((row[2], row[3], row[4], row[5], row[12], row[15]))
         analysis = SimpleNamespace(mode=dataset["mode"], period_key=dataset["period_key"], dataset_json=dataset,
                                    narrative_md="", citations_json=[])
         html = ExportService().generate_analysis_pdf_html(analysis, SimpleNamespace(
             ticker=company.ticker, name=company.name, cik=company.cik))
         for series, point in _valued(dataset):
-            cell = metrics.cell(row=rows[series["concept"]], column=columns[period_label(point["period"])])
+            period = period_label(point["period"])
+            cell = metrics.cell(row=rows[series["concept"]], column=columns[period])
             expected = point["value"] / 100 if series.get("percent") else point["value"]
             assert cell.value == pytest.approx(expected), (ticker, series["concept"], point["period"])
-            assert (series["concept"], period_label(point["period"]), point["accession"], point.get("source_url")) in \
-                listed, (ticker, series["concept"], point["period"])
             unit = "percent" if series.get("percent") else series.get("unit")
-            printed = f"{period_label(point['period'])} · Value</strong>: {raw_value_text(point['value'])} {unit}"
-            assert printed in html, (ticker, printed)
-            if point.get("source_url"):
-                assert f'href="{point["source_url"]}"' in html, (ticker, point["source_url"])
+            provenance = point.get("provenance") or {}
+            entries = {("Value", series["concept"], point["value"], unit, point["accession"],
+                        point.get("source_url") or provenance.get("source_url"))}
+            entries |= {(entry, operand.get("concept"), operand.get("value"), operand.get("unit"),
+                         operand.get("accession"), operand.get("source_url"))
+                        for entry, operand in operand_records(provenance)}
+            label = series.get("label", series["concept"])
+            assert entries <= listed[(label, period)], (ticker, series["concept"], point["period"])
+            item = _item(html, label, f"{period} · Value</strong>: {raw_value_text(point['value'])} {escape(unit)}")
+            own, inputs = item.split('<ul class="operands">', 1)[0], list(_inputs(provenance))
+            for link in ([point["source_url"]] if point.get("source_url") else []):
+                assert f'href="{escape(link, quote=True)}"' in own, (ticker, series["concept"], point["period"])
+            for operand in inputs:
+                assert f'href="{escape(operand["source_url"], quote=True)}"' in item, (ticker, point["period"])
 
 
 @pytest.mark.parametrize("ticker", list(CORPUS))
