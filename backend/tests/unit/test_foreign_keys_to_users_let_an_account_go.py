@@ -52,10 +52,11 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
         import_every_model()
         user_mapper, tables = User.__mapper__, Base.metadata.tables.values()
     # The ORM deletes the rows a cascading User relationship reaches through its own columns, so only those columns
-    # are exempt: another reference to users on the same table still stops the DELETE.
+    # are exempt: another reference to users on the same table still stops the DELETE. With passive_deletes the ORM
+    # leaves rows it has not loaded to the database's ON DELETE, so such a relationship exempts nothing.
     cascaded = {
         (column.table.name, column.name)
-        for rel in user_mapper.relationships if rel.cascade.delete
+        for rel in user_mapper.relationships if rel.cascade.delete and not rel.passive_deletes
         for column in rel.remote_side
     }
     def acts(fk) -> bool:
@@ -74,8 +75,9 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
 def _migrations_without_an_action(texts) -> list[str]:
     """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
     column it declares NOT NULL (before the reference on its line, or after it), once per reference. A column
-    definition is read back to the comma before it on its line, so a NOT NULL on an earlier line, or before a CHECK
-    holding a comma of its own, is out of reach."""
+    definition is read back to the comma before it on its line, so these are out of reach, and the models' check covers
+    them while model and migration agree: a NOT NULL on an earlier line or before a CHECK holding a comma of its own, a
+    table constraint's reference from a column declared NOT NULL elsewhere, and a later ALTER ... SET NOT NULL."""
     found = []
     for name, text in texts:
         sql = re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
@@ -108,6 +110,8 @@ def test_the_relationship_exemption_covers_only_the_column_it_deletes_through():
         __tablename__ = "users"
         id = Column(Integer, primary_key=True)
         invites = relationship("Invite", foreign_keys="Invite.user_id", cascade="all, delete-orphan")
+        # passive_deletes: the ORM leaves the rows it has not loaded to the database, which has no ON DELETE here.
+        items = relationship("Item", cascade="all, delete-orphan", passive_deletes=True)
 
     class Invite(Planted):
         __tablename__ = "invites"
@@ -118,8 +122,13 @@ def test_the_relationship_exemption_covers_only_the_column_it_deletes_through():
         reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
         cleared_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    class Item(Planted):
+        __tablename__ = "items"
+        id = Column(Integer, primary_key=True)
+        user_id = Column(Integer, ForeignKey("users.id"))
+
     assert _blocking_references(Owner.__mapper__, Planted.metadata.tables.values()) == [
-        "invites.created_by", "invites.reviewed_by"]
+        "invites.created_by", "invites.reviewed_by", "items.user_id"]
 
 
 def test_every_migration_reference_to_users_acts_on_delete():

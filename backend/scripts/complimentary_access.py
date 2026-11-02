@@ -13,14 +13,16 @@ out of workflow inputs and out of logs.
 
 Usage:
     # Offline, on the operator's machine (no settings, no database):
-    #   one fingerprint per address read from stdin, in order
-    python scripts/complimentary_access.py fingerprint < addresses.txt
+    #   one fingerprint per address read from stdin, in order; both files stay in the private store, outside the
+    #   repository (the runbook's $HOME/beta-private)
+    python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"
     #   validate a manifest and print its digest
-    python scripts/complimentary_access.py check --manifest manifest.json
+    python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"
 
     # Against the database (DATABASE_URL and the app's settings):
-    python scripts/complimentary_access.py dry-run --manifest manifest.json
-    python scripts/complimentary_access.py apply --manifest manifest.json --confirm-digest <sha256> --runner local
+    python scripts/complimentary_access.py dry-run --manifest "$HOME/beta-private/manifest.json"
+    python scripts/complimentary_access.py apply --manifest "$HOME/beta-private/manifest.json" --confirm-digest <sha256> \\
+        --runner local
     python scripts/complimentary_access.py readout
 
 Exit status: 0 when the command ran (a report may still list refusals), 1 when it refused to run (a manifest it cannot

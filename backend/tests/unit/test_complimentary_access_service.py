@@ -303,6 +303,10 @@ def test_the_runbooks_example_manifest_is_one_the_command_accepts():
     manifest, digest = load_manifest(example.group(1).encode())
     assert manifest.action == "grant" and len(manifest.accounts) >= 1 and len(digest) == 64
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
+    # Synthetic, which the manifest gate below relies on when it allows this one file: each fingerprint is a reserved
+    # .invalid address's, never a person's.
+    assert [account.email_sha256 for account in manifest.accounts] == [
+        email_fingerprint(f"tester-{n}@example.invalid") for n in ("one", "two")]
 
 
 # Where nothing of the repository's own is kept: dependencies, build output, test reports and caches.
@@ -310,53 +314,111 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
                        "__pycache__", ".pytest_cache", ".ruff_cache"}
 
 
-def _manifest_shaped(root: Path):
-    """Each JSON file under ``root``, and each fenced json block of its Markdown, that names ``email_sha256``: every
-    manifest the command runs carries the key, so the rest cannot be one (a key spelled with escapes is not looked for:
-    the gate stops a manifest saved or pasted by mistake, not one disguised)."""
+_FENCE = re.compile(r"```[^\n]*\n(.*?)```", re.S)
+# The operator's raw address list, by the name the runbook gives it and any variant of it.
+_ADDRESS_LIST = re.compile(r"addresses[^/]*\.txt", re.IGNORECASE)
+
+
+def _tree(root: Path):
     for folder, subfolders, files in os.walk(root):
         # A folder with its own .git (an agent's worktree under .claude/worktrees/, a nested checkout) is another tree:
         # its copy of the runbook is not this repository's.
         subfolders[:] = [name for name in subfolders
                          if name not in _NOT_THE_REPOSITORY and not (Path(folder) / name / ".git").exists()]
         for name in files:
-            path = Path(folder) / name
-            if name.endswith(".json") and b"email_sha256" in (raw := path.read_bytes()):
-                yield path, raw
-            elif name.endswith(".md") and b"email_sha256" in (raw := path.read_bytes()):
-                for block in re.findall(r"```json\n(.*?)```", raw.decode("utf-8", "replace"), re.S):
-                    yield path, block.encode()
+            yield Path(folder) / name
 
 
-def test_the_manifest_walk_reads_json_and_markdown_and_skips_what_is_not_this_tree(tmp_path):
+def _objects(document):
+    """Every JSON object in a parsed document, the document itself included."""
+    if isinstance(document, dict):
+        yield document
+        for value in document.values():
+            yield from _objects(value)
+    elif isinstance(document, list):
+        for value in document:
+            yield from _objects(value)
+
+
+def _manifest_shaped(root: Path):
+    """Each candidate manifest in a file under ``root`` that names ``email_sha256``, whatever the file's name: the whole
+    file, each fenced block of any kind (json, text or bare, with LF or CRLF line ends), and each object nested in a file
+    that parses as JSON (a manifest wrapped under a key). Every manifest the command runs carries the key, so a file
+    without it cannot hold one. A key spelled with escapes is not looked for: the gate stops a manifest saved or pasted
+    by mistake, not one disguised."""
+    for path in _tree(root):
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        if b"email_sha256" not in raw:
+            continue
+        text = raw.decode("utf-8", "replace").replace("\r\n", "\n")
+        yield path, text.encode()
+        for block in _FENCE.findall(text):
+            yield path, block.encode()
+        try:
+            document = json.loads(text)
+        except (ValueError, RecursionError):
+            continue
+        for nested in _objects(document):
+            yield path, json.dumps(nested).encode()
+
+
+def _committed_manifests(root: Path) -> list[str]:
+    accepted = set()
+    for path, raw in _manifest_shaped(root):
+        try:
+            load_manifest(raw)
+        except ManifestError:
+            continue
+        accepted.add(path.relative_to(root).as_posix())
+    return sorted(accepted)
+
+
+def _address_lists(root: Path) -> list[str]:
+    return sorted(path.relative_to(root).as_posix() for path in _tree(root) if _ADDRESS_LIST.fullmatch(path.name))
+
+
+def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
     example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
     manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
     for rel, text in {
-        "ops/saved.json": manifest, "docs/pasted.md": example, "docs/other.md": "no manifest here",
-        "frontend/node_modules/pkg/fixture.json": manifest, ".claude/worktrees/agent/docs/runbook.md": example,
-        ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "ops/saved.json": manifest, "docs/pasted.md": example,
+        "docs/bare-fence.md": f"Notes\n```\n{manifest}```\n", "docs/text-fence.md": f"```text\n{manifest}```\n",
+        "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
+        "tasks/manifest.txt": manifest, "tasks/manifest.json.bak": manifest,
+        "tasks/wrapped.json": json.dumps({"wave": {"manifest": json.loads(manifest)}}),
+        "docs/other.md": "no manifest here", "frontend/node_modules/pkg/fixture.json": manifest,
+        ".claude/worktrees/agent/docs/runbook.md": example, ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "someone@example.invalid\n",
+        ".claude/worktrees/agent/addresses.txt": "someone@example.invalid\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / rel).write_text(text)
-    assert sorted(path.relative_to(tmp_path).as_posix() for path, _ in _manifest_shaped(tmp_path)) == [
-        "docs/pasted.md", "ops/saved.json"]
+        (tmp_path / rel).write_bytes(text.encode())
+    assert _committed_manifests(tmp_path) == sorted([
+        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/crlf.md",
+        "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json"])
+    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt"]
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
     """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
-    (rule 12). Pasting one into an issue or a pull request stays a review check."""
-    accepted = []
-    for path, raw in _manifest_shaped(REPO):
-        try:
-            load_manifest(raw)
-        except ManifestError:
-            continue
-        accepted.append(path.relative_to(REPO).as_posix())
+    (rule 12). The runbook's example is synthetic, as test_the_runbooks_example_manifest_is_one_the_command_accepts
+    holds. Pasting one into an issue or a pull request stays a review check."""
+    accepted = _committed_manifests(REPO)
     assert accepted == ["docs/ops/complimentary-access.md"], (
         "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
         f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
     )
+
+
+def test_no_file_in_the_repository_is_the_operators_address_list():
+    """The raw addresses the founder fingerprints stay in the private store with the manifest (the runbook's
+    procedure): a file named as that list fails here, wherever it is saved. The ignore rules at the root and under
+    backend/ are a backstop for its usual places, not the gate."""
+    assert _address_lists(REPO) == [], "keep the address list in the founder's private store, outside the repository"
 
 
 # --------------------------------------------------------------------------- dry run and refusals
