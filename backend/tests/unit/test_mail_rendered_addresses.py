@@ -1474,6 +1474,65 @@ def test_the_contrast_check_scores_every_planted_page(page, expected):
         assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
 
 
+# How a Python release hands a marked section (<![...>) on to a parser's handlers is its own. As measured, 3.11.17 and
+# Ubuntu's 3.12.3, whose html.parser carries 2025's fixes, hand one to unknown_decl where "]" closes it right before its
+# ">" and to handle_comment, as a bogus comment, where not; 3.13.16 to handle_comment unless it is a CDATA section. A
+# release without those fixes hands every one to _markupbase's marked-section reader, and a later one may read a CDATA
+# section as a bogus comment too, as HTML5 does outside foreign content. Each route hands every one on one way, through
+# the standard library's own readers of each, and names the handlers it reaches for an Outlook section and a CDATA one.
+_MARKED_SECTION_ROUTES = {
+    "as a declaration, every one": (
+        lambda parser, i: parser.parse_marked_section(i),
+        [("unknown_decl", "if !mso"), ("unknown_decl", "CDATA[x")],
+    ),
+    "as a bogus comment, every one but a CDATA section": (
+        lambda parser, i: (
+            parser.parse_marked_section(i) if parser.rawdata.startswith("<![CDATA[", i) else parser.parse_bogus_comment(i)
+        ),
+        [("handle_comment", "[if !mso]"), ("unknown_decl", "CDATA[x")],
+    ),
+    "as a bogus comment, every one": (
+        lambda parser, i: parser.parse_bogus_comment(i),
+        [("handle_comment", "[if !mso]"), ("handle_comment", "[CDATA[x]]")],
+    ),
+}
+
+
+class _Handed(HTMLParser):
+    """The handler each marked section of a page reaches, with what it is handed."""
+
+    def __init__(self, page: str) -> None:
+        super().__init__(convert_charrefs=False)
+        self.handed: list[tuple[str, str]] = []
+        self.feed(page)
+        self.close()
+
+    def unknown_decl(self, data: str) -> None:
+        self.handed.append(("unknown_decl", data))
+
+    def handle_comment(self, data: str) -> None:
+        self.handed.append(("handle_comment", data))
+
+
+@pytest.mark.parametrize("route", list(_MARKED_SECTION_ROUTES))
+def test_the_contrast_check_scores_a_planted_marked_section_alike_however_a_release_hands_it_on(monkeypatch, route):
+    """CI runs one Python release, so the reading of the others is held here: every planted page that holds a marked
+    section scores as under the running release's own reading with each marked section handed on one way."""
+    pages = {case[0]: _contrast_page(case[1]) for case in CONTRASTS if "<![" in case[1]}
+    own = {name: spamassassin_contrast_problems(page) for name, page in pages.items()}
+    refused = {name for name, problems in own.items() if any("a marked section" in problem for problem in problems)}
+    assert refused == {"a CDATA section", "a block Outlook's marked section reveals"}, refused
+    hand_on, handed = _MARKED_SECTION_ROUTES[route]
+    release = HTMLParser.parse_html_declaration
+
+    def parse_html_declaration(parser: HTMLParser, i: int) -> int:
+        return hand_on(parser, i) if parser.rawdata.startswith("<![", i) else release(parser, i)
+
+    monkeypatch.setattr(HTMLParser, "parse_html_declaration", parse_html_declaration)
+    assert _Handed("<![if !mso]><![CDATA[x]]>").handed == handed
+    assert {name: spamassassin_contrast_problems(page) for name, page in pages.items()} == own
+
+
 # The preheader, as email_service._preheader opens <body> with it: the line an inbox lists beside the subject.
 _OPENS_BODY = re.compile(r'<body\b[^>]*>\s*<div style="([^"]*)">(.*?)</div>', re.IGNORECASE | re.DOTALL)
 _HIDDEN_DIV = re.compile(r'<div\b[^>]*\bstyle="[^"]*display\s*:\s*none', re.IGNORECASE)
