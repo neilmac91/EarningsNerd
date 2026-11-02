@@ -8,7 +8,7 @@ import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/sess
 import { getErrorMessage, getErrorStatus } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
 import { useRetainedFailure } from '@/hooks/useRetainedFailure'
-import { getFeedbackSubmission, submitFeedback, type FeedbackInput, type FeedbackType } from '../api/feedback-api'
+import { getFeedbackCapabilities, getFeedbackSubmission, submitFeedback, type FeedbackInput, type FeedbackType } from '../api/feedback-api'
 import { clearPendingFeedback, feedbackFileError, readPendingFeedback, storePendingFeedback } from '../lib/feedbackFiles'
 
 export interface FeedbackFile { id: string; file: File; preview: string }
@@ -162,6 +162,14 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
     setNotice(`Screenshot removed. ${next.length} of 3 selected.`)
   }
 
+  // A fresh capability read is the authority on whether screenshots were refused because uploads are off.
+  const uploadsTurnedOff = () => client.fetchQuery({
+    queryKey: queryKeys.feedback.capabilities(readerId),
+    queryFn: ({ signal }) => getFeedbackCapabilities(signal),
+    staleTime: 0,
+    retry: false,
+  }).then((capabilities) => capabilities.attachments_enabled === false, () => false)
+
   const submit = async () => {
     if (inFlight.current || phase === 'checking' || message.trim().length < 5) return
     const atGeneration = getSessionGeneration()
@@ -198,6 +206,16 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
     } catch (error) {
       if (!owns(atGeneration)) return
       const code = getErrorStatus(error)
+      // Uploads turned off mid-session: that refusal (503) precedes any claim of the key. When a fresh capability
+      // read confirms it, return the draft to editing. The note stays, the screenshots wait for removal, and the next
+      // Send reuses this key, whose fingerprint fences any earlier attempt under it (a 409 checks its receipt).
+      if (code === 503 && submission.snapshot.files.length > 0 && await uploadsTurnedOff()) {
+        if (!owns(atGeneration)) return
+        setPending({ key: submission.key, uncertain: submission.uncertain })
+        setPhase('editing')
+        toast.error('Screenshot uploads are off. Your note is still here.')
+        return
+      }
       // Validation and admission failures cannot have published this request. An uncertain
       // transport/server outcome always checks the original key before offering another Send.
       if (code && code >= 400 && code < 500 && code !== 409 && code !== 408 && !submission.uncertain) {
