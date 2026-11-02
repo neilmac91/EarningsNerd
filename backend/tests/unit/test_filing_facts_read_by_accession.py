@@ -85,6 +85,9 @@ ALLOWED: dict[tuple[str, str, str], int] = {
     # operands were recorded counts as USD-derived when no filing owns it (companyfacts then read only USD),
     # an ownership test in Python on the row the currency step already holds, never a filing's figures.
     ("app/services/facts/currency.py", "protected_rows", "column"): 1,
+    # ``.is_(None)``: an IFRS filer's companyfacts series, the rows no filing owns, which its sync retires from
+    # current use; a filing's own rows are the ones this keeps out.
+    ("app/services/facts/reporting_basis.py", "retire_ifrs_series", "ownership"): 1,
     # ``.isnot(None)``: the companies that hold any per-filing row, the cohort each repair walks.
     ("scripts/relabel_filing_fy_facts.py", "run", "ownership"): 1,
     ("scripts/repair_filing_lineage.py", "run", "ownership"): 1,

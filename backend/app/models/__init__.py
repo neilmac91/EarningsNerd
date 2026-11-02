@@ -175,7 +175,7 @@ class Company(Base):
     last_filings_check_at = Column(DateTime(timezone=True), nullable=True)
     # When this company's SEC companyfacts history was last ingested into financial_fact
     # (multi-period analysis). Null = never; re-sync when older than COMPANYFACTS_SYNC_TTL_HOURS
-    # or when a newer Filing row exists. Stamped even for unsupported (IFRS-only) filers so we
+    # or when a newer Filing row exists. Stamped even for unsupported (IFRS) filers so we
     # don't refetch them hourly.
     facts_synced_at = Column(DateTime(timezone=True), nullable=True)
     # When this company's deep filing history (10-K/10-Q since 2001, and 20-F/40-F behind

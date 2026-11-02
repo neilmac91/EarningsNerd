@@ -1,0 +1,38 @@
+# Retain a probe's journal and ledger outside the temporary directory, and validate the copy you keep
+
+Date: 2026-11-01 · Area: evals, the founder's machine
+
+**Context.** F21 asked for the offline re-validation of the 2026-10-01 native-delivery probe's ledger at
+#1035's merged head. When the founder ran probe 3 on 2026-11-01, nothing was left under `/private/tmp`:
+macOS clears it at restart and, by default, removes entries untouched for three days, and the ledger had
+lived there. The adapter refuses a delivery root under any Claude project context (a `.claude`, `CLAUDE.md`
+or `.git` ancestor), so with `~/.claude` the dispatch roots sit outside the home directory; the founder's
+sit in a temporary directory, and `backend/scripts/native_delivery_probe.py` called its journal "discarded
+afterwards". Probe 3's folder survived only because the founder copied it to `~/en-probe-3-ledger` by hand.
+Its re-validation still had to be asked for separately.
+
+**Rule.**
+- A probe's journal and ledger are evidence, not scratch: both are needed to validate it later.
+- `native_delivery_probe.py run` copies both into `<retain_root>/<probe_id>/`, checks the copy byte for
+  byte against the originals (a link is copied as the file it points to), and validates it with
+  `validate_delivery_binding`. Exit code 6 means the copy did not validate: copy the original roots by hand
+  before they are cleared. An unknown delivery exits 4 even then, and its reservation is settled or retired
+  in a durable copy's journal (the runner's, or, when that did not validate, the one made by hand first),
+  so the settlement lasts too.
+- `plan` refuses a `retain_root` that is relative, missing, under a temporary directory (`/tmp`,
+  `/private/tmp`, `/var/folders`, the machine's own temporary directory), under a cloud-synced home
+  directory (iCloud, `~/Library/CloudStorage`), inside any git work tree, or already holding that probe's
+  copy. It resolves links and compares directories by file identity, so a case variant or a macOS firmlink
+  is not a way around it. The manifest's `probe_id` is a label, so the copy cannot land elsewhere. Gated by the three
+  `test_native_delivery_probe_*` tests in `backend/tests/unit/test_acceptance_source_review_delivery.py`
+  (the retain-root refusals, the copy check and validation, and `plan`/`run` end to end against a fake CLI).
+  The `test_probe_` and `test_isolation_` prefixes are reserved for isolation-probe pairs
+  (`tests/unit/test_suite_isolation.py`), so tests of the probe runner do not use them.
+- Before relying on a retained ledger (a re-validation, a comparison, a record), validate the copy you hold.
+  The validation is cheap and offline, and the original may already be gone. This clause is review-checked:
+  no gate can see which copy a later reader uses.
+
+Related: `ops-evidence-exports-verify-themselves-and-survive-git.md` (an evidence export verifies its copy).
+
+**Evidence.** The founder's probe 3 run output (2026-11-01: "earlier probes: no record left under
+/private/tmp"); `tasks/todo.md` F21; `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`.
