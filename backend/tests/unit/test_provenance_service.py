@@ -1357,6 +1357,9 @@ class TestScopeTagsHoldTheirSources:
             "InvestmentIncomeOperating": "a fund's investment income",
             "InvestmentIncomeOperatingNet": "a fund's investment income, after expenses",
             "InvestmentIncomeNet": "a fund's investment income, after expenses",
+            # E286's total elements before ASC 606, which no path recorded before it: left unchecked.
+            "RealEstateRevenueNet": "a REIT's revenue before ASC 606, where E286 reads it as the total",
+            "SalesRevenueServicesNet": "services revenue before ASC 606, a part beside some filers' totals",
         },
         "net_income": {
             "NetIncomeLoss": "the parent's share, where the label may name the consolidated total",
@@ -1401,7 +1404,7 @@ class TestScopeTagsHoldTheirSources:
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
         from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
-        from app.services.facts.fi_revenue import FEE_TAG, TOTAL_TAGS
+        from app.services.facts.fi_revenue import FEE_TAGS, TOTAL_TAGS
 
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
@@ -1410,7 +1413,7 @@ class TestScopeTagsHoldTheirSources:
         for profile in FINANCIAL_PROFILES:
             for key, anchors, _standard_concept in profile["selectors"]:
                 out.setdefault(key, set()).update(anchors)
-        out["revenue"].update((*TOTAL_TAGS, FEE_TAG))  # the tags E264's rule can choose, each recorded as raw_tag
+        out["revenue"].update((*TOTAL_TAGS, *FEE_TAGS))  # the tags E264's rule can choose, each recorded as raw_tag
         out.setdefault("cash_and_equivalents", set()).update(CASH_TAG_CANDIDATES)
         for key, tags in TestScopeTagsHoldTheirSources.companyfacts_inline_candidates().items():
             out.setdefault(key, set()).update(tags)

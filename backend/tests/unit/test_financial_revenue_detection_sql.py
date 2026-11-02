@@ -1,6 +1,6 @@
 """The E264 revenue census reads the tags, the financial SIC band and the margin scale the code uses.
 
-``ops/detection/financial_revenue_state.sql`` copies ``facts/fi_revenue.py``'s ``FEE_TAG`` and ``TOTAL_TAGS`` into each
+``ops/detection/financial_revenue_state.sql`` copies ``facts/fi_revenue.py``'s ``FEE_TAGS`` and ``TOTAL_TAGS`` into each
 statement that reads a tag, with the ``us-gaap:`` namespace the collector writes into ``raw_tag``; compares
 ``companies.sic`` as ``facts/concepts.py::_is_financial_sic`` does, as text in byte order between its two literals,
 an empty or NULL code being none; and counts a margin above 100% where ``facts/derive.py`` stores margins as
@@ -21,7 +21,7 @@ from app.services import facts_service
 from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import _is_financial_sic
 from app.services.facts.derive import derive_same_period_metrics
-from app.services.facts.fi_revenue import FEE_TAG, TOTAL_TAGS
+from app.services.facts.fi_revenue import FEE_TAG, FEE_TAGS, TOTAL_TAGS
 
 SQL = Path(__file__).resolve().parents[3] / "ops" / "detection" / "financial_revenue_state.sql"
 NAMESPACE = "us-gaap:"
@@ -48,9 +48,10 @@ def _band() -> tuple[str, str]:
 
 def test_every_tag_reading_statement_copies_the_rules_tags():
     code = _code()
-    fees = re.findall(r"'([^']*)'::text AS fee_tag", code)
+    fees = re.findall(r"ARRAY\[([^\]]*)\]::text\[\] AS fee_tags", code)
     totals = re.findall(r"ARRAY\[([^\]]*)\]::text\[\] AS total_tags", code)
-    assert fees == [NAMESPACE + FEE_TAG] * FEE_SETS
+    assert [re.findall(r"'([^']*)'", t) for t in fees] == [[NAMESPACE + tag for tag in FEE_TAGS]] * FEE_SETS
+    assert re.search(r"\bfee_tag\b", code) is None  # no single-tag copy left beside the arrays, in any position
     assert [re.findall(r"'([^']*)'", t) for t in totals] == [[NAMESPACE + tag for tag in TOTAL_TAGS]] * TOTAL_SETS
 
 

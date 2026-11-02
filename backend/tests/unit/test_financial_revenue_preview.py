@@ -2,10 +2,11 @@
 
 The script reads SEC's current companyfacts once per financial company, computes the deployed rule with the deployed
 pure functions and sorts the stored revenue and margin rows of both fact writers into its sets. These cases pin:
-- the sets on the 10 committed fixtures (tests/fixtures/companyfacts_fi), the old state written by the real writers (a
-  blank-SIC sync, Filing rows for every 10-K and 10-Q, each 10-K's own year through the per-filing writer under the
-  old generic authority), then the deployed resync: every set equals a brute-force oracle written here, row by row,
-  and the per-company table is pinned (FIXTURE_SETS says where it differs from the design's table, and why);
+- the sets on the 17 financial fixtures (tests/fixtures/companyfacts_fi, 7 of them E286's), the old state written by
+  the real writers (a blank-SIC sync, Filing rows for every 10-K and 10-Q, each 10-K's own year through the per-filing
+  writer under the old generic authority), then the deployed resync: every set equals a brute-force oracle written
+  here, row by row, and the per-company table is pinned (FIXTURE_SETS says where it differs from the design's table,
+  and why);
 - synthetic stored states: an empty choice, each per-filing verdict, per-filing rows holding feed identities, legacy
   quarter twins, the deploy-instant boundaries and every company outcome;
 - read-only: every statement a SELECT with no lock clause when compiled for PostgreSQL (SQLite drops the clause), no
@@ -63,7 +64,8 @@ SECRET = "postgresql://ops:secret@127.0.0.1:5432/earningsnerd"  # gitleaks:allow
 SEC_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000001.json"
 RNOIE, FEE = fi_revenue.TOTAL_TAGS[0], fi_revenue.FEE_TAG
 SIC = {"AMT": "6798", "AXP": "6199", "BLK": "6211", "IBKR": "6211", "ICE": "6200", "KKR": "6282",
-       "MET": "6311", "PNC": "6021", "TROW": "6282", "WFC": "6021"}
+       "MET": "6311", "PNC": "6021", "TROW": "6282", "WFC": "6021",
+       "AJG": "6411", "ARE": "6798", "CBOE": "6200", "CLSK": "6199", "HUT": "6199", "TRC": "6500", "WBHC": "6021"}
 # The design's table came from a pure prototype that stored no per-filing rows and never split D and E by tag. Here
 # each 10-K's own year also goes through the per-filing writer, which adds F, F_gap and unjudged and changes no feed
 # count. ICE's FY2017 fee history is D: ICE's choice keeps the fee tag, but behind Revenues, which that 10-K reports,
@@ -79,6 +81,12 @@ FIXTURE_SETS = {
     "PNC": {"K_review": 2, "F": 1},
     "TROW": {"C2_review": 1},
     "WFC": {"C2_review": 2},
+    # E286's: the old generic reading is the deployed one for AJG, CBOE, CLSK and HUT, and for ARE once the resync
+    # adds its RealEstateRevenueNet years. TRC's Q2 2017 is the fee tag's in the old reading and Revenues' in the new.
+    # WBHC's gross Revenues rows leave the choice: B (21) with two margins, and its 10-K's per-filing row unjudged.
+    "AJG": {}, "ARE": {}, "CBOE": {}, "CLSK": {}, "HUT": {},
+    "TRC": {"K_review": 1},
+    "WBHC": {"B": 21, "C2": 2, "unjudged": 1},
 }
 START_KEYS = {"started", "run_id", "workflow_commit", "dry_run", "execution", "production_image_used",
               "payload_source", "rule", "cohort_size", "blank_sic_companies", "cohort"}
@@ -310,7 +318,9 @@ def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_ro
     offline = tmp_path / "companyfacts"
     offline.mkdir()
     payloads = {}
-    for path in sorted(FIXTURES.glob("*.json")):
+    fixtures = sorted(FIXTURES.glob("*.json"))
+    assert {path.stem for path in fixtures} - set(SIC) == {"BXSL"}  # a BDC with no SIC code; any other needs one
+    for path in (path for path in fixtures if path.stem != "BXSL"):
         payloads[path.stem] = json.loads(path.read_text())
         _seed(db, path.stem, payloads[path.stem], SIC[path.stem])
         shutil.copy(path, offline / f"CIK{int(payloads[path.stem]['cik']):010d}.json")

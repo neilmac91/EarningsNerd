@@ -31,8 +31,9 @@ pytestmark = pytest.mark.unit
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi"
 RNOIE, REV, FEE = "RevenuesNetOfInterestExpense", "Revenues", fi_revenue.FEE_TAG
+FEEI = "RevenueFromContractWithCustomerIncludingAssessedTax"
 NII, NONII, GII = "InterestIncomeExpenseNet", "NoninterestIncome", "GrossInvestmentIncomeOperating"
-RULE_TAGS = (*fi_revenue.TOTAL_TAGS, FEE, *fi_revenue.NON_606_TAGS)
+RULE_TAGS = (*fi_revenue.TOTAL_TAGS, *fi_revenue.FEE_TAGS, *fi_revenue.NON_606_TAGS)
 M = 1_000_000  # figures in whole millions, so each is an exact float
 FINANCIAL = SimpleNamespace(sic="6211")  # no edgartools probe: the SIC band decides
 
@@ -80,9 +81,9 @@ def _rows(periods, currency="USD"):
              "decimals": -6, "currency": currency} for start, end, value in periods]
 
 
-def _years(last, millions):
-    """Calendar years ending in ``last``, newest first, from figures in millions."""
-    return [(f"{last - i}-01-01", f"{last - i}-12-31", v * M) for i, v in enumerate(millions)]
+def _years(last, figures, unit=M):
+    """Calendar years ending in ``last``, newest first, from figures in ``unit`` (millions unless given)."""
+    return [(f"{last - i}-01-01", f"{last - i}-12-31", v * unit) for i, v in enumerate(figures)]
 
 
 def _facts(**tags):
@@ -190,6 +191,31 @@ FEE_TOTAL = _facts(**{FEE: _years(2025, [23920, 21000, 18800]), NII: _years(2025
                       "NetIncomeLoss": _years(2025, [8000, 7000, 6000])})
 FEE_TOTAL_FACE = _face((NII, "Net interest revenue", "NetInterestIncome", [11750, 10900, 9800]),
                        (FEE, "Total net revenues", "Revenue", [23920, 21000, 18800]))
+# E286. A trust bank's fee line, as large as its noninterest income and above its net interest income: its total is
+# their sum, which no element reports (shape). WBHC's FY2025 10-K, in dollars: its Revenues is interest income plus
+# noninterest income, 58% above net interest income plus noninterest income. CLSK's FY2019 10-K (a September year),
+# in dollars: one component tagged RevenuesNetOfInterestExpense beside its Revenues. CBOE's FY2025 10-K, in dollars:
+# its total under the ASC 606 element including assessed tax, the only one of the rule's elements it tags.
+TRUST = _facts(**{FEE: _years(2025, [450, 430, 410]), NII: _years(2025, [60, 58, 55]),
+                  NONII: _years(2025, [450, 430, 410]), "NetIncomeLoss": _years(2025, [90, 85, 80])})
+WBHC_2025 = _facts(**{REV: _years(2025, [357457000, 313070000, 250872000], 1),
+                      FEEI: _years(2025, [8326000, 8627000, 8490000], 1),
+                      NII: _years(2025, [195576000, 157307000, 138904000], 1),
+                      "InterestAndDividendIncomeOperating": _years(2025, [326187000, 284116000, 222583000], 1),
+                      NONII: _years(2025, [31270000, 28954000, 28289000], 1),
+                      "NetIncomeLoss": _years(2025, [75699000, 56530000, 48938000], 1)})
+CLSK_2019 = _facts(**{RNOIE: [("2018-10-01", "2019-09-30", 3752987)],
+                      REV: [("2018-10-01", "2019-09-30", 4532782), ("2017-10-01", "2018-09-30", 578635)]})
+CBOE_2025 = _facts(**{FEEI: _years(2025, [4714200000, 4094500000, 3773500000], 1)})
+# A 10-Q's own facts carry no year (E286's review). The trust bank's Q3 2025 10-Q: the quarter and the nine months of
+# each line. STT's Q3 2020 10-Q, in millions: its total revenue beside a noninterest income it tagged as zero.
+TRUST_Q3_2025 = _facts(**{tag: [("2025-07-01", "2025-09-30", q * M), ("2024-07-01", "2024-09-30", p * M),
+                                 ("2025-01-01", "2025-09-30", 3 * q * M), ("2024-01-01", "2024-09-30", 3 * p * M)]
+                          for tag, q, p in ((FEE, 112, 108), (NII, 15, 14), (NONII, 112, 108),
+                                            ("NetIncomeLoss", 23, 21))})
+STT_Q3_2020 = _facts(**{REV: [("2020-07-01", "2020-09-30", 2784 * M), ("2019-07-01", "2019-09-30", 2903 * M)],
+                        NII: [("2020-07-01", "2020-09-30", 478 * M), ("2019-07-01", "2019-09-30", 644 * M)],
+                        NONII: [("2020-07-01", "2020-09-30", 0), ("2019-07-01", "2019-09-30", 0)]})
 # JPM's figures with both of its total elements on the face: the choice's order, not the bank anchors', picks the row.
 JPM_2025_TWO_TOTALS_FACE = [*JPM_2025_FACE, *_face((REV, "Total revenue", "Revenue", [182447, 177556, 158104]))]
 # An insurer whose Revenues line reads below its fee element, so the choice refuses both: the insurer keeps its anchor.
@@ -210,9 +236,9 @@ MATRIX = {
     "catch-all: the net total, never the fee row beside it (AXP FY2025 figures)": (
         AXP_2025, AXP_2025_CATCH_ALL_FACE, _fy_columns(2025), "10-K", "2025-12-31",
         ("financial_generic", (RNOIE, 72229 * M)), ("financial_generic", (FEE, 41304 * M))),
-    "catch-all: a fee-tagged total beside net interest income gives none, as E264's feed (shape)": (
+    "catch-all: a fee-tagged total above the net interest income beside it is the total, unchanged (shape)": (
         FEE_TOTAL, FEE_TOTAL_FACE, _fy_columns(2025), "10-K", "2025-12-31",
-        (None, None), ("financial_generic", (FEE, 23920 * M))),
+        ("financial_generic", (FEE, 23920 * M)), ("financial_generic", (FEE, 23920 * M))),
     "bank: the net total, never the gross one above it (IBKR FY2019 totals)": (
         IBKR_2019, IBKR_2019_BANK_FACE, _fy_columns(2019), "10-K", "2019-12-31",
         ("bank", (RNOIE, 1937 * M)), ("bank", (REV, 2580 * M))),
@@ -234,8 +260,20 @@ MATRIX = {
         BLK_2024, None, None, "10-K", "2024-12-31", (None, (FEE, 20407 * M)), (None, (REV, 12794 * M))),
     "generic: the net total the generic list cannot read (GS FY2025, no statement)": (
         GS_2025, None, None, "10-K", "2025-12-31", (None, (RNOIE, 58283 * M)), (None, None)),
-    "generic: a fee-tagged total beside net interest income gives none (PNC FY2019, no statement)": (
-        PNC_2019, None, None, "10-K", "2019-12-31", (None, None), (None, (FEE, 17827 * M))),
+    "generic: a fee-tagged total that is net interest plus noninterest income, unchanged (PNC FY2019, no statement)": (
+        PNC_2019, None, None, "10-K", "2019-12-31", (None, (FEE, 17827 * M)), (None, (FEE, 17827 * M))),
+    "generic: a bank's fee line short of net interest plus noninterest income gives none (shape)": (
+        TRUST, None, None, "10-K", "2025-12-31", (None, None), (None, (FEE, 450 * M))),
+    "generic: a bank's gross Revenues above net interest plus noninterest income gives none (WBHC FY2025)": (
+        WBHC_2025, None, None, "10-K", "2025-12-31", (None, None), (None, (REV, 357457000))),
+    "generic: a bank's fee line short of its quarter's sum gives none on a 10-Q (shape)": (
+        TRUST_Q3_2025, None, None, "10-Q", "2025-09-30", (None, None), (None, (FEE, 112 * M))),
+    "generic: a quarter's sum never leaves a total out, unchanged (STT Q3 2020, noninterest income tagged 0)": (
+        STT_Q3_2020, None, None, "10-Q", "2020-09-30", (None, (REV, 2784 * M)), (None, (REV, 2784 * M))),
+    "generic: the total, never a one-year component under the net total element (CLSK FY2019, no statement)": (
+        CLSK_2019, None, None, "10-K", "2019-09-30", (None, (REV, 4532782)), (None, (REV, 4532782))),
+    "generic: the total under the ASC 606 element including assessed tax, unchanged (CBOE FY2025, no statement)": (
+        CBOE_2025, None, None, "10-K", "2025-12-31", (None, (FEEI, 4714200000)), (None, (FEEI, 4714200000))),
     "generic: the choice's order picks the net total before Revenues (JPM FY2025, no statement)": (
         JPM_2025, None, None, "10-K", "2025-12-31", (None, (RNOIE, 182447 * M)), (None, (REV, 182447 * M))),
     "insurer: its own total, unchanged (MET FY2025)": (
@@ -421,6 +459,8 @@ def test_every_fixture_filings_own_items_give_e264s_choice():
     ("BLK", "0000950170-25-026584", (FEE,)),  # FY2024: the fee-tagged total, not the partial Revenues line
     ("MET", "0001099219-26-000013", (REV,)),
     ("PNC", "0000713676-21-000025", (REV, FEE)),  # the fee element matches the total, so it may fill
+    ("WBHC", "0001193125-26-082893", ()),  # FY2025 10-K: its gross Revenues is above its bank's sum
+    ("WBHC", "0000950170-25-067712", (REV,)),  # Q1 2025 10-Q: a quarter's sum leaves no total out (E290 (5))
 ])
 def test_named_filings_choose_their_reported_total(ticker, accession, tags):
     [(form, own)] = [(form, own) for t, accn, form, own in _own_filings() if (t, accn) == (ticker, accession)]

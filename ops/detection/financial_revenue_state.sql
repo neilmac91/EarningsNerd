@@ -1,18 +1,19 @@
 -- Detection: financial companies' revenue as the database holds it, before and after E264's resync, preview and
 -- cleanup (tasks/todo.md, E264). Since #1913 (deployed 2026-11-01) a financial filer's (SIC 6000-6799)
 -- companyfacts revenue is its reported total, chosen by facts/fi_revenue.py::financial_revenue_tags, never the
--- ASC 606 fee line the generic tag tuple reads first. The rows stored before then keep the old reading until
--- the founder's forced resync and cleanup. A run before the resync is the before, and a run after each step
--- is that step's after; E264's "Check after" reads sets 2 and 4 to 7. The sets: 1 counts the feed's revenue
--- rows (filing_id NULL, source companyfacts) by tag, current or not (the non-current ones are own-report
--- history rows and demoted winners, the database half of the preview's sets D and E); 2 lists the companies
--- whose current revenue carries the fee tag, the list E264 reviews by SIC; 3 counts the calculated rows built
--- on a fee-tag revenue operand, its own tag or one in the lineage of a calculated quarter it is (set C); 4
--- lists the current net margins above 100%; 5 checks each named bank's current fiscal-year revenue against its
--- net interest income plus noninterest income; 6 counts the duplicate current rows and 7 lists them; 8 lists
--- the per-filing revenue rows the cross-check replaced, split at E264's deploy (2026-11-01 14:07:03 UTC, when
--- deploy-backend job 124871048475 had moved every job to the new image) into the old rule's (set F's database
--- half) and the new rule's. The preview itself reads SEC's payloads under the deployed rule, which no SQL can.
+-- ASC 606 fee line the generic tag tuple reads first; since E286 the rule also reads the ASC 606 element
+-- including assessed tax and two total elements of the years before ASC 606. The rows stored before then keep
+-- the old reading until the founder's forced resync and cleanup. A run before the resync is the before, and a
+-- run after each step is that step's after; E264's "Check after" reads sets 2 and 4 to 7. The sets: 1 counts the
+-- feed's revenue rows (filing_id NULL, source companyfacts) by tag, current or not (the non-current ones are
+-- own-report history rows and demoted winners, the database half of the preview's sets D and E); 2 lists the companies
+-- whose current revenue carries a fee tag, the list E264 reviews by SIC; 3 counts the calculated rows built on a
+-- fee-tag revenue operand, its own tag or one in the lineage of a calculated quarter it is (set C); 4 lists the
+-- current net margins above 100%; 5 checks each named bank's current fiscal-year revenue against its net interest
+-- income plus noninterest income; 6 counts the duplicate current rows and 7 lists them; 8 lists the per-filing revenue
+-- rows the cross-check replaced, split at E264's deploy (2026-11-01 14:07:03 UTC, when deploy-backend job 124871048475
+-- had moved every job to the new image) into the old rule's (set F's database half) and the new rule's. The preview
+-- itself reads SEC's payloads under the deployed rule, which no SQL can.
 -- It names companies and counts rows, and changes nothing.
 -- Retire: the records PR that closes E264 deletes this file and the unit test that holds its tags, SIC band,
 -- margin scale and set 8's premise to the code (backend/tests/unit/test_financial_revenue_detection_sql.py).
@@ -23,13 +24,13 @@
 -- run. Cost per statement: each reads companies once for the financial ones, then their financial_fact rows
 -- through ix_financial_fact_company_id, filtered by concept (set 6 reads every current row of theirs, set 5
 -- the named banks' fiscal-year rows only); sets 3, 4 and 8 parse the provenance of the rows they keep, and
--- sets 3 and 8 read only those whose provenance text names the fee tag or an authoritative check. A list
+-- sets 3 and 8 read only those whose provenance text names a fee tag or an authoritative check. A list
 -- stops at 200 rows, and each row carries its set's full count (of_n), so a cut list shows.
 -- financial company: one whose companies.sic, compared as text in byte order (COLLATE "C"), lies from '6000'
 -- to '6799', as facts/concepts.py::_is_financial_sic compares it; an empty or NULL code is none.
--- tag: the row's raw_tag without its 'us-gaap:' namespace. fee: facts/fi_revenue.py's FEE_TAG; total: one
--- of its TOTAL_TAGS; other: any other tag, or none. A margin is stored as a percentage (x100, unit pure), so
--- 100 is 100%.
+-- tag: the row's raw_tag without its 'us-gaap:' namespace. fee: one of facts/fi_revenue.py's FEE_TAGS, the
+-- two ASC 606 elements; total: one of its TOTAL_TAGS; other: any other tag, or none. A margin is stored as
+-- a percentage (x100, unit pure), so 100 is 100%.
 -- JSON: -> and ->> raise for a whole json value holding a NUL or a lone-surrogate escape, so sets 3, 4 and 8
 -- read provenance after rewriting a NUL or any surrogate escape to the escape of U+FFFD (same length;
 -- nothing else moves), as proxy_form_winners.sql does. Sets 1, 2, 5, 6 and 7 parse no JSON.
@@ -49,9 +50,10 @@ SELECT current_setting('transaction_read_only') AS read_only,
 \echo '   fy_rows and quarter_rows split the rows by fiscal period; first_fy and last_fy span their fiscal years.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
-           'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
-           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues',
-                 'us-gaap:SalesRevenueNet']::text[] AS total_tags
+           ARRAY['us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+                 'us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax']::text[] AS fee_tags,
+           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues', 'us-gaap:SalesRevenueNet',
+                 'us-gaap:RealEstateRevenueNet', 'us-gaap:SalesRevenueServicesNet']::text[] AS total_tags
 ), fin AS MATERIALIZED (
     SELECT c.id
     FROM companies c
@@ -59,7 +61,7 @@ WITH params AS (
     WHERE c.sic <> '' AND c.sic COLLATE "C" BETWEEN p.sic_low AND p.sic_high
 ), feed AS (
     SELECT ff.company_id, ff.is_latest, ff.fiscal_period, ff.fiscal_year,
-           CASE WHEN ff.raw_tag = p.fee_tag THEN 'fee'
+           CASE WHEN ff.raw_tag = ANY (p.fee_tags) THEN 'fee'
                 WHEN ff.raw_tag = ANY (p.total_tags) THEN 'total'
                 ELSE 'other' END AS class,
            COALESCE(regexp_replace(ff.raw_tag, '^us-gaap:', ''), '(none)') AS tag
@@ -76,16 +78,17 @@ FROM feed
 GROUP BY GROUPING SETS ((is_latest, class, tag), (is_latest))
 ORDER BY is_latest DESC, class NULLS LAST, rows DESC, tag;
 
-\echo '2. Financial companies whose current feed revenue carries the fee tag, the most such rows first. fee_fy:'
+\echo '2. Financial companies whose current feed revenue carries a fee tag, the most such rows first. fee_fy:'
 \echo '   those at a fiscal year. total and other: the same company''s current feed revenue rows of a total tag'
 \echo '   and of any other. first_fee_fy and last_fee_fy span the fee rows'' fiscal years. A company whose'
-\echo '   choice ends in the fee tag (BLK, TROW, EQIX, NDAQ, O, PNC, ICE outside FY2015) belongs here; review'
-\echo '   the rest by SIC.'
+\echo '   choice includes a fee tag (BLK, TROW, EQIX, NDAQ, O, PNC, ICE outside FY2015; since E286 also CBOE,'
+\echo '   ARE, BRX, SDEV, TRC and PAPL) belongs here; review the rest by SIC.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
-           'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
-           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues',
-                 'us-gaap:SalesRevenueNet']::text[] AS total_tags
+           ARRAY['us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+                 'us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax']::text[] AS fee_tags,
+           ARRAY['us-gaap:RevenuesNetOfInterestExpense', 'us-gaap:Revenues', 'us-gaap:SalesRevenueNet',
+                 'us-gaap:RealEstateRevenueNet', 'us-gaap:SalesRevenueServicesNet']::text[] AS total_tags
 ), fin AS MATERIALIZED (
     SELECT c.id, c.ticker, c.sic
     FROM companies c
@@ -93,13 +96,14 @@ WITH params AS (
     WHERE c.sic <> '' AND c.sic COLLATE "C" BETWEEN p.sic_low AND p.sic_high
 ), per AS (
     SELECT fin.id, fin.ticker, fin.sic,
-           count(*) FILTER (WHERE ff.raw_tag = p.fee_tag) AS fee,
-           count(*) FILTER (WHERE ff.raw_tag = p.fee_tag AND ff.fiscal_period = 'FY') AS fee_fy,
+           count(*) FILTER (WHERE ff.raw_tag = ANY (p.fee_tags)) AS fee,
+           count(*) FILTER (WHERE ff.raw_tag = ANY (p.fee_tags) AND ff.fiscal_period = 'FY') AS fee_fy,
            count(*) FILTER (WHERE ff.raw_tag = ANY (p.total_tags)) AS total,
            count(*) FILTER (WHERE ff.raw_tag IS NULL
-                               OR (ff.raw_tag <> p.fee_tag AND NOT ff.raw_tag = ANY (p.total_tags))) AS other,
-           min(ff.fiscal_year) FILTER (WHERE ff.raw_tag = p.fee_tag) AS first_fee_fy,
-           max(ff.fiscal_year) FILTER (WHERE ff.raw_tag = p.fee_tag) AS last_fee_fy
+                               OR (NOT ff.raw_tag = ANY (p.fee_tags)
+                                   AND NOT ff.raw_tag = ANY (p.total_tags))) AS other,
+           min(ff.fiscal_year) FILTER (WHERE ff.raw_tag = ANY (p.fee_tags)) AS first_fee_fy,
+           max(ff.fiscal_year) FILTER (WHERE ff.raw_tag = ANY (p.fee_tags)) AS last_fee_fy
     FROM fin
     JOIN financial_fact ff ON ff.company_id = fin.id
     CROSS JOIN params p
@@ -114,11 +118,12 @@ LIMIT 200;
 
 \echo '3. Calculated rows (source derived) at financial companies with a fee-tag revenue operand, by concept and'
 \echo '   current, then in total (the row with no concept): the revenue quarters a fee row entered and the'
-\echo '   margins over them. An operand carries the fee tag as its own tag or, when it is a calculated quarter,'
+\echo '   margins over them. An operand carries a fee tag as its own tag or, when it is a calculated quarter,'
 \echo '   anywhere in its lineage. companies: how many hold them.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
-           'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
+           ARRAY['us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+                 'us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax']::text[] AS fee_tags,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard
 ), fin AS MATERIALIZED (
     SELECT c.id
@@ -134,14 +139,16 @@ WITH params AS (
     JOIN financial_fact ff ON ff.company_id = fin.id
     CROSS JOIN params p
     WHERE ff.source = 'derived' AND ff.concept IN ('revenue', 'net_margin', 'operating_margin', 'gross_margin')
-      AND strpos(ff.provenance::text, p.fee_tag) > 0
+      AND EXISTS (SELECT 1 FROM unnest(p.fee_tags) AS f(tag) WHERE strpos(ff.provenance::text, f.tag) > 0)
 ), on_fee AS (
     SELECT k.*
     FROM calc k
     CROSS JOIN params p
     WHERE json_typeof(k.inputs) = 'array'
       AND EXISTS (SELECT 1 FROM json_array_elements(k.inputs) AS i(operand)
-                  WHERE i.operand ->> 'concept' = 'revenue' AND strpos(i.operand::text, p.fee_tag) > 0)
+                  WHERE i.operand ->> 'concept' = 'revenue'
+                    AND EXISTS (SELECT 1 FROM unnest(p.fee_tags) AS f(tag)
+                                WHERE strpos(i.operand::text, f.tag) > 0))
 )
 SELECT concept, is_latest AS current, count(*) AS rows, count(DISTINCT company_id) AS companies
 FROM on_fee
@@ -149,11 +156,12 @@ GROUP BY GROUPING SETS ((concept, is_latest), ())
 ORDER BY concept NULLS LAST, is_latest DESC;
 
 \echo '4. Current net margins above 100% at financial companies, by company, the most first. on_fee: those whose'
-\echo '   revenue operand carries the fee tag, as in set 3. max_margin: the largest, at max_fy and max_fp. all_rows:'
+\echo '   revenue operand carries a fee tag, as in set 3. max_margin: the largest, at max_fy and max_fp. all_rows:'
 \echo '   every such margin in the cohort.'
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
-           'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'::text AS fee_tag,
+           ARRAY['us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+                 'us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax']::text[] AS fee_tags,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
            100::numeric AS full_margin
 ), fin AS MATERIALIZED (
@@ -175,7 +183,9 @@ WITH params AS (
            EXISTS (SELECT 1
                    FROM json_array_elements(CASE WHEN json_typeof(h.inputs) = 'array' THEN h.inputs END)
                         AS i(operand)
-                   WHERE i.operand ->> 'concept' = 'revenue' AND strpos(i.operand::text, p.fee_tag) > 0) AS on_fee
+                   WHERE i.operand ->> 'concept' = 'revenue'
+                     AND EXISTS (SELECT 1 FROM unnest(p.fee_tags) AS f(tag)
+                                 WHERE strpos(i.operand::text, f.tag) > 0)) AS on_fee
     FROM high h
     CROSS JOIN params p
 ), per AS (

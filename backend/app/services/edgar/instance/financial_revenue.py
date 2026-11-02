@@ -18,13 +18,12 @@ investment income is one of the parts the rule reads beside the fee element.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.services.facts.fi_revenue import FEE_TAG, NON_606_TAGS, TOTAL_TAGS, financial_revenue_tags
+from app.services.facts.fi_revenue import RULE_TAGS, financial_revenue_tags
 
 from .core import _currency, _iso_date, _numeric, _reporting_currency, logger
 from .financial_profiles import is_financial_institution
 
 FILING_REVENUE_PROFILES = frozenset({"bank", "financial_generic"})
-_RULE_TAGS = (*TOTAL_TAGS, FEE_TAG, *NON_606_TAGS)  # every element the rule reads
 _UNIT = "filing"  # the one unit the filing's items are listed under: its reporting currency
 
 
@@ -42,7 +41,7 @@ def _choose(xb: Any, company: Any, sic: Optional[str], form: str, period_of_repo
     if not is_financial_institution(company, sic):
         return None
     facts = []  # (tag, end, value, currency, start): undimensioned, valued, and no later than the filing's period
-    for tag in _RULE_TAGS:
+    for tag in RULE_TAGS:  # every element the rule reads
         for row in _rows(xb, tag):
             end, value = _iso_date(row.get("period_end")), _numeric(row.get("numeric_value"))
             if row.get("is_dimensioned") or end is None or value is None or end > period_of_report:
