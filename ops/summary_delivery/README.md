@@ -39,7 +39,8 @@ Prerequisites are the existing project APIs and approved deployer permissions,
 `gcloud` authentication, `psql`, and the pinned Cloud SQL proxy binary at repository
 root. `SUMMARY_DELIVERY_DEPLOYER` identifies the existing project deployer service
 account. The tool grants that identity act-as on the temporary runtime identity
-and OpenID-token creation on the temporary invoker. It never creates a service
+and OpenID-token creation on both temporary identities for positive/negative
+ingress checks. It never creates a service
 account key. Existing resources with these names are not adopted by apply.
 
 ## Fixed resource contract
@@ -61,15 +62,18 @@ deletion tombstones colliding with a later rehearsal. Workers are verified by
 actual distinct Cloud Run resource identities, not different URL aliases.
 
 Before fixtures run, each service must deny an anonymous request and a valid
-Google identity token for another service's audience, then accept its own
-audience. This checks effective ingress, including inherited public IAM. Real
+Google identity token for another service's audience and a correct-audience token
+for the runtime identity, which has no intended invocation grant. It must then
+accept its invoker identity's own audience. Twelve health requests check effective
+ingress, including inherited public or all-authenticated IAM. Real
 task delivery still passes the existing receiver's signed Google-token verifier.
 
 The runtime identity checks its own metadata identity and effective access to
 every production secret reference discovered by the plan; any production-secret
 access refuses startup. Only the two temporary secrets are mounted. All model,
 mail and telemetry credentials are absent/disabled. A Python socket guard allows
-only fixed Google control endpoints; the SQL connection is the fixed Unix socket
+only fixed Google control endpoints; uvicorn uses Python's asyncio loop for those
+Python socket boundaries. The SQL connection is the fixed Unix socket
 and restricted role. This guard is not an OS firewall or native-code sandbox.
 
 ## Database admission and credential boundaries
@@ -118,7 +122,9 @@ The ordinary account lookup/token issuance and summary state/persistence owners
 still run. A 70-second summary and a 200-second cancellation-resistant fixture
 exercise mail separation and the real 80-second child deadline. The supervisor's
 actual child process is observed to have a return code after its real kill/wait
-path; a replacement delivery must finish the stalled filing.
+path; a replacement delivery must finish the stalled filing. Fixture-child stdout
+and stderr are discarded so document/provider exceptions cannot enter cloud logs;
+this changes neither the supervisor deadline nor its kill/wait ownership.
 
 Successful acceptance requires two complete persisted summaries, attempts one
 and two respectively, two settled logical charges, zero remaining reservations,

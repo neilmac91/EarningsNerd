@@ -111,9 +111,10 @@ def install_network_guard() -> None:
     def audit(event, args):
         if event == "socket.connect" and isinstance(args[1], tuple) and args[1][0] not in resolved:
             raise Refused("unexpected_network")
-        host = args[0].decode("ascii") if event == "socket.getaddrinfo" and isinstance(args[0], bytes) else args[0]
-        if event == "socket.getaddrinfo" and host not in ALLOWED_HOSTS:
-            raise Refused("unexpected_network")
+        if event == "socket.getaddrinfo":
+            host = args[0].decode("ascii") if isinstance(args[0], bytes) else args[0]
+            if host not in ALLOWED_HOSTS:
+                raise Refused("unexpected_network")
 
     sys.addaudithook(audit)
 
@@ -361,6 +362,11 @@ def make_app(role: str, run_id: str):
             spawn = asyncio.create_subprocess_exec
 
             async def observed_spawn(*args, **kwargs):
+                # Fixture children must not emit provider/document/token-bearing
+                # app exceptions into inherited cloud logs. The real supervisor
+                # still owns stdin, timeout, kill and reap without alteration.
+                kwargs["stdout"] = asyncio.subprocess.DEVNULL
+                kwargs["stderr"] = asyncio.subprocess.DEVNULL
                 process = await spawn(*args, **kwargs)
                 created.append(process)
                 return process
@@ -440,7 +446,7 @@ def main() -> int:
         return child_main()
     import uvicorn
     uvicorn.run(make_app(role, run_id), host="0.0.0.0", port=int(os.environ.get("PORT", "8080")),
-                access_log=False, log_level="warning")
+                access_log=False, log_level="warning", loop="asyncio")
     return 0
 
 

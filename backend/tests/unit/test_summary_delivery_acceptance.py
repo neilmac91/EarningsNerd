@@ -5,9 +5,14 @@ import asyncio
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import os
 from pathlib import Path
+import socket
+import subprocess
 import sys
+import time
 from urllib.error import HTTPError
+from urllib.request import urlopen
 
 import pytest
 
@@ -159,13 +164,14 @@ def test_failed_service_delete_still_removes_independent_resources_and_retains_d
     assert "untrusted" not in str(result)
 
 
-@pytest.mark.parametrize("public", [False, True])
+@pytest.mark.parametrize("public", [False, True, "authenticated"])
 def test_effective_ingress_checks_detect_inherited_public_invocation(monkeypatch, public):
     m = approved()
 
     class Cloud:
         def call(self, api, path, **kwargs):
-            return {"token": kwargs["body"]["audience"]}
+            prefix = "runtime:" if spec.RUNTIME_IDENTITY in path else ""
+            return {"token": prefix + kwargs["body"]["audience"]}
 
     class Reply:
         def __enter__(self):
@@ -179,8 +185,11 @@ def test_effective_ingress_checks_detect_inherited_public_invocation(monkeypatch
 
     class Opener:
         def open(self, request, timeout):
-            correct = request.headers.get("X-serverless-authorization") == "Bearer " + request.full_url.removesuffix("/health")
-            if not public and not correct:
+            token = request.headers.get("X-serverless-authorization")
+            origin = request.full_url.removesuffix("/health")
+            correct = token == "Bearer " + origin
+            granted = (public is True or correct or public == "authenticated" and token == "Bearer runtime:" + origin)
+            if not granted:
                 raise HTTPError(request.full_url, 403, "denied", None, None)
             return Reply()
 
@@ -189,7 +198,7 @@ def test_effective_ingress_checks_detect_inherited_public_invocation(monkeypatch
         with pytest.raises(spec.Refused, match="effective_private_ingress"):
             manage.verify_private_surface(Cloud(), m)
     else:
-        assert manage.verify_private_surface(Cloud(), m)["health_requests"] == 9
+        assert manage.verify_private_surface(Cloud(), m)["health_requests"] == 12
 
 
 def test_cleanup_budget_is_independent_of_exhausted_apply(monkeypatch):
@@ -202,6 +211,103 @@ def test_cleanup_budget_is_independent_of_exhausted_apply(monkeypatch):
     cloud.begin_cleanup()
     assert cloud.call("run", "example") == {}
     assert cloud.cleanup_calls == 1
+
+
+def test_actual_queue_requests_cannot_extend_attempt_ceiling(monkeypatch):
+    m = approved()
+    sent = []
+
+    class Cloud:
+        def call(self, api, path, *, method="GET", body=None, **kwargs):
+            sent.append((api, path, method, deepcopy(body)))
+            if method == "GET":
+                return {"state": "PAUSED"}
+            if path.endswith(":getIamPolicy"):
+                return {"etag": "retain", "bindings": []}
+            return {}
+
+    manage.create_queues(Cloud(), m)
+    creates = [body for _, path, method, body in sent if method == "POST" and path.endswith("/queues")]
+    assert len(creates) == 2
+    assert {c["name"] for c in creates} == {q["name"] for q in m["queues"]}
+    for body in creates:
+        retry = body["retryConfig"]
+        assert retry["maxAttempts"] == 3
+        assert 0 < int(retry["maxRetryDuration"].removesuffix("s")) < int(retry["minBackoff"].removesuffix("s"))
+        assert retry["minBackoff"] == retry["maxBackoff"] == "30s"
+        assert body["rateLimits"] == {"maxConcurrentDispatches": 1, "maxDispatchesPerSecond": 0.2}
+    assert sum(path.endswith(":pause") for _, path, _, _ in sent) == 2
+
+
+def test_persisted_runtime_budget_and_expiry_never_admit_extra_work(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine, insert, select, update
+    from app import database
+
+    engine = create_engine("sqlite:///" + str(tmp_path / "budget.db"))
+    monkeypatch.setattr(database, "engine", engine)
+    metadata, state, _ = runtime.tables()
+    metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.execute(insert(state).values(id=1, run_id="123", created_at=datetime.now(timezone.utc),
+                                                value={"worker_deliveries": 0, "cloud_create_tasks": 0}))
+    try:
+        for _ in range(12):
+            runtime.consume("123", "worker_deliveries", 12)
+        with pytest.raises(runtime.Refused, match="request_budget"):
+            runtime.consume("123", "worker_deliveries", 12)
+        with engine.begin() as connection:
+            assert connection.execute(select(state.c.value)).scalar_one()["worker_deliveries"] == 12
+            connection.execute(update(state).values(created_at=datetime.now(timezone.utc) - timedelta(seconds=601)))
+        with pytest.raises(runtime.Refused, match="run_expired"):
+            runtime.consume("123", "cloud_create_tasks", 32)
+        with engine.begin() as connection:
+            assert connection.execute(select(state.c.value)).scalar_one()["cloud_create_tasks"] == 0
+            connection.execute(update(state).values(created_at=datetime.now(timezone.utc)))
+        with pytest.raises(runtime.Refused, match="run_expired"):
+            runtime.consume("different-run", "cloud_create_tasks", 32)
+    finally:
+        engine.dispose()
+
+
+def test_network_guard_permits_real_event_loop_uvicorn_and_task_child_startup(tmp_path):
+    # Only the cloud identity/source bootstrap is replaced. The installed audit
+    # hook, event loop, uvicorn listener and native task child startup are real.
+    # This loopback smoke is not cloud OIDC or database delivery acceptance.
+    prefix = (f"import sys; sys.path.insert(0, {str(ROOT)!r}); "
+              "from ops.summary_delivery import runtime; "
+              "runtime.verify_runtime_permissions=lambda:None; "
+              "runtime.validate_environment=lambda *a,**k:('background' if '--child' in sys.argv else 'api','123'); ")
+    env = {**os.environ, "SUMMARY_VERIFY_RUN_ID": "123", "TASKS_WORKER_ROLE": "background"}
+    child = subprocess.run([sys.executable, "-c", prefix + "sys.argv=['runtime','--child']; raise SystemExit(runtime.main())"],
+                           input=b'{"kind":"probe","payload":{}}', stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, env=env, cwd=ROOT / "backend", timeout=20, check=False)
+    assert child.returncode == 0
+    with socket.socket() as available:
+        available.bind(("127.0.0.1", 0))
+        port = available.getsockname()[1]
+    env["PORT"] = str(port)
+    with (tmp_path / "server.log").open("wb+") as log:
+        process = subprocess.Popen([sys.executable, "-c", prefix + "raise SystemExit(runtime.main())"],
+                                   stdout=log, stderr=log, env=env, cwd=ROOT / "backend")
+        try:
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline and process.poll() is None:
+                try:
+                    with urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+                        assert response.read(1024) == b'{"status":"healthy","synthetic":true}'
+                        break
+                except OSError:
+                    time.sleep(0.05)
+            else:
+                log.seek(0)
+                pytest.fail("guarded runtime failed to start: " + log.read(4096).decode(errors="replace"))
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
 
 
 def test_database_headroom_failure_retains_safe_receipt_before_any_mutation(monkeypatch):

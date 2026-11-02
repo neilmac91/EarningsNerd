@@ -50,9 +50,10 @@ class Cloud(BaseCloud):
 
 def production_snapshot(cloud) -> tuple[str, tuple[str, ...]]:
     service = cloud.call("run", "v2/" + spec.PARENT + "/services/earningsnerd-backend")
-    traffic = [row for row in service.get("trafficStatuses", []) if row.get("percent")]
+    traffic = service.get("trafficStatuses", [])
     revision = service.get("latestReadyRevision", "").rsplit("/", 1)[-1]
     if (service.get("reconciling") or len(traffic) != 1 or traffic[0].get("percent") != 100
+            or traffic[0].get("tag") or service.get("latestReadyRevision") != service.get("latestCreatedRevision")
             or traffic[0].get("revision", "").rsplit("/", 1)[-1] != revision
             or not re.fullmatch(r"earningsnerd-backend-[0-9]{5}-[a-z0-9]+", revision)):
         raise spec.Refused("production_not_stable")
@@ -151,6 +152,7 @@ def create_identities(cloud, manifest: dict, deployer: str) -> None:
     runtime_path = f"v1/projects/{spec.PROJECT}/serviceAccounts/{spec.RUNTIME_IDENTITY}"
     invoker_path = f"v1/projects/{spec.PROJECT}/serviceAccounts/{spec.INVOKER_IDENTITY}"
     bind(cloud, "iam", runtime_path, "roles/iam.serviceAccountUser", "serviceAccount:" + deployer, post=True)
+    bind(cloud, "iam", runtime_path, "roles/iam.serviceAccountOpenIdTokenCreator", "serviceAccount:" + deployer, post=True)
     bind(cloud, "iam", invoker_path, "roles/iam.serviceAccountOpenIdTokenCreator", "serviceAccount:" + deployer, post=True)
     bind(cloud, "iam", invoker_path, "roles/iam.serviceAccountUser", "serviceAccount:" + spec.RUNTIME_IDENTITY, post=True)
     bind(cloud, "iam", invoker_path, "roles/iam.serviceAccountTokenCreator",
@@ -204,17 +206,22 @@ class NoRedirect(HTTPRedirectHandler):
 
 def verify_private_surface(cloud, manifest: dict) -> dict:
     """Prove effective ingress, including inherited IAM, using health requests only."""
-    tokens = {}
+    tokens, non_invoker_tokens = {}, {}
     for role in spec.ROLES:
         result = cloud.call("iamcredentials", f"v1/projects/-/serviceAccounts/{spec.INVOKER_IDENTITY}:generateIdToken",
                             method="POST", body={"audience": spec.origin(role, manifest["project_number"]), "includeEmail": True})
         tokens[role] = result.get("token")
         if not isinstance(tokens[role], str) or not tokens[role]:
             raise spec.Refused("invoker_identity_unverified")
+        result = cloud.call("iamcredentials", f"v1/projects/-/serviceAccounts/{spec.RUNTIME_IDENTITY}:generateIdToken",
+                            method="POST", body={"audience": spec.origin(role, manifest["project_number"]), "includeEmail": True})
+        non_invoker_tokens[role] = result.get("token")
+        if not isinstance(non_invoker_tokens[role], str) or not non_invoker_tokens[role]:
+            raise spec.Refused("negative_identity_unverified")
     opener = build_opener(NoRedirect())
     for index, role in enumerate(spec.ROLES):
         wrong_role = spec.ROLES[(index + 1) % len(spec.ROLES)]
-        for token, accepted in ((None, False), (tokens[wrong_role], False), (tokens[role], True)):
+        for token, accepted in ((None, False), (tokens[wrong_role], False), (non_invoker_tokens[role], False), (tokens[role], True)):
             headers = {} if token is None else {"X-Serverless-Authorization": "Bearer " + token}
             request = Request(spec.origin(role, manifest["project_number"]) + "/health", headers=headers)
             try:
@@ -227,8 +234,8 @@ def verify_private_surface(cloud, manifest: dict) -> dict:
                     raise spec.Refused("effective_private_ingress_unverified") from None
             except (URLError, TimeoutError, ValueError):
                 raise spec.Refused("effective_private_ingress_unverified") from None
-    return {"anonymous_denied": True, "wrong_audience_denied": True, "correct_identity_accepted": True,
-            "services_checked": 3, "health_requests": 9}
+    return {"anonymous_denied": True, "wrong_audience_denied": True, "ungranted_identity_denied": True,
+            "correct_identity_accepted": True, "services_checked": 3, "health_requests": 12}
 
 
 class Client:
