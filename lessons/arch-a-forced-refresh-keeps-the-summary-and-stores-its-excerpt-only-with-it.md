@@ -26,12 +26,12 @@ it builds to itself (`get_or_cache_excerpt(..., persist=False)`); finalize store
 as the summary it writes (`upsert_content_cache(..., replace_excerpt=True)`). A replacing run that ends
 with no excerpt (its excerpt thread raised, its build returned nothing, or the enrichment join dropped
 it) keeps the stored one: every forced run but a rebuild reused it as its grounding, and it is the same
-filing's text. Only a rebuild (`rebuild_excerpt`, a forced precompute), whose stored excerpt an older
+filing's text. Only a rebuild (`rebuild_excerpt`: a forced precompute, or E28 (b)'s Ops rebuild), whose stored excerpt an older
 extraction built and main's precompute cleared before generating, clears it then
 (`clear_stale_excerpt`). A run keep-better keeps, or one that fails, raises or is cancelled, stores none.
 Finalize reads the cache row after the summary's row lock, never before it: under READ COMMITTED a row
 read before the wait misses what a save that committed meanwhile stored. To rebuild with the current
-extraction, ask the run (`rebuild_excerpt=True`, which only a forced precompute sets); never clear the
+extraction, ask the run (`rebuild_excerpt=True`, which a forced precompute and E28 (b)'s Ops rebuild set); never clear the
 stored excerpt first. The XBRL snapshot is replaced only by fresh XBRL (`refresh_xbrl`, which only the Pro
 route sets; the drains read the snapshot), and as soon as it arrives, even when the run then fails or
 keep-better keeps the stored summary, since it is the same filing's data. Report a refresh's outcome
