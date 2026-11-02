@@ -295,10 +295,11 @@ function postPasswordChange(
  * a tab left stale by another tab's sign-in still shows the account it loaded with. So both posts name the account the
  * tab shows (`accountId`, read as the change is asked for), and the route refuses with 409, checking, setting and
  * revoking nothing, when the browser's session is another account's (E29 (6)), for an account without a password as for
- * one with. Without an account to name, it names none, and the route changes the password of the account the browser
- * holds, as before the field. And the refusal's cost: a refresh that never answers (the refresh has no timeout of its
- * own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it hangs, where a login or a logout posts
- * at its limit.
+ * one with. Its one caller, ChangePasswordForm, posts nothing when it has no account to name; called without one, it
+ * names none, and the route changes the password of the account the browser holds, as before the field, which leaves
+ * only pages loaded before that field shipped. And the refusal's cost: a refresh that never answers (the refresh has
+ * no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it hangs, where a login
+ * or a logout posts at its limit.
  */
 export const changePassword = async (currentPassword: string | null, newPassword: string, accountId?: number) => {
   const generation = getExplicitSessionGeneration()

@@ -32,8 +32,9 @@ export const LOGGED_OUT_HERE_ONLY_MESSAGE =
  * LOGGED_IN_AS_ANOTHER_MESSAGE's and LOGGED_OUT_HERE_ONLY_MESSAGE's, chief design on #1813) and the password form's
  * refusal for another account (ChangePasswordForm's PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE, E29 (6)). Sonner's own
  * 4 s pauses only under a pointer, on a press, while the tab is hidden or after its Alt+T, so a keyboard reader gets
- * 4 s for 23 to 31 words, about 6 to 8 s of reading, and three of the four arrive as the page changes. CookieConsent's
- * error toast with a step takes the same. */
+ * 4 s for 23 to 31 words, about 6 to 8 s of reading, and two of the four (LOGGED_OUT_FIRST_MESSAGE's and
+ * LOGGED_OUT_HERE_ONLY_MESSAGE's) arrive as the page leaves with its logout; the other two stay on the page while /me
+ * moves the tab to the other account. CookieConsent's error toast with a step takes the same. */
 export const STEP_TOAST_DURATION_MS = 10000
 
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
