@@ -232,6 +232,26 @@ sets the minute cadence/header while preserving PAUSED state. An existing
 unowned, enabled or conflicting caller is refused. No endpoint invocation,
 run/resume operation, feature activation or token rotation is provided.
 
+On a refused plan, a closed selector category and the validated API revision/image
+are retained in the private plan artifact. Only an observed literal `latest`
+allows a metadata-only lookup of that same secret. An ENABLED numeric version may
+be shown as an `UNAPPROVED_UNAPPLIED` candidate; a numeric project scope must first
+match verified metadata for the fixed project. Missing/malformed selectors, other
+aliases or unverifiable metadata yield no candidate. No secret value or hash is
+read, and no Scheduler read follows this refusal. The result still exits 1 with
+no manifest, approval hash or nonce; apply and shared readers keep requiring an
+actual numeric binding. This is diagnosis, not approval or a binding change.
+It describes that revision and alias observation only: deployments, rotation or
+alias movement invalidate it, requiring fresh review before any founder-approved
+pin and a new successful plan afterwards.
+
+Metadata and the already-protected value response compare the same exact secret
+and numeric version across project-ID or verified project-number spelling. A
+pinned request never adopts a different returned version. Project proof is cached
+only within each logical read: at most one fixed-project lookup per API snapshot
+or protected value read. Numeric resource names do not authorize value access or
+relax the token's existing length, ASCII and control-character checks.
+
 Rotation requires a separately reviewed coordinated API binding/caller-header
 change while paused, followed by matching verification. This tool creates no new
 production credential. Its receipt proves paused configuration only; independent
