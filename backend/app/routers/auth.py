@@ -245,6 +245,11 @@ class ChangePasswordRequest(BaseModel):
     # OAuth-only users SETTING a password for the first time (they're already authenticated).
     current_password: Optional[str] = None
     new_password: str
+    # The account the tab shows (E29 (6)), named as the logout of every session names it (E157 (2)). A tab learns of
+    # another tab's login only through /me (E29 (3)), so a stale tab posts with the cookies of the account the browser
+    # holds now, and for an account without a password the route asks for no current one. Naming its own account lets
+    # the route refuse to change another's. Optional, so a page loaded before the field changes as before.
+    account_id: Optional[StrictInt] = None
 
     @field_validator("current_password")
     @classmethod
@@ -1141,10 +1146,23 @@ async def change_password(
     pooled connection is out while the current password is checked, the breached-password check runs or
     the new one is hashed; the change and this device's new session are then one unit, released before
     the route returns (lessons/ops-release-cached-filing-reads-before-yield.md).
+
+    A request that names the account its tab shows (``account_id``) and finds the browser's session is another
+    account's is refused with 409 before anything else runs: no password is checked, set or changed, no session is
+    revoked or issued, and no attempt counts against the account's limit (E29 (6)). One that names none, from a page
+    loaded before the field, is answered as before it.
     """
     # The release detaches the user without expiring it: the id, email and hash the lookup loaded stay
     # readable with no query, here and in the unit below.
     await run_in_threadpool(filing_list_service.release_request_session, db)
+    if payload.account_id is not None and payload.account_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This browser is logged in to a different account from the one this page shows, "
+                "so the password was not changed."
+            ),
+        )
     # Keyed per-user so a logged-in attacker can't brute-force the current password.
     enforce_rate_limit(
         request,

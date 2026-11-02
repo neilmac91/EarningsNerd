@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 from main import app
 from app.database import get_db, SessionLocal
 from app.models import User
+from app.models.refresh_token import RefreshToken
 from app.routers.auth import get_current_user, get_password_hash, verify_password
+from app.services import refresh_token_service
 
 
 @pytest.fixture(scope="module")
@@ -105,6 +107,87 @@ def test_oauth_only_user_can_set_password_without_current(client):
         assert resp.status_code == 200
         assert _reload_hash(uid).startswith("$argon2id$")
         assert verify_password("FirstPassw0rd123!", _reload_hash(uid))
+
+
+def _live_token_ids(uid):
+    db = SessionLocal()
+    try:
+        return sorted(
+            t.id for t in db.query(RefreshToken).filter(RefreshToken.user_id == uid, RefreshToken.revoked_at.is_(None))
+        )
+    finally:
+        db.close()
+
+
+def _mint_session(uid):
+    """A live refresh token for ``uid``: a session the refused change must leave alone."""
+    db = SessionLocal()
+    try:
+        refresh_token_service.mint_refresh_token(db, db.query(User).filter(User.id == uid).first())
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("has_password", [True, False], ids=["password_account", "oauth_only_account"])
+def test_change_password_naming_another_account_changes_nothing(client, has_password):
+    """E29 (6): a tab left showing account A by another tab's sign-in posts with the cookies of the account the browser
+    holds. Naming A, the request is refused with 409 for the browser's account, before any password is checked, set or
+    changed and before any session is revoked or issued; for an account without a password, which the route asks for
+    no current password, as for one with."""
+    with _auth_as(has_password=has_password) as uid:
+        _mint_session(uid)
+        before_hash, before_sessions = _reload_hash(uid), _live_token_ids(uid)
+        assert len(before_sessions) == 1
+
+        resp = client.post(
+            "/api/auth/change-password",
+            json={
+                "current_password": "OldStr0ngPassw0rd!" if has_password else None,
+                "new_password": "BrandNewPassw0rd!",
+                "account_id": uid + 1,
+            },
+        )
+
+        assert resp.status_code == 409, resp.text
+        assert resp.json()["detail"] == (
+            "This browser is logged in to a different account from the one this page shows, "
+            "so the password was not changed."
+        )
+        assert _reload_hash(uid) == before_hash
+        assert _live_token_ids(uid) == before_sessions
+        assert "earningsnerd_refresh_token" not in resp.cookies
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("has_password", [True, False], ids=["password_account", "oauth_only_account"])
+def test_change_password_naming_its_own_account_changes_it(client, has_password):
+    """The tab that shows the browser's account names it and the change goes through as without the field."""
+    with _auth_as(has_password=has_password) as uid:
+        resp = client.post(
+            "/api/auth/change-password",
+            json={
+                "current_password": "OldStr0ngPassw0rd!" if has_password else None,
+                "new_password": "BrandNewPassw0rd!",
+                "account_id": uid,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert verify_password("BrandNewPassw0rd!", _reload_hash(uid))
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("account_id", ["7", True, 1.5], ids=["string", "boolean", "float"])
+def test_change_password_account_id_must_be_an_integer(client, account_id):
+    """The account is named strictly, as the logout of every session names it (StrictInt): a coerced value is refused
+    with 422, before the route runs, rather than read as an account."""
+    with _auth_as(has_password=True) as uid:
+        resp = client.post(
+            "/api/auth/change-password",
+            json={"current_password": "OldStr0ngPassw0rd!", "new_password": "BrandNewPassw0rd!", "account_id": account_id},
+        )
+        assert resp.status_code == 422, resp.text
+        assert verify_password("OldStr0ngPassw0rd!", _reload_hash(uid))
 
 
 @pytest.mark.requires_db

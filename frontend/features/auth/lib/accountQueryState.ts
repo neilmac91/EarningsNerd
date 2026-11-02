@@ -29,7 +29,8 @@ export const LOGGED_OUT_HERE_ONLY_MESSAGE =
   "This browser is logged out, but we couldn't log out your other devices. Log in, then choose “Log out of all devices” again."
 
 /** How long the flight's error toasts that give a step stay up: LOGGED_OUT_FIRST_MESSAGE's, LOGGED_IN_AS_ANOTHER_MESSAGE's
- * and LOGGED_OUT_HERE_ONLY_MESSAGE's (chief design on #1813). Sonner's own 4 s pauses only under a pointer, on a press,
+ * and LOGGED_OUT_HERE_ONLY_MESSAGE's (chief design on #1813), and the password form's refusal for another account
+ * (ChangePasswordForm's PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE, E29 (6)). Sonner's own 4 s pauses only under a pointer, on a press,
  * while the tab is hidden or after its Alt+T, so a keyboard reader gets 4 s for 23 to 31 words, about 6 to 8 s of
  * reading, and two of the three arrive as the page changes. CookieConsent's error toast with a step takes the same. */
 export const STEP_TOAST_DURATION_MS = 10000
