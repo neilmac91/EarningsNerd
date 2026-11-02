@@ -832,6 +832,16 @@ create/read the custom role, set bucket IAM, create/update and run the cleanup j
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.
 
+Provisioning tests those permissions before its first write (`PROVISION_PERMISSIONS` in
+`ops/feedback_media/manage.py`, through Resource Manager `testIamPermissions`, plus `actAs` tested on the
+runtime identity itself) and refuses with the missing names and nothing changed. `feedback-media-inspect`
+prints the same capability check for both provisioning operations, then every component's state (absent,
+verified or refused) before it fails, so one read shows what a retry would meet. A refused provider call
+names its step, the permission that step needs and Google's closed error class (status, reason, denied
+permission); provider messages, resources and principals stay withheld. The check reads the identity's own
+grants only: a disabled API, an organization policy or a grant made on a single resource still surfaces at
+the step itself.
+
 `earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
 one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
 `feedback-media-cleanup-hourly` invokes it at `17 * * * *` in `Etc/UTC` using OAuth and a job-scoped
@@ -936,6 +946,14 @@ The provisioner addresses only these feature resources:
   run; absence of an active browser is not inferred from a timeout. A changed runtime source also
   refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
   through a separately reviewed operation before retrying the new source.
+
+Before any write, the provisioner requires the object role and preview bucket that media provisioning
+creates, and admits itself only while the shared production instance has room: active client backends,
+the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
+summary rehearsal's rule, applied here to `earningsnerd-db`). It prints the counts and refuses otherwise;
+that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
+pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
+connection at :41 to the job budget above.
 
 Before creating resources, the provisioner checks actual project IAM capabilities and SQL
 `CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.

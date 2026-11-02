@@ -366,3 +366,116 @@ def test_a_new_apply_cannot_finalize_an_active_or_unknown_previous_lease(expired
         with pytest.raises(verify.media.OperationError, match="lease"):
             verify.settle_previous_run(Cloud(), Sql(), {}, {"template": {}})
         assert calls == [("GET", None)]
+
+
+@pytest.mark.parametrize("answer, admitted", [
+    ("25|3|0|6", True),    # 22 usable: (6 + 4 + 5) * 10 = 150 <= 154
+    ("25|3|0|7", False),   # (7 + 4 + 5) * 10 = 160 > 154
+    ("25|3|2|1", True),    # reserved_connections counts against usable
+    ("8|3|0|0", False),
+    ("0|3|0|0", False),
+    ("25|3|0|PRINCIPAL", None),
+])
+def test_production_sql_admission_refuses_the_verifier_without_room(monkeypatch, capsys, answer, admitted):
+    statements = []
+    def query(self, statement, *, env=None):
+        statements.append(statement)
+        return answer
+    monkeypatch.setattr(verify.Sql, "query", query)
+    if admitted:
+        verify.Sql({}).admit()
+    else:
+        with pytest.raises(verify.media.OperationError,
+                           match="unreadable" if admitted is None else "insufficient for the isolated verifier; nothing was created"):
+            verify.Sql({}).admit()
+    assert len(statements) == 1 and statements[0].lstrip().startswith("SELECT")
+    assert "PRINCIPAL" not in capsys.readouterr().out
+
+
+def test_the_verifier_role_cap_covers_its_pools_and_one_serial_connection(monkeypatch):
+    pools = {}
+    for mode in ("api", "cleanup"):
+        env = {row["name"]: row.get("value") for row in verify.runtime_env(RUN_ID, IMAGE, HASHES, VERSIONS, mode)}
+        pools[mode] = int(env["DB_POOL_SIZE"]) + int(env["DB_MAX_OVERFLOW"])
+    assert pools["api"] + pools["cleanup"] + 1 <= verify.CONNECTION_LIMIT == 4
+    statements = []
+    def query(self, statement, *, env=None):
+        statements.append(statement)
+        if "rolsuper OR" in statement:
+            return "1"
+        if "count(*) FROM pg_roles" in statement or "count(*) FROM pg_database" in statement or "FROM pg_class" in statement \
+                or "FROM pg_proc" in statement:
+            return "0"
+        if "current_database()" in statement:
+            return f"{verify.DATABASE}:{verify.DATABASE}"
+        return ""
+    monkeypatch.setattr(verify.Sql, "query", query)
+    verify.Sql({}).provision("d" * 64, {})
+    assert sum(f"CONNECTION LIMIT {verify.CONNECTION_LIMIT} PASSWORD" in statement for statement in statements) == 1
+
+
+@pytest.mark.parametrize("state", [None, "role-absent", "role-deleted", "preview-absent", "preview-public"])
+def test_live_verification_refuses_before_any_write_without_completed_media_provisioning(state):
+    calls = []
+    role = {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA", "deleted": state == "role-deleted"}
+    preview = {"name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+               "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True},
+                                    "publicAccessPrevention": "inherited" if state == "preview-public" else "enforced"},
+               "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+    class Cloud:
+        def call(self, api, path, *, method="GET", missing_ok=False, step=None, **_):
+            calls.append((api, method, step))
+            if api == "iam":
+                return None if state == "role-absent" else role
+            return None if state == "preview-absent" else preview
+    if state is None:
+        verify.require_media_prerequisites(Cloud())
+    else:
+        with pytest.raises(verify.media.OperationError, match="refused before any write: media provisioning prerequisite not verified") as refused:
+            verify.require_media_prerequisites(Cloud())
+        assert {"role-absent": "role is absent", "role-deleted": "role is deleted", "preview-absent": "Preview bucket is absent",
+                "preview-public": "preview bucket differs"}[state] in str(refused.value)
+    assert all(method == "GET" and step for _api, method, step in calls)
+
+
+@pytest.mark.parametrize("refusal", [None, "prerequisites", "admission"])
+def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_first_write(monkeypatch, refusal):
+    events = []
+    monkeypatch.setenv("GITHUB_RUN_ID", RUN_ID.split("-")[0])
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    monkeypatch.setenv("FEEDBACK_VERIFY_DEPLOYER", "github-ops-fixture@earnings-nerd.iam.gserviceaccount.com")
+    monkeypatch.setattr(verify, "current_image", lambda *_: IMAGE)
+    monkeypatch.setattr(verify, "fingerprints", lambda: HASHES)
+    monkeypatch.setattr(verify, "preflight_cloud", lambda _cloud: events.append("permissions"))
+    def prerequisites(_cloud):
+        events.append("media prerequisites")
+        if refusal == "prerequisites":
+            raise verify.media.OperationError("Live verification refused before any write")
+    monkeypatch.setattr(verify, "require_media_prerequisites", prerequisites)
+    class Sql:
+        def preflight(self):
+            events.append("sql preflight")
+        def admit(self):
+            events.append("sql admission")
+            if refusal == "admission":
+                raise verify.media.OperationError("Production SQL headroom is insufficient")
+    class Admin:
+        def __enter__(self):
+            events.append("sql admin")
+            return Sql()
+        def __exit__(self, *_):
+            return False
+    monkeypatch.setattr(verify, "sql_admin", lambda _cloud: Admin())
+    def first_write(*_args, **_kwargs):
+        events.append("first write")
+        raise verify.media.OperationError("stop after the first write")
+    monkeypatch.setattr(verify, "secret", first_write)
+    class Cloud:
+        def call(self, api, path, *, method="GET", **_):
+            assert method == "GET" and path == "v2/" + verify.media.SERVICE
+            return {"template": {"containers": [{"image": IMAGE}]}}
+    with pytest.raises(verify.media.OperationError):
+        verify.provision(Cloud())
+    expected = ["permissions", "media prerequisites", "sql admin", "sql preflight", "sql admission", "first write"]
+    stop = {None: len(expected), "prerequisites": 2, "admission": 5}[refusal]
+    assert events == expected[:stop]
