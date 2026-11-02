@@ -530,8 +530,8 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     behind it) for the proxy step, E211. A quarantined row (``_promotable``), or a quarter whose unlabelled twin in
     its unit is current (the upsert's D1 rule), is never made current and its key is left as found, except that this
     sync's own insert there is demoted: a lagging sync never makes the batch's older figure current at a key a newer
-    filing's row holds, and a row current there before stays (a gap only where none was). A proven switch never
-    calls this; a sync in USD alone does (E198)."""
+    filing's row holds; a row current there before stays unless the upsert's insert displaced it, which leaves a gap
+    (that row's figure is older too). A proven switch never calls this; a sync in USD alone does (E198)."""
     own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], _filed(f["accession"], None,
         dates, view), f["value"]) for f in facts if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
     current: dict[tuple[Any, ...], list[Any]] = {}

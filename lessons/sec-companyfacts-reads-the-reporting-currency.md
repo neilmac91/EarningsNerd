@@ -152,7 +152,8 @@ behind a later convenience translation this sync demotes, behind the original's 
 writer stored it behind, or behind the batch's own new row the upsert stored current, the newest
 filing's own figure is shown. Where that newest row is quarantined, or a current unlabelled twin
 holds the quarter, the key is left as found and only the sync's own insert there is demoted: a gap
-where nothing was current, and a row current there before stays. A
+where nothing was current, or where that insert displaced the row current before (an older figure
+too); a row the insert left current stays. A
 guard on the currency step alone is not enough: the upsert's own demotion is per (concept, period,
 unit), a ratio's unit is the same in every currency, and the upsert counts a protected row as newer
 only while it is current. Leaving a held key as found showed the original's superseded 1200 until

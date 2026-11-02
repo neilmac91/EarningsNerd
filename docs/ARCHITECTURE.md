@@ -548,8 +548,9 @@ unused since generation became account-required in #619; kept because migrations
   companyfacts row the per-filing writer stored it behind, or behind the batch's own new row the
   upsert stored current (the upsert counts such a row as newer only while it is current). Where that
   newest row is quarantined, or a current unlabelled twin in its unit holds the quarter, the key is left
-  as found and only the sync's own insert there is demoted: a gap where nothing was current, and a row
-  current there before stays, so the sync never makes the payload's older figure current there. So a
+  as found and only the sync's own insert there is demoted: a gap where nothing was current, or where that
+  insert displaced the row current before (an older figure too), while a row the insert left current stays,
+  so the sync never makes the payload's older figure current there. So a
   delayed payload, or the sync a new Filing triggers before companyfacts shows that filing, never
   demotes the newest such row. The per-filing writer keeps `is_latest` per unit, so a new filing's
   own rows in a new currency stand beside the old

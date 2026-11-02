@@ -2310,21 +2310,24 @@ class TestNativeReportingCurrencySync:
         assert result["demoted"] == (2 if order == "fresh-only" else 0)
         db.close()
 
-    def test_a_lagging_sync_never_leaves_its_own_row_current_where_the_newest_protected_row_is_quarantined(self):
-        # The test above (a filer reporting in CNY) with K24A's FY2024 revenue quarantined by the journaled repair
-        # (rolled back), stored not current. The lagging payload names K24B: the upsert stores K24B's 1250 current
-        # and demotes K24's 1200, since nothing current there is protected. The newest protected row is never made
-        # current, so the key is left as found, but the sync's own insert there is demoted: here a gap, never the
-        # payload's older figure where a newer filing's row sits. Leaving the insert would show 1250 there until
-        # the sync naming K24A. (Where the batch's own row was current before, it stays: left as found.)
+    @pytest.mark.parametrize("currency", ["USD", "CNY"])
+    def test_a_lagging_sync_never_leaves_its_own_row_current_where_the_newest_protected_row_is_quarantined(
+            self, currency):
+        # The test above (a filer reporting in CNY, and here in USD too: E198 runs the step in both) with K24A's
+        # FY2024 revenue quarantined by the journaled repair (rolled back), stored not current. The lagging payload
+        # names K24B: the upsert stores K24B's 1250 current and demotes K24's 1200, since nothing current there is
+        # protected. The newest protected row is never made current, so the key is left as found, but the sync's own
+        # insert there is demoted: here a gap, never the payload's older figure where a newer filing's row sits, the
+        # 1200 the insert displaced included. Leaving the insert would show 1250 there until the sync naming K24A.
+        # (Where the batch's own row was current before, it stays: left as found.)
         from app.database import SessionLocal
         from app.models import FinancialFact
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
-        _checked_sync(db, company, _suffixed(_in_currency(_lagging_usd_payload(fresh=True), "CNY"), tag), final=True)
-        _store_per_filing(db, company, _suffixed(_in_currency(_with_amendment(_lagging_usd_payload(fresh=True)), "CNY"), tag),
+        _checked_sync(db, company, _suffixed(_in_currency(_lagging_usd_payload(fresh=True), currency), tag), final=True)
+        _store_per_filing(db, company, _suffixed(_in_currency(_with_amendment(_lagging_usd_payload(fresh=True)), currency), tag),
                           f"K24A{tag}", "10-K/A", "2025-04-01", writer=svc.upsert_facts)
         row = db.query(FinancialFact).filter_by(company_id=company.id, accession=f"K24A{tag}", concept="revenue").one()
         row.provenance = {**row.provenance, "validation": "unavailable", "reasons": ["repair_rolled_back"]}
@@ -2332,7 +2335,7 @@ class TestNativeReportingCurrencySync:
         lagging = _lagging_usd_payload(fresh=True)
         lagging["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
             1250.0, "2024-12-31", start="2024-01-01", accn="K24B", fy=2024, form="10-K/A", filed="2025-03-01"))
-        result = _checked_sync(db, company, _suffixed(_in_currency(lagging, "CNY"), tag))
+        result = _checked_sync(db, company, _suffixed(_in_currency(lagging, currency), tag))
         assert sorted((float(r.value), r.accession.removesuffix(tag), r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="revenue", period_end=date(2024, 12, 31))) == [
             (1200.0, "K24", False), (1250.0, "K24B", False), (1300.0, "K24A", False)]
