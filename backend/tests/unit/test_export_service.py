@@ -1210,9 +1210,14 @@ class TestAnalysisPdfHtml:
         pane = (components / "NarrativePane.tsx").read_text(encoding="utf-8")
         calculation = re.search(r"provenance\.reasons\.includes\('legacy_calculation'\)\) return '([^']*)'\s+"
                                 r"return provenance\.inputs\.length \? '([^']*)' : '([^']*)'", pane)
-        label = re.search(r"\{citation\.section_ref && \(\s*<span[^>]*>\s*· \{citation\.provenance\?\.method === "
-                          r"'calculated' \? calculationWords\(citation\.provenance\) : citation\.provenance\?\.method "
-                          r"=== 'reported' \? '([^']*)' : citation\.section_ref\}", pane)
+        # The page's label is one function (sourceLabel), which the Sources list prints after its dot and the citation
+        # chip's name and title say, so the words read here are the ones both print.
+        label = re.search(r"function sourceLabel\(citation: AnalysisCitation\): string \| null \{\s*"
+                          r"if \(!citation\.section_ref\) return null\s*"
+                          r"return citation\.provenance\?\.method === 'calculated' \? calculationWords\(citation\.provenance\)\s*"
+                          r": citation\.provenance\?\.method === 'reported' \? '([^']*)' : citation\.section_ref\s*\}", pane)
+        assert re.search(r"\{sourceLabel\(citation\) && \(\s*<span[^>]*>\s*· \{sourceLabel\(citation\)\}", pane), (
+            "the Sources list no longer prints sourceLabel after its dot: re-read it and the port")
         # The dialog says it of a figure ("... for this saved figure.", the Method section that Sources & methods follows)
         # and of an input; the appendix prints the clause both share.
         dialog = (components / "SourceValue.tsx").read_text(encoding="utf-8")
