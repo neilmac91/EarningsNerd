@@ -187,8 +187,8 @@ A failed read stops setup with its exit status and only `permission_denied`, `no
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
 operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
 [the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map, which its
-`INHERITED_CEILING` lets only shrink, pair by pair: the ceiling equals the map, so a fix lowers both in its diff
-and a regrowth would have to raise a ceiling. A new gcloud call discards or captures its stderr instead: the E28 (b)
+`INHERITED_CEILING` copy must equal: a fix lowers both in its diff, and a regrowth would have to raise a
+ceiling too. That is a tripwire for review, not a ratchet CI can hold alone. A new gcloud call discards or captures its stderr instead: the E28 (b)
 rebuild step (`rebuild-e28-excerpts-*`) captures its job execution's, and a failed execution prints only the
 `logs-probe` class with its exit status.
 These mutating actions are not live-test probes. The gate's stdin-program check does not
@@ -1046,10 +1046,13 @@ container's log ("Out-of-memory event", or the timeout) say why it stopped
 execution, which this run meets). Read `excerpt-cohort` before anything is dispatched again.
 
 The order:
-1. Dispatch the dry run.
-2. Read the balance and reserve: about one paid model call a filing, about USD 0.005 each.
-3. Dispatch the apply and approve it.
-4. Dispatch `excerpt-cohort` to read the result back: the window's regex rows move to native.
+1. Confirm the merge's deploy-backend run succeeded, its "Update pregenerate job image" step included: a failed
+   deploy is not retried, and an older image has no script to run.
+2. Dispatch the dry run.
+3. Read the balance and reserve: about one paid model call a filing, about USD 0.005 each.
+4. Dispatch the apply and approve it.
+5. Read the execution as above, then dispatch `excerpt-cohort` to read the result back: the window's regex rows
+   move to native.
 
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.

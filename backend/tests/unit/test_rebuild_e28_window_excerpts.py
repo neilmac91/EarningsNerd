@@ -100,6 +100,7 @@ def _window_cohort(sessions):
     _seed(sessions, "10-Q", TARGETED, created=BEFORE, updated=END)  # last written at the end: not in it either
     _seed(sessions, "10-Q", TARGETED, created=BEFORE, updated=AFTER)  # written in neither (the documented gap)
     _seed(sessions, "10-Q", None, created=IN_WINDOW)  # no excerpt stored
+    _seed(sessions, "10-Q", UNCLASSIFIED, created=IN_WINDOW)  # neither builder's opening: not the regex builders'
     return selected
 
 
@@ -110,8 +111,12 @@ def _run(sessions, *, apply, generate=None, emit=None):
     return code, reports
 
 
+class _Unreachable(BaseException):
+    """Past rebuild_one's `except Exception`, so a rebuild where none may run fails the test itself."""
+
+
 async def _never(*_args, **_kwargs):
-    raise AssertionError("no rebuild may run")
+    raise _Unreachable("no rebuild may run")
 
 
 def _replace(sessions, filing_id, excerpt):
@@ -372,6 +377,21 @@ def test_the_entry_point_reads_the_tasks_own_attempt(monkeypatch, capsys):
     monkeypatch.setenv("CLOUD_RUN_TASK_ATTEMPT", "1")
     assert rebuild.main(["--apply"]) == 2
     assert capsys.readouterr().out == 'E28_REBUILD {"expected": 15, "mode": "apply", "refused": "retry_attempt"}\n'
+
+
+def test_the_default_orchestrator_is_generate_summary_background_called_as_precompute_one_calls_it():
+    """In Cloud Run, run() imports its orchestrator itself; every other test injects one. The default must be the
+    one orchestrator's background entry, and the call rebuild_one makes must bind to its real signature."""
+    import inspect
+
+    from app.services.summary_generation_service import generate_summary_background
+
+    tree = ast.parse(SCRIPT.read_text())
+    [run_def] = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "run"]
+    defaults = [ast.unparse(node) for node in ast.walk(run_def) if isinstance(node, ast.ImportFrom)
+                and node.module == "app.services.summary_generation_service"]
+    assert defaults == ["from app.services.summary_generation_service import generate_summary_background as generate"]
+    inspect.signature(generate_summary_background).bind(1, None, force_regenerate=True, rebuild_excerpt=True)
 
 
 def test_the_entry_block_starts_as_the_pregenerate_jobs_scripts_do():

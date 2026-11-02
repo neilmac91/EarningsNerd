@@ -6,8 +6,8 @@ gcloud's stderr can name the acting principal, a host or a URL, and the Actions 
 repository is public. Two leaks were found after #1181: describe-service's shell read inherited
 gcloud's stderr, and logs-probe printed the stderr it had captured. Both now print a closed class.
 These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless INHERITED
-lists it (the jobs-channel and rollback actions whose progress output remains operator evidence; INHERITED_CEILING
-lets that list only shrink), a file that captures stderr is only ever tested with `grep -q`, the logs-probe,
+lists it (the jobs-channel and rollback actions whose progress output remains operator evidence; a copy,
+INHERITED_CEILING, must equal it, so growing it takes a raised ceiling a review refuses), a file that captures stderr is only ever tested with `grep -q`, the logs-probe,
 proxy-secret and E28 rebuild classifiers name the class describe-service's gcloud_json() names, and an ops/ module
 never lets a child process inherit stderr and captures or reads one only in the two gcloud_json() seams or the
 fixed summary snapshot's private, auto-removed files with bounded reads. No step turns on bash's trace, which
@@ -146,10 +146,11 @@ INHERITED = {
     ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
     ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
 }
-# The most INHERITED may ever hold, pair by pair: the pairs #1195 listed, less the proxy step's, which #1258
-# fixed, at their counts then. It carries no slack: it equals INHERITED, so a fix lowers both in its own diff, and
-# a call that let stderr through again would have to raise a ceiling here, which nothing may do (rule 12). A pair
-# missing from it has a ceiling of 0. A new gcloud call discards its stderr or captures it for a closed class.
+# The most INHERITED may hold, pair by pair: the pairs #1195 listed, less the proxy step's, which #1258 fixed, at
+# their counts then. The gate holds it equal to INHERITED, so a fix lowers both in its own diff, and a call that
+# let stderr through again would have to raise a ceiling here as well. That is a tripwire, not a ratchet: one diff
+# can raise both, and only review refuses a raised ceiling (a true ratchet would read the base revision, which CI's
+# checkout does not hold). A new gcloud call discards its stderr or captures it for a closed class.
 INHERITED_CEILING = {
     ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
     ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
@@ -680,10 +681,9 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         elif where != "discarded":
             captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
-    risen = {pair: count for pair, count in INHERITED.items() if count > INHERITED_CEILING.get(pair, 0)}
-    assert not risen, f"INHERITED only shrinks: discard or classify a new call's stderr rather than list it: {risen}"
     assert INHERITED_CEILING == INHERITED, (
-        "a fix lowers INHERITED_CEILING with INHERITED, so no slack is left for a regrowth")
+        "INHERITED only shrinks: a fix lowers INHERITED_CEILING with it; discard or classify a new call's stderr "
+        "rather than raise a ceiling")
     assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"),
                         (PROXY_STEP, "/tmp/proxy-secret.err"), (REBUILD_STEP, "/tmp/e28-rebuild.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
