@@ -1535,7 +1535,7 @@
     },
     {
       "name": "a_margin_whose_input_carries_a_scale_finding",
-      "about": "Revenue FY2019 carries a factor of 1,000 (a note and a figure of the line); net margin, calculated, carries it on its FY2019 revenue input, so it is no figure of the line, and both series' growths as first reported are n/m on FY2019 and FY2020.",
+      "about": "Revenue FY2019 carries a factor of 1,000 (a note and a figure of the line); net margin, calculated, carries it on its FY2019 revenue input, so it is no figure of the line, though it takes revenue's note, as the producer marks a calculation on its input's finding (E289); both series' growths as first reported are n/m on FY2019 and FY2020.",
       "dataset": {
         "ticker": "REGN",
         "company_name": "Regeneron Pharmaceuticals",
@@ -1904,12 +1904,14 @@
                 "accession": "0001804220-22-000007",
                 "raw_tag": null,
                 "derived": false,
-                "reconciled": true,
+                "reconciled": false,
                 "provenance": {
                   "version": 1,
                   "method": "calculated",
-                  "validation": "passed",
-                  "reasons": [],
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
                   "formula": "100 * net_income / revenue",
                   "inputs": [
                     {
@@ -1966,12 +1968,14 @@
                 "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
                 "fiscal_year": 2019,
                 "fiscal_period": "FY",
-                "yoy_reconciled": true,
+                "yoy_reconciled": false,
                 "yoy_provenance": {
                   "version": 1,
                   "method": "calculated",
-                  "validation": "passed",
-                  "reasons": [],
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
                   "formula": null,
                   "inputs": []
                 },
@@ -2041,12 +2045,14 @@
                 "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
                 "fiscal_year": 2020,
                 "fiscal_period": "FY",
-                "yoy_reconciled": true,
+                "yoy_reconciled": false,
                 "yoy_provenance": {
                   "version": 1,
                   "method": "calculated",
-                  "validation": "passed",
-                  "reasons": [],
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
                   "formula": null,
                   "inputs": []
                 },

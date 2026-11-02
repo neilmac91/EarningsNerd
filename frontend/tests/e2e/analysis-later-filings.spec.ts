@@ -17,6 +17,10 @@ const FIXTURE = JSON.parse(readFileSync(path.join(__dirname, '../../../backend/t
   cases: Array<{ name: string; dataset: AnalysisDataset }>
 }
 const planted = (name: string) => structuredClone(FIXTURE.cases.find((entry) => entry.name === name)!.dataset)
+// The datasets the producer builds (backend/tests/unit/test_first_reports_wire.py keeps the file equal to its output).
+const PRODUCED = JSON.parse(readFileSync(path.join(__dirname, '../../../backend/tests/fixtures/analysis_first_reports_produced.json'), 'utf8')) as {
+  datasets: Record<string, AnalysisDataset>
+}
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 const LINE = '[data-analysis-later-filings]'
 
@@ -97,5 +101,41 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
     await expect(dialog).toContainText('As first reported: n/m')
     await expect(dialog).toContainText('Needs review · Note a')
     expect(await overflow(page), 'nothing scrolls sideways, page or dialog').toEqual({ page: 0, dialog: 0 })
+  })
+})
+
+/** A KPI change line's letter where the change fills the card (E289): the producer marks the net margin over its slipped
+ *  revenue input, so its window change across the slipped year, -36,374.6pp, takes note a. At 320px the line breaks after
+ *  its label, never between the change and its letter (chief design's probe on #1951 found the letter alone on a line). */
+for (const theme of THEMES) test.describe(`analysis KPI change line / ${theme} / 320px`, () => {
+  test.use({ viewport: { width: 320, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('a long change keeps its letter on its line', async ({ page, baseURL }) => {
+    test.setTimeout(90_000)
+    const dataset = structuredClone(PRODUCED.datasets['an-inputs-finding FY2018..FY2021'])
+    await openDataset(page, baseURL!, dataset, theme, selectHeadlineFigures(dataset).length)
+    const card = page.locator('[data-analysis-kpi]').filter({ has: page.getByRole('term').filter({ hasText: /^Net margin$/ }) })
+    const change = card.locator('[data-kpi-change]')
+    await expect(change.locator('[data-note-letter]')).toHaveText('a')
+    const geometry = await change.evaluate((pair) => {
+      const glyphs: Array<{ left: number; right: number; top: number; bottom: number }> = []
+      const range = document.createRange()
+      const walker = document.createTreeWalker(pair, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement!.closest('[data-note-letter]') || !node.textContent!.trim()) continue
+        range.selectNodeContents(node)
+        for (const rect of range.getClientRects()) if (rect.width && rect.height) glyphs.push({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom })
+      }
+      const mark = pair.querySelector('[data-note-letter]')!.getBoundingClientRect()
+      const box = pair.closest('[data-analysis-kpi]')!.getBoundingClientRect()
+      return { glyphs, mark: { left: mark.left, right: mark.right, top: mark.top }, box: { left: box.left, right: box.right } }
+    })
+    expect(new Set(geometry.glyphs.map((glyph) => Math.round(glyph.top))).size, 'the change keeps one line').toBe(1)
+    const end = geometry.glyphs.at(-1)!
+    // Wrapped onto a line of its own, the letter would start at the card's inset, left of its change's end.
+    expect(geometry.mark.left, 'the letter follows its change').toBeGreaterThanOrEqual(end.right - 0.5)
+    expect(geometry.mark.top, 'the letter sits on its change line, raised').toBeLessThan(end.bottom)
+    expect(geometry.mark.right, 'the letter stays inside its card').toBeLessThanOrEqual(geometry.box.right)
+    expect(await overflow(page), 'nothing scrolls sideways').toEqual({ page: 0, dialog: 0 })
   })
 })

@@ -9,9 +9,9 @@ import type { FactInput, FactProvenance } from '@/features/analysis/lib/provenan
  * Where a later filing reports a value other than the one a fiscal year's own annual report gave, the point shows the
  * later one and carries the own report's as `first_reported`, an input of a calculated figure likewise; a YoY whose two
  * years sit on different bases reads "nm" and carries `yoy_first_reported`. None of it is a data note: only the exact
- * sign flip or factor of 1,000ⁿ can also be one (the producer's `source_conflict`, which it writes only on a reported
- * figure whose own-report row passed its checks, D6, never on a calculated figure for an input's finding), and the
- * notes model reads that from the point's provenance as it reads any note. Every field is optional and a dataset without them is read exactly as
+ * sign flip or factor of 1,000ⁿ can also be one (the producer's `source_conflict`, which it writes on a reported figure
+ * whose own-report row passed its checks, D6, and on a calculated figure whose input carries such a finding, at any
+ * depth, E289), and the notes model reads that from the point's provenance as it reads any note. Every field is optional and a dataset without them is read exactly as
  * before; the reader lands before its producer, so a deployed page never misstates a cause (WP5a-F1).
  *
  * Annual runs alone carry it. WP5b (#1682) stores fiscal-year history rows only, and the producer (WP5a-B) sends

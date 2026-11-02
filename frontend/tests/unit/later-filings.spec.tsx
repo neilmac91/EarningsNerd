@@ -328,6 +328,21 @@ describe('the evidence dialog gives both filings (D11)', () => {
     expect(within(netIncome).getByRole('link', { name: /^Open original SEC filing for net income/ })).toBeInTheDocument()
     expect(dialog.querySelector('[data-note-letter]')).toBeNull()
   })
+
+  it('marks a calculated figure whose input carries a sign or scale finding with its input’s letter (E289)', async () => {
+    // The producer marks the margin on its FY2019 revenue input's factor of 1,000 with revenue's reasons, so the two
+    // share note a; the dialog keeps the finding on the input (item 5) and none on the figure.
+    const dataset = planted('a_margin_whose_input_carries_a_scale_finding')
+    render(<DataNotesProvider dataset={dataset}><MetricsTable dataset={dataset} /></DataNotesProvider>)
+    for (const name of [/^Revenue, FY2019: .*data note a/, /^Net margin, FY2019: .*calculated, data note a/]) {
+      expect(screen.getByRole('button', { name }).querySelector('[data-note-letter="a"]'), String(name)).not.toBeNull()
+    }
+    await userEvent.click(screen.getByRole('button', { name: /^Net margin, FY2019: / }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('Needs review · Note a')
+    const revenue = within(dialog).getAllByRole('listitem').find((item) => /^revenue/i.test(item.textContent ?? ''))!
+    expect(revenue).toHaveTextContent('A later filing reports a value 1,000 times larger than the year’s own annual report.')
+  })
 })
 
 /** The comparison section of an open evidence dialog. */
