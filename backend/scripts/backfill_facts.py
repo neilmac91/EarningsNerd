@@ -13,6 +13,7 @@ Usage:
   python scripts/backfill_facts.py                 # full, idempotent pass over all filings
   python scripts/backfill_facts.py --only-new      # incremental: only un-normalized filings
   python scripts/backfill_facts.py --limit 500     # cap the number of filings processed
+  python scripts/backfill_facts.py --tickers JPM,BAC  # the full pass over these companies' filings only
 
   # Populate Company.sic from EdgarTools (run FIRST — no ingestion path writes it, so it is NULL,
   # which breaks Peers and the financial-remediation SIC selection). Requires network (SEC).
@@ -36,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logger = logging.getLogger(__name__)
 
 
-def _main(*, only_unprocessed: bool, limit: int | None) -> None:
+def _main(*, only_unprocessed: bool, limit: int | None, tickers: list[str] | None = None) -> None:
     from app.database import SessionLocal
     from app.services import facts_service
 
@@ -60,7 +61,7 @@ def _main(*, only_unprocessed: bool, limit: int | None) -> None:
                 return facts_service._fetch_companyfacts_sync(cik)
 
             stats = facts_service.backfill_facts(
-                db, limit=limit, only_unprocessed=only_unprocessed,
+                db, limit=limit, only_unprocessed=only_unprocessed, tickers=tickers,
                 companyfacts_fetcher=fetch_companyfacts,
             )
             attempt.record(stats)
@@ -167,8 +168,8 @@ if __name__ == "__main__":
         "--tickers",
         type=str,
         default=None,
-        help="Comma-separated tickers to remediate / backfill (default: all financial-SIC filers / "
-             "all companies missing SIC).",
+        help="Comma-separated tickers: the pass, remediation or SIC backfill runs over these companies only "
+             "(default: every filing with stored XBRL / all financial-SIC filers / all companies missing SIC).",
     )
     parser.add_argument(
         "--dry-run",
@@ -182,13 +183,19 @@ if __name__ == "__main__":
             "--dry-run is supported only with --remediate-financials or --backfill-company-sic"
         )
 
+    tickers = None
+    if args.tickers is not None:
+        tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+        if not tickers:
+            # Every mode reads an empty list as no filter: every filing, financial filer or company missing SIC.
+            parser.error("--tickers names no ticker; omit the flag for the mode's default cohort")
+
     from app.public_email_addresses import SUPPORT_EMAIL
 
     os.environ.setdefault("EDGAR_IDENTITY", f"EarningsNerd {SUPPORT_EMAIL}")
-    tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
     if args.backfill_company_sic:
         _backfill_sic(tickers=tickers, limit=args.limit, dry_run=args.dry_run)
     elif args.remediate_financials:
         _remediate(tickers=tickers, limit=args.limit, dry_run=args.dry_run)
     else:
-        _main(only_unprocessed=args.only_new, limit=args.limit)
+        _main(only_unprocessed=args.only_new, limit=args.limit, tickers=tickers)
