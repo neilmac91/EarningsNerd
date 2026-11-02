@@ -242,7 +242,7 @@ CODE_ATTRS = re.compile(
 EXEMPT: dict[str, tuple[int, str]] = {
     "app/services/ai/markdown_render.py": (3, "founder: eval-pinned summary fallback text"),
 
-    "app/routers/contact.py::send_contact_notifications": (11, "backend-mail-templates"),
+    "app/routers/contact.py::send_contact_notifications": (6, "backend-mail-templates: internal team notice"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
         19,
