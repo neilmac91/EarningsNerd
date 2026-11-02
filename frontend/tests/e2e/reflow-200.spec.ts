@@ -2877,9 +2877,9 @@ for (const width of [390, 360, 320]) {
     geometry reads no sr-only text as a line; an entry whose name another link on the page shares is found in the pane.
     The run holds the last word's last letter, not the word: a no-wrap last word ran 70px past a source's 110px
     row at 320px under 200% text, so every entry now holds its lines and its glyph inside the link side to side as well.
-    The filing viewer drawer's "Open original" has no case: no route mounts the drawer (the app mounts the viewer
-    embedded), and the unit gate holds its markup. The Filing tab's footer link stands alone in its row, so it takes the
-    4px inset and its entry holds its words and its square inside it (chief design on #1918, 5729280088). */
+    The filing viewer's drawer and its "Open original" went with E280: no route mounted it. The Filing tab's footer
+    link stands alone in its row, so it takes the 4px inset and its entry holds its words and its square inside it
+    (chief design on #1918, 5729280088). */
 const ARROW_CHANGE_REPORT = {
   has_prior: true,
   comparison_basis: 'Year over year',

@@ -1,6 +1,6 @@
 # Guard every Stripe handler that writes the account's subscription binding — another subscription's non-entitling event never revokes an entitled one
 
-Date: 2026-10-16   Area: arch
+Date: 2026-10-16 (Stripe-ranked cross-subscription events 2026-10-28, E98)   Area: arch
 
 **Context**: An account holds one Stripe subscription binding (`Subscription.stripe_subscription_id`,
 mirrored on `User`). A user whose old subscription A went past_due resolves to Free and may check
@@ -30,19 +30,22 @@ account it was kept from changing. Checkout's `already_synchronized` ignore is n
 the subscription already bound it writes nothing, yet returns the user while the account is Pro
 (`test_checkout_after_subscription_event_preserves_authoritative_state` pins that return), so the
 worker still queues `subscription_activated` for it.
+Since E98 the webhook worker also reads Stripe for an account's created/updated event about another
+subscription: the bound one, then the event's own, both before any write, and hands both to the upsert
+(`bound=`), which lets the event's subscription take the binding only when it outranks the bound one by
+Stripe's current state (`subscription_sync.outranks_binding`: grants Pro, then newer `created`, then
+higher ID). The payload's claim never decides, so a stale replay of an old subscription's "active"
+state is judged on what Stripe holds now. Never write the bound snapshot before the candidate in the
+same session: the sessions do not autoflush, so on a binding held by the `User` mirror alone each write
+makes its own pending row and the commit fails on the unique `user_id`.
 
-**Still open**: an *entitling* event for another subscription still rebinds (pinned in
-`test_subscription_reconciliation.py`), and that strands a payer even with one live subscription.
-A stale retry of A's earlier "active" update (Stripe retries a 503'd delivery for up to three
-days) that arrives after B is bought passes this guard and rebinds the account to A. A's next
-event then revokes Pro while B is active and billed: A's deletion is now current, and an update
-for A is now reconciled from Stripe as unpaid or canceled. While A's stale row still grants Pro,
-B's deletion is ignored as not current and this guard ignores B's non-entitling updates, so only
-an entitling B update moves the binding back. Reading Stripe for a cross-ID created/updated event before
-rebinding would resolve the stale replay to A's real state, but it reverses the no-read
-"different" case of `test_outside_current_id_scope_preserves_existing_behavior_without_read`, so
-it needs the founder. With two live subscriptions, either single-slot choice strands the account
-on one cancellation order.
+**Still open**: a stale, retried `checkout.session.completed` for an old subscription still binds it
+as active over a binding that is not entitled (checkout events read nothing, and
+`different_entitled_subscription` refuses only while the account is Pro). An account with no binding
+takes its first one from the payload, unread. With two live subscriptions, deletion reads nothing, so
+cancelling the bound one leaves the older payer Free until that one's next event. An account the old
+bug already stranded heals on its replacement's next event, which a replacement already ended never
+sends; the read-only check in `tasks/todo.md` (E98) still finds those.
 
 **Gate**: `backend/tests/unit/test_subscription_identity.py` —
 `test_eligible_replacement_survives_old_checkout_and_deletion` (checkout, deletion) and
@@ -52,6 +55,13 @@ incomplete_expired, elapsed trialing), with the boundary pins
 active or future-trial C) and `test_unentitled_account_still_binds_a_new_non_active_subscription`;
 `test_trial_started_is_recorded_only_when_the_upsert_applies` holds the worker's analytics to the
 same outcome (an ignored late created(trialing) for A queues no trial start, an applied one does).
+The Stripe-ranked path (E98): `test_outranks_binding_orders_by_pro_then_created_then_id` (the order, both
+ways) and `test_the_guarded_writer_with_stripes_bound_state_rebinds_only_an_outranking_subscription` (the
+writer's late-event case for `bound=`) here, and in `test_subscription_reconciliation.py`, through the real
+reader and transport, `test_a_stale_old_event_cannot_restore_the_old_binding_or_pro`,
+`test_another_subscription_takes_the_binding_only_when_stripe_ranks_it_first`,
+`test_a_cross_subscription_event_on_a_mirror_only_binding_writes_one_row` and the retry cases for a
+malformed, foreign or failed read of either subscription.
 The same file inventories every writer: `test_every_mention_of_the_binding_is_reviewed` counts each
 mention of `stripe_subscription_id` in every Python, SQL, shell and workflow file that can reach the
 production database (the whole repository but the browser app and the test homes: the backend and

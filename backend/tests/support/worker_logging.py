@@ -3,7 +3,7 @@ import logging
 from contextlib import contextmanager
 
 # The library loggers app/services/logging_service.py::configure_logging quiets.
-LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3", "edgar", "markdown_it")
+LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3", "edgar", "markdown_it", "stripe")
 
 
 @contextmanager
