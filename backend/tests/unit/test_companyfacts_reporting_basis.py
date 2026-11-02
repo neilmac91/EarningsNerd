@@ -13,7 +13,7 @@ from datetime import date
 import pytest
 
 from app.services import facts_service as svc
-from app.services.facts.reporting_basis import latest_annual_report, reports_under_ifrs
+from app.services.facts.reporting_basis import latest_periodic_report, reports_under_ifrs
 
 REV_TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
 
@@ -68,15 +68,15 @@ class TestReportsUnderIfrs:
         assert reports_under_ifrs(_payload({}, _ifrs_years())["facts"]) is True
         assert reports_under_ifrs({"ifrs-full": {"Revenue": {"units": {"EUR": []}}}}) is True  # main's own case
 
-    def test_a_filer_whose_latest_annual_report_is_ifrs_is_an_ifrs_filers(self):
+    def test_a_filer_whose_latest_periodic_report_is_ifrs_is_an_ifrs_filers(self):
         root = _payload(_usgaap_years(), _ifrs_years())["facts"]
-        assert latest_annual_report(root) == ("2026-06-10", "I26")
+        assert latest_periodic_report(root) == ("2026-06-10", "I26")
         assert reports_under_ifrs(root) is True
 
-    def test_a_filer_whose_latest_annual_report_is_us_gaap_is_not(self):
+    def test_a_filer_whose_latest_periodic_report_is_us_gaap_is_not(self):
         # Reported under IFRS once (2015-16), US GAAP since: the latest report decides.
         root = _payload(_usgaap_years(), _ifrs_years((("I15", "2015-06-20"), ("I16", "2016-06-20"))))["facts"]
-        assert latest_annual_report(root) == ("2020-06-24", "U20")
+        assert latest_periodic_report(root) == ("2020-06-24", "U20")
         assert reports_under_ifrs(root) is False
 
     def test_stray_us_gaap_items_in_an_ifrs_report_leave_it_an_ifrs_filers(self):
@@ -104,7 +104,7 @@ class TestReportsUnderIfrs:
         # A 20-F/A may tag only its cover or one note: the latest original report decides.
         amendment = _ifrs_years((("IA21", "2021-09-01"),), form="20-F/A")
         root = _payload(_usgaap_years(), amendment)["facts"]
-        assert latest_annual_report(root) == ("2020-06-24", "U20")
+        assert latest_periodic_report(root) == ("2020-06-24", "U20")
         assert reports_under_ifrs(root) is False
 
     def test_a_same_day_tie_goes_to_the_higher_accession(self):
@@ -112,12 +112,48 @@ class TestReportsUnderIfrs:
                                                     filed="2020-06-24")]}}}
         ifrs = {"Revenue": {"units": {"JPY": [_item(1.0, "2020-03-31", start="2019-04-01", accn="B2",
                                                     filed="2020-06-24")]}}}
-        assert latest_annual_report(_payload(usgaap, ifrs)["facts"]) == ("2020-06-24", "B2")
+        assert latest_periodic_report(_payload(usgaap, ifrs)["facts"]) == ("2020-06-24", "B2")
+
+    def test_us_gaap_10ks_after_ifrs_20fs_are_a_us_gaap_filers(self):
+        # CRH: IFRS 20-Fs, then US-GAAP 10-Ks once it lost foreign-private-issuer status.
+        ifrs = _ifrs_years((("I22", "2022-03-01"), ("I23", "2023-03-01")))
+        usgaap = {REV_TAG: {"units": {"USD": [_item(35.0, "2024-12-31", start="2024-01-01", accn="K24", form="10-K",
+                                                    filed="2025-02-25")]}}}
+        root = _payload(usgaap, ifrs)["facts"]
+        assert latest_periodic_report(root) == ("2025-02-25", "K24")
+        assert reports_under_ifrs(root) is False
+
+    def test_ifrs_40fs_after_us_gaap_40fs_are_an_ifrs_filers(self):
+        # Barrick, Agnico Eagle: MJDS 40-Fs under US GAAP, then under IFRS.
+        usgaap = {REV_TAG: {"units": {"USD": [_item(9.0, "2012-12-31", start="2012-01-01", accn="F12", form="40-F",
+                                                    filed="2013-03-28")]}}}
+        ifrs = _ifrs_years((("F25", "2026-02-27"),), form="40-F", unit="USD")
+        assert reports_under_ifrs(_payload(usgaap, ifrs)["facts"]) is True
+
+    def test_us_gaap_10qs_after_an_ifrs_annual_report_are_a_us_gaap_filers(self):
+        # Flutter: IFRS 40-Fs, then US-GAAP 10-Qs from 2024-05, months before its first 10-K.
+        ifrs = _ifrs_years((("F19", "2020-02-27"),), form="40-F", unit="GBP")
+        usgaap = {REV_TAG: {"units": {"USD": [_item(3.5, "2024-03-31", start="2024-01-01", accn="Q124", form="10-Q",
+                                                    filed="2024-05-14", fp="Q1")]}}}
+        root = _payload(usgaap, ifrs)["facts"]
+        assert latest_periodic_report(root) == ("2024-05-14", "Q124")
+        assert reports_under_ifrs(root) is False
+
+    def test_no_original_periodic_report_decides_nothing(self):
+        # Both taxonomies, but only an amendment and a 6-K: no report decides, so the us-gaap series is read.
+        usgaap = {REV_TAG: {"units": {"JPY": [_item(1.0, "2020-03-31", start="2019-04-01", accn="A20", form="20-F/A",
+                                                    filed="2020-09-01")]}}}
+        ifrs = {"Revenue": {"units": {"JPY": [_item(1.0, "2021-03-31", start="2020-04-01", accn="S21", form="6-K",
+                                                    filed="2021-05-01")]}}}
+        root = _payload(usgaap, ifrs)["facts"]
+        assert latest_periodic_report(root) is None
+        assert reports_under_ifrs(root) is False
 
     def test_malformed_parts_are_skipped(self):
         root = {
             "us-gaap": {
-                "Bad": "x", "AlsoBad": {"units": "x"}, "Worse": {"units": {"JPY": ["x", None]}}, **_usgaap_years(),
+                "Bad": "x", "AlsoBad": {"units": "x"}, "Worse": {"units": {"JPY": ["x", None]}},
+                "Scalar": {"units": {"JPY": 5}}, **_usgaap_years(),
             },
             "ifrs-full": {"Revenue": {"units": {"JPY": [{"form": "20-F", "filed": 2026, "accn": "N"}]}}},
         }
@@ -176,11 +212,17 @@ def _rows(db, company_id):
 @pytest.mark.requires_db
 class TestTheSyncRetiresTheSeries:
     def _planted(self):
-        """A company an earlier sync read before the switch, plus a filing's own row and a legacy row."""
+        """A company an earlier sync read before the switch, plus a filing's own row and a legacy row.
+
+        A second company, synced from the same US-GAAP years, stands beside it in the same database, so the
+        retire's company scope is checked by this test's own rows, not by what other tests left behind.
+        """
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
         db = SessionLocal()
+        self.neighbour = _new_company(db)
+        assert _sync(db, self.neighbour, _payload(_usgaap_years()))["inserted"] > 0
         company = _new_company(db)
         first = _sync(db, company, _payload(_usgaap_years()))
         assert first["unsupported_ifrs"] is False and first["inserted"] > 0
@@ -208,6 +250,8 @@ class TestTheSyncRetiresTheSeries:
         series = {rid for rid, (source, owner, current) in before.items()
                   if current and owner is None and source in ("companyfacts", "derived")}
         assert any(before[rid][0] == "derived" for rid in series)  # the margins the earlier sync computed
+        neighbour = {row.id for row in _rows(db, self.neighbour.id) if row.is_latest}
+        synced_before = company.facts_synced_at
 
         result = _sync(db, company, _payload(_usgaap_years(), _ifrs_years()))
         assert result["unsupported_ifrs"] is True
@@ -218,7 +262,8 @@ class TestTheSyncRetiresTheSeries:
         assert {rid for rid, current in after.items() if current} == {
             rid for rid, (_, _, current) in before.items() if current and rid not in series
         }  # the filing's own rows (reported and calculated) and the legacy row stay current; the series is retired
-        assert company.facts_synced_at is not None
+        assert neighbour and {row.id for row in _rows(db, self.neighbour.id) if row.is_latest} == neighbour
+        assert company.facts_synced_at > synced_before  # stamped, so the filer is not refetched hourly
         db.close()
 
     def test_a_second_ifrs_sync_retires_nothing_more(self):
@@ -237,17 +282,51 @@ class TestTheSyncRetiresTheSeries:
         assert {row.id for row in _rows(db, company.id) if row.is_latest} == current
         db.close()
 
-    def test_multi_period_analysis_and_the_peers_endpoint_then_read_no_companyfacts_figure(self):
+    def test_multi_period_analysis_and_the_peers_endpoint_then_read_no_us_gaap_year(self):
+        # TM and ITUB in production: the series #1903's sync stored and nothing else, so before the retire both
+        # readers serve the last US-GAAP year (TM: revenue for the year ended 2020-03-31), and after it neither
+        # serves any figure. No filing row stands in for the series here, unlike ``_planted``.
+        from app.database import SessionLocal
         from app.services import peers_service, trend_analysis_service
 
-        db, company = self._planted()
-        assert trend_analysis_service.available_periods(db, company.id)["annual"]  # the old series, before
+        db = SessionLocal()
+        company = _new_company(db)
+        _sync(db, company, _payload(_usgaap_years()))
+        assert {p["fiscal_year"] for p in trend_analysis_service.available_periods(db, company.id)["annual"]}
+        before = peers_service.get_peers(db, company.ticker, "revenue")["subject"]
+        assert before["period_end"] == "2020-03-31" and before["value"] is not None
+
         _sync(db, company, _payload(_usgaap_years(), _ifrs_years()))
         db.expire_all()
-        periods = trend_analysis_service.available_periods(db, company.id)
-        assert {p["fiscal_year"] for p in periods["annual"]} <= {2026}  # only the filing's own year, if any
-        subject = peers_service.get_peers(db, company.ticker, "revenue")["subject"]
-        assert subject["fiscal_year"] in (None, 2026)  # never a US-GAAP year the sync stored
+        assert trend_analysis_service.available_periods(db, company.id) == {"annual": [], "quarterly": []}
+        after = peers_service.get_peers(db, company.ticker, "revenue")["subject"]
+        assert (after["value"], after["period_end"]) == (None, None)
+        db.close()
+
+    def test_the_retire_takes_the_company_row_before_it_updates_a_fact(self, monkeypatch):
+        # Every fact writer takes the company row first (``_lock_fact_companies``); an IFRS sync reaches no
+        # other lock, so the retire takes it before its UPDATE. SQLite renders FOR UPDATE as nothing, so the
+        # order is pinned on the ORM calls (lessons/test-pin-a-row-lock-with-a-statement-spy.md).
+        from sqlalchemy.orm import Query
+
+        from app.models import Company, FinancialFact
+
+        db, company = self._planted()
+        calls = []
+        lock, update = Query.with_for_update, Query.update
+
+        def spy_lock(query, *args, **kwargs):
+            calls.append(("lock", query.column_descriptions[0]["entity"], kwargs.get("key_share")))
+            return lock(query, *args, **kwargs)
+
+        def spy_update(query, *args, **kwargs):
+            calls.append(("update", query.column_descriptions[0]["entity"], None))
+            return update(query, *args, **kwargs)
+
+        monkeypatch.setattr(Query, "with_for_update", spy_lock)
+        monkeypatch.setattr(Query, "update", spy_update)
+        _sync(db, company, _payload(_usgaap_years(), _ifrs_years()))
+        assert calls == [("lock", Company, True), ("update", FinancialFact, None)]
         db.close()
 
 
