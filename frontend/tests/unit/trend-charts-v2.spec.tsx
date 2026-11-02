@@ -5,8 +5,9 @@
    fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
    trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
-   card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
-   dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
+   card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header and its
+   control's theme hint (ChartControl's `hint`), the dark tokens, the expanded view, and TrendCharts loading the
+   renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. A
    ranked company chart (E251): its context bars in the context ink, the tooltip swatch the bar's own paint, the chart
    starting at its subject, and its own words for its companies. Text
@@ -31,6 +32,7 @@ vi.mock('sonner', async (importOriginal) => {
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
+import ChartControl from '@/features/analysis/components/ChartControl'
 import ChartPlotFrame from '@/features/analysis/components/ChartPlotFrame'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
@@ -623,6 +625,37 @@ describe('the PNG export', () => {
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
   })
 
+  // coherence §5: the PNG follows the page's theme, where the PDF and the workbook always print light, so its control
+  // says so. The words are the same in both themes; the name stays the label, so a query by name still finds it.
+  it.each(['light', 'dark'] as const)('%s: its control says the image matches the theme, in its title and its description, never its name; the expand control has no hint', (theme) => {
+    const { container } = render(
+      <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>
+        <TrendChartsV2 dataset={dataset('REGN_annual')} exportEnabled />
+      </ThemeContext.Provider>
+    )
+    const expectHint = (card: HTMLElement, toggle: string) => {
+      const png = within(card).getByRole('button', { name: 'Download chart as PNG' })
+      expect(png).toHaveAccessibleName('Download chart as PNG')
+      expect(png).toHaveAccessibleDescription('Image matches your theme.')
+      expect(png).toHaveAttribute('title', 'Download chart as PNG. Image matches your theme.')
+      // One hidden line beside the button, never inside it, which holds its glyph alone: the description reads it, and
+      // a screen reader's browse mode does not read it again as text.
+      const hint = within(card).getByText('Image matches your theme.')
+      expect(hint).toHaveAttribute('hidden')
+      expect(hint).not.toBeVisible()
+      expect(png).not.toContainElement(hint)
+      expect(png).toHaveAttribute('aria-describedby', hint.id)
+      // The toggle takes no hint: nothing describes it, and its title is its label, as before the hint.
+      const button = within(card).getByRole('button', { name: toggle })
+      expect(button).not.toHaveAttribute('aria-describedby')
+      expect(button).toHaveAttribute('title', toggle)
+    }
+    for (const card of cards(container)) expectHint(card, 'Expand chart')
+    const card = cards(container)[CHART_IDS.indexOf('cash')]
+    fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+    expectHint(card, 'Collapse chart')
+  })
+
   it('a quarterly card’s PNG names its range in the long form and the card’s own short one', async () => {
     const { container } = render(<TrendChartsV2 dataset={dataset('REGN_quarterly')} exportEnabled />)
     await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('margins')]).getByRole('button', { name: 'Download chart as PNG' })))
@@ -639,6 +672,7 @@ describe('the PNG export', () => {
     expect(button).toHaveAttribute('aria-busy', 'true')
     expect(button).toBeEnabled()
     expect(button.querySelector('.animate-spin'), 'the spinner in the glyph’s place').not.toBeNull()
+    expect(button, 'the hint outlasts the glyph, beside the button').toHaveAccessibleDescription('Image matches your theme.')
     await act(async () => fireEvent.click(button))
     expect(exportPanelPng).toHaveBeenCalledTimes(1)
     await act(async () => finish(true))
@@ -668,6 +702,16 @@ describe('the PNG export', () => {
     expect(button, 'no longer busy').not.toHaveAttribute('aria-busy')
     await act(async () => fireEvent.click(button))
     expect(exportPanelPng, 'a second press exports again').toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('ChartControl without a hint', () => {
+  it('renders the button alone, with nothing describing it and its label for its title', () => {
+    const { container } = render(<ChartControl label="Expand chart" onClick={() => {}}><svg aria-hidden="true" /></ChartControl>)
+    const button = screen.getByRole('button', { name: 'Expand chart' })
+    expect(button).not.toHaveAttribute('aria-describedby')
+    expect(button).toHaveAttribute('title', 'Expand chart')
+    expect([...container.children], 'no element beside the button').toEqual([button])
   })
 })
 
