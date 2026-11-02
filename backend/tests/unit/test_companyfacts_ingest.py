@@ -3652,6 +3652,52 @@ class TestNativeReportingCurrencySync:
             assert fy2023() == expected, path
         db.close()
 
+    @pytest.mark.parametrize("filings, stays", [((), False), (("10-K",), False), (("10-K", "10-Q"), True)],
+                             ids=["no-filing-rows", "the-10k-filing-row-alone", "both-filing-rows"])
+    def test_e293s_partial_year_yields_to_the_10ks_row_unless_the_10q_has_a_filing_row(self, monkeypatch, filings,
+                                                                                         stays):
+        # E198 (R1u) on E293's shape, FIX's companyfacts of 2026-11-01 (tests/fixtures/companyfacts_partial_years). A
+        # sync before E291 and E198 stored the Q1 2026 10-Q's 1,831,286,000 (its Q1 2025 comparative tagged with the
+        # year's span, filed 2026-04-23) as current FY2025 revenue, and the 10-K's 9,101,641,000 (filed 2026-02-19) as
+        # a history row. Since E291 the 10-K's item is the year's winner, an identity the sync finds stored. The 10-Q's
+        # row is a feed row (no filing owner) of a filing the payload names, so it holds only where the upsert's own
+        # Filing-date rule keeps it: with the 10-Q's Filing row, filed after the 10-K's, it stays current and E293's
+        # repair is still needed; without one, the convergence makes the 10-K's row current. Which holds in production
+        # is E293's read.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        tag = f"-{uuid.uuid4().hex[:8]}"  # the upsert reads Filing dates by accession alone: never another test's
+        payload = _suffixed(json.loads((Path(__file__).resolve().parents[1] / "fixtures" /
+                                        "companyfacts_partial_years" / "FIX.json").read_text()), tag)
+        company = _new_company(db)
+        dated = {"10-K": ("0001104659-26-017530", datetime(2026, 2, 19, tzinfo=timezone.utc)),
+                 "10-Q": ("0001104659-26-047689", datetime(2026, 4, 23, tzinfo=timezone.utc))}
+        for form in filings:
+            db.add(Filing(company_id=company.id, accession_number=dated[form][0] + tag, filing_type=form,
+                          filing_date=dated[form][1], document_url="https://example.com/d",
+                          sec_url="https://example.com/s"))
+        db.commit()
+
+        def fy2025():
+            return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="revenue", period_end=date(2025, 12, 31),
+                                         fiscal_period="FY"))
+
+        with monkeypatch.context() as before:  # a sync before E291 and E198
+            usd_syncs_before_e198(before)
+            before.setattr(currency, "without_partial_years", lambda items: list(items))
+            svc._persist_companyfacts_payload(db, company, payload)
+        assert fy2025() == [("0001104659-26-017530", 9_101_641_000.0, False),
+                            ("0001104659-26-047689", 1_831_286_000.0, True)]
+        for _ in range(2):  # a sync since both, and a second leaves it so
+            _checked_sync(db, company, payload, final=True)
+            assert fy2025() == [("0001104659-26-017530", 9_101_641_000.0, not stays),
+                                ("0001104659-26-047689", 1_831_286_000.0, stays)]
+        db.close()
+
     @pytest.mark.parametrize("stored", [1250.0, 1299.9], ids=["3.8pct-off", "a-rounding-gap"])
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency, stored):
