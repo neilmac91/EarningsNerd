@@ -91,8 +91,14 @@ export default function BillingPanel() {
   // The API resolves expired trial rows to Free even while their raw status stays trialing.
   const isTrialing = isPro && sub?.status === 'trialing'
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
+  // A complimentary private-beta grant's Pro (PB-02): the API says so only when no subscription decides the plan,
+  // so it has no renewal, price or trial to state and nothing to buy.
+  const isComplimentary = isPro && !isTrialing && Boolean(sub?.complimentary)
   // An unreadable trial_end formats to '', and the line then shows nothing, as TrialBanner does.
   const trialEndsOn = isTrialing ? formatInstant(sub?.trial_end, 'MMM d, yyyy') : ''
+  // The portal for a real Stripe customer; otherwise checkout through /pricing, which an account already Pro outside
+  // a trial (a complimentary grant's, or a Pro with no customer) is never sent to.
+  const action = sub?.stripe_customer_id ? 'portal' : isComplimentary ? 'complimentary' : isPro && !isTrialing ? null : 'checkout'
 
   return (
     <Card className="p-cap-6 mb-6">
@@ -128,6 +134,15 @@ export default function BillingPanel() {
                 {planLabel}
               </Badge>
             </div>
+
+            {isComplimentary && (
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Access</span>
+                <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
+                  Complimentary (private beta)
+                </span>
+              </div>
+            )}
 
             {/* Usage */}
             <div className="flex items-center justify-between gap-4 py-2.5">
@@ -170,34 +185,40 @@ export default function BillingPanel() {
           {/* Action — the Stripe Customer Portal only works for users with a real Stripe customer.
               A no-card reverse-trial user is `is_pro` but has no `stripe_customer_id`, so gating on
               `isPro` here used to render a "Manage billing" button that always 400s. Gate strictly on
-              the customer id, and send everyone else to /pricing to subscribe. */}
-          <div className="border-t border-border-light dark:border-border-dark pt-3">
-            {sub?.stripe_customer_id ? (
-              /* `loading`, not `disabled`, while the portal session is requested: a focused button
-                 that turns natively disabled is blurred to <body> in Chromium. */
-              <Button
-                variant="secondary"
-                wrap
-                className="max-w-full"
-                onClick={() => portal.mutate()}
-                loading={portal.isPending}
-              >
-                Manage billing
-              </Button>
-            ) : (
-              <Link
-                href="/pricing"
-                className={buttonVariants({ variant: 'primary', wrap: true, className: 'max-w-full text-center' })}
-              >
-                {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
-              </Link>
-            )}
-            {portal.isError && (
-              <p className="mt-2 text-sm text-error-light dark:text-error-dark">
-                Could not open the billing portal. Please try again.
-              </p>
-            )}
-          </div>
+              the customer id, and send a Free or trial account to /pricing to subscribe. */}
+          {action && (
+            <div className="border-t border-border-light dark:border-border-dark pt-3">
+              {action === 'portal' ? (
+                /* `loading`, not `disabled`, while the portal session is requested: a focused button
+                   that turns natively disabled is blurred to <body> in Chromium. */
+                <Button
+                  variant="secondary"
+                  wrap
+                  className="max-w-full"
+                  onClick={() => portal.mutate()}
+                  loading={portal.isPending}
+                >
+                  Manage billing
+                </Button>
+              ) : action === 'complimentary' ? (
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  Complimentary access needs no payment details.
+                </p>
+              ) : (
+                <Link
+                  href="/pricing"
+                  className={buttonVariants({ variant: 'primary', wrap: true, className: 'max-w-full text-center' })}
+                >
+                  {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
+                </Link>
+              )}
+              {portal.isError && (
+                <p className="mt-2 text-sm text-error-light dark:text-error-dark">
+                  Could not open the billing portal. Please try again.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
       <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">

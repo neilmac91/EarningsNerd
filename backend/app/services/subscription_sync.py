@@ -1,8 +1,10 @@
 """Sync Stripe billing state into our `subscriptions` table (the entitlement source of truth).
 
-The Stripe webhook is the *only* writer of entitlement state — we never grant Pro from the
+The Stripe webhook is the *only* writer of billing entitlement state — we never grant Pro from the
 checkout success redirect. All mutations here also keep the denormalised ``User.is_pro`` mirror in
-lock-step so existing reads stay correct.
+lock-step so existing reads stay correct. Outside billing, an operator's complimentary beta grant
+(``complimentary_access_service``) sets the mirror only for an account with no Subscription row and no
+Stripe ids, which no event here can find.
 
 Everything is written defensively (missing fields, unknown users, duplicate deliveries) because
 webhook payloads are partially-trusted and delivered at-least-once.

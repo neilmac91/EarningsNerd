@@ -14,7 +14,9 @@ from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from starlette.concurrency import run_in_threadpool
-from app.services import billing_account_service, filing_list_service, legal_readiness_service
+from app.services import (
+    billing_account_service, complimentary_access_service, filing_list_service, legal_readiness_service,
+)
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -99,6 +101,9 @@ class SubscriptionStatus(BaseModel):
     trial_end: Optional[datetime]
     current_period_end: Optional[datetime]
     cancel_at_period_end: bool
+    # The Pro is a complimentary private-beta grant's (PB-02): no subscription decides the plan, and Billing
+    # shows no renewal, price, trial or checkout for it.
+    complimentary: bool = False
 
 @router.get("/usage", response_model=UsageResponse)
 async def get_usage(
@@ -165,6 +170,7 @@ async def get_subscription_status(
                 trial_end=sub.trial_end if sub else None,
                 current_period_end=sub.current_period_end if sub else None,
                 cancel_at_period_end=bool(sub.cancel_at_period_end) if sub else False,
+                complimentary=complimentary_access_service.serves_complimentary_pro(db, current_user),
             )
         finally:
             filing_list_service.release_request_session(db)

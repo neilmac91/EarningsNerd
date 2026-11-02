@@ -449,16 +449,25 @@ export default function DashboardPage() {
                     <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />
                     Unlimited summaries
                   </p>
-                  <Button
-                    variant="secondary"
-                    wrap
-                    className="w-full"
-                    onClick={() => portalMutation.mutate()}
-                    loading={portalMutation.isPending}
-                    loadingText="Opening billing…"
-                  >
-                    Manage billing
-                  </Button>
+                  {/* The portal opens only for a real Stripe customer (BillingPanel gates it the same way): a
+                      complimentary private-beta grant's Pro (PB-02), or a trial's, has none, and the portal
+                      answers it with an error. */}
+                  {subscription.stripe_customer_id ? (
+                    <Button
+                      variant="secondary"
+                      wrap
+                      className="w-full"
+                      onClick={() => portalMutation.mutate()}
+                      loading={portalMutation.isPending}
+                      loadingText="Opening billing…"
+                    >
+                      Manage billing
+                    </Button>
+                  ) : subscription.complimentary ? (
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      Complimentary access (private beta)
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-3 space-y-3">
