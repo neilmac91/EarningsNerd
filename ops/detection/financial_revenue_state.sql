@@ -11,9 +11,9 @@
 -- fee-tag revenue operand, its own tag or one in the lineage of a calculated quarter it is (set C); 4 lists the
 -- current net margins above 100%; 5 checks each named bank's current fiscal-year revenue against its net interest
 -- income plus noninterest income; 6 counts the duplicate current rows and 7 lists them; 8 lists the per-filing revenue
--- rows the cross-check replaced, split at E264's deploy (2026-11-01 14:07:03 UTC, when deploy-backend job 124871048475
--- had moved every job to the new image) into the old rule's (set F's database half) and the new rule's. The preview
--- itself reads SEC's payloads under the deployed rule, which no SQL can.
+-- rows the cross-check replaced, split at E286's deploy (2026-11-02 08:31:00 UTC, the first moment no writer can
+-- still run the old image: tasks/todo.md, E264), which changed every writer's rule, into the old rule's (set F's
+-- database half) and the new rule's. The preview reads SEC's payloads under the deployed rule, which no SQL can.
 -- It names companies and counts rows, and changes nothing.
 -- Retire: the records PR that closes E264 deletes this file and the unit test that holds its tags, SIC band,
 -- margin scale and set 8's premise to the code (backend/tests/unit/test_financial_revenue_detection_sql.py).
@@ -288,7 +288,7 @@ LIMIT 200;
 \echo '8. Per-filing revenue rows at financial companies the cross-check replaced (source companyfacts, a filing'
 \echo '   owner, provenance outcome replaced), by company, the most old-rule rows first. The writer inserts and'
 \echo '   never rewrites a stored row (facts/upsert.py, held by this file''s unit gate), so a row''s created_at is'
-\echo '   when its rule wrote it. old_rule: those written before E264''s deploy (2026-11-01 14:07:03 UTC), the set'
+\echo '   when its rule wrote it. old_rule: those written before E286''s deploy (2026-11-02 08:31:00 UTC), the set'
 \echo '   the cleanup re-inserts; old_current: those still current; max_gap: their largest |stored - original| /'
 \echo '   max(|stored|, |original|), the original being the parsed figure the authority displaced. new_rule: those'
 \echo '   written since (Monday''s backfill-facts, step (3)''s re-insert). The preview compares each old-rule row with'
@@ -296,7 +296,7 @@ LIMIT 200;
 WITH params AS (
     SELECT '6000'::text AS sic_low, '6799'::text AS sic_high,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
-           '2026-11-01 14:07:03+00'::timestamptz AS e264_deployed
+           '2026-11-02 08:31:00+00'::timestamptz AS e286_deployed
 ), fin AS MATERIALIZED (
     SELECT c.id, c.ticker, c.sic
     FROM companies c
@@ -304,7 +304,7 @@ WITH params AS (
     WHERE c.sic <> '' AND c.sic COLLATE "C" BETWEEN p.sic_low AND p.sic_high
 ), checked AS MATERIALIZED (
     SELECT ff.company_id, ff.fiscal_year, ff.is_latest, ff.value,
-           ff.created_at IS NULL OR ff.created_at < p.e264_deployed AS old_rule,
+           ff.created_at IS NULL OR ff.created_at < p.e286_deployed AS old_rule,
            CASE WHEN ff.provenance::text ~ p.json_hazard
                 THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::json
                 ELSE ff.provenance END -> 'checks' -> 'authoritative' AS authoritative_check

@@ -4,7 +4,7 @@
 statement that reads a tag, with the ``us-gaap:`` namespace the collector writes into ``raw_tag``; compares
 ``companies.sic`` as ``facts/concepts.py::_is_financial_sic`` does, as text in byte order between its two literals,
 an empty or NULL code being none; and counts a margin above 100% where ``facts/derive.py`` stores margins as
-percentages. Its set 8 splits the rows the cross-check replaced at E264's deploy by ``created_at``, which dates a row's
+percentages. Its set 8 splits the rows the cross-check replaced at E286's deploy by ``created_at``, which dates a row's
 rule only while the per-filing writer inserts and never rewrites a stored row. This gate holds every copy to its
 source, that premise to the writer, the transaction to READ ONLY, and the file to statements that read. Nothing runs
 the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with the SQL file, whose header names it.

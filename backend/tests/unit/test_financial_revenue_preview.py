@@ -526,7 +526,7 @@ def test_a_stale_current_row_at_a_key_the_batch_fills_is_k_from_either_writer_an
 
 
 def test_the_deploy_instant_splits_synced_companies_and_the_rule_of_a_row(db, tmp_path, capsys, sec):
-    at, before = preview.E264_DEPLOYED_AT, preview.E264_DEPLOYED_AT - timedelta(seconds=1)
+    at, before = preview.E286_DEPLOYED_AT, preview.E286_DEPLOYED_AT - timedelta(seconds=1)
     for ticker, cik, synced in (("ATI", 21, at), ("BEF", 22, before)):
         company = _company(db, ticker, cik, synced=synced)
         sec.payloads[company.cik] = _total_and_fee(cik)
@@ -540,15 +540,13 @@ def test_the_deploy_instant_splits_synced_companies_and_the_rule_of_a_row(db, tm
     entry = {"id": 1, **{name: None for name in preview.REPORT_FIELDS}, "value": 1.0}
     assert [preview._entry({**entry, "created_at": created}, None, set())["rule"]
             for created in (at, before, None, at.replace(tzinfo=None))] == ["new", "old", "old", "new"]
-    # The per-filing extraction changed at E278's deploy (#1919): a row it wrote in between holds the old reading.
-    e278 = preview.E278_DEPLOYED_AT
-    assert e278 == datetime(2026, 11, 1, 21, 4, 12, tzinfo=UTC)  # deploy-backend job 124977441912's last job
+    # E286's deploy (#1938) changed every writer's rule at once: the extraction's rows split where the feed's do.
+    assert at == datetime(2026, 11, 2, 8, 31, 0, tzinfo=UTC)
     extracted, replaced = {**entry, "filing_id": 7, "source": "edgar_xbrl"}, {**entry, "filing_id": 7,
                                                                                 "source": "companyfacts"}
-    assert [preview._entry({**extracted, "created_at": created}, None, set())["rule"]
-            for created in (at, e278 - timedelta(seconds=1), e278)] == ["old", "old", "new"]
-    assert [preview._entry({**replaced, "created_at": created}, None, set())["rule"]
-            for created in (before, at, e278 - timedelta(seconds=1))] == ["old", "new", "new"]
+    for row in (extracted, replaced):
+        assert [preview._entry({**row, "created_at": created}, None, set())["rule"]
+                for created in (before, at)] == ["old", "new"]
 
 
 # --- read-only, every outcome and public safety ----------------------------------------------------------------------
@@ -976,8 +974,8 @@ def test_an_offline_run_reads_no_sec_even_in_the_peak_and_reads_each_payload_fro
 # --- constants and the output's shape ----------------------------------------------------------------------------------
 
 def test_the_deploy_instant_is_the_census_literal_and_the_script_names_no_tag_or_sic():
-    literal = re.search(r"'([^']+)'::timestamptz AS e264_deployed", CENSUS.read_text()).group(1)
-    assert preview.E264_DEPLOYED_AT == datetime.fromisoformat(literal + ":00")
+    literal = re.search(r"'([^']+)'::timestamptz AS e286_deployed", CENSUS.read_text()).group(1)
+    assert preview.E286_DEPLOYED_AT == datetime.fromisoformat(literal + ":00")
     assert (preview.FEED_TOLERANCE, preview.CONCEPTS) == (0.005, ("revenue", "net_margin", "operating_margin",
                                                                   "gross_margin"))
     tree = ast.parse(SCRIPT.read_text())
@@ -1020,7 +1018,7 @@ def test_the_start_line_is_flushed_before_the_first_read_and_each_line_has_its_e
     assert (start["cohort_size"], start["blank_sic_companies"], start["cohort"]) == (2, 2, [
         {"ticker": "C100", "sic": "6211", "synced_since_deploy": True},
         {"ticker": "C300", "sic": "6211", "synced_since_deploy": False}])
-    assert start["rule"] == {"e264_deployed_at": "2026-11-01T14:07:03Z", "e278_deployed_at": "2026-11-01T21:04:12Z",
+    assert start["rule"] == {"e286_deployed_at": "2026-11-02T08:31:00Z",
                              "feed_tolerance": 0.005, "per_filing": "cross_check_facts (1%)"}
     assert (start["workflow_commit"], start["execution"]) == (COMMIT, "github_actions_runner")
     assert all(set(line) == COMPANY_KEYS for line in companies) and set(summary) == SUMMARY_KEYS
