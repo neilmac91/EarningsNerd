@@ -1132,14 +1132,25 @@ def test_e289_a_recorded_operand_decides_over_the_datasets_figure():
 
 def test_e289_an_input_questioned_for_another_reason_marks_no_calculation():
     # Not ruled (chief design, #1888): an input whose own note questions it for another reason, here a value the
-    # automated check has not matched that a later filing also changed with no finding, leaves its calculation be.
-    revenue = _figure()
-    revenue["provenance"] = {**revenue["provenance"], "validation": "needs_review", "reasons": ["source_check_needed"]}
-    point = _figure("net_margin", 47.5, "calculated", [revenue])
-    FirstReports({}, {}, None, history=[_own()]).attach([point])
-    assert point["provenance"]["inputs"][0]["first_reported"]["disagreement"] is None
-    assert (point["provenance"]["validation"], point["provenance"]["reasons"]) == ("passed", [])
-    assert "reconciled" not in point
+    # automated check has not matched that a later filing also changed with no finding, leaves its calculation be,
+    # whether the calculation recorded it or, recording no operand of it, reads the dataset's figure (D4's stand-in).
+    def questioned():
+        figure = {**_figure(), "period": "FY2018"}
+        figure["provenance"] = {**figure["provenance"], "validation": "needs_review", "reasons": ["source_check_needed"]}
+        return figure
+
+    reports = FirstReports({}, {}, None, history=[_own()])
+    revenue = questioned()
+    reports.attach([revenue])
+    assert (revenue["first_reported"]["disagreement"], revenue["provenance"]["reasons"]) == (None, ["source_check_needed"])
+    recorded = {**_figure("net_margin", 47.5, "calculated", [questioned()]), "period": "FY2018"}
+    legacy = {**_figure("net_margin", 47.5, "calculated"), "period": "FY2018"}
+    legacy["provenance"] = {**legacy["provenance"], "validation": "needs_review", "reasons": ["legacy_calculation"]}
+    reports.attach([recorded, legacy])
+    assert recorded["provenance"]["inputs"][0]["first_reported"]["disagreement"] is None
+    assert (recorded["provenance"]["validation"], recorded["provenance"]["reasons"]) == ("passed", [])
+    assert (legacy["provenance"]["validation"], legacy["provenance"]["reasons"]) == ("needs_review", ["legacy_calculation"])
+    assert "reconciled" not in recorded and "reconciled" not in legacy
 
 
 def test_e289_every_input_is_attached_before_its_calculations():
