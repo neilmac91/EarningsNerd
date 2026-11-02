@@ -382,7 +382,7 @@ jobs:
           chmod +x cloud-sql-proxy
 
       - name: Verify feedback against isolated private storage
-        if: contains('feedback-media-verify-inspect feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', steps.request.outputs.operation)
+        if: contains('feedback-media-verify-inspect feedback-media-verify-apply', steps.request.outputs.operation)
         timeout-minutes: 40
         env:
           OP: ${{ steps.request.outputs.operation }}

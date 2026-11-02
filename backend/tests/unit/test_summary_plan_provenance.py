@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.support.ops_workflow import BY_NAME, PROXY, selected
+from tests.support.ops_workflow import BY_NAME, PROXY, STEPS, selected
 
 ROOT = Path(__file__).resolve().parents[3]
 SPEC = importlib.util.spec_from_file_location("summary_plan_loader", ROOT / "ops/summary_delivery/load_plan.py")
@@ -209,3 +209,21 @@ def test_summary_operations_run_only_fixed_tools_after_plan_and_approval_checks(
             assert '--approval-nonce "$SUMMARY_APPROVAL_NONCE"' in step["run"]
         else:
             assert "SUMMARY_DELIVERY_APPROVED" not in step.get("env", {})
+
+
+@pytest.mark.parametrize("operation,command", [
+    ("summary-delivery-plan", "Plan isolated summary delivery rehearsal"),
+    ("summary-delivery-apply", "Run approved isolated summary delivery rehearsal"),
+    ("summary-delivery-cleanup-apply", "Clean approved isolated summary delivery resources"),
+    ("summary-recovery-caller-plan", "Plan paused summary recovery caller"),
+    ("summary-recovery-caller-apply", "Configure approved paused summary recovery caller"),
+])
+def test_summary_dispatch_executes_only_its_own_command_set(operation, command):
+    """A correct positive tool selection is insufficient if an unrelated tool intercepts it."""
+    expected = {"Resolve requested operation", "Refuse to run while a main push (deploy) is in flight", command}
+    if operation.endswith("-apply"):
+        expected.update({"Refuse an apply that no one approved in this run", "Load reviewed summary operation plan"})
+    if operation in {"summary-delivery-apply", "summary-delivery-cleanup-apply"}:
+        expected.add("Install isolated summary verification SQL tools")
+    actual = {step["name"] for step in STEPS if step.get("run") and operation in selected(step)}
+    assert actual == expected
