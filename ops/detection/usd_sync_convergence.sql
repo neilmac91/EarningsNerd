@@ -25,16 +25,19 @@
 -- reading of _another_currency, which reads the batch's concepts: only the concepts its companyfacts rows hold count
 -- (fed), and a company with no companyfacts row has never synced and is left out (set 1 counts it). A row's date: its
 -- Filing row's filing_date (same company and accession, dashes ignored), else its provenance filed_at (a companyfacts
--- row's own filing date; a calculation's latest operand's), else none; the sync also reads the payload's filed dates,
--- which this cannot see. quarantined: provenance validation 'unavailable' (currency._promotable). proxy: the form, its
--- whitespace collapsed, trimmed and upper-cased, matches ^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$ (is_proxy_form; gated by
+-- row's own filing date; a calculation's latest operand's; one that does not spell a date, YYYY-MM-DD, reads as none,
+-- and a day past its month's end rolls into the next month instead of raising, as repair_cohorts_2026_10.sql reads it),
+-- else none; the sync also reads the payload's filed dates, which this cannot see. quarantined: provenance validation
+-- 'unavailable' (currency._promotable). proxy: the form, its whitespace collapsed, trimmed and upper-cased, matches
+-- ^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$ (is_proxy_form; gated by
 -- backend/tests/unit/test_usd_sync_convergence_detection_sql.py). behind: a key with a fiscal period where a row that
 -- is not current, not quarantined and no proxy's, is dated strictly after every dated current row there (or the key
 -- holds no current row: a gap), or where that row or every current row has no date here: undated, since the sync also
 -- dates a row by its filing's date in the payload, which this cannot see, so the key may move (a legacy companyfacts
--- row holds no provenance date). dating splits the decided keys from the undated. kind: amendment (the later row's form
--- ends in /A) or original; source: feed (companyfacts, no filing owner), filing (a filing owner: the per-filing
--- writer's, or the cross-check's replacement), derived.
+-- row holds no provenance date). dating splits the decided keys from the undated. same_tag: a later row carries a
+-- current row's own tag (an untagged row matches an untagged one). kind: amendment (the later row's form ends in /A) or
+-- original; source: feed (companyfacts, no filing owner), filing (a filing owner: the per-filing writer's, or the
+-- cross-check's replacement), derived.
 --
 -- Ops detection-sql runs only main's SQL, and never while a main push's deploy is in flight, so this file lands on main
 -- before E198: run it before E198's merge (the before) and after the companies' next syncs (the after: set 2's dated
@@ -123,8 +126,9 @@ WITH params AS (
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
            coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-                    THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
+               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
+                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
+                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
@@ -141,7 +145,7 @@ WITH params AS (
            max(d.filed) FILTER (WHERE d.is_latest) AS current_filed,
            bool_or(d.is_latest) AS has_current,
            bool_or(d.is_latest AND d.proxy) AS proxy_current,
-           string_agg(DISTINCT coalesce(d.raw_tag, ''), ',') FILTER (WHERE d.is_latest) AS current_tags
+           string_agg(DISTINCT coalesce(d.raw_tag, '-'), ',') FILTER (WHERE d.is_latest) AS current_tags
     FROM dated d
     GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit
 ), behind AS (
@@ -151,7 +155,7 @@ WITH params AS (
            CASE WHEN bool_or(d.source = 'derived') THEN 'derived'
                 WHEN bool_or(d.filing_id IS NOT NULL) THEN 'filing' ELSE 'feed' END AS source,
            CASE WHEN NOT k.has_current THEN 'gap'
-                WHEN bool_or(coalesce(d.raw_tag, '') = ANY (string_to_array(k.current_tags, ','))) THEN 'same_tag'
+                WHEN bool_or(coalesce(d.raw_tag, '-') = ANY (string_to_array(k.current_tags, ','))) THEN 'same_tag'
                 ELSE 'other_tag' END AS tag,
            max(d.filed) AS later_filed,
            NOT k.has_current OR bool_or(d.filed IS NOT NULL AND k.current_filed IS NOT NULL
@@ -201,8 +205,9 @@ WITH params AS (
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
            coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-                    THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
+               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
+                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
+                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
@@ -302,8 +307,9 @@ WITH params AS (
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
            coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-                    THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
+               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
+                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
+                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
@@ -350,7 +356,8 @@ FROM saved s
 GROUP BY ROLLUP (s.mode)
 ORDER BY GROUPING(s.mode), s.mode;
 
-\echo '6. Companies in USD alone with the most keys behind (set 2), at most 50, for a dry run''s cohort: ticker, keys,'
+\echo '6. Companies in USD alone with the most dated keys behind (set 2), then the most keys, at most 50, for a dry'
+\echo '   run''s cohort (an undated key can stay listed after a sync): ticker, keys,'
 \echo '   those under the current row''s own tag, gaps, undated keys (set 2), and its last companyfacts sync; of_n'
 \echo '   counts them all.'
 WITH params AS (
@@ -381,8 +388,9 @@ WITH params AS (
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
            coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-                    THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
+               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
+                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
+                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
@@ -398,12 +406,12 @@ WITH params AS (
     SELECT d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit,
            max(d.filed) FILTER (WHERE d.is_latest) AS current_filed, bool_or(d.is_latest) AS has_current,
            bool_or(d.is_latest AND d.proxy) AS proxy_current,
-           string_agg(DISTINCT coalesce(d.raw_tag, ''), ',') FILTER (WHERE d.is_latest) AS current_tags
+           string_agg(DISTINCT coalesce(d.raw_tag, '-'), ',') FILTER (WHERE d.is_latest) AS current_tags
     FROM dated d
     GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit
 ), behind AS (
     SELECT k.company_id, k.has_current,
-           bool_or(coalesce(d.raw_tag, '') = ANY (string_to_array(k.current_tags, ','))) AS same_tag,
+           bool_or(coalesce(d.raw_tag, '-') = ANY (string_to_array(k.current_tags, ','))) AS same_tag,
            NOT k.has_current OR bool_or(d.filed IS NOT NULL AND k.current_filed IS NOT NULL
                                          AND d.filed > k.current_filed) AS decided
     FROM keys k
@@ -421,7 +429,7 @@ WITH params AS (
 SELECT c.ticker, bc.company_id, bc.keys, bc.same_tag, bc.gaps, bc.undated, c.facts_synced_at,
        count(*) OVER () AS of_n
 FROM by_company bc JOIN companies c ON c.id = bc.company_id
-ORDER BY bc.keys DESC, c.ticker
+ORDER BY bc.keys - bc.undated DESC, bc.keys DESC, c.ticker
 LIMIT 50;
 
 COMMIT;

@@ -97,6 +97,33 @@ def test_a_quarantined_row_is_the_one_the_sync_never_makes_current():
     assert "->> 'validation' = 'unavailable'" in _code()  # set 4
 
 
+def test_every_behind_filter_excludes_quarantined_proxy_and_current_rows_and_reads_per_share_units():
+    # Defining the quarantined and proxy columns is not enough: each set that decides "behind" must use them, read only
+    # rows that are not current, and read USD and USD/shares alike (split_part), as the sync's amount test does.
+    code = " ".join(_code().split())
+    assert code.count("WHERE NOT k.proxy_current AND NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy") == 4
+    assert code.count("WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = "
+                      "'USD'") == 3  # sets 2, 5 and 6; set 3 reads ratios
+    assert code.count("WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND ff.unit = 'pure'") == 1
+
+
+def test_a_filed_at_that_spells_no_date_reads_as_none_and_an_untagged_row_matches_an_untagged_one():
+    # A cast of a date-shaped string raises for 2024-02-30 and stops the whole file under ON_ERROR_STOP, so the parse
+    # takes repair_cohorts_2026_10.sql's bounded pattern and make_date; string_to_array('', ',') is empty, so an
+    # untagged row reads under a sentinel.
+    code = " ".join(_code().split())
+    assert code.count("THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1) "
+                      "+ (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END") == 4
+    assert code.count("~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'") == 4
+    assert "::date END" not in code
+    assert code.count("coalesce(d.raw_tag, '-')") == 4 and "coalesce(d.raw_tag, '')" not in code
+
+
+def test_set_6_ranks_dated_keys_first():
+    # An undated key can stay listed after its company's sync, so a cohort ranked by every key could hold no dated one.
+    assert "ORDER BY bc.keys - bc.undated DESC, bc.keys DESC, c.ticker LIMIT 50" in " ".join(_code().split())
+
+
 def test_the_file_reads_in_one_bounded_read_only_transaction():
     statements = [s.strip() for s in _code().split(";") if s.strip()]
     assert statements[:3] == ["BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
