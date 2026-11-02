@@ -368,6 +368,32 @@ def test_cleanup_fallback_network_failure_is_closed(monkeypatch, error, expected
     assert module.cleanup_job_http() == (None, expected)
 
 
+@pytest.mark.parametrize("wire", [
+    b"PRIVATE_PROVIDER_STATUS\r\n\r\n",
+    b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n10\r\nPRIVATE\r\n",
+])
+def test_cleanup_fallback_contains_real_http_parser_failures(monkeypatch, capsys, wire):
+    from http.client import HTTPResponse
+
+    module, calls = _http_fallback(monkeypatch)
+
+    class Socket:
+        def makefile(self, *args):
+            return io.BytesIO(wire)
+
+    class Opener:
+        def open(self, request, **kwargs):
+            response = HTTPResponse(Socket())
+            response.begin()  # BadStatusLine can occur before a response exists.
+            return response  # IncompleteRead occurs when the helper reads its body.
+
+    monkeypatch.setattr(module, "build_opener", lambda handler: Opener())
+    assert module.cleanup_job_http() == (None, "unreadable_response")
+    assert calls == ["auth"]
+    captured = capsys.readouterr()
+    assert not captured.out and not captured.err
+
+
 def test_cleanup_http_success_still_uses_the_existing_safe_job_projection(monkeypatch, fixtures):
     name = "earningsnerd-feedback-media-cleanup"
     module, calls = _http_fallback(monkeypatch, body=json.dumps(fixtures[name]).encode())

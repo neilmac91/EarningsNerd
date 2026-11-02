@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -91,7 +92,7 @@ def cleanup_job_http() -> tuple[dict | None, str | None]:
         return None, "timeout"
     except (subprocess.SubprocessError, OSError, URLError):
         return None, "unavailable"
-    except (ValueError, RecursionError):
+    except (HTTPException, ValueError, RecursionError):
         return None, "unreadable_response"
 
 
