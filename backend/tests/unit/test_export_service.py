@@ -1213,11 +1213,15 @@ class TestAnalysisPdfHtml:
         label = re.search(r"\{citation\.section_ref && \(\s*<span[^>]*>\s*· \{citation\.provenance\?\.method === "
                           r"'calculated' \? calculationWords\(citation\.provenance\) : citation\.provenance\?\.method "
                           r"=== 'reported' \? '([^']*)' : citation\.section_ref\}", pane)
-        unrecorded = re.search(r": '(Source method is not recorded)\.'\}</p>",
-                               (components / "SourceValue.tsx").read_text(encoding="utf-8"))
-        assert calculation and label and unrecorded, "the page's source words moved: re-read them and the port"
+        # The dialog says it of a figure ("... for this saved figure.", the Method section that Sources & methods follows)
+        # and of an input; the appendix prints the clause both share.
+        dialog = (components / "SourceValue.tsx").read_text(encoding="utf-8")
+        figure = re.search(r": '(Source method is not recorded) for this saved figure\.'\}</p>", dialog)
+        operand = re.search(r": '(Source method is not recorded)\.'\}</p>", dialog)
+        assert calculation and label and figure and operand, "the page's source words moved: re-read them and the port"
+        assert figure[1] == operand[1], "the dialog's figure and input no longer share their unrecorded clause"
         legacy, inputs, bare = calculation.groups()
-        reported, not_recorded = label[1], unrecorded[1]
+        reported, not_recorded = label[1], figure[1]
 
         def provenance(method, reasons=(), inputs=()):
             return {"method": method, "validation": "needs_review" if reasons else "passed", "reasons": list(reasons),

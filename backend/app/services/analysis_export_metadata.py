@@ -102,8 +102,9 @@ def point_method(point: dict[str, Any]) -> str:
 
 
 # A source's words are the page's. They come from its source list's label (NarrativePane.tsx's CitationList and
-# calculationWords, coherence.md §2.5's "Narrative and sources" row) and, where no method is recorded, from its source
-# dialog's method line (SourceValue.tsx). test_export_service.py reads them from those files.
+# calculationWords, coherence.md §2.5's "Narrative and sources" row) and, where no method is recorded, from the clause
+# its source dialog says of a figure and of an input (SourceValue.tsx). test_export_service.py reads them from those
+# files.
 SOURCE_REPORTED = "SEC filing"
 METHOD_NOT_RECORDED = "Source method is not recorded"
 
