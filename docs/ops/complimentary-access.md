@@ -138,18 +138,18 @@ Before the first grant, the testers' accounts must exist as a grant can see them
   trial's included (`subscription_exists`). Keep it off, its default, while testers verify.
 
 1. **Prepare, offline.** On the founder's machine, with no settings and no database, from `backend/`, with both files
-   in a folder of the private store outside the repository (`$PRIVATE` below; the checkout ignores the two names at its
-   root and under `backend/` as a backstop, never as a place to keep them):
-   `python scripts/complimentary_access.py fingerprint < "$PRIVATE/addresses.txt"` prints one fingerprint per address,
-   in order. Write `$PRIVATE/manifest.json` with each account's id and fingerprint, then
-   `python scripts/complimentary_access.py check --manifest "$PRIVATE/manifest.json"` validates it and prints its
-   digest.
-2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest "$PRIVATE/manifest.json"`
+   in a folder of the private store outside the repository, `$HOME/beta-private` (the Ops procedure's location too;
+   the checkout ignores the two names at its root and under `backend/` as a backstop, never as a place to keep them):
+   `python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"` prints one fingerprint
+   per address, in order. Write `"$HOME/beta-private/manifest.json"` with each account's id and fingerprint, then
+   `python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"` validates it and
+   prints its digest.
+2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest "$HOME/beta-private/manifest.json"`
    against production. It writes nothing.
 3. **Review.** Compare the counts, every refusal and the digest with the private roster. Fix what is refused (a tester
    who has not verified yet is granted by a later rerun) and dry-run again after any edit, since an edit changes the
    digest.
-4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest "$PRIVATE/manifest.json"
+4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest "$HOME/beta-private/manifest.json"
    --confirm-digest <manifest_sha256> --runner <ops-run:id>`. It runs only the manifest whose digest it is handed.
    Each account is one unit: under the grants' lock and the account's row lock it is checked again, then its ledger
    row, its flag and its audit row commit together, or nothing does. A rerun grants what is newly eligible and changes
