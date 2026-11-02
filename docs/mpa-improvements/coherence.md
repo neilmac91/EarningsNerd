@@ -1276,11 +1276,32 @@ row, N9), from one port (`analysis_export_metadata.source_words` and `method_wor
   - **Sources & methods stays whole,** as the workbook's sheet does (6413834738). It stands in for the page's source
     dialog, which paper cannot open, and a reader who stops before it pays nothing for its length. If its length
     becomes a problem, measure folding first (each growth line into its figure's entry) before cutting anything.
-  - **One vocabulary for formulas, in its own PR.** Sources & methods still prints a formula as stored ("100 *
-    net_income / revenue"), where the page's dialog prints words (`figureDisplay.ts`'s `FORMULAS`), and the workbook's
-    Formula column and comments do the same. They should print `FORMULAS`' words through one port, with a rule-12
-    gate that reads them from `figureDisplay.ts`. The four growth definitions move into `FORMULAS` in the page's
-    style, so the page gains them too. A render with each formula goes through #1621's glyph check.
+  - **One vocabulary for formulas (built in its own PR).** Sources & methods prints a formula in the page's words, for
+    a figure and for each of its inputs, and so do the workbook's Formula column and its comments: "Net income ÷
+    revenue × 100" where they printed "100 * net_income / revenue". One port serves both files,
+    `analysis_export_metadata.formula_text`, whose `FORMULA_WORDS` holds `figureDisplay.ts`'s `FORMULAS` key for key.
+    A formula with no words prints as the page prints it, as stored with each underscore a space.
+    - **The growth words.** The four growth definitions the files kept apart (`_FORMULA_LABELS`, now gone) moved into
+      `FORMULAS` in the page's style, so the dialog's comparison line, which read "Calculation: year over year growth",
+      reads "Calculation: (Current − same period last year) ÷ absolute same period last year". A QoQ reads "(Current
+      quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter", a CAGR "(Last ÷ first) to the power of
+      (1 ÷ years from first to last) − 1" and a percentage-point change "Current percentage − comparison
+      percentage". The CAGR's exponent counts the span, `last_fy - first_fy` in `trend_analysis/dataset.py` (9 for
+      FY2016 to FY2025), so its words say "years from first to last": "fiscal years" invited counting the ten years
+      the table shows (chief design, 5743438508).
+    - **The gate.** `backend/tests/unit/test_export_formula_words.py` reads `FORMULAS` and the fallback from
+      `figureDisplay.ts`, in one form, failing on any other, and fails where the port differs. It then renders the PDF
+      and the workbook with a figure for each formula and one with no words, and holds each formula they print, a
+      figure's and its input's, to the page's words and none to its stored expression.
+    - **The glyph check.** #1621's glyph gate (`test_export_palette_parity.py`) renders the analysis with every
+      formula's words in Sources & methods: the ÷, × and minus sign print in Inter's latin cut, with no fallback face
+      and no .notdef.
+    - **The workbook.** The Formula column keeps its width (50) and wraps a longer formula onto a second line, as it
+      wrapped the stored growth definitions, and a text cell never prints "###". Rendered in LibreOffice, every
+      formula prints whole, the three longest growth words on two lines.
+    - A Q4 calculated from the year less its three quarters ("FY - (Q1 + Q2 + Q3)", `facts/quarterly.py`), which had
+      no words on any surface, reads "Full year − first, second and third quarters", beside "Full year − first nine
+      months": ordinals, since `planLimitsLockstep.spec.ts` keeps typed counts of quarters out of copy.
 
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").

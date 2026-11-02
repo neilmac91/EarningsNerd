@@ -1073,6 +1073,13 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  apart from a compatible-input calculation; neither claims an audit. Missing figures read
                  “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
                  source links name their figure and period.
+                 A recorded formula reads in words (figureDisplay.ts FORMULAS: “Operating income ÷
+                 revenue × 100”), in the Method section, under each input, and after “Calculation:” for
+                 a comparison (“(Current − same period last year) ÷ absolute same period last year”);
+                 a formula with no words reads as stored, each underscore a space. The PDF's and the
+                 workbook's Sources & methods print the same words through one port
+                 (analysis_export_metadata.FORMULA_WORDS; gate: backend
+                 tests/unit/test_export_formula_words.py, which reads them from figureDisplay.ts).
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
