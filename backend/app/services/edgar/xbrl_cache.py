@@ -20,7 +20,7 @@ logger = logging.getLogger("app.services.edgar.xbrl_service")
 # v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
 # v7: annual points carry the issuer's fiscal year where the calendar year of their end misnames it.
 # v8, v9 (E260): earnings_per_share is basic only, first on the instance path (v8), then on every path (v9).
-_XBRL_CACHE_VERSION = "v10"  # v10 (E278): a financial filer's revenue is E264's choice; v9's could be its fee line.
+_XBRL_CACHE_VERSION = "v11"  # v10 (E278): financial revenue is E264's choice, not the fee line; v11: E286's rule.
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (aware UTC cached_datetime, data_dict)
