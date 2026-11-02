@@ -1181,7 +1181,9 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  legacy_calculation, never on an empty input list) or “calculated figure”. A quiet
                  source count and Notes control replace repeated status labels; the Sources badge's title
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
-                 and names one, only for a marked note.
+                 and names one, only for a marked note. Its name and title say its source in the list's
+                 words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
+                 not print; the analysis PDF prints the same label (gate: test_export_service.py).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
