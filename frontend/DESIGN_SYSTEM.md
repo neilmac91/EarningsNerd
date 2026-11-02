@@ -683,16 +683,21 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  className; designRules.spec.ts plants it). The card's confirmation warning is a warning Notice,
                  the risk the reader weighs before an act they cannot undo, its list the Notice's body (D-076;
                  §4 › Inline notice).
-                 A class written on a Card or a section (CardHeader, CardBody, CardFooter, CardTitle) never sets
-                 what the component sets: the hairline, the fill, the corner, the shadow, a section's padding,
-                 layout or title type. Stylesheet order decides between two such classes, whichever is written
-                 last: rounded-2xl loses to rounded-xl, CardBody's py-3 loses to py-4 while py-5 wins, and a bare
-                 bg-white loses in dark to Card's dark:bg-panel-dark. What Card offers is a prop (tone, radius,
-                 elevation, interactive); spacing, position and a ring, which composes with the shadow, are the
-                 caller's (gate: tests/unit/cardClassesNoOverrides.spec.tsx, every <Card> and section in the app
-                 read through its imports, cx() and conditions and measured against the classes it renders, as
-                 inputClassesNoOverrides.spec.tsx holds the field; the two forwarders of a caller's className are
-                 listed, traced).
+                 A class written on a Card or a section (CardHeader, CardBody, CardFooter, CardTitle) never
+                 competes with one the component sets, on its own state or under a dark or screen variant the
+                 class has no twin for: the hairline, the fill, the corner, the shadow, a section's padding, layout
+                 or title type. Stylesheet order, not class order, decides between two such classes:
+                 rounded-2xl loses to rounded-xl, CardBody's py-3 loses to py-4 while py-5 wins, ps-0 (a logical
+                 side) beats px-cap-5 today, and a bare bg-white loses in dark to Card's dark:bg-panel-dark. What
+                 Card offers is a prop (tone, radius, elevation, interactive); spacing, position and a ring, which
+                 composes with the shadow, are the caller's, and so is a layer on a state or screen the component
+                 leaves alone (sm:rounded-2xl), which the stylesheet orders after the resting class (gate:
+                 tests/unit/cardClassesNoOverrides.spec.tsx, every <Card> and section in the app read through its
+                 imports, cx() and conditions and measured against the classes it renders, as
+                 inputClassesNoOverrides.spec.tsx holds the field; a logical property reads as the side it sets in
+                 this left-to-right app, a shorthand as its longhands; the components that forward a caller's
+                 className to a Card are listed, traced, and their call sites read as a Card's; one of the five
+                 used as a value fails).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -1664,9 +1669,12 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  reached, a risk in what they are about to do: an invite link anyone can redeem, deleting the
                  account) in the warning ink, its glyph the triangle, where an error's is the circle, so its title
                  never opens on "Warning:"; `error` takes role="alert"; and the action slot takes a small Button.
-                 More than a sentence (a list) is the Notice's children, under the description in the
-                 description's secondary ink and size, since the description is a <p>: the settings page's delete
-                 warning lists what deleting removes (D-076). Guidance is no state (a sign-in that would show a company's
+                 More than a sentence (a list) is the Notice's children, in the description's secondary ink and
+                 size, since the description is a <p>: the settings page's delete warning lists what deleting
+                 removes (D-076). The words a caller writes into a Notice (its title, description and children)
+                 rest in the ink, a link in the accent ink, and a title written as a string never opens on its
+                 state's name and a colon (gate: tests/unit/noticeTintInk.spec.ts, every <Notice> under any
+                 alias). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's

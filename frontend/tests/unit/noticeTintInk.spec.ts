@@ -6,15 +6,24 @@ import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { noticeTint, type NoticeVariant } from '@/components/ui'
+import { bindingResolver } from './astBindings'
 
 /**
  * Words inside Notice's tint rest in the ink, and words in another ink there clear 4.5:1 on the panel and on the page,
  * in both themes (E283; CLAUDE.md rule 11). Notice sets its words in the primary and secondary inks and only its glyph
- * in the variant's (a graphic, 3:1), and so do the borrowers of noticeTint() that keep a Notice's words, the settings
- * page's Delete account warning among them (DESIGN_SYSTEM.md §4 › Inline notice). A borrower that sets words in
- * another ink inside the tint is listed in INKED with the inks it writes, and measured: the one today is the Copilot's
- * error bubble, its one sentence in the error ink (4.62:1 in dark). The settings warning set its words in the error ink
- * on the loss tint, 4.32:1 in dark, until E283.
+ * in the variant's (a graphic, 3:1), and so do the borrowers of noticeTint() that keep a Notice's words, the dashboard's
+ * limit banner and the verification banner (DESIGN_SYSTEM.md §4 › Inline notice). A borrower that sets words in another
+ * ink inside the tint is listed in INKED with the inks it writes, and measured: the one today is the Copilot's error
+ * bubble, its one sentence in the error ink (4.62:1 in dark). The settings page's delete warning set its words in the
+ * error ink on the loss tint, 4.32:1 in dark, until E283; since D-076 it is a warning Notice, its list the Notice's
+ * children.
+ *
+ * Every <Notice> is read the same way (D-076): the words a caller writes into it, in its title, its description or its
+ * children (a JSX value of any prop included), rest in the ink, a link among them in the accent ink (`text-brand-strong`,
+ * the ink every link takes), so a status ink on a list inside a Notice fails, and a
+ * title written as a string never opens on its state's name and a colon ("Warning:", "Error:"): the glyph says it. A
+ * <Notice> is one imported from components/ui/Notice or the components/ui barrel, under any alias or as a namespace
+ * member. Out of reach there: a title held in a variable, and words a component inside the Notice inks itself.
  *
  * What it reads, through the TypeScript AST: every source under app, components, features, hooks and lib but
  * components/ui that names the helper. Each call must sit in the className of the element it tints, its variant
@@ -187,6 +196,65 @@ function borrowers(): string[] {
 
 const read = (file: string) => parse(file, readFileSync(path.join(ROOT, file), 'utf8'))
 
+/** `@/components/ui/Notice`, `@/components/ui`, `../ui/Notice` and the like: the modules a <Notice> comes from. */
+const NOTICE_MODULE = /(^|\/)components\/ui(\/Notice|\/index)?\/?$|^\.{1,2}\/(ui\/)?(Notice|index)?$/
+
+/** Each <Notice> in a source, under its import's own name, an alias or a namespace member, unless a local shadows it. */
+function noticeElements(sf: ts.SourceFile): Tinted[] {
+  const names = new Set<string>()
+  const namespaces = new Set<string>()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.importClause) continue
+    if (!NOTICE_MODULE.test(st.moduleSpecifier.text)) continue
+    const bindings = st.importClause.namedBindings
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const el of bindings.elements) if ((el.propertyName ?? el.name).text === 'Notice') names.add(el.name.text)
+    } else if (bindings) namespaces.add(bindings.name.text)
+  }
+  const resolve = bindingResolver(sf)
+  const out: Tinted[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = (ts.isJsxElement(node) ? node.openingElement : node).tagName
+      const isNotice = (ts.isIdentifier(tag) && names.has(tag.text) && !resolve(tag)) ||
+        (ts.isPropertyAccessExpression(tag) && ts.isIdentifier(tag.expression) && namespaces.has(tag.expression.text) && !resolve(tag.expression) && tag.name.text === 'Notice')
+      if (isNotice) out.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+/** A link's ink, the accent's, which a link inside a Notice keeps (DESIGN.md › Links): brand-strong and its hover. */
+const isLinkInk = (cls: string) => /^brand-(strong|emphasis)(-dark)?$/.test(textColour(cls) ?? '')
+
+/** A Notice title written as a string that opens on a state's name and a colon. */
+const STATE_PREFIX = /^\s*(warning|error|success|info|note|caution)\s*:/i
+function titlePrefix(element: Tinted, sf: ts.SourceFile): string | undefined {
+  const opening = ts.isJsxElement(element) ? element.openingElement : element
+  const title = opening.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'title')
+  const init = title?.initializer
+  const text = init && ts.isStringLiteral(init) ? init.text
+    : init && ts.isJsxExpression(init) && init.expression && ts.isStringLiteralLike(init.expression) ? init.expression.text : undefined
+  return text !== undefined && STATE_PREFIX.test(text) ? text : undefined
+}
+
+/** Every source under DIRS but the primitives, from the frontend root. */
+function sources(): string[] {
+  const out: string[] = []
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name)
+      const file = path.relative(ROOT, p).split(path.sep).join('/')
+      if (entry.isDirectory()) walk(p)
+      else if (/\.tsx$/.test(entry.name) && !/\.(spec|test)\.tsx$/.test(entry.name) && !file.startsWith(PRIMITIVES)) out.push(file)
+    }
+  }
+  DIRS.forEach((dir) => walk(path.join(ROOT, dir)))
+  return out.sort()
+}
+
 describe("words inside Notice's tint (E283)", () => {
   it.each(INKED)('$file: its $variant words clear 4.5:1 in the tint on the panel and the page, in both themes', ({ file, variant, ink }) => {
     const sf = read(file)
@@ -284,5 +352,55 @@ describe("words inside Notice's tint (E283)", () => {
       'planted.tsx:21 noticeTint(…) variant is not one string literal',
       "planted.tsx:22 noticeTint(…) is called outside an element's className",
     ])
+  })
+})
+
+describe('words inside a Notice (D-076)', () => {
+  it('every Notice keeps the words a caller writes into it in the ink, and no title opens on its state’s name', () => {
+    const files = sources()
+    let count = 0
+    const inked: string[] = []
+    const prefixed: string[] = []
+    for (const file of files) {
+      const sf = read(file)
+      for (const element of noticeElements(sf)) {
+        count += 1
+        const at = `${file}:${sf.getLineAndCharacterOfPosition(element.getStart(sf)).line + 1}`
+        for (const cls of wordInks(element, sf).filter((c) => !isLinkInk(c))) inked.push(`${at} ${cls}`)
+        const title = titlePrefix(element, sf)
+        if (title) prefixed.push(`${at} "${title}"`)
+      }
+    }
+    // Not vacuous: the reader reaches the Notices, the settings page's delete warning among them.
+    expect(count).toBeGreaterThanOrEqual(45)
+    expect(files).toContain('app/dashboard/settings/page.tsx')
+    expect(noticeElements(read('app/dashboard/settings/page.tsx'))).toHaveLength(1)
+    expect(inked, "a Notice's words rest in the ink and its glyph alone takes the variant's (DESIGN_SYSTEM.md §4 › Inline notice)").toEqual([])
+    expect(prefixed, "a Notice's glyph names its state, so its title does not (D-076)").toEqual([])
+  })
+
+  it('fails what it should: a status ink in a title, a description or the children, and a title that names its state', () => {
+    const planted = parse(
+      'planted.tsx',
+      [
+        "import { Notice as Box } from '@/components/ui'",
+        "import * as UI from '@/components/ui/Notice'",
+        'export const A = () => (',
+        '  <>',
+        '    <Box variant="warning" title="Warning: permanent" description={<span className="text-warning-light">risky <a className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">more</a></span>}>',
+        '      <ul className="list-disc text-text-secondary-light"><li className="dark:text-error-dark">one</li></ul>',
+        '    </Box>',
+        '    <UI.Notice variant="error" title={"Error: failed"} />',
+        '    <UI.Notice variant="error" title="Error" />',
+        '  </>',
+        ')',
+        'export const B = () => { const Box = (p: object) => <div {...p} />; return <Box className="text-error-light" /> }',
+      ].join('\n'),
+    )
+    const found = noticeElements(planted)
+    expect(found.map((e) => planted.getLineAndCharacterOfPosition(e.getStart(planted)).line + 1)).toEqual([5, 8, 9])
+    expect(wordInks(found[0], planted).filter((c) => !isLinkInk(c))).toEqual(['text-warning-light', 'dark:text-error-dark'])
+    expect(wordInks(found[0], planted).filter(isLinkInk)).toEqual(['text-brand-strong', 'hover:text-brand-emphasis', 'dark:text-brand-strong-dark'])
+    expect(found.map((e) => titlePrefix(e, planted))).toEqual(['Warning: permanent', 'Error: failed', undefined])
   })
 })

@@ -58,7 +58,9 @@ export const stylesOthers = new Set<string>()
 export const MARKER = /^(group|peer)(\/[\w-]+)?$/
 
 export const SIDES = ['top', 'right', 'bottom', 'left']
-/** A shorthand competes with its longhands: `p-2` (padding) with `px-3.5` (padding-left, padding-right). */
+/** A shorthand competes with its longhands: `p-2` (padding) with `px-3.5` (padding-left, padding-right), `[background:white]`
+    with `bg-panel-light` (background-color), `border` (border-width) with `border-x` (border-left-width, …). Expanded
+    until each part is a longhand, so `[border:1px_solid_red]` reaches every side's colour. */
 export const LONGHANDS: Record<string, string[]> = {
   padding: SIDES.map((s) => `padding-${s}`),
   margin: SIDES.map((s) => `margin-${s}`),
@@ -67,20 +69,59 @@ export const LONGHANDS: Record<string, string[]> = {
   'border-style': SIDES.map((s) => `border-${s}-style`),
   'border-color': SIDES.map((s) => `border-${s}-color`),
   'border-radius': ['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => `border-${c}-radius`),
+  border: ['border-width', 'border-style', 'border-color'],
+  ...Object.fromEntries(SIDES.map((s) => [`border-${s}`, [`border-${s}-width`, `border-${s}-style`, `border-${s}-color`]])),
+  background: ['background-color', 'background-image', 'background-position', 'background-size', 'background-repeat', 'background-attachment', 'background-origin', 'background-clip'],
+  font: ['font-style', 'font-variant', 'font-weight', 'font-stretch', 'font-size', 'line-height', 'font-family'],
   outline: ['outline-color', 'outline-style', 'outline-width'],
   overflow: ['overflow-x', 'overflow-y'],
   gap: ['row-gap', 'column-gap'],
 }
 
+/** A logical property names the physical one it sets in this left-to-right app (no `dir="rtl"` anywhere): `ps-0`
+    (padding-inline-start) competes with `px-cap-5` (padding-left), `rounded-s-none` with `rounded-xl`. Values carry over
+    as they are, since a logical property is the physical one under another name, not a shorthand. */
+const LOGICAL: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {}
+  for (const box of ['padding', 'margin', 'scroll-padding', 'scroll-margin']) {
+    out[`${box}-inline`] = [`${box}-left`, `${box}-right`]
+    out[`${box}-block`] = [`${box}-top`, `${box}-bottom`]
+    out[`${box}-inline-start`] = [`${box}-left`]
+    out[`${box}-inline-end`] = [`${box}-right`]
+    out[`${box}-block-start`] = [`${box}-top`]
+    out[`${box}-block-end`] = [`${box}-bottom`]
+  }
+  Object.assign(out, {
+    'inset-inline': ['left', 'right'], 'inset-block': ['top', 'bottom'],
+    'inset-inline-start': ['left'], 'inset-inline-end': ['right'], 'inset-block-start': ['top'], 'inset-block-end': ['bottom'],
+    'border-start-start-radius': ['border-top-left-radius'], 'border-start-end-radius': ['border-top-right-radius'],
+    'border-end-start-radius': ['border-bottom-left-radius'], 'border-end-end-radius': ['border-bottom-right-radius'],
+  })
+  for (const part of ['', '-width', '-style', '-color']) {
+    out[`border-inline${part}`] = [`border-left${part}`, `border-right${part}`]
+    out[`border-block${part}`] = [`border-top${part}`, `border-bottom${part}`]
+    out[`border-inline-start${part}`] = [`border-left${part}`]
+    out[`border-inline-end${part}`] = [`border-right${part}`]
+    out[`border-block-start${part}`] = [`border-top${part}`]
+    out[`border-block-end${part}`] = [`border-bottom${part}`]
+  }
+  return out
+})()
+
 /** A rule's declarations as longhands. A multi-value shorthand keeps its whole value, so it differs from a longhand. */
 export function longhands(decls: { prop: string; value: string }[]): Decl[] {
   const own = new Set(decls.map((d) => d.prop))
+  const expand = (prop: string, value: string, plumbing: boolean, depth = 0): Decl[] => {
+    const logical = LOGICAL[prop]
+    if (logical && depth < 4) return logical.flatMap((p) => expand(p, value, plumbing, depth + 1))
+    const parts = LONGHANDS[prop]
+    if (!parts || depth >= 4) return [{ prop, value, plumbing }]
+    const each = /\s/.test(value) ? `${prop}(${value})` : value
+    return parts.flatMap((p) => expand(p, each, plumbing, depth + 1))
+  }
   return decls.flatMap(({ prop, value }) => {
     const plumbing = !prop.startsWith('--') && [...value.matchAll(/var\((--tw-[\w-]+)/g)].some((m) => !own.has(m[1]))
-    const parts = LONGHANDS[prop]
-    if (!parts) return [{ prop, value, plumbing }]
-    const each = /\s/.test(value) ? `${prop}(${value})` : value
-    return parts.map((p) => ({ prop: p, value: each, plumbing }))
+    return expand(prop, value, plumbing)
   })
 }
 

@@ -244,9 +244,11 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-4">
                 {/* A risk the reader weighs before an action they cannot undo: a warning Notice, its triangle saying
-                    "warning", so its title does not (D-076; DESIGN_SYSTEM.md §4 › Inline notice). The list is its body. */}
-                <Notice variant="warning" title="This action is permanent" description="Deleting your account will:">
-                  <ul className="list-inside list-disc space-y-1">
+                    "warning", so its title does not (D-076; DESIGN_SYSTEM.md §4 › Inline notice). The lead line and its list
+                    are its children, so the lead sits with the list it introduces, not under the title. */}
+                <Notice variant="warning" title="This action is permanent">
+                  <p>Deleting your account will:</p>
+                  <ul className="mt-1 list-inside list-disc space-y-1">
                     <li>Permanently delete your profile and account</li>
                     <li>Delete all your search history</li>
                     <li>Delete all your saved summaries and notes</li>
