@@ -5,9 +5,10 @@ bank's, insurer's or REIT's total (IBKR, MET, AMT, AXP, COF), and it never reads
 ``financial_revenue_tags`` chooses, from the filer's own payload, the tags the collector then reads in its usual
 per-period merge (the first tag with data wins a period). A later tag fills periods the earlier ones lack only on
 evidence that it measures the same thing: its value at the latest period it shares with them matches a value they
-reported there (WFC, MS, JPM; never IBKR's gross Revenues beside its net total). Sharing none, it does not fill.
-Periods are years where two tags share any, else quarters. A bank's sum is its net interest income plus its
-noninterest income as one filing reports them for a year; its net total is that sum, or less a provision (HDB).
+reported there (WFC, MS, JPM; never IBKR's gross Revenues beside its net total). A total element sharing none does
+not fill; an ASC 606 element sharing no year has its own test (2). Periods are years where two tags share any, else
+quarters. A bank's sum is its net interest income plus its noninterest income as one filing reports them for a year;
+its net total is that sum, or less a provision (HDB).
 
 1. The total elements, in order: RevenuesNetOfInterestExpense, Revenues, SalesRevenueNet, then RealEstateRevenueNet
    and SalesRevenueServicesNet, which filers tagged before ASC 606 (ARE, BRX, PLD, MRSH). One is left out when a
