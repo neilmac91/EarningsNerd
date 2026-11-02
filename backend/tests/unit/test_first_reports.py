@@ -935,6 +935,14 @@ _FINDINGS = {
         2017: {2016: 9_520.2e6, 2017: 11_734.5e6}, 2018: {2017: 11_734.5e6, 2018: 15_163.8e6},
         2019: {2018: 15_163.8e3, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e3, 2020: 19_994.1e6},
         2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}, instant=True)),
+    # The same run in a calculation's input: current assets in thousands for FY2018 and FY2019, so working capital
+    # and the current ratio read n/m on their input's findings, at one factor.
+    "a-run-of-findings-in-an-input": lambda: _payload(tags={
+        "AssetsCurrent": {"units": {"USD": _items({
+            2017: {2016: 500e6, 2017: 600e6}, 2018: {2017: 600e6, 2018: 700e6}, 2019: {2018: 700e3, 2019: 400e6},
+            2020: {2019: 400e3, 2020: 450e6}, 2021: {2020: 450e6, 2021: 500e6}}, instant=True)}},
+        "LiabilitiesCurrent": {"units": {"USD": _items({
+            report: {year: 550e6 for year in (report - 1, report)} for report in _K}, instant=True)}}}),
     # A per-share slip: EPS is out of the crossing rule (D3), not out of item 4.
     "an-eps-scale-slip": lambda: _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items({
         2017: {2015: 1.5, 2016: 1.8, 2017: 1.9}, 2018: {2016: 1.8, 2017: 1.9, 2018: 2.01},
@@ -987,8 +995,10 @@ class TestTheCensusCountsTheAnalysissNM:
         assert all(found[("net_income", year)]["signs"] and found[("net_income", year)]["n_m"] for year in (2018, 2019))
         kept = [c for c in found.values() if not c["signs"] and not c["per_share"]]
         assert kept and not any(c["signs"] for c in kept)
-        table = "\n".join(restatement_census._basis_table(cells))
-        assert "2 (1) reported" in table and f"| **all** | {len(kept)} (1) |" in table
+        table = restatement_census._basis_table(cells)
+        reported_all, _calculated_all = [line for line in table if line.startswith("| **all** |")]
+        assert any("2 (1) reported" in line for line in table)
+        assert reported_all.startswith(f"| **all** | {len(kept)} (1) |")
 
     @pytest.mark.parametrize("fy2019_in_fy2021, basis", [(900.45e6, "like-for-like"), (901.8e6, "mixed")],
                              ids=["0.05%-off", "0.2%-off"])
