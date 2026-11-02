@@ -12,11 +12,11 @@ The chief's reviews on those pull requests, posted before the reports, had kept 
 - E29 (5) until the completion fails safely without its lock, the pending-handoff lifecycle is settled, and the
   rollout and rollback plan is recorded.
 
-The chief's review on #1954 had the reports corrected. Two earlier corrections in the same cycle were of the same
-kind:
-- a CI failure that did not recur was offered as settled by a green rerun, though no cause was ever found;
-- the journey's 400 past the Pro gate was offered as capability evidence, though it shows only that the entitlement
-  admits the account.
+The chief's review on #1954 had the reports corrected. Two earlier points in the same cycle were of the same family:
+- a CI failure that did not recur on the next run (reported in comments 6586056646 and 6586861010) was to stay on
+  record as diagnosed, cause undetermined, since a green rerun alone establishes no cause;
+- the journey's 400 past the Pro gate, which the body described as a check at the plan gate only, shows that the
+  entitlement admits the account. Evidence that the capability works needed PB-02's tests that run the paths through.
 
 **Rule**:
 - **Report what ran, not a verdict.** A trial or probe report states what ran and what it showed, in those words
@@ -37,6 +37,7 @@ Review-checked: the rule is about report wording, which no test reads.
 - PB-05's reports on #1952 (comment 6588244462) and #1963 (comment 6588247995), edited at 22:00 UTC on 2026-11-02
   with correction notes.
 - The chief's reviews on #1952 (6587525778), #1963 (6587527350) and #1954 (6586885583, 6589168811).
+- PB-05's comments on #1954 about the CI failure that did not recur (6586056646, 6586861010).
 - #1954's body: the completion list, the PB-02 test links for Multi-Period Analysis and the exports, and the
   `test_sec_document_deadline` record in Verification.
 - `docs/ops/closed-beta-acceptance.md` section 3, the E29 paragraph.

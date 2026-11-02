@@ -114,9 +114,11 @@ Before any tester is admitted, that auth repair is merged and deployed in full: 
 account its tab shows, as a required field (the founder approved that contract change), with its own two-account
 tests (one target with a password, one social-only), and the founder rehearsal repeats the manual check its pull
 request describes. Neither account may change. E29 (5), an OAuth sign-in that another tab's refresh can undo, is
-fixed before the rehearsal, including a completion that fails safely when it cannot hold the session cookies' lock
-and the life of a pending sign-in across a sign-out everywhere, a password reset and an inactive account, or the
-founder accepts it in writing. A trial that passes the usual path closes neither item: its review's conditions do.
+fixed before the rehearsal as the chief's review of its pull request requires. Among those conditions: a completion
+that fails safely when it cannot hold the session cookies' lock; a settled lifecycle for a pending sign-in across a
+sign-out everywhere, a password reset and an inactive account; and a frontend-first or compatibility-gated rollout
+and rollback plan. Otherwise the founder accepts E29 (5) in writing. A passing integration trial of the usual path
+closes neither item; the conditions in the chief's review of the pull request that carries each item do.
 
 ## 4. Pro capabilities: pass and fail
 
