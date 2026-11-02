@@ -3074,11 +3074,12 @@ class TestNativeReportingCurrencySync:
         db.close()
 
     def test_a_filing_companyfacts_names_only_under_ifrs_full_is_not_taken_for_a_newer_one(self):
-        # A US-GAAP filer that later reports under IFRS, in EUR: companyfacts names that 20-F only
-        # under ifrs-full, which the collector does not read. The per-filing writer stored its EUR
-        # FY2023 revenue (a Filing row dated 2025-03-01, after every us-gaap item). The payload names
-        # the filing, so its rows are not those of a filing companyfacts does not show yet: the sync
-        # demotes the EUR row beside the USD one, as any row in another currency.
+        # A US-GAAP filer whose 20-F/A, in EUR, companyfacts names only under ifrs-full, which the
+        # collector does not read. The per-filing writer stored its EUR FY2023 revenue (a Filing row
+        # dated 2025-03-01, after every us-gaap item). The payload names the filing, so its rows are
+        # not those of a filing companyfacts does not show yet: the sync demotes the EUR row beside the
+        # USD one, as any row in another currency. An amendment decides no reporting basis; a filer whose
+        # latest original annual report is IFRS is an IFRS filer (test_companyfacts_reporting_basis.py).
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
@@ -3090,9 +3091,9 @@ class TestNativeReportingCurrencySync:
             _item(1000.0, "2023-12-31", start="2023-01-01", accn="K23", fy=2023, filed="2024-02-15"),
         ]}}}), tag)
         payload["facts"]["ifrs-full"] = {"Revenue": {"units": {"EUR": [
-            _item(900.0, end, start=start, accn=f"IFRS24{tag}", form="20-F", filed="2025-03-01")
+            _item(900.0, end, start=start, accn=f"IFRS24{tag}", form="20-F/A", filed="2025-03-01")
             for start, end in (("2023-01-01", "2023-12-31"), ("2024-01-01", "2024-12-31"))]}}}
-        filing = Filing(company_id=company.id, accession_number=f"IFRS24{tag}", filing_type="20-F",
+        filing = Filing(company_id=company.id, accession_number=f"IFRS24{tag}", filing_type="20-F/A",
                         filing_date=datetime(2025, 3, 1, tzinfo=timezone.utc),
                         document_url="https://example.com/d", sec_url="https://example.com/s")
         db.add(filing)
