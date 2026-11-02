@@ -110,6 +110,17 @@ as a workflow input: the repository and its Actions logs are public.
 Each step's report is JSON: counts, refusals by their 1-based place in the manifest, the digest, and never an id, an
 address or the reason.
 
+Before the first grant, the testers' accounts must exist as a grant can see them:
+
+- **Invited, under invite-only registration.** Registration sets `is_beta` and records the redeemed invite only while
+  `REGISTRATION_MODE` is `invite_only`; in the default public mode an invite is ignored, so the grant refuses the
+  account (`not_invited_beta`, `no_redeemed_invite`). Invitations are PB-01's (an email-bound invite per tester, under
+  one invite cohort label, keeps each link to its person).
+- **New accounts.** Nothing tags an account registered before its invite, so an existing account cannot be granted
+  unless the founder decides to widen the rule.
+- **The stored address.** Fingerprint the address the account holds, which is the invite's address for an email-bound
+  invite (an Apple sign-in that hides the address holds Apple's relay address instead).
+
 1. **Prepare, offline.** On the founder's machine, with no settings and no database:
    `python scripts/complimentary_access.py fingerprint < addresses.txt` prints one fingerprint per address, in order.
    Write the manifest with each account's id and fingerprint, then
