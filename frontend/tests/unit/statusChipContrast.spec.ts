@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { render } from '@testing-library/react'
-import type { Config } from 'tailwindcss'
+import postcss, { type Rule } from 'postcss'
+import tailwindcss, { type Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
@@ -56,9 +57,12 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
  * hairline), so a weight, a gap or a size of its own fails. A text- colour this spec cannot resolve fails, and
  * so does a bg- or text- arbitrary value (`bg-[...]`) that looks like a colour and is not a hex or rgb() it
  * can read, or a chip's text- or bg- colour under the important modifier, which this spec does not rank
- * against the plain ones. A chip's text- or bg- colour under any variant but its theme's own (bare in
- * light, dark: in dark), such as hover:, focus-visible: or dark:hover:, fails too: the chip is measured as
- * it rests, on its row at rest and hovered, and no state or breakpoint of its own is modelled. An opacity
+ * against the plain ones. A colour's opacity modifier is read as Tailwind 3 ships it, the modifier replacing the
+ * colour's alpha, and one on a colour with its own alpha, one off Tailwind's opacity scale (`/98`, for which it emits
+ * nothing) or one that is no opacity from 0 to 1 fails, on the chip and on its grounds (E284). A chip's text- or bg-
+ * colour under any variant but its theme's own (bare in light, dark: in dark), such as hover:, focus-visible: or
+ * dark:hover:, fails too: the chip is measured as it rests, on its row at rest and hovered, and no state or
+ * breakpoint of its own is modelled. An opacity
  * below 100 under any variant (`opacity-`, `text-opacity-` or `bg-opacity-`, an arbitrary value included),
  * or an arbitrary one it cannot read, fails on the chip, on a layer between it and its row, and on the <tr>
  * and the <tbody>: every colour here is measured at full opacity. A plain unknown token name is skipped,
@@ -106,7 +110,8 @@ vi.mock('@/components/ui/Badge', async (importOriginal) => {
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
 const ROOT = path.resolve(__dirname, '../..')
-const THEME = resolveConfig(require(path.join(ROOT, 'tailwind.config.js')) as Config).theme
+const CONFIG = require(path.join(ROOT, 'tailwind.config.js')) as Config
+const THEME = resolveConfig(CONFIG).theme
 const COLORS = flattenColorPalette(THEME.colors)
 /** The scales the opacity utilities read, by prefix (`opacity-`, `text-opacity-`, `bg-opacity-`), as Tailwind resolves them. */
 const OPACITY: Record<string, Record<string, string>> = { '': THEME.opacity, 'text-': THEME.textOpacity, 'bg-': THEME.backgroundOpacity }
@@ -127,22 +132,42 @@ function rgba(color: string): Rgba {
   return [r, g, b, a]
 }
 
+/** An arbitrary opacity's number (`[0.5]`, `[.5]`, `[50%]`), in the spellings the browser reads. */
+const NUMBER = String.raw`(?:\d+(?:\.\d+)?|\.\d+)`
+
 /**
- * A colour utility's value (`info-text`, `white`, `info-light/10`, `black/[0.04]`, an arbitrary
- * `[#1d4ed8]` or `[rgb(29,78,216)]`), or null for a non-colour one or one it cannot read.
+ * A colour utility's value (`info-text`, `white`, `info-light/10`, `black/[0.04]`, `white/[50%]`, an arbitrary
+ * `[#1d4ed8]` or `[rgb(29,78,216)]`, with or without an opacity modifier): its colour; why this spec refuses it, as
+ * the words that follow the class in a failure; or null for a value that sets no colour and for a plain token name,
+ * for which Tailwind emits nothing. An opacity modifier sets the colour's alpha as Tailwind 3 ships it: it replaces the
+ * alpha the colour carries (`bg-loss-soft-dark/20` ships rgba(251, 113, 133, 0.2), not the token's own 0.14 scaled), so
+ * on a colour with its own alpha it is refused, as directionChipContrast.spec.ts refuses it, rather than measured on a
+ * ground that does not ship (E284). So are a key off Tailwind's opacity scale (`/98`), for which it emits nothing, and
+ * an arbitrary one that is no opacity from 0 to 1.
  */
-function colour(value: string): Rgba | null {
-  if (value.startsWith('[') && value.endsWith(']')) {
-    const inner = value.slice(1, -1).replace(/_/g, ' ')
-    return /^#[0-9a-f]{3,8}$/i.test(inner) || /^rgba?\(/.test(inner) ? rgba(inner) : null
+function colour(value: string): Rgba | string | null {
+  // The modifier follows the first slash outside an arbitrary value (`[url(/x.png)]` has none).
+  const slash = value.search(/\/(?![^[]*\])/)
+  const name = slash === -1 ? value : value.slice(0, slash)
+  const modifier = slash === -1 ? undefined : value.slice(slash + 1)
+  let base: Rgba
+  if (name.startsWith('[') && name.endsWith(']')) {
+    const inner = name.slice(1, -1).replace(/_/g, ' ')
+    if (!/^#[0-9a-f]{3,8}$/i.test(inner) && !/^rgba?\(/.test(inner)) return null
+    base = rgba(inner)
+  } else {
+    const token = COLORS[name]
+    if (token === undefined) return null
+    base = token === 'transparent' ? [0, 0, 0, 0] : rgba(token)
   }
-  const m = value.match(/^(.+?)(?:\/(?:\[([\d.]+)\]|(\d+)))?$/)!
-  const base = COLORS[m[1]]
-  if (base === undefined) return null
-  if (base === 'transparent') return [0, 0, 0, 0]
-  const [r, g, b, a] = rgba(base)
-  const alpha = m[2] !== undefined ? Number(m[2]) : m[3] !== undefined ? Number(m[3]) / 100 : 1
-  return [r, g, b, a * alpha]
+  if (modifier === undefined) return base
+  const scaled = Object.hasOwn(OPACITY[''], modifier) ? Number(OPACITY[''][modifier]) : undefined
+  if (scaled === undefined && /^\d+$/.test(modifier)) return "takes an opacity off Tailwind's scale, for which Tailwind emits nothing"
+  const arbitrary = new RegExp(String.raw`^\[(${NUMBER})(%?)\]$`).exec(modifier)
+  const alpha = scaled ?? (arbitrary ? Number(arbitrary[1]) / (arbitrary[2] ? 100 : 1) : NaN)
+  if (!(alpha >= 0 && alpha <= 1)) return 'takes an opacity this spec cannot read as one from 0 to 1'
+  if (base[3] < 1) return 'sets an opacity on a colour with its own alpha, which Tailwind replaces'
+  return [base[0], base[1], base[2], alpha]
 }
 
 const over = (top: Rgba, ground: Rgba): Rgba => {
@@ -293,6 +318,10 @@ function backgrounds(className: string, where: string, modelled: string[], failu
     const m = utility.match(/^!?bg-(.+)$/)
     if (!m) continue
     const value = colour(m[1])
+    if (typeof value === 'string') {
+      failures.push(`${where}: ${cls} ${value}`)
+      continue
+    }
     if (!value) {
       if (looksLikeColour(m[1])) failures.push(`${where}: ${cls} looks like a colour this spec cannot resolve`)
       continue
@@ -380,6 +409,7 @@ function chipColours(className: string, theme: Theme) {
     if (parts.length > (dark ? 1 : 0)) found.refused.push(`${cls} is a chip colour under a variant this spec does not model`)
     // A bare colour in dark is the light one, read there only where dark sets none.
     else if (dark !== (theme === 'dark')) continue
+    else if (typeof value === 'string') found.refused.push(`${cls} ${value}`)
     // A colour under the important modifier is refused like one it cannot read: in the browser it outranks
     // the plain ones, and this spec does not rank it.
     else if (value && !m[1]) found[m[2] as 'text' | 'bg'] = value
@@ -902,10 +932,43 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
   it('reads a tinted ground and its alpha, so the old recipe would fail', () => {
     // The Pending chip before this change: info.light inside its own 10% tint, on the panel row.
     const { text, bg } = chipColours('border-info-light/40 bg-info-light/10 text-info-light', 'light')
-    const ground = over(bg!, colour('panel-light')!)
+    const ground = over(bg!, colour('panel-light') as Rgba)
     expect(ratio(over(text!, ground), ground)).toBeLessThan(4.5)
-    expect(colour('black/[0.04]')![3]).toBeCloseTo(0.04)
+    expect(colour('black/[0.04]')).toEqual([0, 0, 0, 0.04])
     expect(colour('text-xs')).toBeNull()
+  })
+
+  it("reads an opacity modifier as Tailwind ships it, and refuses one on a colour's own alpha or off its scale (E284)", async () => {
+    // What Tailwind emits for each, compiled from the repo's config: the modifier's alpha in place of the colour's
+    // own, and nothing for a key off the opacity scale. A slash inside an arbitrary value is no modifier.
+    const modelled = ['bg-white/20', 'bg-black/[0.04]', 'bg-white/[50%]', 'bg-[#1d4ed8]/50', 'bg-[rgb(29_78_216_/_0.5)]']
+    const raw = [...modelled, 'bg-loss-soft-dark/20', 'bg-white/98'].join(' ')
+    const css = await postcss([tailwindcss({ ...CONFIG, content: [{ raw, extension: 'html' }], safelist: [] })]).process('@tailwind utilities;', { from: undefined })
+    const shipped = new Map<string, number[]>()
+    css.root.walkDecls('background-color', (decl) => {
+      const cls = (decl.parent as Rule).selector.slice(1).replace(/\\(.)/g, '$1')
+      shipped.set(cls, decl.value.match(/[\d.]+%?/g)!.map((v, i) => (i === 3 && v.endsWith('%') ? parseFloat(v) / 100 : Number(v))))
+    })
+    for (const cls of modelled) expect(colour(cls.slice('bg-'.length)), cls).toEqual(shipped.get(cls))
+    // The loss tint's token carries 0.14; with /20 it ships 0.2, so the old reading (0.14 x 0.2) measured a ground that
+    // never paints. Refused, as directionChipContrast.spec.ts refuses it.
+    expect(COLORS['loss-soft-dark']).toBe('rgba(251,113,133,0.14)')
+    expect(shipped.get('bg-loss-soft-dark/20')).toEqual([251, 113, 133, 0.2])
+    expect(colour('loss-soft-dark/20')).toBe('sets an opacity on a colour with its own alpha, which Tailwind replaces')
+    expect(colour('transparent/50')).toBe('sets an opacity on a colour with its own alpha, which Tailwind replaces')
+    // Off the scale it ships nothing, where the old reading measured white at 0.98.
+    expect(shipped.has('bg-white/98')).toBe(false)
+    expect(colour('white/98')).toBe("takes an opacity off Tailwind's scale, for which Tailwind emits nothing")
+    expect(colour('white/[1.5]')).toBe('takes an opacity this spec cannot read as one from 0 to 1')
+    expect(colour('white/[var(--a)]')).toBe('takes an opacity this spec cannot read as one from 0 to 1')
+    // A refusal fails on the chip and on its grounds, naming the class, in each theme it applies in.
+    const panel = tableGrounds('probe', '', 'bg-panel-light dark:bg-panel-dark', PROBE, [])
+    const chip: string[] = []
+    measure('probe', 'text-info-text dark:bg-loss-soft-dark/20 dark:text-info-dark', panel, chip)
+    expect(chip).toEqual(['probe (dark): dark:bg-loss-soft-dark/20 sets an opacity on a colour with its own alpha, which Tailwind replaces'])
+    const under: string[] = []
+    tableGrounds('probe', 'hover:bg-white/98', 'bg-panel-light dark:bg-panel-dark', PROBE, under)
+    expect(under).toEqual(["probe <tr>: hover:bg-white/98 takes an opacity off Tailwind's scale, for which Tailwind emits nothing"])
   })
 
   it('measures an arbitrary hex or rgb() ground and refuses one it cannot read', () => {
@@ -960,7 +1023,7 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(hovered).toEqual(['Badge info-status (dark, probe hovered row): 4.23:1'])
     // With no dark tint of its own, a hovered dark row shows the light hover tint; a row's dark:bg- outranks it.
     expect(tableGrounds('probe', 'hover:bg-background-light', 'bg-panel-light dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(colour('background-light'))
-    expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5')!, colour('panel-dark')!))
+    expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5') as Rgba, colour('panel-dark') as Rgba))
     // An important tint is read as that fill, and outranks every plain one: dark:!bg-white/10 holds on a hovered
     // row over the plain dark:hover:bg-white/5, as the cascade paints it.
     const important: string[] = []
