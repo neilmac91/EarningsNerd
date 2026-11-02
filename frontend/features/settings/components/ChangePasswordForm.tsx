@@ -24,9 +24,11 @@ export const PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE =
   "This browser is now logged in to another account, so we didn't change your password. Log in to the account you meant, then try again."
 
 /** What the form says when it cannot name the account its tab shows (the identity read holds none, as when it failed):
- * a change it posted unnamed would change whichever account the browser holds, so it posts none (E29 (6)). */
+ * the route requires the account (E29 (6)), so it posts nothing and asks for a reload. */
 export const ACCOUNT_UNCONFIRMED_MESSAGE = "We couldn't confirm which account this page shows. Reload the page, then try again."
 
+/** The settings page keys it by the account it shows, so a read of /me that moves the tab to another account remounts
+ * it with empty fields: nothing typed for one account is posted under another (E29 (6)). */
 export default function ChangePasswordForm() {
   const queryClient = useQueryClient()
   // Shares the cache with ConnectedAccounts (same key) — one fetch, and invalidating it after a

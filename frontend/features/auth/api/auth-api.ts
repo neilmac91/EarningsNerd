@@ -258,17 +258,17 @@ function postPasswordChange(
   currentPassword: string | null,
   newPassword: string,
   generation: number,
-  accountId: number | undefined,
+  accountId: number,
 ) {
   return withSessionCookiesForPost(PASSWORD_CHANGE_REFRESH_WAIT_MS, async () => {
     if (!isExplicitSessionGenerationCurrent(generation)) throw sessionChangedMeanwhile()
     // current_password is omitted for OAuth-only users setting a password for the first time. account_id names the
     // account this tab shows, and the route refuses with 409, changing nothing, when the browser holds another's
-    // (E29 (6)); without one to name it names none, and the route answers as before the field.
+    // (E29 (6)); the route requires it, so a page loaded before this deploy must reload.
     return api.post('/api/auth/change-password', {
       current_password: currentPassword || undefined,
       new_password: newPassword,
-      ...(accountId === undefined ? {} : { account_id: accountId }),
+      account_id: accountId,
     })
   }, 'refuse')
 }
@@ -295,13 +295,12 @@ function postPasswordChange(
  * a tab left stale by another tab's sign-in still shows the account it loaded with. So both posts name the account the
  * tab shows (`accountId`, read as the change is asked for), and the route refuses with 409, checking, setting and
  * revoking nothing, when the browser's session is another account's (E29 (6)), for an account without a password as for
- * one with. Its one caller, ChangePasswordForm, posts nothing when it has no account to name; called without one, it
- * names none, and the route changes the password of the account the browser holds, as before the field, which leaves
- * only pages loaded before that field shipped. And the refusal's cost: a refresh that never answers (the refresh has
- * no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it hangs, where a login
- * or a logout posts at its limit.
+ * one with. The route requires the account (422 without it), so its one caller, ChangePasswordForm, posts nothing when
+ * it has no account to name, and a page loaded before this deploy must reload. And the refusal's cost: a refresh that
+ * never answers (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as
+ * long as it hangs, where a login or a logout posts at its limit.
  */
-export const changePassword = async (currentPassword: string | null, newPassword: string, accountId?: number) => {
+export const changePassword = async (currentPassword: string | null, newPassword: string, accountId: number) => {
   const generation = getExplicitSessionGeneration()
   try {
     return (await postPasswordChange(currentPassword, newPassword, generation, accountId)).data

@@ -208,6 +208,7 @@ describe('ChangePasswordForm submit', () => {
     fireEvent.submit(form) // Enter in a field while the request is in flight
     await settle()
     expect(api.changePassword).toHaveBeenCalledTimes(1)
+    expect(api.changePassword).toHaveBeenCalledWith('old-password-1', 'new-password-12', user(null).id)
 
     await act(async () => post.resolve({}))
     // Success clears the fields, so the button turns unavailable while it still holds focus.

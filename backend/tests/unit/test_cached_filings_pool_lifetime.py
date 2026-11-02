@@ -1213,7 +1213,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
         else:
             headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
             body = {"current_password": "not-the-password" if case == "change_wrong" else current,  # gitleaks:allow
-                    "new_password": new}
+                    "new_password": new, "account_id": account_ids[emails[i]]}
         async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
             return await client.post(f"/api/auth/{route}-password", json=body)
 
@@ -2548,6 +2548,7 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
         db.flush()
         refresh_token_service.create_refresh_token(db, user)
         db.commit()
+        user_id = user.id
 
     at_close: list[bool] = []
 
@@ -2575,7 +2576,8 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
             headers={"Authorization": f"Bearer {token}"},
         ) as client:
             response = await client.post(
-                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+                "/api/auth/change-password",
+                json={"current_password": current, "new_password": new, "account_id": user_id},
             )
         assert response.status_code == 200 and response.json() == {"message": "Password updated."}
         # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.

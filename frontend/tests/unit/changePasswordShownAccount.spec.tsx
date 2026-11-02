@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
+import SettingsPage from '@/app/dashboard/settings/page'
 import ChangePasswordForm, {
   ACCOUNT_UNCONFIRMED_MESSAGE,
   PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE,
@@ -17,17 +18,39 @@ import { queryKeys } from '@/lib/queryKeys'
  * names the account its tab shows (the identity read's cached account, as "Log out of all devices" names it, E157 (2)),
  * posts nothing while that read holds no account to name, and on the route's 409 for another account it keeps nothing
  * typed for the account it showed, says why in a toast,
- * which outlives the form a read of /me replaces, and reads /me again. The cross-tab ordering and the route's refusal
- * are pinned in sessionCookiesAcrossTabs.spec.ts and backend/tests/unit/test_password_and_profile.py.
+ * which outlives the form a read of /me replaces, and reads /me again. The settings page keys the form by the account
+ * it shows, so a read of /me that moves the tab to another account remounts it empty: nothing typed for one account is
+ * posted under another. The cross-tab ordering and the route's refusal are pinned in sessionCookiesAcrossTabs.spec.ts
+ * and backend/tests/unit/test_password_and_profile.py.
  */
 
-const api = vi.hoisted(() => ({ changePassword: vi.fn(), getConnections: vi.fn() }))
+const api = vi.hoisted(() => ({ changePassword: vi.fn(), getConnections: vi.fn(), getCurrentUserSafe: vi.fn() }))
 vi.mock('@/features/auth/api/auth-api', () => ({
   changePassword: api.changePassword,
   getConnections: api.getConnections,
-  getCurrentUserSafe: vi.fn(),
+  getCurrentUserSafe: api.getCurrentUserSafe,
   logoutAllSessions: vi.fn(),
   LogoutAllSuperseded: class LogoutAllSuperseded extends Error {},
+  updateProfile: vi.fn(),
+  unlinkProvider: vi.fn(),
+  exportUserData: vi.fn(),
+  deleteUserAccount: vi.fn(),
+}))
+// The settings page's other sections, which load and stay loading here.
+vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
+  getSubscriptionStatus: () => new Promise(() => {}),
+  getUsage: () => new Promise(() => {}),
+  createPortalSession: vi.fn(),
+}))
+vi.mock('@/features/notifications/api/notifications-api', () => ({
+  getNotificationPreferences: () => new Promise(() => {}),
+  updateNotificationPreferences: vi.fn(),
+}))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
 }))
 const toasts = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast: toasts }))
@@ -113,5 +136,36 @@ describe('ChangePasswordForm names the account its tab shows (E29 (6))', () => {
     expect(toasts.error).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Current password')).toHaveValue('old-password-1')
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  })
+})
+
+describe("the settings page's password form never posts what was typed for another account (E29 (6))", () => {
+  const other: CurrentUser = { ...shown, id: 8, email: 'other@example.test' }
+  const FIELDS = ['Current password', 'New password', 'Confirm new password']
+
+  it("empties every field when a read of /me moves the tab to another account, and posts only what is typed after, naming that account", async () => {
+    api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
+    api.getCurrentUserSafe.mockReturnValue(new Promise(() => {})) // the page's own /me read stays out: the cache speaks
+    api.changePassword.mockResolvedValue({ message: 'Password updated.' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), shown)
+    render(<QueryClientProvider client={client}><SettingsPage /></QueryClientProvider>)
+
+    for (const label of FIELDS) fireEvent.change(await screen.findByLabelText(label), { target: { value: `typed for ${shown.id}` } })
+    for (const label of FIELDS) expect(screen.getByLabelText(label)).toHaveValue(`typed for ${shown.id}`)
+
+    // Another tab signs the browser in to another account; this tab's read of /me replaces the cached account.
+    await act(async () => { client.setQueryData(queryKeys.currentUser(), other) })
+
+    // React Query tells the page on its own tick, so the remount lands after the cache write.
+    await waitFor(() => { for (const label of FIELDS) expect(screen.getByLabelText(label)).toHaveValue('') })
+    fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'others-password-1' } })
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'others-new-password-12' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'others-new-password-12' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    await waitFor(() => expect(api.changePassword).toHaveBeenCalledTimes(1))
+    expect(api.changePassword).toHaveBeenCalledWith('others-password-1', 'others-new-password-12', other.id)
+    expect(await screen.findByText('Password saved')).toBeInTheDocument()
   })
 })
