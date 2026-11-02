@@ -254,7 +254,7 @@ const NEUTRAL_NOTICES_MAX = { files: 2, uses: 3 }
     on purpose, with the state it shows, and moves TINT_BORROWED_MAX with it. */
 const TINT_BORROWED: Record<string, Record<string, number>> = {
   'app/dashboard/page.tsx': { warning: 1 }, // the limit banner: a banner's shape, the upgrade at its end from sm (E196 (2))
-  'app/dashboard/settings/page.tsx': { error: 1 }, // the Delete account card's warning: its words keep the error ink, as a Notice's would not (E283)
+  'app/dashboard/settings/page.tsx': { error: 1 }, // the Delete account card's warning: a list, which a Notice's description cannot hold (E283)
   'features/auth/components/VerificationBanner.tsx': { warning: 1 }, // the strip under the header: an unverified address (E196 (2))
   'features/filings/components/copilot/CopilotMessage.tsx': { error: 1 }, // the error bubble: the answer card's shape, with the thread's tail (E196 (3))
 }
