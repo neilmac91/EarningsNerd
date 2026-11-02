@@ -42,7 +42,7 @@ import math
 from datetime import date
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping, NamedTuple
 
-from app.services.facts.fiscal_naming import ANNUAL_FORMS, is_proxy_form
+from app.services.facts.fiscal_naming import ANNUAL_FORMS, is_proxy_form, without_partial_years
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -92,18 +92,18 @@ def _reporting_currency(
 def admitted_items(items: list, *, instant: bool) -> Iterator[tuple[tuple[date, str], date | None, float, dict]]:
     """Each companyfacts item the collector keeps, as ``((end, klass), start, value, item)``.
 
-    A kept item comes from no proxy or information statement (``is_proxy_form``), and has a finite
-    numeric ``val`` and a parseable ``end``. A duration also needs a parseable ``start``, and its
-    span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span is dropped); an instant's klass is
-    "I". ``filing_currencies`` counts each filing's items on these same keys, so an item the
-    collector drops for its form, value, date or span never votes. The pick runs over the whole
+    A kept item comes from no proxy or information statement (``is_proxy_form``), is no quarterly report's year
+    that holds part of one (``without_partial_years``), and has a finite numeric ``val`` and a parseable ``end``. A
+    duration also needs a parseable ``start``, and its span sets klass ("FY", "Q", "YTD6" or "YTD9"; any other span
+    is dropped); an instant's klass is "I". ``filing_currencies`` counts each filing's items on these same keys, so
+    an item the collector drops for its form, value, date or span never votes. The pick runs over the whole
     registries, so a financial filer's generic revenue tags, which its collector replaces with
     ``fi_revenue``'s (``_FI_SKIPPED_CONCEPTS``), still vote: a filing tags them in its own currency too.
     """
     # Call time: concepts imports quarterly, which imports this module.
     from app.services.facts.concepts import _classify_duration, _parse_date
 
-    for item in items:
+    for item in (items if instant else without_partial_years(items)):
         if not isinstance(item, dict) or is_proxy_form(item.get("form")):
             continue
         value = item.get("val")
