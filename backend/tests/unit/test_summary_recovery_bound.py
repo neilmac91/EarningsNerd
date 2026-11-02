@@ -1,7 +1,6 @@
 """Recovery contenders and cancellations cannot outlive or steal one pass's ownership."""
 import asyncio
 from threading import Event
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -48,14 +47,15 @@ async def test_one_deadline_covers_entire_batch_and_preserves_pending_work(monke
     configured = []
     entered = asyncio.Event()
     calls = []
+    original_timeout = asyncio.timeout
 
     def timeout(seconds):
         configured.append(seconds)
-        scope = asyncio.timeout(seconds)
+        scope = original_timeout(seconds)
         deadlines.append(scope)
         return scope
 
-    monkeypatch.setattr(recovery, "asyncio", SimpleNamespace(timeout=timeout))
+    monkeypatch.setattr(recovery.asyncio, "timeout", timeout)
     monkeypatch.setattr(jobs.store, "due_jobs", lambda limit: [("first", 1), ("second", 1), ("third", 1)])
 
     async def dispatch(job_id, *args, **kwargs):

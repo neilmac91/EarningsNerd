@@ -18,6 +18,7 @@ import threading
 import time
 from typing import Callable, TypeVar
 
+import anyio
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -145,6 +146,31 @@ async def before_handoff() -> None:
         await _guard_call(owner.check)
 
 
+async def _release_owner(owner: _RecoveryOwner) -> None:
+    """Finish mandatory disconnect even when the request is repeatedly cancelled.
+
+    RequestWork cancels queued calls when its waiter is cancelled. Release must
+    run even before its thread starts, so only a shielded child owns that future.
+    The parent retains the local permit until the actual disconnect finishes.
+    """
+    async def disconnect() -> None:
+        async with request_work_scope():
+            await _guard_call(owner.release)
+
+    cleanup = asyncio.create_task(disconnect())
+    cancelled = False
+    while True:
+        try:
+            with anyio.CancelScope(shield=True):
+                # AnyIO shielding alone does not intercept native Task.cancel().
+                await asyncio.shield(cleanup)
+            break
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
+
+
 @asynccontextmanager
 async def recovery_scope():
     """Yield whether this caller owns the pass; contenders return without waiting."""
@@ -172,13 +198,10 @@ async def recovery_scope():
         raise SummaryRecoveryUnavailable("Summary recovery storage is unavailable") from None
     finally:
         try:
-            # A fresh work owner can submit cleanup after the pass owner closed;
-            # it also drains a repeated cancellation during physical disconnect.
-            async with request_work_scope():
-                try:
-                    await _guard_call(owner.release)
-                except SQLAlchemyError:
-                    raise SummaryRecoveryUnavailable("Summary recovery cleanup is unavailable") from None
+            try:
+                await _release_owner(owner)
+            except SQLAlchemyError:
+                raise SummaryRecoveryUnavailable("Summary recovery cleanup is unavailable") from None
         finally:
             _owner.reset(owner_token)
             _deadline.reset(deadline_token)

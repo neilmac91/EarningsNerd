@@ -200,6 +200,76 @@ async def test_recovery_cancellation_keeps_pg_lock_until_sql_thread_finishes(
         assert db.get(SummaryJob, view.job_id).last_dispatched_at is None
 
 
+@pytest.mark.asyncio
+async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
+    recovery_guard, postgres_engine, monkeypatch,
+):
+    # Hold the real single-worker executor after acquire. The mandatory release
+    # is submitted but cannot start, without replacing any connection operation.
+    executor = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(recovery, "_executor", executor)
+    owner = recovery._RecoveryOwner()
+    monkeypatch.setattr(recovery, "_RecoveryOwner", lambda: owner)
+    entered, release = Event(), Event()
+    cleanup_queued = asyncio.Event()
+    submitted = []
+    original_submit = executor.submit
+
+    def submit(call, *args, **kwargs):
+        future = original_submit(call, *args, **kwargs)
+        submitted.append(future)
+        if len(submitted) == 3:  # acquire, fixture blocker, mandatory disconnect
+            cleanup_queued.set()
+        return future
+
+    monkeypatch.setattr(executor, "submit", submit)
+
+    def block_worker():
+        entered.set()
+        assert release.wait(10), "test did not unblock the cleanup executor"
+
+    def competitor_acquires():
+        with postgres_engine.begin() as probe:
+            acquired = probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+            if acquired:
+                assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+            return acquired
+
+    async def one_pass():
+        async with recovery.recovery_scope() as acquired:
+            assert acquired
+            executor.submit(block_worker)
+            assert await asyncio.to_thread(entered.wait, 10)
+
+    task = asyncio.create_task(one_pass())
+    try:
+        await asyncio.wait_for(cleanup_queued.wait(), 10)
+        assert not competitor_acquires()
+        for _ in range(3):
+            task.cancel()
+            await asyncio.sleep(0)
+            assert not submitted[2].cancelled(), "mandatory disconnect was discarded before starting"
+            assert not task.done() and recovery._slot.locked()
+            assert not competitor_acquires()
+            async with recovery.recovery_scope() as acquired:
+                assert not acquired
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 10)
+        assert submitted[2].done() and not submitted[2].cancelled()
+        assert owner.connection is None
+        assert not recovery._slot.locked()
+        assert competitor_acquires()
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        executor.shutdown(wait=True)
+        # A failed/mutated implementation must not leave its fixture lock pooled.
+        owner.release()
+
+
 def test_recovery_process_crash_releases_session_lock(recovery_guard, postgres_engine):
     # The child opens only a Core guard connection against this disposable test
     # database. It touches no table outside the fixture's schema or any provider.
