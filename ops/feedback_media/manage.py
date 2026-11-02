@@ -97,29 +97,37 @@ ERROR_REASONS = frozenset({
     "SECURITY_POLICY_VIOLATED", "ORG_RESTRICTION_VIOLATION", "LOCATION_POLICY_VIOLATED", "USER_PROJECT_DENIED",
     "CONSUMER_INVALID", "SERVICE_NOT_VISIBLE", "RESOURCE_PROJECT_INVALID",
 })
-# A denied permission is printed only in this identifier shape, letters and dots under the services these
-# operations call, so no principal, resource or message text from the provider can pass through it.
-PERMISSION_NAME = re.compile(r"(?:run|iam|storage|logging|monitoring|cloudscheduler|secretmanager|cloudsql|resourcemanager)"
-                             r"\.[A-Za-z]{1,40}\.[A-Za-z]{1,40}")
+# A denied permission is named only when it is one these operations' steps name; any other reads as unlisted.
+KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, "run.services.update"}
 
 
 class OperationError(RuntimeError):
     """An operational failure safe to display without provider payloads."""
 
 
+class ProviderError(OperationError):
+    """A provider call that failed or could not be read: its closed label and class, never its payload.
+
+    Inspection reports such a component UNVERIFIED rather than refused (lessons/ops-denied-reads-report-unverified.md).
+    """
+
+
 def error_class(raw: bytes) -> str:
     """Reduce a provider error body to closed values: its status, ErrorInfo reasons and a known denied permission."""
     try:
-        error = json.loads(raw).get("error", {})
+        error = json.loads(raw)["error"]
         details = [item for item in error.get("details", []) if isinstance(item, dict)]
-    except (ValueError, AttributeError, TypeError):
+        status = error.get("status")
+        values = [status] if isinstance(status, str) and status in GRPC_STATUSES else []
+        values += sorted({item["reason"] for item in details
+                          if isinstance(item.get("reason"), str) and item["reason"] in ERROR_REASONS})
+        named = {item["metadata"]["permission"] for item in details
+                 if isinstance(item.get("metadata"), dict) and isinstance(item["metadata"].get("permission"), str)}
+        values += sorted({f"denied {name}" if name in KNOWN_PERMISSIONS else "denied an unlisted permission"
+                          for name in named})
+    except Exception:  # a malformed body yields no class; the labelled refusal itself stands
         return ""
-    status = error.get("status") if error.get("status") in GRPC_STATUSES else None
-    reasons = sorted({item.get("reason") for item in details if item.get("reason") in ERROR_REASONS})
-    denied = sorted({item["metadata"]["permission"] for item in details
-                     if isinstance(item.get("metadata"), dict) and isinstance(item["metadata"].get("permission"), str)
-                     and PERMISSION_NAME.fullmatch(item["metadata"]["permission"])})
-    return "".join(f"; {value}" for value in ([status] if status else []) + reasons + [f"denied {name}" for name in denied])
+    return "".join(f"; {value}" for value in values)
 
 
 class Cloud:
@@ -153,11 +161,11 @@ class Cloud:
                 return None
             try:
                 detail = error_class(exc.read(64 * 1024))
-            except (OSError, ValueError):
+            except Exception:  # an unreadable error body yields no class; the labelled refusal itself stands
                 detail = ""
-            raise OperationError(f"{label} failed (HTTP {exc.code}{detail})") from None
+            raise ProviderError(f"{label} failed (HTTP {exc.code}{detail})") from None
         except (URLError, TimeoutError, ValueError):
-            raise OperationError(f"{label} unavailable or unreadable") from None
+            raise ProviderError(f"{label} unavailable or unreadable") from None
 
     def wait(self, operation: dict) -> dict:
         deadline = time.monotonic() + 180
@@ -169,7 +177,7 @@ class Cloud:
         if operation.get("error"):
             code = operation["error"].get("code") if isinstance(operation["error"], dict) else None
             status = GRPC_STATUSES[code] if type(code) is int and 0 < code < len(GRPC_STATUSES) else "unclassified"
-            raise OperationError(f"Cloud Run operation failed ({status}); provider payload withheld")
+            raise ProviderError(f"Cloud Run operation failed ({status}); provider payload withheld")
         return operation.get("response", {})
 
 
@@ -583,10 +591,11 @@ def inspect_bucket(cloud: Cloud, environment: str, runtime: str) -> bool:
 
 
 def inspect(cloud: Cloud) -> bool:
-    """Read every prerequisite and print its state; raise after all of them if any was refused.
+    """Read every prerequisite and print its state; raise after all of them if any was refused or unreadable.
 
-    Absent resources are incomplete (False). Drift or an unreadable resource is a refusal, raised only once
-    every component has been read, so one inspection shows the whole state before a retry.
+    Absent resources are incomplete (False). A component whose provider read fails is UNVERIFIED and readable
+    drift is refused; both raise only once every component has been read, so one inspection shows the whole
+    state before a retry, and an unverified component never masks a refused one.
     """
     service = cloud.call("run", "v2/" + SERVICE, step=SERVICE_READ)
     runtime = service.get("template", {}).get("serviceAccount")
@@ -597,15 +606,21 @@ def inspect(cloud: Cloud) -> bool:
                    for environment in BUCKETS]
     components += [("Cleanup job and schedule", lambda: inspect_cleanup(cloud, service, runtime)),
                    ("Alert routing and heartbeat", lambda: inspect_monitoring(cloud))]
-    ready, refused = True, []
+    ready, refused, unverified = True, [], []
     for name, check in components:
         try:
             ready = check() and ready
+        except ProviderError as exc:
+            print(f"{name}: UNVERIFIED ({exc})")
+            unverified.append(name)
         except OperationError as exc:
             print(f"{name}: refused ({exc})")
             refused.append(name)
     if refused:
-        raise OperationError("Feedback media prerequisites refused: " + ", ".join(refused))
+        raise OperationError("Feedback media prerequisites refused: " + ", ".join(refused)
+                             + (f" (also unverified: {', '.join(unverified)})" if unverified else ""))
+    if unverified:
+        raise OperationError("Feedback media prerequisites unverified: " + ", ".join(unverified))
     return ready
 
 
@@ -683,10 +698,13 @@ def report_capabilities(cloud: Cloud, service: dict) -> None:
     for label, permissions, identity in (
             ("feedback-media-provision-apply", PROVISION_PERMISSIONS, runtime),
             ("feedback-media-verify-apply", verification_permissions(), None)):
+        if label == "feedback-media-provision-apply" and runtime is None:
+            print(f"Capability for {label}: UNVERIFIED (API runtime identity unavailable, so actAs cannot be tested)")
+            continue
         try:
             missing = capability_gaps(cloud, permissions, identity)
         except OperationError as exc:
-            print(f"Capability for {label}: unverified ({exc})")
+            print(f"Capability for {label}: UNVERIFIED ({exc})")
             continue
         print(f"Capability for {label}: " + ("all required permissions present" if not missing
                                               else "missing " + ", ".join(missing)))

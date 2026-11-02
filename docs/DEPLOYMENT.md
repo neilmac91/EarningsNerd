@@ -835,10 +835,12 @@ existing notification channel; absent grants fail the apply rather than being wo
 Provisioning tests those permissions before its first write (`PROVISION_PERMISSIONS` in
 `ops/feedback_media/manage.py`, through Resource Manager `testIamPermissions`, plus `actAs` tested on the
 runtime identity itself) and refuses with the missing names and nothing changed. `feedback-media-inspect`
-prints the same capability check for both provisioning operations, then every component's state (absent,
-verified or refused) before it fails, so one read shows what a retry would meet. A refused provider call
-names its step, the permission that step needs and Google's closed error class (status, reason, denied
-permission); provider messages, resources and principals stay withheld. The check reads the identity's own
+prints the same capability check for both provisioning operations, then every component's state before it
+fails: verified, absent or not yet observed (incomplete), `UNVERIFIED` with a closed class when its read
+fails, or refused for readable drift, which an unverified component never masks. One read shows what a
+retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
+error class (status, reason, and a denied permission that one of these steps names); provider messages,
+resources and principals stay withheld. The check reads the identity's own
 grants only: a disabled API, an organization policy or a grant made on a single resource still surfaces at
 the step itself.
 
@@ -950,7 +952,8 @@ The provisioner addresses only these feature resources:
 Before any write, the provisioner requires the object role and preview bucket that media provisioning
 creates, and admits itself only while the shared production instance has room: active client backends,
 the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
-summary rehearsal's rule, applied here to `earningsnerd-db`). It prints the counts and refuses otherwise;
+summary rehearsal's rule, applied here to `earningsnerd-db`; a session the administrator cannot see in full
+counts as a client backend). It prints the counts and refuses otherwise;
 that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
 pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
 connection at :41 to the job budget above.

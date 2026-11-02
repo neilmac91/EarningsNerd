@@ -371,7 +371,8 @@ def test_a_new_apply_cannot_finalize_an_active_or_unknown_previous_lease(expired
 @pytest.mark.parametrize("answer, admitted", [
     ("25|3|0|6", True),    # 22 usable: (6 + 4 + 5) * 10 = 150 <= 154
     ("25|3|0|7", False),   # (7 + 4 + 5) * 10 = 160 > 154
-    ("25|3|2|1", True),    # reserved_connections counts against usable
+    ("25|3|2|6", False),   # reserved_connections counts against usable: 20 usable, 150 > 140 (22 would admit)
+    ("23|3|0|5", True),    # exactly at 70%: (5 + 4 + 5) * 10 = 140 <= 140
     ("8|3|0|0", False),
     ("0|3|0|0", False),
     ("25|3|0|PRINCIPAL", None),
@@ -389,6 +390,8 @@ def test_production_sql_admission_refuses_the_verifier_without_room(monkeypatch,
                            match="unreadable" if admitted is None else "insufficient for the isolated verifier; nothing was created"):
             verify.Sql({}).admit()
     assert len(statements) == 1 and statements[0].lstrip().startswith("SELECT")
+    # A session another role owns shows backend_type NULL to a role without pg_read_all_stats; it still counts.
+    assert "backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL)" in " ".join(statements[0].split())
     assert "PRINCIPAL" not in capsys.readouterr().out
 
 
@@ -479,3 +482,20 @@ def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_fi
     expected = ["permissions", "media prerequisites", "sql admin", "sql preflight", "sql admission", "first write"]
     stop = {None: len(expected), "prerequisites": 2, "admission": 5}[refusal]
     assert events == expected[:stop]
+
+
+def test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name():
+    """The provision gate's rule, for the verifier's own pre-write reads: each permission they name is preflighted."""
+    labels = []
+    class Cloud:
+        def call(self, api, path, *, method="GET", missing_ok=False, step=None, **_):
+            labels.append(step)
+            return {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"} if api == "iam" else {
+                "name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+                "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
+                "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+    verify.require_media_prerequisites(Cloud())
+    named = {name for label in labels for name in label.split(" [", 1)[1].rstrip("]").split(", ")}
+    assert named == {"iam.roles.get", "storage.buckets.get"}
+    # Every Cloud Run operation poll and the serving revision's read (current_image) also run before or between writes.
+    assert named | {"run.operations.get", "run.revisions.get"} <= verify.PROJECT_PERMISSIONS

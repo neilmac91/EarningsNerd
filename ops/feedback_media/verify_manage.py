@@ -210,12 +210,15 @@ class Sql:
         """Refuse before any write unless the shared production instance has room for the capped verifier.
 
         A point-in-time admission, not a reservation. The administrator's own query is one of the counted
-        client backends. Only counts are printed.
+        client backends. A role without pg_read_all_stats sees another role's session with backend_type NULL,
+        so a hidden session attached to a database counts as a client backend too (it may overcount a
+        background worker, never undercount a session). Only counts are printed.
         """
         answer = self.query("""SELECT current_setting('max_connections') || '|' ||
             current_setting('superuser_reserved_connections') || '|' ||
             COALESCE(current_setting('reserved_connections',true),'0') || '|' ||
-            (SELECT count(*) FROM pg_stat_activity WHERE backend_type='client backend');""")
+            (SELECT count(*) FROM pg_stat_activity
+             WHERE backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL));""")
         if not re.fullmatch(r"[0-9]{1,7}(\|[0-9]{1,7}){3}", answer):
             raise media.OperationError("Production SQL headroom is unreadable; nothing was created")
         maximum, superuser_reserved, reserved, active = map(int, answer.split("|"))
