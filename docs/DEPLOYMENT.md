@@ -1134,8 +1134,9 @@ cohort and review date, and every `{`, `}` and `]`. So step 1 sets the secret fr
 which leaves the digest unchanged. While the secret exists, a workflow on any branch could read it, so it is deleted
 as soon as the apply has run; the readout needs no manifest. The manifest file itself stays in the founder's private
 store, outside this repository's checkout, so it can never be committed. The code and its two migrations must be on
-`main` and deployed first: confirm the merge's deploy-backend run succeeded, deployed as the runbook's "Deploying"
-says.
+`main` and deployed first, deployed as the runbook's "Deploying" says: confirm the merge's deploy-backend run
+succeeded, or, if a later backend merge superseded it (that run then skips its deploy), the newer run that shipped
+both.
 
 The order, for a grant or a revoke, each dispatch after the previous run has finished:
 1. On the founder's own machine, offline, with the manifest outside the checkout (for example
