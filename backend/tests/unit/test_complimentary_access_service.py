@@ -177,32 +177,65 @@ def test_a_manifest_names_each_account_and_address_once(repeated):
     with pytest.raises(ManifestError) as refused:
         load_manifest(_raw("grant", [first, second]))
     assert refused.value.problems == [
-        f"grant: Value error, names an {'account id' if repeated == 'account_id' else 'address fingerprint'} more than once"
+        f"grant: names an {'account id' if repeated == 'account_id' else 'address fingerprint'} more than once"
     ]
 
 
-def test_a_fault_names_its_place_and_kind_never_the_value():
-    raw = json.dumps({
-        "action": "grant", "cohort": "Not A Slug", "reason": "Private beta tester", "review_on": "2030-08-01",
-        "operator_account_id": "7", "note": "third@example.com",
-        "accounts": [{"account_id": 5, "email_sha256": "someone@example.com", "someone-else@example.com": 1}],
-    }).encode()
+# An address and an id planted in malformed manifests: a fault that carried either would leak it into the public log.
+PLANTED_ADDRESS = "planted.tester@example.com"
+PLANTED_ID = 9_300_017
+
+
+def _planted(**changes) -> bytes:
+    payload = json.loads(_raw("grant", [_fake_entry(1)]))
+    payload.update(changes)
+    return json.dumps(payload).encode()
+
+
+_NOT_AN_ACTION = ["manifest: must be grant or revoke"]
+_NOT_JSON = ["manifest: is not valid JSON"]
+
+
+@pytest.mark.parametrize("raw, problems", [
+    # The discriminator: pydantic's message quotes the tag it found, whatever its type.
+    (_planted(action=PLANTED_ADDRESS), _NOT_AN_ACTION),
+    (_planted(action=PLANTED_ID), _NOT_AN_ACTION),
+    (_planted(action={PLANTED_ADDRESS: PLANTED_ID}), _NOT_AN_ACTION),
+    (_planted(action=[PLANTED_ADDRESS]), _NOT_AN_ACTION),
+    (_planted(action=None), _NOT_AN_ACTION),
+    (_planted()[:-1] + f', "action": "{PLANTED_ADDRESS}"}}'.encode(), _NOT_AN_ACTION),  # a repeated key: the last wins
+    (json.dumps({"cohort": COHORT, "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS}]}).encode(),
+     _NOT_AN_ACTION),
+    # Malformed JSON: cut off inside an address, trailed by one, broken UTF-8 beside one; an address as the manifest.
+    (_planted()[:-30] + PLANTED_ADDRESS.encode(), _NOT_JSON),
+    (_planted() + f" {PLANTED_ADDRESS} {PLANTED_ID}".encode(), _NOT_JSON),
+    (_planted()[:-1] + f', "note": "{PLANTED_ADDRESS}'.encode() + b'\xff"}', _NOT_JSON),
+    (json.dumps(PLANTED_ADDRESS).encode(), ["manifest: must be an object"]),
+    # Unknown keys, values of the wrong type or format, and this module's own validators.
+    (json.dumps({
+        "action": "grant", "cohort": "Not A Slug", "reason": "Private beta tester", "review_on": PLANTED_ADDRESS,
+        "operator_account_id": str(PLANTED_ID), PLANTED_ADDRESS: PLANTED_ID,
+        "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS, PLANTED_ADDRESS: 1}],
+    }).encode(), [
+        "grant.<unexpected key>: is not a manifest key",
+        "grant.cohort: does not match its format",
+        "grant.operator_account_id: must be an integer",
+        "grant.accounts.0.email_sha256: does not match its format",
+        "grant.accounts.0.<unexpected key>: is not a manifest key",
+        "grant.review_on: must be a date (YYYY-MM-DD)",
+    ]),
+    (_planted(accounts=PLANTED_ADDRESS), ["grant.accounts: must be a list"]),
+    (_planted(accounts=[PLANTED_ADDRESS]), ["grant.accounts.0: must be an object"]),
+    (_planted(reason=f" {PLANTED_ADDRESS}"), ["grant.reason: must be printable text without surrounding spaces"]),
+    (_planted(accounts=[{**_fake_entry(1), "account_id": PLANTED_ID}, {**_fake_entry(2), "account_id": PLANTED_ID}]),
+     ["grant: names an account id more than once"]),
+])
+def test_a_fault_names_its_place_and_kind_never_the_value(raw, problems):
     with pytest.raises(ManifestError) as refused:
         load_manifest(raw)
-    text = str(refused.value)
-    for value in ("someone@example.com", "someone-else@example.com", "third@example.com", "Not A Slug", "note"):
-        assert value not in text
-    assert "grant.cohort:" in text and "grant.operator_account_id:" in text
-    assert "grant.<unexpected key>:" in text and "grant.accounts.0.<unexpected key>:" in text
-
-
-@pytest.mark.parametrize("action", ["tester.one@example.com", 7, None])
-def test_a_fault_never_echoes_the_action_it_found(action):
-    # Pydantic's own message for a discriminator names the tag it found; the report words it from the fault's type.
-    with pytest.raises(ManifestError) as refused:
-        load_manifest(json.dumps({**json.loads(_raw("grant", [_fake_entry(1)])), "action": action}).encode())
-    assert refused.value.problems == ["manifest: must be grant or revoke"]
-    assert "example.com" not in str(refused.value) and "7" not in str(refused.value)
+    assert sorted(refused.value.problems) == sorted(problems)
+    for planted in (PLANTED_ADDRESS, "planted.tester", str(PLANTED_ID), "Not A Slug"):
+        assert planted not in str(refused.value)
 
 
 @pytest.mark.parametrize("change", [
