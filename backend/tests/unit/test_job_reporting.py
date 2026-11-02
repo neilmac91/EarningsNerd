@@ -1,6 +1,7 @@
 """WS-7 durable attempts, job adapters, and honest universe/report denominators."""
 import asyncio
 import builtins
+import os
 import runpy
 import sys
 from datetime import date, timedelta
@@ -140,8 +141,11 @@ def test_every_scheduled_entrypoint_records_swallowed_failures(sessions, monkeyp
         assert row.job_name == expected and row.status == "failed"
 
 
-def test_facts_cli_rejects_unsupported_dry_run_before_application_work(monkeypatch, capsys):
-    argv = ["backfill_facts.py", "--only-new", "--dry-run"]
+FACTS_SCRIPT = Path(__file__).resolve().parents[2] / "scripts/backfill_facts.py"
+
+
+def _facts_cli_refusal(monkeypatch, argv):
+    """Run the facts CLI as ``__main__``; return its exit code and the application modules it imported."""
     monkeypatch.setattr(sys, "argv", argv)
     monkeypatch.setattr(sys, "path", list(sys.path))
     app_imports = []
@@ -154,17 +158,32 @@ def test_facts_cli_rejects_unsupported_dry_run_before_application_work(monkeypat
 
     monkeypatch.setattr(builtins, "__import__", observe_import)
     with pytest.raises(SystemExit) as exc_info:
-        runpy.run_path(
-            str(Path(__file__).resolve().parents[2] / "scripts/backfill_facts.py"),
-            run_name="__main__",
-        )
+        runpy.run_path(str(FACTS_SCRIPT), run_name="__main__")
+    return exc_info.value.code, app_imports
 
-    assert exc_info.value.code == 2
+
+def test_facts_cli_rejects_unsupported_dry_run_before_application_work(monkeypatch, capsys):
+    code, app_imports = _facts_cli_refusal(monkeypatch, ["backfill_facts.py", "--only-new", "--dry-run"])
+
+    assert code == 2
     assert app_imports == [], "Unsupported dry-run must reject before importing the application"
     assert (
         "error: --dry-run is supported only with --remediate-financials or "
         "--backfill-company-sic"
     ) in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mode", [[], ["--only-new"], ["--remediate-financials"], ["--backfill-company-sic"]],
+                         ids=["full", "only-new", "remediate", "company-sic"])
+@pytest.mark.parametrize("value", ["", " , "], ids=["empty", "commas"])
+def test_facts_cli_refuses_tickers_naming_no_ticker_before_application_work(monkeypatch, capsys, mode, value):
+    # Every mode reads an empty list as no filter, so a scoped run would become the whole cohort's.
+    code, app_imports = _facts_cli_refusal(monkeypatch, ["backfill_facts.py", *mode, "--tickers", value])
+
+    assert code == 2
+    assert app_imports == [], "A ticker-less --tickers must stop before importing the application"
+    assert ("error: --tickers names no ticker; omit the flag for the mode's default cohort"
+            in capsys.readouterr().err)
 
 
 @pytest.fixture
@@ -278,6 +297,30 @@ def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, m
             for n, inserted, skipped in [(2, 2, 0), (1, 1, 0), (0, 0, 0), (3, 0, 3)]]
     assert engine.pool.checkedout() == 0
     assert all(not s.in_transaction() and not s.identity_map for s in business)
+
+
+@pytest.mark.parametrize("flags", [[], ["--only-new"]], ids=["full", "only-new"])
+def test_facts_cli_scopes_the_normal_pass_to_its_tickers(facts_job_sessions, monkeypatch, flags):
+    from app.services import facts_service
+
+    factory, engine = facts_job_sessions
+    fetches = []
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", lambda cik: fetches.append(cik))
+    monkeypatch.setattr(sys, "argv", ["backfill_facts.py", *flags, "--tickers", " lease1 ,"])
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    for name in ("SKIP_REDIS_INIT", "EDGAR_IDENTITY"):  # the script's setdefault must not outlive the test
+        monkeypatch.setenv(name, os.environ.get(name, "set-by-test"))
+    runpy.run_path(str(FACTS_SCRIPT), run_name="__main__")
+
+    with factory() as db:
+        stamped = sorted(f.accession_number for f in db.query(Filing) if f.processed_facts_at)
+        written = sorted(r.accession for r in db.query(FinancialFact))
+        run = db.query(JobRun).one()
+        recorded = (run.job_name, run.status, run.counters["filings_processed"])
+    # LEASE1 files LEASE-2 alone: LEASE0's two filings are neither read nor stamped.
+    assert stamped == written == ["LEASE-2"] and fetches == ["81002"]
+    assert recorded == ("backfill-facts", "succeeded", 1)
+    assert engine.pool.checkedout() == 0
 
 
 @pytest.mark.parametrize("case", ["new", "dirty", "deleted", "nested", "commit_error", "transport_error", "no_transaction"])
