@@ -44,9 +44,10 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy of the newest commit that changed `backend/` outside `backend/tests/`, never an older one's: a
 guarded run skips as superseded, and a run from before the guard would deploy the older commit
-(`lessons/ops-a-superseded-commit-never-deploys.md`, rule 6). It then runs
-`gcloud run deploy` and routes
-traffic to the new revision, updates the required pregenerate job image, and updates eight other
+(`lessons/ops-a-superseded-commit-never-deploys.md`, rule 6). It updates the configured private
+background worker and, when configured, the separate summary worker before running
+`gcloud run deploy` for the API and routing traffic to its new revision. It updates the required
+pregenerate job image and eight other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
 earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge, feedback-media-cleanup). Missing jobs are skipped,
 not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
@@ -72,6 +73,10 @@ have a five-minute timeout. The first build or an evicted cache builds normally.
 repository's GitHub cache quota; it does not remove older Artifact Registry images.
 
 ### Durable background delivery rollout
+
+This section covers the existing background queue and worker, including account mail.
+Durable summaries use the separate route and worker role described in
+[durable summary activation](#durable-summary-worker-and-recovery-activation).
 
 The default remains `DURABLE_TASKS_ENABLED=false` and CPU always allocated. Keep one warm API
 instance and 1 GiB; do not reduce either as part of this rollout. Provision a dedicated Cloud Tasks
@@ -131,14 +136,16 @@ the worker invoker policy `PRIVATE` and `describe-jobs` passed, and a `capacity-
 10:55–12:55Z showed 17 queue attempts, all `ok`, matching 17 worker requests, all 2xx, with no worker
 error logs (CODE RED record 22, `tasks/code-red-20261004/runtime/control/DECISIONS-22.md`). The first
 probe stays unverified: no operation records it, and delivery through the enforced invoker check was
-observed instead. No operation reads back the queue's settings, the worker's `DB_MAX_OVERFLOW`,
-`TASKS_*` values or generation flags, or any IAM grant beyond the worker's own invoker policy: the
-enqueuer grant on the queue, the service-account-user grants on the task identity, project-level IAM,
-and which identity the policy's one invoker member is stay unread. Repeat the post-deploy checks after
+observed instead. Those historical checks did not establish queue settings, the worker's
+`DB_MAX_OVERFLOW`, routing/generation controls or IAM beyond the worker's own invoker policy.
+The current [read-only audit](#read-only-release-configuration-audit) adds fixed queue settings
+and typed summary configuration/separation projections, with unresolved values left explicit.
+It still does not establish the enqueuer grant, service-account-user grants, effective project-level
+IAM or the identity behind the reported invoker-member count. Repeat the post-deploy checks after
 any change to the worker's or the queue's configuration or the service's sizing, and enqueue the probe
 first whenever delivery is switched on again.
 
-For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
+For rollback of the broader background-delivery rollout, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
 with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
 or delete it with unfinished tasks. CI pins the flag-off API back to always allocated CPU
 (`--no-cpu-throttling` unless the variable is `true`); confirm a rollback took with
@@ -151,6 +158,49 @@ idempotency authority; force-generating a paid summary is deliberately excluded.
 SEC read-only timeout tails and SDK telemetry remain best effort; they do not perform the durable
 business mutations above. A slow native summary worker can extend cleanup, so monitor error tails
 and latency during the billing-mode change rather than claiming all thread operations are bounded.
+
+### Durable summary worker and recovery activation
+
+Production summary activation remains held pending operational acceptance. The isolated route
+requires explicit `SUMMARY_TASKS_QUEUE`, `SUMMARY_TASKS_WORKER_URL` and
+`SUMMARY_TASKS_INVOKER_EMAIL` settings alongside the complete background route. Both the queue
+and normalized worker origin must differ. Missing/shared routing fails before credential or queue
+access, with no background fallback. Keep the existing worker's `TASKS_WORKER_ROLE=background`;
+the separate summary service and its children use `summary`. The role selects OIDC identity and
+audience; HTTP, supervisor and child checks reject the other role's task kinds with a retryable
+503. Empty probes bypass business work and the busy-child guard, so they are not capacity tests.
+
+Task targets and OIDC audiences preserve configured URL spelling except its trailing slash;
+normalization is only for origin comparison. Do not invalidate queued tokens by changing
+audience spelling during an image release. Different Cloud Run URL aliases can still point to
+one service. Read back distinct service resource identities, roles, private IAM, actual targets
+and capacity before claiming isolation. See [summary task isolation](./summary-task-isolation.md).
+
+CI's optional sixth image-update map, `Update configured summary task worker image`, runs before
+the API deployment. With `GCP_SUMMARY_WORKER_URL` unset it makes no cloud call. Once configured,
+it requires the fixed `earningsnerd-summary-worker` service to exist with that canonical URL,
+updates only its image and additive `SENTRY_RELEASE`, then routes traffic to latest and clears
+revision tags. It does not provision the service, set its role/routing/feature controls or change
+capacity, secrets or IAM. The preservation gate covers all six maps and the summary route/role
+controls; an image release is not activation evidence.
+
+Recovery callers share a process permit and PostgreSQL session advisory lock, with one
+20-second work budget for acquisition, selection and sequential handoffs. Budget one additional
+transient database connection and one lazy guard thread per participating process. SQL work
+drains before physical guard disconnect and permit release; cleanup can exceed the budget and
+accepted remote task creation may outlive cancellation. A disconnected guard can release before
+its old process notices. Per-job fencing and deterministic task names remain necessary, and
+this work budget is not a hard kill or a recovery-latency guarantee. Verify the caller's actual
+cadence and acceptance using [durable summary generation](./durable-summary-generation.md).
+
+Before activation, inventory active pregenerate/internal precompute, admin/script calls, old
+revisions, running executions and command overrides. Pause and drain or migrate direct producers
+to durable ownership. Zero optional prewarm caps do not disable legacy precompute, and the new
+lease check cannot fence an old binary. Keep durable summary/shared SEC controls and preparation
+caps at their held values until the reviewed transition and actual-delivery rehearsal pass.
+For a summary-only rollback, pause new summary admissions and reconcile/drain accepted work
+before changing ownership mode; preserve broader task delivery and account mail. Do not use the
+background rollback switch above to roll back summaries alone.
 
 ### Read-only release configuration audit
 
@@ -239,6 +289,11 @@ configuration fields and counts of environment entries; arbitrary environment na
 unexpected image identities are withheld. The final inventory counts distinguish projected and
 unverified resources. A readable pool, pin, task-count, image-parity or backfill-entrypoint defect
 produces FAIL; an unreadable job without readable drift produces INCOMPLETE. Both exit nonzero.
+For a generic `gcloud` exit 1 on the fixed feedback-cleanup job only, a bounded authenticated GET
+of that exact Cloud Run v1 resource distinguishes HTTP 403 (`permission_denied`) from 404
+(`not_found`). Token acquisition and the request each have a five-second timeout; redirects and
+error bodies are not followed/read, and credentials never enter command arguments or diagnostics.
+A successful response must pass the same bounded shape/resource projection as a normal read.
 A missing or unreadable separately provisioned job, including feedback cleanup, never suppresses
 evidence for the other jobs and never silently becomes a healthy optional resource. Provisioning
 that resource remains its separate operational decision. These two
@@ -251,10 +306,16 @@ so their combined timeout budget is 540 seconds inside the unchanged ten-minute 
 
 Both describe operations print a separate typed summary/SEC configuration block: durable
 summary/task switches, new-job pause, shared SEC admission switch/wait, job cooldown/backlog/
-attempt/lease/recovery/age limits, preparation caps and task work deadline. Only valid booleans
-and bounded numbers print. Absent fields are `not_set_image_default_unverified`; a secret
+attempt/lease/recovery/age limits, preparation caps and task work deadline. Only valid booleans,
+bounded numbers and the closed `background`/`summary` worker-role enum print. The isolation
+projection exposes presence/validity states and configured queue, normalized-origin and invoker
+separation booleans; actual route strings and identities stay withheld. Different origins do not
+prove distinct Cloud Run services, and this fixed audit does not itself inspect the proposed
+summary-worker service. Absent fields are `not_set_image_default_unverified`; a secret
 reference, duplicate field or malformed value remains unresolved, never an inferred default
 or a printed value. The internal-job token is presence-only, never its value or reference.
+An unresolved secret-reference state records a configured reference; it establishes neither
+an absent token nor usable credentials, and does not justify creating a replacement secret.
 This can inspect images predating those capabilities without claiming that their defaults apply.
 
 Scheduler output contains state, supported numeric cron, recognized timezone, deadline/retry

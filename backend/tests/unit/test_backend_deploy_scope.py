@@ -425,11 +425,13 @@ def test_deploy_reports_every_variable_driven_switch(tmp_path):
     printed = probe.stdout.split()
     for key, sentinel in sentinels.items():  # what the step prints, not what its source mentions
         assert f"{key}={sentinel}" in printed or f"{key}=set" in printed, f"the deploy does not report {key}"
-    summary = tmp_path / "summary"
-    env = {**os.environ, "DURABLE_TASKS_ENABLED": "true", "TASKS_WORKER_URL": "https://worker.example",
-           "GITHUB_STEP_SUMMARY": str(summary)}
-    result = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, env=env,
-                            timeout=30, check=False)
-    assert result.returncode == 0, result.stderr
-    line = "Variable-driven rollout switches: DURABLE_TASKS_ENABLED=true TASKS_WORKER_URL=set"
-    assert result.stdout.strip() == line and summary.read_text().strip() == line
+    for observed, state in (("", "unset"), ("https://summary.example", "set")):
+        summary = tmp_path / f"summary-{state}"
+        env = {**os.environ, "DURABLE_TASKS_ENABLED": "true", "TASKS_WORKER_URL": "https://worker.example",
+               "SUMMARY_WORKER_URL": observed, "GITHUB_STEP_SUMMARY": str(summary)}
+        result = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, env=env,
+                                timeout=30, check=False)
+        assert result.returncode == 0, result.stderr
+        line = ("Variable-driven rollout switches: DURABLE_TASKS_ENABLED=true TASKS_WORKER_URL=set "
+                f"SUMMARY_WORKER_URL={state}")
+        assert result.stdout.strip() == line and summary.read_text().strip() == line

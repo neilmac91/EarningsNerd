@@ -16,6 +16,7 @@ from app.config import settings
 from app.services.durable_tasks import SummaryTask, enqueue_task
 from app.services.request_work import run_owned_sync
 from app.services import summary_job_store as store
+from app.services.summary_recovery import before_handoff, recovery_scope
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ async def dispatch_job(job_id: str, generation: int, *, recover: bool = False) -
     if intent is None:
         return False
     token, next_at = intent
+    await before_handoff()
     await enqueue_task(
         "summary", {"job_id": job_id, "generation": generation},
         dedupe_key=f"summary:{job_id}:{generation}:{token}",
@@ -42,10 +44,13 @@ async def recover_due_jobs(limit: int = 20) -> int:
     """Bounded outbox recovery; the scheduler/scan owner determines its actual cadence."""
     if not settings.SUMMARY_DURABLE_GENERATION_ENABLED or not settings.DURABLE_TASKS_ENABLED:
         return 0
-    count = 0
-    for job_id, generation in await run_owned_sync(store.due_jobs, limit):
-        count += int(await dispatch_job(job_id, generation, recover=True))
-    return count
+    async with recovery_scope() as acquired:
+        if not acquired:
+            return 0
+        count = 0
+        for job_id, generation in await run_owned_sync(store.due_jobs, limit):
+            count += int(await dispatch_job(job_id, generation, recover=True))
+        return count
 
 
 async def observe_job(view: store.JobView) -> AsyncIterator[dict]:

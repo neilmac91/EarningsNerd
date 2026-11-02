@@ -107,7 +107,10 @@ def test_every_input_a_step_reads_is_declared_and_reaches_the_resolve_step_under
     read = set(re.findall(r"\b(?:github\.event\.)?inputs\.(\w+)", OPS_TEXT))
     assert read <= set(INPUTS), f"inputs no dispatch declares, which GitHub reads as '': {sorted(read - set(INPUTS))}"
     assert BY_NAME[RESOLVE][1]["env"] == {
-        "OP": "${{ inputs.operation }}", "TICKERS": "${{ inputs.tickers }}", "REVISION": "${{ inputs.revision }}"}
+        "OP": "${{ inputs.operation }}", "TICKERS": "${{ inputs.tickers }}", "REVISION": "${{ inputs.revision }}",
+        "SUMMARY_PLAN_RUN": "${{ inputs.summary_plan_run }}",
+        "SUMMARY_PLAN_SHA256": "${{ inputs.summary_plan_sha256 }}",
+        "SUMMARY_APPROVAL_NONCE": "${{ inputs.summary_approval_nonce }}"}
 
 
 def test_every_request_output_a_step_reads_is_one_the_resolve_step_writes():

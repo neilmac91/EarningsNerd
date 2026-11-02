@@ -83,6 +83,11 @@ on:
           - logs-probe
           - regn-summary-incident-readout
           - summary-recovery-readout
+          - summary-delivery-plan
+          - summary-delivery-apply
+          - summary-delivery-cleanup-apply
+          - summary-recovery-caller-plan
+          - summary-recovery-caller-apply
           - capacity-readout
           - excerpt-cohort
           - jobs-channel-noop-probe
@@ -104,6 +109,18 @@ on:
           - rebuild-e28-excerpts-dry-run
           - rebuild-e28-excerpts-apply
           - rollback-traffic
+      summary_plan_run:
+        description: 'Successful first-attempt main Ops plan run ID (summary apply/cleanup only)'
+        required: false
+        default: ''
+      summary_plan_sha256:
+        description: 'Exact reviewed summary plan manifest SHA-256 (64 lowercase hex characters)'
+        required: false
+        default: ''
+      summary_approval_nonce:
+        description: 'Nonce from that reviewed summary plan (32 lowercase hex characters)'
+        required: false
+        default: ''
       capacity_start:
         description: "Capacity window start (UTC YYYY-MM-DDTHH:MM:SSZ; maximum two hours)"
         required: false
@@ -138,7 +155,7 @@ jobs:
   approve-apply:
     # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
     # environment names the founder as its required reviewer. Every other operation skips this job.
-    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation)
+    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ops-apply
@@ -155,7 +172,7 @@ jobs:
     # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
     # one); any other operation runs when approve-apply is skipped.
     needs: approve-apply
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
       # A read (describe-service, logs-probe) runs in its own run's group: it never replaces a pending run,
       # an approved apply's included (test_ops_readback_allow_rules.py pins this).
@@ -176,6 +193,9 @@ jobs:
           OP: ${{ inputs.operation }}
           TICKERS: ${{ inputs.tickers }}
           REVISION: ${{ inputs.revision }}
+          SUMMARY_PLAN_RUN: ${{ inputs.summary_plan_run }}
+          SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}
+          SUMMARY_APPROVAL_NONCE: ${{ inputs.summary_approval_nonce }}
         run: |
           set -euo pipefail
           # Every input is bounded before any operation-specific check, including the fields the
@@ -186,8 +206,19 @@ jobs:
             || { echo "::error::tickers may contain only letters, digits, '.', '-' and ','"; exit 1; }
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
+          [[ "${SUMMARY_PLAN_RUN:-}" =~ ^[0-9]{0,20}$ ]] \
+            && [[ "${SUMMARY_PLAN_SHA256:-}" =~ ^([a-f0-9]{64})?$ ]] \
+            && [[ "${SUMMARY_APPROVAL_NONCE:-}" =~ ^([a-f0-9]{32})?$ ]] \
+            || { echo "::error::invalid summary plan reference"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rebuild-e28-excerpts-dry-run|rebuild-e28-excerpts-apply|rollback-traffic) ;;
+            summary-delivery-apply|summary-delivery-cleanup-apply|summary-recovery-caller-apply)
+              [[ "${SUMMARY_PLAN_RUN:-}" =~ ^[1-9][0-9]{0,19}$ ]] \
+                && [ -n "${SUMMARY_PLAN_SHA256:-}" ] && [ -n "${SUMMARY_APPROVAL_NONCE:-}" ] \
+                || { echo "::error::summary apply requires the reviewed plan run, hash and nonce"; exit 1; }
+              ;;
+          esac
+          case "$OP" in
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|summary-delivery-plan|summary-delivery-apply|summary-delivery-cleanup-apply|summary-recovery-caller-plan|summary-recovery-caller-apply|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rebuild-e28-excerpts-dry-run|rebuild-e28-excerpts-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -234,7 +265,7 @@ jobs:
         # while this job queued behind another dispatch would satisfy with no one having approved. Only the
         # repository owner's approval counts, the founder's, so a reviewer added to ops-apply later cannot
         # approve a production write. The owner's login goes into the filter after a check that it is one.
-        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', steps.request.outputs.operation)
+        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', steps.request.outputs.operation)
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ github.repository_owner }}
@@ -366,6 +397,113 @@ jobs:
           path: verification-output/
           if-no-files-found: error
           retention-days: 7
+
+      # These fixed plans read metadata only. Applies consume one hash-bound artifact;
+      # the owner approval and first-attempt gate above still apply independently.
+      - name: Load reviewed summary operation plan
+        if: contains('summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', steps.request.outputs.operation)
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OP: ${{ steps.request.outputs.operation }}
+          SUMMARY_PLAN_RUN: ${{ inputs.summary_plan_run }}
+          SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}
+          SUMMARY_APPROVAL_NONCE: ${{ inputs.summary_approval_nonce }}
+        run: python3 ops/summary_delivery/load_plan.py
+
+      - name: Install isolated summary verification SQL tools
+        if: contains('summary-delivery-apply summary-delivery-cleanup-apply', steps.request.outputs.operation)
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          curl -fsSL -o cloud-sql-proxy \
+            "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+          echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
+          chmod +x cloud-sql-proxy
+
+      - name: Plan isolated summary delivery rehearsal
+        if: steps.request.outputs.operation == 'summary-delivery-plan'
+        timeout-minutes: 5
+        run: python3 ops/summary_delivery/manage.py plan --output summary-delivery-plan.json
+
+      - name: Run approved isolated summary delivery rehearsal
+        if: steps.request.outputs.operation == 'summary-delivery-apply'
+        timeout-minutes: 40
+        env:
+          SUMMARY_DELIVERY_APPROVED: 'true'
+          SUMMARY_DELIVERY_DEPLOYER: ${{ vars.GCP_DEPLOYER_SA }}
+          SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}
+          SUMMARY_APPROVAL_NONCE: ${{ inputs.summary_approval_nonce }}
+        run: python3 ops/summary_delivery/manage.py apply --plan summary-approved-plan.json --expected-plan-sha256 "$SUMMARY_PLAN_SHA256" --approval-nonce "$SUMMARY_APPROVAL_NONCE" --output summary-delivery-receipt.json
+
+      - name: Clean approved isolated summary delivery resources
+        if: steps.request.outputs.operation == 'summary-delivery-cleanup-apply'
+        timeout-minutes: 20
+        env:
+          SUMMARY_DELIVERY_APPROVED: 'true'
+          SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}
+          SUMMARY_APPROVAL_NONCE: ${{ inputs.summary_approval_nonce }}
+        run: python3 ops/summary_delivery/manage.py cleanup --plan summary-approved-plan.json --expected-plan-sha256 "$SUMMARY_PLAN_SHA256" --approval-nonce "$SUMMARY_APPROVAL_NONCE" --output summary-delivery-cleanup.json
+
+      - name: Plan paused summary recovery caller
+        if: steps.request.outputs.operation == 'summary-recovery-caller-plan'
+        timeout-minutes: 5
+        run: python3 ops/summary_delivery/recovery_caller.py plan > summary-recovery-plan.json
+
+      - name: Configure approved paused summary recovery caller
+        if: steps.request.outputs.operation == 'summary-recovery-caller-apply'
+        timeout-minutes: 10
+        env:
+          SUMMARY_DELIVERY_APPROVED: 'true'
+          SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}
+          SUMMARY_APPROVAL_NONCE: ${{ inputs.summary_approval_nonce }}
+        run: python3 ops/summary_delivery/recovery_caller.py apply-paused --plan summary-approved-plan.json --expected-plan-sha256 "$SUMMARY_PLAN_SHA256" --approval-nonce "$SUMMARY_APPROVAL_NONCE" > summary-recovery-receipt.json
+
+      - name: Retain summary-delivery-plan
+        if: always() && steps.request.outputs.operation == 'summary-delivery-plan'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-delivery-plan-${{ github.run_id }}
+          path: summary-delivery-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain summary-recovery-caller-plan
+        if: always() && steps.request.outputs.operation == 'summary-recovery-caller-plan'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-recovery-caller-plan-${{ github.run_id }}
+          path: summary-recovery-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain summary-delivery-receipt
+        if: always() && steps.request.outputs.operation == 'summary-delivery-apply'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-delivery-receipt-${{ github.run_id }}
+          path: summary-delivery-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain summary-delivery-cleanup
+        if: always() && steps.request.outputs.operation == 'summary-delivery-cleanup-apply'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-delivery-cleanup-${{ github.run_id }}
+          path: summary-delivery-cleanup.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain summary-recovery-caller-receipt
+        if: always() && steps.request.outputs.operation == 'summary-recovery-caller-apply'
+        uses: actions/upload-artifact@v7
+        with:
+          name: summary-recovery-caller-receipt-${{ github.run_id }}
+          path: summary-recovery-receipt.json
+          if-no-files-found: error
+          retention-days: 14
 
       # ------------------------------------------------------------------ read-only inspection
       - name: Describe service env (values only for known feature flags)
@@ -1040,7 +1178,7 @@ jobs:
     # job's dependents with it, so "Re-run failed jobs" re-runs this job with ops; a first attempt,
     # and every other operation, skips it.
     needs: ops
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply', inputs.operation) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

@@ -82,7 +82,7 @@ SHARED_SHAPES = {
         "with": {"workload_identity_provider": "${{ vars.GCP_WIF_PROVIDER }}", "service_account": "${{ vars.GCP_DEPLOYER_SA }}"}},
     "Set up gcloud": {"name": "Set up gcloud", "uses": "google-github-actions/setup-gcloud@v3"},
 }
-# The resolve step's whole vocabulary: it validates the three inputs and writes $GITHUB_OUTPUT, nothing else. Every
+# The resolve step's whole vocabulary: it validates dispatch inputs and writes $GITHUB_OUTPUT, nothing else. Every
 # line of its script must be one of these forms (a new operation's case label needs no change here); anything else (a
 # command, a sourced file, an expansion that builds a name) fails until someone checks it and teaches this list.
 _ERROR = r'echo "::error::[^"$`\\]*(?:\$(?:OP|TICKERS|REVISION)[^"$`\\]*)*"'
@@ -99,6 +99,15 @@ RESOLVE_LINES = [re.compile(form) for form in (
     r'echo "(?:operation=\$OP|tickers=\$TICKERS|revision=\$REVISION|Requested operation: \$OP)"',
     r'\} >> "\$GITHUB_OUTPUT"',
 )]
+# Summary plan references only add these exact, bounded shell predicates. Do not admit
+# arbitrary expansions or command chains just because they mention a summary input.
+RESOLVE_LINES.extend(re.compile(re.escape(line)) for line in (
+    '[[ "${SUMMARY_PLAN_RUN:-}" =~ ^[0-9]{0,20}$ ]] \\',
+    '&& [[ "${SUMMARY_PLAN_SHA256:-}" =~ ^([a-f0-9]{64})?$ ]] \\',
+    '&& [[ "${SUMMARY_APPROVAL_NONCE:-}" =~ ^([a-f0-9]{32})?$ ]] \\',
+    '[[ "${SUMMARY_PLAN_RUN:-}" =~ ^[1-9][0-9]{0,19}$ ]] \\',
+    '&& [ -n "${SUMMARY_PLAN_SHA256:-}" ] && [ -n "${SUMMARY_APPROVAL_NONCE:-}" ] \\',
+))
 # What every read inherits, pinned whole: a new key (an env, `defaults`, a `container`), another env name (HOME,
 # NODE_OPTIONS), another runner or a wider token changes every step. After checking a change only reads, update these.
 WORKFLOW_KEYS = {"name", "on", "permissions", "env", "jobs"}
@@ -313,6 +322,10 @@ def _append_to_resolve(workflow: dict, line: str) -> None:
 
 
 EVASIONS = {  # each change would put a production write, or a replacement, into every allowed read dispatch
+    "a command after a summary plan predicate": lambda workflow: _append_to_resolve(
+        workflow, '[[ "${SUMMARY_PLAN_RUN:-}" =~ ^[0-9]{0,20}$ ]] && gcloud auth print-access-token'),
+    "a command expansion inside a summary plan predicate": lambda workflow: _append_to_resolve(
+        workflow, '[[ "${SUMMARY_PLAN_RUN:-$(gcloud auth print-access-token)}" =~ ^[0-9]{0,20}$ ]] \\'),
     "a step with no condition": _step_before_the_read(None),
     "a step that always runs": _step_before_the_read("always()"),
     "a step that runs unless another operation": _step_before_the_read("steps.request.outputs.operation != 'rollback-traffic'"),

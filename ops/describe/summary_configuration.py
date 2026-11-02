@@ -21,7 +21,8 @@ INTEGER_FIELDS = {
     "SUMMARY_PREWARM_MAX_PER_SCAN": (0, 20),
 }
 NUMBER_FIELDS = {"SEC_DISTRIBUTED_WAIT_SECONDS": (0, 30), "TASKS_WORK_TIMEOUT_SECONDS": (0, 480)}
-CONFIG_FIELDS = (*BOOLEAN_FIELDS, *INTEGER_FIELDS, *NUMBER_FIELDS)
+ENUM_FIELDS = {"TASKS_WORKER_ROLE": ("background", "summary")}
+CONFIG_FIELDS = (*BOOLEAN_FIELDS, *INTEGER_FIELDS, *NUMBER_FIELDS, *ENUM_FIELDS)
 
 
 def number(value, minimum, maximum, *, integer=False, positive=False):
@@ -65,6 +66,8 @@ def runtime_configuration(entries):
                 normalized = raw.lower()
                 value = {"true": True, "false": False, "1": True, "0": False,
                          "on": True, "off": False, "yes": True, "no": False}.get(normalized)
+            elif name in ENUM_FIELDS:
+                value = raw if raw in ENUM_FIELDS[name] else None
             else:
                 low, high = (INTEGER_FIELDS | NUMBER_FIELDS)[name]
                 value = number(raw, low, high, integer=name in INTEGER_FIELDS, positive=name in NUMBER_FIELDS)
@@ -74,7 +77,45 @@ def runtime_configuration(entries):
     return {
         "fields": fields,
         "internal_job_token": {"state": token_state, "nonempty_literal": bool(token) if token_state == "literal" else None},
+        "summary_task_isolation": summary_task_isolation(entries),
         "limit": "Configured literals only; absent image defaults, authentication and runtime outcomes remain unverified.",
+    }
+
+
+def summary_task_isolation(entries):
+    """Report presence and configured separation without exposing queue/URL/identity values.
+
+    Origins can alias the same Cloud Run service; distinct service resource identity,
+    IAM, shared database headroom and actual delivery remain separate observations.
+    """
+    projected = {}
+    validated = {}
+    for name in ("TASKS_QUEUE", "TASKS_WORKER_URL", "TASKS_INVOKER_EMAIL",
+                 "SUMMARY_TASKS_QUEUE", "SUMMARY_TASKS_WORKER_URL", "SUMMARY_TASKS_INVOKER_EMAIL"):
+        raw, state = _entry(entries, name)
+        value = None
+        if state == "literal":
+            if name.endswith("_QUEUE"):
+                value = raw if len(raw) <= 500 and re.fullmatch(r"[A-Za-z0-9_-]+", raw) else None
+            elif name.endswith("_WORKER_URL"):
+                origin = _https_origin(raw)
+                value = ("https://" + urlsplit(origin).hostname
+                         if origin and urlsplit(origin).hostname.endswith(".run.app") else None)
+            else:
+                value = raw if len(raw) <= 320 and re.fullmatch(r"[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com", raw) else None
+            state = "configured_value_withheld" if value is not None else "invalid_withheld"
+        projected[name] = {"state": state}
+        validated[name] = value
+
+    def distinct(first, second):
+        return validated[first] != validated[second] if validated[first] is not None and validated[second] is not None else None
+
+    return {
+        "fields": projected,
+        "configured_queues_distinct": distinct("TASKS_QUEUE", "SUMMARY_TASKS_QUEUE"),
+        "configured_worker_origins_distinct": distinct("TASKS_WORKER_URL", "SUMMARY_TASKS_WORKER_URL"),
+        "configured_invoker_identities_distinct": distinct("TASKS_INVOKER_EMAIL", "SUMMARY_TASKS_INVOKER_EMAIL"),
+        "limit": "Configured separation only; distinct Cloud Run services, IAM, database headroom and delivery are unverified.",
     }
 
 

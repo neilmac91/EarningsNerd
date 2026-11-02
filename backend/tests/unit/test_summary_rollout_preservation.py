@@ -1,6 +1,6 @@
 """Ordinary CI deployments preserve the held summary/SEC controls on every reader.
 
-The five current image-update commands omit these keys and use additive env/secret
+The six current image-update commands omit these keys and use additive env/secret
 updates. Adding even a false/zero pin resets a live value; replacement/removal can
 erase one. A coordinated, approved activation must revise this guard with its
 complete producer matrix, not sneak a value into an ordinary release.
@@ -30,9 +30,12 @@ HELD_CONTROLS = frozenset({
     "SUMMARY_JOB_MAX_ATTEMPTS", "SUMMARY_JOB_LEASE_SECONDS",
     "SUMMARY_JOB_RECOVERY_SECONDS", "SUMMARY_JOB_MAX_AGE_SECONDS",
     "SEC_DISTRIBUTED_LIMIT_ENABLED", "SEC_DISTRIBUTED_WAIT_SECONDS",
+    "SUMMARY_TASKS_QUEUE", "SUMMARY_TASKS_WORKER_URL", "SUMMARY_TASKS_INVOKER_EMAIL",
+    "TASKS_WORKER_ROLE",
 })
 DEPLOY_STEPS = frozenset({
     "Update configured private task worker",
+    "Update configured summary task worker image",
     "Deploy Cloud Run service",
     "Update pregenerate job image",
     "Update filing-scan + digest + calendar + alert + notable + retention job images",
@@ -110,7 +113,7 @@ def preservation_problems(job: dict) -> list[str]:
             if env_maps != 1:
                 problems.append(f"{name}: expected one additive environment map")
     if seen != DEPLOY_STEPS:
-        problems.append("image-update step inventory differs from the five reviewed deployment maps")
+        problems.append("image-update step inventory differs from the six reviewed deployment maps")
     return problems
 
 
@@ -135,6 +138,10 @@ def test_ordinary_deployments_preserve_summary_and_shared_sec_controls():
     "--update-env-vars=SUMMARY_DURABLE_GENERATION_ENABLED=false",
     "--update-env-vars=SUMMARY_PREWARM_MAX_PER_DAY=0",
     "--update-env-vars=SEC_DISTRIBUTED_LIMIT_ENABLED=true",
+    "--update-env-vars=SUMMARY_TASKS_QUEUE=summaries",
+    "--update-env-vars=SUMMARY_TASKS_WORKER_URL=https://summary-worker-uw.a.run.app",
+    "--update-env-vars=SUMMARY_TASKS_INVOKER_EMAIL=summary@project.iam.gserviceaccount.com",
+    "--update-env-vars=TASKS_WORKER_ROLE=background",
     "--update-env-vars=${UNINSPECTED_MAP}",
 ])
 def test_every_reader_rejects_replacement_or_even_disabled_control_pins(name, replacement):

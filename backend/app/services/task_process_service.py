@@ -12,6 +12,7 @@ import anyio
 
 from app.config import settings
 from app.services.durable_tasks import TaskEnvelope
+from app.services.task_routing import require_worker_kind
 
 _execution_lock = asyncio.Lock()
 
@@ -23,6 +24,7 @@ def _command() -> tuple[str, ...]:
 async def run_task_process(envelope: TaskEnvelope) -> None:
     if not settings.TASKS_WORKER_PROCESS:
         raise RuntimeError("Task execution is restricted to the private worker")
+    require_worker_kind(envelope.kind)
     if envelope.kind == "probe":
         if envelope.payload:
             raise ValueError("Probe tasks contain no business payload")

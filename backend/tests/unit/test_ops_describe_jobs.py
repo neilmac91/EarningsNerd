@@ -2,10 +2,13 @@
 resource and value defect before one exit, and keeps its literals equal to ci.yml and the other job gates."""
 import ast
 import importlib.util
+import io
 import json
 import re
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
 
 import pytest
 import yaml
@@ -75,7 +78,7 @@ def fixtures():
     return {name: _job(name, pool) for name, pool in _literals(_split(_step())[1])["expected_pools"].items()}
 
 
-def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None, errors=None):
+def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None, errors=None, cleanup_response=None):
     """Run the entire committed projector, stubbing only fixed external gcloud reads."""
     monkeypatch.setenv("REGION", "us-west1")
     spec = importlib.util.spec_from_file_location("ops_describe_jobs", MODULE)
@@ -98,6 +101,8 @@ def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None, errors=None):
         return json.dumps(fixtures[name])
 
     monkeypatch.setattr(module.subprocess, "check_output", read)
+    if cleanup_response is not None:
+        monkeypatch.setattr(module, "cleanup_job_http", lambda: cleanup_response)
     code = module.main()
     captured = capfd.readouterr()
     output = captured.out + captured.err
@@ -275,3 +280,149 @@ def test_describe_jobs_literals_match_ci_and_the_other_gates():
     assert re.search(pool_pattern, _ci_step("Update pregenerate job image")).group(1) == pools["earningsnerd-pregenerate"]
     loop = _ci_step("Update filing-scan + digest + calendar + alert + notable + retention job images")
     assert re.search(pool_pattern, loop).group(1) == "1" and re.search(pool_pattern, backfill).group(1) == "1"
+
+
+def _http_fallback(monkeypatch, *, body=b"{}", error=None, token=b"synthetic-access", auth_code=0):
+    spec = importlib.util.spec_from_file_location("ops_jobs_http", MODULE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+
+    def auth(argv, **kwargs):
+        assert argv == ["gcloud", "auth", "print-access-token", "--quiet"]
+        assert kwargs["stderr"] == subprocess.DEVNULL
+        assert kwargs["timeout"] == 5 and kwargs["check"] is False
+        kwargs["stdout"].write(token)
+        calls.append("auth")
+        return SimpleNamespace(returncode=auth_code)
+
+    class Response(io.BytesIO):
+        def read(self, size=-1):
+            assert size == 1_048_577
+            return super().read(size)
+
+    class Opener:
+        def open(self, request, *, timeout):
+            assert request.full_url == (
+                "https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/"
+                "namespaces/earnings-nerd/jobs/earningsnerd-feedback-media-cleanup"
+            )
+            assert request.get_method() == "GET" and request.data is None and timeout == 5
+            assert request.get_header("Authorization") == "Bearer " + token.decode().strip()
+            calls.append("http")
+            if error:
+                raise error
+            return Response(body)
+
+    def opener(handler):
+        assert isinstance(handler, module._NoRedirect)
+        assert handler.redirect_request(None, None, 302, "", {}, "https://example.invalid") is None
+        return Opener()
+
+    monkeypatch.setattr(module.subprocess, "run", auth)
+    monkeypatch.setattr(module, "build_opener", opener)
+    return module, calls
+
+
+@pytest.mark.parametrize("status,expected", [
+    (401, "unauthenticated"), (403, "permission_denied"), (404, "not_found"),
+    (429, "unavailable"), (500, "unavailable"), (503, "unavailable"),
+    (302, "http_error"), (400, "http_error"),
+])
+def test_cleanup_fallback_classifies_status_without_reading_private_error_body(monkeypatch, capsys, status, expected):
+    class UnreadBody(io.BytesIO):
+        def read(self, *args):
+            raise AssertionError("Provider error bodies must not be read")
+
+    error = HTTPError("https://PRIVATE.example.invalid", status, "PRIVATE_ERROR", {}, UnreadBody(b"PRIVATE_BODY"))
+    module, calls = _http_fallback(monkeypatch, error=error)
+    assert module.cleanup_job_http() == (None, expected)
+    assert calls == ["auth", "http"]
+    captured = capsys.readouterr()
+    assert not captured.out and not captured.err
+
+
+@pytest.mark.parametrize("token,auth_code", [(b"", 0), (b"PRIVATE TOKEN", 0), (b"a" * 16385, 0), (b"synthetic", 1)])
+def test_cleanup_fallback_refuses_bad_auth_before_http(monkeypatch, token, auth_code):
+    module, calls = _http_fallback(monkeypatch, token=token, auth_code=auth_code)
+    assert module.cleanup_job_http() == (None, "authentication_unavailable")
+    assert calls == ["auth"]
+
+
+@pytest.mark.parametrize("body,expected", [
+    (b"[1]", "unreadable_response"), (b"PRIVATE_MALFORMED", "unreadable_response"),
+    (b" " * 1_048_577, "response_too_large"),
+    (b"[" * 1200 + b"0" + b"]" * 1200, "unreadable_response"),
+])
+def test_cleanup_fallback_bounds_and_validates_response(monkeypatch, body, expected):
+    module, _ = _http_fallback(monkeypatch, body=body)
+    assert module.cleanup_job_http() == (None, expected)
+
+
+@pytest.mark.parametrize("error,expected", [
+    (TimeoutError("PRIVATE_TIMEOUT"), "timeout"),
+    (URLError("PRIVATE_NETWORK"), "unavailable"),
+])
+def test_cleanup_fallback_network_failure_is_closed(monkeypatch, error, expected):
+    module, _ = _http_fallback(monkeypatch, error=error)
+    assert module.cleanup_job_http() == (None, expected)
+
+
+@pytest.mark.parametrize("wire", [
+    b"PRIVATE_PROVIDER_STATUS\r\n\r\n",
+    b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n10\r\nPRIVATE\r\n",
+])
+def test_cleanup_fallback_contains_real_http_parser_failures(monkeypatch, capsys, wire):
+    from http.client import HTTPResponse
+
+    module, calls = _http_fallback(monkeypatch)
+
+    class Socket:
+        def makefile(self, *args):
+            return io.BytesIO(wire)
+
+    class Opener:
+        def open(self, request, **kwargs):
+            response = HTTPResponse(Socket())
+            response.begin()  # BadStatusLine can occur before a response exists.
+            return response  # IncompleteRead occurs when the helper reads its body.
+
+    monkeypatch.setattr(module, "build_opener", lambda handler: Opener())
+    assert module.cleanup_job_http() == (None, "unreadable_response")
+    assert calls == ["auth"]
+    captured = capsys.readouterr()
+    assert not captured.out and not captured.err
+
+
+def test_cleanup_http_success_still_uses_the_existing_safe_job_projection(monkeypatch, fixtures):
+    name = "earningsnerd-feedback-media-cleanup"
+    module, calls = _http_fallback(monkeypatch, body=json.dumps(fixtures[name]).encode())
+    job, error = module.cleanup_job_http()
+    assert error is None and calls == ["auth", "http"]
+    lines, failures, image, error = module.project_job(name, job)
+    assert not failures and error is None and image == IMAGE
+    assert "PRIVATE_" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize("result", [(None, "not_found"), (None, "permission_denied")])
+def test_cleanup_generic_failure_gets_authoritative_class_without_losing_other_jobs(
+    tmp_path, monkeypatch, capfd, fixtures, result,
+):
+    error = subprocess.CalledProcessError(1, [], stderr="PRIVATE_UNCLASSIFIED")
+    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures,
+                         errors={"earningsnerd-feedback-media-cleanup": error}, cleanup_response=result)
+    assert exit_ is not None and f"UNVERIFIED ({result[1]})" in output
+    assert output.count("  Summary/SEC runtime configuration:") == 8
+    assert "describe-jobs: INCOMPLETE (0 invariant failure(s); 1 unverified job(s))" in output
+
+
+def test_cleanup_fallback_is_never_an_arbitrary_job_or_region_reader(monkeypatch):
+    module, calls = _http_fallback(monkeypatch)
+
+    def failed(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, [], stderr="PRIVATE_ERROR")
+
+    monkeypatch.setattr(module.subprocess, "check_output", failed)
+    for name, region in [("earningsnerd-pregenerate", "us-west1"), (module.CLEANUP_JOB, "us-east1")]:
+        assert module.gcloud_json(name, region) == (None, "error (gcloud exit 1)")
+    assert not calls

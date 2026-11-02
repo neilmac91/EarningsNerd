@@ -98,7 +98,8 @@ def _run_resolve(tmp_path: Path, **inputs: str) -> tuple[int, str]:
     """Execute the resolve step's script as the runner would: inputs via env, outputs to a file."""
     output_file = tmp_path / "github_output"
     output_file.write_text("")
-    env = {**os.environ, "GITHUB_OUTPUT": str(output_file), "OP": "", "TICKERS": "", "REVISION": ""}
+    env = {**os.environ, "GITHUB_OUTPUT": str(output_file), "OP": "", "TICKERS": "", "REVISION": "",
+           "SUMMARY_PLAN_RUN": "", "SUMMARY_PLAN_SHA256": "", "SUMMARY_APPROVAL_NONCE": ""}
     env.update(inputs)
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-c", _resolve_step()["run"]], env=env, capture_output=True, text=True, check=False
@@ -112,7 +113,7 @@ def test_resolve_step_writes_exactly_one_line_per_output_for_a_valid_dispatch(tm
     assert output.splitlines() == ["operation=describe-service", "tickers=", "revision="]
 
 
-@pytest.mark.parametrize("field", ["TICKERS", "REVISION"])
+@pytest.mark.parametrize("field", ["TICKERS", "REVISION", "SUMMARY_PLAN_RUN", "SUMMARY_PLAN_SHA256", "SUMMARY_APPROVAL_NONCE"])
 def test_resolve_step_rejects_a_line_break_in_an_unused_input(tmp_path, field):
     # A second line in an unused field would reach $GITHUB_OUTPUT as its own "name=value" assignment
     # and redefine the already-validated operation output for every later step.
@@ -121,11 +122,23 @@ def test_resolve_step_rejects_a_line_break_in_an_unused_input(tmp_path, field):
     assert output == ""
 
 
-@pytest.mark.parametrize("field", ["TICKERS", "REVISION"])
+@pytest.mark.parametrize("field", ["TICKERS", "REVISION", "SUMMARY_PLAN_RUN", "SUMMARY_PLAN_SHA256", "SUMMARY_APPROVAL_NONCE"])
 def test_resolve_step_rejects_shell_metacharacters_in_an_unused_input(tmp_path, field):
     code, output = _run_resolve(tmp_path, OP="describe-jobs", **{field: "$(id)"})
     assert code != 0
     assert output == ""
+
+
+@pytest.mark.parametrize("operation", ["summary-delivery-apply", "summary-delivery-cleanup-apply", "summary-recovery-caller-apply"])
+@pytest.mark.parametrize("missing", [None, "SUMMARY_PLAN_RUN", "SUMMARY_PLAN_SHA256", "SUMMARY_APPROVAL_NONCE"])
+def test_summary_apply_requires_all_reviewed_plan_references(tmp_path, operation, missing):
+    inputs = {"SUMMARY_PLAN_RUN": "123456", "SUMMARY_PLAN_SHA256": "a" * 64, "SUMMARY_APPROVAL_NONCE": "b" * 32}
+    if missing:
+        inputs[missing] = ""
+    code, output = _run_resolve(tmp_path, OP=operation, **inputs)
+    assert (code == 0) is (missing is None)
+    if missing:
+        assert output == ""
 
 
 @pytest.mark.parametrize("op, tickers", [

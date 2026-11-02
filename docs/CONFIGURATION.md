@@ -109,6 +109,10 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
 | `TASKS_WORKER_URL` | `""` | Exact HTTPS run.app origin of the private worker, also its expected OIDC audience. |
 | `TASKS_INVOKER_EMAIL` | `""` | Dedicated task service account whose verified email is accepted by the worker. |
+| `SUMMARY_TASKS_QUEUE` | `""` | Explicit durable-summary queue in the shared task project/region; must differ from `TASKS_QUEUE`. Requires a complete background route as well; missing or shared routing refuses handoff without a background fallback. |
+| `SUMMARY_TASKS_WORKER_URL` | `""` | Exact HTTPS run.app origin of the dedicated summary worker and its OIDC audience; normalized origin must differ from `TASKS_WORKER_URL`. Configure on every summary producer and the summary worker. |
+| `SUMMARY_TASKS_INVOKER_EMAIL` | `""` | Explicit service account whose verified email is accepted by the summary worker; no fallback to the background invoker. Configure on every summary producer and the summary worker. |
+| `TASKS_WORKER_ROLE` | `"background"` | Select the private worker's accepted task kinds and OIDC route. Set `summary` only on the dedicated summary worker; `background` refuses summary envelopes. Both roles accept empty probes. |
 | `TASKS_WORKER_PROCESS` | `false` | Enable only on the private task-only service; permits isolated child execution. |
 | `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |

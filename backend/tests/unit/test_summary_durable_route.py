@@ -249,6 +249,9 @@ def test_accepted_queue_response_lost_worker_finishes_reload_recovers_once(bound
         "TASKS_PROJECT_ID": "test-project", "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "background",
         "TASKS_WORKER_URL": "https://worker-xyz-uw.a.run.app",
         "TASKS_INVOKER_EMAIL": "task-worker@test-project.iam.gserviceaccount.com",
+        "SUMMARY_TASKS_QUEUE": "summaries",
+        "SUMMARY_TASKS_WORKER_URL": "https://summary-worker-xyz-uw.a.run.app",
+        "SUMMARY_TASKS_INVOKER_EMAIL": "summary-worker@test-project.iam.gserviceaccount.com",
     }.items():
         monkeypatch.setattr(settings, key, value)
     fid = seed_company_filing()
