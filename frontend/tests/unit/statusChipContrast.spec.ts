@@ -1023,7 +1023,7 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
     expect(hovered).toEqual(['Badge info-status (dark, probe hovered row): 4.23:1'])
     // With no dark tint of its own, a hovered dark row shows the light hover tint; a row's dark:bg- outranks it.
     expect(tableGrounds('probe', 'hover:bg-background-light', 'bg-panel-light dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(colour('background-light'))
-    expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5')!, colour('panel-dark')!))
+    expect(tableGrounds('probe', 'hover:bg-background-light dark:bg-white/5', 'dark:bg-panel-dark', PROBE, []).dark[1][1]).toEqual(over(colour('white/5') as Rgba, colour('panel-dark') as Rgba))
     // An important tint is read as that fill, and outranks every plain one: dark:!bg-white/10 holds on a hovered
     // row over the plain dark:hover:bg-white/5, as the cascade paints it.
     const important: string[] = []
