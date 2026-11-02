@@ -1201,6 +1201,86 @@ class TestAnalysisPdfHtml:
                 "0000123456-25-000001 · Source tag: us-gaap:Revenues · Filed: 2025-02-14") in html
         assert "raw_tag" not in html and "filed_at" not in html and "accession:" not in html
 
+    def test_sources_take_the_pages_words(self):
+        """WP3 (coherence.md §2.5's "Narrative and sources" row, N9): Narrative sources label each source as the page's
+        source list does, never a stored "Calculated · operating_margin", and Sources & methods names each figure's
+        method in the same words. The words are read from NarrativePane.tsx and SourceValue.tsx (CLAUDE.md rule 12):
+        a change there fails here until the port in analysis_export_metadata.py is re-read."""
+        components = Path(__file__).resolve().parents[3] / "frontend" / "features" / "analysis" / "components"
+        pane = (components / "NarrativePane.tsx").read_text(encoding="utf-8")
+        calculation = re.search(r"provenance\.reasons\.includes\('legacy_calculation'\)\) return '([^']*)'\s+"
+                                r"return provenance\.inputs\.length \? '([^']*)' : '([^']*)'", pane)
+        label = re.search(r"\{citation\.section_ref && \(\s*<span[^>]*>\s*· \{citation\.provenance\?\.method === "
+                          r"'calculated' \? calculationWords\(citation\.provenance\) : citation\.provenance\?\.method "
+                          r"=== 'reported' \? '([^']*)' : citation\.section_ref\}", pane)
+        unrecorded = re.search(r": '(Source method is not recorded)\.'\}</p>",
+                               (components / "SourceValue.tsx").read_text(encoding="utf-8"))
+        assert calculation and label and unrecorded, "the page's source words moved: re-read them and the port"
+        legacy, inputs, bare = calculation.groups()
+        reported, not_recorded = label[1], unrecorded[1]
+
+        def provenance(method, reasons=(), inputs=()):
+            return {"method": method, "validation": "needs_review" if reasons else "passed", "reasons": list(reasons),
+                    "formula": "100 * net_income / revenue" if inputs else None, "inputs": list(inputs)}
+
+        filing = "https://www.sec.gov/Archives/edgar/data/1/000000000125000001/"
+        operands = [{"concept": name, "value": value, "unit": "USD", "period_start": "2024-01-01",
+                     "period_end": "2024-12-31", "source_url": filing} for name, value in (("net_income", 243.0),
+                                                                                              ("revenue", 1000.0))]
+        analysis = self._analysis()
+        analysis.citations_json = [
+            {"n": 1, "excerpt": "Revenue = 1,000 USD (FY2022)", "section_ref": "XBRL · us-gaap:Revenues",
+             "provenance": provenance("reported")},
+            {"n": 2, "excerpt": "Net margin = 24.3% (FY2024)", "section_ref": "Calculated · 100 * net_income / revenue",
+             "provenance": provenance("calculated", inputs=operands)},
+            {"n": 3, "excerpt": "Operating margin = 30.1% (FY2023)", "section_ref": "Calculated · operating_margin",
+             "provenance": provenance("calculated", reasons=["legacy_calculation"])},
+            {"n": 4, "excerpt": "Free cash flow = 400 USD (FY2023)", "section_ref": "Calculated · free_cash_flow",
+             "provenance": provenance("calculated")},
+            # Saved without a method, a citation keeps its stored label, as on the page.
+            {"n": 5, "excerpt": "Revenue CAGR = 22.5% (FY2022..FY2024)", "section_ref": "Computed · CAGR"},
+            {"n": 6, "excerpt": "Revenue = 1,500 USD (FY2024)", "section_ref": "XBRL · us-gaap:Revenues",
+             "provenance": provenance("unknown")},
+            {"n": 7, "excerpt": "Revenue = 1,500 USD (FY2024)", "section_ref": None, "provenance": provenance("reported")},
+            # The recorded reason decides, as on the page, whatever inputs the record lists.
+            {"n": 8, "excerpt": "Net margin = 24.3% (FY2024)", "section_ref": "Calculated · net_margin",
+             "provenance": provenance("calculated", reasons=["legacy_calculation"], inputs=operands)},
+        ]
+        series = analysis.dataset_json["series"]
+        series[0]["points"][0]["provenance"] = provenance("reported")  # FY2023 is a gap; FY2024 is derived, unrecorded
+        series[1]["points"][0]["provenance"] = provenance("calculated", inputs=operands)
+        series.append({"concept": "operating_margin", "label": "Operating margin", "unit": "pure", "percent": True,
+                       "points": [
+                           {"period": "FY2022", "value": 30.1, "provenance": provenance("calculated", ["legacy_calculation"])},
+                           {"period": "FY2023", "value": 30.4, "provenance": provenance("calculated")},
+                           # A recorded method decides over the legacy derived flag, as in the page's dialog.
+                           {"period": "FY2024", "value": 30.9, "derived": True, "provenance": provenance("unknown")},
+                       ]})
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+
+        sources = re.search(r'<ol class="sources">(.*?)</ol>', html, re.S)[1]
+        items = {re.match(r"<strong>\[(\d+)\]</strong>", item)[1]: item for item in re.findall(r"<li>(.*?)</li>", sources)}
+        labels = {n: (re.search(r'<span class="ref">· ([^<]*)</span>', item) or [None, None])[1] for n, item in items.items()}
+        assert labels == {"1": reported, "2": inputs, "3": legacy, "4": bare, "5": "Computed · CAGR",
+                          "6": "XBRL · us-gaap:Revenues", "7": None, "8": legacy}
+        assert "Calculated · " not in sources
+        # A source's links follow its label after a dot, as the label follows the figure.
+        assert items["2"].endswith(f'<span class="ref">· {inputs}</span> · <a href="{filing}">Source filing 1</a>')
+
+        methods = html.split('<section class="methods">', 1)[1]
+        words = {name: f"{name[:1].upper()}{name[1:]}" for name in (reported, inputs, legacy, bare, not_recorded)}
+        for lead, method in (
+            ("FY2022 · Value</strong>: 1000.0 USD", reported),
+            ("FY2023 · Value</strong>: Unavailable USD", not_recorded),
+            ("FY2024 · Value</strong>: 1500.0 USD", bare),  # no provenance: the legacy derived flag says calculated
+            ("FY2024 · Value</strong>: 24.3 percent", inputs),
+            ("FY2022 · Value</strong>: 30.1 percent", legacy),
+            ("FY2023 · Value</strong>: 30.4 percent", bare),
+            ("FY2024 · Value</strong>: 30.9 percent", not_recorded),
+        ):
+            assert f"{lead} · {words[method]}" in methods, (lead, method)
+        assert not re.search(r" · (?:Calculated|Reported|Unknown)(?: ·|<)", methods)
+
     def test_one_period_reads_as_that_period(self):
         """E177: a selection of one period, whose window key the engine writes as "FY2024..FY2024", prints
         that period in the meta line, as the analysis page prints it under the period picker."""

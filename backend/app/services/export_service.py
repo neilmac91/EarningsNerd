@@ -10,8 +10,8 @@ from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
     ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, QUARTER_LEGEND, calculated_sentence, derived_quarters,
     detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, later_filing_entry,
-    not_meaningful_lines, note_index, operand_records, pdf_closing, period_label, point_method, raw_value_text,
-    source_urls,
+    method_words, not_meaningful_lines, note_index, operand_records, pdf_closing, period_label, raw_value_text,
+    source_urls, source_words,
 )
 from app.services.trend_analysis.data_notes import (
     citation_data_notes, marks_figure, note_for_quality, resolve_data_notes,
@@ -472,7 +472,7 @@ class ExportService:
                 mark = self._analysis_note_mark(indexed.get((series["concept"], period, bases[measure])))
                 detail = (f"<strong>{escape(period_label(period))} · {escape(measure)}</strong>: "
                           f"{escape(raw_value_text(point.get('value')))} {escape(str(unit))}{mark} · "
-                          f"{escape(point_method(point).capitalize())}")
+                          f"{escape(method_words(point))}")
                 if provenance.get("formula"):
                     detail += " · " + escape(formula_text(provenance["formula"]))
                 links = self._analysis_links({**provenance, "source_url": point.get("source_url") or provenance.get("source_url")})
@@ -492,10 +492,15 @@ class ExportService:
             links = self._analysis_links({**provenance, "source_url": citation.get("source_url") or provenance.get("source_url")})
             exact = (f" · Exact value: {raw_value_text(citation['value'])} {citation.get('unit') or ''}"
                      if citation.get("value") is not None else "")
+            # The page's source list's label, after a dot as there: words for a calculated or reported source, the
+            # stored label only for a citation saved without a method, and nothing where no label is stored.
+            ref = citation.get("section_ref")
+            label = (f' <span class="ref">· {escape(source_words(citation.get("provenance"), str(ref)))}</span>'
+                     if ref else "")
             items.append(
                 f"<li><strong>[{escape(str(citation.get('n')))}]</strong>{mark} "
-                f"{escape(period_label(citation.get('excerpt', '')))}{escape(exact)} "
-                f'<span class="ref">{escape(str(citation.get("section_ref") or ""))}</span> {links}</li>'
+                f"{escape(period_label(citation.get('excerpt', '')))}{escape(exact)}{label}"
+                f"{' · ' + links if links else ''}</li>"
             )
         return "".join(items), marks
 
