@@ -1988,10 +1988,11 @@ def test_a_failed_read_never_decides_on_an_earlier_polls_snapshot(
     history = [_state_edit("completed", "2026-09-15T19:02:00Z", edited="2026-09-15T19:02:00Z"), other,
                _state_edit("running", "2026-09-15T19:00:01Z")]
     state = review_gate.State([_comment(history)], "body", [HEAD], False, None, (), CREATED, READY_EVENTS, HEAD)
+    judged_again = _at("2026-09-15T20:01:31Z")  # the second poll's wall time, for the control and the run
     # The premise: judged again at the second poll's wall time, the earlier snapshot passes.
     _, never, _ = _timed(limit=0)
     assert review_gate.main(fetch=_reads(state), resolve=lambda short: HEAD, sleep=never, clock=lambda: 0.0,
-                            wall=lambda: _at("2026-09-15T20:01:31Z"), **base) == 0
+                            wall=lambda: judged_again, **base) == 0
     capsys.readouterr()
     failure = (_http_error(503) if second == "a-503"
                else review_gate.SnapshotChanged("the pull request changed while it was read"))
@@ -1999,7 +2000,7 @@ def test_a_failed_read_never_decides_on_an_earlier_polls_snapshot(
     ticks = iter([0.0, 0.0])  # the start and the first poll; the clock has run out by the second
     sleeps, sleep, _ = _timed(limit=1)
     code = review_gate.main(fetch=_reads(state, failure), resolve=lambda short: HEAD, sleep=sleep,
-                            clock=lambda: next(ticks, 10_000.0), wall=lambda: next(walls, _at("2026-09-15T20:01:31Z")),
+                            clock=lambda: next(ticks, 10_000.0), wall=lambda: next(walls, judged_again),
                             **base)
     assert code == 1 and sleeps == [20]
     lines = capsys.readouterr().out.splitlines()
