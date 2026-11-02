@@ -7,6 +7,7 @@ import type { SavedSummary } from '@/features/summaries/api/summaries-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import DashboardPage from '@/app/dashboard/page'
 import { queryKeys } from '@/lib/queryKeys'
+import { COMPLIMENTARY_END_CLAIM } from './complimentaryAccess'
 
 /**
  * The dashboard's Retry buttons (the account card, the plan strip, Your companies) and the saved-summary
@@ -795,8 +796,10 @@ describe('Manage billing', () => {
     expect(await screen.findByText('Unlimited summaries')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Manage billing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /upgrade|subscribe/i })).not.toBeInTheDocument()
-    if (line) expect(screen.getByText(line)).toBeInTheDocument()
-    else expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
+    if (line) {
+      // The plan card's Pro block says nothing of an end: nothing expires on a grant's review date (PB-02).
+      expect(screen.getByText(line).parentElement?.textContent).not.toMatch(COMPLIMENTARY_END_CLAIM)
+    } else expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
   })
 
   it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {

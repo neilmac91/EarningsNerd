@@ -196,6 +196,15 @@ def test_a_fault_names_its_place_and_kind_never_the_value():
     assert "grant.<unexpected key>:" in text and "grant.accounts.0.<unexpected key>:" in text
 
 
+@pytest.mark.parametrize("action", ["tester.one@example.com", 7, None])
+def test_a_fault_never_echoes_the_action_it_found(action):
+    # Pydantic's own message for a discriminator names the tag it found; the report words it from the fault's type.
+    with pytest.raises(ManifestError) as refused:
+        load_manifest(json.dumps({**json.loads(_raw("grant", [_fake_entry(1)])), "action": action}).encode())
+    assert refused.value.problems == ["manifest: must be grant or revoke"]
+    assert "example.com" not in str(refused.value) and "7" not in str(refused.value)
+
+
 @pytest.mark.parametrize("change", [
     {"action": "extend"},  # no such action
     {"operator_account_id": "1"},  # a string where JSON carries an integer: never coerced
@@ -582,6 +591,24 @@ def test_a_revoke_leaves_billing_state_and_its_pro_to_the_webhook(world):
         assert audit.details["billing_owned"] is True and audit.details["after"]["is_pro"] is True
 
 
+def test_a_revoke_clears_the_grants_pro_beside_a_stripe_customer_a_checkout_stored_after_it(world):
+    # A checkout reads the account's entitlement before it claims a Stripe customer, so one that read the account just
+    # before its grant committed can store a customer after it. With no Subscription row no webhook writes the flag,
+    # so the Pro is still the grant's, and the revoke clears it.
+    operator = world.operator()
+    tester = world.tester()
+    _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    world.db.get(User, tester.id).stripe_customer_id = "cus_claimed_after_grant"
+    world.db.commit()
+
+    report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, reason="Private beta ended"))
+
+    assert report.outcomes == {"revoked": 1}
+    state = _committed(tester.id)
+    assert (state.is_pro, state.plan) == (False, Plan.FREE)
+    assert service.readout(world.db, today=TODAY)["revoked_still_pro"] == 0
+
+
 def test_a_revoke_rerun_or_an_ungranted_account_changes_nothing(world):
     operator = world.operator()
     granted, ungranted = world.tester(), world.tester()
@@ -738,7 +765,11 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
     _apply(world, world.manifest("grant", testers[2:], operator_id=operator.id, cohort="private-beta-wave-2",
                                  review_on=REVIEW_ON + timedelta(days=30)))
     _apply(world, world.manifest("revoke", testers[1:2], operator_id=operator.id))
+    # Drift of each kind: a row now decides the first account's plan, something set the revoked account's flag again,
+    # and a Stripe customer now names the third.
     world.db.add(Subscription(user_id=testers[0].id, plan="free", status="canceled"))
+    world.db.get(User, testers[1].id).is_pro = True
+    world.db.get(User, testers[2].id).stripe_customer_id = "cus_readout_drift"
     world.db.commit()
 
     before_review = service.readout(world.db, today=TODAY)
@@ -747,7 +778,7 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
     assert before_review == {
         "cap": MAX_ACTIVE_GRANTS, "active_grants": 2, "revoked_grants": 1,
         "active_by_cohort": {COHORT: 1, "private-beta-wave-2": 1}, "due_for_review": 0,
-        "active_without_complimentary_pro": 1,
+        "active_without_complimentary_pro": 1, "active_with_stripe_identity": 1, "revoked_still_pro": 1,
     }
     assert on_review["due_for_review"] == 1
 

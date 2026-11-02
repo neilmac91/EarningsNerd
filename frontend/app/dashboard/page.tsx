@@ -450,8 +450,8 @@ export default function DashboardPage() {
                     Unlimited summaries
                   </p>
                   {/* The portal opens only for a real Stripe customer (BillingPanel gates it the same way): a
-                      complimentary private-beta grant's Pro (PB-02), or a trial's, has none, and the portal
-                      answers it with an error. */}
+                      complimentary private-beta grant's Pro (PB-02), or a retired reverse trial's, has none,
+                      and the portal answers it with an error. */}
                   {subscription.stripe_customer_id ? (
                     <Button
                       variant="secondary"

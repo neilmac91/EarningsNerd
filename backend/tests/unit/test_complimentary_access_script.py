@@ -175,7 +175,13 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
                                                                     "email_sha256": testers[0].email}]}))
     code, out, err, logged = _run(capsys, caplog, "dry-run", "--manifest", str(broken))
     assert (code, json.loads(out)["refused"]) == (1, "manifest")
-    _assert_nothing_planted([out, err, logged], operator, testers)
+    texts = [out, err, logged]
+    # An address typed where the action goes: the discriminator's own message would quote it.
+    mistyped = tmp_path / "mistyped.json"
+    mistyped.write_text(json.dumps({"action": testers[0].email, "accounts": []}))
+    code, out, err, logged = _run(capsys, caplog, "dry-run", "--manifest", str(mistyped))
+    assert (code, json.loads(out)) == (1, {"refused": "manifest", "problems": ["manifest: must be grant or revoke"]})
+    _assert_nothing_planted([*texts, out, err, logged], operator, testers)
 
 
 def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):

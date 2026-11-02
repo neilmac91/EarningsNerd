@@ -32,6 +32,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 PYTHON_ROOTS = ("backend", "ops", "scripts", "tasks")
 SKIPPED = (ROOT / "backend" / "tests", ROOT / ".claude" / "worktrees")
+# Directories that hold no code of ours, as the binding inventory skips them (test_subscription_identity.py): an
+# installed package's own is_pro would otherwise be read as a writer.
+SKIPPED_NAMES = {".git", "node_modules", "__pycache__", "venv", ".venv", ".mypy_cache", ".pytest_cache", ".ruff_cache"}
 TEXT_SUFFIXES = (".sql", ".sh", ".yml", ".yaml")
 TEXT_ROOTS = ("backend", "ops", "scripts", "tasks", ".github")
 _NAME = re.compile(r"\bis_pro\b", re.IGNORECASE)
@@ -215,7 +218,8 @@ def _strip_comments(path: Path, text: str) -> str:
 
 
 def _skipped(path: Path) -> bool:
-    return any(path.is_relative_to(skipped) for skipped in SKIPPED)
+    return any(path.is_relative_to(skipped) for skipped in SKIPPED) or bool(
+        SKIPPED_NAMES.intersection(path.relative_to(ROOT).parts))
 
 
 def scan_repository() -> Counter:

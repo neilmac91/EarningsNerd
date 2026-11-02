@@ -43,7 +43,8 @@ it. Paid and trial accounts see what they saw before.
   auditable and leaves signup untouched. The cost is a delay: a tester is Free between verifying and the next apply,
   so invitation copy should promise Pro only once the founder has run the grant; PB-01 owns that copy.
 - **Grants never touch billing state.** A grant refuses an account with a `Subscription` row or any Stripe id, and a
-  revoke of an account that has gained one since closes the ledger row and leaves the flag to the webhook.
+  revoke of an account that has gained a Subscription row since closes the ledger row and leaves the flag to the
+  webhook, whose every write of it goes through that row.
 
 ## End date
 
@@ -51,8 +52,10 @@ it. Paid and trial accounts see what they saw before.
 has come (`due_for_review`), and the founder revokes them with a revoke manifest. Billing does not show the date.
 
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
-past their date through the same service, so the plan still resolves through `entitlements.py` alone; until then, no
-page or message may say that access ends by itself.
+past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
+nothing may say that access ends by itself: Settings › Billing and the dashboard's plan card, the two places that name
+the access, carry no end, renewal, expiry, trial, price or date (`frontend/tests/unit/complimentaryAccess.ts`, read by
+their specs); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
 
 ## Who can be granted
 
@@ -165,8 +168,10 @@ input. Nothing can be dispatched before the code is on `main` and deployed.
 ## Limits
 
 - A grant is inert for an account with a `Subscription` row: that row decides its plan, so the grant refuses it.
-- A checkout started before a grant could still complete for up to a day; the grant refuses any account that already
-  holds a Stripe customer, which every checkout claims before it opens.
+- A checkout reads the account's entitlement before it stores a Stripe customer, so one that read the account just
+  before its grant committed can store a customer after it (checkout is closed today). The grant's Pro stands, and a
+  revoke still clears it: only a Subscription row makes the flag the webhook's. A checkout completed that way would bind
+  a subscription, which then decides the account's plan.
 - Product analytics count a complimentary Pro account as Pro.
 - The grant's ledger row is not part of the account's data export; it is deleted with the account, while its audit
   rows remain, as every account audit row does.
