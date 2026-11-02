@@ -7157,6 +7157,20 @@ Full local and hosted verification plus independent exact-head review precede re
   later than their notes found by a new check that now writes the notes; no hook refusal and no
   permission-classifier refusal of the chief's commands in the window; five corrections to record 71.
   Gate (a) merged; gate (d) and F57 built and reviewed locally, their review findings being taken.
+- 2026-11-02 (record 73, `runtime/control/DECISIONS-73.md`): PR #1822 (record 72) merged `8d497f19` by
+  another session under the founder's one-off exception of 2026-10-31 (sixty-eighth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), after its fact-check's corrections commit,
+  its reviewer ended unfinished by the account's weekly usage limit, which stopped the chief's agents and
+  session from 2026-10-30T21:52Z until 2026-11-02. Closure 224 registers record 72's survey, fact-check and
+  reviewer, five engineering reviews and gate (c)'s design workflow, the seven workflow agents the limit
+  ended in the -cut-off form, and pre-registers record 74's reviewer. No survey or fact-check workflow for
+  this record, by an economy plan the founder may overrule. 137 main merges, 49 deploy jobs from 48 of them
+  each healthy by its own health step, one older image serving about three minutes on 2026-10-31 until a
+  re-run put the newer one back, 84 push runs skipping every deploy step. Production read live after four
+  deploys: describe-service passing and logs-probe reading logging permitted each time. No CODE RED spend;
+  no ledger event. One chief defect (40: record 72's checkpoint line 11 left #1815 out); one hook refusal;
+  the lapses counted from the chief's notes and its own commands. F57 and gate (d) built and reviewed
+  locally; gate (c)'s design panel lost to the limit.
   The fact-check's 47 findings were verified, 26 taken and 21 kept.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
