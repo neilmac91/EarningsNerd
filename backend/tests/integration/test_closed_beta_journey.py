@@ -20,7 +20,9 @@ account. It is not evidence of production delivery, configuration or capacity.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import importlib
 import json
 import uuid
 from dataclasses import fields
@@ -29,14 +31,19 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import and_, delete, event, select
+from sqlalchemy import and_, create_engine, delete, event, select
+from sqlalchemy.engine import make_url
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.pool import QueuePool
 from stripe import StripeObject
 
+from app import database
 from app.config import settings
-from app.database import Base, SessionLocal
+from app.database import DB_POOL_TIMEOUT, Base, SessionLocal
 from app.models import (AccountAgreement, Company, Filing, FilingContentCache, InviteCode, Subscription, Summary, User,
                         UserUsage)
 from app.models.feedback import FeedbackAttachment
@@ -46,12 +53,15 @@ from app.routers import summaries as summaries_router
 from app.services.entitlements import _FREE, _PRO, Entitlements
 from app.services.feedback_image_service import NormalizedFeedbackImage
 from app.services.feedback_media_cleanup_service import run_feedback_media_cleanup
+from app.services.legal_readiness_service import COLLECTION_UNAVAILABLE_MESSAGE
 from app.services.password_utils import get_password_hash
 from app.services.subscription_service import get_current_month
 from app.utils.datetimes import utcnow
 from main import app
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
-from tests.support.summary_stream_harness import reset_inflight, reset_rate_limiters, seed_company_filing, stream_boundaries
+from tests.support.session_local_binders import SESSION_LOCAL_BINDERS
+from tests.support.summary_stream_harness import (CANONICAL_PAYLOAD, reset_inflight, reset_rate_limiters,
+                                                  seed_company_filing, stream_boundaries)
 
 pytestmark = [pytest.mark.integration, pytest.mark.requires_db, pytest.mark.usefixtures("collection_ready")]
 
@@ -803,6 +813,64 @@ def test_switching_screenshots_off_keeps_text_feedback_and_cleanup(browsers, out
     assert _attachment_state(attachment_id) == "deleted"
 
 
+
+def test_closing_collection_stops_new_accounts_and_keeps_admitted_testers(browsers, outbox, monkeypatch):
+    admin = browsers()
+    _sign_in(admin, _seed_admin())
+    tester, me = _onboard(browsers, admin, outbox, "kept")
+    _grant_pro(me["email"])
+    waiting = _address("waiting")
+    pending_id, pending_token = _mint_invite(admin, waiting)
+
+    monkeypatch.setattr(settings, "LEGAL_COLLECTION_ENABLED", False)  # the stop-everything lever
+    assert browsers().get("/api/legal/readiness").json()["collection_available"] is False
+    closed = {"detail": COLLECTION_UNAVAILABLE_MESSAGE}
+    minted = admin.post("/api/admin/invites", json={"email": _address("new"), "cohort": "beta-acceptance"})
+    assert (minted.status_code, minted.json()) == (503, closed)
+    resent = admin.post(f"/api/admin/invites/{pending_id}/resend")
+    assert (resent.status_code, resent.json()) == (503, closed)
+    reset_rate_limiters()
+    refused = _register(browsers(), waiting, pending_token)
+    assert refused.status_code == 503 and _account(waiting) is None
+    # The waiting invitation is neither spent nor revoked: reopening collection makes it usable again.
+    invite = _invite_row(pending_id)
+    assert invite.used_at is None and invite.is_revoked is False
+
+    # Admitted testers keep their session, can sign in again, and keep Pro and their data rights.
+    assert tester.get("/api/auth/me").status_code == 200
+    assert tester.post("/api/auth/logout").status_code == 200
+    reset_rate_limiters()
+    _sign_in(tester, me["email"])
+    assert _plan_views(tester) == (True, True)
+    assert tester.get("/api/users/export").status_code == 200
+
+
+def test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account(browsers, outbox, monkeypatch):
+    admin = browsers()
+    _sign_in(admin, _seed_admin())
+    tester, me = _onboard(browsers, admin, outbox, "paused")
+    _grant_pro(me["email"])
+    reset_inflight()
+    stored, fresh = seed_company_filing(), seed_company_filing()
+    with stream_boundaries():
+        assert '"type": "complete"' in _generate(tester, stored)
+
+    monkeypatch.setattr(settings, "SUMMARY_NEW_JOBS_PAUSED", True)  # summary spend or capacity lever
+    with stream_boundaries() as summarize:
+        refused = _generate(tester, fresh)
+        served = _generate(tester, stored)
+    assert '"code": "generation_paused"' in refused and '"type": "complete"' not in refused
+    assert '"type": "complete"' in served and '"generation_paused"' not in served
+    summarize.assert_not_awaited()  # no model call while paused
+    assert tester.get(f"/api/summaries/filing/{stored}").status_code == 200
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == fresh).count() == 0
+    # The rest of the account carries on: feedback and a fresh sign-in.
+    assert _send_text(tester, me, "Generation is paused but feedback still works.").status_code == 201
+    assert tester.post("/api/auth/logout").status_code == 200
+    reset_rate_limiters()
+    _sign_in(tester, me["email"])
+
 # ── the social path: an invited Google sign-up, then a returning sign-in ──────
 
 class _FakeTokenResponse:
@@ -921,3 +989,96 @@ def test_billing_events_for_other_accounts_never_reach_a_complimentary_tester(br
         assert _plan_views(tester) == (True, True), stripe_event["type"]
     with SessionLocal() as db:  # the events did reach the account they name
         assert db.query(Subscription).filter(Subscription.user_id == payer_id).one().status == "canceled"
+
+
+# ── load: account work answers while a beta's worth of summaries generate ─────
+
+@pytest.fixture
+def production_pool(monkeypatch):
+    """The app's sessions on a pool shaped like the deployed API's: four connections, no overflow, its timeout."""
+    pool = create_engine(make_url(settings.DATABASE_URL), connect_args={"check_same_thread": False},
+                         poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=DB_POOL_TIMEOUT)
+    sessions = sessionmaker(autocommit=False, autoflush=False, bind=pool)
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    for name in SESSION_LOCAL_BINDERS:
+        monkeypatch.setattr(importlib.import_module(name), "SessionLocal", sessions)
+    yield pool
+    pool.dispose()
+
+
+@pytest.mark.asyncio
+async def test_account_work_answers_while_summaries_generate_on_a_production_sized_pool(production_pool, monkeypatch,
+                                                                                         outbox):
+    """Fresh summaries are generated inside the API request (durable generation is not active), in the same process,
+    pool and event loop as sign-in, usage, feedback and account mail. The deployed pool is four connections with no
+    overflow (docs/OPERATIONS.md, Monitoring Alerts). Here the most generations a process admits are held at the model
+    call, the longest phase in production, while a tester signs in, reads usage, sends feedback and asks for a
+    password reset: each must answer, with a pooled connection to spare throughout. Then every generation completes.
+
+    In-process and on SQLite with the production pool's shape: it shows the request units give their connections back
+    before the model call. It is not evidence of production CPU, provider throughput or PostgreSQL headroom."""
+    pool = production_pool
+    monkeypatch.setattr(auth_module, "sentry_sdk", None)
+    reset_rate_limiters()
+    reset_inflight()
+
+    generations = settings.MAX_CONCURRENT_GENERATIONS
+    readers = [_address(f"reader{n}") for n in range(generations)]
+    member = _address("member")
+    with database.SessionLocal() as db:
+        db.add_all([User(email=email, is_active=True, email_verified=True, is_pro=True) for email in readers])
+        db.add(User(email=member, hashed_password=get_password_hash(PASSWORD), is_active=True, email_verified=True))
+        db.commit()
+    filings = [seed_company_filing() for _ in readers]
+
+    held: list[int] = []
+    release = asyncio.Event()
+
+    async def model_call(*_args, **_kwargs):
+        held.append(1)
+        await release.wait()
+        return CANONICAL_PAYLOAD
+
+    def bearer(email: str) -> dict:
+        return {"Authorization": f"Bearer {auth_module.create_access_token({'sub': email})}"}
+
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="https://testserver") as client:
+        with stream_boundaries() as summarize:
+            summarize.side_effect = model_call
+            running = [asyncio.create_task(client.post(f"/api/summaries/filing/{filing}/generate-stream",
+                                                       headers=bearer(email)))
+                       for email, filing in zip(readers, filings)]
+            await asyncio.wait_for(_until(lambda: len(held) == generations), timeout=60)
+            in_use_while_held = pool.pool.checkedout()
+
+            member_id = str(_user_id(member))
+            answers = await asyncio.wait_for(asyncio.gather(
+                client.post("/api/auth/login", json={"email": member, "password": PASSWORD}),
+                client.get("/api/auth/me", headers=bearer(member)),
+                client.get("/api/subscriptions/usage", headers=bearer(member)),
+                client.post("/api/feedback/", headers={**bearer(member), "X-Feedback-User-Id": member_id},
+                            json={"type": "general", "message": "Sent while six summaries generate."}),
+                client.post("/api/auth/forgot-password", json={"email": member}),
+            ), timeout=60)
+            in_use_after_account_work = pool.pool.checkedout()
+            assert len(held) == generations and not any(task.done() for task in running)
+
+            release.set()
+            streams = await asyncio.wait_for(asyncio.gather(*running), timeout=60)
+
+    assert in_use_while_held < 4 and in_use_after_account_work < 4, (in_use_while_held, in_use_after_account_work)
+    assert [answer.status_code for answer in answers] == [200, 200, 200, 201, 200], [a.text[:120] for a in answers]
+    assert outbox.reset.call_count == 1
+    assert all(stream.status_code == 200 and '"type": "complete"' in stream.text for stream in streams)
+    assert pool.pool.checkedout() == 0
+
+
+async def _until(condition) -> None:
+    while not condition():
+        await asyncio.sleep(0.01)
+
+
+def _user_id(email: str) -> int:
+    with database.SessionLocal() as db:
+        return db.query(User.id).filter(User.email == email).scalar()
