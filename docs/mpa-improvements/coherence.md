@@ -1285,8 +1285,10 @@ row, N9), from one port (`analysis_export_metadata.source_words` and `method_wor
       `FORMULAS` in the page's style, so the dialog's comparison line, which read "Calculation: year over year growth",
       reads "Calculation: (Current − same period last year) ÷ absolute same period last year". A QoQ reads "(Current
       quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter", a CAGR "(Last ÷ first) to the power of
-      (1 ÷ fiscal years from first to last) − 1" and a percentage-point change "Current percentage − comparison
-      percentage".
+      (1 ÷ years from first to last) − 1" and a percentage-point change "Current percentage − comparison
+      percentage". The CAGR's exponent counts the span, `last_fy - first_fy` in `trend_analysis/dataset.py` (9 for
+      FY2016 to FY2025), so its words say "years from first to last": "fiscal years" invited counting the ten years
+      the table shows (chief design, 5743438508).
     - **The gate.** `backend/tests/unit/test_export_formula_words.py` reads `FORMULAS` and the fallback from
       `figureDisplay.ts`, in one form, failing on any other, and fails where the port differs. It then renders the PDF
       and the workbook with a figure for each formula and one with no words, and holds each formula they print, a

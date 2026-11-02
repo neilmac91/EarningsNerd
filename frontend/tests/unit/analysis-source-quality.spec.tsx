@@ -381,7 +381,7 @@ describe('Financial origin and source checks', () => {
   it.each([
     ['YoY', 'year_over_year_growth', '(Current − same period last year) ÷ absolute same period last year'],
     ['QoQ', 'quarter_over_quarter_growth', '(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter'],
-    ['CAGR', 'compound_annual_growth', '(Last ÷ first) to the power of (1 ÷ fiscal years from first to last) − 1'],
+    ['CAGR', 'compound_annual_growth', '(Last ÷ first) to the power of (1 ÷ years from first to last) − 1'],
     ['Window change', 'percentage_point_change', 'Current percentage − comparison percentage'],
   ])('says how a %s comparison is calculated in words', async (label, formula, words) => {
     const provenance: FactProvenance = { ...calculated, formula, inputs: [

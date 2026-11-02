@@ -46,7 +46,7 @@ FORMULA_WORDS = {
     "current_assets / current_liabilities": "Current assets ÷ current liabilities",
     "year_over_year_growth": "(Current − same period last year) ÷ absolute same period last year",
     "quarter_over_quarter_growth": "(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter",
-    "compound_annual_growth": "(Last ÷ first) to the power of (1 ÷ fiscal years from first to last) − 1",
+    "compound_annual_growth": "(Last ÷ first) to the power of (1 ÷ years from first to last) − 1",
     "percentage_point_change": "Current percentage − comparison percentage",
 }
 # The fine print's closing line. The page's asks the reader to select a figure, which a file cannot offer, so each
