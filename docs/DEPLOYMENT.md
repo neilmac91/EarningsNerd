@@ -841,8 +841,9 @@ fails, or refused for readable drift, which an unverified component never masks.
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
 error class (status, reason, and a denied permission that one of these steps names); provider messages,
 resources and principals stay withheld. The check reads the identity's own
-grants only: a disabled API, an organization policy or a grant made on a single resource still surfaces at
-the step itself.
+project grants (and `actAs` on the runtime identity): a disabled API or an organization policy passes it and
+still surfaces at the step itself, while a grant held only on a single resource is invisible to it, so the
+check reports that permission missing and refuses; grant provisioning permissions at the project.
 
 `earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
 one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.

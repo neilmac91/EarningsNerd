@@ -66,6 +66,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-stripe-calls-wait-on-threads-of-their-own.md — Run calls through Stripe's global client on the Stripe threads, never on the event loop or anyio's default worker threads, since one such call can wait minutes (partly gated by `backend/tests/unit/test_stripe_threads_allowlist.py`; the forms its Gate leaves out of reach are review-checked)
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
+- ops-an-apply-tests-every-permission-its-steps-need-before-its-first-write.md — Test every permission a multi-write Ops apply's steps need, read-only, before its first write and refuse with the missing names; label each provider call with its step and permission, print a refusal as that label and a closed error class only, and read every component in its inspect before failing (partly gated by `backend/tests/unit/test_feedback_media_infrastructure.py` for media provisioning's preflight equality, order, output and inventory, and by `backend/tests/unit/test_feedback_media_verification_ops.py` for the verifier's labelled pre-write reads; the verifier's other calls, unlabelled today, its writes and every other apply are review-checked)
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 

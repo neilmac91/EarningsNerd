@@ -691,8 +691,9 @@ def verification_permissions() -> frozenset[str]:
 def report_capabilities(cloud: Cloud, service: dict) -> None:
     """Print, read-only, the fixed permissions each provisioning operation's identity would lack.
 
-    This is the same check the applies run before their first write. It reports, never refuses: the
-    inspection's own verdict stays the resource state below it.
+    This is the check provision-apply runs before its first write, and verify-apply's own preflight set (enable
+    and disable each make one write and run none). It reports, never refuses: the inspection's own verdict
+    stays the resource state below it.
     """
     runtime = service.get("template", {}).get("serviceAccount") or None
     for label, permissions, identity in (
