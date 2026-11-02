@@ -3526,6 +3526,57 @@ class TestNativeReportingCurrencySync:
         assert fy2017() == [("0000713676-19-000015", 16_329e6, True), ("0000713676-20-000117", 15_252e6, False)]
         db.close()
 
+    @pytest.mark.parametrize("filing_row", [False, True], ids=["no-8k-filing-row", "a-later-8k-filing-row"])
+    @pytest.mark.parametrize("path", ["insert", "per-filing", "history-row"])
+    def test_a_named_filings_feed_row_holds_its_key_only_where_the_upserts_own_rule_keeps_it(self, path, filing_row):
+        # E198 (R1u) wherever the winner's row is. FY2023 revenue: K23's own 10-K (1000, filed 2024-02-15) under the
+        # first tag, and an 8-K's recast (X8K, filed 2024-08-01, 900) under a lower-priority tag, so the payload names
+        # X8K and its winner is K23's 1000. An older reading left X8K's 900 current, a feed row (no filing owner). The
+        # sync inserts K23's row ("insert") or finds it stored: behind X8K's by the per-filing writer ("per-filing"), or
+        # as its own history row from a sync whose payload had X8K under the first tag ("history-row"). On every path
+        # X8K's 900 yields where the upsert's own Filing-date rule yields it (no Filing row for the 8-K) and holds where
+        # that rule keeps it (a Filing row filed after K23's). Kept by its date alone where the sync found K23's row
+        # stored, it stayed current there for good (the high-tier review's reproduction).
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+
+        def payload(*, x8k_first):
+            k = [_item(800.0, "2022-12-31", start="2022-01-01", accn=f"K22{tag}", fy=2022, filed="2023-02-15"),
+                 _item(1000.0, "2023-12-31", start="2023-01-01", accn=f"K23{tag}", fy=2023, filed="2024-02-15")]
+            x = [_item(900.0, "2023-12-31", start="2023-01-01", accn=f"X8K{tag}", fy=2023, form="8-K",
+                       filed="2024-08-01")]
+            return _payload({REV_TAG: {"units": {"USD": k + (x if x8k_first else [])}},
+                             "Revenues": {"units": {"USD": [] if x8k_first else x}}})
+
+        def fy2023():
+            return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="revenue", period_end=date(2023, 12, 31),
+                                         fiscal_period="FY"))
+
+        if filing_row:
+            db.add(Filing(company_id=company.id, accession_number=f"X8K{tag}", filing_type="8-K",
+                          filing_date=datetime(2024, 8, 1, tzinfo=timezone.utc), document_url="https://example.com/d",
+                          sec_url="https://example.com/s"))
+            db.commit()
+        if path == "history-row":
+            svc._persist_companyfacts_payload(db, company, payload(x8k_first=True))
+        else:
+            svc.upsert_facts_bulk(db, [_fact_dict(company.id, "revenue", fp="FY", end=date(2023, 12, 31),
+                                                  accession=f"X8K{tag}", value=900.0)])
+        if path == "per-filing":
+            _store_per_filing(db, company, payload(x8k_first=False), f"K23{tag}", "10-K", "2024-02-15",
+                              writer=svc.upsert_facts)
+        assert ("X8K", 900.0, True) in fy2023() and ("K23", 1000.0, True) not in fy2023()
+        expected = [("K23", 1000.0, filing_row is False), ("X8K", 900.0, filing_row is True)]
+        for _ in range(2):  # and a second sync leaves it so
+            _checked_sync(db, company, payload(x8k_first=False), final=True)
+            assert fy2023() == expected, path
+        db.close()
+
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency):
         # E198 (R2). A filer synced through K24 (FY2024 revenue 1200), a feed row with no Filing row. The per-filing
@@ -3933,13 +3984,13 @@ def _checked_sync(db, company, payload, *, final=False):
             found = [row[:2] for row in after.get(key, ()) if row[2]]
             kept = {row[:2] for row in before.get(key, ()) if row[2]}
             pick = held.get(key) or next(row for row in after[key] if row[:2] == winners[key][:2])
-            inserted = key not in held and not any(row[:2] == winners[key][:2] for row in before.get(key, ()))
             # A later filing's current row keeps the key, except a feed row (no filing owner) of a filing the payload
-            # names where the sync inserts its winner: the upsert's own rule decides that row, as on main (R1u).
+            # names: the upsert's own rule decides that row, as on main, whether the sync inserts its winner or finds
+            # it stored (R1u).
             newer = [] if key in held else [
                 row[:2] for row in before.get(key, ()) if row[2] and row[0] == winners[key][0]
                 and filed(row[1], row[5]) > winners[key][2] and not _foreign(row[1], view.currency, view, guard.own)
-                and not (inserted and row[6] and row[1] in view.known and not upsert_keeps(row, winners[key]))]
+                and not (row[6] and row[1] in view.known and not upsert_keeps(row, winners[key]))]
             other_figure = key not in held and not math.isclose(pick[7], winners[key][3], rel_tol=1e-9, abs_tol=0.0)
             if newer or pick[4] or other_figure or key[2] in ("Q1", "Q2", "Q3", "Q4") and (*key[:2], pick[0]) in twins:
                 if not set(found) <= kept:
