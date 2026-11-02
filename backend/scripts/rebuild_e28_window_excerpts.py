@@ -38,6 +38,14 @@ The outcome per filing, in the classes ``precompute_one`` reports:
 The apply refuses while ``SUMMARY_DURABLE_GENERATION_ENABLED`` is on, since the orchestrator refuses a
 lease-less run then.
 
+Only a task's first attempt runs. A non-zero exit (a refusal, a failed rebuild, or a task timeout) makes Cloud Run
+retry the task: the pregenerate job sets no ``--max-retries``, so its default of three applies (docs/OPERATIONS.md).
+A kept or failed filing's cache row is left as it was, so a retry would select it again, and when no filing was
+replaced the count guard would pass and every paid rebuild would run again under the one approval. So an attempt
+whose ``CLOUD_RUN_TASK_ATTEMPT`` is set and is not ``0`` reads nothing, writes nothing, prints a
+``retry_attempt`` refusal and exits non-zero. The execution then fails, and its first ``E28_REBUILD`` line is the
+record.
+
 Cost: about one paid model call per filing, about USD 0.005 each. Read the balance and reserve first.
 
 Founder commands (the DB is reachable only from Cloud Run; .github/workflows/ops.yml runs these as
@@ -61,7 +69,7 @@ import os
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 # Make the backend root importable as `app.*` when run directly (see backfill_facts.py).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -160,9 +168,20 @@ async def rebuild_one(filing_id: int, session_factory, generate) -> str:
     return "replaced_regex" if kind in REGEX_BUILDERS else "replaced"
 
 
+def first_attempt(env: Mapping[str, str]) -> bool:
+    """Whether this is a task's first attempt: Cloud Run sets ``CLOUD_RUN_TASK_ATTEMPT`` from 0, and a local run
+    sets none. Any other value, an unreadable one included, counts as a retry."""
+    return env.get("CLOUD_RUN_TASK_ATTEMPT", "0") == "0"
+
+
 def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None], *,
-        session_factory=None, generate=None) -> int:
+        session_factory=None, generate=None, env: Mapping[str, str] = os.environ) -> int:
     """Select the cohort, report it, and on --apply rebuild each filing; return the exit code."""
+    mode = "apply" if args.apply else "dry_run"
+    if not first_attempt(env):
+        emit({"mode": mode, "expected": EXPECTED_COHORT, "refused": "retry_attempt"})
+        return 2
+
     from app.config import settings
     from app.models import Summary
 
@@ -177,7 +196,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None], *,
         with_summary = db.query(Summary.filing_id).filter(Summary.filing_id.in_(ids)).count() if ids else 0
     durable = bool(settings.SUMMARY_DURABLE_GENERATION_ENABLED)
     report: dict[str, Any] = {
-        "mode": "apply" if args.apply else "dry_run",
+        "mode": mode,
         "window": [WINDOW_START.isoformat(), WINDOW_END.isoformat()],
         "expected": EXPECTED_COHORT,
         "cohort": len(cohort),
@@ -216,14 +235,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, env: Mapping[str, str] = os.environ) -> int:
     args = build_parser().parse_args(argv)
 
     def emit(report: dict[str, Any]) -> None:
         print("E28_REBUILD " + json.dumps(report, sort_keys=True), flush=True)
 
-    return run(args, emit)
+    return run(args, emit, env=env)
 
 
 if __name__ == "__main__":
+    # The pregenerate job's other scripts start the same way: the ai_call spend reads as the job's, the provenance
+    # and spend lines (INFO) reach the job's Cloud Run logs, and Redis, which production does not run, is skipped.
+    import logging
+
+    os.environ.setdefault("SKIP_REDIS_INIT", "true")  # before any app import builds the settings
+    from app.services import ai_metrics
+
+    ai_metrics.set_trigger("job")
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())

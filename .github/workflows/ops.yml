@@ -932,23 +932,35 @@ jobs:
         # fallback wrote in the E28 window (tasks/todo.md E28 (b)), each rebuilt in place by the forced regeneration
         # precompute_one runs, with its excerpt rebuilt. Nothing is deleted or cleared: each summary keeps its id and
         # bookmarks, and keep-better keeps it when the new run ranks lower. It runs on the pregenerate job, which carries
-        # the model key and the SEC budget. Its one output line, counts only, lands in the job's Cloud Run logs, not here.
+        # the model key and the SEC budget. Its output line, counts only, lands in the job's Cloud Run logs, not here.
         # The dry run exits non-zero, and the apply writes nothing, unless the cohort is the script's reviewed count.
-        # excerpt-cohort reads the result back.
+        # A non-zero exit makes Cloud Run retry the task (three times by default); a retry reads and writes nothing,
+        # so the execution's first E28_REBUILD line is the record. excerpt-cohort reads the result back.
+        # gcloud's stderr, its progress and any error text, which can name the acting principal, is captured and
+        # only ever tested: a failure prints the closed class logs-probe prints, never the text.
         if: contains('rebuild-e28-excerpts-dry-run rebuild-e28-excerpts-apply', steps.request.outputs.operation)
         env:
           OP: ${{ steps.request.outputs.operation }}
         run: |
           set -euo pipefail
           # ^;^ switches gcloud's --args delimiter to ';'; --apply is added only for the -apply operation.
+          ARGS="^;^scripts/rebuild_e28_window_excerpts.py"
+          MODE="dry run"
           if [ "$OP" = "rebuild-e28-excerpts-apply" ]; then
-            gcloud run jobs execute earningsnerd-pregenerate --region="$REGION" \
-              --args="^;^scripts/rebuild_e28_window_excerpts.py;--apply" --wait
-            echo "rebuild-e28-excerpts APPLIED via the pregenerate job (counts in its Cloud Run logs)"
+            ARGS="${ARGS};--apply"
+            MODE="apply"
+          fi
+          if gcloud run jobs execute earningsnerd-pregenerate --region="$REGION" --args="$ARGS" --wait \
+              2>/tmp/e28-rebuild.err; then
+            echo "rebuild-e28-excerpts ${MODE}: the pregenerate job's execution completed (counts in its Cloud Run logs)"
           else
-            gcloud run jobs execute earningsnerd-pregenerate --region="$REGION" \
-              --args="^;^scripts/rebuild_e28_window_excerpts.py" --wait
-            echo "rebuild-e28-excerpts DRY RUN via the pregenerate job (counts in its Cloud Run logs)"
+            RC=$?
+            if grep -qsF PERMISSION_DENIED /tmp/e28-rebuild.err; then CLASS=permission_denied
+            elif grep -qsF NOT_FOUND /tmp/e28-rebuild.err; then CLASS=not_found
+            elif grep -qsF -e UNAVAILABLE -e DEADLINE_EXCEEDED /tmp/e28-rebuild.err; then CLASS=unavailable
+            else CLASS="error (gcloud exit $RC)"; fi
+            echo "::error::rebuild-e28-excerpts ${MODE}: the execution did not complete ($CLASS; gcloud's error text withheld); if the job ran, its first E28_REBUILD line in the job's Cloud Run logs says why"
+            exit "$RC"
           fi
 
       # ------------------------------------------------------------------ emergency rollback

@@ -4,8 +4,9 @@
 does (the excerpt-cohort receipt sized the cohort with that SQL), selects by last write, refuses any count but the
 reviewed one, and rebuilds through ``generate_summary_background(filing_id, None, force_regenerate=True,
 rebuild_excerpt=True)``, the forced call ``precompute_one`` makes. It deletes and writes nothing itself: the
-orchestrator keeps or replaces each summary in place. Its one output line holds counts, never a filing id,
-accession, ticker or error text. SQLite runs the selection and the outcome classes; the orchestrator is faked here.
+orchestrator keeps or replaces each summary in place. Only a Cloud Run task's first attempt runs: a retry, which a
+failed attempt sets off, reads and writes nothing. Its one output line holds counts, never a filing id, accession,
+ticker or error text. SQLite runs the selection and the outcome classes; the orchestrator is faked here.
 """
 from __future__ import annotations
 
@@ -92,12 +93,16 @@ def _window_cohort(sessions):
 def _run(sessions, *, apply, generate=None, emit=None):
     reports = []
     code = rebuild.run(argparse.Namespace(apply=apply), (emit or reports.append),
-                       session_factory=sessions, generate=generate or _never)
+                       session_factory=sessions, generate=generate or _never, env={})
     return code, reports
 
 
 async def _never(*_args, **_kwargs):
     raise AssertionError("no rebuild may run")
+
+
+# Every key the one line may carry: counts, the window's two marks and two flags, never a filing id or text.
+REPORT_KEYS = {"mode", "window", "expected", "cohort", "by_form", "by_builder", "with_summary", "durable_generation"}
 
 
 def test_the_window_and_the_regex_openings_are_the_cohort_sqls():
@@ -187,6 +192,7 @@ def test_the_apply_rebuilds_each_filing_in_place_and_reports_outcome_classes_onl
     assert code == 1, "a failed rebuild fails the run"
     assert calls == [(filing_id, None, {"force_regenerate": True, "rebuild_excerpt": True}) for filing_id in sorted(selected)]
     assert report["outcomes"] == {"replaced": 1, "replaced_regex": 1, "replaced_without_excerpt": 1, "kept": 1, "failed": 1}
+    assert set(report) == REPORT_KEYS | {"outcomes"}, "the apply line adds the outcome counts and nothing else"
     with sessions() as db:
         for filing_id in selected:  # every summary survives under its id, the bookmarked one included
             assert db.query(Summary.id).filter(Summary.filing_id == filing_id).scalar() == before[filing_id]
@@ -203,21 +209,48 @@ def test_an_exception_counts_as_failed_and_its_text_is_withheld(sessions, monkey
 
     lines = []
     code = rebuild.run(argparse.Namespace(apply=True), lambda report: lines.append(json.dumps(report)),
-                       session_factory=sessions, generate=orchestrator)
-    assert code == 1 and json.loads(lines[0])["outcomes"]["failed"] == len(selected)
-    assert secret not in lines[0] and "e28b-" not in lines[0]
+                       session_factory=sessions, generate=orchestrator, env={})
+    report = json.loads(lines[0])
+    assert code == 1 and report["outcomes"]["failed"] == len(selected)
+    assert set(report) == REPORT_KEYS | {"outcomes"} and secret not in lines[0] and "e28b-" not in lines[0]
 
 
 def test_main_prints_one_counts_only_line(sessions, monkeypatch, capsys):
     _window_cohort(sessions)
     monkeypatch.setattr(rebuild, "EXPECTED_COHORT", 5)
     real_run = rebuild.run
-    monkeypatch.setattr(rebuild, "run", lambda args, emit: real_run(args, emit, session_factory=sessions,
-                                                                    generate=_never))
-    assert rebuild.main([]) == 0
+    monkeypatch.setattr(rebuild, "run", lambda args, emit, env: real_run(args, emit, session_factory=sessions,
+                                                                         generate=_never, env=env))
+    assert rebuild.main([], env={"CLOUD_RUN_TASK_ATTEMPT": "0"}) == 0
     out = capsys.readouterr().out.strip().splitlines()
     assert len(out) == 1 and out[0].startswith("E28_REBUILD {")
     report = json.loads(out[0].removeprefix("E28_REBUILD "))
-    assert set(report) == {"mode", "window", "expected", "cohort", "by_form", "by_builder", "with_summary",
-                           "durable_generation"}
+    assert set(report) == REPORT_KEYS
     assert "e28b-" not in out[0] and "E28B" not in out[0], "no accession or ticker"
+
+
+@pytest.mark.parametrize("attempt, first", [(None, True), ("0", True), ("1", False), ("3", False), ("", False),
+                                            ("00", False), ("x", False)])
+def test_only_a_tasks_first_attempt_runs(attempt, first):
+    env = {} if attempt is None else {"CLOUD_RUN_TASK_ATTEMPT": attempt}
+    assert rebuild.first_attempt(env) is first
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_a_cloud_run_retry_reads_and_writes_nothing(apply):
+    """A failed first attempt (a refusal, a failed rebuild, a timeout) makes Cloud Run retry the task. The retry
+    must not re-run the paid rebuilds under the same approval: it refuses before it opens a session."""
+    def no_session():
+        raise AssertionError("a retry opens no session")
+
+    reports = []
+    code = rebuild.run(argparse.Namespace(apply=apply), reports.append, session_factory=no_session, generate=_never,
+                       env={"CLOUD_RUN_TASK_ATTEMPT": "1"})
+    assert code == 2
+    assert reports == [{"mode": "apply" if apply else "dry_run", "expected": 15, "refused": "retry_attempt"}]
+
+
+def test_main_passes_the_task_attempt_through(monkeypatch, capsys):
+    monkeypatch.setattr(rebuild, "run", lambda args, emit, env: (emit({"attempt": env["CLOUD_RUN_TASK_ATTEMPT"]}), 7)[1])
+    assert rebuild.main(["--apply"], env={"CLOUD_RUN_TASK_ATTEMPT": "2"}) == 7
+    assert capsys.readouterr().out == 'E28_REBUILD {"attempt": "2"}\n'

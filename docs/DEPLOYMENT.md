@@ -185,7 +185,10 @@ A failed read stops setup with its exit status and only `permission_denied`, `no
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
 operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
-[the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map.
+[the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map, which its
+`INHERITED_CEILING` lets only shrink. A new gcloud call discards or captures its stderr instead: the E28 (b)
+rebuild step (`rebuild-e28-excerpts-*`) captures its job execution's, and a failed execution prints only the
+`logs-probe` class with its exit status.
 These mutating actions are not live-test probes. The gate's stdin-program check does not
 recognise an interpreter invoked through a variable or another name (`$INTERPRETER -`, `pypy3 -`).
 
@@ -1019,6 +1022,13 @@ not in the Actions log:
 - the dry run exits non-zero unless the cohort is the script's reviewed `EXPECTED_COHORT`;
 - the apply writes nothing then either, nor while `SUMMARY_DURABLE_GENERATION_ENABLED` is on;
 - the apply fails the run if any rebuild failed.
+
+A non-zero exit, or a task timeout, makes Cloud Run retry the task: the pregenerate job sets no `--max-retries`,
+so the default of three applies (`docs/OPERATIONS.md`). Only a task's first attempt runs the script: a retry
+(`CLOUD_RUN_TASK_ATTEMPT` other than `0`) reads and writes nothing, prints a `retry_attempt` refusal and exits
+non-zero, so a failed apply's paid rebuilds never run again under the same approval, and the execution fails. Read
+the execution's first `E28_REBUILD` line; the lines after it are the retries' refusals. A failed step in the Actions
+log prints only a closed class and the exit status, never gcloud's error text.
 
 The order:
 1. Dispatch the dry run.
