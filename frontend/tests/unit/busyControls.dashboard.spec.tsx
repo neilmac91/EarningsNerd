@@ -7,7 +7,7 @@ import type { SavedSummary } from '@/features/summaries/api/summaries-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import DashboardPage from '@/app/dashboard/page'
 import { queryKeys } from '@/lib/queryKeys'
-import { COMPLIMENTARY_END_CLAIM, spacedText } from './complimentaryAccess'
+import { COMPLIMENTARY_END_CLAIM, endClaimTexts, spacedText } from './complimentaryAccess'
 
 /**
  * The dashboard's Retry buttons (the account card, the plan strip, Your companies) and the saved-summary
@@ -802,7 +802,7 @@ describe('Manage billing', () => {
       expect(screen.getByText(line)).toBeInTheDocument()
       const card = screen.getByRole('heading', { name: 'Plan and usage' }).parentElement?.parentElement
       expect(card && spacedText(card)).toMatch(/Plan and usage Pro .*Complimentary access/)
-      expect(card && spacedText(card)).not.toMatch(COMPLIMENTARY_END_CLAIM)
+      for (const text of card ? endClaimTexts(card) : ['']) expect(text).not.toMatch(COMPLIMENTARY_END_CLAIM)
     } else expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
   })
 

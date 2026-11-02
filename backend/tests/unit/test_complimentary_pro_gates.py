@@ -62,6 +62,7 @@ def _isolated():
     reset_inflight()
     yield
     app.dependency_overrides.clear()
+    reset_inflight()
 
 
 @pytest.fixture(autouse=True)
@@ -73,7 +74,6 @@ def _pinned_month(monkeypatch):
     for module in (subscription_service, summary_pipeline, summary_generation_service, summaries_router,
                    subscriptions_router, analysis_router):
         monkeypatch.setattr(module, "get_current_month", lambda: MONTH)
-    reset_inflight()
 
 
 def _headers(email: str) -> dict:

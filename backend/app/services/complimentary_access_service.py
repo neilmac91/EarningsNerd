@@ -16,7 +16,8 @@ The operator runs it through ``scripts/complimentary_access.py`` (``docs/ops/com
 * an **apply** runs only the manifest whose digest it is handed, and treats each account as one unit: under the
   grants' lock and the account's row lock it reads the account again, then writes the ledger row, the flag and
   their audit row in one commit, or nothing. A rerun changes nothing an earlier run changed, except that a grant
-  manifest with another review date moves its cohort's active grants to that date (and changes nothing else).
+  manifest with another review date moves the active grants of the accounts it names to that date (and changes
+  nothing else); an account it does not name keeps its date.
 
 Nothing here calls Stripe or sends mail. A grant never touches billing state, and a revoke of an account that
 has gained a Subscription row since its grant closes the ledger row and leaves the flag to the webhook that owns it.

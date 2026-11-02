@@ -51,11 +51,15 @@ it. Paid and trial accounts see what they saw before.
 `review_on` is an operational review or end date. **Nothing expires on it.** The readout counts the grants whose date
 has come (`due_for_review`), and the founder revokes them with a revoke manifest. Billing does not show the date.
 
-To move the date, apply the cohort's grant manifest again with the new `review_on`, dry run first, since the digest
-changes. Each active grant of that cohort whose date differs moves to it (`review_date_moves` in the dry run,
-`review_date_moved` in the apply), with an audit row of its own (`complimentary_access_review_moved`, the dates before
-and after and the run's reason); its Pro, its grant time and the cap are untouched. The window still holds: after the
-day of the apply, at most 366 days later.
+To move the date, apply a grant manifest of the cohort with the new `review_on` that names every account whose date
+should move, dry run first, since the digest changes. Each named account whose active grant is that cohort's, whose
+date differs and that passes every check moves to it (`review_date_moves` in the dry run, `review_date_moved` in the
+apply), with an audit row of its own (`complimentary_access_review_moved`, the dates before and after and the run's
+reason); its Pro, its grant time and the cap are untouched. An account the manifest does not name keeps its date, so a
+cohort granted over several manifests moves only as far as the one manifest names it. The manifest is a grant like any
+other: an account it names that was revoked since is granted again (`eligible`, then `granted`), and an older manifest
+moves its accounts back to its own date, so read the dry run's outcomes before the apply. The window still holds: after
+the day of the apply, at most 366 days later.
 
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
 past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
@@ -110,9 +114,10 @@ fault names its place and kind, never the value. This example is synthetic (rese
 ```
 
 A revoke manifest has `"action": "revoke"`, the same cohort and entries, its own reason, and no `review_on`. The
-manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it. Every
-report prints the cohort, and the readout counts grants by it, so it reaches the public Ops log: choose a label that
-names no person, as the example's does.
+manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it. The
+cohort is an opaque public code: every report prints it and the readout counts grants by it, so it appears in the
+public Ops log. Keep what each code stands for with the private roster; no name, address, workplace or private
+description belongs in it (the example's `private-beta-2026-11` has the shape).
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
 as a workflow input: the repository and its Actions logs are public. A committed one fails
@@ -153,7 +158,7 @@ Before the first grant, the testers' accounts must exist as a grant can see them
    --confirm-digest <manifest_sha256> --runner <ops-run:id>`. It runs only the manifest whose digest it is handed.
    Each account is one unit: under the grants' lock and the account's row lock it is checked again, then its ledger
    row, its flag and its audit row commit together, or nothing does. A rerun grants what is newly eligible and changes
-   nothing it already changed; with another review date it moves the cohort's active grants to it ("End date").
+   nothing it already changed; with another review date it moves the named accounts' active grants to it ("End date").
 5. **Verify.** `python scripts/complimentary_access.py readout` reports the active grants by cohort, the reviews due
    and any drift. A tester's Settings, Billing shows Pro with "Complimentary (private beta)" and no checkout button.
 6. **Revoke.** Write the revoke manifest, dry-run it, and apply it with its own digest. The account returns to Free:
@@ -182,8 +187,9 @@ which every signed-in request reads, so deploy it in a quiet window, as the only
   in another, each committing on its own. The swap takes ACCESS EXCLUSIVE on `users` and `trend_analysis` for a catalog
   change, so while it waits for that lock every query on `users` waits behind it. The validation takes SHARE UPDATE
   EXCLUSIVE on `trend_analysis` and ROW SHARE on `users`, which stop no read or write.
-- Each file waits at most 2 s for a lock, not the session's 10 s, so a blocked attempt holds those queries for at most
-  2 s. `apply_migrations.sh` retries a lock timeout up to five times, 15 s apart, then fails the deploy and prints the
+- Each file waits at most 2 s to acquire a lock, not the session's 10 s, so a blocked attempt holds those queries for
+  at most 2 s. The bound is on each wait for a lock, not on how long a statement runs or holds a lock once it has it
+  (here catalog changes and the validation's read of `trend_analysis`). `apply_migrations.sh` retries a lock timeout up to five times, 15 s apart, then fails the deploy and prints the
   blocking sessions. A failed deploy is not retried: run it again once the blocker has finished, and it resumes where
   the file stopped, since each step reads the catalog first.
 

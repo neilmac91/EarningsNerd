@@ -39,11 +39,12 @@ MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 # applied migration is never edited (CLAUDE.md rule 3), so the old file stays; its replacement must stay too.
 SUPERSEDED = {"20260707_create_trend_analysis.sql": "20261102_trend_analysis_creator_set_null.sql"}
 _REFERENCE = re.compile(
-    r'(?P<column>[^,;(]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
+    r'(?P<column>[^,;\n]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
     re.IGNORECASE)
 _ACTION = re.compile(r"\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL)\b", re.IGNORECASE)
 _SET_NULL = re.compile(r"\bON\s+DELETE\s+SET\s+NULL\b", re.IGNORECASE)
-_NOT_NULL = re.compile(r"\bNOT\s+NULL\b", re.IGNORECASE)
+# A column's NOT NULL, not a guard's "IS NOT NULL".
+_NOT_NULL = re.compile(r"(?<!IS )\bNOT\s+NULL\b", re.IGNORECASE)
 
 
 def _blocking_references(user_mapper=None, tables=None) -> list[str]:
@@ -72,14 +73,17 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
 
 def _migrations_without_an_action(texts) -> list[str]:
     """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
-    column it declares NOT NULL, once per reference."""
+    column it declares NOT NULL (before the reference on its line, or after it), once per reference. A column
+    definition is read back to the comma before it on its line, so a NOT NULL on an earlier line, or before a CHECK
+    holding a comma of its own, is out of reach."""
     found = []
     for name, text in texts:
-        sql = re.sub(r"--[^\n]*", "", text)
+        sql = re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
         found += [
             name for match in _REFERENCE.finditer(sql)
             if not _ACTION.search(match.group("rest"))
-            or (_SET_NULL.search(match.group("rest")) and _NOT_NULL.search(match.group("column")))
+            or (_SET_NULL.search(match.group("rest"))
+                and (_NOT_NULL.search(match.group("column")) or _NOT_NULL.search(match.group("rest"))))
         ]
     return found
 
@@ -137,7 +141,12 @@ def test_every_migration_reference_to_users_acts_on_delete():
         ("other table", "x INTEGER REFERENCES users_archive (id),"),
         ("set null where no null may go", "CREATE TABLE t (owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL);"),
         ("cascade beside not null", "user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,"),
-    ]) == ["bare", "set null where no null may go"]
+        ("not null after it", "owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL NOT NULL,"),
+        ("not null before a check", "owner_id INTEGER NOT NULL CHECK (owner_id > 0) REFERENCES users(id) ON DELETE SET NULL,"),
+        ("block comment", "/* owner_id INTEGER REFERENCES users(id) */ SELECT 1;"),
+        ("a guard's is not null", "IF to_regclass('t') IS NOT NULL THEN\n ALTER TABLE t ADD CONSTRAINT k FOREIGN KEY (a) "
+                                  "REFERENCES users (id) ON DELETE SET NULL NOT VALID;"),
+    ]) == ["bare", "set null where no null may go", "not null after it", "not null before a check"]
 
 
 @pytest.fixture
