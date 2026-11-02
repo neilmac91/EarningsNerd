@@ -412,7 +412,7 @@ jobs:
         run: python3 ops/summary_delivery/load_plan.py
 
       - name: Install isolated summary verification SQL tools
-        if: contains('summary-delivery-apply summary-delivery-cleanup-apply', steps.request.outputs.operation)
+        if: steps.request.outputs.operation == 'summary-delivery-apply'
         timeout-minutes: 10
         run: |
           set -euo pipefail
@@ -429,7 +429,7 @@ jobs:
 
       - name: Run approved isolated summary delivery rehearsal
         if: steps.request.outputs.operation == 'summary-delivery-apply'
-        timeout-minutes: 40
+        timeout-minutes: 80
         env:
           SUMMARY_DELIVERY_APPROVED: 'true'
           SUMMARY_DELIVERY_DEPLOYER: ${{ vars.GCP_DEPLOYER_SA }}
@@ -439,7 +439,7 @@ jobs:
 
       - name: Clean approved isolated summary delivery resources
         if: steps.request.outputs.operation == 'summary-delivery-cleanup-apply'
-        timeout-minutes: 20
+        timeout-minutes: 30
         env:
           SUMMARY_DELIVERY_APPROVED: 'true'
           SUMMARY_PLAN_SHA256: ${{ inputs.summary_plan_sha256 }}

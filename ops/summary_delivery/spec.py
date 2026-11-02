@@ -13,7 +13,7 @@ PARENT = f"projects/{PROJECT}/locations/{REGION}"
 PREFIX = "earningsnerd-summary-verify"
 PURPOSE = "summary-delivery-verification"
 DATABASE = "earningsnerd_summary_verify"
-INSTANCE = f"{PROJECT}:{REGION}:earningsnerd-db"
+DATABASE_VERSION = "POSTGRES_15"
 RUNTIME_IDENTITY = f"en-summary-verify@{PROJECT}.iam.gserviceaccount.com"
 INVOKER_IDENTITY = f"en-summary-verify-invoker@{PROJECT}.iam.gserviceaccount.com"
 SECRETS = {"DATABASE_URL": "EARNINGSNERD_SUMMARY_VERIFY_DATABASE_URL", "SECRET_KEY": "EARNINGSNERD_SUMMARY_VERIFY_SECRET_KEY"}
@@ -45,11 +45,41 @@ def origin(role: str, project_number: str) -> str:
     return f"https://{PREFIX}-{role}-{project_number}.{REGION}.run.app"
 
 
+def instance_name(run_id: str) -> str:
+    if not isinstance(run_id, str) or not re.fullmatch(r"[0-9]{1,20}", run_id):
+        raise Refused("instance_identity")
+    return f"{PREFIX}-db-{run_id}"
+
+
+def sql_instance_contract(run_id: str, nonce: str) -> dict:
+    if not isinstance(nonce, str) or not re.fullmatch(r"[a-f0-9]{32}", nonce):
+        raise Refused("instance_identity")
+    return {"name": instance_name(run_id), "database_version": DATABASE_VERSION, "region": REGION,
+            "tier": "db-custom-1-3840", "edition": "ENTERPRISE", "availability": "ZONAL",
+            "disk_size_gb": 10, "disk_type": "PD_SSD", "storage_auto_resize": False,
+            "activation_policy": "ALWAYS", "database_flags": [],
+            "connector_enforcement": "REQUIRED", "public_ipv4": True, "authorized_networks": [],
+            "ssl_mode": "ENCRYPTED_ONLY", "server_ca_mode": "GOOGLE_MANAGED_INTERNAL_CA",
+            "backup_enabled": False, "pitr_enabled": False, "final_backup_enabled": False,
+            "retain_backups": False, "deletion_protection": False, "replicas": 0,
+            "labels": {"purpose": PURPOSE, "run-id": run_id, "plan-nonce": nonce}}
+
+
+def connection_name(manifest: dict) -> str:
+    expected = sql_instance_contract(manifest["run_id"], manifest["nonce"])
+    if manifest.get("sql_instance") != expected:
+        raise Refused("fixed_instance_scope")
+    return f"{PROJECT}:{REGION}:{expected['name']}"
+
+
 def plan(root: Path, image: str, project_number: str, run_id: str, nonce: str, *, now: datetime | None = None,
-         production_secret_names: tuple[str, ...] = ("DATABASE_URL", "SECRET_KEY")) -> dict:
+         production_secret_names: tuple[str, ...] = ("DATABASE_URL", "SECRET_KEY"),
+         source_database_version: str = DATABASE_VERSION) -> dict:
     if (not IMAGE.fullmatch(image) or not re.fullmatch(r"[0-9]{1,20}", run_id)
             or not re.fullmatch(r"[a-f0-9]{32}", nonce)):
         raise Refused("plan_identity")
+    if source_database_version != DATABASE_VERSION:
+        raise Refused("database_version_unsupported")
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         raise Refused("plan_clock")
@@ -62,7 +92,7 @@ def plan(root: Path, image: str, project_number: str, run_id: str, nonce: str, *
         raise Refused("runtime_size")
     sources = {name: hashlib.sha256((root / "backend" / name).read_bytes()).hexdigest() for name in SOURCE_FILES}
     manifest = {
-        "schema": 1, "purpose": PURPOSE, "run_id": run_id, "nonce": nonce,
+        "schema": 2, "purpose": PURPOSE, "run_id": run_id, "nonce": nonce,
         "created_at": current.isoformat(), "expires_at": (current + timedelta(hours=2)).isoformat(),
         "image": image, "project_number": project_number,
         "runtime_sha256": hashlib.sha256(runtime.read_bytes()).hexdigest(), "source_hashes": sources,
@@ -75,6 +105,8 @@ def plan(root: Path, image: str, project_number: str, run_id: str, nonce: str, *
                     "dispatches_per_second": 0.2, "attempts": 3, "retry_duration_seconds": 1} for role in ("background", "summary")],
         "identities": [RUNTIME_IDENTITY, INVOKER_IDENTITY], "secrets": list(SECRETS.values()),
         "database": DATABASE, "database_role": DATABASE, "database_connection_limit": 12,
+        "sql_instance": sql_instance_contract(run_id, nonce), "source_database_version": source_database_version,
+        "resource_expiry_is_enforced": False,
         "bounds": {"generation_posts": 4, "result_gets": 6, "control_receipt_gets": 100,
                    "mail_jobs": 1, "summary_jobs": 2, "summary_generation_attempts": 8,
                    "recovery_calls": 8, "runtime_seconds": 600, "cloud_create_tasks": 32, "worker_deliveries": 12,
@@ -105,7 +137,7 @@ def approve(document: dict, expected_hash: str, nonce: str, env: dict, *, now: d
 def validate_scope(manifest: dict) -> None:
     """Cleanup can outlive source/image changes, but never changes its fixed target set."""
     m = manifest
-    if (m.get("schema") != 1 or m.get("purpose") != PURPOSE
+    if (m.get("schema") != 2 or m.get("purpose") != PURPOSE
             or not isinstance(m.get("run_id"), str) or not re.fullmatch(r"[0-9]{1,20}", m["run_id"])
             or not isinstance(m.get("project_number"), str)
             or not re.fullmatch(r"[0-9]{6,20}", m["project_number"])
@@ -113,6 +145,9 @@ def validate_scope(manifest: dict) -> None:
             or m.get("secrets") != list(SECRETS.values()) or m.get("database") != DATABASE
             or m.get("database_role") != DATABASE or m.get("database_connection_limit") != 12):
         raise Refused("fixed_resource_scope")
+    if (m.get("source_database_version") != DATABASE_VERSION or m.get("resource_expiry_is_enforced") is not False
+            or m.get("sql_instance") != sql_instance_contract(m["run_id"], m["nonce"])):
+        raise Refused("fixed_instance_scope")
     expected_services = [{"name": f"{PARENT}/services/{PREFIX}-{role}", "role": role,
                           "origin": origin(role, m["project_number"]), "private": True, "cpu": "1",
                           "memory": "2Gi" if role == "summary" else "1Gi", "min_instances": 0,
@@ -136,6 +171,7 @@ def runtime_env(manifest: dict, versions: dict[str, str], role: str, source: str
               "SUMMARY_VERIFY_RUNTIME_SOURCE": source, "SUMMARY_VERIFY_RUNTIME_SHA256": manifest["runtime_sha256"],
               "SUMMARY_VERIFY_SOURCE_HASHES": json.dumps(manifest["source_hashes"], sort_keys=True),
               "SUMMARY_VERIFY_PRODUCTION_SECRET_NAMES": json.dumps(manifest["production_secret_names"]),
+              "SUMMARY_VERIFY_INSTANCE": connection_name(manifest),
               "OPENAI_API_KEY": "offline-summary-delivery-fixture", "RESEND_API_KEY": "", "RESEND_WEBHOOK_SECRET": "",
               "POSTHOG_API_KEY": "", "SENTRY_DSN": "", "STRIPE_SECRET_KEY": "", "STRIPE_WEBHOOK_SECRET": "",
               "STRIPE_PUBLISHABLE_KEY": "", "GOOGLE_CLIENT_SECRET": "", "APPLE_PRIVATE_KEY": "", "AI_FALLBACK_API_KEY": "",
@@ -168,7 +204,7 @@ def service_spec(manifest: dict, versions: dict[str, str], role: str, source: st
             "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1}, "template": {
                 "serviceAccount": RUNTIME_IDENTITY, "timeout": "600s", "maxInstanceRequestConcurrency": 1,
                 "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1},
-                "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [INSTANCE]}}],
+                "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [connection_name(manifest)]}}],
                 "containers": [{"image": manifest["image"], "command": ["python"], "args": ["-c", BOOTSTRAP],
                                 "env": runtime_env(manifest, versions, role, source),
                                 "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}],

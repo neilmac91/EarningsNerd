@@ -1,8 +1,8 @@
 """Restricted, purpose-owned SQL resources for the isolated delivery rehearsal.
 
-Only the approved controller enters ``admin``. The production credential remains
-in the runner and is never mounted in a rehearsal service. Queries, passwords and
-driver errors do not enter outputs. No live operation is performed at import.
+Only the approved controller enters ``admin`` with its temporary administrator
+password. No production credential is read. Queries, passwords and driver errors
+do not enter outputs. No live operation is performed at import.
 """
 from __future__ import annotations
 
@@ -19,24 +19,26 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from ops.summary_delivery.recovery_caller import OperationError, api_snapshot
-from ops.summary_delivery.spec import DATABASE, INSTANCE, PROJECT, PURPOSE, Refused
+from ops.summary_delivery import spec
+from ops.summary_delivery.spec import DATABASE, PURPOSE, Refused
 
 PROXY_SHA256 = "c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d"
-PRODUCTION_DATABASE = "earningsnerd"
+ADMIN_DATABASE = "postgres"
 CONNECTION_LIMIT = 12
 OPERATIONAL_RESERVE = 5
 MAX_REPLY_BYTES = 4096
+QUERY_BUDGET_SECONDS = 120
 
 
 def refuse(code: str) -> None:
     raise Refused(code) from None
 
 
-def database_url(password: str) -> str:
+def database_url(password: str, manifest: dict) -> str:
+    spec.validate_scope(manifest)
     if not isinstance(password, str) or not re.fullmatch(r"[0-9a-f]{64}", password):
         refuse("database_password_shape")
-    return f"postgresql://{DATABASE}:{password}@/{DATABASE}?host=/cloudsql/{INSTANCE}"
+    return f"postgresql://{DATABASE}:{password}@/{DATABASE}?host=/cloudsql/{spec.connection_name(manifest)}"
 
 
 def _scram(password: str) -> str:
@@ -51,7 +53,9 @@ def _scram(password: str) -> str:
     return f"SCRAM-SHA-256$4096:{encoded[0]}${encoded[1]}:{encoded[2]}"
 
 
-def connection_env(url: str, *, isolated: bool = True) -> dict[str, str]:
+def connection_env(url: str, manifest: dict, *, isolated: bool = True) -> dict[str, str]:
+    spec.validate_scope(manifest)
+    connection = spec.connection_name(manifest)
     try:
         parsed = urlsplit(url)
         query = parse_qs(parsed.query, strict_parsing=True)
@@ -59,11 +63,11 @@ def connection_env(url: str, *, isolated: bool = True) -> dict[str, str]:
         username = unquote(parsed.username or "")
         password = unquote(parsed.password or "")
         valid = (parsed.scheme in {"postgresql", "postgres"} and not parsed.hostname and not parsed.port
-                 and not parsed.fragment and query == {"host": [f"/cloudsql/{INSTANCE}"]}
+                 and not parsed.fragment and query == {"host": [f"/cloudsql/{connection}"]}
                  and bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", username)) and password
                  and "\x00" not in password and len(password) <= 4096
-                 and database == (DATABASE if isolated else PRODUCTION_DATABASE)
-                 and ((username == DATABASE) if isolated else (username != DATABASE)))
+                 and database == (DATABASE if isolated else ADMIN_DATABASE)
+                 and username == (DATABASE if isolated else "postgres"))
     except (ValueError, TypeError, UnicodeError):
         refuse("database_connection_boundary")
     if not valid:
@@ -75,23 +79,32 @@ def connection_env(url: str, *, isolated: bool = True) -> dict[str, str]:
 
 
 class Admin:
-    def __init__(self, env: dict[str, str]):
+    def __init__(self, env: dict[str, str], manifest: dict):
         # This class is constructed only after strict parsing of the fixed
-        # production credential. Do not use a dataclass/repr that exposes env.
-        if env.get("PGDATABASE") != PRODUCTION_DATABASE or env.get("PGHOST") != "127.0.0.1" or env.get("PGPORT") != "15432":
+        # temporary credential. Do not use a dataclass/repr that exposes env.
+        spec.validate_scope(manifest)
+        if (env.get("PGDATABASE") != ADMIN_DATABASE or env.get("PGUSER") != "postgres"
+                or env.get("PGHOST") != "127.0.0.1" or env.get("PGPORT") != "15432"):
             refuse("database_admin_boundary")
         self.env = env
+        self.manifest = manifest
         self.headroom_snapshot: dict | None = None
+        self.query_deadline = time.monotonic() + QUERY_BUDGET_SECONDS
 
     def query(self, sql: str, *, env: dict[str, str] | None = None) -> str:
+        remaining = self.query_deadline - time.monotonic()
+        if remaining <= 0:
+            refuse("database_query_deadline")
         try:
             with tempfile.TemporaryFile() as output:
                 completed = subprocess.run(
                     ["psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"], input=sql, text=True,
-                    env=env or self.env, stdout=output, stderr=subprocess.DEVNULL, timeout=25, check=False,
+                    env=env or self.env, stdout=output, stderr=subprocess.DEVNULL, timeout=min(25, remaining), check=False,
                 )
                 if completed.returncode != 0:
                     refuse("database_command_unverified")
+                if time.monotonic() >= self.query_deadline:
+                    refuse("database_query_deadline")
                 output.seek(0)
                 content = output.read(MAX_REPLY_BYTES + 1)
             if len(content) > MAX_REPLY_BYTES:
@@ -155,9 +168,9 @@ class Admin:
                 refuse("database_not_owned")
         return role, database
 
-    def audit_production_access(self) -> None:
+    def audit_admin_database_access(self) -> None:
         # PUBLIC CONNECT is not a per-role deny. Audit effective application
-        # object access instead; never revoke PUBLIC rights in production.
+        # object access in the empty temporary administrator database instead.
         objects = self.query(f"""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_'
             AND c.relkind IN ('r','p','v','m','S','f') AND CASE WHEN c.relkind='S'
@@ -170,11 +183,11 @@ class Admin:
             WHERE nspname <> 'information_schema' AND nspname !~ '^pg_'
             AND has_schema_privilege('{DATABASE}',oid,'CREATE');""")
         if objects != "0" or functions != "0" or schemas != "0":
-            refuse("database_production_object_access")
+            refuse("database_admin_object_access")
 
     def provision(self, password: str) -> str:
-        url = database_url(password)
-        isolated = connection_env(url)
+        url = database_url(password, self.manifest)
+        isolated = connection_env(url, self.manifest)
         self.preflight()  # Re-read absence immediately before creating; never adopt.
         self.query(f"BEGIN; CREATE ROLE {DATABASE} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
                    f"NOREPLICATION NOBYPASSRLS CONNECTION LIMIT {CONNECTION_LIMIT} PASSWORD '{_scram(password)}'; "
@@ -190,7 +203,7 @@ class Admin:
             refuse("database_creation_unverified")
         if self.query("SELECT current_database() || ':' || current_user;", env=isolated) != f"{DATABASE}:{DATABASE}":
             refuse("database_isolated_authentication")
-        self.audit_production_access()
+        self.audit_admin_database_access()
         return url
 
     def cleanup(self) -> None:
@@ -215,35 +228,22 @@ class Admin:
             refuse("database_cleanup_unverified")
 
 
-def _credential(cloud) -> str:
-    try:
-        snapshot = api_snapshot(cloud, binding_name="DATABASE_URL")
-        version = snapshot["secret_version"]
-        if not version.startswith(f"projects/{PROJECT}/secrets/"):
-            refuse("database_admin_credential_unverified")
-        data = cloud.call("secretmanager", "v1/" + version + ":access")
-        encoded = data["payload"]["data"]
-        if data.get("name") != version or not isinstance(encoded, str) or len(encoded) > 16384:
-            refuse("database_admin_credential_unverified")
-        result = base64.b64decode(encoded, validate=True).decode()
-        if api_snapshot(cloud, binding_name="DATABASE_URL") != snapshot:
-            refuse("database_admin_binding_changed")
-        return result
-    except (OperationError, KeyError, TypeError, ValueError, UnicodeError):
-        refuse("database_admin_credential_unverified")
-
-
 @contextmanager
-def admin(cloud, root: Path):
+def admin(cloud, root: Path, manifest: dict, admin_password: str):
     """Approved apply-only context; callers own approval and cloud-action budgets."""
+    spec.validate_scope(manifest)
+    if not isinstance(admin_password, str) or not re.fullmatch(r"[a-f0-9]{64}", admin_password):
+        refuse("database_admin_password_shape")
+    connection = spec.connection_name(manifest)
     proxy = Path(root) / "cloud-sql-proxy"
     try:
         if proxy.is_symlink() or not proxy.is_file() or hashlib.sha256(proxy.read_bytes()).hexdigest() != PROXY_SHA256:
             refuse("database_proxy_not_pinned")
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 15432))
-        env = connection_env(_credential(cloud), isolated=False)
-        process = subprocess.Popen([str(proxy), "--address", "127.0.0.1", "--port", "15432", INSTANCE],
+        env = connection_env(f"postgresql://postgres:{admin_password}@/postgres?host=/cloudsql/{connection}",
+                             manifest, isolated=False)
+        process = subprocess.Popen([str(proxy), "--address", "127.0.0.1", "--port", "15432", connection],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (OSError, ValueError):
         refuse("database_proxy_unavailable")
@@ -252,16 +252,25 @@ def admin(cloud, root: Path):
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 refuse("database_proxy_unavailable")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                refuse("database_proxy_unavailable")
             check = subprocess.run(["pg_isready", "-h", "127.0.0.1", "-p", "15432"],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3, check=False)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   timeout=min(3, remaining), check=False)
+            if time.monotonic() >= deadline:
+                refuse("database_proxy_unavailable")
             if check.returncode == 0:
                 break
-            time.sleep(0.25)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                refuse("database_proxy_unavailable")
+            time.sleep(min(0.25, remaining))
         else:
             refuse("database_proxy_unavailable")
         if process.poll() is not None:
             refuse("database_proxy_unavailable")
-        yield Admin(env)
+        yield Admin(env, manifest)
     except (subprocess.SubprocessError, OSError):
         refuse("database_proxy_unavailable")
     finally:

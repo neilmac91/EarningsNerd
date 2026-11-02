@@ -216,7 +216,8 @@ OPS_SIBLING_IMPORTS = {
     "ops/describe/jobs.py": {"ops.describe.summary_configuration"},
     "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
     "ops/feedback_media/verify_manage.py": {"manage"},
-    "ops/summary_delivery/database.py": {"ops.summary_delivery.recovery_caller", "ops.summary_delivery.spec"},
+    "ops/summary_delivery/database.py": {"ops.summary_delivery", "ops.summary_delivery.spec"},
+    "ops/summary_delivery/instance.py": {"ops.summary_delivery"},
     "ops/summary_delivery/manage.py": {"ops.feedback_media.manage", "ops.summary_delivery", "ops.summary_delivery.database"},
     "ops/summary_delivery/recovery_caller.py": {"ops.feedback_media.manage"},
 }

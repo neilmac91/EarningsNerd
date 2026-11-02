@@ -199,7 +199,8 @@ def test_summary_operations_run_only_fixed_tools_after_plan_and_approval_checks(
         at, step = BY_NAME[name]
         assert step["if"] == f"steps.request.outputs.operation == '{operation}'"
         assert step["run"].startswith("python3 ops/summary_delivery/" + command)
-        assert "continue-on-error" not in step and 0 < int(step["timeout-minutes"]) <= 40
+        ceiling = {"summary-delivery-apply": 80, "summary-delivery-cleanup-apply": 30}.get(operation, 40)
+        assert "continue-on-error" not in step and 0 < int(step["timeout-minutes"]) <= ceiling
         assert operation in selected(deploy) and operation not in selected(BY_NAME[PROXY][1])
         if operation.endswith("-apply"):
             assert operation in selected(guard) and loader_at < at
@@ -223,7 +224,7 @@ def test_summary_dispatch_executes_only_its_own_command_set(operation, command):
     expected = {"Resolve requested operation", "Refuse to run while a main push (deploy) is in flight", command}
     if operation.endswith("-apply"):
         expected.update({"Refuse an apply that no one approved in this run", "Load reviewed summary operation plan"})
-    if operation in {"summary-delivery-apply", "summary-delivery-cleanup-apply"}:
+    if operation == "summary-delivery-apply":
         expected.add("Install isolated summary verification SQL tools")
     actual = {step["name"] for step in STEPS if step.get("run") and operation in selected(step)}
     assert actual == expected
