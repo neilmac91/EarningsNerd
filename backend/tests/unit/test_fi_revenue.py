@@ -369,6 +369,18 @@ def test_a_quarters_sum_never_leaves_a_total_out():
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV,)
 
 
+def test_a_years_sum_decides_before_a_quarters():
+    # A fee tag that reads the bank's sum in every year beside both lines is the total, whatever one quarter reads
+    # (here 83% of its sum, above each line alone): quarters stand in only where no filing reports a year.
+    years = range(2023, 2026)
+    usgaap = _years({FEE: {y: 510e6 for y in years}, NII: {y: 60e6 for y in years},
+                     NONII: {y: 450e6 for y in years}})["facts"]["us-gaap"]
+    quarter = _quarters({FEE: {"2026-03-31": 100e6}, NII: {"2026-03-31": 60e6}, NONII: {"2026-03-31": 60e6}})
+    for tag, node in quarter["facts"]["us-gaap"].items():
+        usgaap[tag]["units"]["USD"] += node["units"]["USD"]
+    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (FEE,)
+
+
 def test_a_fee_tag_four_percent_below_the_total_is_not_the_total():
     # Outside CROSS_CHECK_TOLERANCE (1%), which the backfill's cross-check shares: retuning it moves this rule too.
     years, facts = _fy(_years({REV: {2023: 10.0e9, 2024: 10.0e9}, FEE: {2023: 9.6e9, 2024: 9.6e9, 2025: 9.9e9}}))
