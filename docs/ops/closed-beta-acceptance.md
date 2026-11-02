@@ -75,7 +75,7 @@ Every test must then pass unchanged. That is its integration acceptance.
 Run in order at the founder rehearsal ([section 6](#6-staged-admission)), on a phone and on a desktop browser,
 with two founder-controlled tester accounts (one password, one Google), a third disposable one for step 23 and the
 administrator account. Step 22 also needs a used, a revoked and an expired link: mint the expired one 48 hours ahead
-(the admin page's shortest expiry) or through the API with a shorter one. A step passes only on what the tester's
+(the admin page's shortest expiry), or an hour ahead through the API with `expires_in_hours` set to 1. A step passes only on what the tester's
 own screen and inbox show; a badge, a provider's acceptance or a mocked response is not a pass.
 
 | # | Step | Passes when | Synthetic proof |
