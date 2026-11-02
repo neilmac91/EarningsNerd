@@ -519,14 +519,13 @@ unused since generation became account-required in #619; kept because migrations
   read in the new one: its series holds only the periods its filings in that currency present,
   and its earlier years are no longer read. One stray item, from a one-period amendment or a
   later quarterly report, never flips the series; a switch first reported in a 10-Q or 6-K takes
-  effect with the next annual report. Quarter derivation works in any currency. A sync that involves
-  no currency but USD (neither the payload's series, nor the own currency it reads for a filing, nor
-  a stored amount or per-share row of its concepts, current or not, is in another;
-  `facts/currency.py::_another_currency`) is the upsert alone: it protects nothing and the currency
-  step returns before touching a row, so such a sync keeps the upsert's convergence gaps (tasks/todo.md
-  E198). The gate is per sync, not per filer: rows are never deleted, so a USD filer that stores a row
-  of a concept in another currency, current or not, runs the rest on every sync whose batch carries that
-  concept. Every other sync then
+  effect with the next annual report. Quarter derivation works in any currency. Every sync runs the
+  currency step, one involving no currency but USD too (E198; until then such a sync was the upsert
+  alone and kept the upsert's convergence gaps for good). Where no currency but USD is involved
+  (neither the payload's series, nor the own currency it reads for a filing, nor a stored amount or
+  per-share row of its concepts, current or not, is in another; `facts/currency.py::_another_currency`),
+  the step's by-currency parts find nothing to demote, so only its newer-filing protection and its
+  convergence act. Every sync
   demotes, never deletes, every current row of its concepts at a period with a fiscal period,
   whatever its source or filing and for a USD series too, whose unit is another currency amount or
   per-share unit, or which is an amount or per-share row under a filing whose own currency is
@@ -662,10 +661,11 @@ unused since generation became account-required in #619; kept because migrations
   current only where it would make the batch's row current, with the figure the insert would have
   carried; and a history row of a filing newer than the payload is protected like any row, so in the
   vote's second window (above) it can be the newest protected row at a period the batch does not
-  present, showing that year's own-report figure until the sync that names the later filing. A sync
-  in USD alone never makes one current; there it keeps out only a lagging insert at its own identity,
-  where the lagging winner is the year's own original report under the winning tag, so a quarter, a
-  ratio, an amendment's figure and an intermediate filing's comparative still take that insert (E198).
+  present, showing that year's own-report figure until the sync that names the later filing. Until
+  E198 a sync in USD alone never made one current; there it kept out only a lagging insert at its own
+  identity, where the lagging winner was the year's own original report under the winning tag. Since
+  E198 every sync runs the step, so a quarter's, an amendment's or an intermediate filing's newer row
+  holds its key against a lagging insert in USD as in any currency (`Guard.later`), a ratio's too.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

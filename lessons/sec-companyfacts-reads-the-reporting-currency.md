@@ -1,6 +1,6 @@
 # Read each companyfacts filing in its own currency and the series in its latest annual report's; a USD figure beside a filing's own currency is a convenience translation
 
-Date: 2026-10-16, per-filing pick, stale-payload guard, convergence and the filing-currency switch rule 2026-10-24, gated to syncs involving another currency 2026-10-25   Area: sec (financial facts)
+Date: 2026-10-16, per-filing pick, stale-payload guard, convergence and the filing-currency switch rule 2026-10-24, gated to syncs involving another currency 2026-10-25, every sync again since E198 (2026-11-02)   Area: sec (financial facts)
 
 **Context**: The companyfacts ingest read only `units["USD"]` (and `USD/shares`) for every concept.
 A US-GAAP filer that reports in CNY (the Alibaba shape) also tags each 20-F's own year again as a
@@ -40,18 +40,30 @@ loads no Settings, ORM or EDGAR code when it runs. Carry the picked unit on ever
 calculation built from it, and treat "additive" as "a currency amount" (`is_amount_unit`), not as
 "USD".
 
-Run the stored-row correction below only where a sync involves a currency other than USD
-(`_another_currency`: the payload's series, or the own currency it reads for a filing, or a stored
-amount or per-share row of the batch's concepts, current or not, is in another). A sync in USD alone
-is main's: the upsert protects nothing and the currency step returns before touching a row. Run on
-every sync, its edge cases reached every USD filer to fix one non-USD filer's, and showed wrong numbers
-where main was right (a free cash flow under the older filing's accession, dated by its newer
-operand, went current over the newer filing's own, which main kept).
+Run the stored-row correction below on every sync, one in USD alone too (E198). From 2026-10-25 until
+E198 it ran only where a sync involved a currency other than USD (`_another_currency`: the payload's
+series, or the own currency it reads for a filing, or a stored amount or per-share row of the batch's
+concepts, current or not, is in another), so a sync in USD alone was the upsert alone and kept its
+convergence gaps for good: an amendment the per-filing writer stored behind its original's row, a
+newer filing's restatement under a lower-priority tag behind an older filing's undated row, a newer
+row a lagging payload's insert demoted. The gate was set because, run on every sync, the correction
+made a free cash flow under the older filing's accession, dated by its newer operand, current over
+the newer filing's own, which main kept; dating every row by its own filing (`_filed`, below) closed
+that shape, and E198 lifted the gate with every USD shape checked against its CNY twin
+(`test_a_usd_filers_sync_converges_as_one_in_another_currency_does`). Where no currency but USD is
+involved the step's by-currency parts find nothing, so its newer-filing protection and convergence
+alone act. Lifting it reached the newer-filing rule to USD filers too: where the sync first inserts
+the payload's own row, a current row of a filing filed after it stays current, under another tag
+too (PNC's 8-K recast of FY2017 revenue, 15,252M, over its FY2018 10-K's 16,329M under `Revenues`,
+where main's insert had demoted the 8-K's row), the policy the convergence holds for a restatement
+under a lower-priority tag; read such a key against its filings. Plant the state earlier syncs stored
+through `tests/support/sync_eras.py` (every USD sync in production's history was the upsert alone),
+and read a repair's or preview's cohort against the syncs since the deploy: the first sync of a
+company since then converges its keys (`ops/detection/usd_sync_convergence.sql` sizes them).
 Count rows that are not current too: the vote reads them, and a later sync still converges the keys
 a demotion left; reading current rows only left a misvoted filing's demoted restatement behind for
-good once its convenience rows were demoted. The gate is per sync, not per filer, and rows are never
-deleted: once a company stores such a row, every sync whose batch carries its concept runs the
-correction, and the trigger never switches off.
+good once its convenience rows were demoted. Rows are never deleted: once a company stores a row in
+another currency, every sync whose batch carries its concept demotes by currency.
 
 `is_latest` is kept per unit, so the companyfacts writer corrects stored rows itself
 (`demote_convenience_rows`), at any key with a fiscal period, whatever a row's source or filing,
@@ -104,9 +116,10 @@ where it gives +20%, at every later sync, with the newer filing's margin beside 
 sync whose payload names every stored filing then leaves each key it presents to its payload's
 winner or to a newer filing's current row, whatever came before, outside the keys it leaves as found;
 check that by row, not by currency
-or count (the tests' `_checked_sync` asserts which row in every sync outside a switch, that no
-presented key yields a row of a later filing current before the sync, and main's contract for a sync
-in USD alone; `test_a_usd_only_sync_is_mains` runs the USD shapes). Before widening or narrowing a
+or count (the tests' `_checked_sync` asserts which row in every sync outside a switch, in USD alone
+too, and that no presented key yields a row of a later filing current before the sync;
+`test_a_usd_filers_sync_converges_as_one_in_another_currency_does` runs the USD shapes against their
+CNY twins). Before widening or narrowing a
 promotion, read every writer that sets `is_latest=False` and check that none leaves such a key empty
 on purpose.
 
@@ -241,14 +254,9 @@ ratios do not converge: a margin at a period whose amounts moved to another fili
 calculation, so in that shape the newer filing's margin sits beside the older filing's revenue; and
 where a newer filing's stored margin was computed from another currency's operands (an earlier
 sync's convenience lists), `_replace_stale_ratios` replaces it with the batch's older calculation,
-which no later sync undoes until the journaled repair recomputes it. A
-sync in USD alone keeps main's convergence gaps (E198): an amendment the per-filing writer stored
-behind its original's companyfacts row stays behind, a newer filing's restatement under a
-lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
-insert replaces a newer row dated by its provenance alone, each for good; since #1682 a stored
-own-report history row keeps that insert out only where the lagging winner is the year's own original
-report under the winning tag, so a quarter, a ratio, an amendment's figure and an intermediate filing's
-comparative still take it. Those history rows (`facts/own_reports.py`) come from the collector's
+which no later sync undoes until the journaled repair recomputes it. The
+rows a sync in USD alone left before E198 stay as they are until the company's next sync, which
+converges each key its payload presents. Those history rows (`facts/own_reports.py`) come from the collector's
 candidates, so none a sync with the per-filing pick writes is a foreign filing's convenience
 translation (those a sync stored for a switcher from #1682's deploy until #1583 stay, non-current), and
 a proven switch writes none. The currency step treats one as any stored row: current only where it
@@ -262,7 +270,9 @@ sync that names the later filing.
 `backend/app/services/facts/quarterly.py`; `backend/app/services/facts/derive.py`;
 `backend/app/services/facts/ingest.py::_persist_companyfacts_payload`;
 `backend/tests/unit/test_companyfacts_ingest.py` (`TestNativeReportingCurrency`,
-`TestFilingCurrencies`, `TestNativeReportingCurrencySync`, whose `test_a_usd_only_sync_is_mains` and
-currency-parametrized tests hold the USD-only gate); the peer panel's currency guard in
+`TestFilingCurrencies`, `TestNativeReportingCurrencySync`, whose
+`test_a_usd_filers_sync_converges_as_one_in_another_currency_does` and currency-parametrized tests hold
+every sync to the one rule); `backend/tests/support/sync_eras.py`; `ops/detection/usd_sync_convergence.sql`
+(E198's census); the peer panel's currency guard in
 `backend/app/services/peers_service.py`; #1365 (the list-level pick); F61 call 3 (the per-filing
 pick).

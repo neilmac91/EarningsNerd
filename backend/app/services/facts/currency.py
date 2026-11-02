@@ -18,10 +18,11 @@ pick the collector read. Admission applies the form rule that lives beside ``ANN
 (``fiscal_naming.is_proxy_form``): a proxy's figures never win a period nor vote, and its stored row is never protected
 as a newer filing's (``Guard``), as main's upsert never protects it.
 
-A sync that involves no currency but USD (``_another_currency``: neither the payload's pick nor a
-stored row of the batch's concepts names another) is main's: nothing is protected and the currency
-step returns before touching a row (``Guard.usd_only``). Only where another currency is involved
-does the rest run. Where a newer annual report the payload does not show yet, reporting a period at
+Every sync runs the currency step, a sync in USD alone too (E198). Where no currency but USD is
+involved (``_another_currency``: neither the payload's pick nor a stored row of the batch's concepts
+names another), its by-currency parts find nothing: no switch is proven, no filing reads as foreign,
+no row is in another currency and no ratio was computed from another currency's operands, so only the
+newer-filing protection and the convergence below act. Where a newer annual report the payload does not show yet, reporting a period at
 least as late as the payload's own deciding report, proves the series switched currency
 (``_proven_switch``), the sync writes nothing from the payload and leaves only that currency
 current, outside the filings whose own currency is another (as the payload reads them, or, for a
@@ -276,7 +277,6 @@ class Guard(NamedTuple):
     switch: str | None  # the currency a newer annual report proves the series switched to, else None
     own: Mapping[Any, str]  # each unnamed filing's own currency, newer or not, as its stored rows vote; a tie is absent
     later: frozenset[int] = frozenset()  # current rows (ratios too) of a filing filed strictly after the batch row's
-    usd_only: bool = False  # no currency but USD is involved (``_another_currency``): the currency step is main's
 
     @property
     def kept(self) -> frozenset[int]:
@@ -287,11 +287,11 @@ class Guard(NamedTuple):
 def _another_currency(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> bool:
     """Whether a sync involves a currency other than USD: the payload's series currency, or the own currency
     it reads for a filing (``view.own``, which holds the deciding filing and every ``view.foreign`` one), or
-    the unit of a stored amount or per-share row of the batch's concepts, current or not. Otherwise the
-    currency step is main's (``Guard.usd_only``). Rows that are not current count too: the vote reads
-    them (``_proven_switch``), and a later sync still converges the keys a demotion left. Rows are never
-    deleted, so once a company stores such a row, demoted or not, the step runs on every sync whose batch
-    carries its concept: it never switches off."""
+    the unit of a stored amount or per-share row of the batch's concepts, current or not. Rows that are not
+    current count too: the vote reads them (``_proven_switch``). It gates no sync: every sync runs the
+    currency step (E198), and where this is False the step's by-currency parts find nothing, so only its
+    newer-filing protection and convergence act. ``scripts/financial_revenue_preview.py`` leaves a company
+    out where it is True, since that preview does not model the by-currency parts."""
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
     if view.currency != "USD" or any(currency != "USD" for currency in view.own.values()):
@@ -305,8 +305,8 @@ def _another_currency(db: Session, facts: list[dict[str, Any]], view: PayloadVie
 def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) -> Guard:
     """The stored rows of the batch's concepts that no sync of this payload may demote, the switch of
     the reporting currency they prove, if any, each unnamed filing's own currency as its stored rows
-    vote (``_proven_switch``), and the rows the upsert keeps current (``Guard.kept``). A sync in USD
-    alone (``_another_currency``) gets none of these: main's upsert and a currency step that returns.
+    vote (``_proven_switch``), and the rows the upsert keeps current (``Guard.kept``). A sync in USD alone
+    reads them as any sync does (E198); its rows prove no switch and none is foreign.
 
     A protected row is from a filing the payload does not name, filed after the payload's newest (by ``_filed``;
     undated, or filed that day, is not), and never a proxy statement's (``is_proxy_form``: its figures never win a
@@ -328,9 +328,7 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     if not facts:
         return Guard(frozenset(), None, {})
     _lock_fact_companies(db, facts)
-    if not _another_currency(db, facts, view):
-        return Guard(frozenset(), None, {}, usd_only=True)
-    columns = (FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
+    columns =(FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
                FinancialFact.form, FinancialFact.concept, FinancialFact.period_end, FinancialFact.fiscal_period,
                FinancialFact.provenance, FinancialFact.source, FinancialFact.filing_id)
     stored = db.query(*columns).filter(FinancialFact.company_id == facts[0]["company_id"],
@@ -446,8 +444,9 @@ def _kind(unit: str) -> str | None:
 
 def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView, guard: Guard) -> int:
     """Demote the current rows a companyfacts batch supersedes, make its own row current at the keys it
-    presents, and return how many rows were demoted; never delete or rewrite one. A sync in USD alone
-    (``guard.usd_only``) returns 0 here before touching a row, as main's step does for a batch in USD.
+    presents, and return how many rows were demoted; never delete or rewrite one. A sync in USD alone runs
+    it as any sync does (E198): no row of its concepts is in another currency or under a foreign filing, so
+    only the protected rows' keys and the convergence act.
 
     The batch is read in one series currency (``filing_currencies``), which its amount units carry,
     and ``view`` is its payload's own (``payload_view``). ``is_latest`` is kept per unit, so at every
@@ -474,11 +473,9 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     in ``_foreign``'s first window, or fewer wherever that sync would make current a row not current now
     (rows no writer stored yet, stored behind older ones, or demoted by an earlier sync or a later row).
     """
-    if guard.usd_only:
-        return 0
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
-    currencies = (fact["unit"].partition("/")[0] for fact in facts)
+    currencies =(fact["unit"].partition("/")[0] for fact in facts)
     currency = next((unit for unit in currencies if is_amount_unit(unit)), None)
     if currency is None:
         return 0
@@ -537,8 +534,8 @@ def _promote_batch_rows(facts: list[dict[str, Any]], rows: list[Any], held: Mapp
     behind it) for the proxy step, E211. A quarantined row (``_promotable``), or a quarter whose unlabelled twin in
     its unit is current (the upsert's D1 rule), is never made current and its key is left as found, except that this
     sync's own insert there is demoted: a lagging sync never makes the batch's older figure current at a key a newer
-    filing's row holds, and a row current there before stays (a gap only where none was). A proven switch, or a sync
-    in USD alone, never calls this."""
+    filing's row holds, and a row current there before stays (a gap only where none was). A proven switch never
+    calls this; a sync in USD alone does (E198)."""
     own = {(f["concept"], f["period_end"], f["fiscal_period"]): (f["unit"], f["accession"], _filed(f["accession"], None,
         dates, view)) for f in facts if f["fiscal_period"] is not None and _kind(f["unit"]) == "amount"}
     current: dict[tuple[Any, ...], list[Any]] = {}

@@ -6,7 +6,9 @@ authority ``extract_authoritative_values`` read then, under ``_before_the_fix``.
 fixed ones (``_sync``) too, also runs as it did before #1682 (deployed 2026-10-28 23:13Z), which keeps each
 restated year's own-report value as a non-current history row (``facts/own_reports.py``): production holds
 none from before then, and none computed against a proxy winner. ``_resync`` is a sync since then, the state
-of a company synced after the deploy. Each test asserts its planted precondition before the repair runs, so
+of a company synced after the deploy. Each of them runs as every sync of a USD filer ran before E198, the upsert
+alone (``tests/support/sync_eras.py``), as every planted state was stored; ``_sync_since_e198`` is a sync as it
+runs now, for what a sync does after the repair's preview. Each test asserts its planted precondition before the repair runs, so
 a change to a planting path fails loudly instead of planting the fixed state. A shape no writer produces is
 planted as a row, and says so.
 """
@@ -32,6 +34,7 @@ from app.services import quarterly_fact_repair as repair
 from app.services.facts import companyfacts, currency, fiscal_naming
 from app.services.facts.concepts import HEADLINE_GAAP_TAGS
 from scripts import repair_quarterly_facts as cli
+from tests.support.sync_eras import usd_syncs_before_e198
 from tests.unit.test_companyfacts_ingest import (
     REV_TAG, _FDX_INCOME, _FDX_REVENUE, _MRK_INCOME, _MRK_PROXY, _MRK_REVENUE, _cny_payload, _fdx_payload,
     _item, _mrk_payload, _payload, _ten_ks,
@@ -61,9 +64,10 @@ def db():
 @contextmanager
 def _before_1682(monkeypatch):
     """No own-report history, as before #1682: the normalizer returned none (``companyfacts.own_report_history``),
-    so a sync stored none."""
+    so a sync stored none; and a sync in USD alone the upsert alone, as before E198 (``usd_syncs_before_e198``)."""
     with monkeypatch.context() as patch:
         patch.setattr(companyfacts, "own_report_history", lambda *_args: [])
+        usd_syncs_before_e198(patch)
         yield
 
 
@@ -119,8 +123,16 @@ def _sync(db, monkeypatch, company, payload):
 
 
 def _resync(db, company, payload):
-    """A sync since #1682 was deployed: ``_sync``'s winners, and each restated year's own-report value as a
-    non-current history row where no stored row holds its identity."""
+    """A sync since #1682 was deployed and before E198: ``_sync``'s winners, and each restated year's own-report value
+    as a non-current history row where no stored row holds its identity; in USD alone, the upsert alone."""
+    with pytest.MonkeyPatch.context() as patch:
+        usd_syncs_before_e198(patch)
+        return svc._persist_companyfacts_payload(db, company, payload)
+
+
+def _sync_since_e198(db, company, payload):
+    """A sync as it runs now: ``_resync``'s, and the currency step's newer-filing protection and convergence in USD
+    alone too (E198)."""
     return svc._persist_companyfacts_payload(db, company, payload)
 
 
@@ -2727,8 +2739,9 @@ def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_fili
     # today's 10-K figure contradicts the recorded original too: refused (the current-figure refusal). (Where K27
     # confirms the original, set 4 restores the row, current or not, and nothing is refused.) Once K27's Filing is stored, a sync, or K27's own per-filing write with no sync, lands K27's FY2025 row current over
     # the filing row (the later local Filing), which stops being the company's current figure, and the step leaves and
-    # lists it. Synced first, K27's row is stored behind the filing row (no local Filing), and no later sync or
-    # per-filing write, Filing or not, moves it: the refusal stays (docs, "A company synced since #1682").
+    # lists it. Synced first, K27's row is stored behind the filing row (no local Filing), and no later sync before
+    # E198 or per-filing write, Filing or not, moves it: the refusal stays (docs, "A company synced since #1682"). A
+    # sync since E198 moves it (test_a_sync_since_e198_clears_the_current_figure_refusal_without_the_later_10ks_filing).
     with _database() as db:
         company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch)
         _resync(db, company, payload)
@@ -2757,6 +2770,30 @@ def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_fili
             assert [e["fact_id"] for e in _preview(db, company, later)["proxy"]["left_report_backed"]] == [row.id]
         else:
             _refuses(db, company, later, refused)
+
+
+@pytest.mark.parametrize("stored_behind", [False, True], ids=["k27-first-read-by-it", "k27-stored-behind-first"])
+def test_a_sync_since_e198_clears_the_current_figure_refusal_without_the_later_10ks_filing(monkeypatch, stored_behind):
+    # E198: a sync in USD alone runs the currency step, so it dates K27's row by its `filed` in the payload
+    # (``currency._filed``) and makes it current over the filing row (``_promote_batch_rows``), as a sync involving
+    # another currency already did (the test below): the current-figure refusal clears with no Filing for K27, and the
+    # step leaves and lists the row, whether that sync first reads K27 or a sync before E198 stored K27's row behind
+    # the filing row first.
+    with _database() as db:
+        company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch)
+        _resync(db, company, payload)
+        later = _with_k27(company, payload, RESTATED_AGAIN)
+        [row] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        refused = _refusal(db, (row.id, _current_figure("18254000000", "18900000000")))
+        _refuses(db, company, later, refused)
+        if stored_behind:
+            _resync(db, company, later)
+            _refuses(db, company, later, refused)
+        _sync_since_e198(db, company, later)
+        [k27] = [r for r in _rows(db, company, concept="net_income", period_end=date(2025, 12, 31), fiscal_period="FY")
+                 if r.accession == _accn(company, "K27")]
+        assert (db.get(FinancialFact, row.id).is_latest, k27.is_latest) == (False, True)
+        assert [e["fact_id"] for e in _preview(db, company, later)["proxy"]["left_report_backed"]] == [row.id]
 
 
 @pytest.mark.parametrize("stored_behind", [False, True], ids=["k27-first-read-by-it", "k27-stored-behind-first"])

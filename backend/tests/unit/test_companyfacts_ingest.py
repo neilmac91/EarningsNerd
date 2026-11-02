@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from app.services import facts_service as svc
+from tests.support.sync_eras import usd_syncs_before_e198
 
 REV_TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
 
@@ -1733,7 +1734,7 @@ class TestNativeReportingCurrencySync:
         with monkeypatch.context() as before_1682:
             if not history_rows:
                 before_1682.setattr(companyfacts, "own_report_history", lambda *args: [])
-            _checked_sync(db, company, _in_currency(_lagging_usd_payload(fresh=True), "CNY"), usd_only=False)
+            _checked_sync(db, company, _in_currency(_lagging_usd_payload(fresh=True), "CNY"))
         fy2023 = {"period_end": date(2023, 12, 31), "fiscal_period": "FY"}
         own = [f for f in svc.normalize_companyfacts(company.id, _in_currency(_lagging_usd_payload(fresh=False), "CNY"))[0]
                if f["concept"] in ("net_margin", "revenue") and all(f[key] == value for key, value in fy2023.items())]
@@ -2209,7 +2210,7 @@ class TestNativeReportingCurrencySync:
             return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(
                 FinancialFact).filter_by(company_id=company.id, concept="total_assets", period_end=date(2023, 12, 31)))
 
-        _checked_sync(db, company, payload(lagging=False), final=True, usd_only=True)
+        _checked_sync(db, company, payload(lagging=False), final=True)
         assert year_end_2023() == [("K23", 5000.0, False), ("Q1-24", 5100.0, True)]
         _store_filing_rows(db, company, f"Q1-24{tag}", "10-Q", "2024-05-05", [
             ("revenue", "EUR", date(2024, 3, 31), 290.0), ("revenue", "EUR", date(2023, 3, 31), 250.0),
@@ -2239,7 +2240,7 @@ class TestNativeReportingCurrencySync:
                 company_id=company.id, concept="revenue", period_end=date(2024, 3, 31), is_latest=True)]
 
         _checked_sync(db, company, _suffixed(_in_currency(_quarter_restated_payload(q1_25=True), "CNY"), tag),
-                      final=True, usd_only=False)
+                      final=True)
         assert q1_2024() == [("Q1-25", 260.0)]
         _checked_sync(db, company, _suffixed(_in_currency(_quarter_restated_payload(q1_25=False), "CNY"), tag))
         assert q1_2024() == [("Q1-25", 260.0)]
@@ -2286,7 +2287,7 @@ class TestNativeReportingCurrencySync:
                 1.3, "2024-12-31", start="2024-01-01", accn="K24A", fy=2024, form="10-K/A", filed="2025-04-01"))
             return payload
 
-        _checked_sync(db, company, cny(_lagging_usd_payload(fresh=True)), final=True, usd_only=False)
+        _checked_sync(db, company, cny(_lagging_usd_payload(fresh=True)), final=True)
         _store_per_filing(db, company, cny(amended()), f"K24A{tag}", "10-K/A", "2025-04-01", writer=svc.upsert_facts)
         assert fy2024() == [(1200.0, "K24", True), (1300.0, "K24A", False)]
         assert fy2024("eps_diluted") == [(1.2, "K24", True), (1.3, "K24A", False)]
@@ -2330,7 +2331,7 @@ class TestNativeReportingCurrencySync:
         lagging = _lagging_usd_payload(fresh=True)
         lagging["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
             1250.0, "2024-12-31", start="2024-01-01", accn="K24B", fy=2024, form="10-K/A", filed="2025-03-01"))
-        result = _checked_sync(db, company, _suffixed(_in_currency(lagging, "CNY"), tag), usd_only=False)
+        result = _checked_sync(db, company, _suffixed(_in_currency(lagging, "CNY"), tag))
         assert sorted((float(r.value), r.accession.removesuffix(tag), r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="revenue", period_end=date(2024, 12, 31))) == [
             (1200.0, "K24", False), (1250.0, "K24B", False), (1300.0, "K24A", False)]
@@ -2434,7 +2435,7 @@ class TestNativeReportingCurrencySync:
             return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(FinancialFact)
                           .filter_by(company_id=company.id, concept="free_cash_flow", period_end=date(2023, 12, 31)))
 
-        _checked_sync(db, company, payload(k23a=False), final=True, usd_only=False)
+        _checked_sync(db, company, payload(k23a=False), final=True)
         _checked_sync(db, company, payload(k23a=True), final=True)
         assert fcf() == [("K23", 300.0, False), ("K23A", 310.0, True)]
         for row in db.query(FinancialFact).filter_by(company_id=company.id, concept="free_cash_flow",
@@ -2760,7 +2761,7 @@ class TestNativeReportingCurrencySync:
             return _suffixed(_in_currency(_lagging_usd_payload(fresh=fresh), "CNY"), tag)
 
         if newer_rows == "an-earlier-sync":
-            _checked_sync(db, company, lagging(True), usd_only=False)
+            _checked_sync(db, company, lagging(True))
         else:
             filing = Filing(company_id=company.id, accession_number=f"K24{tag}", filing_type="10-K",
                             filing_date=datetime(2025, 2, 15, tzinfo=timezone.utc),
@@ -2779,7 +2780,7 @@ class TestNativeReportingCurrencySync:
         assert {r.unit for r in db.query(FinancialFact).filter(FinancialFact.id.in_(k24))} == {"CNY", "CNY/shares", "pure"}
         if newer_rows == "an-earlier-sync":  # K23's own-report FY2023 figure, stored apart by that sync
             assert (2023, "K23", 1000.0, False) in revenue()
-        _checked_sync(db, company, lagging(False), usd_only=False)
+        _checked_sync(db, company, lagging(False))
         assert revenue() == [(2022, "K22", 800.0, True), (2023, "K23", 1000.0, False), (2023, "K24", 1050.0, True),
                              (2024, "K24", 1200.0, True)]
         assert k24 <= {r.id for r in db.query(FinancialFact).filter_by(company_id=company.id, is_latest=True)}
@@ -2835,9 +2836,9 @@ class TestNativeReportingCurrencySync:
         # K23's 1000 and 5.00 (+20.0% and -40%) and K24's margin beside K23's revenue. Without Filing rows for K22
         # and K23, the per-filing writer's own rule stores K24's restatement behind K23's undated companyfacts rows,
         # and no sync makes a named filing's row current over the batch's: K23's revenue and EPS stay, as on main.
-        # In CNY, net income, whose batch winner is K24's own row, converges to 105, so K24's 10% margin sits
-        # beside K23's 1000 (the recorded ratio gap). In USD the sync is main's (``usd_only``): net income stays
-        # K23's 100, behind which the per-filing writer stored K24's 105 (the follow-up in tasks/todo.md).
+        # Net income, whose batch winner is K24's own row, converges to 105, so K24's 10% margin sits beside K23's
+        # 1000 (the recorded ratio gap), in USD as in CNY: before E198 a sync in USD alone was the upsert alone, and
+        # net income stayed K23's 100, behind which the per-filing writer stored K24's 105, for good (E198 (2)).
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
@@ -2895,18 +2896,17 @@ class TestNativeReportingCurrencySync:
         else:
             filing("K22", "2023-02-15")
             filing("K23", "2024-02-15")
-        usd_only = currency == "USD"
         if order != "per-filing-then-sync":
-            _checked_sync(db, company, payload(k24=False), final=True, usd_only=usd_only)
+            _checked_sync(db, company, payload(k24=False), final=True)
         per_filing_k24()
         assert fy2023() == expected
         if "lagging" in order:
-            _checked_sync(db, company, payload(k24=False), usd_only=usd_only)
+            _checked_sync(db, company, payload(k24=False))
             assert fy2023() == expected
-        if order == "without-filing-rows" and not usd_only:
+        if order == "without-filing-rows":
             expected[1] = ("net_income", 105.0, "K24")
         for _sync in range(2):
-            _checked_sync(db, company, payload(k24=True), final=True, usd_only=usd_only)
+            _checked_sync(db, company, payload(k24=True), final=True)
             assert fy2023() == expected
         db.close()
 
@@ -3004,8 +3004,7 @@ class TestNativeReportingCurrencySync:
                                                   accession=filing.accession_number, source="edgar_xbrl"),
                                     "filing_id": filing.id}])
 
-        result = _checked_sync(db, company, _suffixed(_in_currency(_calendar_payload(), currency), tag),
-                               usd_only=currency == "USD")
+        result = _checked_sync(db, company, _suffixed(_in_currency(_calendar_payload(), currency), tag))
         rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue",
                                                  period_end=date(2024, 6, 30)).all()
         assert sorted((r.fiscal_period or "", r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
@@ -3035,7 +3034,7 @@ class TestNativeReportingCurrencySync:
         svc.upsert_facts_bulk(db, [{**_fact_dict(company.id, fp=None, end=date(2024, 6, 30), value=300.0, unit=currency,
                                                   accession=filing.accession_number, source="edgar_xbrl"),
                                     "filing_id": filing.id}])
-        _checked_sync(db, company, _suffixed(_in_currency(_calendar_payload(), currency), tag), usd_only=currency == "USD")
+        _checked_sync(db, company, _suffixed(_in_currency(_calendar_payload(), currency), tag))
         rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue", period_end=date(2024, 6, 30)).all()
         assert sorted((r.fiscal_period or "", r.accession.removesuffix(tag), r.is_latest) for r in rows) == [
             ("", "Q2-24A", True), ("Q2", "Q2-24", True)]
@@ -3221,7 +3220,7 @@ class TestNativeReportingCurrencySync:
         tag = f"-{uuid.uuid4().hex[:8]}"
         _store_filing_rows(db, company, f"K24{tag}", "10-K", "2025-02-15", [
             ("eps_diluted", "EUR/shares", date(2024, 12, 31), 1.1)])
-        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True, usd_only=False)
+        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True)
         assert sorted((r.unit, r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="eps_diluted", period_end=date(2024, 12, 31))) == [
             ("EUR/shares", False), ("USD/shares", True)]
@@ -3244,7 +3243,7 @@ class TestNativeReportingCurrencySync:
         units = payload["facts"]["us-gaap"]["NetIncomeLoss"]["units"]
         units["EUR"] = [{**item, "val": item["val"] * 0.9} for item in units["USD"]] if filing == "its-usd-10-ks" else [
             _item(27.0, "2025-03-31", start="2025-01-01", accn="Q1-25", fy=2025, fp="Q1", form="10-Q", filed="2025-05-05")]
-        _checked_sync(db, company, _suffixed(payload, tag), final=True, usd_only=filing == "its-usd-10-ks")
+        _checked_sync(db, company, _suffixed(payload, tag), final=True)
         assert sorted((r.period_end.year, r.unit, r.accession.removesuffix(tag)) for r in db.query(FinancialFact)
                       .filter_by(company_id=company.id, concept="net_income", is_latest=True)) == [
             (2022, "USD", "K22"), (2023, "USD", "K24"), (2024, "USD", "K24")]
@@ -3263,7 +3262,7 @@ class TestNativeReportingCurrencySync:
         tag = f"-{uuid.uuid4().hex[:8]}"
         _store_filing_rows(db, company, f"K24{tag}", "10-K", "2025-02-15", [
             ("gross_profit", "EUR", date(2024, 12, 31), 330.0)])
-        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True, usd_only=True)
+        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True)
         assert [(r.unit, r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="gross_profit")] == [("EUR", True)]
         db.close()
@@ -3297,7 +3296,7 @@ class TestNativeReportingCurrencySync:
             db.query(FinancialFact).filter_by(company_id=company.id, unit="EUR").one().is_latest = False
             db.commit()
 
-        result = _checked_sync(db, company, payload, usd_only=not involved)
+        result = _checked_sync(db, company, payload)
         margins = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin",
                                                     period_end=date(2023, 12, 31)).all()
         assert sorted((r.accession.removesuffix(tag), r.is_latest) for r in margins) == [("K23", False), ("K23A", True)]
@@ -3327,7 +3326,7 @@ class TestNativeReportingCurrencySync:
         db.query(FinancialFact).filter_by(company_id=company.id, accession=f"K24{tag}", concept="revenue",
                                           period_end=date(2024, 12, 31)).one().is_latest = True
         db.commit()
-        _checked_sync(db, company, amended, final=True, usd_only=currency == "USD")
+        _checked_sync(db, company, amended, final=True)
         assert sorted((float(r.value), r.accession.removesuffix(tag), r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="revenue", period_end=date(2024, 12, 31))) == [
             (1200.0, "K24", True), (1300.0, "K24A", False)]
@@ -3373,123 +3372,128 @@ class TestNativeReportingCurrencySync:
 
     @pytest.mark.parametrize("shape", ["k24a-amendment", "k24a-quarantined", "older-payload", "derived-fcf",
                                        "same-day-stale", "held-keys", "lagging-quarter"])
-    def test_a_usd_only_sync_is_mains(self, shape):
-        # The USD-only corpus: the shapes the tests above pin for a filer in CNY, run for a filer in USD alone, every
-        # order and with Filing rows and without, amounts, per-share rows and ratios. Each sync goes through
-        # ``_checked_sync(usd_only=True)``, which asserts main's contract for it: the upsert protects no row, and the
-        # currency step demotes none and touches none. These end states are therefore main's, its convergence
-        # defects on USD filers included (the follow-up in tasks/todo.md): an amendment the per-filing writer stored
-        # behind its original's companyfacts row stays behind (K24's 1200, or K24B's 1250 where a lagging payload
-        # inserted it). A lagging or same-day stale payload no longer replaces the newer figure where an earlier
-        # sync stored the year's own report as a history row (``own_reports``): its winner is that row's identity,
-        # so main's upsert skips it (K24's 1050 stays; K24A's 1300 stays). A quarter, a ratio, an amendment's figure
-        # or an intermediate filing's comparative has no history row, so there it still does (E198 (3)): a lagging
-        # payload's Q1-24 250 replaces Q1-25's restated 260 (its CNY twin keeps 260:
-        # test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_for_a_cny_filer).
-        # The tag migration, the unlabelled twins, the quarantined winner and the legacy ratio run in USD through
-        # their own parameter; the hand-built two-current state of the ratio test is no state a writer leaves.
+    def test_a_usd_filers_sync_converges_as_one_in_another_currency_does(self, shape):
+        # E198. The shapes the tests above pin for a filer in CNY, run for a filer in USD alone and again in CNY,
+        # every order and with Filing rows and without, amounts, per-share rows and ratios, each sync checked by
+        # ``_checked_sync``. Every sync runs the currency step, one in USD alone too, so each shape ends in USD as its
+        # CNY twin ends, at the figures pinned here. Before E198 a sync in USD alone was the upsert alone and kept its
+        # gaps for good: (1) an amendment the per-filing writer stored behind its original's companyfacts row stayed
+        # behind (K24's 1200 over K24A's 1300, or K24B's 1250 where a lagging payload inserted it); (3) a lagging
+        # payload's insert demoted a newer filing's row dated by its provenance alone (Q1-24's 250 over Q1-25's
+        # restated 260, K24's 1200 over K24A's 1300 at a key the payload does not present, K24's over K24B's 1310 at
+        # a same-day tie, K24's 1200 over K25's restated 1210). Now each newer figure holds its key; where K24A's row
+        # is quarantined, a lagging payload leaves FY2024 a gap, never K24B's older 1250. The shapes main got right
+        # end as before: a lagging payload never replaces K24's 1050 for FY2023, nor K24A's 1300 (or its 9.23 margin)
+        # a same-day stale one, and K24's own 280 free cash flow stays current. (2), the tag migration, is the USD
+        # case of test_a_newer_filings_restatement_under_a_lower_priority_tag_stays_current_at_every_sync.
         from app.database import SessionLocal
 
         db = SessionLocal()
 
-        def run(scenario):
-            company = _new_company(db)
-            return scenario(company, f"-{uuid.uuid4().hex[:8]}")
+        def both(scenario):  # the shape's end state for a filer in USD, equal to its CNY twin's
+            ends = []
+            for currency in ("USD", "CNY"):
+                tag = f"-{uuid.uuid4().hex[:8]}"
+                ends.append(scenario(_new_company(db), tag, lambda payload: _suffixed(_in_currency(payload, currency), tag),
+                                     currency))
+            assert ends[0] == ends[1]
+            return ends[0]
 
-        def k24a(order):  # test_a_non_usd_filers_newest_amendment_..., in USD
-            def scenario(company, tag):
-                def lagging(k24b=False):
+        def k24b(payload):  # an earlier 10-K/A (K24B, filed 2025-03-01) restating FY2024 revenue at 1250
+            payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
+                1250.0, "2024-12-31", start="2024-01-01", accn="K24B", fy=2024, form="10-K/A", filed="2025-03-01"))
+            return payload
+
+        def k24a(order):  # test_a_non_usd_filers_newest_amendment_..., both currencies
+            def scenario(company, tag, cur, _currency):
+                def lagging(with_k24b=False):
                     payload = _lagging_usd_payload(fresh=True)
-                    if k24b:
-                        payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
-                            1250.0, "2024-12-31", start="2024-01-01", accn="K24B", fy=2024, form="10-K/A", filed="2025-03-01"))
-                    return payload
+                    return k24b(payload) if with_k24b else payload
 
-                _checked_sync(db, company, _suffixed(lagging(), tag), final=True, usd_only=True)
-                _store_per_filing(db, company, _suffixed(_with_amendment(lagging()), tag), f"K24A{tag}", "10-K/A",
-                                  "2025-04-01", writer=svc.upsert_facts)
+                _checked_sync(db, company, cur(lagging()), final=True)
+                _store_per_filing(db, company, cur(_with_amendment(lagging())), f"K24A{tag}", "10-K/A", "2025-04-01",
+                                  writer=svc.upsert_facts)
                 if order == "behind-both":
-                    _store_per_filing(db, company, _suffixed(lagging(k24b=True), tag), f"K24B{tag}", "10-K/A",
-                                      "2025-03-01", writer=svc.upsert_facts)
+                    _store_per_filing(db, company, cur(lagging(with_k24b=True)), f"K24B{tag}", "10-K/A", "2025-03-01",
+                                      writer=svc.upsert_facts)
                 if order != "fresh-only":
-                    _checked_sync(db, company, _suffixed(lagging(k24b=order == "naming-k24b"), tag), usd_only=True)
-                fresh = _with_amendment(lagging(k24b=order != "fresh-only" and order != "lagging"))
-                _checked_sync(db, company, _suffixed(fresh, tag), final=True, usd_only=True)
+                    _checked_sync(db, company, cur(lagging(with_k24b=order == "naming-k24b")))
+                fresh = _with_amendment(lagging(with_k24b=order not in ("fresh-only", "lagging")))
+                _checked_sync(db, company, cur(fresh), final=True)
                 return _current_fy(db, company, tag, ("eps_diluted", "revenue"), 2024)
             return scenario
 
         if shape == "k24a-amendment":
-            k24 = [("eps_diluted", "K24", 1.2), ("revenue", "K24", 1200.0)]
-            assert {order: run(k24a(order)) for order in ("fresh-only", "lagging", "naming-k24b", "behind-both")} == {
-                "fresh-only": k24, "lagging": k24, "naming-k24b": [("eps_diluted", "K24", 1.2), ("revenue", "K24B", 1250.0)],
-                "behind-both": k24}
-        elif shape == "k24a-quarantined":  # test_a_lagging_sync_never_leaves_its_own_row_current_..., in USD
-            def quarantined(company, tag):
+            for order in ("fresh-only", "lagging", "naming-k24b", "behind-both"):
+                assert both(k24a(order)) == [("eps_diluted", "K24", 1.2), ("revenue", "K24A", 1300.0)], order
+        elif shape == "k24a-quarantined":  # test_a_lagging_sync_never_leaves_its_own_row_current_..., both currencies
+            def quarantined(company, tag, cur, _currency):
                 from app.models import FinancialFact
 
-                _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True, usd_only=True)
-                _store_per_filing(db, company, _suffixed(_with_amendment(_lagging_usd_payload(fresh=True)), tag),
+                _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True)
+                _store_per_filing(db, company, cur(_with_amendment(_lagging_usd_payload(fresh=True))),
                                   f"K24A{tag}", "10-K/A", "2025-04-01", writer=svc.upsert_facts)
                 row = db.query(FinancialFact).filter_by(company_id=company.id, accession=f"K24A{tag}", concept="revenue").one()
                 row.provenance = {**row.provenance, "validation": "unavailable", "reasons": ["repair_rolled_back"]}
                 db.commit()
-                lagging = _lagging_usd_payload(fresh=True)
-                lagging["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(_item(
-                    1250.0, "2024-12-31", start="2024-01-01", accn="K24B", fy=2024, form="10-K/A", filed="2025-03-01"))
-                _checked_sync(db, company, _suffixed(lagging, tag), usd_only=True)
+                _checked_sync(db, company, cur(k24b(_lagging_usd_payload(fresh=True))))
                 return _current_fy(db, company, tag, ("revenue",), 2024)
 
-            assert run(quarantined) == [("revenue", "K24B", 1250.0)]
-        elif shape == "older-payload":  # test_a_same_currency_payload_older_than_a_stored_filing_..., in USD
+            assert both(quarantined) == []
+        elif shape == "older-payload":  # test_a_same_currency_payload_older_than_a_stored_filing_..., both currencies
             def older(newer_rows):
-                def scenario(company, tag):
+                def scenario(company, tag, cur, _currency):
                     if newer_rows == "an-earlier-sync":
-                        _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), usd_only=True)
+                        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)))
                     else:
-                        _store_per_filing(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), f"K24{tag}",
-                                          "10-K", "2025-02-15")
-                    _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=False), tag), usd_only=True)
-                    _checked_sync(db, company, _suffixed(_lagging_usd_payload(fresh=True), tag), final=True, usd_only=True)
+                        _store_per_filing(db, company, cur(_lagging_usd_payload(fresh=True)), f"K24{tag}", "10-K",
+                                          "2025-02-15")
+                    _checked_sync(db, company, cur(_lagging_usd_payload(fresh=False)))
+                    _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True)
                     return _current_fy(db, company, tag, ("revenue",), 2023)
                 return scenario
 
-            assert run(older("an-earlier-sync")) == [("revenue", "K24", 1050.0)]  # K23's history row holds its insert
-            assert run(older("the-per-filing-writer")) == [("revenue", "K24", 1050.0)]
-        elif shape == "derived-fcf":
+            for newer_rows in ("an-earlier-sync", "the-per-filing-writer"):
+                assert both(older(newer_rows)) == [("revenue", "K24", 1050.0)], newer_rows
+        elif shape == "derived-fcf":  # test_a_calculation_is_dated_by_its_own_filing_..., both currencies
             for order in ("per-filing-then-sync", "sync-per-filing-then-sync", "sync-per-filing-then-lagging-then-sync"):
                 for filing_rows in ("filing-rows", "no-filing-rows"):
-                    end = run(lambda company, tag: _fcf_scenario(db, company, tag, "USD", order, filing_rows))
-                    assert ("free_cash_flow", "K24", 280.0) in end
-        elif shape == "same-day-stale":
+                    ocf = ("K23", 500.0) if (order, filing_rows) == ("sync-per-filing-then-sync", "no-filing-rows") else (
+                        "K24", 480.0)
+                    assert both(lambda company, tag, _cur, currency: _fcf_scenario(
+                        db, company, tag, currency, order, filing_rows)) == [
+                        ("capital_expenditures", "K24", 200.0), ("free_cash_flow", "K24", 280.0),
+                        ("operating_cash_flow", *ocf)], (order, filing_rows)
+        elif shape == "same-day-stale":  # test_a_newer_filings_row_dated_by_its_provenance_..., both currencies
             for k24_stored in (True, False):
                 for k24a_filing_row in (False, True):
-                    _fresh, stale = run(lambda company, tag: _same_day_stale_scenario(
-                        db, company, tag, "USD", k24_stored, k24a_filing_row))
-                    # Main's upsert keeps K24A where it has a date or K24 is stored; otherwise the fresh sync stored
-                    # K24's own-report 1200 as a history row, the stale payload's winner, so its insert is skipped.
-                    assert stale == [("revenue", "K24A", 1300.0)]
-        elif shape == "lagging-quarter":
-            def quarter(company, tag):
+                    fresh, stale = both(lambda company, tag, _cur, currency: _same_day_stale_scenario(
+                        db, company, tag, currency, k24_stored, k24a_filing_row, ("net_margin", "revenue")))
+                    assert fresh == stale == [("net_margin", "K24A", 9.23), ("revenue", "K24A", 1300.0)], (
+                        k24_stored, k24a_filing_row)
+        elif shape == "lagging-quarter":  # test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_...
+            def quarter(company, tag, cur, _currency):
                 from app.models import FinancialFact
-
-                def payload(*, q1_25):
-                    return _suffixed(_quarter_restated_payload(q1_25=q1_25), tag)
 
                 def q1_2024():
                     return [(r.accession.removesuffix(tag), float(r.value)) for r in db.query(FinancialFact).filter_by(
                         company_id=company.id, concept="revenue", period_end=date(2024, 3, 31), is_latest=True)]
 
-                _checked_sync(db, company, payload(q1_25=True), final=True, usd_only=True)
+                _checked_sync(db, company, cur(_quarter_restated_payload(q1_25=True)), final=True)
                 fresh = q1_2024()
-                _checked_sync(db, company, payload(q1_25=False), usd_only=True)
+                _checked_sync(db, company, cur(_quarter_restated_payload(q1_25=False)))
                 return fresh, q1_2024()
 
-            assert run(quarter) == ([("Q1-25", 260.0)], [("Q1-24", 250.0)])
-        else:
-            for held in ("unpresented", "dated-by-provenance", "same-day-tie", "ratio", "ratio-unpresented"):
-                end = run(lambda company, tag: _held_key_scenario(db, company, tag, "USD", held))
-                assert [row for row in end if row[0] == "revenue"] == [
-                    ("revenue", "K24A", 1300.0) if held == "dated-by-provenance" else ("revenue", "K24", 1200.0)]
+            assert both(quarter) == ([("Q1-25", 260.0)], [("Q1-25", 260.0)])
+        else:  # test_a_held_key_holds_its_newest_protected_row_presented_or_not_a_ratio_too, both currencies
+            k24a_held = [("net_income", "K24", 120.0), ("net_margin", "K24A", 9.23), ("revenue", "K24A", 1300.0)]
+            k25 = [("net_income", "K25", 130.0), ("net_margin", "K25", 10.74), ("revenue", "K25", 1210.0)]
+            for held, expected in (
+                    ("unpresented", k24a_held), ("dated-by-provenance", k24a_held),
+                    ("same-day-tie", [("net_income", "K24", 120.0), ("net_margin", "K24B", 9.16), ("revenue", "K24B", 1310.0)]),
+                    ("ratio", k25), ("ratio-unpresented", k25)):
+                assert both(lambda company, tag, _cur, currency: _held_key_scenario(
+                    db, company, tag, currency, held)) == expected, held
         db.close()
 
 
@@ -3640,7 +3644,6 @@ def _fcf_scenario(db, company, tag, currency, order, older):
     K23's accession with K24's date as its provenance filed_at (the later operand). The per-filing writer stores
     K24's own FY2023 figures (480, 200, 280). ``older`` "filing-rows" gives K23 a Filing row. Runs ``order`` and
     returns the current FY2023 cash flows after the last of two syncs naming K24."""
-    usd_only = currency == "USD"
 
     def items(values, accession, fiscal_year, filed):
         return [_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=accession, fy=fiscal_year, filed=filed)
@@ -3659,15 +3662,15 @@ def _fcf_scenario(db, company, tag, currency, order, older):
     if older == "filing-rows":
         _new_filing(db, company, f"K23{tag}", "10-K", "2024-02-15")
     if order != "per-filing-then-sync":
-        _checked_sync(db, company, payload(k24=False), final=True, usd_only=usd_only)
+        _checked_sync(db, company, payload(k24=False), final=True)
     _per_filing_10k(db, company, f"K24{tag}", "10-K", "2025-02-15", currency, {
         "operating_cash_flow": (_OCF_CONTINUING, ((2023, 480.0), (2024, 600.0))),
         "capital_expenditures": ("PaymentsToAcquirePropertyPlantAndEquipment", ((2023, 200.0), (2024, 250.0))),
         "free_cash_flow": ("", ((2023, 280.0), (2024, 350.0)))})
     if "lagging" in order:
-        _checked_sync(db, company, payload(k24=False), usd_only=usd_only)
+        _checked_sync(db, company, payload(k24=False))
     for _sync in range(2):
-        _checked_sync(db, company, payload(k24=True), final=True, usd_only=usd_only)
+        _checked_sync(db, company, payload(k24=True), final=True)
     return _current_fy(db, company, tag, _CASH_FLOWS, 2023)
 
 
@@ -3676,7 +3679,6 @@ def _same_day_stale_scenario(db, company, tag, currency, k24_stored, k24a_filing
     is current, a companyfacts row (with a Filing row where ``k24a_filing_row``); where ``k24_stored`` an earlier sync
     stored K24's FY2024 identity. Then a stale payload whose newest filing is a 10-Q filed that same day (Q1-25) does
     not name K24A. Returns the current FY2024 rows of ``concepts`` after the fresh sync and after the stale one."""
-    usd_only = currency == "USD"
 
     def payload(*, k24a):
         data = _lagging_usd_payload(fresh=True)
@@ -3690,11 +3692,10 @@ def _same_day_stale_scenario(db, company, tag, currency, k24_stored, k24a_filing
     if k24a_filing_row:
         _new_filing(db, company, f"K24A{tag}", "10-K/A", "2025-05-05")
     if k24_stored:
-        _checked_sync(db, company, _suffixed(_in_currency(_lagging_usd_payload(fresh=True), currency), tag), final=True,
-                      usd_only=usd_only)
-    _checked_sync(db, company, payload(k24a=True), final=True, usd_only=usd_only)
+        _checked_sync(db, company, _suffixed(_in_currency(_lagging_usd_payload(fresh=True), currency), tag), final=True)
+    _checked_sync(db, company, payload(k24a=True), final=True)
     fresh = _current_fy(db, company, tag, concepts, 2024)
-    _checked_sync(db, company, payload(k24a=False), usd_only=usd_only)
+    _checked_sync(db, company, payload(k24a=False))
     return fresh, _current_fy(db, company, tag, concepts, 2024)
 
 
@@ -3709,7 +3710,6 @@ def _held_key_scenario(db, company, tag, currency, shape):
     row; the fresh sync names K25, filed 2026-02-15 with no Filing row, restating FY2024 at 1210 and 130, so its 10.74
     margin is stored behind K24's; then a payload without K25, or with K23 only). Returns the current FY2024 revenue,
     net income and net margin after the last sync."""
-    usd_only = currency == "USD"
 
     def cur(payload):
         return _suffixed(_in_currency(payload, currency), tag)
@@ -3732,19 +3732,19 @@ def _held_key_scenario(db, company, tag, currency, shape):
         _per_filing_10k(db, company, f"K24{tag}", "10-K", "2025-02-15", currency, {
             "revenue": (REV_TAG, ((2023, 1000.0), (2024, 1200.0))), "net_income": ("NetIncomeLoss", ((2023, 100.0), (2024, 120.0))),
             "net_margin": ("", ((2023, 10.0), (2024, 10.0)))})
-        _checked_sync(db, company, with_k25(k25=True), final=True, usd_only=usd_only)
-        _checked_sync(db, company, with_k25(k25=False, k23_only=shape.endswith("unpresented")), usd_only=usd_only)
+        _checked_sync(db, company, with_k25(k25=True), final=True)
+        _checked_sync(db, company, with_k25(k25=False, k23_only=shape.endswith("unpresented")))
     elif shape == "dated-by-provenance":
-        _checked_sync(db, company, cur(amended("K24A", 1300.0)), final=True, usd_only=usd_only)
+        _checked_sync(db, company, cur(amended("K24A", 1300.0)), final=True)
         _store_per_filing(db, company, cur(_lagging_usd_payload(fresh=True)), f"K24{tag}", "10-K", "2025-02-15",
                           writer=svc.upsert_facts)
-        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=False)), usd_only=usd_only)
+        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=False)))
     else:
-        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True, usd_only=usd_only)
+        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True)
         for accession, value in (("K24B", 1310.0), ("K24A", 1300.0)) if shape == "same-day-tie" else (("K24A", 1300.0),):
             _store_per_filing(db, company, cur(amended(accession, value)), f"{accession}{tag}", "10-K/A", "2025-04-01",
                               writer=svc.upsert_facts)
-        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=shape == "same-day-tie")), usd_only=usd_only)
+        _checked_sync(db, company, cur(_lagging_usd_payload(fresh=shape == "same-day-tie")))
     return _current_fy(db, company, tag, ("net_income", "net_margin", "revenue"), 2024)
 
 
@@ -3807,12 +3807,10 @@ def _one_currency_per_concept(db, company_id):
     assert {concept: sorted(units) for concept, units in spans.items() if len(units) > 1} == {}
 
 
-def _checked_sync(db, company, payload, *, final=False, usd_only=None):
+def _checked_sync(db, company, payload, *, final=False):
     """Persist ``payload`` and check the sync's invariants, whatever earlier syncs or the per-filing writer left.
-    No key holds two current amount or per-share rows, so never two currencies (``_current_amount_units``). A sync
-    that involves no currency but USD (``Guard.usd_only``; ``usd_only`` asserts which a sync is) is main's: the
-    upsert protects no row, and the currency step demotes none and touches none (every row's is_latest, pending
-    inserts included, is the same after it as before). Otherwise, outside a proven switch, which stores (its
+    No key holds two current amount or per-share rows, so never two currencies (``_current_amount_units``). Every
+    sync, one in USD alone too (E198), is checked alike. Outside a proven switch, which stores (its
     upsert gets no batch and no own-report history rows) and promotes nothing, in an amount or per-share unit: a key where a protected row sits (``currency.protected_rows``,
     read before the sync), current or not, presented or not, holds the newest protected row there (latest filed,
     then the higher accession, then by id) as its one current such row; each other key the batch presents holds the
@@ -3833,8 +3831,7 @@ def _checked_sync(db, company, payload, *, final=False, usd_only=None):
     facts = svc.normalize_companyfacts(company.id, payload, financial_sic=_is_financial_sic(company.sic))[0]
     view = payload_view(payload)
     guard = protected_rows(db, facts, view)
-    assert usd_only is None or guard.usd_only == usd_only
-    stored = {accession for (accession,) in db.query(FinancialFact.accession).filter_by(company_id=company.id)}
+    stored ={accession for (accession,) in db.query(FinancialFact.accession).filter_by(company_id=company.id)}
     assert not final or stored <= view.known  # a final sync's payload names every stored filing
     before = _amount_rows(db, company.id)
     seen = {}
@@ -3843,22 +3840,11 @@ def _checked_sync(db, company, payload, *, final=False, usd_only=None):
         seen["protected"], seen["written"] = kwargs["protected"], (batch, kwargs["history"])
         return real_upsert(session, batch, **kwargs)
 
-    def step(session, batch, payload_view_, sync_guard):
-        rows = [*session.query(FinancialFact).filter_by(company_id=company.id),
-                *(row for row in session.new if isinstance(row, FinancialFact))]
-        was = [(row, row.is_latest) for row in rows]
-        seen["demoted"] = real_step(session, batch, payload_view_, sync_guard)
-        seen["touched"] = [row.id for row, latest in was if row.is_latest != latest] + [
-            row for row in session.new if isinstance(row, FinancialFact) and row not in rows]
-        return seen["demoted"]
-
-    real_upsert, real_step = ingest.upsert_facts_bulk, ingest.demote_convenience_rows
-    with mock.patch.object(ingest, "upsert_facts_bulk", upsert), mock.patch.object(ingest, "demote_convenience_rows", step):
+    real_upsert = ingest.upsert_facts_bulk
+    with mock.patch.object(ingest, "upsert_facts_bulk", upsert):
         result = svc._persist_companyfacts_payload(db, company, payload)
     _current_amount_units(db, company.id)
-    if guard.usd_only:  # main's: the upsert's call as main made it, and a currency step that changes nothing
-        assert (seen["protected"], seen["demoted"], seen["touched"]) == (frozenset(), 0, [])
-        return result
+    assert seen["protected"] == guard.kept  # the upsert keeps current what the guard keeps, in every currency
     assert not (final and guard.switch)  # a payload naming every stored filing proves no switch
     assert not guard.switch or seen["written"] == ([], [])  # a proven switch writes nothing, history rows neither
     if guard.switch is None:
@@ -3966,6 +3952,15 @@ def _fdx_payload():
                    form="DEF 14A", filed="2026-08-17") for year, value in _FDX_INCOME.items()]
     return _payload({"NetIncomeLoss": {"units": {"USD": _ten_ks(_FDX_INCOME, **annual) + proxy}},
                      REV_TAG: {"units": {"USD": _ten_ks(_FDX_REVENUE, **annual)}}})
+
+
+def _as_before_the_proxy_fix(context):
+    """Patch ``context`` (a monkeypatch context) into a sync from before #1622 (the proxy-form rule): no form reads as a
+    proxy's (``is_proxy_form``), and the sync runs as every sync ran before E198 (``usd_syncs_before_e198``)."""
+    from app.services.facts import currency
+
+    context.setattr(currency, "is_proxy_form", lambda form: False)
+    usd_syncs_before_e198(context)
 
 
 def _mrk_payload(tag="", *, proxy=True):
@@ -4092,7 +4087,6 @@ class TestProxyStatementItemsSync:
         # the sync left current and promotes the 10-K's stored row at its key.
         from app.database import SessionLocal
         from app.models import FinancialFact
-        from app.services.facts import currency
         from app.services.quarterly_fact_repair import repair_company
 
         db = SessionLocal()
@@ -4107,7 +4101,7 @@ class TestProxyStatementItemsSync:
         if synced_before_the_proxy:
             svc._persist_companyfacts_payload(db, company, payload(proxy=False))
         with monkeypatch.context() as before_the_fix:
-            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            _as_before_the_proxy_fix(before_the_fix)
             svc._persist_companyfacts_payload(db, company, payload())
 
         def current(concept, fiscal_period="FY"):
@@ -4161,7 +4155,6 @@ class TestProxyStatementItemsSync:
         # key as found behind the proxy's current row, as main leaves it, for the proxy step (E211).
         from app.database import SessionLocal
         from app.models import FinancialFact
-        from app.services.facts import currency
 
         db = SessionLocal()
         company = _new_company(db)
@@ -4185,7 +4178,7 @@ class TestProxyStatementItemsSync:
         if order == "report-stored-then-demoted":
             svc._persist_companyfacts_payload(db, company, payload(proxy=False))
         with monkeypatch.context() as before_the_fix:
-            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            _as_before_the_proxy_fix(before_the_fix)
             svc._persist_companyfacts_payload(db, company, payload())
 
         def current(concept, fiscal_period="FY"):
@@ -4222,7 +4215,6 @@ class TestProxyStatementItemsSync:
         # this branch's sync finds nothing to change.
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
-        from app.services.facts import currency
 
         db = SessionLocal()
         company = _new_company(db)
@@ -4234,7 +4226,7 @@ class TestProxyStatementItemsSync:
         db.commit()
         svc._persist_companyfacts_payload(db, company, _mrk_payload(tag, proxy=False))
         with monkeypatch.context() as before_the_fix:
-            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            _as_before_the_proxy_fix(before_the_fix)
             svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
 
         rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_income").all()
@@ -4255,13 +4247,12 @@ class TestProxyStatementItemsSync:
         # nothing stored heal. The detection SQL's sets 1 and 2 list such a row for the repair.
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
-        from app.services.facts import currency
 
         db = SessionLocal()
         company = _new_company(db)
         tag = f"-{uuid.uuid4().hex[:8]}"
         with monkeypatch.context() as before_the_fix:
-            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            _as_before_the_proxy_fix(before_the_fix)
             svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
         filing = Filing(company_id=company.id, accession_number=f"K25{tag}", filing_type="10-K",
                         filing_date=datetime(2026, 2, 25, tzinfo=timezone.utc),
