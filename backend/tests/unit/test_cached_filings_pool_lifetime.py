@@ -3052,8 +3052,10 @@ async def test_contact_and_feedback_submits_hold_no_connection_while_their_mails
         return {"id": "msg_test"}
 
     from app.routers import contact, feedback
+    from app.services import email_service
 
     monkeypatch.setattr(contact, "send_email", send)
+    monkeypatch.setattr(email_service, "send_email", send)  # the receipt, built in the mail shell since E56
     monkeypatch.setattr(feedback, "send_email", send)
     try:
         response = await _submit(httpx.ASGITransport(app=app, raise_app_exceptions=False), route, 0)
