@@ -118,8 +118,25 @@ describe('FeedbackWidget: a screenshot draft when uploads are turned off mid-ses
     api.submitFeedback.mockRejectedValueOnce(new ApiError(503, 'Screenshots could not be saved. Your draft is ready to retry.'))
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
     await screen.findByText('We could not confirm the submission. Send this same draft again to check it safely.')
+    expect(api.getFeedbackCapabilities).toHaveBeenCalledTimes(2)  // the refetch ran and still reported uploads on
     expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(1)
     expect(screen.getByLabelText('Feedback message')).toHaveAttribute('readonly')
     expect(screen.queryByText(/^Screenshot uploads are unavailable right now\./)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['rejects', () => Promise.reject(new ApiError(500, 'Capabilities are unavailable.'))],
+    ['answers nothing readable', () => Promise.resolve(null)],
+  ])('keeps the existing receipt check when the capability refetch %s', async (_case, refetch) => {
+    mountFeedback()
+    await draftWithScreenshot()
+    api.getFeedbackCapabilities.mockImplementationOnce(refetch)
+    api.submitFeedback.mockRejectedValueOnce(DISABLED)
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByText('We could not confirm the submission. Send this same draft again to check it safely.')
+    expect(api.getFeedbackCapabilities).toHaveBeenCalledTimes(2)
+    expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Feedback message')).toHaveValue(NOTE)
+    expect(screen.getByRole('button', { name: 'Send feedback' })).not.toHaveAttribute('aria-busy', 'true')
   })
 })

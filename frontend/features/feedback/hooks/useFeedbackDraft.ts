@@ -162,13 +162,14 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
     setNotice(`Screenshot removed. ${next.length} of 3 selected.`)
   }
 
-  // A fresh capability read is the authority on whether screenshots were refused because uploads are off.
+  // A fresh capability read is the authority on whether screenshots were refused because uploads are off. Any failure
+  // of that read, or an unreadable answer, counts as not confirmed, so the existing receipt check takes over.
   const uploadsTurnedOff = () => client.fetchQuery({
     queryKey: queryKeys.feedback.capabilities(readerId),
     queryFn: ({ signal }) => getFeedbackCapabilities(signal),
     staleTime: 0,
     retry: false,
-  }).then((capabilities) => capabilities.attachments_enabled === false, () => false)
+  }).then((capabilities) => capabilities.attachments_enabled === false).catch(() => false)
 
   const submit = async () => {
     if (inFlight.current || phase === 'checking' || message.trim().length < 5) return
