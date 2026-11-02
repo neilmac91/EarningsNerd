@@ -130,11 +130,31 @@ def _mint_session(uid):
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("has_password", [True, False], ids=["password_account", "oauth_only_account"])
-def test_change_password_naming_another_account_changes_nothing(client, has_password):
+def test_change_password_naming_another_account_changes_nothing(client, monkeypatch, has_password):
     """E29 (6): a tab left showing account A by another tab's sign-in posts with the cookies of the account the browser
-    holds. Naming A, the request is refused with 409 for the browser's account, before any password is checked, set or
-    changed and before any session is revoked or issued; for an account without a password, which the route asks for
-    no current password, as for one with."""
+    holds. Naming A, the request is refused with 409 for the browser's account before anything else runs: no attempt
+    counts against the account's limit, no current password is checked, no breach check runs, no hash is made, and no
+    session is revoked or issued; for an account without a password, which the route asks for no current password, as
+    for one with. The reader of a stale tab types the password of the account it shows, which is wrong for this one:
+    a refusal that came after the password check would answer 400, not 409."""
+    from app.routers import auth
+
+    reached: list[str] = []
+
+    def recorded(name, original):
+        def call(*args, **kwargs):
+            reached.append(name)
+            return original(*args, **kwargs)
+        return call
+
+    async def pwned(password):
+        reached.append("is_password_pwned")
+        return False
+
+    monkeypatch.setattr(auth, "enforce_rate_limit", recorded("enforce_rate_limit", auth.enforce_rate_limit))
+    monkeypatch.setattr(auth, "verify_password", recorded("verify_password", auth.verify_password))
+    monkeypatch.setattr(auth, "get_password_hash", recorded("get_password_hash", auth.get_password_hash))
+    monkeypatch.setattr(auth, "is_password_pwned", pwned)
     with _auth_as(has_password=has_password) as uid:
         _mint_session(uid)
         before_hash, before_sessions = _reload_hash(uid), _live_token_ids(uid)
@@ -143,7 +163,7 @@ def test_change_password_naming_another_account_changes_nothing(client, has_pass
         resp = client.post(
             "/api/auth/change-password",
             json={
-                "current_password": "OldStr0ngPassw0rd!" if has_password else None,
+                "current_password": "TheShownAccountsPassw0rd!" if has_password else None,
                 "new_password": "BrandNewPassw0rd!",
                 "account_id": uid + 1,
             },
@@ -154,6 +174,7 @@ def test_change_password_naming_another_account_changes_nothing(client, has_pass
             "This browser is logged in to a different account from the one this page shows, "
             "so the password was not changed."
         )
+        assert reached == []
         assert _reload_hash(uid) == before_hash
         assert _live_token_ids(uid) == before_sessions
         assert "earningsnerd_refresh_token" not in resp.cookies
@@ -177,7 +198,8 @@ def test_change_password_naming_its_own_account_changes_it(client, has_password)
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("account_id", ["7", True, 1.5], ids=["string", "boolean", "float"])
+# Each is a value a lax int would coerce to an account (7, 1 and 7): StrictInt refuses them all.
+@pytest.mark.parametrize("account_id", ["7", True, 7.0], ids=["string", "boolean", "whole_float"])
 def test_change_password_account_id_must_be_an_integer(client, account_id):
     """The account is named strictly, as the logout of every session names it (StrictInt): a coerced value is refused
     with 422, before the route runs, rather than read as an account."""

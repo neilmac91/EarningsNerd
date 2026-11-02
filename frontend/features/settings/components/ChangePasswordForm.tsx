@@ -23,6 +23,10 @@ import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 export const PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE =
   "This browser is now logged in to another account, so we didn't change your password. Log in to the account you meant, then try again."
 
+/** What the form says when it cannot name the account its tab shows (the identity read holds none, as when it failed):
+ * a change it posted unnamed would change whichever account the browser holds, so it posts none (E29 (6)). */
+export const ACCOUNT_UNCONFIRMED_MESSAGE = "We couldn't confirm which account this page shows. Reload the page, then try again."
+
 export default function ChangePasswordForm() {
   const queryClient = useQueryClient()
   // Shares the cache with ConnectedAccounts (same key) — one fetch, and invalidating it after a
@@ -47,13 +51,9 @@ export default function ChangePasswordForm() {
   }
 
   const mutation = useMutation({
-    // It names the account this tab shows as the change is asked for, and the route refuses another's (E29 (6)).
-    mutationFn: () =>
-      changePassword(
-        hasPassword ? current : null,
-        next,
-        queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id,
-      ),
+    // It names the account this tab shows as the change is asked for, and the route refuses another's (E29 (6)); submit
+    // posts nothing while there is no account to name.
+    mutationFn: (accountId: number) => changePassword(hasPassword ? current : null, next, accountId),
     onSuccess: () => {
       clearFields()
       queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
@@ -81,7 +81,12 @@ export default function ChangePasswordForm() {
       setClientError('New password and confirmation do not match.')
       return
     }
-    mutation.mutate()
+    const accountId = queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id
+    if (accountId === undefined) {
+      setClientError(ACCOUNT_UNCONFIRMED_MESSAGE)
+      return
+    }
+    mutation.mutate(accountId)
   }
 
   const incomplete = !next || !confirm || (hasPassword && !current)

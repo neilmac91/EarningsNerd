@@ -3,7 +3,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
-import ChangePasswordForm, { PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE } from '@/features/settings/components/ChangePasswordForm'
+import ChangePasswordForm, {
+  ACCOUNT_UNCONFIRMED_MESSAGE,
+  PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE,
+} from '@/features/settings/components/ChangePasswordForm'
 import { STEP_TOAST_DURATION_MS } from '@/features/auth/lib/accountQueryState'
 import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
@@ -12,7 +15,8 @@ import { queryKeys } from '@/lib/queryKeys'
  * E29 (6): a tab left showing one account by another tab's sign-in posts its password change with the cookies of the
  * account the browser holds now, and for an account without a password the route asks for no current one. So the form
  * names the account its tab shows (the identity read's cached account, as "Log out of all devices" names it, E157 (2)),
- * and on the route's 409 for another account it keeps nothing typed for the account it showed, says why in a toast,
+ * posts nothing while that read holds no account to name, and on the route's 409 for another account it keeps nothing
+ * typed for the account it showed, says why in a toast,
  * which outlives the form a read of /me replaces, and reads /me again. The cross-tab ordering and the route's refusal
  * are pinned in sessionCookiesAcrossTabs.spec.ts and backend/tests/unit/test_password_and_profile.py.
  */
@@ -34,9 +38,9 @@ const shown: CurrentUser = {
 const OTHER_ACCOUNT_DETAIL =
   'This browser is logged in to a different account from the one this page shows, so the password was not changed.'
 
-function renderForm() {
+function renderForm(account: CurrentUser | null = shown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  client.setQueryData(queryKeys.currentUser(), shown)
+  if (account) client.setQueryData(queryKeys.currentUser(), account)
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   render(<QueryClientProvider client={client}><ChangePasswordForm /></QueryClientProvider>)
   return { client, invalidate }
@@ -84,6 +88,17 @@ describe('ChangePasswordForm names the account its tab shows (E29 (6))', () => {
     // The toast gave the step; no error line repeats it under the form the read of /me puts in its place.
     expect(screen.queryByText(OTHER_ACCOUNT_DETAIL)).not.toBeInTheDocument()
     expect(screen.queryByText('Password saved')).not.toBeInTheDocument()
+  })
+
+  it('posts nothing while the identity read holds no account to name, and says why', async () => {
+    // The settings page still renders its sections when its first /me read failed: an unnamed change would change
+    // whichever account the browser holds.
+    api.getConnections.mockResolvedValue({ has_password: false, providers: [] })
+    renderForm(null)
+    await fillAndSubmit(false)
+
+    expect(await screen.findByText(ACCOUNT_UNCONFIRMED_MESSAGE)).toBeInTheDocument()
+    expect(api.changePassword).not.toHaveBeenCalled()
   })
 
   it('shows any other refusal on its line, as before, and keeps what was typed', async () => {

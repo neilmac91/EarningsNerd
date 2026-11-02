@@ -180,7 +180,10 @@ describe('ChangePasswordForm submit', () => {
     api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
     const post = deferred<unknown>()
     api.changePassword.mockReturnValue(post.promise)
-    renderWithClient(<ChangePasswordForm />)
+    // The account the tab shows, which the change names (E29 (6)).
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), user(null))
+    renderWithClient(<ChangePasswordForm />, client)
 
     const current = await screen.findByLabelText('Current password')
     const submit = screen.getByRole('button', { name: 'Update password' })
