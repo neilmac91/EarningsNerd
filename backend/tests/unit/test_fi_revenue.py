@@ -230,14 +230,19 @@ def test_a_one_year_total_element_never_locks_out_the_filers_total():
     assert {tag for _value, tag in years.values()} == {REV} and len(years) == 9  # FY2017-25
 
 
-def test_a_one_year_total_is_skipped_only_beside_a_total_the_rule_reads():
-    # A bank's gross Revenues (above its sum) is no total the rule reads, so the one year of its net total stays.
-    payload = _years({RNOIE: {2025: 510e6}, REV: {y: 900e6 for y in (2023, 2024, 2025)}, NII: {2025: 400e6},
-                      NONII: {2025: 110e6}})
+@pytest.mark.parametrize("other", [
+    {REV: {y: 900e6 for y in (2023, 2024, 2025)}, NII: {2025: 400e6}, NONII: {2025: 110e6}},  # above the bank's sum
+    {REV: {2023: 300e6, 2024: 310e6, 2025: 320e6}, FEE: {2023: 500e6, 2024: 505e6, 2025: 490e6}},  # a partial line
+])
+def test_a_one_year_total_is_skipped_only_beside_a_total_the_rule_reads(other):
+    # A bank's gross Revenues (above its sum) and a partial line (64% of the fee tag) are no totals the rule reads, so
+    # the one year of the net total stays. E286's review: the partial line once made it a one-off, and the fee tag
+    # (refused here beside the net total it does not match) read the year instead.
+    payload = _years({RNOIE: {2025: 510e6}, **other})
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
 
 
-@pytest.mark.parametrize("total,tags", [(612e6, ()), (520e6, (REV,)), (400e6, (REV,))])
+@pytest.mark.parametrize("total,tags", [(612e6, ()), (535.5e6, ()), (520e6, (REV,)), (400e6, (REV,))])
 def test_a_total_above_a_banks_sum_is_left_out(total, tags):
     # WBHC's gross Revenues and MUFG's segment figure read 10-90% above net interest income plus noninterest income
     # (510M here) in the filings that report all three. USB's total reads 1.2% above (2% here); a total net of
@@ -245,6 +250,24 @@ def test_a_total_above_a_banks_sum_is_left_out(total, tags):
     years = range(2023, 2026)
     payload = _years({REV: {y: total for y in years}, NII: {y: 400e6 for y in years}, NONII: {y: 110e6 for y in years}})
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+
+
+def test_one_filing_above_a_banks_sum_leaves_the_total_out():
+    # E286's review: the total reads the bank's sum in two filings and 20% above it in the third; one filing is
+    # enough, as WBHC's and MUFG's lines show (a quantifier flip to "every filing" would keep it).
+    years = range(2023, 2026)
+    payload = _years({REV: {2023: 510e6, 2024: 510e6, 2025: 612e6}, NII: {y: 400e6 for y in years},
+                      NONII: {y: 110e6 for y in years}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ()
+
+
+def test_one_filing_below_a_banks_sum_refuses_the_fee_tag():
+    # E286's review: with no total, the fee tag reads the bank's sum in two filings and 88% of it in the third, where
+    # it equals noninterest income (so no part refuses it); one filing below the floor is enough.
+    years = range(2023, 2026)
+    payload = _years({FEE: {2023: 510e6, 2024: 510e6, 2025: 450e6}, NII: {y: 60e6 for y in years},
+                      NONII: {y: 450e6 for y in years}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ()
 
 
 def test_a_banks_sum_is_read_within_one_filing():
@@ -286,6 +309,30 @@ def test_a_restated_total_is_read_only_beside_the_fee_tag_it_sits_under(part, ta
     if part:
         values["PremiumsEarnedNet"] = {2017: part}
     assert fi_revenue.financial_revenue_tags(_years(values)["facts"]["us-gaap"], "USD") == tags
+
+
+def test_a_restated_total_stays_out_beside_a_total_the_fee_tag_disagrees_with():
+    # E286's review: the line just below the fee tag (98.6% of it) is read only with the fee tag, never behind another
+    # total; here the fee tag is refused beside the net total it does not match, so the line stays out too.
+    payload = _years({RNOIE: {2016: 7.0e9, 2017: 7.5e9}, FEE: {2016: 5.68e9, 2017: 6.24e9},
+                      REV: {2014: 4.6e9, 2015: 5.4e9, 2016: 5.6e9, 2017: 6.15e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
+
+
+@pytest.mark.parametrize("y2019,tags", [(6.0e9, (FEE,)), (9.6e9, (FEE, REV))])
+def test_a_restated_total_reads_at_least_ninety_percent_wherever_both_report(y2019, tags):
+    # E286's review: below the fee tag in both shared years, at 95% of it in 2018. At 60% in 2019 it is a partial line
+    # (a quantifier flip to "any year" would read it); at 96% it is the restated total, filling FY2017.
+    payload = _years({REV: {2017: 4.0e9, 2018: 9.5e9, 2019: y2019}, FEE: {2018: 10.0e9, 2019: 10.0e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+
+
+@pytest.mark.parametrize("line,tags", [(4.25e9, (FEE,)), (4.75e9, (FEE, REV))])
+def test_a_line_below_the_fee_tag_is_restated_from_ninety_percent(line, tags):
+    # 85% of the fee tag is a partial line (BLK's reads 62%); 95% is the total ASC 606 restated (AJG's reads 98.5%),
+    # read last beside the fee tag, so it fills FY2015.
+    payload = _years({REV: {2015: 4.0e9, 2016: line}, FEE: {2016: 5.0e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
 
 
 def test_the_second_fee_element_fills_where_it_matches_the_first():
@@ -336,7 +383,7 @@ def test_with_no_total_a_fee_tag_above_the_part_beside_it_is_the_total():
         "2024-12-31": (41.89, FEE), "2025-12-31": (49.59, FEE)}
 
 
-@pytest.mark.parametrize("fee,tags", [(450e6, ()), (510e6, (FEE,))])
+@pytest.mark.parametrize("fee,tags", [(450e6, ()), (484.5e6, ()), (500e6, (FEE,)), (510e6, (FEE,))])
 def test_with_no_total_a_banks_fee_tag_short_of_its_sum_is_no_total(fee, tags):
     # A trust bank's fees, as large as its noninterest income and above its net interest income, sit above every part
     # beside them; the bank's total is the sum of the two (510M), so only a fee tag that reads the sum is the total.

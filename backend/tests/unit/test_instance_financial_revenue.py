@@ -459,6 +459,8 @@ def test_every_fixture_filings_own_items_give_e264s_choice():
     ("BLK", "0000950170-25-026584", (FEE,)),  # FY2024: the fee-tagged total, not the partial Revenues line
     ("MET", "0001099219-26-000013", (REV,)),
     ("PNC", "0000713676-21-000025", (REV, FEE)),  # the fee element matches the total, so it may fill
+    ("WBHC", "0001193125-26-082893", ()),  # FY2025 10-K: its gross Revenues is above its bank's sum
+    ("WBHC", "0000950170-25-067712", (REV,)),  # Q1 2025 10-Q: a quarter's sum leaves no total out (E290 (5))
 ])
 def test_named_filings_choose_their_reported_total(ticker, accession, tags):
     [(form, own)] = [(form, own) for t, accn, form, own in _own_filings() if (t, accn) == (ticker, accession)]

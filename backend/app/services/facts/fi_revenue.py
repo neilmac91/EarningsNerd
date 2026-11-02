@@ -14,11 +14,11 @@ quarters. A bank's sum is its net interest income plus its noninterest income as
    and SalesRevenueServicesNet, which filers tagged before ASC 606 (ARE, BRX, PLD, MRSH). One is left out when a
    filing reads it more than 3% above the bank's sum for a year (WBHC's gross Revenues, MUFG's segment figure; USB's
    total reads 1.2% above). A quarter's sum leaves none out, since STT's 2020 10-Qs tag their noninterest income near
-   zero; so WBHC's 10-Qs still read its gross Revenues (E290). One is also left out when it reports one year, which
-   another total element reports among others (CLSK's FY2019 component); or when it is below the ASC 606 element
-   (excluding assessed tax) at every period both report. Below 90% of it, that is a partial line (BLK's FY2024
-   10-K). From 90%, it is the total before ASC 606 restated it (AJG FY2014-15): read last, so it fills only the
-   periods every other tag lacks, and only when that element is read.
+   zero; so WBHC's 10-Qs still read its gross Revenues (E290). One is also left out when it is below the ASC 606
+   element (excluding assessed tax) at every period both report. Below 90% of it, that is a partial line (BLK's
+   FY2024 10-K). From 90%, it is the total before ASC 606 restated it (AJG FY2014-15): read last, so it fills only
+   the periods every other tag lacks, and only when that element is read. Of the rest, one is left out when it
+   reports one year, which another of the rest reports among others (CLSK's FY2019 component).
 2. The ASC 606 elements, excluding then including assessed tax (CBOE, ARE, BRX, SDEV and HUT tag their total with
    the latter), after the totals, each read only when it is the filer's total. Either its value matches the earlier
    tags' at the latest year it shares with them (ICE, NDAQ, EQIX, O, PNC); or it shares no year with them, matches
@@ -133,15 +133,18 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
     chosen: list[str] = []
     held: _Items = {}  # each period's values, from the first chosen tag that reports it
     restated: list[str] = []  # totals just below the ASC 606 element: the years before ASC 606 restated them
+    readable: dict[str, _Items] = {}  # the rest: totals the order below may read
     for tag, series in totals.items():
-        years = _years(series)
-        if len(years) == 1 and any(years < _years(other) for other in totals.values()):
-            continue  # one year that another total element reports among others: a one-off line (CLSK)
         below = _shared(series, fee)
         if below and all(_read(series[k]) < (1 - CROSS_CHECK_TOLERANCE) * _read(fee[k]) for k in below):
             if all(_read(series[k]) >= PARTIAL_RATIO * _read(fee[k]) for k in below):
                 restated.append(tag)
             continue  # a partial line, or a total the ASC 606 element restated
+        readable[tag] = series
+    for tag, series in readable.items():
+        years = _years(series)
+        if len(years) == 1 and any(years < _years(other) for other in readable.values()):
+            continue  # one year that another readable total reports among others: a one-off line (CLSK)
         shared = _shared(series, held)
         if not chosen or (shared and _matches(_read(series[max(shared)]), held[max(shared)])):
             _take(chosen, held, tag, series)
