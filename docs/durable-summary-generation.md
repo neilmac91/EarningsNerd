@@ -167,19 +167,26 @@ image and deployment role map. Existing HTTP/PostgreSQL ownership tests simulate
 Tasks boundary. The loopback worker isolation test exercises signed identity validation and the
 real subprocess supervisor with synthetic children; it proves that offline process boundary,
 not real queue persistence, private Cloud Run ingress or deployed resource isolation.
-The first real-delivery rehearsal uses captured REGN sources,
-offline provider results and synthetic mail transport, with no live SEC, model or mail call.
-Inventory primary/exhibit, XBRL/companyfacts, submissions and EdgarTools sibling boundaries;
-an unmocked fallback is a failed rehearsal, not permission to reach a provider.
+The runnable [isolated delivery rehearsal](../ops/summary_delivery/README.md) uses synthetic
+source/provider fixtures labelled with the two REGN identities and synthetic mail transport,
+with no live SEC, model or mail call. It exercises the existing orchestrator and actual queue,
+receiver, subprocess and persistence boundaries. It does not reproduce the original filing's
+content or establish summary quality. An unmocked source/provider fallback is a failed
+rehearsal, not permission to reach that provider.
 
-Admit at most the two fixed REGN source identities, one job per filing and at most four
-generation attempts each; cap the harness at four POSTs and six result/status GETs with
-transport retries/polling disabled. Fault cases cover ambiguous queue acknowledgment,
-redelivery, expired owner/restart, delayed source/cooldown, observer disconnect, stale writes,
-result visibility and logical usage settlement. Separate synthetic control tasks test mail
-waiting behind summary work. Real queue API calls and fault injections need their own exact
-inventory and approved resource budget before dispatch; the HTTP count is not a limit on
-Cloud Tasks' delivery attempts or provider-internal retries.
+The fixed manifest admits two summary jobs, four generation POSTs, six result GETs and bounded
+separate control polling. It also bounds queue attempts, task creation, admitted child
+deliveries and run lifetime; HTTP counts alone do not bound those operations. Acceptance
+checks held-summary mail progress, child timeout/reap and recovery, observer disconnect,
+persisted result visibility and logical usage settlement. The runbook owns exact limits and
+the approval/cleanup procedure. No actual cloud rehearsal has been accepted merely because
+these tools or local tests pass.
+
+Ambiguous queue acknowledgment, source cooldown and stale-owner writes have separate offline
+and PostgreSQL checks below; the first cloud rehearsal does not inject every one of those
+faults. Captured-source correctness, release-time source availability, actual scheduler cadence
+and production burst/mail latency need their own retained evidence before those claims can be
+made. Keep that broader acceptance matrix distinct from this synthetic transport result.
 
 The code now refuses a durable summary on the background queue/worker route. That protection
 requires correctly provisioned distinct services and queues; aliases alone do not establish it.

@@ -18,7 +18,9 @@ indirect/dynamic invocation remains a review concern. Its observer and every oth
 Python a step runs is a file run by path from ops/ or scripts/,
 or a one-line `python3 -c` helper (three today); never a program fed through a heredoc or stdin, nor a step
 shell other than bash. The ops/ modules are standard-library only (ops.yml runs them on the runner's bare
-python3, 3.12 today, while CI tests on 3.11) and linted with the backend rule set, which CI's `ruff check`
+python3, 3.12 today, while CI tests on 3.11), apart from the explicitly listed app-image verification
+bootstraps. The summary bootstrap's sole observer suppresses both child streams; its complete AST
+and borrowed-spawner references are pinned below. Modules are linted with the backend rule set, which CI's `ruff check`
 (run inside backend/) does not reach.
 
 Not covered (review concerns): gcloud run through a variable, a function, its full path, a script a step calls
@@ -192,11 +194,31 @@ FEEDBACK_RUNTIME_IMPORTS = {
     "app.services.feedback_media_cleanup_service", "app.services.user_account_service", "app.utils.datetimes",
     "app.services.request_work",
 }
+# Like feedback verification, this hash-bound bootstrap runs only on the app image,
+# not on the Actions interpreter. Its single supervisor observer forces both child
+# streams to DEVNULL; the exact observer is checked below, not generally exempted.
+SUMMARY_RUNTIME = "ops/summary_delivery/runtime.py"
+SUMMARY_RUNTIME_IMPORTS = {
+    "sqlalchemy", "app.database", "app.models", "app.routers.auth", "app.services",
+    "app.services.request_work", "app.services.ai.provider_requests", "app.services.durable_tasks",
+    "fastapi", "fastapi.responses", "app.config", "app.routers.tasks", "app.routers",
+    "app.api_errors", "app.services.account_mail_service", "app.services.summary_jobs", "uvicorn",
+}
+SUMMARY_OBSERVER = '''async def observed_spawn(*args, **kwargs):
+    kwargs["stdout"] = asyncio.subprocess.DEVNULL
+    kwargs["stderr"] = asyncio.subprocess.DEVNULL
+    process = await spawn(*args, **kwargs)
+    created.append(process)
+    return process
+'''
 OPS_SIBLING_IMPORTS = {
     "ops/describe/service.py": {"ops.describe.summary_configuration"},
     "ops/describe/jobs.py": {"ops.describe.summary_configuration"},
     "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
     "ops/feedback_media/verify_manage.py": {"manage"},
+    "ops/summary_delivery/database.py": {"ops.summary_delivery.recovery_caller", "ops.summary_delivery.spec"},
+    "ops/summary_delivery/manage.py": {"ops.feedback_media.manage", "ops.summary_delivery", "ops.summary_delivery.database"},
+    "ops/summary_delivery/recovery_caller.py": {"ops.feedback_media.manage"},
 }
 # Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them; the
 # runner's python3 (3.12 today) lacks the first five, and a 3.13 runner would lack the rest too.
@@ -893,6 +915,51 @@ def test_local_command_exception_refuses_every_redirect_argument_form(call, inhe
     assert _local_command_inherits_streams(ast.parse(call).body[0].value) is inherits
 
 
+def _summary_async_observer(tree):
+    """Only the fixed stream-suppressing wrapper may borrow the app's actual spawn.
+
+    Pin the observer AST and every assignment/use of its borrowed spawner, so this
+    exception cannot become an arbitrary asyncio subprocess path in Ops tooling.
+    """
+    expected = ast.parse(SUMMARY_OBSERVER).body[0]
+    observers = [node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef)
+                 and node.name == "observed_spawn"]
+    assert len(observers) == 1 and ast.dump(observers[0]) == ast.dump(expected)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    assignments = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id == "asyncio":
+            parent = parents.get(node)
+            assert isinstance(parent, ast.Attribute) and parent.attr in {"sleep", "subprocess", "create_subprocess_exec"}
+            if parent.attr == "subprocess":
+                outer = parents.get(parent)
+                assert isinstance(outer, ast.Attribute) and outer.attr == "DEVNULL"
+            if parent.attr == "create_subprocess_exec":
+                assignment = parents.get(parent)
+                assert isinstance(assignment, ast.Assign)
+                assignments.append(ast.unparse(assignment))
+    assert sorted(assignments) == sorted([
+        "spawn = asyncio.create_subprocess_exec", "asyncio.create_subprocess_exec = observed_spawn",
+        "asyncio.create_subprocess_exec = spawn",
+    ])
+    uses = [ast.unparse(parents[node]) for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "spawn"]
+    assert sorted(uses) == sorted(["spawn = asyncio.create_subprocess_exec", "spawn(*args, **kwargs)",
+                                   "asyncio.create_subprocess_exec = spawn"])
+
+
+@pytest.mark.parametrize("old,new", [
+    ('kwargs["stderr"] = asyncio.subprocess.DEVNULL', 'kwargs["stderr"] = None'),
+    ('kwargs["stdout"] = asyncio.subprocess.DEVNULL', 'kwargs["stdout"] = None'),
+    ("process = await spawn(*args, **kwargs)", "process = await spawn(*args)"),
+])
+def test_summary_observer_exception_rejects_stream_inheritance(old, new):
+    source = (ROOT / SUMMARY_RUNTIME).read_text()
+    _summary_async_observer(ast.parse(source))
+    assert source.count(old) == 1
+    with pytest.raises(AssertionError):
+        _summary_async_observer(ast.parse(source.replace(old, new)))
+
+
 def test_ops_modules_never_let_a_child_process_inherit_stderr():
     spawns, local_spawns, private_spawns, stderr_reads = 0, 0, 0, []
     for workflow in (ROOT / ".github/workflows").iterdir():
@@ -904,11 +971,13 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
         owner = _functions(tree)
         parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         module = path.relative_to(ROOT).as_posix()
+        if module == SUMMARY_RUNTIME:
+            _summary_async_observer(tree)
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
                 forbidden = {name.split(".")[0] for name in names} & CHILD_MODULES
-                if module == FEEDBACK_RUNTIME and isinstance(node, ast.Import) and names == ["asyncio"]:
+                if module in {FEEDBACK_RUNTIME, SUMMARY_RUNTIME} and isinstance(node, ast.Import) and names == ["asyncio"]:
                     assert all(alias.asname is None for alias in node.names)
                     forbidden -= {"asyncio"}
                 assert not forbidden, (
@@ -983,7 +1052,9 @@ def test_ops_modules_import_only_the_standard_library():
             else:
                 continue
             for name in names:
-                if name in OPS_SIBLING_IMPORTS.get(module, set()) or (module == FEEDBACK_RUNTIME and name in FEEDBACK_RUNTIME_IMPORTS):
+                if (name in OPS_SIBLING_IMPORTS.get(module, set())
+                        or (module == FEEDBACK_RUNTIME and name in FEEDBACK_RUNTIME_IMPORTS)
+                        or (module == SUMMARY_RUNTIME and name in SUMMARY_RUNTIME_IMPORTS)):
                     continue
                 assert name.split(".")[0] in sys.stdlib_module_names, f"{path}: {name} is not in the standard library"
                 assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from Python 3.12 or 3.13"
