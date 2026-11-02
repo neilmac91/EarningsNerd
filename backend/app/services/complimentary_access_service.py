@@ -15,7 +15,8 @@ The operator runs it through ``scripts/complimentary_access.py`` (``docs/ops/com
   place in the manifest, never an id or an address, with the manifest's digest;
 * an **apply** runs only the manifest whose digest it is handed, and treats each account as one unit: under the
   grants' lock and the account's row lock it reads the account again, then writes the ledger row, the flag and
-  their audit row in one commit, or nothing. A rerun changes nothing an earlier run changed.
+  their audit row in one commit, or nothing. A rerun changes nothing an earlier run changed, except that a grant
+  manifest with another review date moves its cohort's active grants to that date (and changes nothing else).
 
 Nothing here calls Stripe or sends mail. A grant never touches billing state, and a revoke of an account that
 has gained a Subscription row since its grant closes the ledger row and leaves the flag to the webhook that owns it.
@@ -41,8 +42,9 @@ from app.utils.datetimes import utcnow
 # The key of the PostgreSQL advisory lock every grant and revoke unit takes first: "COMPGRNT" in ASCII.
 GRANT_LOCK_KEY = 0x434F4D5047524E54
 
-# The audit actions, spelled again as literals at their two create_audit_log calls (legalTruth.spec.tsx's reader).
+# The audit actions, spelled again as literals at their three create_audit_log calls (legalTruth.spec.tsx's reader).
 AUDIT_GRANTED = "complimentary_access_granted"
+AUDIT_REVIEW_MOVED = "complimentary_access_review_moved"
 AUDIT_REVOKED = "complimentary_access_revoked"
 
 
@@ -78,8 +80,10 @@ def _lock_grants(db: Session) -> None:
 
 def holds_stripe_identity(user: User) -> bool:
     """The account holds a Stripe customer or subscription id, so a Stripe event can find it
-    (``subscription_sync._find_user``) and the webhook may write its ``is_pro``: a grant refuses it, and a revoke
-    leaves its flag to the webhook. Read only, never written here."""
+    (``subscription_sync._find_user``): a grant refuses it, and the readout counts an active grant whose account has
+    gained one. It does not decide a revoke: the webhook writes ``is_pro`` only through a Subscription row, so a revoke
+    leaves the flag to the webhook only when that row exists (:attr:`_Account.billing_owned`), and clears the grant's
+    Pro beside a Stripe id alone. Read only, never written here."""
     return bool(user.stripe_customer_id or user.stripe_subscription_id)
 
 
@@ -145,8 +149,9 @@ def _identity_refusal(account: _Account, entry: ManifestAccount) -> Optional[str
 
 
 def _grant_outcome(account: _Account, entry: ManifestAccount, manifest: GrantManifest) -> tuple[str, list[str]]:
-    """``eligible``, ``already_granted`` (this cohort's grant set the account's Pro), or ``refused`` with every
-    reason that applies."""
+    """``eligible``; ``already_granted`` (this cohort's grant set the account's Pro, with this review date);
+    ``review_date_moves`` (the same, with another review date, which the apply moves to the manifest's); or
+    ``refused`` with every reason that applies."""
     identity = _identity_refusal(account, entry)
     if identity:
         return "refused", [identity]
@@ -177,7 +182,9 @@ def _grant_outcome(account: _Account, entry: ManifestAccount, manifest: GrantMan
             refusals.append("grant_without_pro")
     if refusals:
         return "refused", refusals
-    return ("already_granted" if active is not None else "eligible"), []
+    if active is None:
+        return "eligible", []
+    return ("already_granted" if active.review_on == manifest.review_on else "review_date_moves"), []
 
 
 def _revoke_outcome(account: _Account, entry: ManifestAccount, manifest: RevokeManifest) -> tuple[str, list[str]]:
@@ -324,6 +331,8 @@ def _grant_one(
         _lock_grants(db)
         account = _read_account(db, entry.account_id, lock=True)
         outcome, refusals = _grant_outcome(account, entry, manifest)
+        if outcome == "review_date_moves":
+            return _move_review_date(db, manifest, digest, account, operator=operator, runner=runner)
         if outcome != "eligible":
             db.rollback()
             return outcome, refusals
@@ -359,6 +368,27 @@ def _grant_one(
     except Exception:
         db.rollback()
         raise
+
+
+def _move_review_date(
+    db: Session, manifest: GrantManifest, digest: str, account: _Account, *, operator: str, runner: Optional[str],
+) -> tuple[str, list[str]]:
+    """Move an active grant's review date to the manifest's, with its audit row in the same commit, under the unit's
+    locks. The account's Pro, the grant's provenance and the cap stay as they are: nothing expires on the date
+    (docs/ops/complimentary-access.md, "End date"), so the move changes only when the readout counts the grant due."""
+    grant = account.active_grant
+    state = _state(account)
+    before = {**state, "review_on": grant.review_on.isoformat()}
+    grant.review_on = manifest.review_on
+    after = {**state, "review_on": manifest.review_on.isoformat()}
+    create_audit_log(
+        db, action="complimentary_access_review_moved", user_id=manifest.operator_account_id, entity_type="user",
+        entity_id=str(account.user.id), mandatory=True,
+        details=_audit_details(operator=operator, runner=runner, manifest=manifest, digest=digest, account=account,
+                               before=before, after=after),
+    )
+    db.commit()
+    return "review_date_moved", []
 
 
 def _revoke_one(

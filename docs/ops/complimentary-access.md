@@ -51,11 +51,17 @@ it. Paid and trial accounts see what they saw before.
 `review_on` is an operational review or end date. **Nothing expires on it.** The readout counts the grants whose date
 has come (`due_for_review`), and the founder revokes them with a revoke manifest. Billing does not show the date.
 
+To move the date, apply the cohort's grant manifest again with the new `review_on`, dry run first, since the digest
+changes. Each active grant of that cohort whose date differs moves to it (`review_date_moves` in the dry run,
+`review_date_moved` in the apply), with an audit row of its own (`complimentary_access_review_moved`, the dates before
+and after and the run's reason); its Pro, its grant time and the cap are untouched. The window still holds: after the
+day of the apply, at most 366 days later.
+
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
 past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
 nothing may say that access ends by itself: Settings › Billing and the dashboard's plan card, the two places that name
-the access, carry no end, renewal, expiry, trial, price or date (`frontend/tests/unit/complimentaryAccess.ts`, read by
-their specs); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
+the access, carry no end, renewal, expiry, trial, price, date or countdown
+(`frontend/tests/unit/complimentaryAccess.ts`, read by their specs over each whole surface); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
 
 ## Who can be granted
 
@@ -77,7 +83,8 @@ The dry run and every apply check each account; a refusal names the reason, and 
 | `grant_without_pro` | The account's grant is active but its Pro was cleared by something else: investigate before anything else. |
 | `cap_reached` | Twenty grants are active (the apply re-checks this under its lock). |
 
-Outcomes that are not refusals: `eligible` (dry run) and `granted`; `already_granted` (a rerun); for a revoke,
+Outcomes that are not refusals: `eligible` (dry run) and `granted`; `already_granted` (a rerun);
+`review_date_moves` (dry run) and `review_date_moved` (a rerun with another review date, "End date"); for a revoke,
 `revocable`/`revoked`, `revocable_billing_owned`/`revoked_billing_untouched` and `not_granted`. A grant that would take
 the active grants past 20, across every cohort, stops the whole manifest (`stopped: cap_exceeded`) before any write.
 
@@ -108,7 +115,8 @@ report prints the cohort, and the readout counts grants by it, so it reaches the
 names no person, as the example's does.
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
-as a workflow input: the repository and its Actions logs are public.
+as a workflow input: the repository and its Actions logs are public. A committed one fails
+`test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example`; the rest is review-checked.
 
 ## Procedure
 
@@ -125,21 +133,27 @@ Before the first grant, the testers' accounts must exist as a grant can see them
   unless the founder decides to widen the rule.
 - **The stored address.** Fingerprint the address the account holds, which is the invite's address for an email-bound
   invite (an Apple sign-in that hides the address holds Apple's relay address instead).
+- **The reverse trial off.** With `REVERSE_TRIAL_ENABLED` on, verifying an address through its emailed link gives a
+  password account a trialing `Subscription` row, and a grant refuses an account with a row of any status, the lapsed
+  trial's included (`subscription_exists`). Keep it off, its default, while testers verify.
 
-1. **Prepare, offline.** On the founder's machine, with no settings and no database:
-   `python scripts/complimentary_access.py fingerprint < addresses.txt` prints one fingerprint per address, in order.
-   Write the manifest with each account's id and fingerprint, then
-   `python scripts/complimentary_access.py check --manifest manifest.json` validates it and prints its digest.
-2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest manifest.json` against
-   production. It writes nothing.
+1. **Prepare, offline.** On the founder's machine, with no settings and no database, from `backend/`, with both files
+   in a folder of the private store outside the repository, `$HOME/beta-private` (the Ops procedure's location too;
+   the checkout ignores the two names at its root and under `backend/` as a backstop, never as a place to keep them):
+   `python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"` prints one fingerprint
+   per address, in order. Write `"$HOME/beta-private/manifest.json"` with each account's id and fingerprint, then
+   `python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"` validates it and
+   prints its digest.
+2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest "$HOME/beta-private/manifest.json"`
+   against production. It writes nothing.
 3. **Review.** Compare the counts, every refusal and the digest with the private roster. Fix what is refused (a tester
    who has not verified yet is granted by a later rerun) and dry-run again after any edit, since an edit changes the
    digest.
-4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest manifest.json
+4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest "$HOME/beta-private/manifest.json"
    --confirm-digest <manifest_sha256> --runner <ops-run:id>`. It runs only the manifest whose digest it is handed.
    Each account is one unit: under the grants' lock and the account's row lock it is checked again, then its ledger
    row, its flag and its audit row commit together, or nothing does. A rerun grants what is newly eligible and changes
-   nothing it already changed.
+   nothing it already changed; with another review date it moves the cohort's active grants to it ("End date").
 5. **Verify.** `python scripts/complimentary_access.py readout` reports the active grants by cohort, the reviews due
    and any drift. A tester's Settings, Billing shows Pro with "Complimentary (private beta)" and no checkout button.
 6. **Revoke.** Write the revoke manifest, dry-run it, and apply it with its own digest. The account returns to Free:
@@ -184,8 +198,11 @@ from a second session, on CI's PostgreSQL.
 
 - **A mistaken grant:** revoke it (above). **A mistaken revoke:** grant again; a re-grant reopens the account's ledger
   row and writes a new audit row.
-- **Code rollback:** the ledger table is additive. A revision without this code still reads `is_pro`, so granted
-  accounts stay Pro under it, and Billing loses only its complimentary line (the flag keeps them out of checkout).
+- **Code rollback:** the ledger table is additive. A backend revision without this code still reads `is_pro`, so
+  granted accounts stay Pro under it; with this frontend, Billing then loses only its complimentary line (it reads a
+  missing `complimentary` as false and sends no Pro outside a trial to checkout). A frontend revision without it shows
+  a complimentary Pro "Upgrade to Pro", whose checkout refuses it (409), and the dashboard's "Manage billing", whose
+  portal fails without a Stripe customer.
   Revoke before rolling back if the grants should end with the code. The stamp's reference stays `ON DELETE SET NULL`
   under an older revision, which only lets an account's deletion through.
 - **Schema:** the migration only creates the table (`CREATE TABLE IF NOT EXISTS`). Dropping it would need a migration

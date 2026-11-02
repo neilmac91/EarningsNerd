@@ -23,9 +23,10 @@ Usage:
     python scripts/complimentary_access.py apply --manifest manifest.json --confirm-digest <sha256> --runner local
     python scripts/complimentary_access.py readout
 
-Exit status: 0 when the command ran (a report may still list refusals), 1 when it refused to run (a manifest fault,
-an operator who is not an active verified admin, a digest that is not the manifest's, a grant past the cap), 2 when
-an account's unit failed unexpectedly (units committed before it stay; a rerun skips them).
+Exit status: 0 when the command ran (a report may still list refusals), 1 when it refused to run (a manifest it cannot
+read, a manifest fault, an operator who is not an active verified admin, a digest that is not the manifest's, a grant
+past the cap), 2 when the database failed or an account's unit failed unexpectedly (units committed before a failing
+unit stay; a rerun skips them).
 
 Gate: tests/unit/test_complimentary_access_script.py (the report and every log line carry no planted id or address)
 and tests/unit/test_complimentary_access_service.py. Retire: with the Ops operations that run it, once the beta's
@@ -84,6 +85,8 @@ def cmd_check(args: argparse.Namespace) -> int:
         check_review_window(manifest, _today())
     except ManifestError as exc:
         return _refuse("manifest", problems=exc.problems)
+    except OSError:
+        return _refuse("manifest_unreadable")
     _print({
         "action": manifest.action,
         "cohort": manifest.cohort,
@@ -99,6 +102,15 @@ def _database_command(args: argparse.Namespace) -> int:
     from app.database import SessionLocal
     from app.services import complimentary_access_service as service
 
+    # The manifest is read before the database: a file it cannot read is a refusal, so exit 2 means the database or
+    # an account's unit failed.
+    if args.command != "readout":
+        try:
+            manifest, digest = _read_manifest(args.manifest)
+        except ManifestError as exc:
+            return _refuse("manifest", problems=exc.problems)
+        except OSError:
+            return _refuse("manifest_unreadable")
     # The report is the only output: an application log record can carry an exception's text or an address, and
     # the Ops log is public (financial_revenue_preview.py does the same).
     logging.disable(logging.CRITICAL)
@@ -108,7 +120,6 @@ def _database_command(args: argparse.Namespace) -> int:
             _print(service.readout(db, today=_today()))
             return 0
         try:
-            manifest, digest = _read_manifest(args.manifest)
             if args.command == "dry-run":
                 report = service.dry_run(db, manifest, digest, today=_today())
             else:
@@ -123,7 +134,7 @@ def _database_command(args: argparse.Namespace) -> int:
             return _refuse("digest_mismatch", manifest_sha256=digest)
         _print(report.as_dict())
         return REFUSED if report.stopped else 0
-    except Exception as exc:  # an account's unit failed: report the class alone, never a message with values
+    except Exception as exc:  # the database or an account's unit failed: the class alone, never a message with values
         _print({"failed": type(exc).__name__})
         return FAILED
     finally:

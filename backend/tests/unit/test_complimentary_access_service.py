@@ -14,6 +14,7 @@ changed after its dry run.
 """
 import hashlib
 import json
+import os
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -194,6 +195,7 @@ def _planted(**changes) -> bytes:
 
 _NOT_AN_ACTION = ["manifest: must be grant or revoke"]
 _NOT_JSON = ["manifest: is not valid JSON"]
+_REPEATED = ["manifest: names a key twice in one object"]
 
 
 @pytest.mark.parametrize("raw, problems", [
@@ -203,7 +205,13 @@ _NOT_JSON = ["manifest: is not valid JSON"]
     (_planted(action={PLANTED_ADDRESS: PLANTED_ID}), _NOT_AN_ACTION),
     (_planted(action=[PLANTED_ADDRESS]), _NOT_AN_ACTION),
     (_planted(action=None), _NOT_AN_ACTION),
-    (_planted()[:-1] + f', "action": "{PLANTED_ADDRESS}"}}'.encode(), _NOT_AN_ACTION),  # a repeated key: the last wins
+    # A repeated key, which every parser here resolves to its last value: refused, naming no key.
+    (_planted()[:-1] + f', "action": "{PLANTED_ADDRESS}"}}'.encode(), _REPEATED),
+    (_planted()[:-1] + f', "accounts": [{{"account_id": {PLANTED_ID}, "email_sha256": "{PLANTED_ADDRESS}"}}]}}'.encode(),
+     _REPEATED),
+    (('{"action": "grant", "cohort": "c-1", "reason": "Private beta tester", "review_on": "2030-08-01", '
+      '"operator_account_id": 1, "accounts": [{"account_id": %d, "email_sha256": "%s", "account_id": %d}]}'
+      % (PLANTED_ID, PLANTED_ADDRESS, PLANTED_ID)).encode(), _REPEATED),
     (json.dumps({"cohort": COHORT, "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS}]}).encode(),
      _NOT_AN_ACTION),
     # Malformed JSON: cut off inside an address, trailed by one, broken UTF-8 beside one; an address as the manifest.
@@ -297,6 +305,43 @@ def test_the_runbooks_example_manifest_is_one_the_command_accepts():
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
 
 
+# Where nothing of the repository's own is kept: dependencies, build output, test reports and caches.
+_NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-results", "playwright-report",
+                       "__pycache__", ".pytest_cache", ".ruff_cache"}
+
+
+def _manifest_shaped(root: Path):
+    """Each JSON file under ``root``, and each fenced json block of its Markdown, that names ``email_sha256``: every
+    manifest the command runs carries the key, so the rest cannot be one (a key spelled with escapes is not looked for:
+    the gate stops a manifest saved or pasted by mistake, not one disguised)."""
+    for folder, subfolders, files in os.walk(root):
+        subfolders[:] = [name for name in subfolders if name not in _NOT_THE_REPOSITORY]
+        for name in files:
+            path = Path(folder) / name
+            if name.endswith(".json") and b"email_sha256" in (raw := path.read_bytes()):
+                yield path, raw
+            elif name.endswith(".md") and b"email_sha256" in (raw := path.read_bytes()):
+                for block in re.findall(r"```json\n(.*?)```", raw.decode("utf-8", "replace"), re.S):
+                    yield path, block.encode()
+
+
+def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
+    """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
+    candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
+    (rule 12). Pasting one into an issue or a pull request stays a review check."""
+    accepted = []
+    for path, raw in _manifest_shaped(REPO):
+        try:
+            load_manifest(raw)
+        except ManifestError:
+            continue
+        accepted.append(path.relative_to(REPO).as_posix())
+    assert accepted == ["docs/ops/complimentary-access.md"], (
+        "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
+        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
+    )
+
+
 # --------------------------------------------------------------------------- dry run and refusals
 
 
@@ -327,7 +372,7 @@ def test_a_dry_run_counts_outcomes_and_names_each_refusal_by_place_without_writi
 
 def _subscription(user_id: int, status: str) -> Subscription:
     return Subscription(user_id=user_id, plan="pro" if status in ("active", "trialing") else "free", status=status,
-                        trial_end=NOW + timedelta(days=3650) if status == "trialing" else None)
+                        trial_end=None)  # no end: a trialing row then grants Pro whatever the real clock says
 
 
 @pytest.mark.parametrize("fields, expected", [
@@ -457,6 +502,39 @@ def test_a_rerun_changes_nothing_it_already_changed(world):
     assert (again.outcomes, again.refusals) == ({"already_granted": 1}, [])
     state = _committed(tester.id)
     assert state.grant.granted_at == first.grant.granted_at and state.actions == [service.AUDIT_GRANTED]
+
+
+def test_a_grant_manifest_with_another_review_date_moves_the_date_and_nothing_else(world):
+    """The founder extends or shortens the beta by applying the cohort's grant manifest with a new review date: each
+    active grant moves to it, with an audit row of its own, while its Pro, its provenance and the cap stay as they are.
+    Before, the apply reported the new date and kept the old one, so the readout counted the grant due on the old."""
+    operator = world.operator()
+    tester = world.tester()
+    _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    first = _committed(tester.id)
+    later = REVIEW_ON + timedelta(days=60)
+    moved = world.manifest("grant", [tester], operator_id=operator.id, reason="Beta extended", review_on=later)
+
+    planned = service.dry_run(world.db, *moved, today=TODAY)
+    assert (planned.outcomes, planned.active_grants_after) == ({"review_date_moves": 1}, 1)
+    assert _committed(tester.id).grant.review_on == REVIEW_ON  # the dry run writes nothing
+
+    applied = _apply(world, moved)
+    assert (applied.outcomes, applied.refusals, applied.active_grants_after) == ({"review_date_moved": 1}, [], 1)
+    state = _committed(tester.id)
+    assert state.grant.review_on == later
+    assert (state.is_pro, state.plan, state.grant.granted_at, state.grant.reason, state.grant.manifest_sha256) == (
+        True, Plan.PRO, first.grant.granted_at, REASON, first.grant.manifest_sha256)
+    assert state.actions == [service.AUDIT_GRANTED, service.AUDIT_REVIEW_MOVED]
+    row = world.db.query(AuditLog).filter(
+        AuditLog.entity_id == str(tester.id), AuditLog.action == service.AUDIT_REVIEW_MOVED).one()
+    assert (row.details["before"]["review_on"], row.details["after"]["review_on"], row.details["reason"]) == (
+        REVIEW_ON.isoformat(), later.isoformat(), "Beta extended")
+    assert service.readout(world.db, today=REVIEW_ON)["due_for_review"] == 0
+    assert service.readout(world.db, today=later)["due_for_review"] == 1
+
+    again = _apply(world, moved)  # the same manifest again changes nothing
+    assert again.outcomes == {"already_granted": 1} and _committed(tester.id).actions == state.actions
 
 
 def test_an_apply_runs_only_the_manifest_its_dry_run_reported(world):

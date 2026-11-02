@@ -7,7 +7,7 @@ import type { SavedSummary } from '@/features/summaries/api/summaries-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import DashboardPage from '@/app/dashboard/page'
 import { queryKeys } from '@/lib/queryKeys'
-import { COMPLIMENTARY_END_CLAIM } from './complimentaryAccess'
+import { COMPLIMENTARY_END_CLAIM, spacedText } from './complimentaryAccess'
 
 /**
  * The dashboard's Retry buttons (the account card, the plan strip, Your companies) and the saved-summary
@@ -797,8 +797,12 @@ describe('Manage billing', () => {
     expect(screen.queryByRole('button', { name: 'Manage billing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /upgrade|subscribe/i })).not.toBeInTheDocument()
     if (line) {
-      // The plan card's Pro block says nothing of an end: nothing expires on a grant's review date (PB-02).
-      expect(screen.getByText(line).parentElement?.textContent).not.toMatch(COMPLIMENTARY_END_CLAIM)
+      // The whole plan card, its heading row's badge included, says nothing of an end: nothing expires on a grant's
+      // review date (PB-02).
+      expect(screen.getByText(line)).toBeInTheDocument()
+      const card = screen.getByRole('heading', { name: 'Plan and usage' }).parentElement?.parentElement
+      expect(card && spacedText(card)).toMatch(/Plan and usage Pro .*Complimentary access/)
+      expect(card && spacedText(card)).not.toMatch(COMPLIMENTARY_END_CLAIM)
     } else expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
   })
 

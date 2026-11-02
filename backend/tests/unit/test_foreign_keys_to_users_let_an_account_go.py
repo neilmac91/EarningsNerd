@@ -5,16 +5,22 @@ table that references ``users.id`` lets that DELETE through only when the databa
 ``SET NULL``) or the ORM deletes the referencing rows first (a ``User`` relationship whose cascade includes delete).
 ``trend_analysis.created_by_user_id`` did neither until PB-02, so on PostgreSQL an account that had generated a cached
 Multi-Period Analysis could not be deleted, and a complimentary grant opens analysis generation to every invited
-tester. This gate reads every mapped table's foreign keys to ``users.id`` and holds each to one of the two.
+tester. This gate reads every mapped table's foreign keys to ``users.id`` and holds each to one of the two: the
+relationship's exemption covers only the column it deletes through, since a second reference on the same table that
+does neither still stops the DELETE, and ``SET NULL`` counts only on a column that can hold a null. Production's constraints are the ones its migrations built (CI's PostgreSQL jobs
+seed with ``create_all``, which builds the model's), so it also reads every reference to ``users`` a migration
+declares and holds it to acting on delete, save the one legacy file a later migration replaced.
 
 The second case plants the bug: an account stamped on an analysis, deleted through the real deletion path on a SQLite
 database that enforces foreign keys (``PRAGMA foreign_keys=ON``, as PostgreSQL always does). It passes only while the
 reference sets null, and then keeps the shared analysis with its stamp cleared.
 
 Out of reach: a deletion made outside the ORM path (``test_unaudited_deletion_callers_allowlist.py`` holds those to a
-reviewed list), and a reference declared in a migration but not in a model (every table here is mapped).
+reviewed list), and a reference made in production outside the migrations and the models.
 """
+import re
 import uuid
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -28,26 +34,110 @@ from tests.support.models import import_every_model
 
 # What the database does with a reference when the account goes: delete the row, or clear the reference.
 ACTS_ON_DELETE = {"CASCADE", "SET NULL"}
+MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
+# A migration that declared a reference to users with no ON DELETE action, and the later one that replaced it. An
+# applied migration is never edited (CLAUDE.md rule 3), so the old file stays; its replacement must stay too.
+SUPERSEDED = {"20260707_create_trend_analysis.sql": "20261102_trend_analysis_creator_set_null.sql"}
+_REFERENCE = re.compile(
+    r'(?P<column>[^,;(]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
+    re.IGNORECASE)
+_ACTION = re.compile(r"\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL)\b", re.IGNORECASE)
+_SET_NULL = re.compile(r"\bON\s+DELETE\s+SET\s+NULL\b", re.IGNORECASE)
+_NOT_NULL = re.compile(r"\bNOT\s+NULL\b", re.IGNORECASE)
 
 
-def _blocking_references() -> list[str]:
-    import_every_model()
-    cascaded = {rel.mapper.local_table.name for rel in User.__mapper__.relationships if rel.cascade.delete}
+def _blocking_references(user_mapper=None, tables=None) -> list[str]:
+    if user_mapper is None:
+        import_every_model()
+        user_mapper, tables = User.__mapper__, Base.metadata.tables.values()
+    # The ORM deletes the rows a cascading User relationship reaches through its own columns, so only those columns
+    # are exempt: another reference to users on the same table still stops the DELETE.
+    cascaded = {
+        (column.table.name, column.name)
+        for rel in user_mapper.relationships if rel.cascade.delete
+        for column in rel.remote_side
+    }
+    def acts(fk) -> bool:
+        action = (fk.ondelete or "").upper()
+        # SET NULL on a column that cannot hold a null fails the DELETE as surely as no action does.
+        return action in ACTS_ON_DELETE and (action != "SET NULL" or fk.parent.nullable)
+
     return sorted(
         f"{table.name}.{fk.parent.name}"
-        for table in Base.metadata.tables.values()
+        for table in tables
         for fk in table.foreign_keys
-        if fk.column.table.name == "users"
-        and (fk.ondelete or "").upper() not in ACTS_ON_DELETE
-        and table.name not in cascaded
+        if fk.column.table.name == "users" and not acts(fk) and (table.name, fk.parent.name) not in cascaded
     )
+
+
+def _migrations_without_an_action(texts) -> list[str]:
+    """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
+    column it declares NOT NULL, once per reference."""
+    found = []
+    for name, text in texts:
+        sql = re.sub(r"--[^\n]*", "", text)
+        found += [
+            name for match in _REFERENCE.finditer(sql)
+            if not _ACTION.search(match.group("rest"))
+            or (_SET_NULL.search(match.group("rest")) and _NOT_NULL.search(match.group("column")))
+        ]
+    return found
 
 
 def test_every_foreign_key_to_users_lets_the_account_go():
     assert _blocking_references() == [], (
         "a reference to users.id that neither acts on delete (ON DELETE CASCADE or SET NULL, in the model and a "
-        "migration) nor is deleted by a User relationship's cascade stops the account's deletion on PostgreSQL"
+        "migration) nor is the column a User relationship's cascade deletes through stops the account's deletion on "
+        "PostgreSQL"
     )
+
+
+def test_the_relationship_exemption_covers_only_the_column_it_deletes_through():
+    """Planted: two references from one table, one of them a cascading relationship's (the review's probe of the
+    gate's first form, which exempted the whole table)."""
+    from sqlalchemy import Column, ForeignKey, Integer
+    from sqlalchemy.orm import declarative_base, relationship
+
+    Planted = declarative_base()
+
+    class Owner(Planted):
+        __tablename__ = "users"
+        id = Column(Integer, primary_key=True)
+        invites = relationship("Invite", foreign_keys="Invite.user_id", cascade="all, delete-orphan")
+
+    class Invite(Planted):
+        __tablename__ = "invites"
+        id = Column(Integer, primary_key=True)
+        user_id = Column(Integer, ForeignKey("users.id"))
+        created_by = Column(Integer, ForeignKey("users.id"))
+        # SET NULL where no null may go: the DELETE fails on the column's NOT NULL instead.
+        reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+        cleared_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    assert _blocking_references(Owner.__mapper__, Planted.metadata.tables.values()) == [
+        "invites.created_by", "invites.reviewed_by"]
+
+
+def test_every_migration_reference_to_users_acts_on_delete():
+    texts = [(path.name, path.read_text(encoding="utf-8")) for path in sorted(MIGRATIONS.glob("*.sql"))]
+    assert sorted(set(_migrations_without_an_action(texts))) == sorted(SUPERSEDED), (
+        "a migration's REFERENCES users must say ON DELETE CASCADE or SET NULL: production's constraint is the one the "
+        "migration built, and CI's create_all seed would hide its absence"
+    )
+    for legacy, replacement in SUPERSEDED.items():
+        assert _ACTION.search((MIGRATIONS / replacement).read_text(encoding="utf-8")), (legacy, replacement)
+    # The reader, on the forms the files use: a column's reference, a table constraint, a line break before the action,
+    # and a comment, which declares nothing.
+    assert _migrations_without_an_action([
+        ("column", "user_id INTEGER REFERENCES users (id) ON DELETE CASCADE,"),
+        ("constraint", "ADD CONSTRAINT k FOREIGN KEY (a) REFERENCES users(id) ON DELETE SET NULL NOT VALID;"),
+        ("wrapped", "owner_id INTEGER REFERENCES \"users\" (id)\n    ON DELETE SET NULL,"),
+        ("comment", "-- created_by references users(id) with no ON DELETE action"),
+        ("bare", "created_by INTEGER REFERENCES users,"),
+        ("other table", "x INTEGER REFERENCES users_archive (id),"),
+        ("set null where no null may go", "CREATE TABLE t (owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL);"),
+        ("cascade beside not null", "user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,"),
+    ]) == ["bare", "set null where no null may go"]
 
 
 @pytest.fixture

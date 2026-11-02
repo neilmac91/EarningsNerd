@@ -36,7 +36,8 @@ records is the founder's, through the founder's own consoles; see [Provider clea
    3. It queues the account's feedback media for deletion and deletes the account. The ORM cascades remove the
       rows the account owns; the database clears the references to it that rows kept for other readers hold (a
       cached analysis's generator, an invite's redeemer, a feedback row's owner) and keeps those rows. No foreign key
-      to `users` may stop the deletion (`backend/tests/unit/test_foreign_keys_to_users_let_an_account_go.py`).
+      to `users`, in a model or a migration, may stop the deletion
+      (`backend/tests/unit/test_foreign_keys_to_users_let_an_account_go.py`).
    4. One commit writes the audit row and the deletion together, or neither.
 3. **Only after that commit**, the response clears the access, presence and refresh cookies and answers 200.
 
