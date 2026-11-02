@@ -238,11 +238,27 @@ def test_a_total_above_a_banks_sum_is_left_out(total, tags):
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
 
 
+def test_a_banks_sum_is_read_within_one_filing():
+    # PNC's shape: a 2020 10-K recast FY2017's noninterest income lower and reported no FY2017 total. Read across
+    # filings, FY2017's total (its own 10-K's) would sit 6.7% above the recast sum; each filing's own lines agree.
+    payload = _years({REV: {2017: 16.0e9}, NII: {2017: 10.0e9}, NONII: {2017: 6.0e9}})
+    payload["facts"]["us-gaap"][NONII]["units"]["USD"].append(
+        _item(5.0e9, "2017-12-31", "2017-01-01", "K2020", filed="2021-02-15"))
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV,)
+
+
 def test_a_banks_gross_revenues_is_no_total():
     # E286: WBHC's Revenues is interest income plus noninterest income (FY2025 357.5M), 58% above its net interest
     # income plus noninterest income (226.8M) in the same 10-K. With no net total it reads no revenue (SYF's case).
     payload = _load("WBHC")
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == () and _millions(payload) == {}
+
+
+def test_a_partial_line_never_fills_a_year_the_fee_tag_lacks():
+    # Below 90% of the fee tag wherever both report (BLK's line at 62%), a total element is a partial line: it fills
+    # no year, not even one the fee tag lacks.
+    years, _ = _fy(_years({REV: {2021: 6.0e9, 2022: 6.2e9, 2023: 6.4e9}, FEE: {2022: 10.0e9, 2023: 10.5e9, 2024: 11e9}}))
+    assert years == {2022: (10.0, FEE), 2023: (10.5, FEE), 2024: (11.0, FEE)}
 
 
 def test_a_total_the_fee_tag_restated_fills_the_years_before_it():
