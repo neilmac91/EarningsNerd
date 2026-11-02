@@ -21,13 +21,19 @@ rather than skip it:
 - formulaWords is named once in the file, on the line `export const formulaWords = (formula: string) =>
   FORMULAS[formula] ?? formula.replaceAll('_', ' ')`, whose two strings are the fallback. Any other form fails,
   `replace` among them, which in JavaScript replaces the first match alone where str.replace replaces each.
-test_the_reader_reads_one_form_and_fails_on_any_other scores the reader on each of those forms and on look-alikes it
-must pass.
+test_the_reader_reads_one_form_and_fails_on_any_other scores the reader on each of those forms, on look-alikes it
+must pass and on the gap below that it passes.
 
-Out of reach (review-checked): where the page prints a formula (SourceValue.tsx's three calls of formulaWords); a
-formula an export prints anywhere but Sources & methods and the workbook's comments; and a formula the producer writes
-that FORMULAS does not word, which the page and both files print as stored ("FY - (Q1 + Q2 + Q3)", a Q4 calculated
-from the year less its three quarters, facts/quarterly.py).
+Out of reach (review-checked):
+- where the page prints a formula: SourceValue.tsx's three calls of formulaWords;
+- a place in a file the render does not reach: its figures are all values, so it prints neither the top line's growth
+  comment nor a window figure's comment (both take their formula through point_notes, as a value's comment does);
+- a write to FORMULAS through a destructuring target (`[FORMULAS[formula]] = ...`), which the reader takes for a read
+  (planted in GAPS);
+- a key FORMULAS inherits from Object.prototype (`toString`), which formulaWords reads as a function where
+  formula_text falls back;
+- a formula the producer writes that FORMULAS does not word, which the page and both files print as stored
+  ("FY - (Q1 + Q2 + Q3)", a Q4 calculated from the year less its three quarters, facts/quarterly.py).
 """
 from __future__ import annotations
 
@@ -239,6 +245,11 @@ PASSED = {
         GUARD, GUARD + "  if (FORMULAS[formula] === undefined || FORMULAS[formula] == null) return null\n", FORM_WORDS),
     "another name that holds it": (GUARD, GUARD + "  const METRIC_FORMULAS = formula\n", FORM_WORDS),
 }
+# Each form the rule forbids that the reader passes, a gap the module docstring names, as an edit of FORM, and what the
+# reader reads from it.
+GAPS = {
+    "a write through a destructuring target": (GUARD, GUARD + "  ;[FORMULAS[formula]] = [formula]\n", FORM_WORDS),
+}
 
 
 def test_the_reader_reads_one_form_and_fails_on_any_other():
@@ -252,5 +263,9 @@ def test_the_reader_reads_one_form_and_fails_on_any_other():
         planted = FORM.replace(old, new, 1)
         assert planted != FORM, name
         assert read_formulas(planted) == (words, ("_", " ")), name
+    for name, (old, new, words) in GAPS.items():
+        planted = FORM.replace(old, new, 1)
+        assert planted != FORM, name
+        assert read_formulas(planted) == (words, ("_", " ")), f"{name} is no longer a gap: refuse it and say so"
     # figureDisplay.ts itself takes the form.
     assert page_formulas()[1] == ("_", " ")
