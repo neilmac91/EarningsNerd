@@ -27,10 +27,11 @@
 -- does not store: those operands are another currency's amount rows of the batch's concepts.)
 --
 -- Definitions. amount: a unit whose part before '/' is three capital letters (USD, USD/shares; is_amount_unit). USD
--- alone: the company stores no row in such a unit other than USD or USD/shares (current or not), a company-level
--- reading of _another_currency, which reads the batch's concepts: the concepts its companyfacts rows hold count (fed),
--- or every concept for a company no companyfacts row has synced yet, whose first sync since E198 runs the step (set 1
--- still lists it as never synced). Dates are text, compared under COLLATE "C" as _filed compares its strings: no value
+-- alone: the company stores no row in such a unit other than USD or USD/shares (current or not) under a concept its
+-- companyfacts rows hold (fed), a company-level reading of _another_currency, which reads the batch's concepts. A
+-- company no companyfacts row has synced yet counts whatever else it stores: its next batch is unknown, a row in
+-- another currency outside it never stops the step, and its first sync since E198 runs it (set 1 lists it as never
+-- synced). Dates are text, compared under COLLATE "C" as _filed compares its strings: no value
 -- is cast, so none raises, and an impossible day sorts where the sync sorts it. owned: the date of the Filing row whose
 -- accession is the row's own exactly, at UTC, as _filing_dates reads it (any company's: accession numbers are unique).
 -- own: the first ten characters of its provenance filed_at where they spell YYYY-MM-DD: a reported row's filing's
@@ -122,11 +123,10 @@ WITH params AS (
     SELECT ff.company_id
     FROM financial_fact ff
     LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept
-    LEFT JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id
     CROSS JOIN params p
     GROUP BY ff.company_id
     HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, '/', 1) <> 'USD'
-                       AND (f.concept IS NOT NULL OR s.company_id IS NULL))
+                       AND f.concept IS NOT NULL)
 ), keyed AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit
     FROM financial_fact ff
@@ -252,11 +252,10 @@ WITH params AS (
     SELECT ff.company_id
     FROM financial_fact ff
     LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept
-    LEFT JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id
     CROSS JOIN params p
     GROUP BY ff.company_id
     HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, '/', 1) <> 'USD'
-                       AND (f.concept IS NOT NULL OR s.company_id IS NULL))
+                       AND f.concept IS NOT NULL)
 ), keyed AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit
     FROM financial_fact ff
@@ -374,11 +373,10 @@ WITH params AS (
     SELECT ff.company_id
     FROM financial_fact ff
     LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept
-    LEFT JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id
     CROSS JOIN params p
     GROUP BY ff.company_id
     HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, '/', 1) <> 'USD'
-                       AND (f.concept IS NOT NULL OR s.company_id IS NULL))
+                       AND f.concept IS NOT NULL)
 ), quarantined AS MATERIALIZED (
     SELECT ff.company_id
     FROM financial_fact ff CROSS JOIN params p
@@ -406,11 +404,10 @@ WITH params AS (
     SELECT ff.company_id
     FROM financial_fact ff
     LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept
-    LEFT JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id
     CROSS JOIN params p
     GROUP BY ff.company_id
     HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, '/', 1) <> 'USD'
-                       AND (f.concept IS NOT NULL OR s.company_id IS NULL))
+                       AND f.concept IS NOT NULL)
 ), keyed AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit
     FROM financial_fact ff
@@ -539,11 +536,10 @@ WITH params AS (
     SELECT ff.company_id
     FROM financial_fact ff
     LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept
-    LEFT JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id
     CROSS JOIN params p
     GROUP BY ff.company_id
     HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, '/', 1) <> 'USD'
-                       AND (f.concept IS NOT NULL OR s.company_id IS NULL))
+                       AND f.concept IS NOT NULL)
 ), keyed AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit
     FROM financial_fact ff

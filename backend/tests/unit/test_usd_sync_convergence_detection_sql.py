@@ -28,10 +28,9 @@ PROXY_SETS, AMOUNT_SETS, CHAIN_SETS = 4, 6, 4  # the statements that declare eac
 UNITS = ["USD", "USD/shares", "CNY", "EUR/shares", "pure", "shares", "usd", "USDX", "US", "U5D", "USD/", "/USD", ""]
 FORMS = ["DEF 14A", "def  14a ", "DEFA14A", "PRE 14C", "PX14A6G", "DEF 14A/A", "10-K", "10-K/A", "8-K", "S-4", "", None]
 SHAPES = ["later", "two_current", "same_day", "r1u", "gap", "undated"]  # each key's most likely shape first
-USD_ALONE = ("FROM financial_fact ff LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept LEFT "
-             "JOIN (SELECT DISTINCT company_id FROM fed) s ON s.company_id = ff.company_id CROSS JOIN params p GROUP BY "
-             "ff.company_id HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND split_part(ff.unit, "
-             "'/', 1) <> 'USD' AND (f.concept IS NOT NULL OR s.company_id IS NULL))")
+USD_ALONE = ("FROM financial_fact ff LEFT JOIN fed f ON f.company_id = ff.company_id AND f.concept = ff.concept CROSS "
+             "JOIN params p GROUP BY ff.company_id HAVING NOT bool_or(split_part(ff.unit, '/', 1) ~ p.amount_code AND "
+             "split_part(ff.unit, '/', 1) <> 'USD' AND f.concept IS NOT NULL)")
 
 
 def _code() -> str:
@@ -85,10 +84,11 @@ def test_every_amount_test_reads_a_unit_as_is_amount_unit_and_another_currency_a
             "'/', 1) <> 'USD') AS other") in _flat()  # set 1 reads it as a column
 
 
-def test_every_usd_alone_reads_the_concepts_its_companyfacts_rows_hold_or_every_one_before_its_first_sync():
+def test_every_usd_alone_reads_the_concepts_its_companyfacts_rows_hold_and_counts_a_company_before_its_first_sync():
     # _another_currency reads the stored units of the batch's concepts, so a USD filer whose per-filing writer stored a
     # row in another currency under a concept its payload does not carry still syncs in USD alone: it counts here too.
-    # A company no companyfacts row has synced yet reads every concept: its first sync since E198 runs the step.
+    # A company no companyfacts row has synced yet counts whatever else it stores (the chief's review of 87ec003): its
+    # next batch is unknown, and a row in another currency outside it never stops the step its first sync runs.
     code = _flat()
     assert code.count("fed AS MATERIALIZED ( SELECT DISTINCT company_id, concept FROM financial_fact WHERE source = "
                       "'companyfacts' )") == AMOUNT_SETS
