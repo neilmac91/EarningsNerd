@@ -276,3 +276,22 @@ def test_unknown_absence_is_rechecked_without_starving_new_deletions_then_catche
     with database.factory() as db:
         row = db.get(FeedbackAttachment, orphan.id)
         assert row.state == "deleted" and row.object_generation == "41"
+
+
+def test_cleanup_runs_unchanged_while_new_uploads_are_disabled(database, monkeypatch):
+    # Disabling uploads must never stop erasure of accepted screenshots (docs/DEPLOYMENT.md rollback).
+    from app.config import settings
+    monkeypatch.setattr(settings, "FEEDBACK_MEDIA_ENABLED", False)
+    expired = _seed(database)
+    live = _seed(database, due=NOW + timedelta(days=1))
+    deleted = []
+
+    class Storage:
+        def delete(self, key, generation):
+            deleted.append((key, generation))
+    stats = cleanup.run_feedback_media_cleanup(database.factory, Storage(), now=NOW)
+    assert stats == {"dry_run": False, "eligible": 1, "deleted": 1, "errors": 0, "overdue": 0, "pending_verification": 0}
+    assert len(deleted) == 1
+    with database.factory() as db:
+        assert db.get(FeedbackAttachment, expired.id).state == "deleted"
+        assert db.get(FeedbackAttachment, live.id).state == "available"
