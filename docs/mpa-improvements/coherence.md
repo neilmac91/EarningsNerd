@@ -1267,12 +1267,20 @@ row, N9), from one port (`analysis_export_metadata.source_words` and `method_wor
   where the page prints it: for a citation saved without a method.
 - **Sources & methods.** Each figure's method takes the same words, first letter raised, in place of a bare
   "Calculated", "Reported" or "Unknown". A figure with no recorded method reads "Source method is not recorded",
-  the clause the page's dialog says of a figure and of an input.
+  the clause the page's dialog says of a figure and of an input. A gap names no method: there is no figure whose
+  method could go unrecorded, and the page draws a dash and opens no dialog.
 - A legacy calculation still has no filing link, since none is recorded. Its label now says why.
 - `test_export_service.py` reads the words from `NarrativePane.tsx` and `SourceValue.tsx`, and fails when they
   differ.
-- **Open.** Sources & methods still prints a formula as stored ("100 * net_income / revenue"), where the page's
-  dialog prints words (`figureDisplay.ts`'s `FORMULAS`), and the workbook's Formula column and comments do the same.
+- **Chief design's calls (6582228814).**
+  - **Sources & methods stays whole,** as the workbook's sheet does (6413834738). It stands in for the page's source
+    dialog, which paper cannot open, and a reader who stops before it pays nothing for its length. If its length
+    becomes a problem, measure folding first (each growth line into its figure's entry) before cutting anything.
+  - **One vocabulary for formulas, in its own PR.** Sources & methods still prints a formula as stored ("100 *
+    net_income / revenue"), where the page's dialog prints words (`figureDisplay.ts`'s `FORMULAS`), and the workbook's
+    Formula column and comments do the same. They should print `FORMULAS`' words through one port, with a rule-12
+    gate that reads them from `figureDisplay.ts`. The four growth definitions move into `FORMULAS` in the page's
+    style, so the page gains them too. A render with each formula goes through #1621's glyph check.
 
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").

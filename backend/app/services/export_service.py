@@ -471,8 +471,10 @@ class ExportService:
                 period = point.get("period") or ""
                 mark = self._analysis_note_mark(indexed.get((series["concept"], period, bases[measure])))
                 detail = (f"<strong>{escape(period_label(period))} · {escape(measure)}</strong>: "
-                          f"{escape(raw_value_text(point.get('value')))} {escape(str(unit))}{mark} · "
-                          f"{escape(method_words(point))}")
+                          f"{escape(raw_value_text(point.get('value')))} {escape(str(unit))}{mark}")
+                # A gap names no method: it has none (method_words).
+                if method := method_words(point):
+                    detail += " · " + escape(method)
                 if provenance.get("formula"):
                     detail += " · " + escape(formula_text(provenance["formula"]))
                 links = self._analysis_links({**provenance, "source_url": point.get("source_url") or provenance.get("source_url")})

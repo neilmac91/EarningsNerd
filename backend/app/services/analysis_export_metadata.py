@@ -129,8 +129,11 @@ def source_words(provenance: Mapping[str, Any] | None, fallback: str) -> str:
 def method_words(point: Mapping[str, Any]) -> str:
     """A figure's method in Sources & methods: the source list's words, first letter raised like the appendix's other
     parts. A figure with no provenance reads as the page's dialog reads it: a calculation with no recorded inputs where
-    its legacy derived flag says so, otherwise no recorded method."""
+    its legacy derived flag says so, otherwise no recorded method. A gap, a period with no figure and nothing recorded
+    (export_points' stand-in), has no method to name: empty, as the page draws a dash and opens no dialog."""
     provenance = point.get("provenance")
+    if provenance is None and not point.get("derived") and point.get("value") is None:
+        return ""
     words = (source_words(provenance, METHOD_NOT_RECORDED) if provenance is not None
              else calculation_words({}) if point.get("derived") else METHOD_NOT_RECORDED)
     return words[:1].upper() + words[1:]

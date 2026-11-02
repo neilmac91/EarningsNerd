@@ -1253,6 +1253,8 @@ class TestAnalysisPdfHtml:
         series = analysis.dataset_json["series"]
         series[0]["points"][0]["provenance"] = provenance("reported")  # FY2023 is a gap; FY2024 is derived, unrecorded
         series[1]["points"][0]["provenance"] = provenance("calculated", inputs=operands)
+        # Net margin's FY2022 is a gap (export_points' stand-in); its FY2023 is withheld, with a record of it.
+        series[1]["points"].append({"period": "FY2023", "value": None, "provenance": provenance("unknown")})
         series.append({"concept": "operating_margin", "label": "Operating margin", "unit": "pure", "percent": True,
                        "points": [
                            {"period": "FY2022", "value": 30.1, "provenance": provenance("calculated", ["legacy_calculation"])},
@@ -1275,14 +1277,18 @@ class TestAnalysisPdfHtml:
         words = {name: f"{name[:1].upper()}{name[1:]}" for name in (reported, inputs, legacy, bare, not_recorded)}
         for lead, method in (
             ("FY2022 · Value</strong>: 1000.0 USD", reported),
-            ("FY2023 · Value</strong>: Unavailable USD", not_recorded),
             ("FY2024 · Value</strong>: 1500.0 USD", bare),  # no provenance: the legacy derived flag says calculated
+            ("FY2023 · Value</strong>: Unavailable percent", not_recorded),  # withheld: its record has no method
             ("FY2024 · Value</strong>: 24.3 percent", inputs),
             ("FY2022 · Value</strong>: 30.1 percent", legacy),
             ("FY2023 · Value</strong>: 30.4 percent", bare),
             ("FY2024 · Value</strong>: 30.9 percent", not_recorded),
         ):
             assert f"{lead} · {words[method]}" in methods, (lead, method)
+        # A gap names no method (chief design on a6675c41): there is no figure whose method could go unrecorded. That
+        # holds for a point stored with no value and nothing recorded, and for the stand-in of a period with no point.
+        for gap in ("FY2023 · Value</strong>: Unavailable USD</li>", "FY2022 · Value</strong>: Unavailable percent</li>"):
+            assert gap in methods, gap
         assert not re.search(r" · (?:Calculated|Reported|Unknown)(?: ·|<)", methods)
 
     def test_one_period_reads_as_that_period(self):
