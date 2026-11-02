@@ -3,12 +3,18 @@
 Set STRIPE_CONCURRENCY_TEST_DATABASE_URL to an isolated PostgreSQL test database. Only the
 PostgreSQL cases skip when absent; an invalid/unavailable configured database fails the gate.
 Every PostgreSQL fixture owns a disposable schema and never changes public tables.
+
+The PB-02 section at the end holds the complimentary Pro grant's units to the same standard on real
+PostgreSQL, where SQLite renders neither their advisory lock nor their FOR NO KEY UPDATE: a grant and a
+revoke of one account run one at a time, two applies racing at the cap grant one account between them,
+and deleting a granted account removes its ledger row through the foreign key.
 """
 import asyncio
 import json
 import os
 import threading
 import time
+from datetime import timedelta
 import uuid
 
 import pytest
@@ -21,12 +27,21 @@ from starlette.requests import Request
 
 from app import database
 from app.database import Base, SessionLocal
-from app.models import BillingPayment, InviteCode, StripeEvent, Subscription, User
+from app.models import (
+    AccountAgreement, AuditLog, BillingPayment, ComplimentaryAccessGrant, InviteCode, StripeEvent, Subscription, User,
+)
 from app.routers import subscriptions
 from app.services import billing_account_service, subscription_sync, subscription_webhook_service as service
+from app.services import complimentary_access_service as access
+from app.services.complimentary_access_manifest import email_fingerprint, load_manifest
+from app.services.legal_readiness_service import ELIGIBILITY_VERSION, TERMS_VERSION
+from app.utils.datetimes import utcnow
 
 
-TABLES = [User.__table__, Subscription.__table__, StripeEvent.__table__, InviteCode.__table__, BillingPayment.__table__]
+TABLES = [
+    User.__table__, Subscription.__table__, StripeEvent.__table__, InviteCode.__table__, BillingPayment.__table__,
+    AccountAgreement.__table__, ComplimentaryAccessGrant.__table__, AuditLog.__table__,
+]
 
 
 @pytest.fixture
@@ -650,3 +665,167 @@ def test_postgres_concurrent_customer_claims_keep_the_first(postgres_engine):
         second.close()
     with _session(postgres_engine) as reader:
         assert reader.get(User, user_id).stripe_customer_id == "cus_first"
+
+
+# --------------------------------------------------------------------------- PB-02: complimentary grants
+
+
+def _pb02_account(engine, *, admin=False):
+    """An admin operator, or an invited tester who verified and confirmed their own signup."""
+    now = utcnow()
+    with _session(engine) as db:
+        email = f"pb02-{uuid.uuid4().hex}@example.com"
+        user = User(email=email, email_verified=True, is_active=True, is_beta=not admin, is_admin=admin)
+        db.add(user)
+        db.flush()
+        if not admin:
+            db.add(InviteCode(code_hash=uuid.uuid4().hex * 2, cohort="pb02", email=email, user_id=user.id,
+                              used_at=now, expires_at=now + timedelta(days=7)))
+            db.add(AccountAgreement(user_id=user.id, adult_eligible=True, terms_accepted=True,
+                                    terms_version=TERMS_VERSION, eligibility_version=ELIGIBILITY_VERSION,
+                                    accepted_at=now, source="password"))
+        db.commit()
+        return user.id, email
+
+
+def _pb02_manifest(action, operator_id, accounts):
+    payload = {"action": action, "cohort": "private-beta-2026-11", "reason": "Private beta tester",
+               "operator_account_id": operator_id,
+               "accounts": [{"account_id": i, "email_sha256": email_fingerprint(e)} for i, e in accounts]}
+    if action == "grant":
+        payload["review_on"] = (utcnow().date() + timedelta(days=30)).isoformat()
+    return load_manifest(json.dumps(payload).encode())
+
+
+def _pb02_apply(engine, manifest_and_digest, pid=None):
+    """Apply on a connection of its own (its backend pid recorded first), as the operator command would."""
+    manifest, digest = manifest_and_digest
+    with engine.connect() as conn:
+        if pid is not None:
+            pid.append(conn.execute(text("SELECT pg_backend_pid()")).scalar())
+            conn.rollback()
+        db = _session(conn)
+        try:
+            return access.apply(db, manifest, digest, confirm_digest=digest, today=utcnow().date())
+        finally:
+            db.close()
+
+
+def _pb02_waits_for_a_lock(engine, pid):
+    """Whether, within 5 s, the session whose pid ``pid`` will hold waits for a heavyweight lock."""
+    deadline = time.monotonic() + 5
+    with engine.connect() as watcher:
+        while time.monotonic() < deadline:
+            if pid:
+                waiting = watcher.execute(
+                    text("SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid = :pid"), {"pid": pid[0]}
+                ).scalar()
+                watcher.rollback()  # pg_stat_activity is read once per transaction
+                if waiting:
+                    return True
+            time.sleep(0.005)
+    return False
+
+
+def _pb02_run(results, name, *args):
+    try:
+        results[name] = _pb02_apply(*args)
+    except Exception as error:  # reported in the case's assertions
+        results[name] = error
+
+
+def test_postgres_a_grant_and_a_revoke_of_one_account_run_one_at_a_time(postgres_engine, monkeypatch):
+    operator_id, _ = _pb02_account(postgres_engine, admin=True)
+    tester = _pb02_account(postgres_engine)
+    grant = _pb02_manifest("grant", operator_id, [tester])
+    revoke = _pb02_manifest("revoke", operator_id, [tester])
+    locked, release, holders, results, revoke_pid = threading.Event(), threading.Event(), [], {}, []
+    real_read = access._read_account
+
+    def read_then_hold(db, account_id, *, lock):
+        account = real_read(db, account_id, lock=lock)
+        if lock and threading.current_thread() in holders:
+            locked.set()  # the grant's unit holds the grants' lock and the account's row
+            assert release.wait(10), "the case never released the grant"
+        return account
+
+    monkeypatch.setattr(access, "_read_account", read_then_hold)
+    granting = threading.Thread(target=_pb02_run, args=(results, "grant", postgres_engine, grant))
+    revoking = threading.Thread(target=_pb02_run, args=(results, "revoke", postgres_engine, revoke, revoke_pid))
+    holders.append(granting)
+    granting.start()
+    try:
+        assert locked.wait(10), "the grant never reached its unit"
+        revoking.start()
+        assert _pb02_waits_for_a_lock(postgres_engine, revoke_pid), "the revoke did not wait for the grant's unit"
+    finally:
+        release.set()
+        granting.join(30)
+    revoking.join(30)
+    assert not granting.is_alive() and not revoking.is_alive()
+    # The revoke read the account after the grant committed, so it revoked what the grant gave.
+    assert results["grant"].outcomes == {"granted": 1}, results
+    assert results["revoke"].outcomes == {"revoked": 1}, results
+    with _session(postgres_engine) as db:
+        assert db.get(User, tester[0]).is_pro is False
+        assert db.query(ComplimentaryAccessGrant).filter_by(user_id=tester[0]).one().revoked_at is not None
+        assert [row.action for row in db.query(AuditLog).order_by(AuditLog.id)] == [access.AUDIT_GRANTED,
+                                                                                   access.AUDIT_REVOKED]
+
+
+def test_postgres_two_applies_racing_at_the_cap_grant_one_between_them(postgres_engine, monkeypatch):
+    operator_id, _ = _pb02_account(postgres_engine, admin=True)
+    granted = [_pb02_account(postgres_engine) for _ in range(access.MAX_ACTIVE_GRANTS - 1)]
+    assert _pb02_apply(postgres_engine, _pb02_manifest("grant", operator_id, granted)).outcomes == {"granted": 19}
+    first, second = _pb02_account(postgres_engine), _pb02_account(postgres_engine)
+    counted, release, holders, results, second_pid, calls = (
+        threading.Event(), threading.Event(), [], {}, [], [])
+    real_count = access._active_grant_count
+
+    def count_then_hold(db):
+        active = real_count(db)
+        if threading.current_thread() in holders:
+            calls.append(active)
+            if len(calls) == 2:  # the unit's count (its dry run counted first): 19, the grant not committed yet
+                counted.set()
+                assert release.wait(10), "the case never released the first apply"
+        return active
+
+    monkeypatch.setattr(access, "_active_grant_count", count_then_hold)
+    racing_first = threading.Thread(target=_pb02_run, args=(
+        results, "first", postgres_engine, _pb02_manifest("grant", operator_id, [first])))
+    racing_second = threading.Thread(target=_pb02_run, args=(
+        results, "second", postgres_engine, _pb02_manifest("grant", operator_id, [second]), second_pid))
+    holders.append(racing_first)
+    racing_first.start()
+    try:
+        assert counted.wait(10), "the first apply never counted inside its unit"
+        racing_second.start()
+        assert _pb02_waits_for_a_lock(postgres_engine, second_pid), "the second apply did not wait for the first"
+    finally:
+        release.set()
+        racing_first.join(30)
+    racing_second.join(30)
+    assert not racing_first.is_alive() and not racing_second.is_alive()
+    assert calls[1] == access.MAX_ACTIVE_GRANTS - 1
+    assert results["first"].outcomes == {"granted": 1}, results
+    assert (results["second"].outcomes, results["second"].refusals) == (
+        {"refused": 1}, [{"entry": 1, "reasons": ["cap_reached"]}]), results
+    with _session(postgres_engine) as db:
+        active = db.query(ComplimentaryAccessGrant).filter(ComplimentaryAccessGrant.revoked_at.is_(None)).count()
+        assert active == access.MAX_ACTIVE_GRANTS
+        assert db.get(User, second[0]).is_pro is False
+
+
+def test_postgres_deleting_a_granted_account_removes_its_grant_through_the_foreign_key(postgres_engine):
+    operator_id, _ = _pb02_account(postgres_engine, admin=True)
+    tester = _pb02_account(postgres_engine)
+    assert _pb02_apply(postgres_engine, _pb02_manifest("grant", operator_id, [tester])).outcomes == {"granted": 1}
+    with _session(postgres_engine) as db:
+        # The ORM cascade is not in play: the database's ON DELETE CASCADE removes the ledger row, as for any
+        # deletion of the account's row however it is made.
+        db.execute(User.__table__.delete().where(User.__table__.c.id == tester[0]))
+        db.commit()
+    with _session(postgres_engine) as db:
+        assert db.query(ComplimentaryAccessGrant).count() == 0
+        assert [row.action for row in db.query(AuditLog)] == [access.AUDIT_GRANTED]
