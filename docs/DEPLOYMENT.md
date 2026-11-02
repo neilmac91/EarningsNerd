@@ -1119,9 +1119,8 @@ The order:
 `backend/scripts/complimentary_access.py`, PB-02's grant and revoke of complimentary Pro for the invited private-beta
 testers ([runbook](ops/complimentary-access.md)), on the Ops runner through the Cloud SQL proxy, so each report lands
 in the run's log: counts, refusals by their place in the manifest and the manifest's digest (`manifest_sha256`), never
-an account id, an address or the manifest's reason. One value can reach the log until the manifest module stops
-quoting it: a manifest whose `action` is neither `grant` nor `revoke` is refused with that value quoted, and step 1's
-offline `check` refuses it first, on the founder's machine. A grant and a revoke take the same three operations; the
+an account id, an address or the manifest's reason: a refusal names a fault's place and kind from a fixed table,
+never a value the manifest holds. A grant and a revoke take the same three operations; the
 manifest's `action` says which. The dry run and the readout run read-only. The apply writes one account a unit, only
 after the founder approves `ops-apply` for its run, and only for the manifest whose digest its `confirm_digest` input
 names; it records `ops-run:<run id>` as its runner.
