@@ -314,9 +314,10 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
                        "__pycache__", ".pytest_cache", ".ruff_cache"}
 
 
-_FENCE = re.compile(r"```[^\n]*\n(.*?)```", re.S)
-# The operator's raw address list, by the name the runbook gives it and any variant of it.
-_ADDRESS_LIST = re.compile(r"addresses[^/]*\.txt", re.IGNORECASE)
+# The operator's raw address list, by any name that says so in a plain-text form: addresses.txt, email_addresses.csv,
+# beta-addresses (no suffix).
+_ADDRESS_LIST_SUFFIXES = {"", ".txt", ".csv", ".tsv", ".lst", ".list"}
+_DECODER = json.JSONDecoder()
 
 
 def _tree(root: Path):
@@ -341,11 +342,12 @@ def _objects(document):
 
 
 def _manifest_shaped(root: Path):
-    """Each candidate manifest in a file under ``root`` that names ``email_sha256``, whatever the file's name: the whole
-    file, each fenced block of any kind (json, text or bare, with LF or CRLF line ends), and each object nested in a file
-    that parses as JSON (a manifest wrapped under a key). Every manifest the command runs carries the key, so a file
-    without it cannot hold one. A key spelled with escapes is not looked for: the gate stops a manifest saved or pasted
-    by mistake, not one disguised."""
+    """Each JSON object written out in a file under ``root`` that names ``email_sha256``, whatever the file and however
+    the object is held: a .json file, a fenced block of any kind, a shell heredoc, a string in Python or YAML, a wrapper
+    under a key. The reader tries a JSON value at every "{" and yields each object in it, so no form or fence is
+    named. Every manifest the command runs carries the key, so a file without it cannot hold one. A key spelled with
+    escapes, or JSON split by its holder (a string concatenated in pieces), is not looked for: the gate stops a
+    manifest saved or pasted by mistake, not one disguised."""
     for path in _tree(root):
         try:
             raw = path.read_bytes()
@@ -353,62 +355,84 @@ def _manifest_shaped(root: Path):
             continue
         if b"email_sha256" not in raw:
             continue
-        text = raw.decode("utf-8", "replace").replace("\r\n", "\n")
-        yield path, text.encode()
-        for block in _FENCE.findall(text):
-            yield path, block.encode()
-        try:
-            document = json.loads(text)
-        except (ValueError, RecursionError):
-            continue
-        for nested in _objects(document):
-            yield path, json.dumps(nested).encode()
+        text = raw.decode("utf-8", "replace")
+        at = text.find("{")
+        while at != -1:
+            try:
+                document, end = _DECODER.raw_decode(text, at)
+            except (ValueError, RecursionError):
+                at = text.find("{", at + 1)
+                continue
+            # A manifest names both keys, so only such objects are worth the strict parse.
+            for found in _objects(document):
+                if "action" in found and "accounts" in found:
+                    yield path, json.dumps(found).encode()
+            at = text.find("{", end)
 
 
-def _committed_manifests(root: Path) -> list[str]:
+def _committed_manifests(root: Path) -> list[tuple[str, str]]:
+    """Each manifest the command would run, by its file and its digest: one entry per distinct manifest in a file, so
+    a second manifest beside an allowed one is seen."""
     accepted = set()
     for path, raw in _manifest_shaped(root):
         try:
-            load_manifest(raw)
+            _, digest = load_manifest(raw)
         except ManifestError:
             continue
-        accepted.add(path.relative_to(root).as_posix())
+        accepted.add((path.relative_to(root).as_posix(), digest))
     return sorted(accepted)
 
 
 def _address_lists(root: Path) -> list[str]:
-    return sorted(path.relative_to(root).as_posix() for path in _tree(root) if _ADDRESS_LIST.fullmatch(path.name))
+    return sorted(path.relative_to(root).as_posix() for path in _tree(root)
+                  if "addresses" in path.name.lower() and path.suffix.lower() in _ADDRESS_LIST_SUFFIXES)
 
 
 def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
     example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
     manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
+    other = json.dumps({**json.loads(manifest), "cohort": "private-beta-wave-2"})
     for rel, text in {
         "ops/saved.json": manifest, "docs/pasted.md": example,
         "docs/bare-fence.md": f"Notes\n```\n{manifest}```\n", "docs/text-fence.md": f"```text\n{manifest}```\n",
-        "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
+        "docs/tilde.md": f"~~~json\n{manifest}~~~\n", "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
+        "docs/inline-fence.md": f"Paste it between ``` fences:\n\n```json\n{manifest}```\n",
+        "docs/two.md": f"```json\n{manifest}```\n\nWave 2:\n\n```json\n{other}\n```\n",
+        "ops/grant.sh": f"cat <<'JSON' | python scripts/complimentary_access.py check --manifest /dev/stdin\n{manifest}JSON\n",
+        "tasks/notes.py": f"MANIFEST = \'\'\'{manifest}\'\'\'\n",
+        "tasks/notes.yml": "manifest: |\n" + "".join(f"  {line}\n" for line in manifest.splitlines()),
         "tasks/manifest.txt": manifest, "tasks/manifest.json.bak": manifest,
         "tasks/wrapped.json": json.dumps({"wave": {"manifest": json.loads(manifest)}}),
-        "docs/other.md": "no manifest here", "frontend/node_modules/pkg/fixture.json": manifest,
+        "docs/other.md": "email_sha256 is a key, and {not json} here", "frontend/node_modules/pkg/fixture.json": manifest,
         ".claude/worktrees/agent/docs/runbook.md": example, ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
-        "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "someone@example.invalid\n",
-        ".claude/worktrees/agent/addresses.txt": "someone@example.invalid\n",
+        "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "x\n",
+        "tasks/email_addresses.csv": "x\n", "tasks/tester-addresses": "x\n", "tasks/ip_addresses.py": "x = 1\n",
+        ".claude/worktrees/agent/addresses.txt": "x\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_bytes(text.encode())
-    assert _committed_manifests(tmp_path) == sorted([
-        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/crlf.md",
+    found = _committed_manifests(tmp_path)
+    assert sorted({path for path, _ in found}) == sorted([
+        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md",
+        "docs/inline-fence.md", "docs/two.md", "ops/grant.sh", "tasks/notes.py", "tasks/notes.yml",
         "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json"])
-    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt"]
+    assert [digest for path, digest in found if path == "docs/two.md"] != [] and len(
+        [path for path, _ in found if path == "docs/two.md"]) == 2  # a second manifest in one file is its own entry
+    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt",
+                                        "tasks/email_addresses.csv", "tasks/tester-addresses"]
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
     """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
-    (rule 12). The runbook's example is synthetic, as test_the_runbooks_example_manifest_is_one_the_command_accepts
-    holds. Pasting one into an issue or a pull request stays a review check."""
+    (rule 12). The one manifest allowed is the runbook's example, by its digest, and
+    test_the_runbooks_example_manifest_is_one_the_command_accepts holds that example to reserved .invalid addresses,
+    so a second manifest in the runbook, or a real one in the example's place, fails. Pasting one into an issue or a
+    pull request stays a review check."""
+    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
+    _, example = load_manifest(re.search(r"```json\n(.*?)```", runbook, re.S).group(1).encode())
     accepted = _committed_manifests(REPO)
-    assert accepted == ["docs/ops/complimentary-access.md"], (
+    assert accepted == [("docs/ops/complimentary-access.md", example)], (
         "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
         f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
     )

@@ -39,7 +39,7 @@ MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 # applied migration is never edited (CLAUDE.md rule 3), so the old file stays; its replacement must stay too.
 SUPERSEDED = {"20260707_create_trend_analysis.sql": "20261102_trend_analysis_creator_set_null.sql"}
 _REFERENCE = re.compile(
-    r'(?P<column>[^,;\n]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
+    r'(?P<column>[^,;]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
     re.IGNORECASE)
 _ACTION = re.compile(r"\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL)\b", re.IGNORECASE)
 _SET_NULL = re.compile(r"\bON\s+DELETE\s+SET\s+NULL\b", re.IGNORECASE)
@@ -74,10 +74,11 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
 
 def _migrations_without_an_action(texts) -> list[str]:
     """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
-    column it declares NOT NULL (before the reference on its line, or after it), once per reference. A column
-    definition is read back to the comma before it on its line, so these are out of reach, and the models' check covers
-    them while model and migration agree: a NOT NULL on an earlier line or before a CHECK holding a comma of its own, a
-    table constraint's reference from a column declared NOT NULL elsewhere, and a later ALTER ... SET NOT NULL."""
+    column it declares NOT NULL (before the reference, on its line or an earlier one, or after it), once per reference.
+    A column definition is read back to the comma or semicolon before it, and a guard's "IS NOT NULL" is not a column's,
+    so these are out of reach, and the models' check covers them while model and migration agree: a NOT NULL before a
+    CHECK holding a comma of its own, a table constraint's reference from a column declared NOT NULL elsewhere, and a
+    later ALTER ... SET NOT NULL."""
     found = []
     for name, text in texts:
         sql = re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
@@ -155,7 +156,11 @@ def test_every_migration_reference_to_users_acts_on_delete():
         ("block comment", "/* owner_id INTEGER REFERENCES users(id) */ SELECT 1;"),
         ("a guard's is not null", "IF to_regclass('t') IS NOT NULL THEN\n ALTER TABLE t ADD CONSTRAINT k FOREIGN KEY (a) "
                                   "REFERENCES users (id) ON DELETE SET NULL NOT VALID;"),
-    ]) == ["bare", "set null where no null may go", "not null after it", "not null before a check"]
+        ("a guard on the same line", "IF x IS NOT NULL THEN ALTER TABLE t ADD CONSTRAINT k FOREIGN KEY (a) REFERENCES "
+                                     "users (id) ON DELETE SET NULL;"),
+        ("not null on the line before", "owner_id INTEGER NOT NULL\n    REFERENCES users(id) ON DELETE SET NULL,"),
+    ]) == ["bare", "set null where no null may go", "not null after it", "not null before a check",
+           "not null on the line before"]
 
 
 @pytest.fixture
