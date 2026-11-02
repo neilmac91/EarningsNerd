@@ -20,7 +20,8 @@ Conventions (also stated on the Overview sheet, where users see them):
   too, the workbook's evidence dialog; a note that questions the number also sets its letter after the figure through
   the number format (``#,##0" a"``), so the cell stays a number, and their key sits under the Metrics grid (D-061).
   A later filing's different value is a Comment's evidence too, never a letter (MPA WP5a), with a "First reported" row
-  in Sources & methods.
+  in Sources & methods. Each Comment's box is sized to its text (``_comment``, E262): openpyxl's default box cut a
+  longer note off in Excel.
 - Sources & methods carries the output values, calculation operands and source links, plus
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 - Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
@@ -35,6 +36,7 @@ from __future__ import annotations
 
 import io
 import re
+import textwrap
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -159,6 +161,30 @@ def _figure_length(cell: Any) -> int:
     return len(f"{cell.value:,.{max(len(decimals) - 1, 0)}f}") + len(letter.rstrip('"'))
 
 
+# A cell comment's box (E262). Excel draws a comment in the box the file sizes, and openpyxl's default box, 144 by 79
+# pixels, holds about 90 characters, so a longer note was cut off where the reader hovered its cell (LibreOffice grew it
+# down a 144-pixel column instead). Each box is sized to its text: as wide as its longest line up to a measure of
+# _COMMENT_MEASURE characters, and as tall as its lines wrap to at that width. openpyxl writes no font for a comment, so
+# the reader's application chooses one: Calibri 11, the workbook's own, or the Tahoma Excel gives a note it writes itself.
+# _COMMENT_CHAR_PX is wider than an average character in each (this export's notes average 5.9 pixels in Calibri 11),
+# so a line holds its measure in all of them, and a line of Calibri 11, the tallest, sets _COMMENT_LINE_PX.
+_COMMENT_MEASURE = 40
+_COMMENT_CHAR_PX = 7
+_COMMENT_LINE_PX = 18
+_COMMENT_INSET_X = 20  # both sides together: Excel's text box keeps 0.1 inch a side
+_COMMENT_INSET_Y = 14  # top and bottom together: 0.05 inch a side, and room under the last line's descenders
+
+
+def _comment(text: str) -> Comment:
+    """A cell comment whose box holds its text (E262). Each line of ``text`` is a paragraph, wrapped between words (never
+    at a hyphen, which a reader's application may not break at either) and inside a word longer than the measure."""
+    paragraphs = text.split("\n")
+    measure = max(1, min(_COMMENT_MEASURE, max(len(paragraph) for paragraph in paragraphs)))
+    lines = sum(len(textwrap.wrap(paragraph, measure, break_on_hyphens=False)) or 1 for paragraph in paragraphs)
+    return Comment(text, "EarningsNerd", width=measure * _COMMENT_CHAR_PX + _COMMENT_INSET_X,
+                   height=lines * _COMMENT_LINE_PX + _COMMENT_INSET_Y)
+
+
 def _write_point(
     ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool,
     note: dict[str, Any] | None = None,
@@ -172,7 +198,7 @@ def _write_point(
     cell.number_format = _marked_format(_number_format(unit, percent), note)
     notes = point_notes(point, note)
     if notes:
-        cell.comment = Comment("\n".join(notes), "EarningsNerd")
+        cell.comment = _comment("\n".join(notes))
 
 
 def _print_setup(
@@ -371,7 +397,7 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
                 notes = point_notes({"provenance": series.get(f"{basis}_provenance"),
                                      "reconciled": series.get(f"{basis}_reconciled")}, note)
                 if notes:
-                    growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
+                    growth_cell.comment = _comment("\n".join(notes))
 
     ws.freeze_panes = "B2"
     ws.column_dimensions["A"].width = 24
@@ -515,7 +541,7 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
         note = indexed.get((top["concept"], period, "yoy"))
         notes = point_notes(growth_point(point, "yoy", bool(top.get("percent"))), note)
         if notes:
-            growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
+            growth_cell.comment = _comment("\n".join(notes))
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
             growth_cell.number_format = _marked_format("0.0%", note)
