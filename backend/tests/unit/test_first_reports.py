@@ -917,6 +917,14 @@ _FINDINGS = {
         2019: {2018: 15_163.8e3, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e6, 2020: 19_994.1e6},
         2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}, instant=True)),
     "an-inputs-finding": lambda: _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}})),
+    # Working capital turns negative in FY2019 (already n/m by sign) where its current-assets input crosses: the FY2020
+    # 10-K gives FY2019's current assets at 95% of the FY2019 10-K's.
+    "working-capital-turning-negative-at-a-crossing": lambda: _payload(tags={
+        "AssetsCurrent": {"units": {"USD": _items({
+            2017: {2016: 500e6, 2017: 600e6}, 2018: {2017: 600e6, 2018: 700e6}, 2019: {2018: 700e6, 2019: 400e6},
+            2020: {2019: 380e6, 2020: 450e6}, 2021: {2020: 450e6, 2021: 500e6}}, instant=True)}},
+        "LiabilitiesCurrent": {"units": {"USD": _items({
+            report: {year: 550e6 for year in (report - 1, report)} for report in _K}, instant=True)}}}),
 }
 
 
