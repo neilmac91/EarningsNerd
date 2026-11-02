@@ -198,6 +198,11 @@ Land every deploy or repair that moves stored financial figures before the rehea
 analysis over a period that moved refuses its export, telling the tester to run it again, and an acceptance holds
 only for the identities it was taken on.
 
+Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198 in
+`tasks/todo.md`). After such a deploy, sync the companies the rehearsal opens (a bounded `sync-companyfacts`, SEC reads
+only) and dispatch the read-only `detection-sql` again before the rehearsal. Compare its census with the run taken
+before the change merged company by company, not by totals: the census does not bound every key such a sync moves.
+
 ## 7. Rollback levers
 
 Each lever stops one thing. Apart from the one account a revoke or a suspension names, each keeps sign-in, granted
