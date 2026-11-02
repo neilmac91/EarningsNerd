@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import copy
 import importlib.util
+import itertools
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +24,12 @@ NONCE = "a" * 32
 # A synthetic privacy sentinel, not a credential. Never sent outside this fixture.
 PRIVATE = "PRIVATE_RECOVERY_HEADER_SENTINEL_" * 2
 REVISION = caller.SERVICE + "/revisions/earningsnerd-backend-00001-test"
+# Independently literal provider forms: do not derive the oracle from the parser.
+REVISION_FORMS = (
+    "earningsnerd-backend-00001-test",
+    "projects/earnings-nerd/locations/us-west1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+    "projects/123456789012/locations/us-west1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+)
 URL = "https://earningsnerd-backend-fixed.us-west1.run.app"
 IMAGE = "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend@sha256:" + "a" * 64
 
@@ -41,6 +48,7 @@ class Cloud:
         self.secret = PRIVATE
         self.fail_at = None
         self.omit_zeros = False
+        self.project = {"projectId": "earnings-nerd", "projectNumber": "123456789012"}
         self.service = {"uri": URL, "latestReadyRevision": REVISION, "latestCreatedRevision": REVISION,
                         "trafficStatuses": [{"revision": REVISION, "percent": 100}]}
         self.revision = {"status": {"imageDigest": IMAGE}, "spec": {"containers": [{"env": [
@@ -55,6 +63,9 @@ class Cloud:
             return copy.deepcopy(self.service)
         if api == "us-west1-run":
             return copy.deepcopy(self.revision)
+        if api == "cloudresourcemanager":
+            assert path == "v1/projects/earnings-nerd" and method == "GET" and body is None
+            return copy.deepcopy(self.project)
         if api == "secretmanager":
             if path.endswith(":access"):
                 assert self.job and self.job["state"] == "PAUSED", "secret access before pause"
@@ -111,6 +122,148 @@ def test_plan_only_reads_metadata_and_emits_no_secret():
     assert result["manifest"]["bootstrap_schedule"] == "0 6 9 11 *"
     assert not mutations(cloud) and not accesses(cloud)
     assert PRIVATE not in json.dumps(result)
+
+
+@pytest.mark.parametrize("ready,created,routed", tuple(itertools.product(REVISION_FORMS, repeat=3)))
+def test_same_revision_forms_produce_one_canonical_approval(ready, created, routed):
+    cloud = Cloud()
+    expected = plan(cloud)
+    cloud.calls.clear()
+    cloud.service.update(latestReadyRevision=ready, latestCreatedRevision=created)
+    cloud.service["trafficStatuses"][0]["revision"] = routed
+    result = plan(cloud)
+    assert result == expected
+    assert result["manifest"]["snapshot"]["api"]["revision"] == REVISION_FORMS[1]
+    assert [row for row in cloud.calls if row[0] == "cloudresourcemanager"] == (
+        [("cloudresourcemanager", "v1/projects/earnings-nerd", "GET", None)]
+        if REVISION_FORMS[2] in (ready, created, routed) else [])
+    assert not mutations(cloud) and not accesses(cloud)
+
+
+def test_cli_accepts_short_traffic_without_changing_approval_schema(monkeypatch, capsys):
+    cloud = Cloud()
+    cloud.service["trafficStatuses"][0]["revision"] = "earningsnerd-backend-00001-test"
+    monkeypatch.setattr(caller, "Cloud", lambda: cloud)
+    assert caller.main(["plan"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["manifest"]["snapshot"]["api"]["revision"] == REVISION_FORMS[1]
+    assert "diagnostics" not in result and "diagnostics" not in result["manifest"]
+    assert not mutations(cloud) and not accesses(cloud)
+
+
+def test_apply_accepts_equivalent_representation_but_refuses_real_revision_drift():
+    cloud = Cloud()
+    manifest = plan(cloud)
+    cloud.service.update(latestReadyRevision=REVISION_FORMS[2], latestCreatedRevision=REVISION_FORMS[0])
+    cloud.service["trafficStatuses"][0]["revision"] = REVISION_FORMS[0]
+    assert apply(cloud, manifest)["api_revision"] == REVISION_FORMS[1]
+    cloud = Cloud()
+    manifest = plan(cloud)
+    different = "earningsnerd-backend-00002-other"
+    cloud.service.update(latestReadyRevision=different, latestCreatedRevision=different)
+    cloud.service["trafficStatuses"][0]["revision"] = different
+    with pytest.raises(caller.Refused, match="plan_configuration_changed"):
+        apply(cloud, manifest)
+    assert not mutations(cloud) and not accesses(cloud)
+
+
+BAD_REVISION_REFERENCES = [
+    None, 1, True, [], {}, "", "earningsnerd-backend-00002-other", "other-service-00001-test",
+    "earningsnerd-backend-", "earningsnerd-backend-" + "a" * 44,
+    "earningsnerd-backend-00001-test\n", "earningsnerd-backend-00001_TEST",
+    "projects/other-project/locations/us-west1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+    "projects/999999999999/locations/us-west1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+    "projects/earnings-nerd/locations/us-east1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+    "projects/123456789012/locations/us-east1/services/earningsnerd-backend/revisions/earningsnerd-backend-00001-test",
+    "projects/earnings-nerd/locations/us-west1/services/other-service/revisions/earningsnerd-backend-00001-test",
+    "projects/123456789012/locations/us-west1/services/other-service/revisions/earningsnerd-backend-00001-test",
+    "projects/earnings-nerd/locations/us-west1/services/earningsnerd-backend/revisions/other-service-00001-test",
+    "projects/earnings-nerd/locations/us-west1/services/earningsnerd-backend/revisions/nested/earningsnerd-backend-00001-test",
+    "https://run.googleapis.com/v2/" + REVISION_FORMS[1],
+]
+
+
+@pytest.mark.parametrize("field", ["latestReadyRevision", "latestCreatedRevision", "traffic"])
+@pytest.mark.parametrize("value", BAD_REVISION_REFERENCES)
+def test_revision_scope_and_drift_fail_before_downstream_reads(field, value):
+    cloud = Cloud()
+    target = cloud.service["trafficStatuses"][0] if field == "traffic" else cloud.service
+    target["revision" if field == "traffic" else field] = value
+    with pytest.raises(caller.Refused, match="api_not_stable"):
+        plan(cloud)
+    assert all(row[0] in {"run", "cloudresourcemanager"} and row[2] == "GET" for row in cloud.calls)
+    assert not mutations(cloud) and not accesses(cloud)
+
+
+@pytest.mark.parametrize("change", [
+    {"reconciling": True}, {"reconciling": "false"}, {"reconciling": None},
+    {"trafficStatuses": []}, {"trafficStatuses": None}, {"trafficStatuses": {}},
+    {"trafficStatuses": [None]}, {"trafficStatuses": ["private"]},
+    {"trafficStatuses": [{"revision": REVISION, "percent": 50}, {"revision": REVISION, "percent": 50}]},
+    {"trafficStatuses": [{"revision": REVISION, "percent": 99}]},
+    {"trafficStatuses": [{"revision": REVISION, "percent": "100"}]},
+    {"trafficStatuses": [{"revision": REVISION, "percent": 100, "tag": "live"}]},
+])
+def test_revision_normalization_preserves_stability_guards(change):
+    cloud = Cloud()
+    cloud.service.update(change)
+    with pytest.raises(caller.Refused, match="api_not_stable"):
+        plan(cloud)
+    assert cloud.calls == [("run", "v2/" + caller.SERVICE, "GET", None)]
+
+
+@pytest.mark.parametrize("project", [None, [], {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": 123456789012},
+                                     {"projectId": "earnings-nerd", "projectNumber": "0"},
+                                     {"projectId": "earnings-nerd", "projectNumber": "123\n"}])
+def test_numeric_scope_requires_verified_fixed_project_metadata(project):
+    cloud = Cloud()
+    cloud.project = project
+    cloud.service["latestReadyRevision"] = REVISION_FORMS[2]
+    with pytest.raises(caller.Refused, match="api_project_metadata_unverified"):
+        plan(cloud)
+    assert [row[0] for row in cloud.calls] == ["run", "cloudresourcemanager"]
+
+
+def test_numeric_scope_metadata_denial_is_private_and_fails_closed(monkeypatch, capsys):
+    cloud = Cloud()
+    cloud.service["latestReadyRevision"] = REVISION_FORMS[2]
+    real_call = cloud.call
+
+    def denied(api, path, **kwargs):
+        if api == "cloudresourcemanager":
+            raise caller.OperationError(PRIVATE)
+        return real_call(api, path, **kwargs)
+
+    monkeypatch.setattr(cloud, "call", denied)
+    monkeypatch.setattr(caller, "Cloud", lambda: cloud)
+    assert caller.main(["plan"]) == 1
+    output = capsys.readouterr()
+    assert not output.err and PRIVATE not in output.out
+    result = json.loads(output.out)
+    assert result["reason"] == "api_project_metadata_unverified"
+    assert result["diagnostics"]["project_number_verified"] is False
+
+
+@pytest.mark.parametrize("service", [None, [], PRIVATE, {"latestReadyRevision": {"private": PRIVATE},
+                                                      "trafficStatuses": PRIVATE, "env": PRIVATE}])
+def test_cli_stability_diagnostics_are_closed_and_handle_malformed_service(monkeypatch, capsys, service):
+    cloud = Cloud()
+    cloud.service = service
+    monkeypatch.setattr(caller, "Cloud", lambda: cloud)
+    assert caller.main(["plan"]) == 1
+    output = capsys.readouterr()
+    assert not output.err and PRIVATE not in output.out
+    result = json.loads(output.out)
+    assert result == {"state": "UNVERIFIED", "reason": "api_not_stable", "diagnostics": {
+        "service_shape_valid": isinstance(service, dict),
+        "ready_form": "invalid_type" if isinstance(service, dict) else "missing",
+        "created_form": "missing", "traffic_revision_form": "missing", "traffic_cardinality": "invalid",
+        "traffic_percent_100": False, "traffic_untagged": True, "reconciliation_complete": True,
+        "project_number_verified": False, "ready_identity_valid": False,
+        "created_matches_ready": False, "traffic_matches_ready": False,
+    }}
+    assert cloud.calls == [("run", "v2/" + caller.SERVICE, "GET", None)]
 
 
 def test_new_caller_is_paused_before_access_or_authentication():
