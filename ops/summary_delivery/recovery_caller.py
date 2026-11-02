@@ -45,9 +45,13 @@ PLAN_LIFETIME_SECONDS = 7200
 class Refused(OperationError):
     """Closed local reason code; never initialized from a provider's payload."""
 
+    def __init__(self, reason: str, *, diagnostics: dict | None = None):
+        super().__init__(reason)
+        self.diagnostics = diagnostics
 
-def fail(reason: str) -> None:
-    raise Refused(reason) from None
+
+def fail(reason: str, *, diagnostics: dict | None = None) -> None:
+    raise Refused(reason, diagnostics=diagnostics) from None
 
 
 def canonical(value: object) -> bytes:
@@ -78,18 +82,86 @@ def origin(value: str) -> str:
     return "https://" + parsed.hostname
 
 
+def revision_form(value: object) -> str:
+    """A closed shape category; never include any provider-supplied value."""
+    if value is None or value == "":
+        return "missing"
+    if not isinstance(value, str):
+        return "invalid_type"
+    if "/" not in value:
+        return "short"
+    if value.startswith(SERVICE + "/revisions/"):
+        return "project_id_scoped"
+    if re.match(r"projects/[1-9][0-9]{0,19}/", value):
+        return "project_number_scoped"
+    return "other_scoped"
+
+
+def canonical_revision(value: object, project_number: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    name = value
+    for project in (PROJECT, project_number):
+        prefix = f"projects/{project}/locations/{REGION}/services/earningsnerd-backend/revisions/"
+        if project is not None and value.startswith(prefix):
+            name = value.removeprefix(prefix)
+            break
+    # Do not discard arbitrary prefixes: a foreign resource with the same leaf
+    # must fail. Cloud Run revision names also belong to their service's prefix.
+    if (not re.fullmatch(r"[a-z][a-z0-9-]{0,61}[a-z0-9]", name)
+            or not name.startswith("earningsnerd-backend-")):
+        return None
+    return SERVICE + "/revisions/" + name
+
+
+def stable_revision(cloud: Cloud, service: object) -> str:
+    row = service if isinstance(service, dict) else {}
+    traffic = row.get("trafficStatuses")
+    single = isinstance(traffic, list) and len(traffic) == 1
+    target = traffic[0] if single and isinstance(traffic[0], dict) else {}
+    values = (row.get("latestReadyRevision"), row.get("latestCreatedRevision"), target.get("revision"))
+    diagnostics = {
+        "service_shape_valid": isinstance(service, dict),
+        "ready_form": revision_form(values[0]), "created_form": revision_form(values[1]),
+        "traffic_revision_form": revision_form(values[2]),
+        "traffic_cardinality": ("one" if single else "none" if traffic == [] else
+                                "multiple" if isinstance(traffic, list) else "invalid"),
+        "traffic_percent_100": type(target.get("percent")) is int and target.get("percent") == 100,
+        "traffic_untagged": target.get("tag", "") == "",
+        "reconciliation_complete": row.get("reconciling", False) is False,
+        "project_number_verified": False,
+    }
+    project_number = None
+    if "project_number_scoped" in (revision_form(value) for value in values):
+        # Resolve the fixed project once, only when a numeric scope needs proof.
+        # This reads project metadata; it never reads an IAM policy or a secret.
+        try:
+            project = cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}")
+        except Exception:
+            fail("api_project_metadata_unverified", diagnostics=diagnostics)
+        if (not isinstance(project, dict) or project.get("projectId") != PROJECT
+                or not isinstance(project.get("projectNumber"), str)
+                or not re.fullmatch(r"[1-9][0-9]{0,19}", project["projectNumber"])):
+            fail("api_project_metadata_unverified", diagnostics=diagnostics)
+        project_number = project["projectNumber"]
+        diagnostics["project_number_verified"] = True
+    ready, created, routed = (canonical_revision(value, project_number) for value in values)
+    diagnostics.update({"ready_identity_valid": ready is not None,
+                        "created_matches_ready": ready is not None and created == ready,
+                        "traffic_matches_ready": ready is not None and routed == ready})
+    if (not diagnostics["service_shape_valid"] or not single
+            or not all(diagnostics[key] for key in ("ready_identity_valid", "created_matches_ready",
+                                                   "traffic_matches_ready", "traffic_percent_100",
+                                                   "traffic_untagged", "reconciliation_complete"))):
+        fail("api_not_stable", diagnostics=diagnostics)
+    return ready
+
+
 def api_snapshot(cloud: Cloud, *, binding_name: str = "INTERNAL_JOB_TOKEN") -> dict:
     if binding_name not in {"INTERNAL_JOB_TOKEN", "DATABASE_URL"}:
         fail("api_binding_unverified")
     service = cloud.call("run", "v2/" + SERVICE)
-    ready = service.get("latestReadyRevision", "")
-    created = service.get("latestCreatedRevision", "")
-    traffic = service.get("trafficStatuses", [])
-    if (service.get("reconciling") or not ready.startswith(SERVICE + "/revisions/")
-            or created != ready or len(traffic) != 1 or traffic[0].get("percent") != 100
-            or traffic[0].get("tag") or traffic[0].get("revision") != ready
-            or not re.fullmatch(r"[a-z0-9-]{1,63}", ready.rsplit("/", 1)[-1])):
-        fail("api_not_stable")
+    ready = stable_revision(cloud, service)
     url = origin(service.get("uri", ""))
     name = ready.rsplit("/", 1)[-1]
     revision = cloud.call(f"{REGION}-run", f"apis/serving.knative.dev/v1/namespaces/{PROJECT}/revisions/{name}")
@@ -303,7 +375,10 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, sort_keys=True))
         return 0
     except Refused as exc:
-        print(json.dumps({"state": "UNVERIFIED", "reason": str(exc)}))
+        result = {"state": "UNVERIFIED", "reason": str(exc)}
+        if exc.diagnostics is not None:
+            result["diagnostics"] = exc.diagnostics
+        print(json.dumps(result))
         return 1
     except Exception:
         # Provider errors can include headers or secret data. Only the closed final
