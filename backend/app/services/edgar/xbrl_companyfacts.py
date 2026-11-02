@@ -7,16 +7,16 @@ Local XBRL instance parsing lives in xbrl_instance under the service's plain tim
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.services.facts.fiscal_naming import without_partial_years
 from app.services.sec_rate_limiter import sec_rate_limiter
 from app.utils.sec_urls import companyfacts_url
 from .config import EDGAR_IDENTITY
 from .xbrl_cache import logger
 
-# Cash concept candidates for the single-filing statement path, in priority order. The
-# ASU 2016-18 restricted-cash total sits LAST (lowest priority): it only resolves when no
-# unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
-# migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
-# across all three cash registries.
+# Cash concept candidates for the single-filing statement path, in priority order. The ASU 2016-18 restricted-cash
+# total sits LAST (lowest priority): it only resolves when no unrestricted-cash tag is present — the JPM-class bank
+# case whose only cash line is the migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins
+# this ordering across all three cash registries.
 CASH_TAG_CANDIDATES: List[str] = [
     "CashAndCashEquivalentsAtCarryingValue",
     "Cash",
@@ -129,12 +129,11 @@ def select_fact_data_with_concept(
 ) -> Tuple[list, Optional[str]]:
     """Pick the candidate concept actually used by recent filings.
 
-    Taking the first concept present is wrong: issuers retire tags over
-    time (e.g. AAPL last reported `Revenues` in FY2018 and has used
-    `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a
-    stale concept would shadow the live one and surface years-old
-    values as "current". Prefer a concept with facts from the target
-    filing; concepts absent from that accession are unavailable.
+    Taking the first concept present is wrong: issuers retire tags over time (e.g. AAPL last reported `Revenues` in
+    FY2018 and has used `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a stale concept would shadow
+    the live one and surface years-old values as "current". Prefer a concept with facts from the target filing;
+    concepts absent from that accession are unavailable. A quarterly report's year that holds part of one is dropped
+    first, against every filing's items (``without_partial_years``).
     """
     best_end: Optional[str] = None
     best_data: list = []
@@ -144,7 +143,7 @@ def select_fact_data_with_concept(
         if not (isinstance(fact, dict) and isinstance(fact.get("units"), dict)):
             continue
         for unit_key in unit_keys:
-            data = fact["units"].get(unit_key) or []
+            data = without_partial_years(fact["units"].get(unit_key) or [])
             # No match means unavailable, not permission to use another filing.
             valid = [i for i in data if isinstance(i, dict) and i.get("end") and _is_target(i, normalized_accession)]
             if not valid:
