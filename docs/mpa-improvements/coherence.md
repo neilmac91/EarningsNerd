@@ -1293,8 +1293,10 @@ row, N9), from one port (`analysis_export_metadata.source_words` and `method_wor
       figure's and its input's, to the page's words and none to its stored expression.
     - **The glyph check.** #1621's glyph gate (`test_export_palette_parity.py`) renders the analysis with every
       formula's words in Sources & methods: the ÷, × and minus sign print in Inter's latin cut, with no fallback face
-      and no .notdef. In the workbook the Formula column keeps its width and wraps a longer formula onto a second line,
-      as it wrapped the longer stored definitions.
+      and no .notdef.
+    - **The workbook.** The Formula column keeps its width (50) and wraps a longer formula onto a second line, as it
+      wrapped the stored growth definitions, and a text cell never prints "###". Rendered in LibreOffice, every
+      formula prints whole, the three longest growth words on two lines.
     - A Q4 calculated from the year less its three quarters still prints as stored ("FY - (Q1 + Q2 + Q3)"), on the
       page and in both files: `FORMULAS` has no words for it.
 
