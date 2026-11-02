@@ -1548,3 +1548,41 @@ for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const tex
     })
   })
 }
+
+/** Removes every empty inputs list from the dataset's provenance records, at every depth: the shape a stored record sent
+ *  as stored, without the list, reaches the page in (E294). */
+function dropEmptyLists(dataset: AnalysisDataset) {
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(visit)
+    if (!node || typeof node !== 'object') return
+    for (const [key, value] of Object.entries(node)) {
+      const inputs = (value as { inputs?: unknown } | null)?.inputs
+      if (key.endsWith('provenance') && Array.isArray(inputs) && !inputs.length) delete (value as { inputs?: unknown }).inputs
+      visit(value)
+    }
+  }
+  visit(dataset)
+}
+
+// E294: a calculated KPI whose inputs are themselves calculated lists their reported operands two levels down in its
+// source dialog. The legacy fixture's pruning had left those operands without an inputs list, and opening "Free cash
+// flow, Q2 2026" took the page down to its error screen. The fixture now carries the list the builders write, and the
+// page admits a missing one as the builders' empty list where the response enters (lib/provenanceInputs.ts): both
+// shapes open the same dialog.
+test.describe('analysis source dialog / operands two levels down', () => {
+  for (const lists of ['as the builders write them', 'missing, as a stored record can send them'] as const) {
+    test(`a calculated KPI's dialog lists them, their lists ${lists}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1280, height: 900 })
+      await openAnalysis(page, baseURL!, 'legacy', 'light', 1, false, lists.startsWith('missing') ? dropEmptyLists : undefined)
+      await page.locator('[data-analysis-kpi]').getByRole('button', { name: /^Free cash flow, Q2 2026: / }).click()
+      const dialog = page.getByRole('dialog', { name: 'Free cash flow · Q2 2026' })
+      await expect(dialog).toBeVisible()
+      // Its two inputs, operating cash flow and capital expenditures, are each the six months to date less the first
+      // quarter, and under each sit its two reported operands.
+      await expect(dialog.getByText('Calculated from recorded inputs.', { exact: true })).toHaveCount(2)
+      const operands = dialog.locator('li li')
+      await expect(operands).toHaveCount(4)
+      for (const operand of await operands.all()) await expect(operand).toContainText('Reported in the source filing.')
+    })
+  }
+})
