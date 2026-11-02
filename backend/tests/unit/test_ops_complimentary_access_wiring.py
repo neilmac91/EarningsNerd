@@ -20,8 +20,9 @@ from Cloud Run and the Ops proxy, so three Ops operations run it: `complimentary
 - the manifest is the founder's private file: its repository secret is named once in every workflow, in that step's
   env, in the text and in the parsed workflow alike (so no YAML alias hands it to a second step), no workflow reads the
   whole secrets context (each expression closed where GitHub closes it, outside a quoted literal), no dispatch input is
-  named for a manifest, the step's script moves the manifest only through
-  a pipe and redirects nothing, so it writes it to no file, and no file this repository tracks is a manifest.
+  named for a manifest, and the step's script moves the manifest only through a pipe and redirects nothing, so it
+  writes it to no file. That no file in the repository is a manifest is PB-02's gate,
+  test_complimentary_access_service.py::test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example.
 
 Out of reach, said so nothing is overclaimed: how GitHub masks the secret in the log (the runner registers each line
 of a multi-line secret as a mask; docs/DEPLOYMENT.md says to store the manifest on one line); what the script prints,
@@ -439,27 +440,6 @@ def _expressions(text: str) -> list[str]:
         found.append(text[start + 3:] if end is None else text[start + 3:end - 1])
         start = -1 if end is None else text.find("${{", end + 1)
     return found
-
-
-def test_no_tracked_file_is_a_manifest():
-    """A manifest names real accounts and lives in the founder's private store, outside this public repository's
-    checkout (docs/DEPLOYMENT.md, "Complimentary access"): no JSON file the repository tracks parses as one."""
-    from app.services.complimentary_access_manifest import ManifestError, load_manifest
-
-    listed = subprocess.run(["git", "ls-files", "-z", "--", "*.json"], cwd=ROOT, capture_output=True, check=True)
-    names = [name for name in listed.stdout.decode().split("\0") if name]
-    assert names, "git ls-files found no JSON file: the scan is not reading this checkout"
-    manifests = []
-    for name in names:
-        raw = (ROOT / name).read_bytes()
-        if b"operator_account_id" not in raw:  # every manifest names its operator
-            continue
-        try:
-            load_manifest(raw)
-        except ManifestError:
-            continue
-        manifests.append(name)
-    assert manifests == [], "a tracked file is a complimentary-access manifest"
 
 
 def test_no_dispatch_input_is_named_for_a_manifest():
