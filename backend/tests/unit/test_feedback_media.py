@@ -636,7 +636,9 @@ def test_the_real_decoder_publishes_a_static_png_without_its_text_metadata(media
 
 
 def test_three_screenshots_of_exactly_five_mebibytes_each_are_accepted(media):
-    limit = router.MAX_FILE_BYTES
+    # The acceptance number lives here, not in the code under test: lowering the limit must fail this test.
+    limit = 5 * 1024 * 1024
+    assert router.MAX_FILE_BYTES == limit
     response = send(media, images=(b"a" * limit, b"b" * limit, b"c" * limit))
     assert response.status_code == 201, response.text
     assert len(media.uploads) == 3 and all(len(media.storage[key]) == limit for key in media.uploads)
