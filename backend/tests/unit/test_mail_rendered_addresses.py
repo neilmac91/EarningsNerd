@@ -1474,10 +1474,12 @@ def test_the_contrast_check_scores_every_planted_page(page, expected):
         assert any(expected in problem for problem in problems), f"expected {expected!r}, got {problems}"
 
 
-# How a Python release hands a marked section (<![...>) on to a parser's handlers is its own: 3.11.17 and 3.12.3 to
-# unknown_decl where "]" closes it right before its ">" and to handle_comment, as a bogus comment, where not; 3.13.16 to
-# handle_comment unless it is a CDATA section. Each route hands every one on one way, through the standard library's
-# own readers of each, and names the handlers it reaches for an Outlook section and a CDATA section.
+# How a Python release hands a marked section (<![...>) on to a parser's handlers is its own. As measured, 3.11.17 and
+# Ubuntu's 3.12.3, whose html.parser carries 2025's fixes, hand one to unknown_decl where "]" closes it right before its
+# ">" and to handle_comment, as a bogus comment, where not; 3.13.16 to handle_comment unless it is a CDATA section. A
+# release without those fixes hands every one to _markupbase's marked-section reader, and a later one may read a CDATA
+# section as a bogus comment too, as HTML5 does outside foreign content. Each route hands every one on one way, through
+# the standard library's own readers of each, and names the handlers it reaches for an Outlook section and a CDATA one.
 _MARKED_SECTION_ROUTES = {
     "as a declaration, every one": (
         lambda parser, i: parser.parse_marked_section(i),
@@ -1488,6 +1490,10 @@ _MARKED_SECTION_ROUTES = {
             parser.parse_marked_section(i) if parser.rawdata.startswith("<![CDATA[", i) else parser.parse_bogus_comment(i)
         ),
         [("handle_comment", "[if !mso]"), ("unknown_decl", "CDATA[x")],
+    ),
+    "as a bogus comment, every one": (
+        lambda parser, i: parser.parse_bogus_comment(i),
+        [("handle_comment", "[if !mso]"), ("handle_comment", "[CDATA[x]]")],
     ),
 }
 

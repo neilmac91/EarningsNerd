@@ -192,6 +192,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - test-smoke-model-runs-before-sweeps.md — Smoke one or two items and inspect raw output before any long or expensive model run
 - test-smoke-targets-feature-semantics.md — Distinguish the actual smoke target from similarly named calls to action
 - test-sqlite-savepoint-release-hides-a-dropped-commit.md — Pin a commit that follows a SAVEPOINT with a commit spy; under SQLite the RELEASE already committed the row
+- test-take-an-html-parser-verdict-where-every-python-release-starts-it.md — Take an `HTMLParser` reader's verdict where every Python release starts the construct (`parse_html_declaration` for a `<!` that opens no comment), never in a handler one release reaches and another skips; CI runs one release, so a test hands the construct on each way a release does or may (partly gated for marked sections by `backend/tests/unit/test_mail_rendered_addresses.py`; other constructs and readers are review-checked)
 - test-tracked-file-gates-run-after-staging.md — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - test-verbatim-fixtures-keep-the-source-bytes.md — Copy verbatim fixtures from the source payload and assert them on textContent
 - test-verify-orphaned-tests-before-adopting.md — Verify orphaned or uncollected tests before adopting them
