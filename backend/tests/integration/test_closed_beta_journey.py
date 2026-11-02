@@ -50,6 +50,8 @@ from app.models.feedback import FeedbackAttachment
 from app.routers import auth as auth_module
 from app.routers import feedback as feedback_router
 from app.routers import summaries as summaries_router
+from app.services import complimentary_access_service
+from app.services.complimentary_access_manifest import email_fingerprint, load_manifest
 from app.services.entitlements import _FREE, _PRO, Entitlements
 from app.services.feedback_image_service import NormalizedFeedbackImage
 from app.services.feedback_media_cleanup_service import run_feedback_media_cleanup
@@ -297,32 +299,59 @@ def test_every_unusable_invitation_is_refused_and_creates_nothing(browsers, outb
 
 # How an account can hold Pro without paying, as entitlements.get_plan resolves it: the ``is_pro`` mirror of an
 # account with no Subscription row, or a granting row kept in lockstep with the mirror, as subscription_sync writes
-# them. The complimentary grant is not built yet; whichever shape it takes, the matrix below already runs on it.
+# them. PB-02's complimentary grant sets the mirror (``_grant_pro``); the matrix below runs on every holder.
 PRO_HOLDERS = ("mirror", "active-row", "future-trial-row")
 
 
 def _grant_pro(email: str, holder: str = "mirror") -> None:
     """The one seam that makes a beta account Pro, so the matrix and the isolation check never depend on how.
 
-    No operation grants Pro without payment yet, and checkout is closed in code. When the complimentary grant
-    lands, this body (and ``_revoke_pro``'s) calls it, and every test here must pass unchanged.
+    ``mirror`` is PB-02's complimentary grant, run as the operator runs it. The two row holders are a subscriber's
+    Pro, which the grant cannot express (it refuses an account with a Subscription row of any status and never
+    writes one), so they keep the rows subscription_sync would write.
     """
+    if holder == "mirror":
+        report = _complimentary_access("grant", email)
+        assert report["outcomes"] == {"granted": 1} and not report["refusals"], report
+        return
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == email).one()
         user.is_pro = True
-        if holder != "mirror":
-            trial_end = utcnow() + timedelta(days=7) if holder == "future-trial-row" else None
-            db.add(Subscription(user_id=user.id, plan="pro", status="trialing" if trial_end else "active",
-                                trial_end=trial_end))
+        trial_end = utcnow() + timedelta(days=7) if holder == "future-trial-row" else None
+        db.add(Subscription(user_id=user.id, plan="pro", status="trialing" if trial_end else "active",
+                            trial_end=trial_end))
         db.commit()
 
 
 def _revoke_pro(email: str) -> None:
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == email).one()
-        user.is_pro = False
-        db.query(Subscription).filter(Subscription.user_id == user.id).update({"status": "canceled"})
-        db.commit()
+        if user.complimentary_access_grant is None:  # a row holder's Pro, not a grant's: end it as the old seam did
+            user.is_pro = False
+            db.query(Subscription).filter(Subscription.user_id == user.id).update({"status": "canceled"})
+            db.commit()
+            return
+    report = _complimentary_access("revoke", email)
+    assert report["outcomes"] == {"revoked": 1} and not report["refusals"], report
+
+
+def _complimentary_access(action: str, email: str) -> dict:
+    """PB-02's operator procedure (docs/ops/complimentary-access.md) for one account: a manifest naming it by id and
+    address fingerprint, signed by an active verified administrator; the dry run; then the apply of the digest that
+    dry run reported, on the app's own sessions."""
+    operator, account = _account(_seed_admin()), _account(email)
+    today = utcnow().date()
+    payload = {"action": action, "cohort": "beta-acceptance", "reason": "PB-05 closed-beta acceptance",
+               "operator_account_id": operator.id,
+               "accounts": [{"account_id": account.id, "email_sha256": email_fingerprint(account.email)}]}
+    if action == "grant":
+        payload["review_on"] = (today + timedelta(days=90)).isoformat()
+    manifest, digest = load_manifest(json.dumps(payload).encode())
+    with SessionLocal() as db:
+        planned = complimentary_access_service.dry_run(db, manifest, digest, today=today)
+        assert planned.stopped is None and not planned.refusals, planned.as_dict()
+        return complimentary_access_service.apply(db, manifest, digest, confirm_digest=planned.manifest_sha256,
+                                                  today=today, runner="local").as_dict()
 
 
 def _account_state(email: str) -> tuple:
