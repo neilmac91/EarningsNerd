@@ -26,6 +26,7 @@ from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
 from app.models.summary_job import SummaryJob, SummaryPreparationBudget
+from app.models.filing_source import FilingSourceBundle, FilingSourceMember, FilingSourceExtraction
 
 logger = logging.getLogger(__name__)
 
@@ -363,6 +364,9 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "FilingSourceBundle",
+    "FilingSourceMember",
+    "FilingSourceExtraction",
     "FilingSectionText",
     "InviteCode",
     "LoginAttempt",

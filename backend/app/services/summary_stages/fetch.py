@@ -86,6 +86,13 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
         try:
             logger.info(f"[stream:{filing_id}] Starting SEC fetch for URL: {run.filing_document_url}")
             async def fetch_grounding() -> str:
+                if run.artifact_mode:
+                    identity = pipeline.FilingSourceIdentity.from_filing(filing_id, run.filing_fields)
+                    run.committed_source = await pipeline.load_or_capture_source(
+                        identity, deadline=pipeline.time.monotonic() + 30.0, owner=run.worker_owner,
+                    )
+                    run.filing_source_provenance = run.committed_source.safe_provenance
+                    return run.committed_source.grounding_text
                 primary = await pipeline.sec_edgar_service.get_filing_document(run.filing_document_url, timeout=15.0)
                 if (run.filing_type or "").upper().split("/")[0] == "8-K":
                     with run.worker_owner.activate():

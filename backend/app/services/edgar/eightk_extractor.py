@@ -170,12 +170,15 @@ async def get_eightk_grounding(
 
 async def _get_eightk_grounding(
     primary_html: str, document_url: str, cik: str, accession_number: str, timeout: float,
+    *, supplied_members: dict[str, tuple[bytes, dict]] | None = None,
 ) -> EightKGrounding:
     if len(primary_html) > MAX_PRIMARY_CHARACTERS:
         raise _unavailable("primary_document_too_large")
     primary_text, filenames = await run_parse_with_timeout(
         lambda: _select(primary_html, document_url, cik, accession_number), timeout,
     )
+    if supplied_members is not None and list(supplied_members) != filenames:
+        raise _unavailable("artifact_member_selection_mismatch")
     provenance = {
         "schema_version": 1, "source": "eightk_same_accession_v1", "accession_number": accession_number,
         "primary_document_url": document_url,
@@ -189,9 +192,14 @@ async def _get_eightk_grounding(
     for filename in filenames:
         if remaining_bytes <= 0:
             raise _unavailable("exhibit_byte_budget")
-        content, source = await sec_edgar_service.get_filing_attachment_bytes(
-            cik, accession_number, filename, timeout=timeout, max_retries=1, max_bytes=remaining_bytes,
-        )
+        if supplied_members is None:
+            content, source = await sec_edgar_service.get_filing_attachment_bytes(
+                cik, accession_number, filename, timeout=timeout, max_retries=1, max_bytes=remaining_bytes,
+            )
+        else:
+            content, source = supplied_members[filename]
+            if len(content) > remaining_bytes:
+                raise _unavailable("exhibit_byte_budget")
         remaining_bytes -= len(content)
         text = await run_parse_with_timeout(lambda: _attachment_text(content), timeout)
         parts.append(f"Same-filing attachment: {filename}\n{text}")
@@ -203,3 +211,27 @@ async def _get_eightk_grounding(
             raise _unavailable("earnings_grounding_too_large")
     # Preserve plain text literally through the downstream HTML-to-text extractor.
     return EightKGrounding("<pre>" + html.escape("\n\n".join(parts)) + "</pre>", provenance)
+
+
+async def select_eightk_source_members(
+    primary_html: str, document_url: str, cik: str, accession_number: str, *, timeout: float,
+) -> list[str]:
+    """Expose the existing membership owner for capture without issuing a SEC request."""
+    if len(primary_html) > MAX_PRIMARY_CHARACTERS:
+        raise _unavailable("primary_document_too_large")
+    _, filenames = await run_parse_with_timeout(lambda: _select(primary_html, document_url, cik, accession_number), timeout)
+    return filenames
+
+
+async def get_eightk_grounding_from_members(
+    primary_html: str, document_url: str, cik: str, accession_number: str,
+    members: dict[str, tuple[bytes, dict]], *, timeout: float,
+) -> EightKGrounding:
+    """Rebuild the same grounding from verified captured bytes, with no SEC fallback."""
+    try:
+        async with asyncio.timeout(timeout):
+            return await _get_eightk_grounding(
+                primary_html, document_url, cik, accession_number, timeout, supplied_members=members,
+            )
+    except TimeoutError as exc:
+        raise _unavailable("exhibit_deadline") from exc

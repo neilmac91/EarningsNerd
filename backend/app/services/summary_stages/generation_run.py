@@ -100,6 +100,9 @@ class GenerationRun:
     sixk_class_audit: Optional[dict] = None
     filing_text: str = ""
     filing_source_provenance: Optional[dict] = None
+    artifact_requested: bool = field(init=False)
+    artifact_mode: bool = False
+    committed_source: pipeline.CommittedFilingSource | None = None
     excerpt: Optional[str] = None
     xbrl_metrics: Optional[dict] = None
     summary_payload: Optional[dict] = None
@@ -108,7 +111,21 @@ class GenerationRun:
     def __post_init__(self) -> None:
         self.pipeline_started_at = pipeline.time.time()
         self.stage_started_at = self.pipeline_started_at
-        self.worker_owner = pipeline.RequestWork(enabled=pipeline.settings.DURABLE_TASKS_ENABLED)
+        self.artifact_requested = bool(pipeline.settings.FILING_SOURCE_ARTIFACTS_ENABLED)
+        self.worker_owner = pipeline.RequestWork(
+            enabled=pipeline.settings.DURABLE_TASKS_ENABLED or self.artifact_requested,
+        )
+
+    def require_committed_source(self) -> None:
+        """Pure pre-provider barrier; no SDK/SQL callback can retry past this check."""
+        if not self.artifact_mode:
+            return
+        if not isinstance(self.committed_source, pipeline.CommittedFilingSource):
+            raise pipeline.FilingSourceError("artifact_barrier_missing")
+        identity = pipeline.FilingSourceIdentity.from_filing(self.filing_id, self.filing_fields)
+        self.committed_source.require_identity(identity, self.filing_text)
+        if self.filing_source_provenance != self.committed_source.safe_provenance:
+            raise pipeline.FilingSourceError("artifact_barrier_missing")
 
     def emit_funnel(self, *args, **kwargs):
         # Suppressed when the background/cron path drains this generator headless — a precompute

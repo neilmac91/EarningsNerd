@@ -156,16 +156,19 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
     if run.sections_task is not None:
         sections = await run.sections_task
 
-    # Extract excerpt. A forced run keeps the excerpt it builds to itself: finalize stores it in the
+    # E77 remains open: the bounded join may drop an excerpt; verified full text
+    # remains the model input and finalize clears an incompatible legacy excerpt
+    # only when this artifact-backed result wins promotion.
+    # Extract excerpt. A forced or artifact-backed run keeps the excerpt it builds to itself: finalize stores it in the
     # commit that replaces the summary, so a summary keep-better keeps (or a failed run) is never left
     # beside an excerpt it was not generated from, and an overlapping refresh never reads one.
     def extract_excerpt_sync():
         with database.SessionLocal() as thread_session:
             thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
             options = {}
-            if run.force_regenerate:
+            if run.force_regenerate or run.artifact_mode:
                 options["persist"] = False
-            if run.rebuild_excerpt:
+            if run.rebuild_excerpt or run.artifact_mode:
                 options["reuse_stored"] = False
             return pipeline.get_or_cache_excerpt(thread_session, thread_filing, run.filing_text, sections=sections, **options)
 
