@@ -121,6 +121,14 @@ def test_the_writer_never_rewrites_a_stored_row_so_created_at_dates_its_rule():
         db.close()
 
 
+def test_set_8_splits_where_the_preview_does():
+    # The preview reads a row as old when created_at is NULL or before E286_DEPLOYED_AT; set 8 must read it alike,
+    # off its one timestamp parameter, the literal the preview's own test holds to that constant.
+    code = _code()
+    assert code.count("ff.created_at IS NULL OR ff.created_at < p.e286_deployed AS old_rule") == 1
+    assert re.findall(r"::timestamptz AS (\w+)", code) == ["e286_deployed"]
+
+
 def test_the_file_reads_in_one_bounded_read_only_transaction():
     code = _code()
     statements = [s.strip() for s in code.split(";") if s.strip()]
