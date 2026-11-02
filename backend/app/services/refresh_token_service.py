@@ -13,7 +13,9 @@ change or reset) first takes the account's users row lock and reads what it writ
 them for one user run one after the other, on one API instance or across both (``lock_user_tokens``).
 A token minted at sign-in writes no existing row and takes no lock, except a password login's: a password
 login and a password change take the lock, and act only while the hash they verified is still the account's
-(``auth_account_service.record_password_login`` and ``stage_password_change``, E121).
+(``auth_account_service.record_password_login`` and ``stage_password_change``, E121). So does an OAuth sign-in's
+exchange of its one-time code (``oauth_account_service.redeem_session_handoff``, E29 (5)), and an account-wide
+revocation deletes the account's pending handoffs with its tokens (``revoke_all_for_user``).
 """
 from __future__ import annotations
 
@@ -27,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
-from app.models import RefreshToken, User
+from app.models import RefreshToken, SessionHandoff, User
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -58,8 +60,10 @@ def lock_user_tokens(db: Session, user_id: int) -> None:
     COMMITTED). The account's deletion takes it as well (``user_account_service._lock_account``), as its
     cascade deletes the tokens, and so do a password login and a password change before they check the
     hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``), a
-    password reset before it reads the account it writes (``complete_password_reset_by_id``), and an unlink
-    before it counts the account's sign-in methods (``oauth_account_service.unlink_oauth_provider``).
+    password reset before it reads the account it writes (``complete_password_reset_by_id``), an unlink
+    before it counts the account's sign-in methods (``oauth_account_service.unlink_oauth_provider``), and an
+    OAuth sign-in's code exchange before it reads the account and redeems the handoff
+    (``oauth_account_service.redeem_session_handoff``, E29 (5)).
     FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of inserts that name
     the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, except a
     Stripe delivery, which can hold the row across a bounded Stripe read (``watchlist_service.lock_watch_rows``
@@ -273,10 +277,17 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]
 
 
 def revoke_all_for_user(db: Session, user_id: int) -> int:
-    """Revoke all of a user's active refresh tokens. Returns the number revoked.
+    """Revoke all of a user's active refresh tokens and delete its OAuth session handoffs, uncommitted. Returns the
+    number of tokens revoked.
 
-    Under the users row lock, so the bulk UPDATE starts after any rotation of this user's has committed
-    and revokes its successor too."""
+    Every account-wide sign-out goes through here: logout-all (``revoke_all_and_commit``), a password change
+    (``auth_account_service.stage_password_change``) and a password reset (``complete_password_reset``). Under the
+    users row lock, so the bulk UPDATE starts after any rotation of this user's has committed and revokes its
+    successor too. A handoff is a sign-in committed by a Google or Apple callback whose landing page has not yet
+    exchanged its code for the session (E29 (5)); deleting the account's handoffs ends those too, so no session from
+    before the revocation reaches a browser after it. The exchange takes the same lock before it redeems
+    (``oauth_account_service.redeem_session_handoff``): one that waited out this revocation finds its handoff gone,
+    and one this revocation waited out has committed its session's token, which the UPDATE revokes."""
     lock_user_tokens(db, user_id)
     now = datetime.utcnow()
     count = (
@@ -284,6 +295,7 @@ def revoke_all_for_user(db: Session, user_id: int) -> int:
         .filter(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
         .update({RefreshToken.revoked_at: now}, synchronize_session=False)
     )
+    db.query(SessionHandoff).filter(SessionHandoff.user_id == user_id).delete(synchronize_session=False)
     return count
 
 
@@ -302,7 +314,7 @@ def mint_refresh_token(
     """Mint a refresh token for ``user`` and return its raw value (the cookie).
 
     Commits by default, together with whatever the caller has pending (a password change, an OAuth
-    link). ``commit=False`` leaves the commit to the caller. An ``IntegrityError`` from the flush or
+    sign-in's handoff redemption). ``commit=False`` leaves the commit to the caller. An ``IntegrityError`` from the flush or
     the commit propagates unchanged; the session then needs the caller's rollback.
     """
     _, raw_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
@@ -382,7 +394,8 @@ def live_token_owner(db: Session, raw_token: Optional[str]) -> Optional[Tuple[in
 
 
 def revoke_all_and_commit(db: Session, user_id: int) -> int:
-    """Revoke all of a user's active refresh tokens (sign out everywhere), commit, return the count."""
+    """Revoke all of a user's active refresh tokens and delete its pending OAuth session handoffs (sign out
+    everywhere), commit, return the count of tokens revoked."""
     revoked = revoke_all_for_user(db, user_id)
     db.commit()
     return revoked

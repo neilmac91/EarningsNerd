@@ -353,11 +353,12 @@ describe('a refresh asked for while a login is under way', () => {
 })
 
 /**
- * Gate (CLAUDE.md rule 12), both ends of the hold, in this tab and across tabs (E29 (4), E133). The posts whose answer
- * sets or clears the session cookies: a literal (a string, or a template's text) that names /api/auth/login is an
- * argument of the call returned (its expression body, or a `return` of its own, through `await` and parentheses) by a
- * function handed inline, as the second argument, to a call of `withoutRefreshBeside` imported by that name from
- * lib/api/client, so the helper's promise is that request's; one that names /api/auth/logout, /api/auth/logout-all or
+ * Gate (CLAUDE.md rule 12), both ends of the hold, in this tab and across tabs (E29 (4) and (5), E133). The posts whose
+ * answer sets or clears the session cookies: a literal (a string, or a template's text) that names /api/auth/login or
+ * /api/auth/oauth/complete (the OAuth sign-in's exchange of its one-time code, E29 (5)) is an argument of the call
+ * returned (its expression body, or a `return` of its own, through `await` and parentheses) by a function handed
+ * inline, as the second argument, to a call of `withoutRefreshBeside` imported by that name from lib/api/client, so
+ * the helper's promise is that request's; one that names /api/auth/logout, /api/auth/logout-all or
  * /api/auth/change-password is so, alike, for `withSessionCookiesForPost`, which holds the session cookies' lock,
  * shared, around it. In
  * lib/api/client.ts, withoutRefreshBeside hands its send by name, as the second argument, to the module's own
@@ -367,15 +368,16 @@ describe('a refresh asked for while a login is under way', () => {
  * withSessionCookiesForRefresh, which holds the lock for it, one refresh at a time. The lock's callers: every use of
  * either hold's name, or of sessionCookiesSettled's (the identity read's wait for the refreshes queued before it),
  * anywhere, is one of the six calls the client and the auth API make (HOLD_SITES: the refresh in ensureRefreshed, the
- * login's hand-off in withoutRefreshBeside, the two logouts, the password change's post in postPasswordChange and the
- * wait in getCurrentUser), so no other request runs under the lock and nothing else waits on it, and each of the four
- * routes posted under it is one whose own 401 asks for no refresh (isRefreshableRequest): a refresh asked for under the
+ * login's hand-off in withoutRefreshBeside, which the OAuth code exchange's post shares, the two logouts, the password
+ * change's post in postPasswordChange and the wait in getCurrentUser), so no other request runs under the lock and
+ * nothing else waits on it, and each of the five routes posted under it is one whose own 401 asks for no refresh
+ * (isRefreshableRequest): a refresh asked for under the
  * lock would wait for the lock its own caller holds, and every tab's refresh behind it. lib/api/refresh, whose
  * refreshAccessToken posts to /api/auth/refresh, is imported or exported anywhere only by lib/api/client.ts, by that one
  * name, whose one use of it is that call, and no other literal names that path; client.ts's NO_REFRESH_PATHS, a list of
- * paths and not a request, is pinned for the login's, the logout's, the password change's and the refresh's paths to its
- * one site. The identity read's path, /api/auth/me, is named by a literal only in getCurrentUser (ME_SITES), so every
- * /me read waits for the refreshes before it, as a tab landing from an OAuth sign-in needs; that the wait is awaited
+ * paths and not a request, is pinned for the login's, the code exchange's, the logout's, the password change's and the
+ * refresh's paths to its one site. The identity read's path, /api/auth/me, is named by a literal only in getCurrentUser
+ * (ME_SITES), so every /me read waits for the refreshes before it; that the wait is awaited
  * before the read is the specs' to hold (planted as a gap). What the holds and the wait themselves do (the lock and its two modes, the waits and their bounds, the post
  * at its limit, the password change's renewal after its hold) is sessionCookiesAcrossTabs.spec.ts's to hold. What it
  * reads: every tracked
@@ -410,6 +412,8 @@ const SETTLED = 'sessionCookiesSettled'
 // whose send must post it. The login's helper keeps its one-tab gate and hands the send on to the posts' hold.
 const HELD_POSTS = {
   login: { route: '/api/auth/login', names: /\/api\/auth\/login(?![\w-])/, helper: 'withoutRefreshBeside' },
+  // The OAuth sign-in's exchange of its one-time code (E29 (5)), posted as the login is.
+  oauthComplete: { route: '/api/auth/oauth/complete', names: /\/api\/auth\/oauth\/complete(?![\w-])/, helper: 'withoutRefreshBeside' },
   logout: { route: '/api/auth/logout', names: /\/api\/auth\/logout(?![\w-])/, helper: POST_HOLD },
   logoutAll: { route: '/api/auth/logout-all', names: /\/api\/auth\/logout-all(?![\w-])/, helper: POST_HOLD },
   changePassword: { route: '/api/auth/change-password', names: /\/api\/auth\/change-password(?![\w-])/, helper: POST_HOLD },
@@ -536,6 +540,7 @@ function read(source: string, file: string): Reading {
   const found: Reading = {
     posts: {
       login: { outside: [], inside: 0, exempt: 0 },
+      oauthComplete: { outside: [], inside: 0, exempt: 0 },
       logout: { outside: [], inside: 0, exempt: 0 },
       logoutAll: { outside: [], inside: 0, exempt: 0 },
       changePassword: { outside: [], inside: 0, exempt: 0 },
@@ -676,8 +681,14 @@ const LOGOUT_FORMS: { form: string; post: Exclude<HeldPost, 'login'>; source: st
   { form: "lib/api/client.ts's NO_REFRESH_PATHS, the password change's path", post: 'changePassword', file: CLIENT, source: "const NO_REFRESH_PATHS = ['/api/auth/refresh', '/api/auth/change-password']", outside: 0, inside: 0, exempt: 1 },
   { form: 'the password change posted directly, as before its hold', post: 'changePassword', source: `${API}export const changePassword = () => api.post('/api/auth/change-password', {})`, outside: 1, inside: 0 },
   { form: "the password change's renewal posting outside the hold", post: 'changePassword', source: `${API}${POST_IMPORT}export const changePassword = async () => {\n  try { return await withSessionCookiesForPost(1, () => api.post('/api/auth/change-password', {})) } catch { return api.post('/api/auth/change-password', {}) }\n}`, outside: 1, inside: 1 },
+  // The OAuth sign-in's code exchange (E29 (5)): posted in the login's helper, and its path in NO_REFRESH_PATHS.
+  { form: "the OAuth code exchange's post in the login's helper's send", post: 'oauthComplete', source: `${API}${HELPER}export const completeOAuthSignIn = (code: string) => withoutRefreshBeside(1, () => api.post('/api/auth/oauth/complete', { code }))`, outside: 0, inside: 1 },
+  { form: "lib/api/client.ts's NO_REFRESH_PATHS, the code exchange's path", post: 'oauthComplete', file: CLIENT, source: "const NO_REFRESH_PATHS = ['/api/auth/refresh', '/api/auth/oauth/complete']", outside: 0, inside: 0, exempt: 1 },
+  { form: 'the OAuth code exchange posted directly, as a callback set its cookies by navigation', post: 'oauthComplete', source: `${API}export const completeOAuthSignIn = (code: string) => api.post('/api/auth/oauth/complete', { code })`, outside: 1, inside: 0 },
+  { form: "the OAuth code exchange under the posts' hold, which skips the login's tab gate", post: 'oauthComplete', source: `${API}${POST_IMPORT}export const completeOAuthSignIn = (code: string) => withSessionCookiesForPost(1, () => api.post('/api/auth/oauth/complete', { code }))`, outside: 1, inside: 0 },
   // Look-alikes, which pass.
   { form: 'a longer path that starts with it', post: 'logout', source: `${API}export const history = () => api.get('/api/auth/logout-history')`, outside: 0, inside: 0 },
+  { form: "a longer path that starts with the code exchange's", post: 'oauthComplete', source: `${API}export const status = () => api.get('/api/auth/oauth/complete-status')`, outside: 0, inside: 0 },
   { form: 'a longer path that starts with the password change\'s', post: 'changePassword', source: `${API}export const policy = () => api.get('/api/auth/change-password-policy')`, outside: 0, inside: 0 },
   // Out of its reach.
   { form: 'the path assembled at run time', post: 'logout', source: `${API}export const logout = () => api.post('/api/auth/' + 'logout')`, outside: 0, inside: 0, gap: true },
@@ -817,7 +828,7 @@ type Counts = { outside: number; inside: number; exempt: number }
 const NONE: Counts = { outside: 0, inside: 0, exempt: 0 }
 const countsOf = (reading: Reading): Record<HeldPost, Counts> => Object.fromEntries(HELD.map((post) =>
   [post, { outside: reading.posts[post].outside.length, inside: reading.posts[post].inside, exempt: reading.posts[post].exempt }])) as Record<HeldPost, Counts>
-const NOWHERE: Record<HeldPost, Counts> = { login: NONE, logout: NONE, logoutAll: NONE, changePassword: NONE }
+const NOWHERE: Record<HeldPost, Counts> = { login: NONE, oauthComplete: NONE, logout: NONE, logoutAll: NONE, changePassword: NONE }
 
 describe("both ends of the hold stay in the client: each post in its helper's send, the login's handed on to the posts' hold, and the refresh in ensureRefreshed under its own", () => {
   it('scores each planted form', () => {
@@ -860,11 +871,15 @@ describe("both ends of the hold stay in the client: each post in its helper's se
     expect(files.length).toBeGreaterThan(300)
     const readings = files.map((file) => ({ file, ...read(readFileSync(path.join(FRONTEND, file), 'utf8'), file) }))
     expect(Object.fromEntries(HELD.map((post) => [post, readings.flatMap(({ file, posts }) => posts[post].outside.map((line) => `${file}:${line}`))])))
-      .toEqual({ login: [], logout: [], logoutAll: [], changePassword: [] })
+      .toEqual({ login: [], oauthComplete: [], logout: [], logoutAll: [], changePassword: [] })
     const where = (count: (placement: Placement) => number) => Object.fromEntries(HELD.map((post) =>
       [post, readings.filter(({ posts }) => count(posts[post]) > 0).map(({ file, posts }) => [file, count(posts[post])])]))
-    expect(where(({ inside }) => inside)).toEqual({ login: [[AUTH_API, 1]], logout: [[AUTH_API, 1]], logoutAll: [[AUTH_API, 1]], changePassword: [[AUTH_API, 1]] })
-    expect(where(({ exempt }) => exempt)).toEqual({ login: [[CLIENT, 1]], logout: [[CLIENT, 1]], logoutAll: [], changePassword: [[CLIENT, 1]] })
+    expect(where(({ inside }) => inside)).toEqual({
+      login: [[AUTH_API, 1]], oauthComplete: [[AUTH_API, 1]], logout: [[AUTH_API, 1]], logoutAll: [[AUTH_API, 1]], changePassword: [[AUTH_API, 1]],
+    })
+    expect(where(({ exempt }) => exempt)).toEqual({
+      login: [[CLIENT, 1]], oauthComplete: [[CLIENT, 1]], logout: [[CLIENT, 1]], logoutAll: [], changePassword: [[CLIENT, 1]],
+    })
     expect(Object.fromEntries(readings.filter(({ loginSend }) => loginSend.length > 0).map(({ file, loginSend }) => [file, loginSend])))
       .toEqual({ [CLIENT]: LOGIN_SEND })
     expect(Object.fromEntries(readings.filter(({ refresh }) => refresh.length > 0).map(({ file, refresh }) => [file, refresh])))
@@ -877,6 +892,6 @@ describe("both ends of the hold stay in the client: each post in its helper's se
 
   it("holds under the posts' hold only posts whose own 401 asks for no refresh, which would wait for the lock its caller holds", () => {
     expect(Object.fromEntries(HELD.map((post) => [post, isRefreshableRequest(HELD_POSTS[post].route)])))
-      .toEqual({ login: false, logout: false, logoutAll: false, changePassword: false })
+      .toEqual({ login: false, oauthComplete: false, logout: false, logoutAll: false, changePassword: false })
   })
 })

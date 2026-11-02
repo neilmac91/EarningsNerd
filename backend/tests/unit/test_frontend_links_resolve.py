@@ -61,6 +61,7 @@ _STRIPS = ("rstrip", "strip")
 
 # The bare origin, as the home page, where it stands: (module, function) -> (how many reads, why).
 BARE_ORIGINS = {
+    # A start that asked for the session handoff lands on /auth/complete instead, an f-string the scan follows (E29 (5)).
     ("backend/app/routers/auth.py", "google_callback"): (1, "a reader Google signs in lands on the home page"),
     ("backend/app/routers/auth.py", "apple_callback"): (1, "a reader Apple signs in lands on the home page"),
     ("backend/app/services/email_service.py", "_filing_url"): (1, "an alert with no filing page of ours links the home page"),
