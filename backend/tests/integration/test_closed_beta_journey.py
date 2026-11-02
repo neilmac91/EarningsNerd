@@ -31,14 +31,15 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event
+from sqlalchemy import and_, delete, event, select
 from sqlalchemy.orm.attributes import set_committed_value
 from stripe import StripeObject
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import Base, SessionLocal
 from app.models import (AccountAgreement, Company, Filing, FilingContentCache, InviteCode, Subscription, Summary, User,
                         UserUsage)
+from app.models.feedback import FeedbackAttachment
 from app.routers import auth as auth_module
 from app.routers import feedback as feedback_router
 from app.routers import summaries as summaries_router
@@ -78,6 +79,29 @@ def browsers(started):
     yield open_browser
     for browser in opened:
         browser.close()
+
+
+@pytest.fixture(autouse=True)
+def _leave_no_rows(started):
+    """Delete every row a test here created, when it ends. These tests share their worker's database with the
+    whole suite, and some suites read whole tables (the filing scan scans every watched company), so a synthetic
+    beta account left behind would change what they see. A row is this test's when its primary key was absent
+    before the test ran; the database never reuses an id (tests/conftest.py)."""
+    before = _primary_keys()
+    yield
+    created = {name: keys - before.get(name, set()) for name, keys in _primary_keys().items()}
+    with SessionLocal() as db:
+        for table in reversed(Base.metadata.sorted_tables):
+            columns = list(table.primary_key.columns)
+            for key in created.get(table.name, ()):
+                db.execute(delete(table).where(and_(*(column == value for column, value in zip(columns, key)))))
+        db.commit()
+
+
+def _primary_keys() -> dict[str, set[tuple]]:
+    with SessionLocal() as db:
+        return {table.name: {tuple(row) for row in db.execute(select(*table.primary_key.columns))}
+                for table in Base.metadata.sorted_tables if table.primary_key.columns}
 
 
 @pytest.fixture(autouse=True)
@@ -514,9 +538,11 @@ class _MemoryBucket:
         return None
 
     def delete(self, key, generation):
-        stored_generation, _ = self.objects.pop(key)
-        assert generation in (None, stored_generation)
-        return stored_generation
+        stored = self.objects.pop(key, None)
+        if stored is None:
+            return None  # not this bucket's object: a row another module left due for cleanup
+        assert generation in (None, stored[0])
+        return stored[0]
 
 
 @pytest.fixture
@@ -565,6 +591,11 @@ def _triage_row(admin: TestClient, feedback_id: int) -> dict:
     rows = {row["id"]: row for row in listed.json()["feedback"]}
     assert feedback_id in rows, feedback_id
     return rows[feedback_id]
+
+
+def _attachment_state(attachment_id: str) -> str:
+    with SessionLocal() as db:
+        return db.get(FeedbackAttachment, attachment_id).state
 
 
 def test_feedback_reaches_triage_and_the_testers_data_leaves_with_them(browsers, outbox, bucket):
@@ -623,9 +654,9 @@ def test_feedback_reaches_triage_and_the_testers_data_leaves_with_them(browsers,
     assert _account(me["email"]) is None
     assert tester.get("/api/auth/me").status_code == 401
     assert admin.get(f"/api/feedback/attachments/{attachment_id}").status_code in (404, 410)
-    stats = run_feedback_media_cleanup(SessionLocal, bucket)
-    assert stats["deleted"] == 1 and stats["errors"] == 0, stats
+    run_feedback_media_cleanup(SessionLocal, bucket)
     assert bucket.objects == {}
+    assert _attachment_state(attachment_id) == "deleted"
     assert _triage_row(admin, text.json()["id"])["user_id"] is None
     assert _triage_row(admin, neighbour_text.json()["id"])["user_email"] == other_me["email"]
     assert other.get("/api/auth/me").status_code == 200
@@ -767,8 +798,9 @@ def test_switching_screenshots_off_keeps_text_feedback_and_cleanup(browsers, out
     attachment_id = _triage_row(admin, shot.json()["id"])["attachments"][0]["id"]
     assert tester.get(f"/api/feedback/attachments/{attachment_id}").content == b"kept screenshot"
     assert tester.delete("/api/users/me").status_code == 200
-    assert run_feedback_media_cleanup(SessionLocal, bucket)["deleted"] == 1
+    run_feedback_media_cleanup(SessionLocal, bucket)
     assert bucket.objects == {}
+    assert _attachment_state(attachment_id) == "deleted"
 
 
 # ── the social path: an invited Google sign-up, then a returning sign-in ──────
