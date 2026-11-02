@@ -14,9 +14,9 @@ records tests on this container's 3.13.16.
 - A reader built on `html.parser.HTMLParser` takes its verdict on a construct where every release starts to read it
   (for a `<!` that opens no comment, `parse_html_declaration(self, i)`), then reads on as the release does; never in a
   handler one release reaches and another skips.
-- Trace a construct's route on each release before relying on it. The container carries 3.11, 3.12 and 3.13
-  (`/usr/bin/python3.1x`), and `uv venv --python /usr/bin/python3.11` with the backend's requirements runs the suite on
-  one of them.
+- Trace a construct's route on each release before relying on it, on every interpreter the container carries (on
+  2026-11-01: 3.11, 3.12 and 3.13, at `/usr/bin/python3.1x`); `uv venv --python /usr/bin/python3.11` with the backend's
+  requirements runs the suite on one of them.
 - CI runs one release, so a test hands the construct on each way a release does or may, through the standard library's
   own readers of each, and holds every planted page to the running release's verdict (gated for marked sections by
   `test_the_contrast_check_scores_a_planted_marked_section_alike_however_a_release_hands_it_on` in
