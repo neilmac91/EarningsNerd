@@ -2,8 +2,9 @@
 """E264 step (2): a read-only preview of each financial company's stored revenue rows against the deployed rule.
 
 Since E264's deploy (#1913) a financial filer's companyfacts revenue is its reported total, never its ASC 606 fee
-line. Rows stored before then keep the old reading, since both fact writers skip a stored identity. For each
-financial company synced since the deploy, this reads SEC's current companyfacts once and computes what the
+line, and since E286's (#1938) the rule reads every total element a filer tags. Rows stored before E286's deploy keep
+an older reading, since both fact writers skip a stored identity. For each financial company synced since E286's
+deploy, this reads SEC's current companyfacts once and computes what the
 deployed rule writes with the deployed pure functions, never a copy: ``normalize_companyfacts`` (the batch and its
 own-report history), ``financial_revenue_tags`` (the company's tag choice), ``extract_authoritative_values`` with
 ``cross_check_facts`` (the per-filing writer's verdict), ``admitted_items`` with ``own_period_ends`` (what an
@@ -32,8 +33,11 @@ operands: outside the choice, inside it, or legacy (none recorded: rows stored b
   the old authority, or written unchecked). unjudged: no authority at its period end (10-Q quarters, E278's).
 - missing (informational): batch identities no stored row holds.
 Each listed row carries its stored and deployed figures, the gap, its rule and a closed ``why`` (WHY). The rule is old
-when the row was created before the deploy that changed its writer, as census set 8 splits them: E278's (#1919) for a
-per-filing row the extraction wrote (its source is not companyfacts), E264's for every other row.
+when the row was created before E286's deploy (#1938), which changed every writer's rule at once (the feed's tag
+choice, the cross-check's authority and the per-filing extraction): from the first moment no writer, a job's retried
+attempt included, can still run the old image. Census set 8 splits at the same instant. A company counts as synced
+since the deploy from an earlier one, when no service can (only the services sync companyfacts); tasks/todo.md, E264,
+says how each was read.
 
 Outcomes per company (OUTCOMES): previewed; pending_resync (synced before the deploy, no SEC read: step (1)'s rest
 of the cohort); not_financial; fetch_failed; payload_rejected; unsupported_ifrs; another_currency (the sync's
@@ -100,8 +104,8 @@ from app.services.quarterly_fact_repair import _validate_payload  # noqa: E402
 from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: E402
 from app.utils.datetimes import ensure_utc, iso_z, utc_from_iso, utcnow  # noqa: E402
 
-E264_DEPLOYED_AT = utc_from_iso("2026-11-01T14:07:03+00:00")  # census SQL's e264_deployed
-E278_DEPLOYED_AT = utc_from_iso("2026-11-01T21:04:12+00:00")  # deploy-backend job 124977441912 moved the last job
+E286_SYNCED_AT = utc_from_iso("2026-11-02T08:17:14+00:00")  # no service runs the old image from here (docstring)
+E286_DEPLOYED_AT = utc_from_iso("2026-11-02T11:35:00+00:00")  # census SQL's e286_deployed: no writer does
 FEED_TOLERANCE = 0.005
 CONCEPTS = ("revenue", "net_margin", "operating_margin", "gross_margin")
 MARGINS = frozenset(CONCEPTS[1:])
@@ -206,7 +210,7 @@ def read_cohort(db: Session, tickers: list[str]) -> tuple[list[Member], int]:
     """The named companies, or every financial one (``_is_financial_sic``, in Python); and the blank-SIC count."""
     rows = db.query(Company.id, Company.ticker, Company.cik, Company.sic, Company.facts_synced_at).order_by(
         Company.ticker, Company.id).all()
-    members = [Member(id_, ticker, cik, sic, synced is not None and ensure_utc(synced) >= E264_DEPLOYED_AT)
+    members = [Member(id_, ticker, cik, sic, synced is not None and ensure_utc(synced) >= E286_SYNCED_AT)
                for id_, ticker, cik, sic, synced in rows
                if (ticker in tickers if tickers else _is_financial_sic(sic))]
     unknown = sorted(set(tickers) - {member.ticker for member in members})
@@ -359,10 +363,9 @@ def _plain(value: Any) -> Any:
 
 
 def _rule(row: dict) -> str:
-    """old or new: whether the row predates the deploy that changed its writer (E278's for the extraction's rows)."""
-    extracted = row["filing_id"] is not None and row["source"] != "companyfacts"
-    created, instant = row["created_at"], E278_DEPLOYED_AT if extracted else E264_DEPLOYED_AT
-    return "old" if created is None or ensure_utc(created) < instant else "new"
+    """old or new: whether the row predates E286's deploy, which changed every writer's rule."""
+    created = row["created_at"]
+    return "old" if created is None or ensure_utc(created) < E286_DEPLOYED_AT else "new"
 
 
 def _entry(row: dict, figure: dict | None, why: set[str]) -> dict[str, Any]:
@@ -485,7 +488,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
             "started": True, "run_id": run_id, "workflow_commit": args.workflow_commit, "dry_run": True,
             "execution": "github_actions_runner", "production_image_used": False,
             "payload_source": "sec" if args.companyfacts_dir is None else "offline_directory",
-            "rule": {"e264_deployed_at": iso_z(E264_DEPLOYED_AT), "e278_deployed_at": iso_z(E278_DEPLOYED_AT),
+            "rule": {"e286_synced_at": iso_z(E286_SYNCED_AT), "e286_deployed_at": iso_z(E286_DEPLOYED_AT),
                      "feed_tolerance": FEED_TOLERANCE,
                      "per_filing": f"cross_check_facts ({CROSS_CHECK_TOLERANCE:.0%})"},
             "cohort_size": len(members), "blank_sic_companies": blank,
@@ -541,7 +544,7 @@ def _commit(value: str) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Read-only preview of E264's deployed revenue rule (docstring).")
+    parser = argparse.ArgumentParser(description="Read-only preview of the deployed revenue rule (docstring).")
     parser.add_argument("--tickers", help="Comma-separated, at most 50 (default: every financial company).")
     parser.add_argument("--output", type=Path, required=True, help="Where the full report is written.")
     parser.add_argument("--workflow-commit", type=_commit, required=True, help="The commit this run executes.")
