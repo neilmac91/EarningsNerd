@@ -59,10 +59,10 @@ too). Planted modules score each check. What it cannot see:
   or the queue bound by unpacking (``q, t = a, b``) or held as a class's attribute; a send
   behind a helper or a wrapper module, counted once however often its callers call it; and a call of the
   mail provider that names neither its settings nor its address;
-- mail built or sent outside ``email_service``, in the modules ``SENDERS`` lists: ``routers/contact.py``'s
-  confirmation (E56) and the internal admin and team notices, which send no text part of their own, and the
-  page and text part ``data_quality_service.run_and_email`` hands the transport, which the render here checks
-  as ``render_data_quality_report`` returns them.
+- mail built or sent outside ``email_service``, in the modules ``SENDERS`` lists: the internal admin and team
+  notices, ``routers/contact.py``'s among them, which send no text part of their own, and the page and text part
+  ``data_quality_service.run_and_email`` hands the transport, which the render here checks as
+  ``render_data_quality_report`` returns them.
 
 It also holds every page it renders to the shell's page rules, which ``test_mail_header_template.py``
 states and plants, and which ``tests/support/mail_styles.py`` models as Blink and WebKit read a page's
@@ -230,6 +230,8 @@ RENDERS = {
     "send_password_reset_email": [dict(to_email=TO, name=NAME, reset_link=LINK)],
     "send_oauth_linked_email": [dict(to_email=TO, name=NAME, provider="Google")],
     "send_account_exists_email": [dict(to_email=TO, name=NAME, login_link=LINK, reset_link=LINK)],
+    "render_contact_confirmation_email": [dict(name=NAME)],
+    "send_contact_confirmation_email": [dict(to_email=TO, name=NAME)],
     "render_new_filing_alert": ALERTS,
     "build_new_filing_alert": ALERTS,
     "send_new_filing_alert": [dict(alert, to_email=TO) for alert in ALERTS],
@@ -660,10 +662,9 @@ def test_no_other_module_reaches_the_mail_modules_private_names():
 
 
 # The HTML pages a module of backend/app builds outside the shell, with how many: contact.py's notice to the team
-# and its confirmation to the person who wrote in, until E56 moves the confirmation into the shell, and a PDF
-# export's page, which is no mail. Equalities (lessons/test-allowlist-caps-are-equalities.md): a page that moves into
+# (its receipt to the person who wrote in is the shell's since E56), and a PDF export's page, which is no mail. Equalities (lessons/test-allowlist-caps-are-equalities.md): a page that moves into
 # the shell lowers its count in the same diff.
-OWN_PAGES = {"app/routers/contact.py": 2, "app/services/pdf_branding.py": 1}
+OWN_PAGES = {"app/routers/contact.py": 1, "app/services/pdf_branding.py": 1}
 _OPENS_A_PAGE = re.compile(r"<(?:html|head|body)[\s>]|<!doctype\s", re.IGNORECASE)
 
 
@@ -759,15 +760,15 @@ def test_the_page_walk_sets_aside_the_mail_modules_shell_alone(tmp_path):
 # and what it sends. email_service builds its mail in the shell that carries the header, and the render holds every
 # mail it sends through the transport to a page the shell built; its count holds a send the render does not record,
 # through the queue or to the provider, to a look as well. The queue, the filing scan and the data-quality report send
-# what it builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the admin and
-# feedback routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a listed
+# what it builds; contact.py builds its notice to the team, a page of its own, and the admin and feedback routes
+# send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a listed
 # one that names a send once more, fails here until it sends through email_service or is listed with what it sends.
 SENDERS = {
-    "app/services/email_service.py": (10, "every mail it builds, in the shell, through the transport"),
+    "app/services/email_service.py": (11, "every mail it builds, in the shell, through the transport"),
     "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
     "app/services/filing_scan_service.py": (5, "the filing alerts and digests email_service builds, queued: three batches and two drains"),
     "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, its page and text part"),
-    "app/routers/contact.py": (2, "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)"),
+    "app/routers/contact.py": (1, "a notice to the team, a page of its own; its receipt is email_service's (E56)"),
     "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/email.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/feedback.py": (1, "a notice of beta feedback to the team, a fragment"),
@@ -1216,6 +1217,7 @@ PRINTS_LONG_RUNS = {
     "render_welcome_email": [1], "send_waitlist_welcome_email": [1], "render_referral_success_email": [2],
     "send_referral_success_email": [2], "send_verification_email": [2], "send_invite_email": [1, 2],
     "send_password_reset_email": [2], "send_oauth_linked_email": [1], "send_account_exists_email": [1],
+    "render_contact_confirmation_email": [1], "send_contact_confirmation_email": [1],
     "render_new_filing_alert": [2, 2, 2, 2, 2], "build_new_filing_alert": [2, 2, 2, 2, 2],
     "send_new_filing_alert": [2, 2, 2, 2, 2], "render_daily_digest": [4], "build_daily_digest": [4],
     "send_daily_digest": [4], "render_earnings_day_alert": [2, 2], "send_earnings_day_alert": [2, 2],
@@ -1655,21 +1657,24 @@ PREHEADER_LINES = {
     "send_password_reset_email": ["Set a new password. The link works once, for one hour."],
     "send_oauth_linked_email": ["If this was you, there's nothing to do. If it wasn't, reset your password now."],
     "send_account_exists_email": ["You already have an account. Log in, or ignore this if it wasn't you."],
+    "render_contact_confirmation_email": ["We received your message and aim to reply within 2 business days."],
     "render_new_filing_alert": [f"{COMPANY} filed with the SEC on 2026-01-01."] * 5,
     "render_daily_digest": ["PVCT 10-K, PVCT 10-K and PVCT 10-K."],
     "render_earnings_day_alert": ["PVCT before open and BETA during market hours.", f"{COMPANY} reports after close."],
     "render_data_quality_report": ["This week's scan, each section with its count."] * 2,
 }
-# The eleven mails the module builds, each once: its render, or the send_ function that builds its page.
+# The twelve mails the module builds, each once: its render, or the send_ function that builds its page.
 MAILS = (
     "render_welcome_email", "render_referral_success_email", "send_verification_email", "send_invite_email",
-    "send_password_reset_email", "send_oauth_linked_email", "send_account_exists_email", "render_new_filing_alert",
+    "send_password_reset_email", "send_oauth_linked_email", "send_account_exists_email",
+    "render_contact_confirmation_email", "render_new_filing_alert",
     "render_daily_digest", "render_earnings_day_alert", "render_data_quality_report",
 )
 # A send_ or build_ function sends what its render builds.
 PREHEADER_LINES |= {
     "send_waitlist_welcome_email": PREHEADER_LINES["render_welcome_email"],
     "send_referral_success_email": PREHEADER_LINES["render_referral_success_email"],
+    "send_contact_confirmation_email": PREHEADER_LINES["render_contact_confirmation_email"],
     "build_new_filing_alert": PREHEADER_LINES["render_new_filing_alert"],
     "send_new_filing_alert": PREHEADER_LINES["render_new_filing_alert"],
     "build_daily_digest": PREHEADER_LINES["render_daily_digest"],

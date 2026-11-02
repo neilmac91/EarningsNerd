@@ -506,6 +506,31 @@ async def send_account_exists_email(
     )
 
 
+def render_contact_confirmation_email(*, name: str | None) -> tuple[str, str]:
+    """The contact form's receipt to the person who wrote in (E56): the page and its text part. The address is
+    the one the form was given, so the receipt repeats none of what was submitted, the message above all, and
+    the team's notice alone carries it (``routers/contact.py``)."""
+    html_body = f"""
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{_greeting(name)}</p>
+    <p style="margin:0 0 16px;">Thanks for getting in touch. The aim is to reply within 2 business days.</p>
+    <p style="margin:0;">If you have anything to add, just reply to this email.</p>
+    """
+    text_body = (
+        f"{_greeting_text(name)}\n\n"
+        "Thanks for getting in touch. The aim is to reply within 2 business days.\n\n"
+        "If you have anything to add, just reply to this email."
+    )
+    preheader = "We received your message and aim to reply within 2 business days."
+    return _wrap_html(html_body, preheader=preheader), _wrap_text(text_body)
+
+
+async def send_contact_confirmation_email(*, to_email: str, name: str | None) -> None:
+    """Send the contact form's receipt. Its Reply-To is the support role's (``RESEND_REPLY_TO_EMAIL``), the
+    transport's default, so a reply to it reaches the team, not the address that wrote in."""
+    page, text = render_contact_confirmation_email(name=name)
+    await send_email(to=[to_email], subject="Message received - EarningsNerd", html=page, text=text)
+
+
 # --------------------------------------------------------------------------- new-filing alerts
 # Content below is PUBLIC EDGAR data only (company, ticker, form type, date, filing URL). The
 # recipient's email is the only PII and lives solely in the `to` field — never in the body or logs.

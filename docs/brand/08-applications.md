@@ -182,8 +182,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   "Contact us", then one line on what to write about. "What to expect" keeps the response time
   (typically within 1–2 business days); the support-hours line (Monday–Friday, 9:00 AM–5:00 PM ET)
   is gone, as the founder decided on 2026-10-15 (D-040): an unenforced promise. The "automated
-  confirmation email" line is gone too: the receipt `backend/app/routers/contact.py` sends carries
-  no copy of the message, and the route answers success when that send fails. The form's limits are
+  confirmation email" line is gone too: the receipt the route sends (`email_service`'s
+  `send_contact_confirmation_email`, in the shared mail shell since E56) carries no copy of the
+  message, and the route answers success when that send fails. The form's limits are
   the server's (`tests/unit/contactValidationParity.spec.ts` reads `backend/app/schemas/contact.py`),
   so a one-letter name, or a message over 2,000 characters, is refused before sending, counted in
   code points as the server counts (no field carries a native `maxLength`, which counts UTF-16 units

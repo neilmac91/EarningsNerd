@@ -14,6 +14,7 @@ from app.services.contact_submission_service import (
     persist_contact_submission,
     sender_plan,
 )
+from app.services.email_service import send_contact_confirmation_email
 from app.services.entitlements import Plan
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
@@ -207,40 +208,6 @@ async def send_contact_notifications(
     </html>
     """
 
-    # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
-    # recipient address is caller-supplied, so the confirmation carries only our own copy.
-    user_subject = "Message received - EarningsNerd"
-    user_html = f"""
-    <html>
-      <head>
-        <style>
-          body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-          .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-          .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; }}
-          .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-          .footer {{ text-align: center; margin-top: 20px; font-size: 0.9em; color: #666; }}
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h2>Thanks for contacting EarningsNerd</h2>
-          </div>
-          <div class="content">
-            <p>Hi {safe_name},</p>
-            <p>Thanks for getting in touch. The aim is to reply within 2 business days.</p>
-            <p>If you have anything to add, just reply to this email.</p>
-            <p>EarningsNerd</p>
-          </div>
-          <div class="footer">
-            <p>EarningsNerd · AI summaries of SEC filings<br>
-            <a href="{settings.FRONTEND_URL}">{settings.FRONTEND_URL}</a></p>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-
     # Send both emails
     # Note: In a production environment with high volume, consider using a job queue
     try:
@@ -265,13 +232,9 @@ async def send_contact_notifications(
         # Don't raise - try to send user email anyway
 
     try:
-        # Send confirmation to user
-        await send_email(
-            to=[submission.email],
-            subject=user_subject,
-            html=user_html,
-            reply_to=settings.RESEND_REPLY_TO_EMAIL,
-        )
+        # The receipt to the person who wrote in, in the shared mail shell (E56). It repeats none of what was
+        # submitted, since the address is caller-supplied; the team's notice above alone carries the message.
+        await send_contact_confirmation_email(to_email=submission.email, name=submission.name)
         logger.info(f"User confirmation email sent for submission #{submission_id}")
     except ResendError as e:
         logger.error(f"Failed to send user confirmation email: {str(e)}")

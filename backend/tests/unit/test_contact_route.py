@@ -1,7 +1,8 @@
 """Route tests for POST /api/contact/ (E13c).
 
 Per-test in-memory SQLite (the response is built from the refreshed ORM row), ``get_db`` overridden,
-``send_email`` monkeypatched to a recorder. Client IPs are simulated through ``X-Forwarded-For``
+``send_email`` monkeypatched to a recorder in the router (the team's notice) and in ``email_service`` (the
+receipt to the person who wrote in, built in the shared mail shell since E56). Client IPs are simulated through ``X-Forwarded-For``
 with ``TRUSTED_PROXY_HOPS=1`` (the right-most hop is the trusted one).
 """
 import pytest
@@ -15,7 +16,7 @@ from main import app
 from app.database import Base, get_db
 from app.models import ContactSubmission, Subscription, User
 from app.routers import contact as contact_router
-from app.services import rate_limiter
+from app.services import email_service, rate_limiter
 from app.services import turnstile
 from app.services.contact_submission_service import ContactPersistenceError
 from app.services.resend_service import ResendError
@@ -44,14 +45,15 @@ def session_factory():
 
 
 class _EmailRecorder(list):
-    """Recorded ``(to, subject)`` pairs (``bodies`` keeps each ``html`` in send order); set
-    ``raise_with`` to make every send fail."""
+    """Recorded ``(to, subject)`` pairs (``bodies`` keeps each ``html``, ``texts`` each text part, in send
+    order); set ``raise_with`` to make every send fail."""
 
     raise_with: Exception | None = None
 
     def __init__(self) -> None:
         super().__init__()
         self.bodies: list[str] = []
+        self.texts: list[str | None] = []
         self.reply_addresses: list[str | None] = []
 
 
@@ -62,12 +64,15 @@ def sent_emails(monkeypatch):
     async def _fake_send_email(to, subject, html, *args, **kwargs):
         recorder.append((list(to), subject))
         recorder.bodies.append(html)
-        recorder.reply_addresses.append(kwargs.get("reply_to"))
+        recorder.texts.append(kwargs.get("text"))
+        # A send that names no Reply-To gets the transport's default, the support role's setting.
+        recorder.reply_addresses.append(kwargs.get("reply_to", contact_router.settings.RESEND_REPLY_TO_EMAIL))
         if recorder.raise_with is not None:
             raise recorder.raise_with
         return {"id": "msg_test"}
 
     monkeypatch.setattr(contact_router, "send_email", _fake_send_email)
+    monkeypatch.setattr(email_service, "send_email", _fake_send_email)
     return recorder
 
 
@@ -124,10 +129,27 @@ def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries
     recipients = [to for to, _subject in sent_emails]
     assert recipients == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
     admin_html, user_html = sent_emails.bodies
+    _admin_text, user_text = sent_emails.texts
     assert message in admin_html
-    assert message not in user_html
+    assert message not in user_html and message not in user_text
+    assert PAYLOAD["subject"] not in user_html and PAYLOAD["subject"] not in user_text
     assert "Your message" not in user_html
-    assert PAYLOAD["name"] in user_html  # the greeting is still personal
+    assert PAYLOAD["name"] in user_html and PAYLOAD["name"] in user_text  # the greeting is still personal
+
+
+def test_the_receipt_is_the_shared_shells_page_with_its_text_part_and_an_escaped_name(client, sent_emails):
+    """The receipt is the page ``email_service`` builds for it, header, footer and text part included, sent with the
+    subject it always had (E56); the name the form was given renders as literal text."""
+    name = 'Ada <b>"Lovelace"</b>'
+    resp = _post(client, IP_A, name=name)
+    assert resp.status_code == 201, resp.text
+
+    (admin_to, _), (user_to, user_subject) = sent_emails
+    assert (admin_to, user_to, user_subject) == ([ADMIN_EMAIL], [PAYLOAD["email"]], "Message received - EarningsNerd")
+    assert (sent_emails.bodies[1], sent_emails.texts[1]) == email_service.render_contact_confirmation_email(name=name)
+    assert sent_emails.texts[0] is None  # the team's notice still sends no text part of its own
+    assert "Hi Ada &lt;b&gt;&quot;Lovelace&quot;&lt;/b&gt;," in sent_emails.bodies[1]
+    assert "<b>" not in sent_emails.bodies[1]
 
 
 @pytest.mark.parametrize("is_pro,status,plan_line", [
