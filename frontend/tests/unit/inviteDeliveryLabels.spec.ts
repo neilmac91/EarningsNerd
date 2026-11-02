@@ -27,7 +27,7 @@ import { delivery } from './fixtures/inviteReadiness'
  */
 
 /** A claim no state may make, as a whole word. */
-const PROOF_OF_RECEIPT = /\b(received|inbox|read|opened)\b/i
+const PROOF_OF_RECEIPT = /\b(received|inbox|read|opened|seen)\b/i
 
 const text = (state: DeliveryState) => [state.label, state.hint ?? ''].join(' ')
 const stateOf = (status: string, more: { error_kind?: string | null; bounce_type?: BounceType | null } = {}) =>

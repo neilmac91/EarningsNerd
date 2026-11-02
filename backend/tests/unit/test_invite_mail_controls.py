@@ -455,6 +455,34 @@ def test_a_manual_resend_of_a_bound_invite_sends_nothing(client, admin, mail_rea
     client.cookies.clear()
 
 
+@pytest.mark.parametrize(
+    "days, answer",
+    [(1, 200), (2, 422), (-365, 200), (-366, 422)],
+    ids=["a-day-ahead", "two-days-ahead", "a-year-back", "past-a-year"],
+)
+def test_the_request_day_holds_every_day_the_form_offers(client, admin, mail_ready, transport, days, answer):
+    """The form offers the admin's own last 365 days, today included (invitePermission.ts permissionDayRange: 364 days
+    back to today), whatever the admin's zone. The server's day is UTC's, which can be a day behind or ahead of the
+    admin's, so it takes a day ahead of its own and a full year back: every offered day passes, and nothing wider does
+    (review of #1965)."""
+    day = (utcnow().date() + timedelta(days=days)).isoformat()
+    minted = _mint(client, admin, _address(), permission={"requested_via": "message", "requested_on": day})
+    assert minted.status_code == answer, minted.text
+
+
+def test_the_unsubscribe_route_is_limited_per_connection_as_its_page_says(client, monkeypatch):
+    """The page tells a rate-limited reader "Try again in an hour" on the strength of this limiter: 20 tries an hour
+    from one connection. A smaller patched limit answers 429 at once (review of #1965)."""
+    from app.routers import email as email_router
+    from app.services.rate_limiter import RateLimiter
+
+    assert (email_router.UNSUBSCRIBE_LIMITER.limit, email_router.UNSUBSCRIBE_LIMITER.window_seconds) == (20, 3600)
+    monkeypatch.setattr(email_router, "UNSUBSCRIBE_LIMITER", RateLimiter(limit=1, window_seconds=3600))
+    assert client.post("/api/email/unsubscribe", json={"token": "no-such-token"}).status_code == 404
+    limited = client.post("/api/email/unsubscribe", json={"token": "no-such-token"})
+    assert limited.status_code == 429, limited.text
+
+
 def test_a_manual_resend_adds_no_address_to_the_suppression_list(client, admin, collection_ready):
     """A manual re-issue sends nothing, so it adds no address to the suppression list (review of #1965): while
     invitation email is held, as this ships, a Resend of a bound invite leaves no row there, so the list holds only
@@ -603,6 +631,27 @@ def test_a_forged_or_stale_event_records_nothing(client, admin, mail_ready, tran
     assert (forged.status_code, stale.status_code) == (401, 401)
     assert _delivery(delivery.invite_id).status == "accepted"
     assert _recipient(email).suppressed_at is None
+
+
+def test_a_provider_event_reads_its_delivery_under_the_rows_lock(client, admin, mail_ready, transport, monkeypatch):
+    """The evidence order holds under two concurrent deliveries (a complaint and a delivered notice in flight at once)
+    only because an event reads its delivery FOR UPDATE: two transactions reading the same accepted row without it
+    could each move it, the second writing over the first. SQLite renders FOR UPDATE as nothing, so the lock is pinned
+    with a statement spy (lessons/test-pin-a-row-lock-with-a-statement-spy.md; review of #1965)."""
+    from sqlalchemy.orm import Query
+
+    delivery = _delivery(_mint(client, admin, _address()).json()["id"])
+    locked: list[str] = []
+    real_lock = Query.with_for_update
+
+    def lock(self, *args, **kwargs):
+        locked.append(self.column_descriptions[0]["entity"].__tablename__)
+        return real_lock(self, *args, **kwargs)
+
+    monkeypatch.setattr(Query, "with_for_update", lock)
+    assert _event(client, "email.delivered", _tagged(delivery)).status_code == 200
+    assert "earningsnerd_invite_deliveries" in locked
+    assert _delivery(delivery.invite_id).status == "delivered"
 
 
 def test_signed_events_move_a_delivery_up_its_evidence_and_never_down(client, admin, mail_ready, transport):

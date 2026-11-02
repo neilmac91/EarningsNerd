@@ -334,7 +334,7 @@ describe('each row says what is known of its email', () => {
     await screen.findByText('accepted@example.com')
     expect(screen.getAllByRole('columnheader')[3]).toHaveTextContent('Invitation email')
     for (const status of DELIVERY_STATUSES) {
-      expect(emailCell(`${status}@example.com`).textContent, status).not.toMatch(/\b(received|inbox|read|opened)\b/i)
+      expect(emailCell(`${status}@example.com`).textContent, status).not.toMatch(/\b(received|inbox|read|opened|seen)\b/i)
     }
     const accepted = emailCell('accepted@example.com')
     expect(within(accepted).getByText('Accepted by the email provider')).toBeInTheDocument()
