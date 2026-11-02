@@ -3,6 +3,8 @@
    -----------------------------------------------------------------------------
    Cards LIFT, never tint: lighter-than-page fill + hairline + soft e-shadow in
    light; in dark they separate via fill contrast + hairline with shadow:none.
+   A card whose action cannot be undone takes tone="danger": its hairline in
+   the status error, in both themes (E283).
    `interactive` hover BRIGHTENS (toward white + brand hairline), never darkens
    — and never hover:opacity. Pressed takes the sage tint, its dark twin in dark.
    Focus-visible = brand ring for keyboard users.
@@ -24,16 +26,29 @@ export interface CardProps extends HTMLAttributes<HTMLElement> {
   /** Corner step on the 16 / 24 scale (cards 16; a featured banner 24). A `rounded-2xl` in
       className would NOT override the recipe: the stylesheet emits it before `rounded-xl`. */
   radius?: 'xl' | '2xl'
+  /** The hairline. `danger` draws it in the status error, for a card whose action cannot be undone: deleting the
+      account, on the settings page and on /delete-account (DESIGN_SYSTEM.md Card / panel). Set it through the prop,
+      never a border colour on top: cx does no tailwind-merge, so two border colours win by stylesheet order, and
+      Card's own dark hairline beat the settings card's dark override until E283 (a design selector in
+      eslint.config.mjs fails a border colour written in a Card's className). */
+  tone?: 'default' | 'danger'
 }
 
 const ELEVATION = { none: '', e1: 'shadow-e1', e2: 'shadow-e2', e3: 'shadow-e3' } as const
 const RADIUS = { xl: 'rounded-xl', '2xl': 'rounded-2xl' } as const
+/** Each tone's hairline, both themes in one string so a tone's colours never mix with another's. The error at 40%
+    reads about 2:1 against the panel (2.05 in light, 1.93 in dark), where the default hairline reads 1.19 and 1.36. */
+const HAIRLINE = {
+  default: 'border border-border-light dark:border-white/10',
+  danger: 'border border-error-light/40 dark:border-error-dark/40',
+} as const
 
 export function Card({
   as: Tag = 'div',
   interactive = false,
   elevation = 'e2',
   radius = 'xl',
+  tone = 'default',
   className,
   ...rest
 }: CardProps) {
@@ -41,9 +56,10 @@ export function Card({
     <Tag
       className={cx(
         RADIUS[radius],
-        'border border-border-light bg-panel-light',
+        HAIRLINE[tone],
+        'bg-panel-light',
         ELEVATION[elevation],
-        'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
+        'dark:bg-panel-dark dark:shadow-none',
         interactive &&
           cx(
             'cursor-pointer transition-colors duration-fast',
