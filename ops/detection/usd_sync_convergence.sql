@@ -1,58 +1,65 @@
 -- Detection: E198's reach, before and after its deploy (E198's pull request, #1956). With E198 every companyfacts sync
--- runs the currency step (facts/currency.py), a sync in USD alone too: at each key its payload presents (company,
--- concept, period end, fiscal period, unit) in an amount or per-share unit it makes the payload's own row current
--- unless a row of a filing filed strictly after that row's own filing is current there, and its upsert keeps such a row
--- current over its insert (Guard.later). Until E198 deploys, a sync in USD alone is the upsert alone, so a later-filed
--- row stored behind an earlier one stays behind for good: (1) an amendment the per-filing writer stored behind its
--- original's companyfacts row, (2) a newer filing's restatement under a lower-priority tag behind an older filing's row
--- with no Filing row, (3) a newer filing's row a lagging payload's insert demoted. This file sizes those keys at the
--- companies whose stored rows read no other currency (the syncs E198 changes; a company storing another currency's row
--- has run the step since #1583). It names companies and changes nothing.
+-- runs the currency step (facts/currency.py), a sync in USD alone too. At each key its payload presents (company,
+-- concept, period end, fiscal period) in an amount or per-share unit, the convergence (_promote_batch_rows) makes the
+-- payload's own stored row current and demotes every other current row there, unless a current row holds the key: one
+-- of a filing filed strictly after the payload row's own (each dated by _filed: a Filing row, else the payload's filed,
+-- else a provenance filed_at); such a row that is a feed row (no filing owner) of a filing the payload names holds only
+-- where the upsert's own Filing-date rule keeps it too (R1u: it has a Filing row, dated, then by accession, after the
+-- payload row's, or that row has none). Until E198 deploys, a sync in USD alone is the upsert alone, so a key it left
+-- behind stays so: an amendment the per-filing writer stored behind its original's companyfacts row; a newer filing's
+-- restatement under a lower-priority tag; a newer filing's row a lagging payload's insert demoted; a same-day filing's
+-- row current over the payload's; a feed row an older rule read (an 8-K's recast) current over an older payload winner.
+-- This file sizes those keys at the companies whose stored rows read no other currency (the syncs E198 changes; a
+-- company storing another currency's row has run the step since #1583). It names companies and changes nothing.
 --
--- An upper bound, not the count E198 moves. A key here moves at the company's next sync only where the later row is the
--- payload's own row there, its winner (the latest-filed item of the first registry tag with data, which SEC's payload
--- alone says), and holds the payload's own figure: a stored identity holding another is left as found (R2). same_tag
--- splits the likely from the doubtful: a later row under the current row's own tag is the winner wherever that tag
--- still wins the period; one under another tag (a tag migration, (2), or a lineage an older rule read, E264's fee line)
--- stays behind wherever the current row's tag outranks it. A key whose current row is a proxy statement's is left as
--- found (E211's), and a quarantined row is never made current, so neither counts. Ratios (pure) do not converge,
--- outside a key a newer filing the payload does not name holds: set 3 sizes the question E198 leaves open. A key E198
--- leaves to a later-filed current row over the payload's new insert (Guard.later) shows here only after it happens;
--- before the deploy those rows read as current, not behind.
+-- An upper bound, not the count E198 moves. Each stored row that is not current is read as the payload's winner (which
+-- SEC's payload alone says: the latest-filed item of the first registry tag with data) holding the payload's figure (a
+-- stored identity holding another is left as found, R2), and each current feed row as one of a filing the payload
+-- names. A key counts where such a row is one no current row there holds (eligible). Left out: a key whose current row
+-- is a proxy statement's (E211's), a quarantined row (never made current), and a payload item no writer stored yet (the
+-- sync's insert, which Guard.later decides). Quarter twins (the upsert's D1 rule) are not read, which only adds keys.
+-- Ratios (pure) do not converge outside a key a newer filing the payload does not name holds: set 3 sizes the question
+-- E198 leaves open, read as set 2 reads amounts.
 --
 -- Definitions. amount: a unit whose part before '/' is three capital letters (USD, USD/shares; is_amount_unit). USD
 -- alone: the company stores no row in such a unit other than USD or USD/shares (current or not), a company-level
 -- reading of _another_currency, which reads the batch's concepts: only the concepts its companyfacts rows hold count
--- (fed), and a company with no companyfacts row has never synced and is left out (set 1 counts it). A row's date: its
--- Filing row's filing_date (same company and accession, dashes ignored), else its provenance filed_at (a companyfacts
--- row's own filing date; a calculation's latest operand's; one that does not spell a date, YYYY-MM-DD, reads as none,
--- and a day past its month's end rolls into the next month instead of raising, as repair_cohorts_2026_10.sql reads it),
--- else none; the sync also reads the payload's filed dates, which this cannot see. quarantined: provenance validation
--- 'unavailable' (currency._promotable). proxy: the form, its whitespace collapsed, trimmed and upper-cased, matches
--- ^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$ (is_proxy_form; gated by
--- backend/tests/unit/test_usd_sync_convergence_detection_sql.py). behind: a key with a fiscal period where a row that
--- is not current, not quarantined and no proxy's, is dated strictly after every dated current row there (or the key
--- holds no current row: a gap), or where that row or every current row has no date here: undated, since the sync also
--- dates a row by its filing's date in the payload, which this cannot see, so the key may move (a legacy companyfacts
--- row holds no provenance date). dating splits the decided keys from the undated. same_tag: a later row carries a
--- current row's own tag (an untagged row matches an untagged one). kind: amendment (the later row's form ends in /A) or
--- original; source: feed (companyfacts, no filing owner), filing (a filing owner: the per-filing writer's, or the
--- cross-check's replacement), derived.
+-- (fed), and a company with no companyfacts row has never synced and is left out (set 1 counts it). filed, a row's
+-- date: its Filing row's date (same company, accession with dashes ignored), else the first ten characters of its
+-- provenance filed_at where they spell YYYY-MM-DD, else none. It is text, compared as _filed compares its strings, so
+-- an impossible day sorts where the sync sorts it and no value is cast or raises. The sync also reads the payload's
+-- filed dates, which this cannot see, so a row with no date here leaves its key undecided. owned: the date of the
+-- Filing row whose accession is the row's own exactly, as the sync reads it (_filing_dates). Text compares under
+-- COLLATE "C", as Python compares strings. quarantined: provenance validation 'unavailable' (currency._promotable).
+-- proxy: the form, its whitespace collapsed, trimmed and upper-cased, matches ^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$
+-- (is_proxy_form; gated by backend/tests/unit/test_usd_sync_convergence_detection_sql.py). candidate: a row with a
+-- fiscal period that is not current, not quarantined and no proxy's. holds: a current row at its key filed after the
+-- candidate, which has a filing owner, or an owned date that outranks the candidate's (owned, then accession) or a
+-- candidate with none. shape, each key's most likely, in this order: later (a candidate filed after every current row),
+-- same_day (filed the day of the latest current row), r1u (filed before it, or undated, where every current row is a
+-- feed row the Filing-date rule does not keep), gap (no current row), undated (a date this cannot see decides it).
+-- same_tag: a candidate carries a current row's own tag (an untagged row matches an untagged one). kind: amendment (a
+-- candidate's form ends in /A) or original; source: feed (companyfacts, no filing owner), filing (a filing owner: the
+-- per-filing writer's, or the cross-check's replacement), derived.
 --
--- Ops detection-sql runs only main's SQL, and never while a main push's deploy is in flight, so this file lands on main
--- before E198: run it before E198's merge (the before) and after the companies' next syncs (the after: set 2's dated
--- same_tag keys should fall to the doubtful remainder; an undated key can stay listed, its rows having no date here).
--- Retire: the records PR that reports the after run deletes this file and its test (tasks/todo.md, E198).
+-- Readback. Ops detection-sql runs only main's SQL, and never while a main push's deploy is in flight, so this file
+-- lands on main before E198: run it before E198's merge (the before, the exposure bound) and after the companies' next
+-- syncs (the after). A key moves only where the payload's winner is not current already, which this cannot see, so the
+-- after run reads by shape: later same_tag keys should fall to the doubtful remainder; a key r1u moved reads as later
+-- after it (the row it demoted is filed after the one now current), and a same_day key reads alike before and after,
+-- whichever same-day row is current; an undated key can stay listed. Retire: the records PR that reports the after run
+-- deletes this file and its test (tasks/todo.md, E198).
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so every set shares one snapshot. Each statement gets 120 s and
 -- waits at most 10 s for a lock (SET LOCAL below; the step's PGOPTIONS allow 600 s). Cost per statement: two scans of
 -- financial_fact, for its companyfacts concepts (fed) and for the keys that hold a row that is not current (no index
 -- holds is_latest alone), then their rows through uq_financial_fact_identity's (company, concept, period_end) prefix,
--- the provenance of those rows parsed once, and the filings of those keys' companies once, by accession, hash-joined. A
--- list stops at 50 rows and carries its set's full count (of_n). JSON: -> and ->> raise for a whole json value holding
--- a NUL or a lone-surrogate escape, so provenance is read after rewriting a NUL or any surrogate escape to the escape
--- of U+FFFD (same length; nothing else moves), as #1532 did. Patterns assume standard_conforming_strings = on (the
--- default).
+-- the provenance of those rows parsed once, the filings of those keys' companies once, by accession, hash-joined, and
+-- each row's own Filing row through its unique accession index; each candidate then meets the few current rows at its
+-- key. A list stops at 50 rows and carries its set's full count (of_n). JSON: -> and ->> raise for a whole json value
+-- holding a NUL or a lone-surrogate escape, so provenance is read after rewriting a NUL or any surrogate escape to the
+-- escape of U+FFFD (same length; nothing else moves), as #1532 did. Patterns assume standard_conforming_strings = on
+-- (the default).
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '10s';
@@ -91,11 +98,10 @@ FROM readings r
 GROUP BY ROLLUP (r.reading)
 ORDER BY GROUPING(r.reading), r.reading;
 
-\echo '2. Keys behind at companies in USD alone, by fiscal period (FY or a quarter), the later row''s kind and source,'
-\echo '   whether it carries the current row''s own tag (same_tag; a gap carries none), then in total (the row with'
-\echo '   every key blank): keys, companies, and the later rows'' newest date, split by dating (undated: a side has no'
-\echo '   date here, so the key may move by the payload''s dates), with each dating''s total. An upper bound: see the'
-\echo '   header.'
+\echo '2. Keys at companies in USD alone where a row that is not current is eligible (see the header), by shape,'
+\echo '   fiscal period (FY or a quarter), the candidates'' kind and source, and whether one carries the current row''s'
+\echo '   own tag (same_tag; a gap carries none), then by shape, then in total (the row with every key blank): keys,'
+\echo '   companies, and the candidates'' newest date. An upper bound: see the header.'
 WITH params AS (
     SELECT '^[A-Z]{3}$'::text AS amount_code,
            '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
@@ -113,26 +119,26 @@ WITH params AS (
     SELECT DISTINCT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit
     FROM financial_fact ff
     JOIN usd_alone a ON a.company_id = ff.company_id
-    CROSS JOIN params p
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
 ), filing_dates AS MATERIALIZED (
-    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date) AS filed
     FROM filings f
     WHERE f.company_id IN (SELECT company_id FROM keyed)
     GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
-    SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag, ff.source,
-           ff.filing_id, ff.form, ff.fiscal_year,
+    SELECT ff.id, ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
+           ff.source, ff.filing_id, ff.form, ff.fiscal_year, ff.accession COLLATE "C" AS accession,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
-                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
-                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
+           to_char(fe.filing_date, 'YYYY-MM-DD') COLLATE "C" AS owned,
+           coalesce(to_char(fd.filed, 'YYYY-MM-DD'),
+                    CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                         THEN left(pv.pv ->> 'filed_at', 10) END) COLLATE "C" AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
     LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
+    LEFT JOIN filings fe ON fe.accession_number = ff.accession
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -140,43 +146,53 @@ WITH params AS (
                     THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::jsonb
                     ELSE ff.provenance::jsonb END AS pv
     ) pv
-), keys AS (
-    SELECT d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit,
-           max(d.filed) FILTER (WHERE d.is_latest) AS current_filed,
-           bool_or(d.is_latest) AS has_current,
-           bool_or(d.is_latest AND d.proxy) AS proxy_current,
-           string_agg(DISTINCT coalesce(d.raw_tag, '-'), ',') FILTER (WHERE d.is_latest) AS current_tags
+), candidates AS (
+    SELECT d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+           d.source, d.filing_id, d.filed,
+           bool_or(o.id IS NOT NULL) AS has_current, coalesce(bool_or(o.proxy), false) AS proxy_current,
+           bool_or(h.holds) AS held, bool_or(o.id IS NOT NULL AND h.holds IS NULL) AS open,
+           max(o.filed) AS current_filed,
+           string_agg(DISTINCT coalesce(o.raw_tag, '-'), ',') FILTER (WHERE o.id IS NOT NULL) AS current_tags
     FROM dated d
-    GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit
-), behind AS (
-    SELECT k.company_id, k.concept, k.period_end, k.fiscal_period, k.unit,
-           CASE WHEN k.fiscal_period = 'FY' THEN 'FY' ELSE 'Q' END AS fp,
-           CASE WHEN bool_or(upper(coalesce(d.form, '')) LIKE '%/A') THEN 'amendment' ELSE 'original' END AS kind,
-           CASE WHEN bool_or(d.source = 'derived') THEN 'derived'
-                WHEN bool_or(d.filing_id IS NOT NULL) THEN 'filing' ELSE 'feed' END AS source,
-           CASE WHEN NOT k.has_current THEN 'gap'
-                WHEN bool_or(coalesce(d.raw_tag, '-') = ANY (string_to_array(k.current_tags, ','))) THEN 'same_tag'
+    LEFT JOIN dated o ON o.company_id = d.company_id AND o.concept = d.concept AND o.period_end = d.period_end
+                     AND o.fiscal_period = d.fiscal_period AND o.unit = d.unit AND o.is_latest
+    CROSS JOIN LATERAL (
+        SELECT o.filed > d.filed AND (o.filing_id IS NOT NULL OR (o.owned IS NOT NULL
+               AND (d.owned IS NULL OR (o.owned, o.accession) > (d.owned, d.accession)))) AS holds
+    ) h
+    WHERE NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
+    GROUP BY d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+             d.source, d.filing_id, d.filed
+), eligible AS (
+    SELECT c.*,
+           CASE WHEN NOT c.has_current THEN 'gap' WHEN c.open THEN 'undated' WHEN c.filed > c.current_filed THEN 'later'
+                WHEN c.filed = c.current_filed THEN 'same_day' ELSE 'r1u' END AS shape
+    FROM candidates c
+    WHERE NOT c.proxy_current AND NOT coalesce(c.held, false)
+), keys AS (
+    SELECT e.company_id, CASE WHEN e.fiscal_period = 'FY' THEN 'FY' ELSE 'Q' END AS fp,
+           min(CASE e.shape WHEN 'later' THEN 1 WHEN 'same_day' THEN 2 WHEN 'r1u' THEN 3 WHEN 'gap' THEN 4
+                            ELSE 5 END) AS rank,
+           CASE WHEN bool_or(upper(coalesce(e.form, '')) LIKE '%/A') THEN 'amendment' ELSE 'original' END AS kind,
+           CASE WHEN bool_or(e.source = 'derived') THEN 'derived'
+                WHEN bool_or(e.filing_id IS NOT NULL) THEN 'filing' ELSE 'feed' END AS source,
+           CASE WHEN NOT bool_or(e.has_current) THEN 'gap'
+                WHEN bool_or(coalesce(e.raw_tag, '-') = ANY (string_to_array(e.current_tags, ','))) THEN 'same_tag'
                 ELSE 'other_tag' END AS tag,
-           max(d.filed) AS later_filed,
-           NOT k.has_current OR bool_or(d.filed IS NOT NULL AND k.current_filed IS NOT NULL
-                                         AND d.filed > k.current_filed) AS decided
-    FROM keys k
-    JOIN dated d ON d.company_id = k.company_id AND d.concept = k.concept AND d.period_end = k.period_end
-                AND d.fiscal_period = k.fiscal_period AND d.unit = k.unit
-    WHERE NOT k.proxy_current AND NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
-      AND (NOT k.has_current OR d.filed IS NULL OR k.current_filed IS NULL OR d.filed > k.current_filed)
-    GROUP BY k.company_id, k.concept, k.period_end, k.fiscal_period, k.unit, k.has_current
+           max(e.filed) AS candidate_filed
+    FROM eligible e
+    GROUP BY e.company_id, e.concept, e.period_end, e.fiscal_period, e.unit
 )
-SELECT CASE WHEN GROUPING(b.decided) = 1 THEN NULL WHEN b.decided THEN 'dated' ELSE 'undated' END AS dating, b.fp,
-       b.kind, b.source, b.tag,
-       count(*) AS keys, count(DISTINCT b.company_id) AS companies, max(b.later_filed) AS newest_later_filed
-FROM behind b
-GROUP BY GROUPING SETS ((b.decided, b.fp, b.kind, b.source, b.tag), (b.decided), ())
-ORDER BY GROUPING(b.decided), b.decided DESC, GROUPING(b.fp), b.fp, b.kind, b.source, b.tag;
+SELECT CASE WHEN GROUPING(k.rank) = 1 THEN NULL ELSE (ARRAY['later', 'same_day', 'r1u', 'gap', 'undated'])[k.rank]
+       END AS shape, k.fp, k.kind, k.source, k.tag,
+       count(*) AS keys, count(DISTINCT k.company_id) AS companies, max(k.candidate_filed) AS newest_candidate_filed
+FROM keys k
+GROUP BY GROUPING SETS ((k.rank, k.fp, k.kind, k.source, k.tag), (k.rank), ())
+ORDER BY GROUPING(k.rank), k.rank, GROUPING(k.fp), k.fp, k.kind, k.source, k.tag;
 
-\echo '3. Ratio keys (pure) behind at companies in USD alone, as set 2 reads them: E198 converges no ratio outside a'
-\echo '   key a newer filing the payload does not name holds (the question E198 leaves open), by fiscal period and'
-\echo '   state (behind, gap, or undated as set 2 reads it).'
+\echo '3. Ratio keys (pure) at companies in USD alone where a row that is not current is eligible, as set 2 reads'
+\echo '   amounts: E198 converges no ratio outside a key a newer filing the payload does not name holds (the question'
+\echo '   E198 leaves open), by fiscal period and shape.'
 WITH params AS (
     SELECT '^[A-Z]{3}$'::text AS amount_code,
            '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
@@ -196,22 +212,24 @@ WITH params AS (
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND ff.unit = 'pure'
 ), filing_dates AS MATERIALIZED (
-    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date) AS filed
     FROM filings f
     WHERE f.company_id IN (SELECT company_id FROM keyed)
     GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
-    SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest,
+    SELECT ff.id, ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
+           ff.source, ff.filing_id, ff.form, ff.fiscal_year, ff.accession COLLATE "C" AS accession,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
-                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
-                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
+           to_char(fe.filing_date, 'YYYY-MM-DD') COLLATE "C" AS owned,
+           coalesce(to_char(fd.filed, 'YYYY-MM-DD'),
+                    CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                         THEN left(pv.pv ->> 'filed_at', 10) END) COLLATE "C" AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
     LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
+    LEFT JOIN filings fe ON fe.accession_number = ff.accession
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -219,33 +237,42 @@ WITH params AS (
                     THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::jsonb
                     ELSE ff.provenance::jsonb END AS pv
     ) pv
-), keys AS (
-    SELECT d.company_id, d.concept, d.period_end, d.fiscal_period,
-           max(d.filed) FILTER (WHERE d.is_latest) AS current_filed, bool_or(d.is_latest) AS has_current,
-           bool_or(d.is_latest AND d.proxy) AS proxy_current
+), candidates AS (
+    SELECT d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+           d.source, d.filing_id, d.filed,
+           bool_or(o.id IS NOT NULL) AS has_current, coalesce(bool_or(o.proxy), false) AS proxy_current,
+           bool_or(h.holds) AS held, bool_or(o.id IS NOT NULL AND h.holds IS NULL) AS open,
+           max(o.filed) AS current_filed,
+           string_agg(DISTINCT coalesce(o.raw_tag, '-'), ',') FILTER (WHERE o.id IS NOT NULL) AS current_tags
     FROM dated d
-    GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period
-), behind AS (
-    SELECT k.company_id, k.concept, k.period_end, k.fiscal_period,
-           CASE WHEN k.fiscal_period = 'FY' THEN 'FY' ELSE 'Q' END AS fp, k.has_current,
-           NOT k.has_current OR bool_or(d.filed IS NOT NULL AND k.current_filed IS NOT NULL
-                                         AND d.filed > k.current_filed) AS decided
-    FROM keys k
-    JOIN dated d ON d.company_id = k.company_id AND d.concept = k.concept AND d.period_end = k.period_end
-                AND d.fiscal_period = k.fiscal_period
-    WHERE NOT k.proxy_current AND NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
-      AND (NOT k.has_current OR d.filed IS NULL OR k.current_filed IS NULL OR d.filed > k.current_filed)
-    GROUP BY k.company_id, k.concept, k.period_end, k.fiscal_period, k.has_current
+    LEFT JOIN dated o ON o.company_id = d.company_id AND o.concept = d.concept AND o.period_end = d.period_end
+                     AND o.fiscal_period = d.fiscal_period AND o.unit = d.unit AND o.is_latest
+    CROSS JOIN LATERAL (
+        SELECT o.filed > d.filed AND (o.filing_id IS NOT NULL OR (o.owned IS NOT NULL
+               AND (d.owned IS NULL OR (o.owned, o.accession) > (d.owned, d.accession)))) AS holds
+    ) h
+    WHERE NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
+    GROUP BY d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+             d.source, d.filing_id, d.filed
+), eligible AS (
+    SELECT c.*,
+           CASE WHEN NOT c.has_current THEN 'gap' WHEN c.open THEN 'undated' WHEN c.filed > c.current_filed THEN 'later'
+                WHEN c.filed = c.current_filed THEN 'same_day' ELSE 'r1u' END AS shape
+    FROM candidates c
+    WHERE NOT c.proxy_current AND NOT coalesce(c.held, false)
+), keys AS (
+    SELECT e.company_id, CASE WHEN e.fiscal_period = 'FY' THEN 'FY' ELSE 'Q' END AS fp,
+           min(CASE e.shape WHEN 'later' THEN 1 WHEN 'same_day' THEN 2 WHEN 'r1u' THEN 3 WHEN 'gap' THEN 4
+                            ELSE 5 END) AS rank
+    FROM eligible e
+    GROUP BY e.company_id, e.concept, e.period_end, e.fiscal_period, e.unit
 )
-, states AS (
-    SELECT b.company_id, b.fp,
-           CASE WHEN NOT b.has_current THEN 'gap' WHEN b.decided THEN 'behind' ELSE 'undated' END AS state
-    FROM behind b
-)
-SELECT s.fp, s.state, count(*) AS keys, count(DISTINCT s.company_id) AS companies
-FROM states s
-GROUP BY GROUPING SETS ((s.fp, s.state), ())
-ORDER BY GROUPING(s.fp), s.fp, s.state;
+SELECT k.fp, CASE WHEN GROUPING(k.rank) = 1 THEN NULL ELSE (ARRAY['later', 'same_day', 'r1u', 'gap', 'undated'])[k.rank]
+             END AS shape,
+       count(*) AS keys, count(DISTINCT k.company_id) AS companies
+FROM keys k
+GROUP BY GROUPING SETS ((k.fp, k.rank), ())
+ORDER BY GROUPING(k.fp), k.fp, k.rank;
 
 \echo '4. Quarantined rows (provenance validation unavailable), which no sync makes current: rows and companies, in'
 \echo '   total and at companies in USD alone. Where one is the payload''s own row, E198''s sync leaves its key as found'
@@ -275,10 +302,10 @@ SELECT count(*) AS rows, count(DISTINCT q.company_id) AS companies,
        count(DISTINCT q.company_id) FILTER (WHERE a.company_id IS NOT NULL) AS companies_usd_alone
 FROM quarantined q LEFT JOIN usd_alone a ON a.company_id = q.company_id;
 
-\echo '5. Saved analyses whose window holds a set-2 key''s fiscal year (annual: FYyyyy..FYyyyy; quarterly by the years'
-\echo '   of yyyyQn..yyyyQn): where the key moves at the company''s next sync, the dataset''s fingerprint changes, so its'
-\echo '   narrative regenerates once at next open (unmetered) and its saved PDF answers 409 until it is re-run.'
-\echo '   Set 2''s undated keys count too (an upper bound).'
+\echo '5. Saved analyses whose window holds the fiscal year of a set-2 eligible row, any shape (annual:'
+\echo '   FYyyyy..FYyyyy; quarterly by the years of yyyyQn..yyyyQn): where its key moves at the company''s next sync,'
+\echo '   the dataset''s fingerprint changes, so its narrative regenerates once at next open (unmetered) and its saved'
+\echo '   PDF answers 409 until it is re-run. An upper bound, as set 2 is.'
 WITH params AS (
     SELECT '^[A-Z]{3}$'::text AS amount_code,
            '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
@@ -298,22 +325,24 @@ WITH params AS (
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
 ), filing_dates AS MATERIALIZED (
-    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date) AS filed
     FROM filings f
     WHERE f.company_id IN (SELECT company_id FROM keyed)
     GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
-    SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.fiscal_year,
+    SELECT ff.id, ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
+           ff.source, ff.filing_id, ff.form, ff.fiscal_year, ff.accession COLLATE "C" AS accession,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
-                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
-                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
+           to_char(fe.filing_date, 'YYYY-MM-DD') COLLATE "C" AS owned,
+           coalesce(to_char(fd.filed, 'YYYY-MM-DD'),
+                    CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                         THEN left(pv.pv ->> 'filed_at', 10) END) COLLATE "C" AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
     LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
+    LEFT JOIN filings fe ON fe.accession_number = ff.accession
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -321,19 +350,31 @@ WITH params AS (
                     THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::jsonb
                     ELSE ff.provenance::jsonb END AS pv
     ) pv
-), keys AS (
-    SELECT d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit,
-           max(d.filed) FILTER (WHERE d.is_latest) AS current_filed, bool_or(d.is_latest) AS has_current,
-           bool_or(d.is_latest AND d.proxy) AS proxy_current
+), candidates AS (
+    SELECT d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+           d.source, d.filing_id, d.filed,
+           bool_or(o.id IS NOT NULL) AS has_current, coalesce(bool_or(o.proxy), false) AS proxy_current,
+           bool_or(h.holds) AS held, bool_or(o.id IS NOT NULL AND h.holds IS NULL) AS open,
+           max(o.filed) AS current_filed,
+           string_agg(DISTINCT coalesce(o.raw_tag, '-'), ',') FILTER (WHERE o.id IS NOT NULL) AS current_tags
     FROM dated d
-    GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit
+    LEFT JOIN dated o ON o.company_id = d.company_id AND o.concept = d.concept AND o.period_end = d.period_end
+                     AND o.fiscal_period = d.fiscal_period AND o.unit = d.unit AND o.is_latest
+    CROSS JOIN LATERAL (
+        SELECT o.filed > d.filed AND (o.filing_id IS NOT NULL OR (o.owned IS NOT NULL
+               AND (d.owned IS NULL OR (o.owned, o.accession) > (d.owned, d.accession)))) AS holds
+    ) h
+    WHERE NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
+    GROUP BY d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+             d.source, d.filing_id, d.filed
+), eligible AS (
+    SELECT c.*,
+           CASE WHEN NOT c.has_current THEN 'gap' WHEN c.open THEN 'undated' WHEN c.filed > c.current_filed THEN 'later'
+                WHEN c.filed = c.current_filed THEN 'same_day' ELSE 'r1u' END AS shape
+    FROM candidates c
+    WHERE NOT c.proxy_current AND NOT coalesce(c.held, false)
 ), years AS (
-    SELECT DISTINCT d.company_id, d.fiscal_year
-    FROM keys k
-    JOIN dated d ON d.company_id = k.company_id AND d.concept = k.concept AND d.period_end = k.period_end
-                AND d.fiscal_period = k.fiscal_period AND d.unit = k.unit
-    WHERE NOT k.proxy_current AND NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy AND d.fiscal_year IS NOT NULL
-      AND (NOT k.has_current OR d.filed IS NULL OR k.current_filed IS NULL OR d.filed > k.current_filed)
+    SELECT DISTINCT e.company_id, e.fiscal_year FROM eligible e WHERE e.fiscal_year IS NOT NULL
 ), windows AS (
     SELECT ta.id, ta.company_id, ta.mode,
            CASE WHEN ta.mode = 'annual' AND ta.period_key ~ '^FY[0-9]{4}\.\.FY[0-9]{4}$'
@@ -356,10 +397,10 @@ FROM saved s
 GROUP BY ROLLUP (s.mode)
 ORDER BY GROUPING(s.mode), s.mode;
 
-\echo '6. Companies in USD alone with the most dated keys behind (set 2), then the most keys, at most 50, for a dry'
-\echo '   run''s cohort (an undated key can stay listed after a sync): ticker, keys,'
-\echo '   those under the current row''s own tag, gaps, undated keys (set 2), and its last companyfacts sync; of_n'
-\echo '   counts them all.'
+\echo '6. Companies in USD alone with the most decided keys in set 2 (any shape but undated), then the most keys, at'
+\echo '   most 50, for a dry run''s cohort (an undated key can stay listed after a sync): ticker, keys, keys by shape,'
+\echo '   those where a candidate carries the current row''s own tag, and its last companyfacts sync; of_n counts them'
+\echo '   all.'
 WITH params AS (
     SELECT '^[A-Z]{3}$'::text AS amount_code,
            '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
@@ -379,22 +420,24 @@ WITH params AS (
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
 ), filing_dates AS MATERIALIZED (
-    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date) AS filed
     FROM filings f
     WHERE f.company_id IN (SELECT company_id FROM keyed)
     GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
-    SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
+    SELECT ff.id, ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
+           ff.source, ff.filing_id, ff.form, ff.fiscal_year, ff.accession COLLATE "C" AS accession,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(fd.filed,
-               CASE WHEN pv.pv ->> 'filed_at' ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])'
-                    THEN make_date(left(pv.pv ->> 'filed_at', 4)::int, substr(pv.pv ->> 'filed_at', 6, 2)::int, 1)
-                         + (substr(pv.pv ->> 'filed_at', 9, 2)::int - 1) END) AS filed
+           to_char(fe.filing_date, 'YYYY-MM-DD') COLLATE "C" AS owned,
+           coalesce(to_char(fd.filed, 'YYYY-MM-DD'),
+                    CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                         THEN left(pv.pv ->> 'filed_at', 10) END) COLLATE "C" AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
     LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
+    LEFT JOIN filings fe ON fe.accession_number = ff.accession
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -402,32 +445,46 @@ WITH params AS (
                     THEN regexp_replace(ff.provenance::text, p.json_hazard, '\\ufffd', 'g')::jsonb
                     ELSE ff.provenance::jsonb END AS pv
     ) pv
-), keys AS (
-    SELECT d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit,
-           max(d.filed) FILTER (WHERE d.is_latest) AS current_filed, bool_or(d.is_latest) AS has_current,
-           bool_or(d.is_latest AND d.proxy) AS proxy_current,
-           string_agg(DISTINCT coalesce(d.raw_tag, '-'), ',') FILTER (WHERE d.is_latest) AS current_tags
+), candidates AS (
+    SELECT d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+           d.source, d.filing_id, d.filed,
+           bool_or(o.id IS NOT NULL) AS has_current, coalesce(bool_or(o.proxy), false) AS proxy_current,
+           bool_or(h.holds) AS held, bool_or(o.id IS NOT NULL AND h.holds IS NULL) AS open,
+           max(o.filed) AS current_filed,
+           string_agg(DISTINCT coalesce(o.raw_tag, '-'), ',') FILTER (WHERE o.id IS NOT NULL) AS current_tags
     FROM dated d
-    GROUP BY d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit
-), behind AS (
-    SELECT k.company_id, k.has_current,
-           bool_or(coalesce(d.raw_tag, '-') = ANY (string_to_array(k.current_tags, ','))) AS same_tag,
-           NOT k.has_current OR bool_or(d.filed IS NOT NULL AND k.current_filed IS NOT NULL
-                                         AND d.filed > k.current_filed) AS decided
-    FROM keys k
-    JOIN dated d ON d.company_id = k.company_id AND d.concept = k.concept AND d.period_end = k.period_end
-                AND d.fiscal_period = k.fiscal_period AND d.unit = k.unit
-    WHERE NOT k.proxy_current AND NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
-      AND (NOT k.has_current OR d.filed IS NULL OR k.current_filed IS NULL OR d.filed > k.current_filed)
-    GROUP BY k.company_id, k.concept, k.period_end, k.fiscal_period, k.unit, k.has_current
+    LEFT JOIN dated o ON o.company_id = d.company_id AND o.concept = d.concept AND o.period_end = d.period_end
+                     AND o.fiscal_period = d.fiscal_period AND o.unit = d.unit AND o.is_latest
+    CROSS JOIN LATERAL (
+        SELECT o.filed > d.filed AND (o.filing_id IS NOT NULL OR (o.owned IS NOT NULL
+               AND (d.owned IS NULL OR (o.owned, o.accession) > (d.owned, d.accession)))) AS holds
+    ) h
+    WHERE NOT d.is_latest AND NOT d.quarantined AND NOT d.proxy
+    GROUP BY d.id, d.company_id, d.concept, d.period_end, d.fiscal_period, d.unit, d.fiscal_year, d.raw_tag, d.form,
+             d.source, d.filing_id, d.filed
+), eligible AS (
+    SELECT c.*,
+           CASE WHEN NOT c.has_current THEN 'gap' WHEN c.open THEN 'undated' WHEN c.filed > c.current_filed THEN 'later'
+                WHEN c.filed = c.current_filed THEN 'same_day' ELSE 'r1u' END AS shape
+    FROM candidates c
+    WHERE NOT c.proxy_current AND NOT coalesce(c.held, false)
+), keys AS (
+    SELECT e.company_id,
+           min(CASE e.shape WHEN 'later' THEN 1 WHEN 'same_day' THEN 2 WHEN 'r1u' THEN 3 WHEN 'gap' THEN 4
+                            ELSE 5 END) AS rank,
+           bool_or(coalesce(e.raw_tag, '-') = ANY (string_to_array(e.current_tags, ','))) AS same_tag
+    FROM eligible e
+    GROUP BY e.company_id, e.concept, e.period_end, e.fiscal_period, e.unit
 ), by_company AS (
-    SELECT b.company_id, count(*) AS keys, count(*) FILTER (WHERE b.same_tag) AS same_tag,
-           count(*) FILTER (WHERE NOT b.has_current) AS gaps, count(*) FILTER (WHERE NOT b.decided) AS undated
-    FROM behind b
-    GROUP BY b.company_id
+    SELECT k.company_id, count(*) AS keys, count(*) FILTER (WHERE k.rank = 1) AS later,
+           count(*) FILTER (WHERE k.rank = 2) AS same_day, count(*) FILTER (WHERE k.rank = 3) AS r1u,
+           count(*) FILTER (WHERE k.rank = 4) AS gaps, count(*) FILTER (WHERE k.rank = 5) AS undated,
+           count(*) FILTER (WHERE k.same_tag) AS same_tag
+    FROM keys k
+    GROUP BY k.company_id
 )
-SELECT c.ticker, bc.company_id, bc.keys, bc.same_tag, bc.gaps, bc.undated, c.facts_synced_at,
-       count(*) OVER () AS of_n
+SELECT c.ticker, bc.company_id, bc.keys, bc.later, bc.same_day, bc.r1u, bc.gaps, bc.undated, bc.same_tag,
+       c.facts_synced_at, count(*) OVER () AS of_n
 FROM by_company bc JOIN companies c ON c.id = bc.company_id
 ORDER BY bc.keys - bc.undated DESC, bc.keys DESC, c.ticker
 LIMIT 50;
