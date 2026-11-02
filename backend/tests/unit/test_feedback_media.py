@@ -621,7 +621,11 @@ def test_the_real_decoder_refuses_unreadable_and_animated_screenshots_at_the_end
     assert media.uploads == [] and media.notify == []
     with media.sessions() as db:
         assert db.query(Feedback).count() == 0 and db.query(FeedbackAttachment).count() == 0
-    # The genuine accept case through the same decoder: a static PNG publishes without its text metadata.
+
+
+def test_the_real_decoder_publishes_a_static_png_without_its_text_metadata(media, monkeypatch):
+    # The genuine accept case for the refusals above, through the same decoder and endpoint.
+    monkeypatch.setattr(router, "normalize_feedback_image", feedback_image_service.normalize_feedback_image)
     original = _picture("PNG", comment="PRIVATE_METADATA_SENTINEL")
     accepted = _form(media, [("files", ("screenshot.png", original, "image/png"))])
     assert accepted.status_code == 201, accepted.text
