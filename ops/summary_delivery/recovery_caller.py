@@ -159,6 +159,49 @@ def stable_revision(cloud: Cloud, service: object, *, project_numbers: dict | No
     return ready
 
 
+def resource_version(cloud: Cloud, name: object, secret_name: str, project_numbers: dict,
+                     *, expected_version: str | None = None) -> tuple[str | None, str]:
+    """Canonical identity only after same-secret, exact-version and project proof.
+
+    An alias diagnostic may resolve its numeric version. A pinned read must also
+    match the exact requested numeric version; a response cannot move that pin.
+    """
+    if not isinstance(name, str):
+        return None, "metadata_response_unverified"
+    match = re.fullmatch(r"projects/([^/]+)/secrets/" + re.escape(secret_name)
+                         + r"/versions/([1-9][0-9]{0,8})", name)
+    if match is None:
+        return None, "metadata_response_unverified"
+    project, version = match.groups()
+    if expected_version is not None and version != expected_version:
+        return None, "metadata_response_unverified"
+    if project != PROJECT:
+        if not re.fullmatch(r"[1-9][0-9]{0,19}", project):
+            return None, "metadata_response_unverified"
+        if "verified" not in project_numbers:
+            try:
+                row = cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}")
+            except Exception:
+                return None, "project_metadata_unverified"
+            if (not isinstance(row, dict) or row.get("projectId") != PROJECT
+                    or not isinstance(row.get("projectNumber"), str)
+                    or not re.fullmatch(r"[1-9][0-9]{0,19}", row["projectNumber"])):
+                return None, "project_metadata_unverified"
+            project_numbers["verified"] = row["projectNumber"]
+        if project != project_numbers["verified"]:
+            return None, "metadata_response_unverified"
+    return f"{SECRET_PARENT}{secret_name}/versions/{version}", "verified"
+
+
+def metadata_version(cloud: Cloud, metadata: object, secret_name: str, project_numbers: dict,
+                     *, expected_version: str | None = None) -> tuple[str | None, str]:
+    """Only metadata reads carry an ENABLED-state requirement."""
+    if not isinstance(metadata, dict) or metadata.get("state") != "ENABLED":
+        return None, "metadata_response_unverified"
+    return resource_version(cloud, metadata.get("name"), secret_name, project_numbers,
+                            expected_version=expected_version)
+
+
 def token_pin_diagnostic(cloud: Cloud, selector: object, secret_name: str, revision: str,
                          image: str, project_numbers: dict) -> dict:
     """Plan-only evidence, never a replacement binding or an approved manifest.
@@ -179,36 +222,10 @@ def token_pin_diagnostic(cloud: Cloud, selector: object, secret_name: str, revis
         metadata = cloud.call("secretmanager", f"v1/{SECRET_PARENT}{secret_name}/versions/latest")
     except Exception:
         return result
-    result["metadata_status"] = "metadata_response_unverified"
-    if not isinstance(metadata, dict) or metadata.get("state") != "ENABLED":
-        return result
-    name = metadata.get("name")
-    if not isinstance(name, str):
-        return result
-    match = re.fullmatch(r"projects/([^/]+)/secrets/" + re.escape(secret_name)
-                         + r"/versions/([1-9][0-9]{0,8})", name)
-    if match is None:
-        return result
-    project, version = match.groups()
-    if project != PROJECT:
-        if not re.fullmatch(r"[1-9][0-9]{0,19}", project):
-            return result
-        if "verified" not in project_numbers:
-            result["metadata_status"] = "project_metadata_unverified"
-            try:
-                row = cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}")
-            except Exception:
-                return result
-            if (not isinstance(row, dict) or row.get("projectId") != PROJECT
-                    or not isinstance(row.get("projectNumber"), str)
-                    or not re.fullmatch(r"[1-9][0-9]{0,19}", row["projectNumber"])):
-                return result
-            project_numbers["verified"] = row["projectNumber"]
-        result["metadata_status"] = "metadata_response_unverified"
-        if project != project_numbers["verified"]:
-            return result
-    result.update(metadata_status="enabled_numeric_candidate",
-                  candidate_secret_version=f"{SECRET_PARENT}{secret_name}/versions/{version}")
+    candidate, status = metadata_version(cloud, metadata, secret_name, project_numbers)
+    result["metadata_status"] = status
+    if candidate is not None:
+        result.update(metadata_status="enabled_numeric_candidate", candidate_secret_version=candidate)
     return result
 
 
@@ -218,7 +235,7 @@ def api_snapshot(cloud: Cloud, *, binding_name: str = "INTERNAL_JOB_TOKEN",
         fail("api_binding_unverified")
     service = cloud.call("run", "v2/" + SERVICE)
     project_numbers: dict = {}
-    ready = stable_revision(cloud, service, project_numbers=project_numbers if plan_diagnostics else None)
+    ready = stable_revision(cloud, service, project_numbers=project_numbers)
     url = origin(service.get("uri", ""))
     name = ready.rsplit("/", 1)[-1]
     revision = cloud.call(f"{REGION}-run", f"apis/serving.knative.dev/v1/namespaces/{PROJECT}/revisions/{name}")
@@ -245,7 +262,8 @@ def api_snapshot(cloud: Cloud, *, binding_name: str = "INTERNAL_JOB_TOKEN",
         fail("internal_token_version_not_pinned", diagnostics=diagnostics)
     version_name = f"{SECRET_PARENT}{secret_name}/versions/{version}"
     metadata = cloud.call("secretmanager", "v1/" + version_name)
-    if metadata.get("name") != version_name or metadata.get("state") != "ENABLED":
+    observed_version, _ = metadata_version(cloud, metadata, secret_name, project_numbers, expected_version=version)
+    if observed_version != version_name:
         fail("internal_token_version_unavailable")
     return {"revision": ready, "image_digest": image, "origin": url,
             "secret_version": version_name}
@@ -340,8 +358,14 @@ def require_shell(job: dict, spec: dict) -> None:
 def secret_value(cloud: Cloud, version: str) -> str:
     response = cloud.call("secretmanager", "v1/" + version + ":access")
     try:
+        expected = re.fullmatch(re.escape(SECRET_PARENT) + r"([A-Za-z0-9_-]{1,255})/versions/([1-9][0-9]{0,8})",
+                                version)
+        if expected is None or not isinstance(response, dict):
+            fail("internal_token_value_unavailable")
+        observed_version, _ = resource_version(cloud, response.get("name"), expected[1], {},
+                                               expected_version=expected[2])
         encoded = response["payload"]["data"]
-        if response.get("name") != version or not isinstance(encoded, str) or len(encoded) > 2048:
+        if observed_version != version or not isinstance(encoded, str) or len(encoded) > 2048:
             fail("internal_token_value_unavailable")
         value = base64.b64decode(encoded, validate=True).decode("ascii")
         if not 32 <= len(value) <= 512 or any(ord(char) < 33 or ord(char) > 126 for char in value):

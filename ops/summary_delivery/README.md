@@ -245,6 +245,13 @@ It describes that revision and alias observation only: deployments, rotation or
 alias movement invalidate it, requiring fresh review before any founder-approved
 pin and a new successful plan afterwards.
 
+Metadata and the already-protected value response compare the same exact secret
+and numeric version across project-ID or verified project-number spelling. A
+pinned request never adopts a different returned version. Project proof is cached
+only within each logical read: at most one fixed-project lookup per API snapshot
+or protected value read. Numeric resource names do not authorize value access or
+relax the token's existing length, ASCII and control-character checks.
+
 Rotation requires a separately reviewed coordinated API binding/caller-header
 change while paused, followed by matching verification. This tool creates no new
 production credential. Its receipt proves paused configuration only; independent

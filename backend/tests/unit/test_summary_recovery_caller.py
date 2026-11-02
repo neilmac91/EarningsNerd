@@ -72,7 +72,10 @@ class Cloud:
                 return copy.deepcopy(self.alias_metadata)
             if path.endswith(":access"):
                 assert self.job and self.job["state"] == "PAUSED", "secret access before pause"
-                return {"name": path[3:-7], "payload": {"data": base64.b64encode(self.secret.encode()).decode()}}
+                return {"name": getattr(self, "access_name", path[3:-7]),
+                        "payload": {"data": base64.b64encode(self.secret.encode()).decode()}}
+            if hasattr(self, "pinned_metadata"):
+                return copy.deepcopy(self.pinned_metadata)
             return {"name": path[3:], "state": "ENABLED"}
         assert api == "cloudscheduler"
         if method == "GET":
@@ -385,6 +388,138 @@ def test_latest_metadata_is_revision_bound_unapproved_refusal_not_a_plan(monkeyp
         ("secretmanager", "v1/projects/earnings-nerd/secrets/existing-token/versions/latest", "GET", None)]
     assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == (
         1 if project == "123456789012" or revision == REVISION_FORMS[2] else 0)
+
+
+@pytest.mark.parametrize("revision", [REVISION_FORMS[0], REVISION_FORMS[2]])
+def test_candidate_then_numeric_pin_retains_canonical_approval(monkeypatch, capsys, revision):
+    cloud = Cloud()
+    expected = plan(cloud)
+    cloud.calls.clear()
+    floating_binding(cloud)
+    cloud.service.update(latestReadyRevision=revision, latestCreatedRevision=revision)
+    cloud.service["trafficStatuses"][0]["revision"] = revision
+    cloud.alias_metadata["name"] = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["candidate_secret_version"] == expected["manifest"]["snapshot"]["api"]["secret_version"]
+    floating_binding(cloud, "3")
+    cloud.pinned_metadata = copy.deepcopy(cloud.alias_metadata)
+    cloud.calls.clear()
+    assert plan(cloud) == expected
+    assert [row for row in cloud.calls if row[0] == "secretmanager"] == [
+        ("secretmanager", "v1/projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/3", "GET", None)]
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 1
+    assert not accesses(cloud) and not mutations(cloud)
+
+
+@pytest.mark.parametrize("metadata", [
+    None, [], {}, {"name": None, "state": "ENABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": "DISABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": True},
+    *({"name": name, "state": "ENABLED"} for name in (
+        "projects/other-project/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/999999999999/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/earnings-nerd/secrets/other-secret/versions/3",
+        "projects/123456789012/secrets/other-secret/versions/3",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/4",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/4",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/latest",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/03",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3\n",
+    )),
+])
+def test_pinned_metadata_preserves_exact_version_secret_project_and_state(metadata):
+    cloud = Cloud()
+    cloud.pinned_metadata = metadata
+    with pytest.raises(caller.Refused, match="internal_token_version_unavailable"):
+        plan(cloud)
+    assert not accesses(cloud) and not mutations(cloud)
+    assert not any(row[0] == "cloudscheduler" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("project", [None, [], {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": 123456789012},
+                                     {"projectId": "earnings-nerd", "projectNumber": "999999999999"}])
+def test_pinned_numeric_metadata_fails_closed_on_project_metadata_drift(project):
+    cloud = Cloud()
+    cloud.project = project
+    cloud.pinned_metadata = {"name": "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3", "state": "ENABLED"}
+    with pytest.raises(caller.Refused, match="internal_token_version_unavailable"):
+        plan(cloud)
+    assert [row for row in cloud.calls if row[0] == "cloudresourcemanager"] == [
+        ("cloudresourcemanager", "v1/projects/earnings-nerd", "GET", None)]
+    assert not accesses(cloud) and not mutations(cloud)
+
+
+@pytest.mark.parametrize("revision", [REVISION_FORMS[0], REVISION_FORMS[2]])
+def test_numeric_resource_names_preserve_actual_protected_apply_order(revision):
+    cloud = Cloud()
+    expected = plan(cloud)
+    cloud.service.update(latestReadyRevision=revision, latestCreatedRevision=revision)
+    cloud.service["trafficStatuses"][0]["revision"] = revision
+    cloud.pinned_metadata = {"name": "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3", "state": "ENABLED"}
+    cloud.access_name = cloud.pinned_metadata["name"]
+    manifest = plan(cloud)
+    assert manifest == expected
+    cloud.calls.clear()
+    result = apply(cloud, manifest)
+    assert result["state"] == "PAUSED" and result["activation_performed"] is False
+    assert PRIVATE not in json.dumps(result)
+    assert len(accesses(cloud)) == 1
+    pause = next(i for i, row in enumerate(cloud.calls) if row[1].endswith(":pause"))
+    access = next(i for i, row in enumerate(cloud.calls) if row[1].endswith(":access"))
+    authenticated_patch = next(i for i, row in enumerate(cloud.calls) if row[2] == "PATCH")
+    assert pause < access < authenticated_patch
+    assert cloud.job["state"] == "PAUSED"
+    assert cloud.job["httpTarget"]["headers"]["X-Internal-Token"] == PRIVATE
+    # One fixed lookup for each snapshot and one for the protected access read.
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 3
+    assert not any(row[1].endswith(("/latest", ":run", ":resume")) for row in cloud.calls)
+
+
+@pytest.mark.parametrize("name", [
+    None, [], PRIVATE,
+    "projects/other-project/secrets/INTERNAL_JOB_TOKEN/versions/3",
+    "projects/999999999999/secrets/INTERNAL_JOB_TOKEN/versions/3",
+    "projects/earnings-nerd/secrets/other-secret/versions/3",
+    "projects/123456789012/secrets/other-secret/versions/3",
+    "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/4",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/4",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/latest",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/03",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3\n",
+])
+def test_protected_access_rejects_foreign_or_unverified_exact_resource(name):
+    cloud = Cloud()
+    cloud.access_name = name
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert len(accesses(cloud)) == 1
+    assert cloud.job["state"] == "PAUSED"
+    assert "X-Internal-Token" not in cloud.job["httpTarget"]["headers"]
+    assert all(row[2] != "PATCH" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("project", [None, {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": "999999999999"}])
+def test_protected_access_requires_fixed_project_proof(project):
+    cloud = Cloud()
+    cloud.project = project
+    cloud.access_name = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 1
+    assert len(accesses(cloud)) == 1 and all(row[2] != "PATCH" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("token", ["short", "x" * 513, "x" * 32 + "\r\nInjected: yes", "x" * 32 + "é"])
+def test_numeric_access_name_does_not_relax_header_value_validation(token):
+    cloud = Cloud()
+    cloud.secret = token
+    cloud.access_name = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert cloud.job["state"] == "PAUSED"
+    assert all(row[2] != "PATCH" for row in cloud.calls)
 
 
 @pytest.mark.parametrize("selector,form", [
