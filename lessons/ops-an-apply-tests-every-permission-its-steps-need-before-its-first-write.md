@@ -22,7 +22,8 @@ switch's enable or disable, fails at its one write with nothing partial):
      repository of an image the apply deploys, which the caller needs apart from the Cloud Run service agent).
      If anything is missing, refuse with the missing names;
    - then read every existing resource a later step would refuse rather than repair (one owned by something
-     else, or in a state the apply never converges, such as a deleted or `DISABLED` role), and refuse it.
+     else, or in a state the apply never converges, such as a deleted or `DISABLED` role or a schedule an
+     update cannot resume), and refuse it.
    Either refusal changes nothing; the steps keep their own checks.
 3. **Closed failures.** Print a refused provider call as its label and a closed error class:
    `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>)`. The permission is named
@@ -45,22 +46,26 @@ switch's enable or disable, fails at its one write with nothing partial):
 
 **Gate.** Media provisioning, in `backend/tests/unit/test_feedback_media_infrastructure.py`:
 - `test_provisioning_preflight_names_exactly_the_permissions_its_steps_use` holds `PROVISION_PERMISSIONS` equal
-  to the permissions its steps name, apart from `iam.serviceAccounts.actAs`, which is tested on the runtime
-  identity. It runs from nothing and over existing resources, with the real `Cloud.wait` polling each Cloud Run
-  operation. It fails a call whose label names no permission, or one its HTTP method cannot need (a read must
-  name only `get`, `list` or `getIamPolicy`; a write names what it changes), and the capability label used
-  outside `testIamPermissions`. Absent resources answer 404 as Google does, so a read that forgets `missing_ok`
-  fails it.
+  to the permissions its steps name, apart from the two tested on their own resources: `iam.serviceAccounts.actAs`
+  on the runtime identity and `artifactregistry.repositories.downloadArtifacts` on the image repository. It runs
+  from nothing and over existing resources, with the real `Cloud.wait` polling each Cloud Run operation. It fails
+  a call whose label names no permission, or one its HTTP method cannot need (a read must name only `get`,
+  `list` or `getIamPolicy`; a write names what it changes), and the capability label used outside
+  `testIamPermissions`. Absent resources answer 404 as Google does, and so do the policies and execution lists
+  under them, with one policy per bucket, so a read that forgets `missing_ok` fails it.
 - `test_provision_from_nothing_tests_its_capability_before_its_first_write`,
   `test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission` and
   `test_provision_refuses_a_state_it_would_not_repair_before_any_write` pin the order, and
-  `test_provision_still_converges_drift_in_resources_this_feature_owns` keeps the state check from over-refusing.
+  `test_provision_still_converges_drift_in_resources_this_feature_owns` keeps the state check from over-refusing,
+  a bucket without its runtime grant included.
 - `test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload`,
   `test_a_failed_cloud_run_operation_names_only_its_step_and_closed_status` and
-  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output.
+  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output, and
+  `test_every_permission_a_step_label_names_can_be_named_in_a_refusal` keeps each label's permissions nameable.
 - `test_an_unreadable_component_is_unverified_and_never_masks_readable_drift`,
   `test_a_failed_read_never_stops_another_resources_drift_check` and
-  `test_inspection_names_the_role_state_and_still_reports_every_other_component` pin the inventory.
+  `test_inspection_names_the_role_state_and_still_reports_every_other_component` and
+  `test_inspection_names_the_state_of_an_owned_schedule_provisioning_will_not_resume` pin the inventory.
 
 In `backend/tests/unit/test_feedback_media_verification_ops.py`,
 `test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name` holds the verifier's

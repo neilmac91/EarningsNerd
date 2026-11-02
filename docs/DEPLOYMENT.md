@@ -842,8 +842,10 @@ before any call an API image outside `us-west1-docker.pkg.dev/earnings-nerd/earn
 tests it the same way before its first write. It then reads every
 existing resource a later step would refuse rather than repair, and refuses that too before any write: a
 deleted, `DISABLED` or differing object role; a bucket with other settings, a public principal or another
-runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; a
-differing heartbeat metric or alert policy. Absent resources are still created and owned ones converged.
+runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; an
+owned schedule that is paused, disabled or in an unknown state, which an update cannot resume (an update is
+Google's recovery from `UPDATE_FAILED`); a differing heartbeat metric or alert policy. Absent resources are
+still created and owned ones converged.
 `feedback-media-inspect` prints the same capability check for both provisioning operations, then each
 resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
 alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed

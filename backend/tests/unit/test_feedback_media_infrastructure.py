@@ -72,9 +72,10 @@ class CloudFixture:
         self.job["etag"] = "job-version"
         self.role = {"includedPermissions": ops.PERMISSIONS.copy(), "stage": "GA"}
         self.buckets = {name: bucket(environment) for environment, name in ops.BUCKETS.items()}
-        self.bucket_policy = {"version": 3, "etag": "bucket-version", "bindings": [
+        # One policy per bucket, as GCS keeps them.
+        self.bucket_policies = {name: {"version": 3, "etag": "bucket-version", "bindings": [
             {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]},
-        ]}
+        ]} for name in self.buckets}
         self.job_policy = {"version": 3, "etag": "job-policy-version", "bindings": [
             {"role": "roles/run.invoker", "members": ["serviceAccount:runtime@example.invalid"]},
         ]}
@@ -100,8 +101,17 @@ class CloudFixture:
             # A project no provisioning has reached: the state every recorded feedback-media run left.
             self.role, self.job, self.schedule, self.metric = None, None, None, None
             self.buckets, self.policies, self.executions = {}, [], []
-            self.bucket_policy = {"version": 3, "etag": "bucket-version", "bindings": []}
+            self.bucket_policies = {}
             self.job_policy = {"version": 3, "etag": "job-policy-version", "bindings": []}
+
+    def policy_of(self, name):
+        # A bucket created without a policy of its own starts with no bindings.
+        return self.bucket_policies.setdefault(name, {"version": 3, "etag": "bucket-version", "bindings": []})
+
+    @property
+    def bucket_policy(self):
+        """The production bucket's policy, which the drift cases edit."""
+        return self.policy_of(ops.BUCKETS["production"])
 
     def policy_readback(self, policy):
         result = copy.deepcopy(policy)
@@ -161,7 +171,8 @@ class CloudFixture:
                 self.buckets[body["name"]] = bucket(environment)
                 return copy.deepcopy(self.buckets[body["name"]])
             if api == "storage" and method == "PUT":
-                self.bucket_policy = copy.deepcopy(body)
+                assert path.endswith("/iam")
+                self.bucket_policies[path.split("/b/", 1)[1].split("/", 1)[0]] = copy.deepcopy(body)
                 return copy.deepcopy(body)
             if api == "run" and path.endswith(":setIamPolicy"):
                 self.job_policy = copy.deepcopy(body["policy"])
@@ -176,6 +187,8 @@ class CloudFixture:
                 return copy.deepcopy(self.schedule)
             if api == "cloudscheduler" and method == "PATCH":
                 self.schedule.update({field: copy.deepcopy(body[field]) for field in path.split("updateMask=", 1)[1].split(",")})
+                if self.schedule.get("state") == "UPDATE_FAILED":  # Google's recovery: retry the update until it succeeds
+                    self.schedule["state"] = "ENABLED"
                 return copy.deepcopy(self.schedule)
             if api == "logging" and method == "POST":
                 self.metric = copy.deepcopy(body)
@@ -212,9 +225,11 @@ class CloudFixture:
         if api == "iam":
             return self.role
         if api == "storage":
-            if "/iam?" in path:
-                return self.bucket_policy
-            return self.buckets.get(path.rsplit("/", 1)[-1])
+            # An absent bucket's policy read is a 404 too, like the bucket's own.
+            name = path.split("/b/", 1)[1].split("/", 1)[0].split("?", 1)[0]
+            if name not in self.buckets:
+                return None
+            return self.policy_of(name) if "/iam?" in path else self.buckets[name]
         if api == "cloudscheduler":
             return self.schedule
         if api == "logging":
@@ -231,10 +246,11 @@ class CloudFixture:
             return self.service
         if path == "v2/" + ops.JOB:
             return self.job
+        # An absent job's policy and execution list read as 404, like the job's own.
         if ":getIamPolicy?" in path:
-            return self.job_policy
+            return self.job_policy if self.job is not None else None
         if "/executions?" in path:
-            return {"executions": self.executions}
+            return {"executions": self.executions} if self.job is not None else None
         if path in self.operations:
             return self.operations[path]
         raise AssertionError((api, path))
@@ -276,7 +292,7 @@ def test_inspection_is_read_only_and_requires_both_current_successful_execution_
 
 @pytest.mark.parametrize("defect", ["wrong-owner", "public", "soft-delete", "versioning", "retention",
                                   "broader-role", "disabled-role", "extra-runtime-grant", "conditional-runtime-grant",
-                                  "missing-invoker", "schedule-overrides", "foreign-schedule"])
+                                  "missing-invoker", "schedule-overrides", "foreign-schedule", "paused-schedule"])
 def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
     cloud = CloudFixture()
     actual = cloud.buckets[ops.BUCKETS["production"]]
@@ -302,6 +318,8 @@ def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
         cloud.job_policy["bindings"] = []
     elif defect == "foreign-schedule":
         cloud.schedule["description"] = "Another team's hourly job"
+    elif defect == "paused-schedule":
+        cloud.schedule["state"] = "PAUSED"
     else:
         cloud.schedule["httpTarget"]["body"] = "overridden-command"
     with pytest.raises(ops.OperationError):
@@ -663,12 +681,23 @@ def test_inspection_of_an_unprovisioned_project_reports_absence_not_refusal(caps
     assert cloud.writes == []
 
 
+class CutShortBody(io.RawIOBase):
+    """An error body that is cut short while it is read."""
+
+    def readable(self):
+        return True
+
+    def read(self, _size=-1):
+        raise http.client.IncompleteRead(b"PRINCIPAL_SENTINEL")
+
+
 def provider(body, code=403):
     cloud = object.__new__(ops.Cloud)
     cloud.token = "synthetic-token"
 
     def refuse(request, timeout):
-        raise HTTPError(request.full_url, code, "refused", {}, io.BytesIO(body if isinstance(body, bytes) else json.dumps(body).encode()))
+        fp = body() if callable(body) else io.BytesIO(body if isinstance(body, bytes) else json.dumps(body).encode())
+        raise HTTPError(request.full_url, code, "refused", {}, fp)
     return cloud, refuse
 
 
@@ -692,8 +721,9 @@ def provider(body, code=403):
      "; PERMISSION_DENIED; IAM_PERMISSION_DENIED; denied an unlisted permission"),
     (b'{"error": ' + b"[" * 100000 + b"]" * 100000 + b"}", ""),
     ({"error": "PRINCIPAL_SENTINEL"}, ""),
+    (CutShortBody, ""),
 ], ids=["iam-denial", "api-disabled", "unknown-values", "not-json", "unhashable-values", "unlisted-permission",
-        "nested-beyond-recursion", "non-object-error"])
+        "nested-beyond-recursion", "non-object-error", "body-cut-short"])
 def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload(monkeypatch, body, detail):
     cloud, refuse = provider(body)
     monkeypatch.setattr(ops, "urlopen", refuse)
@@ -705,6 +735,13 @@ def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its
         cloud.call("logging", "v2/projects/earnings-nerd/metrics")  # unlabelled callers keep the old wording
     monkeypatch.setattr(ops, "urlopen", provider(body, code=404)[1])
     assert cloud.call("iam", "v1/" + ops.ROLE, missing_ok=True, step=ops.ROLE_READ) is None
+
+
+def test_every_permission_a_step_label_names_can_be_named_in_a_refusal():
+    """A refusal names its denied permission only from KNOWN_PERMISSIONS, so that set must hold every label's."""
+    named = step_permissions(value for name, value in vars(ops).items() if name.isupper() and isinstance(value, str))
+    assert {ops.ACT_AS, ops.IMAGE_READ, "run.services.update"} <= named
+    assert named <= ops.KNOWN_PERMISSIONS, sorted(named - ops.KNOWN_PERMISSIONS)
 
 
 def test_inspection_reports_each_operations_capability_without_writing(capsys):
@@ -841,6 +878,9 @@ def test_a_failed_read_never_stops_another_resources_drift_check(capsys, unreada
     ("foreign-job", "Existing cleanup job is not owned by this feature"),
     ("job-public", "Resource policy includes a public principal"),
     ("foreign-schedule", "Existing cleanup schedule is not owned by this feature"),
+    ("schedule-paused", "Existing cleanup schedule is PAUSED; provisioning does not resume it"),
+    ("schedule-disabled", "Existing cleanup schedule is DISABLED; provisioning does not resume it"),
+    ("schedule-unrecognized", "Existing cleanup schedule is in an unrecognized state; provisioning does not resume it"),
     ("metric-drift", "Feedback cleanup heartbeat metric is missing, disabled or differs"),
     ("second-policy-drift", "Existing feedback monitoring policy differs from the approved owned definition"),
 ])
@@ -868,13 +908,32 @@ def test_provision_refuses_a_state_it_would_not_repair_before_any_write(state, r
         cloud.job_policy["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
     elif state == "foreign-schedule":
         cloud.schedule = {"description": "Another team's hourly job"}
+    elif state.startswith("schedule-"):
+        known = {"schedule-paused": "PAUSED", "schedule-disabled": "DISABLED"}
+        cloud.schedule = {"description": ops.SCHEDULE_DESCRIPTION, "state": known.get(state, "PRIVATE_STATE_SENTINEL")}
     elif state == "metric-drift":
         cloud.metric = {**ops.heartbeat_spec(), "filter": 'resource.type="cloud_run_job"'}
     else:  # the first policy is absent; the second exists in another form
         cloud.policies = [cloud.policy_readback(ops.policy_specs()[1])]
         cloud.policies[0]["enabled"] = False
-    with pytest.raises(ops.OperationError, match=re.escape(refusal)):
+    with pytest.raises(ops.OperationError, match=re.escape(refusal)) as refused:
         ops.provision(cloud, cloud.service)
+    assert cloud.writes == []
+    assert "PRIVATE_STATE_SENTINEL" not in str(refused.value)
+
+
+def test_inspection_names_the_state_of_an_owned_schedule_provisioning_will_not_resume(capsys):
+    """A paused owned schedule reads as refused, naming its state; one left UPDATE_FAILED, which provisioning's update
+    recovers, reads as unverified and names that state."""
+    cloud = CloudFixture()
+    cloud.schedule["state"] = "PAUSED"
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup schedule") + "$"):
+        ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup schedule: refused (Existing cleanup schedule is PAUSED; provisioning does not resume it)" in output
+    cloud.schedule["state"] = "UPDATE_FAILED"
+    assert ops.inspect(cloud) is False
+    assert "Cleanup hourly schedule: unverified (state UPDATE_FAILED)" in capsys.readouterr().out
     assert cloud.writes == []
 
 
@@ -883,9 +942,15 @@ def test_provision_still_converges_drift_in_resources_this_feature_owns(monkeypa
     cloud = CloudFixture()
     cloud.job["template"]["template"]["containers"][0]["image"] = API_IMAGE + ":retired"
     cloud.schedule["httpTarget"]["body"] = "overridden-command"
+    cloud.schedule["state"] = "UPDATE_FAILED"
+    # An interrupted provision (or a hand-made bucket) leaves a bucket in the approved shape without its runtime grant.
+    preview = ops.BUCKETS["preview"]
+    cloud.bucket_policies[preview]["bindings"] = []
     ops.provision(cloud, cloud.service)
     assert cloud.job["template"]["template"]["containers"][0]["image"] == API_IMAGE + ":verified"
-    assert cloud.schedule["httpTarget"]["body"] == "e30="
+    assert cloud.schedule["httpTarget"]["body"] == "e30=" and cloud.schedule["state"] == "ENABLED"
+    assert cloud.bucket_policies[preview]["bindings"] == [
+        {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}]
 
 
 class Dropped:

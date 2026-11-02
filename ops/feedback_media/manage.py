@@ -39,6 +39,8 @@ HEARTBEAT_METRIC = "earningsnerd_feedback_cleanup_success"
 HEARTBEAT_MESSAGE = "Feedback media scheduled cleanup succeeded"
 METRIC_PATH = f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}"
 SCHEDULE_DESCRIPTION = "EarningsNerd private feedback media cleanup"
+# Cloud Scheduler's job states; a refusal names only these.
+SCHEDULE_STATES = ("ENABLED", "PAUSED", "DISABLED", "UPDATE_FAILED", "STATE_UNSPECIFIED")
 MONITORING_OWNER = {"component": "feedback-media"}
 POLICY_DRIFT = "Existing feedback monitoring policy differs from the approved owned definition"
 OPERATIONS = (
@@ -62,7 +64,7 @@ def step(name: str, *permissions: str) -> str:
 
 
 SERVICE_READ = step("API service read", "run.services.get")
-SERVICE_UPDATE = step("API service update", "run.services.update", ACT_AS)
+SERVICE_UPDATE = step("API service update", "run.services.update", ACT_AS, IMAGE_READ)
 ROLE_READ = step("Object role read", "iam.roles.get")
 ROLE_CREATE = step("Object role create", "iam.roles.create")
 BUCKET_READ = step("Bucket read", "storage.buckets.get")
@@ -88,8 +90,9 @@ SCHEDULE_READ = step("Cleanup schedule read", "cloudscheduler.jobs.get")
 SCHEDULE_CREATE = step("Cleanup schedule create", "cloudscheduler.jobs.create", ACT_AS)
 SCHEDULE_UPDATE = step("Cleanup schedule update", "cloudscheduler.jobs.update", ACT_AS)
 CAPABILITY_READ = "Capability preflight (needs no permission)"
-# Every project permission a provisioning step names; actAs is tested on the runtime identity itself, where a
-# service-account-level grant is visible. A test holds this set equal to the steps provisioning performs.
+# Every project permission a provisioning step names. actAs and image read are tested on their own resources (the
+# runtime identity, the image repository), where those grants are visible. A test holds this set equal to the
+# steps provisioning performs.
 PROVISION_PERMISSIONS = frozenset({
     "run.services.get", "monitoring.notificationChannels.get", "logging.logMetrics.get", "logging.logMetrics.create",
     "monitoring.alertPolicies.list", "monitoring.alertPolicies.create", "monitoring.timeSeries.list",
@@ -235,8 +238,18 @@ def check_owned_job(job: dict) -> None:
 
 
 def check_owned_schedule(schedule: dict) -> None:
+    """Refuse a schedule this feature does not own, or an owned one in a state provisioning's update cannot leave.
+
+    An update cannot resume a schedule (only :resume leaves PAUSED, and the system sets DISABLED), so a paused,
+    disabled or unknown one would be written and then never read as ready. Retrying an update is Google's documented
+    recovery from UPDATE_FAILED, so that state converges. Only a state from the fixed list is named.
+    """
     if schedule.get("description") != SCHEDULE_DESCRIPTION:
         raise OperationError("Existing cleanup schedule is not owned by this feature")
+    state = schedule.get("state")
+    if state not in ("ENABLED", "UPDATE_FAILED"):
+        shown = state if isinstance(state, str) and state in SCHEDULE_STATES else "in an unrecognized state"
+        raise OperationError(f"Existing cleanup schedule is {shown}; provisioning does not resume it")
 
 
 def policy_path(path: str, *, storage: bool = False) -> str:
@@ -756,7 +769,8 @@ def inspect_schedule(cloud: Cloud, runtime: str) -> bool:
              and schedule.get("httpTarget", {}).get("httpMethod") == "POST"
              and schedule.get("httpTarget", {}).get("body") == "e30="
              and schedule.get("httpTarget", {}).get("oauthToken", {}).get("serviceAccountEmail") == runtime)
-    print("Cleanup hourly schedule: " + ("verified" if ready else "unverified"))
+    pending = " (state UPDATE_FAILED)" if schedule.get("state") == "UPDATE_FAILED" else ""
+    print("Cleanup hourly schedule: " + ("verified" if ready else "unverified" + pending))
     return ready
 
 
