@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import time
 
@@ -72,6 +73,83 @@ def _command() -> tuple[str, ...]:
     return sys.executable, "-I", "-B", str(Path(__file__).with_name("filing_source_storage_worker.py"))
 
 
+class _PipeWriteProtocol(asyncio.streams.FlowControlMixin):
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        super().__init__(loop=loop)
+        self._closed = loop.create_future()
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        super().connection_lost(exc)
+        if not self._closed.done():
+            self._closed.set_result(None)
+
+    def _get_close_waiter(self, stream: asyncio.StreamWriter) -> asyncio.Future:
+        return self._closed
+
+
+class _OwnedProcess:
+    """Retain the native handle before any cancellable pipe attachment.
+
+    asyncio's subprocess creation also calls Popen synchronously on this thread. Keeping
+    that handle here avoids its pipe-setup task and transport-dependent exit wait: Runner
+    can cancel both while native work exists. No spawning thread can outlive its caller,
+    and the event-loop thread remains the creator tracked by Linux PDEATHSIG.
+    """
+
+    def __init__(self) -> None:
+        self.stdin: asyncio.StreamWriter | None = None
+        self.stdout: asyncio.StreamReader | None = None
+        self._write_transport: asyncio.WriteTransport | None = None
+        self._read_transport: asyncio.ReadTransport | None = None
+        self._native = subprocess.Popen(
+            _command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, env={}, bufsize=0,
+        )
+
+    async def attach(self) -> None:
+        loop = asyncio.get_running_loop()
+        assert self._native.stdin is not None and self._native.stdout is not None
+        self._write_transport, protocol = await loop.connect_write_pipe(
+            lambda: _PipeWriteProtocol(loop), self._native.stdin,
+        )
+        self.stdin = asyncio.StreamWriter(self._write_transport, protocol, None, loop)
+        reader = asyncio.StreamReader(limit=MAX_HEADER_BYTES)
+        self._read_transport, _ = await loop.connect_read_pipe(
+            lambda: asyncio.StreamReaderProtocol(reader), self._native.stdout,
+        )
+        self.stdout = reader
+
+    @property
+    def returncode(self) -> int | None:
+        return self._native.poll()
+
+    def kill_and_close(self) -> None:
+        if self.returncode is None:
+            try:
+                self._native.kill()
+            except ProcessLookupError:
+                pass
+        # Abort connected transports without flushing cancelled input. connect_*_pipe
+        # closes its own transport on cancellation; raw handles cover unattached pipes.
+        if self._write_transport is not None:
+            if not self._write_transport.is_closing():
+                self._write_transport.abort()
+        elif self._native.stdin is not None:
+            self._native.stdin.close()
+        if self._read_transport is not None:
+            if not self._read_transport.is_closing():
+                self._read_transport.close()
+        elif self._native.stdout is not None:
+            self._native.stdout.close()
+
+    async def wait(self) -> int:
+        while (returncode := self.returncode) is None:
+            # poll() performs nonblocking waitpid: physical reaping never depends on
+            # pipe callbacks, which may themselves have been cancelled during shutdown.
+            await asyncio.sleep(0.01)
+        return returncode
+
+
 def _response_header(raw: bytes, request: dict) -> dict:
     if not raw.endswith(b"\n") or len(raw) > MAX_HEADER_BYTES:
         raise FilingSourceError("artifact_storage_protocol")
@@ -106,7 +184,7 @@ def _response_header(raw: bytes, request: dict) -> dict:
 
 
 async def _exchange(
-    process: asyncio.subprocess.Process, request: dict, content: bytes | None,
+    process: _OwnedProcess, request: dict, content: bytes | None,
 ) -> StoredSourceObject | bytes:
     assert process.stdin is not None and process.stdout is not None
     try:
@@ -140,27 +218,15 @@ async def _exchange(
     return StoredSourceObject(header["generation"], header["sha256"], header["byte_length"])
 
 
-async def _reap(spawn: asyncio.Task[asyncio.subprocess.Process]) -> None:
+async def _reap(process: _OwnedProcess) -> None:
     try:
-        process = await spawn
-    except (OSError, RuntimeError):
-        return
-    if process.returncode is None:
-        try:
-            process.kill()
-        except ProcessLookupError:
-            pass
-    if process.stdin is not None:
-        process.stdin.close()
-    # Draining after kill avoids the asyncio pipe-buffer / Process.wait deadlock.
-    if process.stdout is not None:
-        while await process.stdout.read(_CHUNK_BYTES):
-            pass
-    await process.wait()
+        process.kill_and_close()
+    finally:
+        await process.wait()
 
 
-async def _finish_child(spawn: asyncio.Task[asyncio.subprocess.Process]) -> None:
-    cleanup = asyncio.create_task(_reap(spawn))
+async def _finish_child(process: _OwnedProcess) -> None:
+    cleanup = asyncio.create_task(_reap(process))
     cancelled = False
     while True:
         try:
@@ -169,7 +235,11 @@ async def _finish_child(spawn: asyncio.Task[asyncio.subprocess.Process]) -> None
             break
         except asyncio.CancelledError:
             cancelled = True
-            if cleanup.done():
+            if cleanup.cancelled():
+                # Runner.cancel-all can cancel cleanup before its first instruction.
+                # Retain the same authoritative handle and restart idempotent cleanup.
+                cleanup = asyncio.create_task(_reap(process))
+            elif cleanup.done():
                 cleanup.result()
                 break
     if cancelled:
@@ -201,16 +271,14 @@ class BoundedFilingSourceStorage:
         try:
             async with asyncio.timeout_at(deadline):
                 async with _execution_lock:
-                    # No new session/process group: the task supervisor still owns this child.
-                    spawn = asyncio.create_task(asyncio.create_subprocess_exec(
-                        *_command(), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.DEVNULL, env={}, limit=MAX_HEADER_BYTES,
-                    ))
+                    # No await between native creation and retaining its owner. No new
+                    # session/process group: the task supervisor still owns this child.
+                    process = _OwnedProcess()
                     try:
-                        process = await asyncio.shield(spawn)
+                        await process.attach()
                         return await _exchange(process, request, content)
                     finally:
-                        await _finish_child(spawn)
+                        await _finish_child(process)
         except TimeoutError:
             raise FilingSourceError("artifact_storage_timeout", retryable=True) from None
         except (OSError, RuntimeError) as error:

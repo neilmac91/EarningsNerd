@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import time
 from types import SimpleNamespace
@@ -308,19 +309,19 @@ async def test_real_binary_roundtrip_empty_environment_fixed_argv_and_reaped_chi
     # Even the intentional inheritance mutant can select only this synthetic mapping.
     monkeypatch.setattr(storage.os, "environ", {"FILING_SOURCE_PRIVATE_TEST": "synthetic-offline-canary"})
     children = []
-    create = asyncio.create_subprocess_exec
+    create = subprocess.Popen
 
-    async def record(*args, **kwargs):
+    def record(*args, **kwargs):
         environment_entry_count = len(kwargs["env"])
         assert environment_entry_count == 0
         assert kwargs["stderr"] == asyncio.subprocess.DEVNULL
         assert not kwargs.get("start_new_session") and "process_group" not in kwargs
-        assert BUCKET not in args and IDENTITY not in args and SHA not in args and CONTENT not in args
-        process = await create(*args, **kwargs)
+        assert BUCKET not in args[0] and IDENTITY not in args[0] and SHA not in args[0] and CONTENT not in args[0]
+        process = create(*args, **kwargs)
         children.append(process)
         return process
 
-    monkeypatch.setattr(storage.asyncio, "create_subprocess_exec", record)
+    monkeypatch.setattr(storage.subprocess, "Popen", record)
     store = storage.BoundedFilingSourceStorage(BUCKET)
     receipt = await store.put(IDENTITY, CONTENT, deadline=time.monotonic() + 10)
     assert receipt == StoredSourceObject("17", SHA, len(CONTENT))
@@ -356,10 +357,10 @@ async def test_child_receives_the_shorter_absolute_operation_or_caller_deadline(
 
 @pytest.mark.asyncio
 async def test_operation_cap_expires_during_lock_admission_without_starting_child(monkeypatch):
-    async def forbidden(*args, **kwargs):
+    def forbidden(*args, **kwargs):
         pytest.fail("expired lock waiter started a storage child")
 
-    monkeypatch.setattr(storage.asyncio, "create_subprocess_exec", forbidden)
+    monkeypatch.setattr(storage.subprocess, "Popen", forbidden)
     monkeypatch.setattr(storage, "STORAGE_OPERATION_SECONDS", 0.05)
     store = storage.BoundedFilingSourceStorage(BUCKET)
     async with storage._execution_lock:
@@ -373,10 +374,10 @@ async def test_operation_cap_expires_during_lock_admission_without_starting_chil
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["invalid_identity", "empty", "oversized", "type", "expired", "infinite", "generation"])
 async def test_invalid_inputs_never_launch_worker(monkeypatch, kind):
-    async def forbidden(*args, **kwargs):
+    def forbidden(*args, **kwargs):
         pytest.fail("invalid input started child")
 
-    monkeypatch.setattr(storage.asyncio, "create_subprocess_exec", forbidden)
+    monkeypatch.setattr(storage.subprocess, "Popen", forbidden)
     store = storage.BoundedFilingSourceStorage(BUCKET)
     args = [IDENTITY, CONTENT]
     deadline = time.monotonic() + 10
@@ -665,36 +666,123 @@ async def test_sdk_exception_details_cannot_cross_child_error_protocol(tmp_path,
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux process ownership contract")
 async def test_cancel_during_spawn_wait_still_reaps_child_before_releasing_permit(tmp_path, monkeypatch):
     sleeping_worker(tmp_path, monkeypatch)
-    original = asyncio.create_subprocess_exec
-    spawned, release = asyncio.Event(), asyncio.Event()
+    loop = asyncio.get_running_loop()
+    original_transport = loop._make_write_pipe_transport
+    original_owner = storage._OwnedProcess
+    entered = asyncio.Event()
     children = []
 
-    async def delayed(*args, **kwargs):
-        child = await original(*args, **kwargs)
-        children.append(child)
-        spawned.set()
-        await release.wait()
-        return child
+    def record_owner():
+        process = original_owner()
+        children.append(process)
+        return process
 
-    monkeypatch.setattr(storage.asyncio, "create_subprocess_exec", delayed)
+    def pending_pipe(pipe, protocol, waiter=None, extra=None):
+        # Create the real pipe transport but hold its readiness callback. Cancellation
+        # reaches connect_write_pipe's actual waiter, not an invented post-spawn await.
+        transport = original_transport(pipe, protocol, waiter=None, extra=extra)
+        entered.set()
+        return transport
+
+    monkeypatch.setattr(storage, "_OwnedProcess", record_owner)
+    monkeypatch.setattr(loop, "_make_write_pipe_transport", pending_pipe)
     task = asyncio.create_task(storage.BoundedFilingSourceStorage(BUCKET).put(
         IDENTITY, CONTENT, deadline=time.monotonic() + 30,
     ))
     try:
-        await asyncio.wait_for(spawned.wait(), 10)
+        await asyncio.wait_for(entered.wait(), 10)
+        native = children[0]._native
+        assert native.poll() is None and storage._execution_lock.locked()
         task.cancel()
-        await asyncio.sleep(0)
-        assert storage._execution_lock.locked() and not task.done()
-        release.set()
         with pytest.raises(asyncio.CancelledError):
             await asyncio.wait_for(task, 10)
-        assert children[0].returncode == -signal.SIGKILL
+        assert native.returncode == -signal.SIGKILL
+        with pytest.raises(ChildProcessError):
+            os.waitpid(native.pid, os.WNOHANG)
         assert not storage._execution_lock.locked()
     finally:
-        release.set()
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         for child in children:
-            if child.returncode is None:
-                child.kill()
-                await child.communicate()
+            child.kill_and_close()
+            await child.wait()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux process ownership contract")
+@pytest.mark.parametrize("phase", ["ready", "pipe_setup"])
+@pytest.mark.parametrize("cancel_before_return", [False, True])
+def test_actual_runner_cancel_all_reaps_native_child_before_loop_closes(
+    tmp_path, phase, cancel_before_return,
+):
+    """Real Runner shutdown in a bounded interpreter; parent stays alive for exit/reap checks."""
+    alive, ready = (tmp_path / name for name in ("native-alive", "native-ready"))
+    child_script = tmp_path / "runner_storage_child.py"
+    child_script.write_text(
+        "import os, sys, pathlib, time, threading\n"
+        f"sys.path.insert(0, {BACKEND!r})\n"
+        "from app.services import filing_source_storage_worker as worker\n"
+        "worker._arm_parent_death()\n"
+        f"pathlib.Path({str(alive)!r}).write_text(str(os.getpid()))\n"
+        "def dispatch(request, content):\n"
+        "    threading.Thread(target=lambda: time.sleep(60)).start()\n"
+        f"    pathlib.Path({str(ready)!r}).write_text(str(os.getpid()))\n"
+        "    time.sleep(60)\n"
+        "worker._dispatch = dispatch\n"
+        "raise SystemExit(worker._main())\n"
+    )
+    probe = tmp_path / "runner_shutdown.py"
+    probe.write_text(
+        "import asyncio, json, os, pathlib, signal, sys, time\n"
+        f"sys.path.insert(0, {BACKEND!r})\n"
+        "from app.services import filing_source_storage as storage\n"
+        f"storage._command = lambda: (sys.executable, '-I', '-B', {str(child_script)!r})\n"
+        "owners = []; original_owner = storage._OwnedProcess\n"
+        "def record_owner():\n"
+        "    owner = original_owner(); owners.append(owner); return owner\n"
+        "storage._OwnedProcess = record_owner\n"
+        "task = None; native_started = False\n"
+        "async def main():\n"
+        "    global task, native_started\n"
+        "    loop = asyncio.get_running_loop(); entered = asyncio.Event()\n"
+        f"    if {phase!r} == 'pipe_setup':\n"
+        "        original_transport = loop._make_write_pipe_transport\n"
+        "        def pending_pipe(pipe, protocol, waiter=None, extra=None):\n"
+        "            transport = original_transport(pipe, protocol, waiter=None, extra=extra)\n"
+        "            entered.set(); return transport\n"
+        "        loop._make_write_pipe_transport = pending_pipe\n"
+        f"    task = asyncio.create_task(storage.BoundedFilingSourceStorage({BUCKET!r}).put({IDENTITY!r}, {CONTENT!r}, deadline=time.monotonic()+30))\n"
+        "    async with asyncio.timeout(5):\n"
+        f"        if {phase!r} == 'pipe_setup': await entered.wait()\n"
+        f"        marker = pathlib.Path({str(ready if phase == 'ready' else alive)!r})\n"
+        "        while not marker.exists(): await asyncio.sleep(0.005)\n"
+        "    native_started = owners[0]._native.poll() is None\n"
+        f"    if {cancel_before_return!r}: task.cancel()\n"
+        "    # No await: exercise Runner's own cancel-all snapshot and scheduling.\n"
+        "try:\n"
+        "    with asyncio.Runner() as runner: runner.run(main())\n"
+        "    native = owners[0]._native\n"
+        "    try:\n"
+        "        os.waitpid(native.pid, os.WNOHANG); physically_reaped = False\n"
+        "    except ChildProcessError: physically_reaped = True\n"
+        "    print(json.dumps({'runner_closed':True, 'parent_alive':True, 'native_started':native_started,\n"
+        "        'native_returncode':native.returncode, 'physically_reaped':physically_reaped,\n"
+        "        'pipes_closed':native.stdin.closed and native.stdout.closed,\n"
+        "        'permit_locked':storage._execution_lock.locked(), 'owner_cancelled':task.cancelled()}),flush=True)\n"
+        "finally:\n"
+        "    for owner in owners:\n"
+        "        if owner._native.poll() is None: owner._native.kill()\n"
+        "        owner._native.wait(timeout=2)\n"
+    )
+    # The hard outer bound detects a wedged cancel-all/pipe wait and kills the probe;
+    # PDEATHSIG then stops its storage child, even when testing a broken implementation.
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", str(probe)], env={}, capture_output=True, timeout=15, check=False,
+    )
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    receipt = json.loads(result.stdout)
+    assert receipt == {
+        "runner_closed": True, "parent_alive": True, "native_started": True,
+        "native_returncode": -signal.SIGKILL, "physically_reaped": True,
+        "pipes_closed": True,
+        "permit_locked": False, "owner_cancelled": True,
+    }
