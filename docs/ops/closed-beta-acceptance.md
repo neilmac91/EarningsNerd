@@ -65,10 +65,10 @@ environment map, no CI deploy resets the founder's switches. A console edit and 
 
 `_grant_pro` and `_revoke_pro` are the only places the tests grant or revoke a tester's complimentary Pro (the pool
 check seeds its generating accounts as Pro, and the Stripe test's paying account becomes Pro through its own
-checkout event). When the complimentary-access operation lands, its grant and revoke replace the `mirror` holder's
-body and `_revoke_pro`'s, run as the operator runs them: the dry run, then the apply of the digest that dry run
-reported. The two row holders stand for a subscriber's Pro, which a grant never writes, so they keep their rows.
-Every test must then pass unchanged. That is its integration acceptance.
+checkout event). The `mirror` holder's grant and `_revoke_pro` run the complimentary-access operation
+([its runbook](complimentary-access.md)) as the operator runs it: the dry run, then the apply of the digest that dry
+run reported. The two row holders stand for a subscriber's Pro, which a grant never writes, so they keep their rows.
+Every test passed unchanged when the seam moved onto the real operation, which was its integration acceptance.
 
 ## 3. Live acceptance checklist
 
