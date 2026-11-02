@@ -213,6 +213,15 @@ def test_the_pre_asc_606_total_elements_read_the_years_before_it():
     assert len(years) == 12  # FY2014-25, none missing
 
 
+def test_a_services_total_from_before_asc_606_fills_its_years():
+    # MRSH's and AWCA's shape: SalesRevenueServicesNet carries the total before ASC 606, the fee element after it, and
+    # the two match at the year both report.
+    payload = _years({SRSN: {2015: 1.0e9, 2016: 1.1e9, 2017: 1.2e9}, FEE: {2017: 1.2e9, 2018: 1.3e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (SRSN, FEE)
+    years, _ = _fy(payload)
+    assert years == {2015: (1.0, SRSN), 2016: (1.1, SRSN), 2017: (1.2, SRSN), 2018: (1.3, FEE)}
+
+
 def test_a_one_year_total_element_never_locks_out_the_filers_total():
     # E286: CLSK's FY2019 10-K tagged one component (3.75M) RevenuesNetOfInterestExpense, beside the Revenues it files
     # for every year (4.53M that year). Read first, the one-year line refused Revenues wherever they differed (E264).
