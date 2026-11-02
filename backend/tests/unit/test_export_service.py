@@ -1255,6 +1255,9 @@ class TestAnalysisPdfHtml:
         series[1]["points"][0]["provenance"] = provenance("calculated", inputs=operands)
         # Net margin's FY2022 is a gap (export_points' stand-in); its FY2023 is withheld, with a record of it.
         series[1]["points"].append({"period": "FY2023", "value": None, "provenance": provenance("unknown")})
+        # A derived figure with no value and no provenance still reads as calculated, as the dialog's rule reads it.
+        series.append({"concept": "free_cash_flow", "label": "Free cash flow", "unit": "USD", "percent": False,
+                       "points": [{"period": "FY2022", "value": None, "derived": True}]})
         series.append({"concept": "operating_margin", "label": "Operating margin", "unit": "pure", "percent": True,
                        "points": [
                            {"period": "FY2022", "value": 30.1, "provenance": provenance("calculated", ["legacy_calculation"])},
@@ -1279,6 +1282,7 @@ class TestAnalysisPdfHtml:
             ("FY2022 · Value</strong>: 1000.0 USD", reported),
             ("FY2024 · Value</strong>: 1500.0 USD", bare),  # no provenance: the legacy derived flag says calculated
             ("FY2023 · Value</strong>: Unavailable percent", not_recorded),  # withheld: its record has no method
+            ("FY2022 · Value</strong>: Unavailable USD", bare),  # derived, with no value and no provenance
             ("FY2024 · Value</strong>: 24.3 percent", inputs),
             ("FY2022 · Value</strong>: 30.1 percent", legacy),
             ("FY2023 · Value</strong>: 30.4 percent", bare),
