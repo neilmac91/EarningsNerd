@@ -52,7 +52,7 @@ delivery, configuration or capacity; sections 3 to 5 carry those.
 | `test_a_tester_signs_out_resets_their_password_and_signs_back_in` | Sign-out of one browser, reset mail, no other browser can refresh its session (an access token already issued lives out its 30 minutes), the new password, a single-use link |
 | `test_one_testers_session_never_reaches_anothers_records` | Watchlist, saved summaries, feedback receipts and export stay with their owner |
 | `test_pausing_invitations_keeps_existing_testers_signed_in_and_their_rights` | Revoking a cohort's pending invitations leaves admitted testers' sessions, Pro and export |
-| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 with a message that the draft has been kept; text feedback, reading an existing screenshot and cleanup still work. The open form then holds the draft unsendable until a reload, which discards its note and screenshot (section 7) |
+| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 with a message that the draft has been kept; text feedback, reading an existing screenshot and cleanup still work. A form that sends a screenshot after the switch then holds the draft unsendable until a reload, which discards its note and screenshot (section 7) |
 | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers` | Collection closed: minting, re-sending and registering answer 503, the waiting invitation is neither spent nor revoked, admitted testers keep sign-in, Pro and export |
 | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` | New summaries paused: a fresh one is refused with no model call, a stored one still serves, feedback and sign-in work |
 | `test_account_work_answers_while_summaries_generate_on_a_production_sized_pool` | With the most generations a process admits held at the model call, on a four-connection pool with no overflow, sign-in, usage, feedback and a reset request all answer and a connection stays free |
@@ -216,10 +216,12 @@ so an incident rollback does not wait.
 | Suspend one tester | No route exists; a direct database write of `users.is_active=false` | That account's sign-in | Its data | — |
 | Roll back the API | Ops `rollback-traffic`, then a revert, after the account-mail queue drains ([account mail](../OPERATIONS.md#account-mail-f60)) | The current revision | The database | — |
 
-Switching screenshots off while a tester has a screenshot draft open leaves that draft unable to send: the form
-keeps re-sending the screenshot, cannot remove it, and a reload discards both the note and the screenshot. Until
-the feedback form recovers on its own, tell first-wave testers to copy their note before reloading and to send it
-again as text.
+Switching screenshots off while a tester has a screenshot draft open leaves that draft unable to send once they
+press Send: the form keeps re-sending the screenshot, cannot remove it, and a reload discards both the note and the
+screenshot. The open form does not re-read the switch when the tester returns to the tab; reopening the dialog a
+minute or more after its last read does, and then, before Send, it says screenshot uploads are unavailable and lets
+the tester remove the screenshots and send the note. Until the feedback form also recovers after a Send, tell
+first-wave testers to copy their note before reloading and to send it again as text.
 
 A traffic rollback moves only the API service, and an environment switch belongs to a revision: moving traffic to
 an older revision restores that revision's own `LEGAL_*`, `FEEDBACK_MEDIA_*` and `SUMMARY_NEW_JOBS_PAUSED` values,
