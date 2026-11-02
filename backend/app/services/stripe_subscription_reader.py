@@ -1,11 +1,12 @@
 """Exact-ID Stripe read boundary; independent of the global checkout Stripe client.
 
-Webhook processing reads the current subscription under the account lock and a paid invoice before
-that lock is taken; the serving-charge report (``billing_serving_prices.py``) reads the bound Prices.
-The transport limits connection/read inactivity and makes one attempt. These are not a total
-wall-clock deadline: DNS and a progressing response can take longer. A reconciling worker retains
-its account lock/session until the subscription read finishes; never abandon that worker on a
-future timeout.
+Webhook processing reads the bound subscription under the account lock (an event for another
+subscription reads the bound one, then its own, E98) and a paid invoice before that lock is taken; the
+serving-charge report (``billing_serving_prices.py``) reads the bound Prices. Each read's transport
+limits connection/read inactivity and makes one attempt. These are not a total wall-clock deadline:
+DNS and a progressing response can take longer, and a cross-subscription event's two reads run one
+after the other, so its lock can be held for about twice the per-read limits. A reconciling worker
+retains its account lock/session until its reads finish; never abandon that worker on a future timeout.
 """
 from __future__ import annotations
 
@@ -32,7 +33,9 @@ def _validate_timestamp(obj: dict, field: str) -> None:
         raise ValueError(f"invalid subscription {field}")
 
 
-def _validate_snapshot(snapshot: dict, subscription_id: str, customer_id: str | None) -> dict:
+def _validate_snapshot(
+    snapshot: dict, subscription_id: str, customer_id: str | None, *, require_created: bool = False,
+) -> dict:
     if not isinstance(snapshot, dict) or snapshot.get("id") != subscription_id:
         raise ValueError("subscription identity does not match the requested ID")
     customer = snapshot.get("customer")
@@ -43,6 +46,10 @@ def _validate_snapshot(snapshot: dict, subscription_id: str, customer_id: str | 
         raise ValueError("subscription status is missing or unsupported")
     for field in ("current_period_end", "trial_end"):
         _validate_timestamp(snapshot, field)
+    # Two subscriptions are ordered by when Stripe created them (E98), so a read that ranks one needs it.
+    created = snapshot.get("created")
+    if require_created and (type(created) is not int or not 0 < created <= _MAX_TIMESTAMP):
+        raise ValueError("invalid subscription created")
     if "cancel_at_period_end" in snapshot and type(snapshot["cancel_at_period_end"]) is not bool:
         raise ValueError("invalid subscription cancel_at_period_end")
     if "items" in snapshot:
@@ -73,12 +80,14 @@ def _bounded_client() -> Iterator[stripe.StripeClient]:
         transport.close()
 
 
-def retrieve_subscription_snapshot(subscription_id: str, customer_id: str | None) -> dict:
+def retrieve_subscription_snapshot(
+    subscription_id: str, customer_id: str | None, *, require_created: bool = False,
+) -> dict:
     """Read/validate one exact subscription; close the dedicated transport on every outcome."""
     try:
         with _bounded_client() as client:
             snapshot = client.v1.subscriptions.retrieve(subscription_id).to_dict()
-            return _validate_snapshot(snapshot, subscription_id, customer_id)
+            return _validate_snapshot(snapshot, subscription_id, customer_id, require_created=require_created)
     except Exception as exc:
         # Provider/transport/response failures share one retryable boundary. Never return the stale
         # webhook object or expose provider error text/credentials in the HTTP response.

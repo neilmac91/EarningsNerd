@@ -26,7 +26,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
-| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
+| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FF96A1` (text-safe on navy and the panel; level in their chips' tints, 5.72:1 and 5.76:1 on the panel, D-074); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
@@ -596,8 +596,8 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  "Browse {ticker}'s other filings" and the calendar card's "View full calendar" (E276); with the
                  square, the Copilot answer's sources (a passage's section name, a figure's "Open the filing on
                  SEC.gov"), the filing page's "Original on SEC.gov", the company page's "Company on SEC.gov", the
-                 filings history note's "Full history on SEC.gov", the Filing tab's footer "Original on SEC.gov" and
-                 the filing viewer drawer's "Open original" (E279). A button's arrow or square (MarketingCta,
+                 filings history note's "Full history on SEC.gov" and the Filing tab's footer "Original on SEC.gov"
+                 (E279; the filing viewer's unmounted drawer went with E280). A button's arrow or square (MarketingCta,
                  buttonVariants) stays in its flex row, since the button's box binds it. A glyph that leads its words
                  (the source links in SourceTrace, CitationChip, HeroExample and FigureReceipt) is not this rule, nor
                  is a square that marks a whole row link (the filing index's row link, the full-text search's result
@@ -614,7 +614,7 @@ Trailing arrow   A label with a trailing arrow (a card's call to action, a "See 
                  passage link at the default size at 320, 390 and 1440px, where it wraps: each glyph on its last word's
                  line, one box, every line of the words inside it, side to side as well as top to bottom, and inside
                  its inset where it has one; the calendar card's row is filled on the server, which CI's e2e build runs
-                 without, and no route mounts the filing viewer's drawer, so no case reaches either),
+                 without, so no case reaches it),
                  tests/unit/trailingArrowRun.spec.ts (no element but a button ends in a bare ArrowRightIcon or
                  ArrowSquareOutIcon after its words, a row mark aside, and no TrailingArrowLabel sits in a flex or grid
                  row), tests/unit/TrailingArrowLabel.spec.tsx (the run is a plain inline span holding the glyph with
@@ -702,7 +702,7 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  lib/financialTone.directionText IS this recipe — route delta text through it; a
                  direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
                  chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
-                 panel), a rung below its light label: between the up and down chips (5.72:1 and 4.44:1
+                 panel), a rung below its light label: quieter than the up and down chips (5.72:1 and 5.76:1
                  in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
                  the one text-ramp crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE),
                  which reads a dark twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
@@ -720,7 +720,9 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
                  (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
                  renders the what-changed chip and holds its colour to directionChip for the server's
-                 tone, which no lint can see.
+                 tone, which no lint can see. tests/unit/directionChipContrast.spec.ts holds every
+                 directionChip label, and Badge's beat and miss, at 4.5:1 in its tint on the panel and
+                 the page in both themes, each read from its classes as it ships (E282, D-074).
                  The analysis figure surfaces alone amend the 700-level clause (CLAUDE.md rule 11):
                  their change lines (MetricsTable's, KpiStrip's) take
                  lib/financialTone.dataDirectionText, up text-gain-data dark:text-gain-data-dark
@@ -728,7 +730,7 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  #FECDD3), flat text-text-secondary-light dark:text-note-dark, each held to APCA
                  |Lc| ≥ 75 on the sheet and the panel. Three of the general delta inks miss that tier
                  there: green-700 #15803D is Lc 72.4 on the light sheet and 71.1 on the panel, and in
-                 dark emerald-400 #34D399 is -65.6 / -62.6 and rose-400 #FB7185 -49.7 / -46.7; green-800
+                 dark emerald-400 #34D399 is -65.6 / -62.6 and loss.dark #FF96A1 -61.5 / -58.6; green-800
                  holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
                  lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
                  reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss
@@ -1407,7 +1409,9 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  spread fails too).
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
-                 tests/unit/badgeVariants.spec.tsx, with no row exempt). `new` is the brand tint, `brand`'s
+                 tests/unit/badgeVariants.spec.tsx, with no row exempt); their labels hold 4.5:1 in
+                 their tints in both themes (tests/unit/directionChipContrast.spec.ts, E282).
+                 `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
                  dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
                  caution. Its label holds 5.8:1 in light and 5.9:1 on the dark card (6.1:1 pressed); its one
@@ -1906,7 +1910,7 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  not scrolling sideways, nor any dialog's panel: the feedback dialog's type row is the
                  SegmentedControl, whose segments wrap whole, E169).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
-                 viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
+                 workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
                  below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
                  DayDetailDialog, a
                  sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
@@ -1972,7 +1976,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  sit on this one rung inside the header's stacking context, NotificationBell on the token
                  and UserMenu still on the numeric z-50; tests/unit/NotificationBell.spec.tsx holds both) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the
-                 source and viewer sheets — scrim AND panel) ·
+                 source, rail and workspace sheets: scrim AND panel) ·
                  z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets and their scrims both use z-modal, above the
                  site header. The panel follows its scrim in DOM order at that rung. CitationChip portals
@@ -3245,11 +3249,14 @@ and "Notes" and covers any column or value the edge would cut, so no value shows
 scroll's start there is none. Hover, a tap or the keyboard paints the
 period's column wash (`cursor`, full SVG height) and shows the tooltip, `aria-hidden`, on the Card recipe's surface,
 flush beside its column, inside the viewport's sides and outside its clip, so 200% text never clips it. The tooltip
-is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
+is hoverable; a tap pins it until a second tap on its period, a tap on the tooltip itself or a press outside, and a
+swipe pins nothing (E267: on a phone under 200% text a tooltip can stand taller than its plot and cover the other
+bars, so a tap meant for a covered bar lands on the tooltip and closes it). Escape dismisses a
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
+themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` and, for the tap on a tooltip over the bars it covers,
+`tests/e2e/company-sector-peers.spec.ts` (E267). CI's required `e2e-tests` job runs them all
 unconditionally after E195 retires the separate chart job and its flag guards (F67).
 
 **Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws

@@ -23,7 +23,7 @@
    variant (`z-30 lg:z-50` ranks 50): a number, a zIndex ladder name, or 0 when
    absent / auto (a fixed element at z-auto outranks nothing and is not counted).
      exempt   z-overlay / z-modal ride the documented transient layers above the
-              workspace — popovers, dialogs + the source and viewer sheets; a
+              workspace: popovers, dialogs + the source, rail and workspace sheets; a
               real modal may legitimately make the page beneath it inert, and it
               is gone on dismissal. z-toast is transient only as the top-anchored
               skip link: bottom-anchored or unanchored it ranks as z-80 (the
