@@ -22,7 +22,8 @@ installed import never moves the gate (a tracked top-level file under `backend/`
 only third-party code imports, `backend/certifi.py`, is a stated limit: the walk follows the eval's own
 imports; a closure module that changes where an import looks, `sys.path`, `sys.meta_path`, `sys.path_hooks`,
 `sys.path_importer_cache`, a package's `__path__` or `site` (`sys.modules` is not guarded),
-fails the gate, since the walk cannot follow it). Every argument of an entry command that is not a flag or an
+fails the gate, since the walk cannot follow it, except the canonical insertion of the already
+modeled backend root derived from that tracked module's own `__file__`). Every argument of an entry command that is not a flag or an
 integer is a path (quotes are removed first, as bash removes them, so a quoted `"--opt=value"` is
 split like a bare one): a tracked file or directory is an input of the run, a gitignored path or one
 under `$RUNNER_TEMP` followed by a plain path is run-local, anything else with a `$` in it is untraced
@@ -1525,7 +1526,7 @@ def step_inputs() -> list[str]:
 @functools.cache
 def _live_closure() -> frozenset[str]:
     closure = frozenset(reachable_files(entry_points()))
-    changing = sorted(p for p in closure if _changes_sys_path(ast.parse((ROOT / p).read_text(encoding="utf-8"))))
+    changing = sorted(p for p in closure if _changes_sys_path(ast.parse((ROOT / p).read_text(encoding="utf-8")), p))
     assert not changing, f"{changing} change where an import looks (sys.path, sys.meta_path, sys.path_hooks, sys.path_importer_cache or a package's __path__) or use site, which the import walk cannot follow: import through backend/ instead, read the list directly rather than through a name, or teach the walk the directory"
     return closure
 
@@ -1534,7 +1535,38 @@ IMPORT_LISTS = frozenset({"path", "meta_path", "path_hooks", "path_importer_cach
 PACKAGE_LISTS = frozenset({"__path__", "submodule_search_locations"})  # a package's search list: `pkg.__path__` is its spec's `submodule_search_locations`
 
 
-def _changes_sys_path(tree: ast.AST) -> bool:
+def _backend_root_insertions(tree: ast.AST, source: str | None) -> frozenset[int]:
+    """Only a canonical insertion of the root the walker already resolves imports against.
+
+    Resolve the ancestor from the tracked source identity, not a filename exemption or
+    a universal parents index. Aliases, rebound names and other spellings stay refused.
+    This shares the surrounding walk's stated limits for computed mutation/exec.
+    """
+    if source not in TRACKED or not source.startswith("backend/") or not isinstance(tree, ast.Module):
+        return frozenset()
+    ancestors = list((ROOT / source).resolve().parents)
+    if BACKEND not in ancestors:
+        return frozenset()
+    bound = _bindings(tree)
+    names = {"sys", "Path", "str", "__file__"}
+    if (any(bound[name] != count for name, count in {"sys": 1, "Path": 1, "str": 0, "__file__": 0}.items())
+            or any(isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+                   or isinstance(node, ast.Name) and node.id in names and isinstance(node.ctx, ast.Del)
+                   for node in ast.walk(tree))):
+        return frozenset()
+    if (not any(isinstance(node, ast.Import) and any(alias.name == "sys" and alias.asname is None for alias in node.names)
+                for node in tree.body)
+            or not any(isinstance(node, ast.ImportFrom) and node.module == "pathlib" and node.level == 0
+                       and any(alias.name == "Path" and alias.asname is None for alias in node.names) for node in tree.body)):
+        return frozenset()
+    expected = ast.dump(ast.parse(
+        f"sys.path.insert(0, str(Path(__file__).resolve().parents[{ancestors.index(BACKEND)}]))", mode="eval",
+    ).body)
+    return frozenset(id(node.func.value) for node in ast.walk(tree)
+                     if isinstance(node, ast.Call) and ast.dump(node) == expected)
+
+
+def _changes_sys_path(tree: ast.AST, source: str | None = None) -> bool:
     """A change to where an import looks, an import made local by hand: a use of `sys.path`, `sys.meta_path`,
     `sys.path_hooks`, `sys.path_importer_cache` or a package's `__path__` (bare in its `__init__.py`, `pkg.__path__`, or
     the same list as `__spec__.submodule_search_locations` or a found spec's; `pkgutil.extend_path` returns a new one;
@@ -1554,10 +1586,13 @@ def _changes_sys_path(tree: ast.AST) -> bool:
     uses, not a sandbox: a computed attribute or module name (`getattr(sys, "path")`, `vars(sys)["path"]`,
     `sys.__dict__`, `import_module("s" + "ys")`), the module passed to a function or stored in a container, and code in
     a string handed to `exec` are stated limits. `sys.modules` is not guarded: an entry put there is an object closure
-    code built, and the walk still counts the file it stands in for. A module loaded from a file by path
-    (`spec_from_file_location`, `runpy.run_path`) is the named-file rule's: a `.py` spelled in a literal is a module of
+    code built, and the walk still counts the file it stands in for. The canonical insertion of this tracked
+    source's own backend ancestor is permitted: this root is already modeled by the walk, and its imports still
+    join the closure. A module loaded from a file by path (`spec_from_file_location`, `runpy.run_path`) is the
+    named-file rule's: a `.py` spelled in a literal is a module of
     the closure, and a computed path is that rule's limit."""
     parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    backend_insertions = _backend_root_insertions(tree, source)
     names: dict[str, set[str]] = {"sys": {"sys"}, "site": set()}
     loaders: set[str] = {"__import__"}
     for node in ast.walk(tree):
@@ -1614,6 +1649,8 @@ def _changes_sys_path(tree: ast.AST) -> bool:
                 or isinstance(node, ast.Name) and node.id == "__path__"):  # a package's `__path__` is where `from pkg import x` looks
             continue
         parent = parents.get(id(node))
+        if id(node) in backend_insertions:
+            continue
         func = parent.func if isinstance(parent, ast.Call) else None
         read = (isinstance(parent, ast.Compare)  # `'x' in sys.path`, `spec.submodule_search_locations is not None`: a comparison changes nothing
                 or func is not None and node in parent.args and (isinstance(func, ast.Name) and func.id in reads
@@ -2086,6 +2123,46 @@ def test_relative_imports_anchor_on_the_owning_package():
     assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = import_module("..integrations.sec_api", __package__); r = import_module("..routers", package=__package__)'))) == {"app.integrations.sec_api", "app.routers"}
     assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = import_module(f".{name}", "evals")'))) == {"evals"} | evals_modules
     assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(".x"); n = import_module(".x", "os"); p = mock.patch(".x"); q = import_module("nothing_here")'))) == set()
+
+
+def test_only_the_tracked_source_backend_root_is_an_allowed_import_path_insertion():
+    imports = "import sys\nfrom pathlib import Path\n"
+    insertion = "sys.path.insert(0, str(Path(__file__).resolve().parents[2]))"
+    worker = "backend/app/services/filing_source_storage_worker.py"
+    runner = "backend/evals/copilot_runner.py"
+    source = imports + insertion
+    assert not _changes_sys_path(ast.parse(source), worker)
+    assert not _changes_sys_path(ast.parse(source.replace("parents[2]", "parents[1]")), runner)
+    # A numeric index is meaningful only against this tracked module's actual location.
+    assert _changes_sys_path(ast.parse(source), runner)
+    assert _changes_sys_path(ast.parse(source))
+    assert _changes_sys_path(ast.parse(source), "backend/untracked/worker.py")
+    for replacement in ("parents[0]", "parents[1]", "parents[3]", "parents[-1]", "parents[True]",
+                        "parents[index]", "parent", "parents[2] / 'sibling'"):
+        assert _changes_sys_path(ast.parse(source.replace("parents[2]", replacement)), worker), replacement
+    for changed in (insertion, "import sys\n" + insertion, "from pathlib import Path\n" + insertion,
+                    source.replace("import sys", "import sys as s").replace("sys.path", "s.path"),
+                    source.replace("from pathlib import Path", "from elsewhere import Path"),
+                    source.replace("from pathlib import Path", "from pathlib import Path as P").replace("Path(__file__)", "P(__file__)"),
+                    source.replace("insert(0,", "insert(True,"), source.replace("insert(0,", "insert(1,"),
+                    source.replace("insert(0,", "insert(index=0, value="),
+                    source.replace(".resolve()", ".resolve(strict=True)"),
+                    source.replace(".path.insert", ".meta_path.insert"), source.replace(".path.insert", ".path_hooks.insert"),
+                    source + "\nsys.path.append('elsewhere')", source + "\nimport site\nsite.addsitedir('elsewhere')",
+                    "from unknown import *\n" + source):
+        assert _changes_sys_path(ast.parse(changed), worker), changed
+    # _bindings covers function parameters, comprehensions, captures and imports, not just assignments.
+    for name in ("sys", "Path", "str", "__file__"):
+        for rebound in (f"{name} = replacement", f"del {name}", f"def f({name}): pass",
+                        f"def {name}(): pass", f"class {name}: pass", f"import other as {name}",
+                        f"[{name} for {name} in values]", f"try: pass\nexcept Exception as {name}: pass",
+                        f"match value:\n    case {{'name': {name}}}: pass"):
+            assert _changes_sys_path(ast.parse(source + "\n" + rebound), worker), rebound
+    # The live child and every import it needs remain in the eval closure and trigger set.
+    assert not _changes_sys_path(ast.parse((ROOT / worker).read_text(encoding="utf-8")), worker)
+    closure, patterns = reachable_files(), workflow_filter()
+    for path in (worker, "backend/app/services/filing_source_storage.py", "backend/app/services/filing_source_types.py"):
+        assert path in closure and triggers(path, patterns), path
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
