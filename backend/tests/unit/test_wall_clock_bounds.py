@@ -64,6 +64,8 @@ ALLOWED = {
         "the 75 s budget's remaining time read just after the worker starts, against 70 s: 5 s of slack",
     "tests/unit/test_redis_disabled_skip.py::test_cache_ops_are_fast_no_op_when_disabled":
         "two no-op calls measured against 0.5 s; the regression waits out a 2 s operation timeout",
+    "tests/unit/test_summary_delivery_acceptance.py::test_whole_http_deadline_interrupts_real_header_and_body_trickles":
+        "a real 150 ms HTTP deadline measured against 750 ms; unbounded loopback trickles take over 1 s",
 }
 
 _CLOCK_FUNCTIONS = {"monotonic", "monotonic_ns", "perf_counter", "perf_counter_ns"}

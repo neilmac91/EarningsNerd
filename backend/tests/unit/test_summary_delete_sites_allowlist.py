@@ -100,6 +100,9 @@ ALLOWED_SITES = {
     # Not a summary: the SavedSummary row _owned() returns (the module names Summary for its reads). Nothing
     # references saved_summaries, so deleting a bookmark is FK-safe.
     ("backend/app/services/saved_summary_service.py", "delete_saved_summary", "unresolved"): 1,
+    # Not a row delete: instance.delete removes only the approved run-owned synthetic Cloud SQL
+    # instance after all rehearsal workers read absent; it never targets the production database.
+    ("ops/summary_delivery/manage.py", "cleanup", "unresolved"): 1,
 }
 
 _SKIP_DIRS = {".git", "frontend", "node_modules", "__pycache__", ".cache", ".pytest_cache",

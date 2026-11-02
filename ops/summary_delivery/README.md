@@ -241,8 +241,8 @@ it for recovery. The ordinary hourly scan remains a distinct existing caller.
 ## Local verification
 
 Focused unit tests cover manifest tampering, expired-plan cleanup, protected-job
-guards, isolated credentials, independent cleanup budgets/failures, inherited
-public-ingress refusal, temporary-instance capacity refusal before database writes, paused-before-credential
+guards, isolated credentials, independent cleanup budgets/failures, unexpected
+effective invocation grants, temporary-instance capacity refusal before database writes, paused-before-credential
 ordering, SQL boundaries, and the actual summary pipeline with synthetic network
 seams. Local PostgreSQL tests provide separate database privilege/cleanup
 evidence. Fake Cloud API tests and local persistence tests must not be reported as
