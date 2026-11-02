@@ -123,7 +123,7 @@ export default function BillingPanel() {
           {/* Plan, usage & renewal — divided rows keep each label tied to its value */}
           <div className="divide-y divide-border-light dark:divide-border-dark">
             {/* Plan + status */}
-            <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
               <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Plan</span>
               {/* `brand` (not `pro`): the pro variant uppercases, and this label
                   carries state text like "Pro (trial)" that must stay sentence case. */}
@@ -136,7 +136,7 @@ export default function BillingPanel() {
             </div>
 
             {isComplimentary && (
-              <div className="flex items-center justify-between gap-4 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Access</span>
                 <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
                   Complimentary (private beta)
@@ -145,7 +145,7 @@ export default function BillingPanel() {
             )}
 
             {/* Usage */}
-            <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
               <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Summaries this month</span>
               <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {usage
@@ -158,7 +158,7 @@ export default function BillingPanel() {
 
             {/* Renewal / cancellation */}
             {isPro && !isTrialing && sub?.current_period_end && (
-              <div className="flex items-center justify-between gap-4 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
                 </span>
