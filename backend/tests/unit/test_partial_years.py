@@ -72,7 +72,7 @@ def test_a_recast_year_matching_no_shorter_item_stays():
     assert without_partial_years([QUARTER, ANNUAL, recast]) == [QUARTER, ANNUAL, recast]
 
 
-@pytest.mark.parametrize("value", [20952001, 20953000, 20900000])
+@pytest.mark.parametrize("value", [20952001, 20953000, 20900000, -20952000])
 def test_only_the_very_figure_marks_a_partial_year(value):
     # Estee Lauder's FY2023 operating income, 1,509M in its 10-K and again in two 10-Qs, sits 0.3% below its nine
     # months' 1,514M: a real year whose fourth quarter lost money. A tolerance of 0.5% would drop it, and DLR's and
@@ -102,7 +102,7 @@ def test_a_zero_year_stays():
 
 
 @pytest.mark.parametrize("start", ["2025-04-01", "2024-12-31", "2025-01-02"])
-def test_a_shorter_item_from_another_start_never_drops_the_year(start):
+def test_another_filings_part_from_another_start_never_drops_the_year(start):
     # Macy's FY2023 EPS equals its Q3's by coincidence: from another start, only the year's own filing ties a part.
     part = _item(start, "2025-06-30" if start == "2025-04-01" else "2025-03-31", 20952000, accn="q")
     year = _item("2025-01-01", "2025-12-31", 20952000, accn="q-later")
@@ -162,8 +162,10 @@ def test_a_part_from_another_start_in_another_filing_never_drops_the_year():
     assert without_partial_years([half, year]) == [half, year]
 
 
-@pytest.mark.parametrize("value", [0.84, 0.86])
+@pytest.mark.parametrize("value", [0.84, 0.86, 0.8501, -0.85])
 def test_only_the_very_figure_the_filing_reports_marks_its_year(value):
+    # exactly, as from the same start: a part from any start has more room for a near coincidence, and a sign is part
+    # of the figure
     half = _item("2015-01-01", "2015-06-30", 0.85, accn=WAL_Q2)
     year = _item("2012-01-01", "2012-12-31", value, accn=WAL_Q2)
     assert without_partial_years([half, year]) == [half, year]
@@ -174,6 +176,16 @@ def test_a_zero_year_its_own_filing_reports_as_a_part_stays():
     half = _item("2018-08-01", "2019-01-31", 0, accn="0001437749-19-004590", filed="2019-03-12")
     year = _item("2017-08-01", "2018-07-31", 0, accn="0001437749-19-004590", filed="2019-03-12")
     assert without_partial_years([half, year]) == [half, year]
+
+
+@pytest.mark.parametrize("accn", [None, ["0001212545-15-000188"], {"accn": "x"}, 12])
+def test_an_accession_that_is_no_string_ties_no_year_to_its_filing(accn):
+    # SEC's accessions are strings; any other value, or none, marks no filing (one built from a filing's instance
+    # facts is "", which does).
+    part = {**_item("2019-01-01", "2019-03-31", 673000000), "accn": accn}
+    year = {**_item("2018-01-01", "2018-12-31", 673000000), "accn": accn}
+    assert without_partial_years([part, year]) == [part, year]
+    assert without_partial_years([{**part, "accn": ""}, {**year, "accn": ""}]) == [{**part, "accn": ""}]
 
 
 @pytest.mark.parametrize("form", ["10-K", "10-K/A", "20-F", "8-K", None])
@@ -281,8 +293,8 @@ def test_the_per_filing_fallback_reads_no_2012_eps_from_wals_2015_10qs(payloads,
 def test_the_restatement_census_indexes_every_item():
     """Its evidence index reads every tag, where a real year can equal its part: AMT's Q1 2020 10-Q
     (0001053507-20-000093) reports the 425.7M it paid for a redeemable noncontrolling interest in Q1 2019 as that
-    quarter and as FY2019, as its 10-K does. Across every tag of 696 cached payloads the rule drops 2,664 items, 2,156
-    of them such years at 273 companies (none on the collector's duration tags), so the index keeps every item."""
+    quarter and as FY2019, as its 10-K does. Across every tag of 696 cached payloads the rule drops 3,157 items, 2,392
+    of them such years at 297 companies (none on the collector's duration tags), so the index keeps every item."""
     from scripts.restatement_census import _accession_index
 
     accn = "0001053507-20-000093"

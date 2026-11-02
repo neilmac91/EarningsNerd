@@ -20,7 +20,7 @@ logger = logging.getLogger("app.services.edgar.xbrl_service")
 # v7: annual points carry the issuer's fiscal year where the calendar year of their end misnames it.
 # v8, v9 (E260): earnings_per_share is basic only, first on the instance path (v8), then on every path (v9).
 # v10 (E278): financial revenue is E264's choice, not the fee line; v11: E286's rule.
-_XBRL_CACHE_VERSION = "v13"  # v13 (E292): the fallback also drops a 10-Q year equal to a period that 10-Q reports.
+_XBRL_CACHE_VERSION = "v13"  # v12 (E291): a 10-Q year equal to its part drops; v13 (E292): its own 10-Q's part too.
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (aware UTC cached_datetime, data_dict)

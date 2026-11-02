@@ -69,14 +69,17 @@ def without_partial_years(items: list) -> list:
         start, end = _parse_date(item.get("start")), _parse_date(item.get("end"))
         return (_classify_duration(start, end), start, value) if start and end else (None, None, None)
 
+    def filing(item: dict) -> Any:  # the item's accession; one that is no string ties it to no filing
+        return item["accn"] if isinstance(item.get("accn"), str) else None
+
     spans = [span(item) for item in items]
-    parts = [(item.get("accn"), start, value) for item, (klass, start, value) in zip(items, spans)
+    parts = [(filing(item), start, value) for item, (klass, start, value) in zip(items, spans)
              if klass in ("Q", "YTD6", "YTD9")]
     same_start = {(start, value) for _accn, start, value in parts}
-    same_filing = {(accn, value) for accn, _start, value in parts}
+    same_filing = {(accn, value) for accn, _start, value in parts if accn is not None}
     return [item for item, (klass, start, value) in zip(items, spans)
             if not (klass == "FY" and value != 0 and str(item.get("form") or "").upper() in QUARTERLY_FORMS
-                    and ((start, value) in same_start or (item.get("accn"), value) in same_filing))]
+                    and ((start, value) in same_start or (filing(item), value) in same_filing))]
 
 
 def focus_years(end: date) -> tuple[int, int]:
