@@ -20,6 +20,8 @@ This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`
 NOT prove a fleet guarantee: rollout-overlap instances, manual job executions and operator
 one-shots, job task retries (each attempt restarts its timeout), handovers between task children
 inside one second, and any request outside both limiters are not bounded by configuration.
+The optional dedicated summary worker is provisioned and capacity-reviewed separately. Its
+image-only update must verify and preserve both existing pins; it does not extend this active-fleet model.
 """
 import inspect
 import re
@@ -74,6 +76,8 @@ SCHEDULES = {
 OPERATIONS = ROOT / "docs/OPERATIONS.md"
 WORKER = "earningsnerd-task-worker"
 WORKER_STEP = "Update configured private task worker"  # exits early unless GCP_DURABLE_TASKS_ENABLED
+SUMMARY_WORKER = "earningsnerd-summary-worker"
+SUMMARY_WORKER_STEP = "Update configured summary task worker image"
 SERVICE_STEP = "Deploy Cloud Run service"
 SERVICE = "earningsnerd-backend"
 LOOP_STEP = "Update filing-scan + digest + calendar + alert + notable + retention job images"
@@ -144,9 +148,10 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
     assert _service_instances(_run(WORKER_STEP)) == 1
 
 
-def test_no_deploy_step_updates_a_process_without_both_pins():
+def test_no_deploy_step_updates_a_process_without_both_pins(tmp_path):
     """A future process step must not escape the inventory above: every update targets an inventoried
-    process exactly once and carries both pins. Updates hidden from this reading fail too: a Cloud Run
+    process exactly once and carries both pins, or the one fixed summary image update behaviorally
+    verifies and preserves its existing pins. Updates hidden from this reading fail too: a Cloud Run
     deploy action, a local composite action, a script a deploy step calls (it must resolve against the
     repository root, backend/ or the step's working directory) that updates Cloud Run, and any line
     shaped like a Cloud Run update that UPDATE cannot read. Not covered: an update assembled without a
@@ -181,8 +186,16 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
             names = loop_jobs if target.strip('"') == "$job" else [target.strip('"')]
             for name in names:
                 targets.append(name)
-                assert all(env.get(key) == str(PINNED_PER_BUCKET) for key in BUDGET_ENV), name
-    assert sorted(targets) == sorted(EXPECTED_JOBS | {SERVICE, WORKER})  # each process updated exactly once
+                if name == SUMMARY_WORKER:
+                    assert step.get("name") == SUMMARY_WORKER_STEP
+                    assert updates == [SUMMARY_WORKER] and maps == ['"SENTRY_RELEASE=${GITHUB_SHA}"']
+                    # This exception cannot pass on a step name or a textual mention of the pins:
+                    # execute its actual shell and require every bad existing pin to block mutation.
+                    from tests.unit.test_summary_worker_deploy import assert_existing_sec_budget_preflight
+                    assert_existing_sec_budget_preflight(tmp_path)
+                else:
+                    assert all(env.get(key) == str(PINNED_PER_BUCKET) for key in BUDGET_ENV), name
+    assert sorted(targets) == sorted(EXPECTED_JOBS | {SERVICE, WORKER, SUMMARY_WORKER})
 
 
 def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():

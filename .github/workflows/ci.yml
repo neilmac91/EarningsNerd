@@ -810,6 +810,7 @@ jobs:
       IMAGE: us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend
       DURABLE_TASKS_ENABLED: ${{ vars.GCP_DURABLE_TASKS_ENABLED || 'false' }}
       TASKS_WORKER_URL: ${{ vars.GCP_TASKS_WORKER_URL || '' }}
+      SUMMARY_WORKER_URL: ${{ vars.GCP_SUMMARY_WORKER_URL || '' }}
       # Pinned proxy build, verified with sha256sum before it runs. Digest computed 2026-09-04 from two
       # independent downloads of this exact object (the bucket publishes no checksum sidecar; the
       # binary reports `2.14.0+linux.amd64`). Bump version + digest together, in BOTH workflows —
@@ -830,7 +831,9 @@ jobs:
         run: |
           worker_url=unset
           if [ -n "$TASKS_WORKER_URL" ]; then worker_url=set; fi
-          summary="Variable-driven rollout switches: DURABLE_TASKS_ENABLED=$DURABLE_TASKS_ENABLED TASKS_WORKER_URL=$worker_url"
+          summary_worker_url=unset
+          if [ -n "$SUMMARY_WORKER_URL" ]; then summary_worker_url=set; fi
+          summary="Variable-driven rollout switches: DURABLE_TASKS_ENABLED=$DURABLE_TASKS_ENABLED TASKS_WORKER_URL=$worker_url SUMMARY_WORKER_URL=$summary_worker_url"
           echo "$summary"
           echo "$summary" >> "$GITHUB_STEP_SUMMARY"
       - name: Detect backend changes
@@ -979,8 +982,6 @@ jobs:
           gcloud run services update-traffic earningsnerd-task-worker --region=us-west1 --to-latest --clear-tags --quiet
       - name: Update configured summary task worker image
         if: steps.changes.outputs.backend == 'true'
-        env:
-          SUMMARY_WORKER_URL: ${{ vars.GCP_SUMMARY_WORKER_URL || '' }}
         run: |
           set -euo pipefail
           if [ -z "$SUMMARY_WORKER_URL" ]; then
@@ -989,8 +990,27 @@ jobs:
           fi
           # Provisioning and activation are separate. An ordinary release only advances the
           # configured private service's image and release marker, preserving its role and limits.
-          summary_worker_url=$(gcloud run services describe earningsnerd-summary-worker --region=us-west1 --format='value(status.url)')
-          test "$summary_worker_url" = "$SUMMARY_WORKER_URL"
+          # Refuse drift rather than overwrite held SEC controls during an image rollout.
+          # mktemp creates a private 0600 file; no provider configuration enters the logs.
+          summary_service=$(mktemp)
+          trap 'rm -f "$summary_service"' EXIT
+          gcloud run services describe earningsnerd-summary-worker --region=us-west1 --format=json > "$summary_service" 2>/dev/null
+          python3 - "$summary_service" "$SUMMARY_WORKER_URL" <<'PY'
+          import json, sys
+          try:
+              with open(sys.argv[1]) as source:
+                  service = json.load(source)
+              containers = service["spec"]["template"]["spec"]["containers"]
+              if service["status"]["url"] != sys.argv[2] or len(containers) != 1:
+                  raise ValueError("identity")
+              for key in ("SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC"):
+                  pins = [entry for entry in containers[0].get("env", []) if entry.get("name") == key]
+                  if (len(pins) != 1 or pins[0].get("value") != "1"
+                          or "valueFrom" in pins[0] or "valueSource" in pins[0]):
+                      raise ValueError("budget")
+          except Exception:
+              raise SystemExit("Dedicated summary worker identity or existing SEC budget is unverified.") from None
+          PY
           gcloud run services update earningsnerd-summary-worker --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-env-vars="SENTRY_RELEASE=${GITHUB_SHA}" \
