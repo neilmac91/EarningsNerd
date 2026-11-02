@@ -673,6 +673,15 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
                  eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
                  className; designRules.spec.ts plants it).
+                 <Card tone="danger"> is the hairline of a card whose action cannot be undone, deleting the
+                 account (the settings page's Delete account card and /delete-account's): border-error-light/40
+                 dark:border-error-dark/40, about 2:1 against the panel in both themes (2.05 and 1.93, where the
+                 default hairline reads 1.19 and 1.36; E283). A destructive surface takes the status error, never
+                 the loss tone, which is a direction (§1). Set it through the prop, never a border colour on top:
+                 Card's own dark:border-white/10 beat the settings card's dark override, so it drew its hairline
+                 in light only (a design selector in eslint.config.mjs fails a border colour written in a Card's
+                 className; designRules.spec.ts plants it). The card's confirmation warning lends Notice's error
+                 tint (noticeTint), its words in the error ink, 5.62:1 in it in light and 4.62:1 in dark.
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
