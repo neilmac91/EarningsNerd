@@ -92,10 +92,10 @@ export default function DeleteAccountPage() {
           <ActivityLine>Checking whether you are logged in…</ActivityLine>
         </div>
       ) : user ? (
-        /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a
-           plain class join, so a className `border-error-*` would clash nondeterministically with
+        /* Signed in: confirm and delete, on the danger card. Its hairline is the status error through Card's tone
+           (E283), never a border colour written on top, which cx would leave to the stylesheet's order against
            Card's own hairline. */
-        <Card as="section" className="mt-6 p-cap-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
+        <Card as="section" tone="danger" className="mt-6 p-cap-6">
           {/* An address has no break opportunity, so under 200% text it ran past the card and the page scrolled
               sideways; it breaks after its @ (AddressText), and break-words breaks a part only where it is longer
               than the line. */}

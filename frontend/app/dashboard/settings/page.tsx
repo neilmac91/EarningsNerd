@@ -17,6 +17,8 @@ import ChangePasswordForm from '@/features/settings/components/ChangePasswordFor
 import { Button } from '@/components/ui/Button'
 import { inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { cx } from '@/components/ui/cx'
+import { noticeTint } from '@/components/ui/Notice'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
 import { useContentIn } from '@/hooks/useContentIn'
@@ -221,8 +223,10 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          {/* Delete Account — Card with the border overridden to the loss hairline */}
-          <Card className="border-loss-light/40 p-cap-6 dark:border-loss-dark/30">
+          {/* Delete account: the danger card, its hairline the status error in both themes through Card's tone (E283).
+              A border colour written on top lost in dark to Card's own hairline, and the loss tone is a direction,
+              not a state. */}
+          <Card tone="danger" className="p-cap-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
@@ -240,17 +244,20 @@ export default function SettingsPage() {
               </Button>
             ) : (
               <div className="space-y-4">
-                <div className="bg-loss-soft dark:bg-loss-soft-dark border border-loss-light/30 dark:border-loss-dark/30 rounded-lg p-4">
+                {/* Notice's error tint, lent (statusTintResidue.spec.ts's TINT_BORROWED). As in a Notice, its words rest
+                    in the ink, the title and closing line in the primary and the rest in the secondary, and the error
+                    ink is the glyph's alone (DESIGN_SYSTEM.md §4 › Inline notice; E283). */}
+                <div className={cx('rounded-lg border p-4', noticeTint('error'))}>
                   <div className="flex items-start">
                     <WarningCircleIcon className="h-5 w-5 text-error-light dark:text-error-dark mr-3 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-error-light dark:text-error-dark mb-2">
+                      <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                         Warning: This action is permanent
                       </h3>
-                      <p className="text-sm text-error-light dark:text-error-dark mb-2">
+                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
                         Deleting your account will:
                       </p>
-                      <ul className="text-sm text-error-light dark:text-error-dark list-disc list-inside space-y-1 mb-4">
+                      <ul className="text-sm text-text-secondary-light dark:text-text-secondary-dark list-disc list-inside space-y-1 mb-4">
                         <li>Permanently delete your profile and account</li>
                         <li>Delete all your search history</li>
                         <li>Delete all your saved summaries and notes</li>
@@ -258,7 +265,7 @@ export default function SettingsPage() {
                         <li>Attempt to cancel active Stripe subscriptions; check billing if cancellation fails</li>
                         <li>Remove associated application database usage records</li>
                       </ul>
-                      <p className="text-sm text-error-light dark:text-error-dark font-medium">
+                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark font-medium">
                         The deleted application records cannot be recovered through the service.
                       </p>
                     </div>
