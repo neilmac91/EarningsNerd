@@ -328,7 +328,7 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     if not facts:
         return Guard(frozenset(), None, {})
     _lock_fact_companies(db, facts)
-    columns =(FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
+    columns = (FinancialFact.id, FinancialFact.accession, FinancialFact.unit, FinancialFact.is_latest,
                FinancialFact.form, FinancialFact.concept, FinancialFact.period_end, FinancialFact.fiscal_period,
                FinancialFact.provenance, FinancialFact.source, FinancialFact.filing_id)
     stored = db.query(*columns).filter(FinancialFact.company_id == facts[0]["company_id"],
@@ -475,7 +475,7 @@ def demote_convenience_rows(db: Session, facts: list[dict[str, Any]], view: Payl
     """
     from app.models import FinancialFact  # lazy: the pure normalizers import this module
 
-    currencies =(fact["unit"].partition("/")[0] for fact in facts)
+    currencies = (fact["unit"].partition("/")[0] for fact in facts)
     currency = next((unit for unit in currencies if is_amount_unit(unit)), None)
     if currency is None:
         return 0

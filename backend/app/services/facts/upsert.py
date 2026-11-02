@@ -240,8 +240,7 @@ def upsert_facts_bulk(
     labelled Q1..Q4 row demotes the legacy NULL-``fiscal_period`` twin for the same period so a quarter never has
     two current rows. Facts must already carry ``reconciled`` (no gate runs here — see ``normalize_companyfacts``).
     Known Filing dates protect an already-stored newer accession from a delayed SEC response, and so does
-    ``protected`` (``currency.Guard.kept``: stored rows of a newer filing the payload does not name, and current rows of
-    a filing filed strictly after the batch row's own, dated as the sync dates them);
+    ``protected`` (``currency.Guard.kept``: a newer unnamed filing's rows, a later-filed filing's current rows);
     other rows retain the normalizer's latest-filed ordering within that response. ``history`` (the normalizer's
     ``meta["history"]``, riding beside the batch's winners) is stored apart, non-current, by
     ``own_reports.insert_history_rows``; the result's ``history`` counts those rows.
