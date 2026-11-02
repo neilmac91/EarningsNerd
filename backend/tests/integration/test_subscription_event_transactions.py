@@ -29,7 +29,8 @@ from starlette.requests import Request
 from app import database
 from app.database import Base, SessionLocal
 from app.models import (
-    AccountAgreement, AuditLog, BillingPayment, ComplimentaryAccessGrant, InviteCode, StripeEvent, Subscription, User,
+    AccountAgreement, AuditLog, BillingPayment, Company, ComplimentaryAccessGrant, InviteCode, StripeEvent, Subscription,
+    TrendAnalysis, User,
 )
 from app.routers import subscriptions
 from app.services import billing_account_service, subscription_sync, subscription_webhook_service as service
@@ -41,7 +42,8 @@ from app.utils.datetimes import utcnow
 
 TABLES = [
     User.__table__, Subscription.__table__, StripeEvent.__table__, InviteCode.__table__, BillingPayment.__table__,
-    AccountAgreement.__table__, ComplimentaryAccessGrant.__table__, AuditLog.__table__,
+    AccountAgreement.__table__, ComplimentaryAccessGrant.__table__, AuditLog.__table__, Company.__table__,
+    TrendAnalysis.__table__,
 ]
 
 
@@ -672,6 +674,7 @@ def test_postgres_concurrent_customer_claims_keep_the_first(postgres_engine):
 
 
 PB02_MIGRATION = Path(__file__).resolve().parents[2] / "migrations" / "20261102_earningsnerd_complimentary_access_grants.sql"
+PB02_STAMP_MIGRATION = PB02_MIGRATION.with_name("20261102_trend_analysis_creator_set_null.sql")
 _PB02_COLUMNS = text(
     "SELECT column_name, data_type, is_nullable, character_maximum_length FROM information_schema.columns"
     " WHERE table_schema = :schema AND table_name = 'earningsnerd_complimentary_access_grants'"
@@ -874,3 +877,44 @@ def test_postgres_the_migration_builds_the_ledger_the_model_maps_and_reapplies_c
             conn.exec_driver_sql(f"SET search_path TO {mapped}")
             conn.execute(DropSchema(applied, cascade=True))
             conn.commit()
+
+
+def test_postgres_the_stamp_migration_lets_an_analyst_delete_their_account_and_reapplies_cleanly(postgres_engine):
+    """A grant opens Multi-Period Analysis, whose cache row is stamped with the account that generated it. The model now
+    declares the stamp ON DELETE SET NULL, so the fixture's create_all already has it: this case first rebuilds the
+    reference production holds (no ON DELETE action), shows the analyst's deletion failing on it, applies the file twice,
+    and deletes the analyst, whose shared analysis stays with its stamp cleared."""
+    constraint = "trend_analysis_created_by_user_id_fkey"
+    with postgres_engine.connect() as conn:
+        conn.exec_driver_sql(f"ALTER TABLE trend_analysis DROP CONSTRAINT {constraint}")
+        conn.exec_driver_sql(f"ALTER TABLE trend_analysis ADD CONSTRAINT {constraint} "
+                             "FOREIGN KEY (created_by_user_id) REFERENCES users (id)")
+        conn.commit()
+    with _session(postgres_engine) as db:
+        analyst = User(email=f"analyst-{uuid.uuid4().hex}@example.com", email_verified=True, is_pro=True)
+        company = Company(cik="0000000042", ticker="STMP", name="Stamp Co")
+        db.add_all([analyst, company])
+        db.flush()
+        db.add(TrendAnalysis(company_id=company.id, mode="annual", period_key="FY2022..FY2024", prompt_version="v",
+                             dataset_fingerprint="f" * 64, dataset_json={}, narrative_md="n", citations_json=[],
+                             model="m", grounded=1, created_by_user_id=analyst.id))
+        db.commit()
+        analyst_id = analyst.id
+    delete = User.__table__.delete().where(User.__table__.c.id == analyst_id)
+    with postgres_engine.connect() as conn:
+        with pytest.raises(Exception, match=constraint):  # the reference production holds stops the deletion
+            conn.execute(delete)
+        conn.rollback()
+        sql = PB02_STAMP_MIGRATION.read_text(encoding="utf-8")
+        conn.exec_driver_sql(sql)
+        conn.exec_driver_sql(sql)  # a ledger reset or an edited file re-runs it: it must converge
+        conn.commit()
+        rows = conn.execute(text(
+            "SELECT conname, confdeltype, convalidated FROM pg_constraint WHERE conrelid = 'trend_analysis'::regclass"
+            " AND contype = 'f' AND confrelid = 'users'::regclass")).all()
+        assert [tuple(row) for row in rows] == [(constraint, "n", True)]
+        conn.execute(delete)
+        conn.commit()
+    with _session(postgres_engine) as db:
+        assert db.get(User, analyst_id) is None
+        assert [row.created_by_user_id for row in db.query(TrendAnalysis)] == [None]
