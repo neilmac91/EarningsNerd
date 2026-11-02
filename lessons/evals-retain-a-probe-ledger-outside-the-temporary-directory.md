@@ -17,10 +17,11 @@ to be asked for separately.
   did not validate: copy the original roots by hand before a restart.
 - `plan` refuses a `retain_root` that is relative, missing, under a temporary directory (`/tmp`,
   `/private/tmp`, `/var/folders`, the machine's own temporary directory), under an iCloud-synced home
-  directory, inside the repository, or already holding that probe's copy. Gated by
-  `test_probe_retain_root_is_durable_outside_the_repository_and_written_once` and
-  `test_probe_retains_a_copy_that_validates_and_reports_one_that_does_not` in
-  `backend/tests/unit/test_acceptance_source_review_delivery.py`.
+  directory, inside the repository, or already holding that probe's copy. Gated by the three
+  `test_native_delivery_probe_*` tests in `backend/tests/unit/test_acceptance_source_review_delivery.py`
+  (the retain-root refusals, the copy check and validation, and `plan`/`run` end to end against a fake CLI).
+  The `test_probe_` and `test_isolation_` prefixes are reserved for isolation-probe pairs
+  (`tests/unit/test_suite_isolation.py`), so tests of the probe runner do not use them.
 - Before relying on a retained ledger (a re-validation, a comparison, a record), validate the copy you hold.
   The validation is cheap and offline, and the original may already be gone. This clause is review-checked:
   no gate can see which copy a later reader uses.

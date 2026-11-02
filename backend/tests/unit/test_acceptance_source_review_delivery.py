@@ -1470,7 +1470,7 @@ def _probe_script() -> Any:
     return module
 
 
-def test_probe_retain_root_is_durable_outside_the_repository_and_written_once(tmp_path: Path) -> None:
+def test_native_delivery_probe_retain_root_is_durable_outside_the_repository_and_written_once(tmp_path: Path) -> None:
     """macOS cleared /private/tmp and lost the 2026-10-01 probe's ledger; the dispatch roots must sit outside any
     `.claude` ancestor, which on the releasing machine means a temporary directory, so plan refuses a retain root
     the evidence would not survive in."""
@@ -1504,7 +1504,7 @@ def test_probe_retain_root_is_durable_outside_the_repository_and_written_once(tm
     assert "retain_root" in probe._MANIFEST_KEYS and probe.EXIT_RETAIN == 6
 
 
-def test_probe_retains_a_copy_that_validates_and_reports_one_that_does_not(
+def test_native_delivery_probe_retains_a_copy_that_validates_and_reports_one_that_does_not(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     probe = _probe_script()
@@ -1547,7 +1547,7 @@ def test_probe_retains_a_copy_that_validates_and_reports_one_that_does_not(
     assert lossy == {"path": str(keep / "lossy"), "valid": False, "error": "the copy differs from the original"}
 
 
-def test_probe_run_retains_a_validated_copy_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_native_delivery_probe_run_retains_a_validated_copy_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                       capsys: pytest.CaptureFixture[str]) -> None:
     """The founder's runner against a fake `claude` that answers the token request from the prompt it is given:
     plan refuses a bad retain root before anything is written; run dispatches once, settles, copies the journal and
