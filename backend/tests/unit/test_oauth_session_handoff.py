@@ -578,7 +578,8 @@ def test_an_account_wide_sign_out_ends_a_handoff_not_yet_exchanged(
             signed_out = other_device.post("/api/auth/logout-all", json={"account_id": user_id})
         else:
             signed_out = other_device.post(
-                "/api/auth/change-password", json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+                "/api/auth/change-password",
+                json={"current_password": PASSWORD, "new_password": NEW_PASSWORD, "account_id": user_id},
             )
     assert signed_out.status_code == 200, signed_out.text
     _, handoffs, tokens_before = _account(email)
