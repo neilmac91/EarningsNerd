@@ -67,8 +67,14 @@ Provision the isolated resources and deploy the compatible image before enabling
 summary admission. Keep both prewarm caps zero. Apply routing to the API, filing-scan/recovery
 producers, worker retry path and any other producer inventory entry, then verify it in each
 actual role. Keep ordinary image updates additive and preserve all four new controls; the
-rollout-preservation gate covers them. The summary worker needs its own reviewed image-update
-path so a later ordinary release cannot leave it on an incompatible image.
+rollout-preservation gate covers them. The optional CI step `Update configured summary task
+worker image` runs before the API deployment. With repository variable `GCP_SUMMARY_WORKER_URL`
+unset, it performs no cloud operation. Once that non-secret variable names the provisioned
+service's canonical URL, it requires the fixed `earningsnerd-summary-worker` service to exist
+and match that URL, then updates only its image and additive `SENTRY_RELEASE` marker. It moves
+traffic to the new revision and clears old revision tags. It does not create a service or change
+its role, feature controls, secrets or capacity. Lookup, identity mismatch or image-update
+failure stops the step before subsequent mutations; the API deployment follows only success.
 
 Run the bounded isolated actual-delivery rehearsal before directing user work to this queue.
 It must demonstrate private OIDC delivery, real child completion, ambiguous create/redelivery,
@@ -92,3 +98,7 @@ real subprocess supervisor. It holds a synthetic summary child while a synthetic
 child completes on the other worker. It replaces only the Google public-key source and business
 child command, and makes no live SEC, model, database or mail call. It proves the code/process
 boundary offline, not Cloud Tasks persistence, deployed Cloud Run isolation or production latency.
+`test_summary_worker_deploy.py` executes the actual CI shell step against a fake `gcloud`
+boundary: unset configuration makes no calls, failed lookup/mismatch changes nothing, failed
+image update does not move traffic, and success changes exactly the reviewed image/release
+marker before traffic. The ordinary-deployment preservation inventory covers all six maps.

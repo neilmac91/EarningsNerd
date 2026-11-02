@@ -1,6 +1,6 @@
 """Ordinary CI deployments preserve the held summary/SEC controls on every reader.
 
-The five current image-update commands omit these keys and use additive env/secret
+The six current image-update commands omit these keys and use additive env/secret
 updates. Adding even a false/zero pin resets a live value; replacement/removal can
 erase one. A coordinated, approved activation must revise this guard with its
 complete producer matrix, not sneak a value into an ordinary release.
@@ -35,6 +35,7 @@ HELD_CONTROLS = frozenset({
 })
 DEPLOY_STEPS = frozenset({
     "Update configured private task worker",
+    "Update configured summary task worker image",
     "Deploy Cloud Run service",
     "Update pregenerate job image",
     "Update filing-scan + digest + calendar + alert + notable + retention job images",
@@ -112,7 +113,7 @@ def preservation_problems(job: dict) -> list[str]:
             if env_maps != 1:
                 problems.append(f"{name}: expected one additive environment map")
     if seen != DEPLOY_STEPS:
-        problems.append("image-update step inventory differs from the five reviewed deployment maps")
+        problems.append("image-update step inventory differs from the six reviewed deployment maps")
     return problems
 
 

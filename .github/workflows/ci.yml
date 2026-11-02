@@ -977,6 +977,25 @@ jobs:
             --update-env-vars=ENVIRONMENT=production,SKIP_REDIS_INIT=true,DURABLE_TASKS_ENABLED=true,TASKS_WORKER_PROCESS=true,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},SENTRY_RELEASE=${GITHUB_SHA},ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
             --quiet
           gcloud run services update-traffic earningsnerd-task-worker --region=us-west1 --to-latest --clear-tags --quiet
+      - name: Update configured summary task worker image
+        if: steps.changes.outputs.backend == 'true'
+        env:
+          SUMMARY_WORKER_URL: ${{ vars.GCP_SUMMARY_WORKER_URL || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUMMARY_WORKER_URL" ]; then
+            echo "Dedicated summary worker is not configured for image updates."
+            exit 0
+          fi
+          # Provisioning and activation are separate. An ordinary release only advances the
+          # configured private service's image and release marker, preserving its role and limits.
+          summary_worker_url=$(gcloud run services describe earningsnerd-summary-worker --region=us-west1 --format='value(status.url)')
+          test "$summary_worker_url" = "$SUMMARY_WORKER_URL"
+          gcloud run services update earningsnerd-summary-worker --region=us-west1 \
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --update-env-vars="SENTRY_RELEASE=${GITHUB_SHA}" \
+            --quiet
+          gcloud run services update-traffic earningsnerd-summary-worker --region=us-west1 --to-latest --clear-tags --quiet
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
