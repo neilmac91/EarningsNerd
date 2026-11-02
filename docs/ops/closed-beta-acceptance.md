@@ -25,7 +25,7 @@ depend on it.
 | Backend runtime | Ops `describe-service` (read-only; [F51](../OPERATIONS.md#agent-production-readbacks-f51)): serving revision, image digest, `SENTRY_RELEASE`, `REGISTRATION_MODE`, sizing lines, worker invoker verdict | It prints only the names of the `LEGAL_*` and `FEEDBACK_MEDIA_*` settings, when set, and withholds `REVERSE_TRIAL_ENABLED`, `PRO_TRIAL_DAYS` and `STRIPE_BETA_PROMO_CODE_ID`. The founder reads those values on the service; the live answers below show only their effect. |
 | Frontend release | The GitHub deployment named `Production` for the commit, and the `www` alias it serves where the Vercel dashboard shows it | Record `NEXT_PUBLIC_ENABLE_CALENDAR` and `NEXT_PUBLIC_ENABLE_ANALYSIS` too: the earnings-day alert bells and Multi-Period Analysis exist only while they are on. |
 | Live answers | `GET /health/detailed`; `GET /api/legal/readiness` (collection, checkout and marketing availability, the two agreement versions, the operator notice); `GET /api/auth/registration` (`invite_only`, `beta_promo_enabled`) | Public reads; no account needed. |
-| Screenshots | `GET /api/feedback/capabilities` signed in: `attachments_enabled` is true only while `FEEDBACK_MEDIA_ENABLED` is on and a bucket is set; no Ops read prints either value. The newest `feedback-media-inspect` and `feedback-media-verify-*` receipts | Enabling needs `feedback-media-provision-apply`, `-verify-apply` and `-enable-apply`. At the enable, the provision's storage probe and the verify receipt must each be at most two hours old. Both bind the serving backend image, and the receipt also binds `main`'s `frontend/` tree and the verification sources: no backend deploy may land between the provision and the enable, and no `frontend/` or `ops/feedback_media/` change may reach `main` between the verify and the enable. |
+| Screenshots | `GET /api/feedback/capabilities` signed in: `attachments_enabled` is true only while `FEEDBACK_MEDIA_ENABLED` is on and a bucket is set; no Ops read prints either value. The newest `feedback-media-inspect` and `feedback-media-verify-*` receipts | Enabling needs `feedback-media-provision-apply`, `-verify-apply` and `-enable-apply`. At the enable, the provision's storage probe, the latest scheduled cleanup and the verify receipt must each be at most two hours old, and the cleanup heartbeat must have been seen in the last two hours. Both bind the serving backend image, and the receipt also binds `main`'s `frontend/` tree and the verification sources: no backend deploy may land between the provision and the enable, and no `frontend/` or `ops/feedback_media/` change may reach `main` between the verify and the enable. |
 | Agreement versions | `TERMS_VERSION` and `ELIGIBILITY_VERSION` in `backend/app/services/legal_readiness_service.py`, as `/api/legal/readiness` serves them | A version change asks every new tester for fresh assent. |
 | Model | `AI_DEFAULT_MODEL` and `OPENAI_BASE_URL` from `describe-service` | A change re-opens the summary, Copilot and analysis checks. |
 
@@ -52,7 +52,7 @@ delivery, configuration or capacity; sections 3 to 5 carry those.
 | `test_a_tester_signs_out_resets_their_password_and_signs_back_in` | Sign-out of one browser, reset mail, no other browser can refresh its session (an access token already issued lives out its 30 minutes), the new password, a single-use link |
 | `test_one_testers_session_never_reaches_anothers_records` | Watchlist, saved summaries, feedback receipts and export stay with their owner |
 | `test_pausing_invitations_keeps_existing_testers_signed_in_and_their_rights` | Revoking a cohort's pending invitations leaves admitted testers' sessions, Pro and export |
-| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 saying the draft is kept (the browser keeps it); text feedback, reading an existing screenshot and cleanup still work |
+| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 with a message that the draft has been kept; text feedback, reading an existing screenshot and cleanup still work. The open form then holds the draft unsendable until a reload, which discards its note and screenshot (section 7) |
 | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers` | Collection closed: minting, re-sending and registering answer 503, the waiting invitation is neither spent nor revoked, admitted testers keep sign-in, Pro and export |
 | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` | New summaries paused: a fresh one is refused with no model call, a stored one still serves, feedback and sign-in work |
 | `test_account_work_answers_while_summaries_generate_on_a_production_sized_pool` | With the most generations a process admits held at the model call, on a four-connection pool with no overflow, sign-in, usage, feedback and a reset request all answer and a connection stays free |
@@ -187,10 +187,16 @@ the feedback and support inboxes are answered. Stop admitting, and use section 7
 - a tester cannot sign in or reach their account;
 - a tester without Pro, or a Pro surface refusing a complimentary tester;
 - any access to another account's data;
-- known wrong data shown without its qualification;
+- known wrong data shown without its qualification. Before the rehearsal, each such item open in `tasks/todo.md`
+  is repaired, shown with its qualification, or accepted by the founder in writing, and the rehearsal opens the
+  periods each one names on the analysis page;
 - lost feedback or screenshots;
 - stalled mail, alerts or queues;
 - an error rate, cost or capacity reading beyond the limits the founder set before the wave.
+
+Land every deploy or repair that moves stored financial figures before the rehearsal. During a wave, a saved
+analysis over a period that moved refuses its export, telling the tester to run it again, and an acceptance holds
+only for the identities it was taken on.
 
 ## 7. Rollback levers
 
@@ -205,14 +211,15 @@ so an incident rollback does not wait.
 | Close all new accounts | `LEGAL_COLLECTION_ENABLED=false` on the API service | Every mint, re-send and registration answers 503, and so do the contact form and waitlist joins | Existing accounts, sessions, sign-in, linking, Pro, export and deletion; waiting invitations stay usable for a reopening until they expire (seven days after minting by default) | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers`; `tests/unit/test_account_agreement.py` (closed collection keeps password and social sign-in) |
 | Pause new summaries | `SUMMARY_NEW_JOBS_PAUSED=true` on the API service, the task worker and the pregenerate job | New summary generation | Stored summaries, sign-in, feedback. It does not stop Ask this Filing or Multi-Period Analysis: `COPILOT_MONTHLY_QUESTION_CAP=0` on the API service refuses every Pro question as a fair-use refusal, and `NEXT_PUBLIC_ENABLE_ANALYSIS=false` on Vercel, then a redeploy, hides the analysis page while its API still answers | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` |
 | Revoke one tester's Pro | The complimentary-access revoke (its dry run, then its apply), once that code is deployed and its Ops operations exist; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
-| Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads (the draft is kept) | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` |
+| Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` |
 | Hide the feedback launcher | `NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET=false` on Vercel, then a redeploy | The whole launcher, text feedback included | Everything else | — |
 | Suspend one tester | No route exists; a direct database write of `users.is_active=false` | That account's sign-in | Its data | — |
 | Roll back the API | Ops `rollback-traffic`, then a revert, after the account-mail queue drains ([account mail](../OPERATIONS.md#account-mail-f60)) | The current revision | The database | — |
 
-Switching screenshots off while a tester has a screenshot draft open can leave that draft unable to send until
-the page is reloaded; tell first-wave testers to reload if sending fails, until the feedback form recovers on its
-own.
+Switching screenshots off while a tester has a screenshot draft open leaves that draft unable to send: the form
+keeps re-sending the screenshot, cannot remove it, and a reload discards both the note and the screenshot. Until
+the feedback form recovers on its own, tell first-wave testers to copy their note before reloading and to send it
+again as text.
 
 A traffic rollback moves only the API service, and an environment switch belongs to a revision: moving traffic to
 an older revision restores that revision's own `LEGAL_*`, `FEEDBACK_MEDIA_*` and `SUMMARY_NEW_JOBS_PAUSED` values,
