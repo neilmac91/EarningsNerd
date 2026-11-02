@@ -13,8 +13,11 @@ import json
 import os
 import re
 import secrets
+import signal
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -29,6 +32,33 @@ from ops.summary_delivery import instance, spec  # noqa: E402
 
 APPLY_SECONDS = 40 * 60
 CLEANUP_SECONDS = 25 * 60
+
+
+@contextmanager
+def request_deadline(deadline: float):
+    """Bound the whole synchronous HTTP exchange, including trickled headers/body.
+
+    urllib's socket timeout is only an inactivity timeout. These Ops commands
+    run on the Linux main thread; an existing timer is never taken over.
+    """
+    if (not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread()
+            or any(signal.getitimer(signal.ITIMER_REAL))):
+        raise spec.Refused("request_deadline_unavailable")
+    remaining = min(30, deadline - time.monotonic())
+    if remaining <= 0:
+        raise TimeoutError
+    previous = signal.getsignal(signal.SIGALRM)
+
+    def expired(signum, frame):
+        raise TimeoutError
+
+    signal.signal(signal.SIGALRM, expired)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, remaining)
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
 
 
 class Cloud(BaseCloud):
@@ -52,7 +82,8 @@ class Cloud(BaseCloud):
             self.calls += 1
         if self.calls > 400 and not self.cleaning or self.cleanup_calls > 500:
             raise spec.Refused("cloud_operation_budget")
-        remaining = (self.cleanup_deadline if self.cleaning else self.deadline) - time.monotonic()
+        started = time.monotonic()
+        remaining = (self.cleanup_deadline if self.cleaning else self.deadline) - started
         if remaining <= 0:
             raise spec.Refused("cloud_operation_deadline")
         if timeout is not None and not 0 < timeout <= 30:
@@ -70,8 +101,9 @@ class Cloud(BaseCloud):
                           method=kwargs.get("method", "GET"),
                           headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
         try:
-            with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
-                content = response.read(2 * 1024 * 1024 + 1)
+            with request_deadline(started + timeout):
+                with build_opener(NoRedirect()).open(request, timeout=timeout) as response:
+                    content = response.read(2 * 1024 * 1024 + 1)
             if len(content) > 2 * 1024 * 1024:
                 raise spec.Refused("cloud_response_bound")
             decoded = json.loads(content) if content else {}
@@ -267,10 +299,11 @@ def verify_private_surface(cloud, manifest: dict) -> dict:
             if remaining <= 0:
                 raise spec.Refused("cloud_operation_deadline")
             try:
-                with opener.open(request, timeout=min(30, remaining)) as response:
-                    raw = response.read(1025)
-                    if not accepted or len(raw) > 1024 or json.loads(raw) != {"status": "healthy", "synthetic": True}:
-                        raise spec.Refused("effective_private_ingress_unverified")
+                with request_deadline(cloud.deadline):
+                    with opener.open(request, timeout=min(30, remaining)) as response:
+                        raw = response.read(1025)
+                        if not accepted or len(raw) > 1024 or json.loads(raw) != {"status": "healthy", "synthetic": True}:
+                            raise spec.Refused("effective_private_ingress_unverified")
             except HTTPError as error:
                 if accepted or error.code not in {401, 403}:
                     raise spec.Refused("effective_private_ingress_unverified") from None
@@ -306,21 +339,22 @@ class Client:
         if remaining <= 0:
             raise spec.Refused("delivery_window_exhausted")
         try:
-            with self.opener.open(request, timeout=min(30, remaining)) as response:
-                if first_frame:
-                    for _ in range(30):
-                        if time.monotonic() >= self.deadline:
-                            raise spec.Refused("delivery_window_exhausted")
-                        line = response.readline(4097)
-                        if len(line) > 4096:
-                            raise spec.Refused("response_bound")
-                        if line.startswith(b"data: "):
-                            return json.loads(line[6:])
-                    raise spec.Refused("missing_sse_frame")
-                raw = response.read(32769)
-                if len(raw) > 32768:
-                    raise spec.Refused("response_bound")
-                return json.loads(raw)
+            with request_deadline(self.deadline):
+                with self.opener.open(request, timeout=min(30, remaining)) as response:
+                    if first_frame:
+                        for _ in range(30):
+                            if time.monotonic() >= self.deadline:
+                                raise spec.Refused("delivery_window_exhausted")
+                            line = response.readline(4097)
+                            if len(line) > 4096:
+                                raise spec.Refused("response_bound")
+                            if line.startswith(b"data: "):
+                                return json.loads(line[6:])
+                        raise spec.Refused("missing_sse_frame")
+                    raw = response.read(32769)
+                    if len(raw) > 32768:
+                        raise spec.Refused("response_bound")
+                    return json.loads(raw)
         except (HTTPError, URLError, TimeoutError, ValueError):
             raise spec.Refused("verification_http_failed") from None
 
@@ -497,9 +531,15 @@ def cleanup(cloud, manifest: dict) -> dict:
 def apply(cloud, document: dict, expected_hash: str, nonce: str, env: dict) -> dict:
     from ops.summary_delivery.database import admin
     manifest = spec.approve(document, expected_hash, nonce, env)
+    permissions = instance.permission_snapshot(cloud)
+    if permissions["missing"] or permissions != manifest["sql_permissions"]:
+        return {"state": "UNVERIFIED", "failed_phase": "sql_permission_preflight", "sql_permissions": permissions,
+                "cleanup": {"state": "not_needed"}, "plan_sha256": expected_hash,
+                "cloud_api_calls": cloud.calls, "cleanup_cloud_api_calls": cloud.cleanup_calls}
     regenerated = spec.plan(ROOT, manifest["image"], manifest["project_number"], manifest["run_id"], manifest["nonce"],
                             now=datetime.fromisoformat(manifest["created_at"]),
-                            production_secret_names=tuple(manifest["production_secret_names"]))
+                            production_secret_names=tuple(manifest["production_secret_names"]),
+                            sql_permissions=manifest["sql_permissions"])
     image, names = production_snapshot(cloud)
     metadata = instance.metadata(cloud)
     if (regenerated != document or image != manifest["image"] or list(names) != manifest["production_secret_names"]
@@ -575,9 +615,11 @@ def main(argv: list[str] | None = None) -> int:
             cloud = Cloud()
             number = str(cloud.call("cloudresourcemanager", f"v1/projects/{spec.PROJECT}").get("projectNumber", ""))
             image, names = production_snapshot(cloud)
+            permissions = instance.permission_snapshot(cloud)
             metadata = instance.metadata(cloud)
             result = spec.plan(ROOT, image, number, os.environ.get("GITHUB_RUN_ID", ""), secrets.token_hex(16),
-                               production_secret_names=names, source_database_version=metadata["database_version"])
+                               production_secret_names=names, source_database_version=metadata["database_version"],
+                               sql_permissions=permissions)
         else:
             if args.plan is None or args.plan.stat().st_size > 32768:
                 raise spec.Refused("bounded_plan_required")

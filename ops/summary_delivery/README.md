@@ -43,6 +43,16 @@ and OpenID-token creation on both temporary identities for positive/negative
 ingress checks. It never creates a service
 account key. Existing resources with these names are not adopted by apply.
 
+Planning also runs the current Ops identity's project `testIamPermissions` with
+exactly `cloudsql.instances.connect/create/delete/get/list`. The manifest retains
+only these required/granted/missing names, not an IAM policy or principal dump.
+Missing permissions leave a reviewable resource plan; apply requires a fresh,
+matching all-granted result before any mutation. Grant changes require a new plan.
+No permission or broad Cloud SQL Admin role is granted automatically. `list` is a
+conservative compatibility prerequisite because Google's current permission matrix
+and audit reference disagree on whether operations-list needs `get` or `list`.
+Standalone cleanup does not require unrelated create/connect permissions.
+
 ## Fixed resource contract
 
 All resources are in `earnings-nerd/us-west1`:
@@ -148,7 +158,12 @@ actual Cloud Scheduler invocation or cadence**.
 
 The controller has a400-call/40-minute cloud API budget and an independent
 500-call/25-minute cleanup budget. Google requests use at most30seconds, reduced
-to the remaining deadline. SQL create/delete each use at most600seconds; Cloud
+to the remaining deadline. On the Linux main thread a shared real-time signal
+timer bounds the entire synchronous HTTP exchange, including trickled response
+headers, JSON bodies and SSE lines; a socket inactivity timeout alone is not a
+total deadline. Existing active timers, nested use and unsupported threads refuse
+before sending a request. The prior handler is restored and the timer disarmed on
+success/error. SQL create/delete each use at most600seconds; Cloud
 Run operations240seconds each. The fixture client has a shared540-second window.
 SQL provisioning has a shared120-second query budget, with30seconds proxy
 readiness and10seconds termination. The Ops apply step allows80minutes:

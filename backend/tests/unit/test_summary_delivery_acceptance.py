@@ -8,9 +8,11 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -70,7 +72,7 @@ def test_rehashed_plan_cannot_expand_temporary_instance_contract(field):
 def test_legacy_schema_cannot_expand_prior_approval_before_cloud_auth(tmp_path, monkeypatch, operation):
     doc = spec.plan(ROOT, IMAGE, "123456789", "123", "b" * 32)
     doc["manifest"]["schema"] = 1
-    for key in ("sql_instance", "source_database_version", "resource_expiry_is_enforced"):
+    for key in ("sql_instance", "source_database_version", "resource_expiry_is_enforced", "sql_permissions"):
         doc["manifest"].pop(key)
     doc["sha256"] = spec.digest(doc["manifest"])
     monkeypatch.setattr(manage, "Cloud", lambda: pytest.fail("legacy approval must fail before cloud auth"))
@@ -122,6 +124,7 @@ class FakeCloud:
         self.deadline = time.monotonic() + manage.APPLY_SECONDS
         self.manifest = manifest
         self.sql_operation = None
+        self.permissions = list(spec.SQL_PERMISSIONS)
         self.project = {"etag": "retain-etag", "bindings": [
             {"role": "roles/cloudsql.client", "members": ["serviceAccount:" + spec.RUNTIME_IDENTITY, "serviceAccount:unrelated"]},
             {"role": "roles/viewer", "members": ["user:unrelated@example.test"]}]}
@@ -147,6 +150,10 @@ class FakeCloud:
             self.cleanup_calls += 1
         else:
             self.calls += 1
+        if path.endswith(":testIamPermissions"):
+            assert api == "cloudresourcemanager" and method == "POST"
+            assert body == {"permissions": list(spec.SQL_PERMISSIONS)}
+            return {"permissions": self.permissions}
         if api == "sqladmin":
             name = self.manifest["sql_instance"]["name"]
             if path == instance.BASE + "/instances/earningsnerd-db":
@@ -386,6 +393,94 @@ def test_cloud_deadlines_bound_requests_and_preserve_fresh_cleanup_margin(monkey
     assert tools_step["if"] == "steps.request.outputs.operation == 'summary-delivery-apply'"
 
 
+@pytest.mark.parametrize("consumer", ["cloud", "json", "sse", "ingress"])
+@pytest.mark.parametrize("drip", ["headers", "body"])
+def test_whole_http_deadline_interrupts_real_header_and_body_trickles(monkeypatch, consumer, drip):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    stop = threading.Event()
+    payload = b'{"status":"healthy","synthetic":true}'
+    if consumer == "sse":
+        payload = b"data: " + payload + b"\n\n"
+    header = b"HTTP/1.1 200 OK\r\nContent-Length: " + str(len(payload)).encode() + b"\r\nConnection: close\r\n\r\n"
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            try:
+                prefix, trickle, suffix = (b"", header, payload) if drip == "headers" else (header, payload, b"")
+                self.connection.sendall(prefix)
+                for byte in trickle:
+                    if stop.is_set():
+                        return
+                    self.connection.sendall(bytes([byte]))
+                    stop.wait(0.03)  # Every byte arrives inside the socket inactivity timeout.
+                self.connection.sendall(suffix)
+            except OSError:
+                pass
+
+        def log_message(self, *args):
+            pass
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        thread.start()
+        target = f"http://127.0.0.1:{server.server_port}/"
+
+        class Opener:
+            def open(self, request, timeout):
+                return urlopen(target, timeout=timeout)  # Real urllib transport; no external host.
+
+        monkeypatch.setattr(manage, "build_opener", lambda *args: Opener())
+        monkeypatch.setattr(manage.BaseCloud, "__init__", lambda self: setattr(self, "token", "private-fixture"))
+        cloud = manage.Cloud()
+        if consumer != "cloud":
+            monkeypatch.setattr(cloud, "call", lambda *a, **k: {"token": "private-fixture"})
+        client = manage.Client(cloud, document()["manifest"], "private-fixture") if consumer in {"json", "sse"} else None
+        before_handler = signal.getsignal(signal.SIGALRM)
+        start = time.monotonic()
+        cloud.deadline = start + 0.15
+        if client:
+            client.deadline = cloud.deadline
+        try:
+            with pytest.raises(spec.Refused):
+                if consumer == "cloud":
+                    cloud.call("sqladmin", instance.BASE + "/instances/fixed")
+                elif consumer == "ingress":
+                    manage.verify_private_surface(cloud, document()["manifest"])
+                else:
+                    client.request("/__summary_verify__/receipt", first_frame=consumer == "sse")
+            assert time.monotonic() - start < 0.75
+            assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+            assert signal.getsignal(signal.SIGALRM) == before_handler
+        finally:
+            stop.set()
+            server.shutdown()
+            thread.join(timeout=1)
+            assert not thread.is_alive()
+
+
+def test_request_timer_refuses_takeover_and_restores_success_and_error_paths(monkeypatch):
+    previous = signal.getsignal(signal.SIGALRM)
+    for fail in (False, True):
+        try:
+            with manage.request_deadline(time.monotonic() + 1):
+                assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
+                if fail:
+                    raise ValueError("fixed-test-error")
+        except ValueError:
+            assert fail
+        assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+        assert signal.getsignal(signal.SIGALRM) == previous
+    with monkeypatch.context() as patch:
+        patch.setattr(signal, "getitimer", lambda *a: (1.0, 0.0))
+        with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+            pytest.fail("must not take over existing timer")
+    with monkeypatch.context() as patch:
+        patch.setattr(threading, "current_thread", lambda: object())
+        with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+            pytest.fail("must not run timer outside main thread")
+
+
 def test_actual_queue_requests_cannot_extend_attempt_ceiling(monkeypatch):
     m = approved()
     sent = []
@@ -555,6 +650,41 @@ def test_runtime_cannot_redirect_both_environment_and_url_to_other_instance(monk
     env["DATABASE_URL"] = env["DATABASE_URL"].replace(old, env["SUMMARY_VERIFY_INSTANCE"])
     with pytest.raises(runtime.Refused, match="database_boundary"):
         runtime.validate_environment(env, child=True)
+
+
+@pytest.mark.parametrize("missing", ["cloudsql.instances.create", "cloudsql.instances.delete", "cloudsql.instances.connect"])
+def test_missing_sql_permissions_are_reviewable_and_apply_makes_no_mutation(monkeypatch, tmp_path, missing):
+    cloud = FakeCloud(document()["manifest"], populated=False)
+    cloud.permissions.remove(missing)
+    monkeypatch.setattr(manage, "Cloud", lambda: cloud)
+    monkeypatch.setattr(manage, "production_snapshot", lambda cloud: (IMAGE, ("DATABASE_URL", "SECRET_KEY")))
+    original = cloud.call
+
+    def call(api, path, **kwargs):
+        if path == "v1/projects/earnings-nerd":
+            return {"projectNumber": "123456789"}
+        return original(api, path, **kwargs)
+
+    cloud.call = call
+    for name, value in ENV.items():
+        monkeypatch.setenv(name, value)
+    output = tmp_path / "plan.json"
+    assert manage.main(["plan", "--output", str(output)]) == 0
+    doc = json.loads(output.read_text())
+    assert doc["manifest"]["sql_permissions"] == {"required": list(spec.SQL_PERMISSIONS),
+                                                 "granted": cloud.permissions, "missing": [missing]}
+    cloud.seen.clear()
+    result = manage.apply(cloud, doc, doc["sha256"], doc["manifest"]["nonce"], ENV)
+    assert result["state"] == "UNVERIFIED" and result["failed_phase"] == "sql_permission_preflight"
+    assert result["sql_permissions"]["missing"] == [missing]
+    assert result["cleanup"]["state"] == "not_needed"
+    assert cloud.seen == [("cloudresourcemanager", "v1/projects/earnings-nerd:testIamPermissions", "POST",
+                           {"permissions": list(spec.SQL_PERMISSIONS)})]
+    # Grant changes require a fresh reviewed plan; a missing-permission plan
+    # cannot silently turn into an apply authorization after IAM is changed.
+    cloud.permissions = list(spec.SQL_PERMISSIONS)
+    result = manage.apply(cloud, doc, doc["sha256"], doc["manifest"]["nonce"], ENV)
+    assert result["state"] == "UNVERIFIED" and not cloud.rows
 
 
 @pytest.mark.asyncio

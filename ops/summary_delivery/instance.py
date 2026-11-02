@@ -18,6 +18,15 @@ POLL_SECONDS = 5
 PRODUCTION_NAME = "earningsnerd-db"
 
 
+def permission_snapshot(cloud) -> dict:
+    """Inspect only fixed permission names for the current authenticated Ops identity."""
+    response = cloud.call("cloudresourcemanager", f"v1/projects/{spec.PROJECT}:testIamPermissions",
+                          method="POST", body={"permissions": list(spec.SQL_PERMISSIONS)})
+    if not isinstance(response, dict):
+        raise spec.Refused("sql_permissions_unverified")
+    return spec.sql_permission_receipt(response.get("permissions", []))
+
+
 def _refuse(reason: str) -> None:
     raise spec.Refused(reason) from None
 

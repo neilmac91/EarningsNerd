@@ -14,6 +14,8 @@ PREFIX = "earningsnerd-summary-verify"
 PURPOSE = "summary-delivery-verification"
 DATABASE = "earningsnerd_summary_verify"
 DATABASE_VERSION = "POSTGRES_15"
+SQL_PERMISSIONS = ("cloudsql.instances.connect", "cloudsql.instances.create", "cloudsql.instances.delete",
+                   "cloudsql.instances.get", "cloudsql.instances.list")
 RUNTIME_IDENTITY = f"en-summary-verify@{PROJECT}.iam.gserviceaccount.com"
 INVOKER_IDENTITY = f"en-summary-verify-invoker@{PROJECT}.iam.gserviceaccount.com"
 SECRETS = {"DATABASE_URL": "EARNINGSNERD_SUMMARY_VERIFY_DATABASE_URL", "SECRET_KEY": "EARNINGSNERD_SUMMARY_VERIFY_SECRET_KEY"}
@@ -72,14 +74,25 @@ def connection_name(manifest: dict) -> str:
     return f"{PROJECT}:{REGION}:{expected['name']}"
 
 
+def sql_permission_receipt(granted: list[str]) -> dict:
+    if (not isinstance(granted, list) or any(not isinstance(item, str) for item in granted)
+            or len(granted) != len(set(granted)) or not set(granted).issubset(SQL_PERMISSIONS)):
+        raise Refused("sql_permissions_unverified")
+    return {"required": list(SQL_PERMISSIONS), "granted": sorted(granted),
+            "missing": sorted(set(SQL_PERMISSIONS) - set(granted))}
+
+
 def plan(root: Path, image: str, project_number: str, run_id: str, nonce: str, *, now: datetime | None = None,
          production_secret_names: tuple[str, ...] = ("DATABASE_URL", "SECRET_KEY"),
-         source_database_version: str = DATABASE_VERSION) -> dict:
+         source_database_version: str = DATABASE_VERSION, sql_permissions: dict | None = None) -> dict:
     if (not IMAGE.fullmatch(image) or not re.fullmatch(r"[0-9]{1,20}", run_id)
             or not re.fullmatch(r"[a-f0-9]{32}", nonce)):
         raise Refused("plan_identity")
     if source_database_version != DATABASE_VERSION:
         raise Refused("database_version_unsupported")
+    permissions = sql_permission_receipt(list(SQL_PERMISSIONS)) if sql_permissions is None else sql_permissions
+    if permissions != sql_permission_receipt(permissions.get("granted")):
+        raise Refused("sql_permissions_unverified")
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         raise Refused("plan_clock")
@@ -107,6 +120,7 @@ def plan(root: Path, image: str, project_number: str, run_id: str, nonce: str, *
         "database": DATABASE, "database_role": DATABASE, "database_connection_limit": 12,
         "sql_instance": sql_instance_contract(run_id, nonce), "source_database_version": source_database_version,
         "resource_expiry_is_enforced": False,
+        "sql_permissions": permissions,
         "bounds": {"generation_posts": 4, "result_gets": 6, "control_receipt_gets": 100,
                    "mail_jobs": 1, "summary_jobs": 2, "summary_generation_attempts": 8,
                    "recovery_calls": 8, "runtime_seconds": 600, "cloud_create_tasks": 32, "worker_deliveries": 12,
@@ -148,6 +162,10 @@ def validate_scope(manifest: dict) -> None:
     if (m.get("source_database_version") != DATABASE_VERSION or m.get("resource_expiry_is_enforced") is not False
             or m.get("sql_instance") != sql_instance_contract(m["run_id"], m["nonce"])):
         raise Refused("fixed_instance_scope")
+    permissions = m.get("sql_permissions")
+    if (not isinstance(permissions, dict)
+            or permissions != sql_permission_receipt(permissions.get("granted"))):
+        raise Refused("sql_permissions_unverified")
     expected_services = [{"name": f"{PARENT}/services/{PREFIX}-{role}", "role": role,
                           "origin": origin(role, m["project_number"]), "private": True, "cpu": "1",
                           "memory": "2Gi" if role == "summary" else "1Gi", "min_instances": 0,
