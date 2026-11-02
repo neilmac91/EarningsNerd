@@ -227,10 +227,11 @@ const ROUTES: Route[] = [
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
  * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
  * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
- * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page),
- * /email/unsubscribe (an invitation email's opt-out, opened without its token), /calendar and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
+ * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar
+ * and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
  * one week (fixtures/calendarWeek.ts), and the search is answered here and run (fixtures/searchApi.ts), so each is
- * read with its rows painted. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
+ * read with its rows painted. It also adds /email/unsubscribe, an invitation email's opt-out, opened without its
+ * token. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
  * that no entry visits (a dynamic route by a representative path) unless NOT_VISITED names it with its reason,
  * so a new public page cannot stay outside the gate in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
  * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
