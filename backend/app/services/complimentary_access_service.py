@@ -18,7 +18,7 @@ The operator runs it through ``scripts/complimentary_access.py`` (``docs/ops/com
   their audit row in one commit, or nothing. A rerun changes nothing an earlier run changed.
 
 Nothing here calls Stripe or sends mail. A grant never touches billing state, and a revoke of an account that
-has gained billing state since its grant closes the ledger row and leaves the flag to the webhook that owns it.
+has gained a Subscription row since its grant closes the ledger row and leaves the flag to the webhook that owns it.
 """
 from __future__ import annotations
 
@@ -99,8 +99,11 @@ class _Account:
 
     @property
     def billing_owned(self) -> bool:
-        """The account holds billing state of its own: a subscription row, or a Stripe customer or subscription."""
-        return self.subscription is not None or (self.user is not None and holds_stripe_identity(self.user))
+        """The webhook owns the account's ``is_pro``: a Subscription row exists. Every webhook writer of the flag goes
+        through the row (``subscription_sync._get_or_create_subscription``; the retired reverse trial creates one too),
+        so with no row a set flag can only be the grant's, even beside a Stripe customer a checkout stored after the
+        grant committed, and a revoke clears it."""
+        return self.subscription is not None
 
 
 def _read_account(db: Session, account_id: int, *, lock: bool) -> _Account:
@@ -427,33 +430,29 @@ def apply(
 
 
 def readout(db: Session, *, today: date) -> dict:
-    """Counts for the operator, safe for a public log: active grants by cohort, those whose review date has come,
-    and drift (an active grant whose account's Pro is no longer the grant's, such as one billing state now
-    decides). Reads only."""
+    """Counts for the operator, safe for a public log. Active grants by cohort and those whose review date has come;
+    and three kinds of drift: an active grant whose account is no longer Pro through it (a subscription row decides
+    its plan, or something cleared the flag), an active grant whose account now holds a Stripe id (a Stripe event can
+    reach it), and a revoked grant whose account is still Pro through the ``is_pro`` fallback alone. Reads only."""
     try:
         grants = db.query(ComplimentaryAccessGrant).all()
         active = [grant for grant in grants if grant.revoked_at is None]
+        revoked = [grant for grant in grants if grant.revoked_at is not None]
         by_cohort: dict[str, int] = {}
         for grant in active:
             by_cohort[grant.cohort] = by_cohort.get(grant.cohort, 0) + 1
         return {
             "cap": MAX_ACTIVE_GRANTS,
             "active_grants": len(active),
-            "revoked_grants": len(grants) - len(active),
+            "revoked_grants": len(revoked),
             "active_by_cohort": dict(sorted(by_cohort.items())),
             "due_for_review": sum(1 for grant in active if grant.review_on <= today),
-            "active_without_complimentary_pro": sum(
-                1 for grant in active if not pro_from_mirror(grant.user) or _account_billing_owned(db, grant.user)
-            ),
+            "active_without_complimentary_pro": sum(1 for grant in active if not pro_from_mirror(grant.user)),
+            "active_with_stripe_identity": sum(1 for grant in active if holds_stripe_identity(grant.user)),
+            "revoked_still_pro": sum(1 for grant in revoked if pro_from_mirror(grant.user)),
         }
     finally:
         db.rollback()
-
-
-def _account_billing_owned(db: Session, user: User) -> bool:
-    return holds_stripe_identity(user) or (
-        db.query(Subscription.id).filter(Subscription.user_id == user.id).first() is not None
-    )
 
 
 def serves_complimentary_pro(db: Session, user: User) -> bool:

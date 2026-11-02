@@ -175,7 +175,28 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
                                                                     "email_sha256": testers[0].email}]}))
     code, out, err, logged = _run(capsys, caplog, "dry-run", "--manifest", str(broken))
     assert (code, json.loads(out)["refused"]) == (1, "manifest")
-    _assert_nothing_planted([out, err, logged], operator, testers)
+    texts = [out, err, logged]
+    # Malformed manifests that carry an address or an id: pydantic's own message for a discriminator quotes the tag
+    # it found, whatever its type, and a broken file can hold either anywhere. Online and offline, the command words
+    # each fault from its kind alone.
+    valid = json.loads(_manifest_file(tmp_path, "grant", operator, testers[:1]).read_text())
+    email, account_id = testers[0].email, testers[0].id
+    malformed = {
+        b'{"action": "' + email.encode() + b'", "accounts": []}': "manifest: must be grant or revoke",
+        json.dumps({**valid, "action": account_id}).encode(): "manifest: must be grant or revoke",
+        json.dumps({**valid, "action": {email: account_id}}).encode(): "manifest: must be grant or revoke",
+        json.dumps(valid).encode()[:-20] + email.encode(): "manifest: is not valid JSON",
+        json.dumps(valid).encode() + f" {email} {account_id}".encode(): "manifest: is not valid JSON",
+        json.dumps({**valid, email: account_id}).encode(): "grant.<unexpected key>: is not a manifest key",
+    }
+    for n, (raw, problem) in enumerate(malformed.items()):
+        path = tmp_path / f"malformed-{n}.json"
+        path.write_bytes(raw)
+        for subcommand in ("dry-run", "check"):
+            code, out, err, logged = _run(capsys, caplog, subcommand, "--manifest", str(path))
+            assert (code, json.loads(out)) == (1, {"refused": "manifest", "problems": [problem]}), (n, subcommand)
+            texts += [out, err, logged]
+    _assert_nothing_planted(texts, operator, testers)
 
 
 def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):

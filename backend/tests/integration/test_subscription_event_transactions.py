@@ -12,6 +12,7 @@ and deleting a granted account removes its ledger row through the foreign key.
 import asyncio
 import json
 import os
+import re
 import threading
 import time
 from datetime import timedelta
@@ -22,6 +23,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine, event as sqlalchemy_event, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 from starlette.requests import Request
@@ -918,3 +920,109 @@ def test_postgres_the_stamp_migration_lets_an_analyst_delete_their_account_and_r
     with _session(postgres_engine) as db:
         assert db.get(User, analyst_id) is None
         assert [row.created_by_user_id for row in db.query(TrendAnalysis)] == [None]
+
+
+_PB02_HELD = text(
+    "SELECT c.relname, l.mode FROM pg_locks l JOIN pg_class c ON c.oid = l.relation"
+    " WHERE l.pid = pg_backend_pid() AND l.locktype = 'relation' AND l.granted"
+    " AND c.relname IN ('users', 'trend_analysis') AND c.relnamespace = current_schema()::regnamespace"
+)
+_PB02_PROBES = {
+    "read users": "SELECT 1 FROM users LIMIT 1",
+    "write users": "UPDATE users SET is_active = is_active WHERE false",
+    "write trend_analysis": "UPDATE trend_analysis SET grounded = grounded WHERE false",
+}
+
+
+def _pb02_statements(sql):
+    """A migration file's top-level statements, as psql sends them: split at each semicolon outside a comment and
+    outside a dollar quote."""
+    statements, start, quoted = [], 0, False
+    for token in re.finditer(r"--[^\n]*|\$\$|;", sql):
+        if token.group() == "$$":
+            quoted = not quoted
+        elif token.group() == ";" and not quoted:
+            statements.append(sql[start:token.end()].strip())
+            start = token.end()
+    assert not sql[start:].strip() and not quoted
+    return statements
+
+
+def _pb02_probe(engine, sql):
+    """What a second session's statement meets while a migration statement's transaction is open: it runs, or
+    waits past a 200 ms lock_timeout (55P03)."""
+    with engine.connect() as probe:
+        probe.exec_driver_sql("SET lock_timeout = '200ms'")
+        try:
+            probe.exec_driver_sql(sql)
+            return "runs"
+        except OperationalError as exc:
+            return "waits" if exc.orig.pgcode == "55P03" else exc.orig.pgcode
+        finally:
+            probe.rollback()
+
+
+def test_postgres_each_pb02_migration_statement_holds_only_the_locks_its_comments_name(postgres_engine):
+    """apply_migrations.sh runs each file through psql outside a transaction block, so each top-level statement
+    commits on its own. This case runs each statement of PB-02's two files in a transaction it holds open, reads the
+    locks it took and probes users and trend_analysis from a second session: the ledger's CREATE holds SHARE ROW
+    EXCLUSIVE on users (reads go on, writes wait); the stamp's swap holds ACCESS EXCLUSIVE on both tables (everything
+    waits); its validation, a statement of its own, stops no read or write; each waits 2 s for a lock, not the
+    session's 10 s; and a re-run takes no lock on either table."""
+    apply_line = next(line for line in (Path(__file__).resolve().parents[2] / "scripts" / "apply_migrations.sh")
+                      .read_text(encoding="utf-8").splitlines() if 'psql' in line and '-f "$f"' in line)
+    assert "--single-transaction" not in apply_line and not re.search(r"\s-1\b", apply_line), apply_line
+    constraint = "trend_analysis_created_by_user_id_fkey"
+    with postgres_engine.connect() as conn:
+        # Production's state: no ledger yet, and the stamp's reference with no ON DELETE action.
+        conn.exec_driver_sql("DROP TABLE earningsnerd_complimentary_access_grants")
+        conn.exec_driver_sql(f"ALTER TABLE trend_analysis DROP CONSTRAINT {constraint}")
+        conn.exec_driver_sql(f"ALTER TABLE trend_analysis ADD CONSTRAINT {constraint} "
+                             "FOREIGN KEY (created_by_user_id) REFERENCES users (id)")
+        conn.commit()
+    seen = []
+    for attempt in ("first", "re-run"):
+        for path in (PB02_MIGRATION, PB02_STAMP_MIGRATION):
+            with postgres_engine.connect() as conn:
+                for statement in _pb02_statements(path.read_text(encoding="utf-8")):
+                    conn.exec_driver_sql(statement)
+                    held = {}
+                    for relation, mode in conn.execute(_PB02_HELD):
+                        held.setdefault(relation, set()).add(mode)
+                    timeout = conn.exec_driver_sql("SHOW lock_timeout").scalar()
+                    probes = {name: _pb02_probe(postgres_engine, sql) for name, sql in _PB02_PROBES.items()}
+                    conn.commit()
+                    code = re.sub(r"--[^\n]*", "", statement)
+                    kind = next((k for k in ("CREATE TABLE", "DROP CONSTRAINT", "VALIDATE CONSTRAINT") if k in code),
+                                code.split()[0])
+                    seen.append((attempt, path.name, kind, timeout, held, probes))
+    everything_runs = dict.fromkeys(_PB02_PROBES, "runs")
+    ledger, stamp = PB02_MIGRATION.name, PB02_STAMP_MIGRATION.name
+    assert [entry[:3] for entry in seen] == [
+        (attempt, name, kind) for attempt in ("first", "re-run") for name, kinds in (
+            (ledger, ["SET", "CREATE TABLE", "RESET"]), (stamp, ["SET", "DROP CONSTRAINT", "VALIDATE CONSTRAINT", "RESET"]),
+        ) for kind in kinds
+    ]
+    for attempt, name, kind, timeout, held, probes in seen:
+        if kind in ("SET", "RESET"):
+            assert (held, probes) == ({}, everything_runs), (attempt, name, kind)
+            continue
+        assert timeout == "2s", (name, kind)
+        if attempt == "re-run":
+            assert (held, probes) == ({}, everything_runs), (name, kind)
+        elif kind == "CREATE TABLE":
+            assert held == {"users": {"AccessShareLock", "ShareRowExclusiveLock"}}
+            assert probes == {**everything_runs, "write users": "waits"}
+        elif kind == "DROP CONSTRAINT":
+            assert "AccessExclusiveLock" in held["users"] and "AccessExclusiveLock" in held["trend_analysis"]
+            assert probes == dict.fromkeys(_PB02_PROBES, "waits")
+        else:
+            assert held == {"users": {"AccessShareLock", "RowShareLock"},
+                            "trend_analysis": {"AccessShareLock", "ShareUpdateExclusiveLock"}}
+            assert probes == everything_runs
+    with postgres_engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT conname, confdeltype, convalidated FROM pg_constraint WHERE conrelid = 'trend_analysis'::regclass"
+            " AND contype = 'f' AND confrelid = 'users'::regclass")).all()
+        assert [tuple(row) for row in rows] == [(constraint, "n", True)]
+        assert conn.execute(text("SELECT to_regclass('earningsnerd_complimentary_access_grants') IS NOT NULL")).scalar()

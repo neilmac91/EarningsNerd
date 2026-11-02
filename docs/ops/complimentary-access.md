@@ -43,7 +43,8 @@ it. Paid and trial accounts see what they saw before.
   auditable and leaves signup untouched. The cost is a delay: a tester is Free between verifying and the next apply,
   so invitation copy should promise Pro only once the founder has run the grant; PB-01 owns that copy.
 - **Grants never touch billing state.** A grant refuses an account with a `Subscription` row or any Stripe id, and a
-  revoke of an account that has gained one since closes the ledger row and leaves the flag to the webhook.
+  revoke of an account that has gained a Subscription row since closes the ledger row and leaves the flag to the
+  webhook, whose every write of it goes through that row.
 
 ## End date
 
@@ -51,8 +52,10 @@ it. Paid and trial accounts see what they saw before.
 has come (`due_for_review`), and the founder revokes them with a revoke manifest. Billing does not show the date.
 
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
-past their date through the same service, so the plan still resolves through `entitlements.py` alone; until then, no
-page or message may say that access ends by itself.
+past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
+nothing may say that access ends by itself: Settings › Billing and the dashboard's plan card, the two places that name
+the access, carry no end, renewal, expiry, trial, price or date (`frontend/tests/unit/complimentaryAccess.ts`, read by
+their specs); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
 
 ## Who can be granted
 
@@ -100,7 +103,9 @@ fault names its place and kind, never the value. This example is synthetic (rese
 ```
 
 A revoke manifest has `"action": "revoke"`, the same cohort and entries, its own reason, and no `review_on`. The
-manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it.
+manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it. Every
+report prints the cohort, and the readout counts grants by it, so it reaches the public Ops log: choose a label that
+names no person, as the example's does.
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
 as a workflow input: the repository and its Actions logs are public.
@@ -155,21 +160,43 @@ run only as the repository secret `COMPLIMENTARY_ACCESS_MANIFEST`, set from the 
 argument or the log. `docs/DEPLOYMENT.md`, "Complimentary access", gives the order. Nothing can be dispatched before
 the code is on `main` and deployed.
 
+## Deploying
+
+The change deploys the backend with two migrations (`applied=2` on the deploy's migration line). Both lock `users`,
+which every signed-in request reads, so deploy it in a quiet window, as the only backend deploy in flight:
+
+- `20261102_earningsnerd_complimentary_access_grants.sql` creates the ledger. Its reference to `users` takes SHARE ROW
+  EXCLUSIVE on `users` for a catalog change: reads go on, and writes to `users` wait until it commits.
+- `20261102_trend_analysis_creator_set_null.sql` swaps the analysis stamp's reference in one statement and validates it
+  in another, each committing on its own. The swap takes ACCESS EXCLUSIVE on `users` and `trend_analysis` for a catalog
+  change, so while it waits for that lock every query on `users` waits behind it. The validation takes SHARE UPDATE
+  EXCLUSIVE on `trend_analysis` and ROW SHARE on `users`, which stop no read or write.
+- Each file waits at most 2 s for a lock, not the session's 10 s, so a blocked attempt holds those queries for at most
+  2 s. `apply_migrations.sh` retries a lock timeout up to five times, 15 s apart, then fails the deploy and prints the
+  blocking sessions. A failed deploy is not retried: run it again once the blocker has finished, and it resumes where
+  the file stopped, since each step reads the catalog first.
+
+`tests/integration/test_subscription_event_transactions.py` reads the locks each statement holds, and probes `users`
+from a second session, on CI's PostgreSQL.
+
 ## Rollback
 
 - **A mistaken grant:** revoke it (above). **A mistaken revoke:** grant again; a re-grant reopens the account's ledger
   row and writes a new audit row.
 - **Code rollback:** the ledger table is additive. A revision without this code still reads `is_pro`, so granted
   accounts stay Pro under it, and Billing loses only its complimentary line (the flag keeps them out of checkout).
-  Revoke before rolling back if the grants should end with the code.
+  Revoke before rolling back if the grants should end with the code. The stamp's reference stays `ON DELETE SET NULL`
+  under an older revision, which only lets an account's deletion through.
 - **Schema:** the migration only creates the table (`CREATE TABLE IF NOT EXISTS`). Dropping it would need a migration
   of its own after the grants are revoked.
 
 ## Limits
 
 - A grant is inert for an account with a `Subscription` row: that row decides its plan, so the grant refuses it.
-- A checkout started before a grant could still complete for up to a day; the grant refuses any account that already
-  holds a Stripe customer, which every checkout claims before it opens.
+- A checkout reads the account's entitlement before it stores a Stripe customer, so one that read the account just
+  before its grant committed can store a customer after it (checkout is closed today). The grant's Pro stands, and a
+  revoke still clears it: only a Subscription row makes the flag the webhook's. A checkout completed that way would bind
+  a subscription, which then decides the account's plan.
 - Product analytics count a complimentary Pro account as Pro.
 - The grant's ledger row is not part of the account's data export; it is deleted with the account, while its audit
   rows remain, as every account audit row does.

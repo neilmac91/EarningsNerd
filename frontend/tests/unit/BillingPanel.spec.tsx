@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
+import { COMPLIMENTARY_END_CLAIM } from './complimentaryAccess'
 
 const mockGetCurrentUserSafe = vi.fn()
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => mockGetCurrentUserSafe() }))
@@ -139,7 +140,7 @@ describe('BillingPanel', () => {
     // PB-02: Pro by the grant, with no subscription row and no Stripe customer.
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, plan: 'pro', complimentary: true })
 
-    renderPanel()
+    const { container } = renderPanel()
 
     expect(await screen.findByText('Complimentary (private beta)')).toBeInTheDocument()
     expect(screen.getByText('Access')).toBeInTheDocument()
@@ -148,6 +149,9 @@ describe('BillingPanel', () => {
     expect(screen.queryByRole('link', { name: /subscribe|upgrade/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
     expect(screen.queryByText(/renews on|access until|trial|\$/i)).not.toBeInTheDocument()
+    // Nothing expires on a grant's review date (docs/ops/complimentary-access.md, "End date"), so no word of the panel
+    // may say the access ends, renews, expires, costs or holds until a date.
+    expect(container.textContent).not.toMatch(COMPLIMENTARY_END_CLAIM)
   })
 
   it('sends no Pro account outside a trial to checkout, even with no Stripe customer', async () => {

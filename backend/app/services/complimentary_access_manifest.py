@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 # The cap: active grants across every cohort, and the most accounts one manifest may name.
 MAX_ACTIVE_GRANTS = 20
@@ -60,17 +61,17 @@ class _Manifest(BaseModel):
     @classmethod
     def _plain_reason(cls, value: str) -> str:
         if value != value.strip() or not value.isprintable():
-            raise ValueError("must be printable text without surrounding spaces")
+            raise PydanticCustomError("reason_not_plain", "reason is not plain text")
         return value
 
     @model_validator(mode="after")
     def _distinct_accounts(self):
         ids = [account.account_id for account in self.accounts]
         if len(set(ids)) != len(ids):
-            raise ValueError("names an account id more than once")
+            raise PydanticCustomError("repeated_account_id", "an account id repeats")
         fingerprints = [account.email_sha256 for account in self.accounts]
         if len(set(fingerprints)) != len(fingerprints):
-            raise ValueError("names an address fingerprint more than once")
+            raise PydanticCustomError("repeated_fingerprint", "an address fingerprint repeats")
         return self
 
 
@@ -102,11 +103,46 @@ def manifest_digest(manifest: Manifest) -> str:
     return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 
 
+# Each fault's words, by its error type: pydantic's, or this module's own (``PydanticCustomError``). A fault's message
+# is never read, since pydantic's can quote the input (a discriminator's names the tag it found, whatever its type),
+# so a report carries only these words and a place built from ``_NAMED_KEYS`` and list positions. A type outside this
+# table reads "is not valid". Gate: the fault cases in tests/unit/test_complimentary_access_service.py and
+# tests/unit/test_complimentary_access_script.py, each planting an address and an id.
+_FAULTS = {
+    "reason_not_plain": "must be printable text without surrounding spaces",
+    "repeated_account_id": "names an account id more than once",
+    "repeated_fingerprint": "names an address fingerprint more than once",
+    "union_tag_invalid": "must be grant or revoke",
+    "union_tag_not_found": "must be grant or revoke",
+    "missing": "is required",
+    "extra_forbidden": "is not a manifest key",
+    "string_type": "must be a string",
+    "string_pattern_mismatch": "does not match its format",
+    "string_too_short": "is too short",
+    "string_too_long": "is too long",
+    "int_type": "must be an integer",
+    "int_parsing": "must be an integer",
+    "greater_than": "must be a positive integer",
+    "date_type": "must be a date (YYYY-MM-DD)",
+    "date_parsing": "must be a date (YYYY-MM-DD)",
+    "date_from_datetime_parsing": "must be a date (YYYY-MM-DD)",
+    "list_type": "must be a list",
+    "too_short": "must name at least one account",
+    "too_long": f"names more than {MAX_ACTIVE_GRANTS} accounts",
+    "model_type": "must be an object",
+    "model_attributes_type": "must be an object",
+    "dict_type": "must be an object",
+    "literal_error": "is not a known value",
+    "json_invalid": "is not valid JSON",
+    "json_type": "is not valid JSON",
+}
+
+
 def _describe(error: dict) -> str:
     place = ".".join(
         str(part) if isinstance(part, int) or part in _NAMED_KEYS else "<unexpected key>" for part in error["loc"]
     )
-    return f"{place or 'manifest'}: {error['msg']}"
+    return f"{place or 'manifest'}: {_FAULTS.get(error['type'], 'is not valid')}"
 
 
 def load_manifest(raw: bytes) -> tuple[Manifest, str]:
