@@ -1626,7 +1626,8 @@ def test_native_delivery_probe_run_retains_a_validated_copy_end_to_end(tmp_path:
     plan refuses a bad retain root before anything is written; run dispatches once, settles, copies the journal and
     ledger into the retain root and validates the copy, for a complete (exit 0), a failed (exit 2) and an unknown
     delivery (exit 4, the reservation pointed at in the copy); a copy that does not validate exits 6, except after an
-    unknown delivery, which still exits 4 and points at the original."""
+    unknown delivery, which still exits 4 and asks for a copy by hand, outside temporary, cloud-synced and git
+    folders, before the reservation is settled in it."""
     probe = _probe_script()
     home = tmp_path / "home"
     home.mkdir()
@@ -1738,6 +1739,9 @@ def test_native_delivery_probe_run_retains_a_validated_copy_end_to_end(tmp_path:
         assert code == probe.EXIT_RETAIN and "RETAINED COPY DID NOT VALIDATE (lost)" in out, name
     code, out, _ = run("unretained-unknown", "no-result")
     assert code == probe.EXIT_UNKNOWN and "RETAINED COPY DID NOT VALIDATE (lost)" in out
-    assert f"copy {tmp_path / 'roots' / 'unretained-unknown-journal'} and" in out
+    roots = tmp_path / "roots"
+    assert (f"First copy {roots / 'unretained-unknown-journal'} and {roots / 'unretained-unknown-delivery'} by hand "
+            "to a durable directory outside temporary, cloud-synced and git folders (for example "
+            f"{(keep / 'engineering-probe-unretained-unknown').resolve()}-by-hand)") in out
     assert "then settle or retire it in your copy's journal and validate it there" in out
     assert "through the journal at" not in out

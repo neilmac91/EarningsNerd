@@ -175,7 +175,8 @@ or a malformed `iterations` value or entry, fails as `stream_binding:usage_itera
 (`invalid` for a malformed one), since a renamed or retired fallback type would otherwise read as a
 clean reply; a `usage` that is not an object carries no iterations, and `iterations: null` reads as
 absent (the SDKs type the field as nullable, and the CLI writes `iterations: null` into the usage objects
-it builds or copies when the API reported none). On `message_start`, on its message
+it builds or copies when the API reported none). An empty `iterations: []` reports no attempt and reads
+as clean; CLI 2.1.316's default usage carries it, so probe 4's result event most likely does. On `message_start`, on its message
 or its event object, `input_transformations` is preserved thinking's report of thinking blocks dropped
 from the input: an empty list is accepted, and any other value fails as
 `stream_binding:input_transformed`, since one prompt carries no thinking blocks. Classifier 3 (schema 2

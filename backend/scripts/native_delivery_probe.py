@@ -411,8 +411,9 @@ def run(manifest: dict[str, Any]) -> int:
                   "Do not re-run this probe against the same journal.")
         else:
             print(f"UNKNOWN delivery: reservation left pending. First copy {journal_root} and {delivery_root} by hand "
-                  "to a durable directory, then settle or retire it in your copy's journal and validate it there. "
-                  "Do not re-run this probe against the same journal.")
+                  "to a durable directory outside temporary, cloud-synced and git folders (for example "
+                  f"{planned['retain_target']}-by-hand), then settle or retire it in your copy's journal and validate "
+                  "it there. Do not re-run this probe against the same journal.")
         return EXIT_UNKNOWN
     if not retained["valid"]:
         return EXIT_RETAIN
