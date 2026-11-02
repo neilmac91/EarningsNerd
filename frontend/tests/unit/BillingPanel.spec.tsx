@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
+import { COMPLIMENTARY_END_CLAIM, spacedText } from './complimentaryAccess'
 
 const mockGetCurrentUserSafe = vi.fn()
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => mockGetCurrentUserSafe() }))
@@ -133,6 +134,36 @@ describe('BillingPanel', () => {
       expect(screen.getByRole('link', { name: /upgrade to pro/i })).toHaveAttribute('href', '/pricing')
       expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
     }
+  })
+
+  it('names a complimentary private-beta grant and offers it no checkout, renewal, price or trial', async () => {
+    // PB-02: Pro by the grant, with no subscription row and no Stripe customer.
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, plan: 'pro', complimentary: true })
+
+    const { container } = renderPanel()
+
+    expect(await screen.findByText('Complimentary (private beta)')).toBeInTheDocument()
+    expect(screen.getByText('Access')).toBeInTheDocument()
+    expect(screen.getByText('Pro', { exact: true })).toBeInTheDocument()
+    expect(screen.getByText('Complimentary access needs no payment details.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /subscribe|upgrade/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/renews on|access until|trial|\$/i)).not.toBeInTheDocument()
+    // Nothing expires on a grant's review date (docs/ops/complimentary-access.md, "End date"), so no word of the panel
+    // may say the access ends, renews, expires, costs or holds until a date.
+    expect(spacedText(container)).not.toMatch(COMPLIMENTARY_END_CLAIM)
+  })
+
+  it('sends no Pro account outside a trial to checkout, even with no Stripe customer', async () => {
+    // A Pro whose source the API does not name complimentary (an older backend, or a Pro set by hand).
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: true, plan: 'pro' })
+
+    renderPanel()
+
+    expect(await screen.findByText('Pro', { exact: true })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /subscribe|upgrade/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /manage billing/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
   })
 
   it('shows Manage billing only when the user has a real Stripe customer', async () => {

@@ -26,6 +26,7 @@ from app.models.notification_delivery import DeliveryBatch, DeliveryItem
 from app.models.filing_section_text import FilingSectionText
 from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
+from app.models.complimentary_access import ComplimentaryAccessGrant
 from app.models.summary_job import SummaryJob, SummaryPreparationBudget
 
 logger = logging.getLogger(__name__)
@@ -73,12 +74,18 @@ class User(Base):
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
     account_agreements = relationship("AccountAgreement", back_populates="user", cascade="all, delete-orphan")
-    # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
+    # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync (a complimentary
+    # beta grant sets the mirror only for an account with no row and no Stripe ids).
     subscription = relationship(
         "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     billing_payments = relationship(
         "BillingPayment", back_populates="user", cascade="all, delete-orphan"
+    )
+    # 1:1 record of an operator's complimentary Pro grant (PB-02). Provenance only: the plan stays the
+    # `is_pro` fallback entitlements.py resolves. Cascade so account deletion removes it.
+    complimentary_access_grant = relationship(
+        "ComplimentaryAccessGrant", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     # New-filing alert preferences (1:1) + send/dedup log. Cascade so GDPR delete removes them.
     notification_preferences = relationship(
@@ -366,6 +373,7 @@ __all__ = [
     "AccountAgreement",
     "Base",
     "Company",
+    "ComplimentaryAccessGrant",
     "ContactSubmission",
     "Filing",
     "FilingContentCache",

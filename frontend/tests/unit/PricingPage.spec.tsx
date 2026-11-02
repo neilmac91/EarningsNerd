@@ -310,6 +310,8 @@ describe('PricingPage', () => {
   it.each([
     ['a paid subscription', { is_pro: true, status: 'active', plan: 'pro' }, /^current plan$/i, false],
     ['a trialing subscription', { is_pro: true, status: 'trialing', plan: 'pro' }, /current plan \(trial\)/i, false],
+    // PB-02: a complimentary private-beta grant's Pro, with no subscription: its plan, never a checkout.
+    ['a complimentary private-beta grant', { is_pro: true, status: null, plan: 'pro', complimentary: true }, /^current plan$/i, false],
     ['a Free answer to a lagging mirror', { is_pro: false, status: null, plan: 'free' }, /^current plan$/i, true],
   ] as const)('a Pro identity holds no billing switch while the subscription read is in flight: %s', async (_, answer, current, switchAfter) => {
     let answerSubscription: (value: SubscriptionStatus) => void = () => {}
