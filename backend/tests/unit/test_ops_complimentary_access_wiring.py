@@ -366,12 +366,16 @@ def test_the_manifest_secret_is_named_once_in_every_workflow_in_the_script_steps
     named = {path.name: len(re.findall(SECRET, path.read_text(encoding="utf-8"), re.IGNORECASE)) for path in WORKFLOW_FILES}
     assert {name: count for name, count in named.items() if count} == {"ops.yml": 1}
     assert BY_NAME[COMPLIMENTARY][1]["env"]["MANIFEST"] == "${{ secrets." + SECRET + " }}"
+    # GitHub reads context names in any case too (`SECRETS[...]`, `toJSON(Secrets)`).
     whole = [(path.name, expression.strip()) for path in WORKFLOW_FILES
              for expression in re.findall(r"\$\{\{(.*?)\}\}", path.read_text(encoding="utf-8"), re.DOTALL)
-             if re.search(r"\bsecrets\b(?!\.[A-Za-z_])", expression)]
+             if re.search(r"\bsecrets\b(?!\.[A-Za-z_])", expression, re.IGNORECASE)]
     assert whole == [], "an expression reads the whole secrets context"
-    inherits = [path.name for path in WORKFLOW_FILES
-                if re.search(r"^\s*secrets:\s*inherit\b", path.read_text(encoding="utf-8"), re.MULTILINE)]
+    # Read from the parsed jobs, so a quoted `'inherit'` counts as the bare word does.
+    inherits = [f"{path.name}: {name}" for path in WORKFLOW_FILES
+                for name, job in ((yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader) or {})
+                                  .get("jobs") or {}).items()
+                if isinstance(job, dict) and str(job.get("secrets", "")).strip().lower() == "inherit"]
     assert inherits == [], "a reusable workflow call hands on every secret"
 
 
