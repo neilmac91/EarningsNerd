@@ -50,7 +50,8 @@ original (at restart, or by default once it has gone three days untouched), is F
 `tasks/todo.md`, followed by a confirming probe at the merged head.
 `backend/scripts/native_delivery_probe.py` now copies a run's journal and ledger into the manifest's
 `retain_root` and validates the copy (exit 6 when it does not validate; an unknown delivery exits 4 and
-is settled or retired in the copy's journal;
+is settled or retired in a durable copy's journal, copied by hand first when the runner's copy did not
+validate;
 `lessons/evals-retain-a-probe-ledger-outside-the-temporary-directory.md`).
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the

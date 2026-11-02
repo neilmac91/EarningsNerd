@@ -30,8 +30,9 @@ validates the copy with ``validate_delivery_binding``.
 Exit codes: 0 complete with exact fidelity; 2 terminal non-complete outcome (settled, retained);
 3 preflight refusal or CLI drift (nothing written; see the manifest's ``drift_plan``); 4 unknown
 delivery (reservation left pending: inspect the retained ledger, then settle or retire it through the
-retained journal and validate it there; never re-run against the same roots; 4 takes precedence over 6,
-and the run still prints whether the copy validated); 5 complete but the reply is not the expected tokens
+retained journal and validate it there; when the copy did not validate, copy the original roots by hand
+first and settle in that copy; never re-run against the same roots; 4 takes precedence over 6, and the
+run still prints whether the copy validated); 5 complete but the reply is not the expected tokens
 (settled eligible in the synthetic journal, fidelity recorded); 6 the retained copy did not validate (the
 original stays at the dispatch roots: copy it by hand before it is cleared); 1 manifest/usage error or an
 unexpected crash.
@@ -397,16 +398,21 @@ def run(manifest: dict[str, Any]) -> int:
         (Path(retained["path"]) / "delivery" / "probe-result.json").write_bytes(body)
     print(json.dumps(result_record, indent=2, sort_keys=True))
     if retained["valid"]:
-        evidence_journal, evidence_ledger = Path(retained["path"]) / "journal", Path(retained["path"]) / "delivery"
         print(f"Retained copy validated at {retained['path']}: it is the evidence; the dispatch roots are temporary.")
     else:
-        evidence_journal, evidence_ledger = journal_root, delivery_root
         print(f"RETAINED COPY DID NOT VALIDATE ({retained['error']}); the original stays at {journal_root} and "
               f"{delivery_root}: copy both by hand before they are cleared.")
-    if outcome["outcome"] == "unknown":  # outranks a copy that did not validate: the reservation still needs settling
-        print(f"UNKNOWN delivery: reservation left pending. Inspect the ledger under {evidence_ledger}, then settle or "
-              f"retire it through the journal at {evidence_journal} and validate it there. "
-              "Do not re-run this probe against the same journal.")
+    # An unknown delivery outranks a copy that did not validate: the reservation still needs settling, and it is
+    # settled in a durable copy, so the settlement does not go when the temporary original is cleared.
+    if outcome["outcome"] == "unknown":
+        if retained["valid"]:
+            print(f"UNKNOWN delivery: reservation left pending. Inspect the ledger under {retained['path']}/delivery, "
+                  f"then settle or retire it through the journal at {retained['path']}/journal and validate it there. "
+                  "Do not re-run this probe against the same journal.")
+        else:
+            print(f"UNKNOWN delivery: reservation left pending. First copy {journal_root} and {delivery_root} by hand "
+                  "to a durable directory, then settle or retire it in your copy's journal and validate it there. "
+                  "Do not re-run this probe against the same journal.")
         return EXIT_UNKNOWN
     if not retained["valid"]:
         return EXIT_RETAIN

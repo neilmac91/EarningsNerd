@@ -17,7 +17,8 @@ Its re-validation still had to be asked for separately.
   byte against the originals (a link is copied as the file it points to), and validates it with
   `validate_delivery_binding`. Exit code 6 means the copy did not validate: copy the original roots by hand
   before they are cleared. An unknown delivery exits 4 even then, and its reservation is settled or retired
-  in the retained copy's journal, so the settlement lasts too.
+  in a durable copy's journal (the runner's, or, when that did not validate, the one made by hand first),
+  so the settlement lasts too.
 - `plan` refuses a `retain_root` that is relative, missing, under a temporary directory (`/tmp`,
   `/private/tmp`, `/var/folders`, the machine's own temporary directory), under a cloud-synced home
   directory (iCloud, `~/Library/CloudStorage`), inside any git work tree, or already holding that probe's

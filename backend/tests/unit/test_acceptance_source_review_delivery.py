@@ -539,6 +539,11 @@ def test_dispatch_binds_exact_stdin_and_output_and_settles_through_the_journal(t
         (dict(raw_iterations=["fallback_message"]), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
         (dict(raw_iterations=[{"type": 5}]), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
         (dict(null_iterations=("start", "assistant", "delta", "result")), "complete", "eligible", None),
+        # An empty list reports no attempt and reads as clean on every carrier (CLI 2.1.316's result usage defaults to
+        # `iterations: []`); a falsy value that is not a list still fails closed, as any other non-list value does.
+        (dict(iterations=[], result_iterations=[], start_iterations=[], assistant_iterations=[]), "complete", "eligible", None),
+        (dict(raw_iterations=False), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
+        (dict(raw_iterations={}), "failed", "failed", "stream_binding:usage_iteration_type:invalid"),
         (dict(start_transformations=[], null_iterations=("start", "assistant"), iterations=["message"],
               result_iterations=["message"]), "complete", "eligible", None),
         (dict(null_iterations=("start", "assistant", "result"), iterations=["message", "fallback_message"]), "failed",
@@ -1470,6 +1475,7 @@ def test_a_settled_schema_3_verdict_cannot_be_relabelled_by_classifier_3(tmp_pat
         (dict(result_iterations=["message", "compaction"]), [], ["stream_binding:usage_iteration_type:compaction"]),
         (dict(raw_iterations={"type": "fallback_message"}), [], ["stream_binding:usage_iteration_type:invalid"]),
         (dict(null_iterations=("start", "assistant", "delta", "result")), [], []),
+        (dict(iterations=[], result_iterations=[]), [], []),
     ],
 )
 def test_classifiers_3_and_4_each_read_the_fallback_signals_by_their_own_rule(
@@ -1725,11 +1731,13 @@ def test_native_delivery_probe_run_retains_a_validated_copy_end_to_end(tmp_path:
     assert f"through the journal at {target / 'journal'}" in out
 
     # A copy that does not validate exits 6 whatever the outcome, unless the delivery is unknown: that still exits 4,
-    # and points at the original.
+    # and asks for a copy by hand before the reservation is settled in it.
     monkeypatch.setattr(probe, "_retain_copy", lambda *args, **kwargs: {"path": "-", "valid": False, "error": "lost"})
     for name, behaviour in (("unretained", "clean"), ("unretained-failed", "fallback")):
         code, out, _ = run(name, behaviour)
         assert code == probe.EXIT_RETAIN and "RETAINED COPY DID NOT VALIDATE (lost)" in out, name
     code, out, _ = run("unretained-unknown", "no-result")
     assert code == probe.EXIT_UNKNOWN and "RETAINED COPY DID NOT VALIDATE (lost)" in out
-    assert f"through the journal at {tmp_path / 'roots' / 'unretained-unknown-journal'}" in out
+    assert f"copy {tmp_path / 'roots' / 'unretained-unknown-journal'} and" in out
+    assert "then settle or retire it in your copy's journal and validate it there" in out
+    assert "through the journal at" not in out
