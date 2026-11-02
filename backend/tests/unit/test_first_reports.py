@@ -323,8 +323,12 @@ class TestTheEvidenceOnReportedFigures:
         margin = next(series for series in dataset["series"] if series["concept"] == "net_margin")
         assert margin["points"] and not [point for point in margin["points"] if "first_reported" in point]
 
-    def test_the_stored_rows_are_not_changed_by_a_build(self, db):
-        company = _synced(db, _payload())
+    @pytest.mark.parametrize("payload", [_payload, lambda: _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020],
+                                                                                           2018: 6_710.8e3}}))],
+                             ids=["regn", "an-inputs-finding"])
+    def test_the_stored_rows_are_not_changed_by_a_build(self, db, payload):
+        # A finding marks copies of the figures' records, a calculation's too (E289), never a stored row.
+        company = _synced(db, payload())
         stored = {row.id: (row.provenance, float(row.value), row.is_latest) for row in _rows(db, company)}
         _build(db, company)
         db.expire_all()
@@ -829,13 +833,17 @@ class TestASignOrScaleFindingMarksTheFigure:
             assert (grown["yoy"], grown["yoy_first_reported"], grown["yoy_reconciled"]) == ("nm", "nm", False)
             assert "source_conflict" in grown["yoy_provenance"]["reasons"]
         [note] = [note for note in dataset["data_notes"]["notes"] if note["reasons"] == ["source_conflict"]]
-        assert (note["kind"], note["values"]) == ("review", [{"concept": "net_income", "label": "Net income",
-                                                              "period": "FY2018"}])
+        assert (note["kind"], note["values"]) == ("review", [
+            {"concept": "net_income", "label": "Net income", "period": "FY2018"},
+            {"concept": "net_margin", "label": "Net margin", "period": "FY2018"}])
         assert note["letter"]
-        # The margin built on it is calculated: no mark of its own, no evidence of its own; its net income input,
-        # reported, carries the finding (item 5), so its growth as first reported is n/m on that year and the next.
+        # The margin built on it is calculated: it takes its input's mark, so the same note (E289), and no evidence of
+        # its own; its net income input, reported, carries the finding (item 5), so its growth as first reported is
+        # n/m on that year and the next.
         margin = _point(dataset, "net_margin", "FY2018")
-        assert "source_conflict" not in margin["provenance"]["reasons"] and "first_reported" not in margin
+        assert (margin["provenance"]["validation"], margin["provenance"]["reasons"], margin["reconciled"]) == (
+            "needs_review", ["source_conflict"], False)
+        assert "first_reported" not in margin
         [income] = [operand for operand in margin["provenance"]["inputs"] if operand["concept"] == "net_income"]
         assert (income["provenance"]["method"], income["first_reported"]["disagreement"]) == ("reported", "opposite_sign")
         assert margin["yoy_first_reported"] == _point(dataset, "net_margin", "FY2019")["yoy_first_reported"] == "nm"
@@ -957,6 +965,202 @@ _FINDINGS = {
         "LiabilitiesCurrent": {"units": {"USD": _items({
             report: {year: 550e6 for year in (report - 1, report)} for report in _K}, instant=True)}}}),
 }
+
+
+def _legacy(db, company):
+    """The company's margins as stored before operands were recorded: no inputs, ``legacy_calculation`` (D4)."""
+    from app.models import FinancialFact
+
+    db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin").update(
+        {"provenance": None}, synchronize_session=False)
+    db.commit()
+    return company
+
+
+def _unchecked(db, company, concept):
+    """The FY2018 10-K's own FY2018 row of the concept as one that did not pass its checks (D6)."""
+    [own] = _rows(db, company, concept=concept, accession=K18, period_end=FY2018)
+    own.provenance = {**own.provenance, "validation": "needs_review", "reasons": ["source_check_needed"]}
+    db.commit()
+    return company
+
+
+def _checks(dataset, concept):
+    """Each valued figure of a series as its validation, its reasons and whether it reconciles."""
+    series = next(series for series in dataset["series"] if series["concept"] == concept)
+    return {point["period"]: (point["provenance"]["validation"], tuple(point["provenance"]["reasons"]),
+                              point["reconciled"]) for point in series["points"] if point.get("value") is not None}
+
+
+def _conflicts(dataset):
+    return [note for note in dataset["data_notes"]["notes"] if "source_conflict" in note["reasons"]]
+
+
+@pytest.mark.requires_db
+class TestACalculatedFigureTakesItsInputsMark:
+    """E289, chief design's ruling on #1888: a calculated figure takes ``source_conflict`` where an input, at any depth,
+    carries a sign or scale finding that grounds a mark (D6), and evidence alone gives it none. The same reasons give
+    it its input's note and letter, and the data notes stay at version 3; a legacy calculation keys a note of its own,
+    a second letter with the same words. The window change across the slipped year keeps its number (E269)."""
+
+    def test_the_margin_joins_its_inputs_note_and_keeps_its_value_and_growth(self, db):
+        # FY2018 revenue in thousands in the FY2020 10-K: the FY2018 margin calculated from it reads 36,424.9%.
+        dataset = _build(db, _synced(db, _FINDINGS["an-inputs-finding"]()), "FY2018", "FY2021")
+        margin = _point(dataset, "net_margin", "FY2018")
+        assert margin["value"] == pytest.approx(100 * 2_444.4e6 / 6_710.8e3) and "first_reported" not in margin
+        # FY2019's revenue input carries evidence alone (a crossing), so that margin stays as it was.
+        assert _checks(dataset, "net_margin") == {
+            "FY2018": ("needs_review", ("source_conflict",), False), "FY2019": ("passed", (), True),
+            "FY2020": ("passed", (), True), "FY2021": ("passed", (), True)}
+        # Its growth reads n/m both ways, as before, and inherits the note, as does the window change, whose number
+        # stays (E269).
+        following = _point(dataset, "net_margin", "FY2019")
+        assert (following["yoy"], following["yoy_first_reported"], following["yoy_reconciled"]) == ("nm", "nm", False)
+        assert following["yoy_provenance"]["reasons"] == ["source_conflict"]
+        series = next(series for series in dataset["series"] if series["concept"] == "net_margin")
+        assert series["window_pp"] == pytest.approx(-36_374.62, abs=0.01)
+        assert (series["window_pp_provenance"]["reasons"], series["window_pp_reconciled"]) == (["source_conflict"], False)
+        # One note, its input's: the same key and letter, the data notes at version 3.
+        [note] = dataset["data_notes"]["notes"]
+        assert (dataset["data_notes"]["version"], note["letter"], note["reasons"]) == (3, "a", ["source_conflict"])
+        assert [(ref["concept"], ref["period"]) for ref in note["values"]] == [("revenue", "FY2018"),
+                                                                              ("net_margin", "FY2018")]
+        assert [(ref["concept"], ref["period"], ref["basis"]) for ref in note["comparisons"]] == [
+            ("revenue", "FY2019", "yoy"), ("revenue", "FY2018..FY2021", "cagr"), ("net_margin", "FY2019", "yoy"),
+            ("net_margin", "FY2018..FY2021", "window_pp")]
+
+    def test_evidence_alone_marks_no_calculation(self, db):
+        # REGN's revenue changed in later 10-Ks with no finding (a crossing, a run, a leading edge): its margins'
+        # inputs carry the evidence, and no figure is marked.
+        dataset = _build(db, _synced(db, _payload()))
+        assert any("first_reported" in operand for operand in _point(dataset, "net_margin", "FY2018")["provenance"]["inputs"])
+        assert set(_checks(dataset, "net_margin").values()) == {("passed", (), True)} and not _conflicts(dataset)
+
+    def test_d6_an_inputs_own_row_that_did_not_pass_its_checks_marks_no_calculation(self, db):
+        dataset = _build(db, _unchecked(db, _synced(db, _FINDINGS["a-sign-flip"]()), "net_income"))
+        [income] = [operand for operand in _point(dataset, "net_margin", "FY2018")["provenance"]["inputs"]
+                    if operand["concept"] == "net_income"]
+        assert income["first_reported"]["disagreement"] == "opposite_sign"
+        assert _checks(dataset, "net_margin")["FY2018"] == _checks(dataset, "net_income")["FY2018"] == ("passed", (), True)
+        assert not _conflicts(dataset)
+
+    def test_a_legacy_calculation_takes_a_second_letter_with_the_same_words(self, db):
+        # A margin stored before operands were recorded keeps legacy_calculation beside the mark (ruling 2), so it keys
+        # a note of its own after its input's: marked, its summary its input's, its message the legacy sentence then
+        # the conflict's. Its other years keep the record-only note, which takes the next letter.
+        from app.services.trend_analysis.data_notes import REASONS, marks_figure, note_summary
+
+        dataset = _build(db, _legacy(db, _synced(db, _FINDINGS["an-inputs-finding"]())))
+        checks = _checks(dataset, "net_margin")
+        assert checks.pop("FY2018") == ("needs_review", ("legacy_calculation", "source_conflict"), False)
+        assert set(checks.values()) == {("needs_review", ("legacy_calculation",), False)}
+        notes = {note["letter"]: note for note in dataset["data_notes"]["notes"]}
+        assert [(letter, note["reasons"], marks_figure(note)) for letter, note in notes.items()] == [
+            ("a", ["source_conflict"], True), ("b", ["legacy_calculation", "source_conflict"], True),
+            ("c", ["legacy_calculation"], False)]
+        assert [(ref["concept"], ref["period"]) for ref in notes["a"]["values"]] == [("revenue", "FY2018")]
+        assert [(ref["concept"], ref["period"]) for ref in notes["b"]["values"]] == [("net_margin", "FY2018")]
+        assert [(ref["concept"], ref["period"]) for ref in notes["b"]["comparisons"]] == [("net_margin", "FY2018"),
+                                                                                         ("net_margin", "FY2019")]
+        assert notes["b"]["message"] == f'{REASONS["legacy_calculation"]} {REASONS["source_conflict"]}'
+        assert note_summary(notes["b"]["reasons"]) == note_summary(notes["a"]["reasons"])
+
+    @pytest.mark.parametrize("shape, unchecked", [("regn", None), ("an-inputs-finding", "revenue")],
+                             ids=["evidence-alone", "an-own-row-that-did-not-pass"])
+    def test_a_legacy_calculation_reads_its_inputs_mark_not_its_evidence(self, db, shape, unchecked):
+        # D4's stand-in reads the mark the dataset's own figure of the input took: none for REGN's evidence, none where
+        # that figure's own row did not pass its checks (D6), though its evidence stands either way.
+        company = _legacy(db, _synced(db, _payload() if shape == "regn" else _FINDINGS[shape]()))
+        dataset = _build(db, _unchecked(db, company, unchecked) if unchecked else company)
+        assert "first_reported" in _point(dataset, "revenue", "FY2018")
+        assert set(_checks(dataset, "net_margin").values()) == {("needs_review", ("legacy_calculation",), False)}
+        assert not _conflicts(dataset)
+
+    def test_a_run_of_findings_in_an_input_marks_each_calculation_over_it(self, db):
+        # Current assets in thousands for FY2018 and FY2019: working capital and the current ratio of both years take
+        # the input's mark and join its note.
+        dataset = _build(db, _synced(db, _FINDINGS["a-run-of-findings-in-an-input"]()))
+        for concept in ("current_assets", "working_capital", "current_ratio"):
+            checks = _checks(dataset, concept)
+            assert [period for period, check in checks.items() if check[1] == ("source_conflict",)] == [
+                "FY2018", "FY2019"], concept
+        [note] = _conflicts(dataset)
+        assert {ref["concept"] for ref in note["values"]} == {"current_assets", "working_capital", "current_ratio"}
+
+
+def test_e289_a_finding_two_inputs_deep_marks_the_calculation():
+    # A margin over a calculated input (one quarter's revenue derived from others, say) whose own reported input is
+    # shown at a thousandth of its own report's value: the finding two levels down grounds the mark.
+    point = _figure("net_margin", 36_424.9, "calculated",
+                    [_figure(method="calculated", inputs=[_figure(value=6_710.8e3)])])
+    FirstReports({}, {}, None, history=[_own()]).attach([point])
+    assert point["provenance"]["inputs"][0]["provenance"]["inputs"][0]["first_reported"]["disagreement"] == "scale"
+    assert (point["provenance"]["validation"], point["provenance"]["reasons"], point["reconciled"]) == (
+        "needs_review", ["source_conflict"], False)
+
+
+@pytest.mark.parametrize("depth", [1, 2])
+def test_e289_an_inputs_finding_on_an_own_row_that_did_not_pass_marks_no_calculation(depth):
+    own = _own()
+    own.provenance = {**own.provenance, "validation": "needs_review", "reasons": ["source_check_needed"]}
+    revenue = _figure(value=6_710.8e3)
+    point = _figure("net_margin", 36_424.9, "calculated",
+                    [revenue] if depth == 1 else [_figure(method="calculated", inputs=[revenue])])
+    FirstReports({}, {}, None, history=[own]).attach([point])
+    assert (point["provenance"]["validation"], point["provenance"]["reasons"]) == ("passed", [])
+    assert "reconciled" not in point
+
+
+def test_e289_a_recorded_operand_decides_over_the_datasets_figure():
+    # A margin derived while the FY2018 10-K's revenue was current records that report's value: no evidence, so no
+    # mark, though the dataset's revenue, shown from a later filing at a thousandth of it, is marked (D4: the recorded
+    # operand stands for its input; the dataset's figure only where none was recorded).
+    reports = FirstReports({}, {}, None, history=[_own()])
+    revenue = {**_figure(value=6_710.8e3), "period": "FY2018"}
+    reports.attach([revenue])
+    assert revenue["provenance"]["reasons"] == ["source_conflict"]
+    own = {**_figure(value=6_710.8e6), "accession": K18, "filed_at": "2019-02-07"}
+    margin = {**_figure("net_margin", 36.4, "calculated", [own]), "period": "FY2018"}
+    reports.attach([margin])
+    assert "first_reported" not in margin["provenance"]["inputs"][0]
+    assert (margin["provenance"]["validation"], margin["provenance"]["reasons"]) == ("passed", [])
+    # With no operand of revenue recorded, the dataset's marked revenue stands in.
+    legacy = {**_figure("net_margin", 36_424.9, "calculated"), "period": "FY2018"}
+    reports.attach([legacy])
+    assert (legacy["provenance"]["validation"], legacy["provenance"]["reasons"]) == ("needs_review", ["source_conflict"])
+
+
+def test_e289_an_input_questioned_for_another_reason_marks_no_calculation():
+    # Not ruled (chief design, #1888): an input whose own note questions it for another reason, here a value the
+    # automated check has not matched that a later filing also changed with no finding, leaves its calculation be,
+    # whether the calculation recorded it or, recording no operand of it, reads the dataset's figure (D4's stand-in).
+    def questioned():
+        figure = {**_figure(), "period": "FY2018"}
+        figure["provenance"] = {**figure["provenance"], "validation": "needs_review", "reasons": ["source_check_needed"]}
+        return figure
+
+    reports = FirstReports({}, {}, None, history=[_own()])
+    revenue = questioned()
+    reports.attach([revenue])
+    assert (revenue["first_reported"]["disagreement"], revenue["provenance"]["reasons"]) == (None, ["source_check_needed"])
+    recorded = {**_figure("net_margin", 47.5, "calculated", [questioned()]), "period": "FY2018"}
+    legacy = {**_figure("net_margin", 47.5, "calculated"), "period": "FY2018"}
+    legacy["provenance"] = {**legacy["provenance"], "validation": "needs_review", "reasons": ["legacy_calculation"]}
+    reports.attach([recorded, legacy])
+    assert recorded["provenance"]["inputs"][0]["first_reported"]["disagreement"] is None
+    assert (recorded["provenance"]["validation"], recorded["provenance"]["reasons"]) == ("passed", [])
+    assert (legacy["provenance"]["validation"], legacy["provenance"]["reasons"]) == ("needs_review", ["legacy_calculation"])
+    assert "reconciled" not in recorded and "reconciled" not in legacy
+
+
+def test_e289_every_input_is_attached_before_its_calculations():
+    # A calculation that recorded no operand of an input reads the mark that input's figure took on its own finding,
+    # so the dataset attaches each input's series first (CLAUDE.md rule 12): DATASET_CONCEPT_ORDER is its order.
+    from app.services.trend_analysis.periods import DATASET_CONCEPT_ORDER
+
+    order = {concept: index for index, concept in enumerate(DATASET_CONCEPT_ORDER)}
+    assert {concept: [name for name in inputs if order[name] > order[concept]]
+            for concept, inputs in BASIS_INPUTS.items()} == {concept: [] for concept in BASIS_INPUTS}
 
 
 class TestTheCensusCountsTheAnalysissNM:

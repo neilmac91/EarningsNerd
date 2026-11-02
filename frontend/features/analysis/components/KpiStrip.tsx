@@ -61,8 +61,11 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
         <span className="text-text-secondary-light dark:text-text-secondary-dark">
           {formatAnalysisPeriod(kpi.point.period)}{kpi.latestAvailable && <span> · latest available</span>}
         </span>
+        {/* The change and its letter are one inline-block, so a long change wraps after its label, never between the
+            figure and its letter: an inline-block mark alone leaves a break before it (E289, chief design's probe on
+            #1951: "Chg −36,374.6pp" at 320px). Unlike nowrap, the pair still wraps inside itself where it outgrows the card. */}
         {text && <span className={`${dataDirectionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`} title={kpi.growthTitle}>
-          {kpi.growthLabel} <GrowthText text={text} /><DataNoteMark note={kpi.growthNote} />
+          {kpi.growthLabel} <span data-kpi-change className="inline-block"><GrowthText text={text} /><DataNoteMark note={kpi.growthNote} /></span>
         </span>}
       </dd>
     </Card>

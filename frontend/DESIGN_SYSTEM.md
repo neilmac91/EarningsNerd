@@ -1241,16 +1241,22 @@ Analysis KPI     <KpiStrip> — a definition list whose columns follow its wides
                  zero tracking with dataDirectionText (Delta text), its n/m read as “not meaningful”
                  (GrowthText), and its letter takes the default raise after 2px, 0.5em, where the value's
                  letter takes the large raise, 0.85em (SourceValue largeMarks; Data note mark); either
-                 shows only for a note that questions the number, so most cards carry none. The
-                 value keeps the dotted underline the table's figures do not carry. Gates:
+                 shows only for a note that questions the number, so most cards carry none. The change
+                 and its letter are one inline-block (data-kpi-change), so a long change wraps after its
+                 label, never between the figure and its letter: a mark alone leaves a break before it,
+                 and at 320px E289's -36,374.6pp lost its letter to a line of its own. Unlike nowrap,
+                 which these cards bar, the pair still wraps inside itself where it outgrows its card.
+                 The value keeps the dotted underline the table's figures do not carry. Gates:
                  tests/unit/kpi-strip.spec.tsx (the figure face and zero tracking on the value and the
-                 change line, n/m), tests/unit/kpi-strip-layout.spec.tsx (the width from the tokens
-                 that draw it, the grid's rule, the count-up's frames), tests/unit/data-note-mark.spec.tsx
-                 (the raises), tests/unit/figureSurfaceInks.spec.ts (the KPI pairs), and
-                 tests/e2e/analysis-layout.spec.ts: every profile checks the columns against the
-                 widest value as painted, and "analysis KPI strip, long values" holds CHF and CA$ values
-                 at 320–390px and under 200% text at 1024 and 1480px, and checks that every glyph the
-                 width counts as the face's takes the advance the strip measured.
+                 change line, n/m, every change line's letter inside its pair),
+                 tests/unit/kpi-strip-layout.spec.tsx (the width from the tokens that draw it, the
+                 grid's rule, the count-up's frames), tests/unit/data-note-mark.spec.tsx (the raises),
+                 tests/unit/figureSurfaceInks.spec.ts (the KPI pairs), tests/e2e/analysis-layout.spec.ts:
+                 every profile checks the columns against the widest value as painted, and "analysis
+                 KPI strip, long values" holds CHF and CA$ values at 320–390px and under 200% text at
+                 1024 and 1480px, and checks that every glyph the width counts as the face's takes the
+                 advance the strip measured; and tests/e2e/analysis-later-filings.spec.ts holds a long
+                 change's letter on its line at 320px in both themes.
 
 Data notes strip <DataNotes> — the data notes are fine print, no longer a strip (D-061): one native details
                  disclosure 8px under the metrics table's card, on the page ground, on the analysis page,
