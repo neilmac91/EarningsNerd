@@ -186,7 +186,7 @@ A failed read stops setup with its exit status and only `permission_denied`, `no
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
 operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
 [the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map, which its
-`INHERITED_CEILING` lets only shrink. A new gcloud call discards or captures its stderr instead: the E28 (b)
+`INHERITED_CEILING` lets only shrink, pair by pair. A new gcloud call discards or captures its stderr instead: the E28 (b)
 rebuild step (`rebuild-e28-excerpts-*`) captures its job execution's, and a failed execution prints only the
 `logs-probe` class with its exit status.
 These mutating actions are not live-test probes. The gate's stdin-program check does not
@@ -1016,19 +1016,31 @@ write), with `backend/scripts/rebuild_e28_window_excerpts.py`. Each goes through
 `precompute_one` runs, with its excerpt rebuilt. Nothing is deleted or cleared: each summary keeps its id and its
 bookmarks, keep-better keeps it when the new run ranks lower, and no user is metered.
 
+The cohort is the regex-excerpt rows on those forms created or last written in the window. A regeneration that
+reused a row's stored excerpt (the Pro Regenerate, the stale drain) moves its last write but not its creation, so
+it stays selected; a rebuilt excerpt leaves by its opening. A count other than the reviewed one has a cause to find
+first (read `excerpt-cohort`'s buckets) before `EXPECTED_COHORT` moves in a reviewed commit.
+
 The operations execute the script on `earningsnerd-pregenerate`, which carries the model key and the SEC budget, with
-execution-scoped arguments. So its one output line, `E28_REBUILD` and counts only, lands in that job's Cloud Run logs,
-not in the Actions log:
+execution-scoped arguments. So its `E28_REBUILD` lines, counts only, land in that job's Cloud Run logs, not in the
+Actions log:
 - the dry run exits non-zero unless the cohort is the script's reviewed `EXPECTED_COHORT`;
 - the apply writes nothing then either, nor while `SUMMARY_DURABLE_GENERATION_ENABLED` is on;
 - the apply fails the run if any rebuild failed.
 
-A non-zero exit, or a task timeout, makes Cloud Run retry the task: the pregenerate job sets no `--max-retries`,
-so the default of three applies (`docs/OPERATIONS.md`). Only a task's first attempt runs the script: a retry
-(`CLOUD_RUN_TASK_ATTEMPT` other than `0`) reads and writes nothing, prints a `retry_attempt` refusal and exits
-non-zero, so a failed apply's paid rebuilds never run again under the same approval, and the execution fails. Read
-the execution's first `E28_REBUILD` line; the lines after it are the retries' refusals. A failed step in the Actions
-log prints only a closed class and the exit status, never gcloud's error text.
+A non-zero exit, an out-of-memory kill or a task timeout makes Cloud Run retry the task: the pregenerate job sets
+no `--max-retries`, so the default of three applies (`docs/OPERATIONS.md`). Only a task's first attempt runs the
+script: a retry (`CLOUD_RUN_TASK_ATTEMPT` other than `0`) reads and writes nothing, prints a `retry_attempt`
+refusal and exits non-zero, so a failed apply's paid rebuilds never run again under the same approval, and the
+execution fails. A failed step in the Actions log prints only a closed class and the exit status, never gcloud's
+error text.
+
+Reading an apply's execution: the first attempt prints one `rebuilt`/`of`/`outcome` line as each filing finishes,
+then a line with the `outcomes` counts; any `retry_attempt` lines after them are the retries'. With no `outcomes`
+line, the first attempt was killed. Its `rebuilt` lines count what finished, and `status.retriedCount` and the
+container's log ("Out-of-memory event", or the timeout) say why it stopped
+([lesson](../lessons/ops-bound-drain-batches-to-job-memory.md): the 1 GiB job's cap of 15 regenerations an
+execution, which this run meets). Read `excerpt-cohort` before anything is dispatched again.
 
 The order:
 1. Dispatch the dry run.

@@ -41,7 +41,8 @@
 -- The openings, the CASE's arms, the marks and the output columns are pinned by
 -- backend/tests/unit/test_excerpt_source_cohort_sql.py; nothing runs this file in CI (its rehearsal is on a local
 -- PostgreSQL, recorded in its PR).
--- Retire: the session that closes E28 (b) deletes this file and its test in that records PR.
+-- Retire: the session that closes E28 (b) deletes this file and its test in that records PR, with
+-- backend/scripts/rebuild_e28_window_excerpts.py and its test, which read this file's openings and marks.
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '10s';

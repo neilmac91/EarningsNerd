@@ -146,18 +146,18 @@ INHERITED = {
     ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
     ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
 }
-# The most INHERITED may ever hold: the pairs #1195 listed, less the proxy step's, which #1258 fixed, and their
-# eight call sites. A pair may leave INHERITED and a count may fall; none joins and none rises (rule 12). Lower
-# these with a fix; a new gcloud call discards its stderr or captures it for a closed class instead.
-INHERITED_CEILING = frozenset({
-    ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"),
-    ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"),
-    ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"),
-    ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"),
-    ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"),
-    ("Roll service traffic back to a named revision", "run services update-traffic"),
-})
-INHERITED_SITES_CEILING = 8
+# The most INHERITED may ever hold, pair by pair: the pairs #1195 listed, less the proxy step's, which #1258
+# fixed, at their counts then. A pair may leave INHERITED and a count may fall; none joins and none rises, here or
+# there (rule 12). Lower a ceiling with a fix; a new gcloud call discards its stderr or captures it for a closed
+# class instead.
+INHERITED_CEILING = {
+    ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
+    ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
+    ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"): 2,
+    ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"): 1,
+    ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
+    ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
+}
 REBUILD_STEP = "Rebuild the E28 window's filings in place (E28 (b); pregenerate job)"
 SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}
 OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*")
@@ -569,8 +569,8 @@ def test_the_e28_rebuild_step_passes_apply_only_for_its_apply_and_withholds_stde
     assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
     if code:
         assert result.stdout == (f"::error::rebuild-e28-excerpts {mode}: the execution did not complete ({klass}; "
-                                 "gcloud's error text withheld); if the job ran, its first E28_REBUILD line in the "
-                                 "job's Cloud Run logs says why\n")
+                                 "gcloud's error text withheld); if the job ran, its first attempt's E28_REBUILD lines "
+                                 "in the job's Cloud Run logs are the record (docs/DEPLOYMENT.md)\n")
         assert _policy_class(monkeypatch, capsys, stderr, code) == klass
     else:
         assert result.stdout == (f"rebuild-e28-excerpts {mode}: the pregenerate job's execution completed "
@@ -680,8 +680,8 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         elif where != "discarded":
             captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
-    assert set(INHERITED) <= INHERITED_CEILING and sum(INHERITED.values()) <= INHERITED_SITES_CEILING, (
-        "INHERITED only shrinks: discard or classify a new call's stderr rather than list it")
+    risen = {pair: count for pair, count in INHERITED.items() if count > INHERITED_CEILING.get(pair, 0)}
+    assert not risen, f"INHERITED only shrinks: discard or classify a new call's stderr rather than list it: {risen}"
     assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"),
                         (PROXY_STEP, "/tmp/proxy-secret.err"), (REBUILD_STEP, "/tmp/e28-rebuild.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
