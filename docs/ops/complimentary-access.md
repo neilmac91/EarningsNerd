@@ -144,13 +144,16 @@ Before the first grant, the testers' accounts must exist as a grant can see them
 
 ### Running it in production
 
-Production's database is reachable only from Cloud Run and the Ops proxy, so these commands run through Ops
-operations in `.github/workflows/ops.yml`, the dry run read-only and the apply behind the founder's `ops-apply`
-approval. Those operations are not wired yet: the shared workflow's single writer is the integration workstream
-(PB-05), and the wiring tracks this programme's PB-02 pull request. The intended shape: the manifest reaches the step
-as a masked repository secret, read only in that step's environment and never echoed, as
-`.github/workflows/monthly-sql-export.yml` reads its configuration; the digest the founder confirms is the apply's
-input. Nothing can be dispatched before the code is on `main` and deployed.
+Production's database is reachable only from Cloud Run and the Ops proxy, so steps 2, 4 and 5 run through three Ops
+operations in `.github/workflows/ops.yml`: `complimentary-access-dry-run`, `complimentary-access-apply` and
+`complimentary-access-readout`, for a grant and a revoke alike. The dry run and the readout run read-only. The apply
+runs only after the founder approves `ops-apply` for its run, takes the dry run's `manifest_sha256` in its
+`confirm_digest` input and records `ops-run:<run id>` as its runner. The manifest is never an input: it reaches the
+run only as the repository secret `COMPLIMENTARY_ACCESS_MANIFEST`, set from the founder's machine before the dry run
+(`gh secret set COMPLIMENTARY_ACCESS_MANIFEST < manifest.json`, the file on one line) and deleted after the readout
+(`gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`). The step hands it to the script on stdin, never through a file, an
+argument or the log. `docs/DEPLOYMENT.md`, "Complimentary access", gives the order. Nothing can be dispatched before
+the code is on `main` and deployed.
 
 ## Rollback
 

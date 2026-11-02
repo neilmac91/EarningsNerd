@@ -10,7 +10,9 @@ name: Ops
 # hunt, docs/fiscal-year-label-repair.md), and so do the bounded quarterly fact repair
 # (docs/quarterly-data-repair.md) and the lineage backfill for filing-owned legacy calculations
 # (docs/filing-lineage-repair.md). E264's read-only financial revenue preview runs here too
-# (backend/scripts/financial_revenue_preview.py, whose docstring is its runbook). Design constraints:
+# (backend/scripts/financial_revenue_preview.py, whose docstring is its runbook), and so do the
+# complimentary-access dry run, apply and readout, which grant or revoke complimentary Pro for the
+# invited private-beta testers (PB-02, docs/ops/complimentary-access.md). Design constraints:
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries,
@@ -20,11 +22,17 @@ name: Ops
 #     billing-provider records. excerpt-cohort (E28) also reads the app's retained log lines through
 #     Cloud Logging's API: both of its reads are read-only, their receipt, kept as the run's artifact,
 #     holds their counts alone, and a failed read prints a closed class, never its error text.
+#     Complimentary access is the exception, the first operation here that reads and writes users: it
+#     reads accounts with the invite, agreement, subscription and grant rows a grant checks, and its
+#     apply writes an account's Pro flag, a row of its own grants table and an audit row. It prints
+#     counts, never an account id or an address.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
-#     mirroring the deploy-backend migrations step.
+#     mirroring the deploy-backend migrations step. The complimentary-access manifest, the one
+#     repository secret this workflow reads, reaches one step's env alone and is never printed.
 #   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply,
-#     repair-quarterly-apply, repair-lineage-apply, rebuild-e28-excerpts-apply) waits for the founder's approval before any step
-#     runs: the approve-apply job runs in the `ops-apply` environment, whose required reviewer is the
+#     repair-quarterly-apply, repair-lineage-apply, rebuild-e28-excerpts-apply,
+#     complimentary-access-apply) waits for the founder's approval before any step runs: the
+#     approve-apply job runs in the `ops-apply` environment, whose required reviewer is the
 #     founder (Settings > Environments). The ops job runs an -apply only after that job has passed,
 #     and only in a run's first attempt: any re-run of an apply writes nothing and fails visibly (the
 #     refuse-rerun job), so a retry is a fresh dispatch the founder approves again.
@@ -57,11 +65,11 @@ name: Ops
 #     write operations when a backend merge is imminent.
 #   - Every Cloud SQL step sets PGOPTIONS with a lock_timeout of at most 10s (fail fast, never queue
 #     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
-#     paths (the ticker repair, relabel, quarterly repair and lineage backfill scripts) match the
-#     deploy migration step (120s); the read-only detection snapshots full-scan financial_fact, so they
-#     get 600s; excerpt-cohort's stored count takes its file's own 120s, and the financial revenue
-#     preview, which only reads, takes 120s too. The proxy binary is checksum-pinned
-#     (lessons/ops-migrations-need-lock-timeout.md).
+#     paths (the ticker repair, relabel, quarterly repair, lineage backfill and complimentary access
+#     scripts) match the deploy migration step (120s); the read-only detection snapshots full-scan
+#     financial_fact, so they get 600s; excerpt-cohort's stored count takes its file's own 120s, and
+#     the financial revenue preview, which only reads, takes 120s too. The proxy binary is
+#     checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -108,6 +116,9 @@ on:
           - reset-filing-summary-apply
           - rebuild-e28-excerpts-dry-run
           - rebuild-e28-excerpts-apply
+          - complimentary-access-dry-run
+          - complimentary-access-apply
+          - complimentary-access-readout
           - rollback-traffic
       summary_plan_run:
         description: 'Successful first-attempt main Ops plan run ID (summary apply/cleanup only)'
@@ -137,6 +148,10 @@ on:
         description: 'Cloud Run revision name (rollback-traffic only)'
         required: false
         default: ''
+      confirm_digest:
+        description: 'complimentary-access-apply only: the manifest_sha256 its dry run printed'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -155,7 +170,7 @@ jobs:
   approve-apply:
     # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
     # environment names the founder as its required reviewer. Every other operation skips this job.
-    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation)
+    if: github.ref == 'refs/heads/main' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ops-apply
@@ -172,7 +187,7 @@ jobs:
     # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
     # one); any other operation runs when approve-apply is skipped.
     needs: approve-apply
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
     concurrency:
       # A read (describe-service, logs-probe) runs in its own run's group: it never replaces a pending run,
       # an approved apply's included (test_ops_readback_allow_rules.py pins this).
@@ -218,7 +233,7 @@ jobs:
               ;;
           esac
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|summary-delivery-plan|summary-delivery-apply|summary-delivery-cleanup-apply|summary-recovery-caller-plan|summary-recovery-caller-apply|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rebuild-e28-excerpts-dry-run|rebuild-e28-excerpts-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|regn-summary-incident-readout|summary-recovery-readout|summary-delivery-plan|summary-delivery-apply|summary-delivery-cleanup-apply|summary-recovery-caller-plan|summary-recovery-caller-apply|capacity-readout|excerpt-cohort|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-baseline-80fa90d-dry-run|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|financial-revenue-preview|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rebuild-e28-excerpts-dry-run|rebuild-e28-excerpts-apply|complimentary-access-dry-run|complimentary-access-apply|complimentary-access-readout|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -265,7 +280,7 @@ jobs:
         # while this job queued behind another dispatch would satisfy with no one having approved. Only the
         # repository owner's approval counts, the founder's, so a reviewer added to ops-apply later cannot
         # approve a production write. The owner's login goes into the filter after a check that it is one.
-        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', steps.request.outputs.operation)
+        if: contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', steps.request.outputs.operation)
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ github.repository_owner }}
@@ -336,6 +351,18 @@ jobs:
           CAPACITY_START: ${{ inputs.capacity_start }}
           CAPACITY_END: ${{ inputs.capacity_end }}
         run: python3 ops/capacity/readout.py --start "$CAPACITY_START" --end "$CAPACITY_END" --validate-only
+
+      # The apply runs only the manifest whose digest the founder confirms: the manifest_sha256 its dry run
+      # printed. The input is checked here, before any sign-in, and the script refuses a digest that is not
+      # the manifest's (docs/ops/complimentary-access.md).
+      - name: Validate the complimentary access confirmation
+        if: steps.request.outputs.operation == 'complimentary-access-apply'
+        env:
+          CONFIRM_DIGEST: ${{ inputs.confirm_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRM_DIGEST" =~ ^[a-f0-9]{64}$ ]] \
+            || { echo "::error::complimentary-access-apply needs confirm_digest: the manifest_sha256 its dry run printed, 64 lowercase hex characters"; exit 1; }
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -632,7 +659,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('repair-quarterly-baseline-80fa90d-dry-run detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview capacity-readout summary-recovery-readout excerpt-cohort', steps.request.outputs.operation)
+        if: contains('repair-quarterly-baseline-80fa90d-dry-run detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview capacity-readout summary-recovery-readout excerpt-cohort complimentary-access-dry-run complimentary-access-apply complimentary-access-readout', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -769,7 +796,7 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply financial-revenue-preview complimentary-access-dry-run complimentary-access-apply complimentary-access-readout', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
@@ -1022,6 +1049,66 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Run complimentary access script
+        # backend/scripts/complimentary_access.py (docs/ops/complimentary-access.md): grants or revokes complimentary
+        # Pro for the invited private-beta testers a manifest names, and reads the grants back. The dry run reports
+        # what the apply would do, in read-only transactions. The apply, after the founder's approval, runs only the
+        # manifest whose digest it is handed (confirm_digest, checked above) and writes one account a unit: its Pro
+        # flag, its grants row and its audit row commit together. The readout counts the grants, the reviews due and
+        # any drift, read-only and with no manifest. The manifest is the founder's private file: it reaches this step
+        # only as a repository secret in its env, and the run moves it into a shell variable no command inherits and
+        # hands it to the script on stdin, never through a file, an argument or this log. What lands in this log:
+        # counts, refusals by their place in the manifest and the manifest's digest; never an account id, an address
+        # or the manifest's reason. It runs here rather than in the jobs channel so its report reaches this log.
+        if: contains('complimentary-access-dry-run complimentary-access-apply complimentary-access-readout', steps.request.outputs.operation)
+        working-directory: backend
+        timeout-minutes: 15
+        env:
+          # The lineage backfill's hermetic env and guards; DATABASE_URL points at the proxy above.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s
+          # The SEC budgets every script step pins (docs/OPERATIONS.md, D3); this script reads nothing from SEC.
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OP: ${{ steps.request.outputs.operation }}
+          CONFIRM_DIGEST: ${{ inputs.confirm_digest }}
+          # The manifest's one reference in every workflow (tests/unit/test_ops_complimentary_access_wiring.py).
+          MANIFEST: ${{ secrets.COMPLIMENTARY_ACCESS_MANIFEST }}
+        run: |
+          set -euo pipefail
+          [ -f scripts/complimentary_access.py ] || { echo "::error::complimentary access script not committed yet"; exit 1; }
+          # The manifest moves into a shell variable that is not exported, so neither psql nor the script
+          # inherits it.
+          MANIFEST_TEXT="${MANIFEST:-}"
+          unset MANIFEST
+          # Read-only unless the operation is the apply; any other runs the readout, which needs no manifest.
+          READ_ONLY=on
+          case "$OP" in
+            complimentary-access-dry-run) ARGS=(dry-run --manifest /dev/stdin) ;;
+            complimentary-access-apply)
+              ARGS=(apply --manifest /dev/stdin --confirm-digest "$CONFIRM_DIGEST" --runner "ops-run:$GITHUB_RUN_ID")
+              READ_ONLY=off ;;
+            *) ARGS=(readout) ;;
+          esac
+          if [ "$READ_ONLY" = on ]; then PGOPTIONS="$PGOPTIONS -c default_transaction_read_only=on"; fi
+          if [ "${ARGS[0]}" != readout ] && [ -z "$MANIFEST_TEXT" ]; then
+            echo "::error::$OP reads its manifest from the repository secret, which is empty or unset: set it, then dispatch again (docs/DEPLOYMENT.md, \"Complimentary access\")"
+            exit 1
+          fi
+          # The settings a session gets through the proxy, read back so this log proves them, and
+          # compared with this step's, so a lost or weakened guard stops the run before the script.
+          SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')")
+          echo "$SESSION"
+          EXPECTED="session read_only=$READ_ONLY lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          # The manifest reaches the script on stdin, through a pipe.
+          if [ "${ARGS[0]}" = readout ]; then python scripts/complimentary_access.py readout
+          else printf '%s' "$MANIFEST_TEXT" | python scripts/complimentary_access.py "${ARGS[@]}"; fi
+
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
         if: steps.request.outputs.operation == 'sync-companyfacts'
@@ -1178,7 +1265,7 @@ jobs:
     # job's dependents with it, so "Re-run failed jobs" re-runs this job with ops; a first attempt,
     # and every other operation, skips it.
     needs: ops
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply', inputs.operation) }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.run_attempt != '1' && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}

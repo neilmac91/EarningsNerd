@@ -959,6 +959,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run quarterly fact repair script", 120_000),
         ("Run filing lineage backfill script", 120_000),
         ("Run financial revenue preview (read-only)", 120_000),
+        ("Run complimentary access script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (
