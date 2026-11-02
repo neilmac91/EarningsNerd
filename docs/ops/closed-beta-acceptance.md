@@ -40,7 +40,7 @@ delivery, configuration or capacity; sections 3 to 5 carry those.
 | Test | What it pins |
 | --- | --- |
 | `test_an_invited_tester_registers_verifies_and_signs_in` | Manual-link invitation, registration with the tester's own assent, the beta tag, the agreement row, verification, sign-in, the spent link |
-| `test_every_unusable_invitation_gets_one_answer_and_creates_nothing` | Missing, unknown, other-address, revoked and expired links get one 403 and create nothing |
+| `test_every_unusable_invitation_is_refused_and_creates_nothing` | Missing, unknown, other-address, revoked and expired links are refused, each tried from the address it names, and create nothing |
 | `test_an_invited_tester_signs_up_with_google_and_signs_back_in` | Invited Google sign-up, its agreement row, a returning sign-in that needs no invitation, no reset mail for a social-only account |
 | `test_pro_capabilities_answer_a_pro_tester_and_stay_shut_for_free` | Every Pro capability on the pricing page, through its route, for each way an account can hold Pro, against a Free control; checkout stays closed |
 | `test_every_pro_entitlement_has_a_beta_acceptance_answer` | Gate: every entitlement in which Pro differs from Free has an answer in `CAPABILITY_MATRIX` |
@@ -92,7 +92,7 @@ response is not a pass.
 | 19 | Sign out, reset, sign in | The reset mail arrives; the old password fails; the new one works | reset test |
 | 20 | Export | Settings → export downloads the tester's data with their agreement and feedback | feedback test |
 | 21 | Cross-account | Signed in as one tester, the other's saved summaries, watchlist and screenshots cannot be reached | cross-account test |
-| 22 | Unusable invitations | A used, revoked and expired link each show a page the tester can act on | invalid-invitation test (status only) |
+| 22 | Unusable invitations | A used, revoked and expired link each show a page the tester can act on | invalid-invitation test (refusal only) |
 | 23 | Deletion | A disposable tester account deletes itself; its session ends; its screenshot cannot be opened at once and its object is gone after the next hourly cleanup run | feedback test |
 
 A tab must never change the credentials of an account other than the one it shows (E29 in `tasks/todo.md`).
@@ -137,7 +137,7 @@ Read before admission, after the founder rehearsal, and at each observation poin
 | Job freshness | Ops `describe-jobs`; scheduled job outcomes | Alerts depend on the hourly filing scan |
 | Errors | Sentry, filtered to the serving `SENTRY_RELEASE`; `logs-probe` start lines per revision | Every revision reports under its own release |
 | Funnel | PostHog closed-beta events from consenting testers | Headless and unconsented sessions are absent by design |
-| Backups | The newest monthly SQL export run; managed backup and point-in-time settings read by the founder | The tolerated loss window must be set before testers create data; the last restore proof predates 17 of the applied migrations |
+| Backups | The newest monthly SQL export run; managed backup and point-in-time settings read by the founder | The tolerated loss window must be set before testers create data, and a restore proof must cover every applied migration |
 | Alerts | The alert policies and Sentry alert rules that exist, and a test notification someone received | Without one, the daily smoke issue is the only automated signal, so an outage can go unseen for a day |
 
 Fresh summaries are generated inside the API request on the serving architecture; durable summary generation is
