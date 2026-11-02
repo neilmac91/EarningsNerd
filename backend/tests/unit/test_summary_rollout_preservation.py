@@ -30,6 +30,8 @@ HELD_CONTROLS = frozenset({
     "SUMMARY_JOB_MAX_ATTEMPTS", "SUMMARY_JOB_LEASE_SECONDS",
     "SUMMARY_JOB_RECOVERY_SECONDS", "SUMMARY_JOB_MAX_AGE_SECONDS",
     "SEC_DISTRIBUTED_LIMIT_ENABLED", "SEC_DISTRIBUTED_WAIT_SECONDS",
+    "SUMMARY_TASKS_QUEUE", "SUMMARY_TASKS_WORKER_URL", "SUMMARY_TASKS_INVOKER_EMAIL",
+    "TASKS_WORKER_ROLE",
 })
 DEPLOY_STEPS = frozenset({
     "Update configured private task worker",
@@ -135,6 +137,10 @@ def test_ordinary_deployments_preserve_summary_and_shared_sec_controls():
     "--update-env-vars=SUMMARY_DURABLE_GENERATION_ENABLED=false",
     "--update-env-vars=SUMMARY_PREWARM_MAX_PER_DAY=0",
     "--update-env-vars=SEC_DISTRIBUTED_LIMIT_ENABLED=true",
+    "--update-env-vars=SUMMARY_TASKS_QUEUE=summaries",
+    "--update-env-vars=SUMMARY_TASKS_WORKER_URL=https://summary-worker-uw.a.run.app",
+    "--update-env-vars=SUMMARY_TASKS_INVOKER_EMAIL=summary@project.iam.gserviceaccount.com",
+    "--update-env-vars=TASKS_WORKER_ROLE=background",
     "--update-env-vars=${UNINSPECTED_MAP}",
 ])
 def test_every_reader_rejects_replacement_or_even_disabled_control_pins(name, replacement):

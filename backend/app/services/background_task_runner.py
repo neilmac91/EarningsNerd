@@ -10,9 +10,13 @@ from app.services import (
 )
 from app.services.durable_tasks import CompanyTask, FilingsTask, TaskEnvelope
 from app.services.edgar.compat import sec_edgar_service
+from app.services.task_routing import require_worker_kind
 
 
 async def run_background_task(envelope: TaskEnvelope) -> None:
+    # Repeat the parent guard in the fresh child before any business work. An overridden
+    # command or direct child invocation must not turn the mail worker into a summary worker.
+    require_worker_kind(envelope.kind)
     if envelope.kind == "probe":
         if envelope.payload:
             raise ValueError("Probe tasks contain no business payload")

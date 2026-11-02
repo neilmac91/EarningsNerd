@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, model_validator
-from typing import List
+from typing import List, Literal
 import os
 from app.public_email_addresses import SUPPORT_EMAIL
 
@@ -141,6 +141,12 @@ class Settings(BaseSettings):
     TASKS_QUEUE: str = "earningsnerd-background"
     TASKS_WORKER_URL: str = ""
     TASKS_INVOKER_EMAIL: str = ""
+    # Durable summaries never share the background queue/worker used by account mail.
+    # Empty values fail closed for summary handoffs; existing background work is unchanged.
+    SUMMARY_TASKS_QUEUE: str = ""
+    SUMMARY_TASKS_WORKER_URL: str = ""
+    SUMMARY_TASKS_INVOKER_EMAIL: str = ""
+    TASKS_WORKER_ROLE: Literal["background", "summary"] = "background"
     TASKS_WORKER_PROCESS: bool = False
     TASKS_WORK_TIMEOUT_SECONDS: float = Field(default=480, gt=0, le=480)
 

@@ -14,7 +14,6 @@ import time
 import uuid
 from datetime import datetime
 from typing import Literal
-from urllib.parse import urlsplit
 
 import httpx
 import jwt
@@ -22,11 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import settings
 from app.services.oauth_verify import _get_google_jwks, _GOOGLE_ISSUERS
+from app.services.task_routing import TaskUnavailable, task_route, worker_route
 from app.utils.datetimes import iso_z
-
-
-class TaskUnavailable(RuntimeError):
-    """The durable handoff was not confirmed; callers must not claim accepted work."""
 
 
 class TaskEnvelope(BaseModel):
@@ -66,25 +62,6 @@ _token: str = ""
 _token_expires: float = 0
 
 
-def _queue_path() -> str:
-    """Reject incomplete rollout configuration before touching metadata or the network."""
-    parts = (settings.TASKS_PROJECT_ID, settings.TASKS_LOCATION, settings.TASKS_QUEUE)
-    worker = urlsplit(settings.TASKS_WORKER_URL)
-    if (
-        not settings.DURABLE_TASKS_ENABLED
-        or not all(parts)
-        or any("/" in part for part in parts)
-        or worker.scheme != "https"
-        or not worker.hostname
-        or not worker.hostname.endswith(".run.app")
-        or worker.path not in ("", "/")
-        or worker.query or worker.fragment or worker.username
-        or not settings.TASKS_INVOKER_EMAIL.endswith(".iam.gserviceaccount.com")
-    ):
-        raise TaskUnavailable("Durable tasks are not configured")
-    return f"projects/{parts[0]}/locations/{parts[1]}/queues/{parts[2]}"
-
-
 async def _access_token() -> str:
     global _token, _token_expires
     if _token and time.monotonic() < _token_expires:
@@ -113,8 +90,9 @@ async def enqueue_task(
     task's 24-hour name tombstone cannot suppress later visits indefinitely. Business services
     remain idempotent because delivery, including after successful responses, can be duplicated.
     """
-    queue = _queue_path()
     envelope = TaskEnvelope(kind=kind, payload=payload)
+    route = task_route(envelope.kind)
+    queue = route.queue
     if kind == "filings":
         FilingsTask.model_validate(payload)
     elif kind in ("history", "companyfacts"):
@@ -141,12 +119,12 @@ async def enqueue_task(
         "dispatchDeadline": "540s",
         "httpRequest": {
             "httpMethod": "POST",
-            "url": settings.TASKS_WORKER_URL.rstrip("/") + "/internal/tasks/execute",
+            "url": route.worker_url + "/internal/tasks/execute",
             "headers": {"Content-Type": "application/json"},
             "body": base64.b64encode(body.encode()).decode(),
             "oidcToken": {
-                "serviceAccountEmail": settings.TASKS_INVOKER_EMAIL,
-                "audience": settings.TASKS_WORKER_URL.rstrip("/"),
+                "serviceAccountEmail": route.invoker_email,
+                "audience": route.worker_url,
             },
         },
     }
@@ -174,7 +152,7 @@ async def verify_task_identity(token: str) -> None:
     Cloud Tasks uses Authorization, which retains its Google-signed token at private Cloud Run.
     X-Serverless-Authorization removes the signature and is deliberately not accepted here.
     """
-    _queue_path()
+    route = worker_route()
     jwks = await _get_google_jwks()
     kid = jwt.get_unverified_header(token).get("kid")
     key = next((key for key in jwks.get("keys", []) if key.get("kid") == kid), None)
@@ -182,13 +160,13 @@ async def verify_task_identity(token: str) -> None:
         raise ValueError("Unknown task identity key")
     claims = jwt.decode(
         token, jwt.PyJWK(key).key, algorithms=["RS256"],
-        audience=settings.TASKS_WORKER_URL.rstrip("/"),
+        audience=route.worker_url,
         options={"require": ["exp", "aud", "iss", "sub", "email", "email_verified"]},
         leeway=settings.JWT_LEEWAY_SECONDS,
     )
     if (
         claims["iss"] not in _GOOGLE_ISSUERS
-        or claims["email"] != settings.TASKS_INVOKER_EMAIL
+        or claims["email"] != route.invoker_email
         or claims["email_verified"] is not True
     ):
         raise ValueError("Unexpected task identity")
