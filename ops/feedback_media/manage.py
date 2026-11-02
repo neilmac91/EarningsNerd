@@ -46,6 +46,14 @@ OPERATIONS = (
     "feedback-media-enable-apply", "feedback-media-disable-apply",
 )
 ACT_AS = "iam.serviceAccounts.actAs"
+# The deploying caller, not only the Cloud Run service agent, needs image read on the repository of every image it
+# deploys to a job or service (Artifact Registry Reader on the repository). The API image must come from the one
+# repository ci.yml's deploy pushes to; a repository grant is invisible to project testIamPermissions, so it is
+# tested on the repository itself.
+IMAGE_READ = "artifactregistry.repositories.downloadArtifacts"
+IMAGE_REPOSITORY = f"projects/{PROJECT}/locations/{REGION}/repositories/earningsnerd"
+API_IMAGE = re.compile(rf"{REGION}-docker\.pkg\.dev/{PROJECT}/earningsnerd/backend"
+                       r"(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?")
 
 
 def step(name: str, *permissions: str) -> str:
@@ -68,8 +76,8 @@ POLICY_LIST = step("Alert policy list", "monitoring.alertPolicies.list")
 POLICY_CREATE = step("Alert policy create", "monitoring.alertPolicies.create")
 SERIES_READ = step("Heartbeat series read", "monitoring.timeSeries.list")
 JOB_READ = step("Cleanup job read", "run.jobs.get")
-JOB_CREATE = step("Cleanup job create", "run.jobs.create", ACT_AS)
-JOB_UPDATE = step("Cleanup job update", "run.jobs.update", ACT_AS)
+JOB_CREATE = step("Cleanup job create", "run.jobs.create", ACT_AS, IMAGE_READ)
+JOB_UPDATE = step("Cleanup job update", "run.jobs.update", ACT_AS, IMAGE_READ)
 JOB_POLICY_READ = step("Cleanup job policy read", "run.jobs.getIamPolicy")
 JOB_POLICY_WRITE = step("Cleanup job policy write", "run.jobs.setIamPolicy")
 EXECUTIONS_READ = step("Cleanup execution list", "run.executions.list")
@@ -103,7 +111,7 @@ ERROR_REASONS = frozenset({
     "CONSUMER_INVALID", "SERVICE_NOT_VISIBLE", "RESOURCE_PROJECT_INVALID",
 })
 # A denied permission is named only when it is one these operations' steps name; any other reads as unlisted.
-KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, "run.services.update"}
+KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, IMAGE_READ, "run.services.update"}
 
 
 class OperationError(RuntimeError):
@@ -492,8 +500,9 @@ def capability_gaps(cloud: Cloud, permissions: frozenset[str], runtime: str | No
     """Return the fixed permission names the acting identity lacks, without changing anything.
 
     Project testIamPermissions needs no permission and covers grants inherited from above the project; a grant
-    on a single resource is invisible to it, so actAs is tested on the runtime identity itself. Only names from
-    the fixed lists are returned; the provider's answer is used for membership alone.
+    on a single resource is invisible to it, so actAs is tested on the runtime identity itself and image read on
+    the API image's repository (both operations deploy that image). Only names from the fixed lists are returned;
+    the provider's answer is used for membership alone.
     """
     def held(api: str, path: str, wanted: list[str]) -> set[str]:
         answer = cloud.call(api, path, method="POST", body={"permissions": wanted}, step=CAPABILITY_READ)
@@ -504,7 +513,17 @@ def capability_gaps(cloud: Cloud, permissions: frozenset[str], runtime: str | No
     if runtime is not None and ACT_AS not in held("iam", f"v1/projects/-/serviceAccounts/{runtime}:testIamPermissions",
                                                   [ACT_AS]):
         missing.append(ACT_AS + " on the API runtime identity")
+    if IMAGE_READ not in held("artifactregistry", f"v1/{IMAGE_REPOSITORY}:testIamPermissions", [IMAGE_READ]):
+        missing.append(IMAGE_READ + " on the API image repository")
     return missing
+
+
+def require_approved_image(service: dict) -> None:
+    """Refuse an API image outside the repository whose read the capability preflight tests (no parsing of others)."""
+    containers = service.get("template", {}).get("containers", [])
+    image = containers[0].get("image", "") if len(containers) == 1 and isinstance(containers[0], dict) else ""
+    if not isinstance(image, str) or not API_IMAGE.fullmatch(image):
+        raise OperationError("API image is outside the approved Artifact Registry repository")
 
 
 def require_execution_success(execution: dict, label: str) -> None:
@@ -547,6 +566,7 @@ def refuse_unrepairable_state(cloud: Cloud, runtime: str) -> None:
 
 def provision(cloud: Cloud, service: dict) -> None:
     spec = job_spec(service)  # validate required identity/secret references before any mutation
+    require_approved_image(service)
     runtime = spec["template"]["template"]["serviceAccount"]
     missing = capability_gaps(cloud, PROVISION_PERMISSIONS, runtime)
     if missing:
@@ -775,6 +795,8 @@ def report_capabilities(cloud: Cloud, service: dict) -> None:
             print(f"Capability for {label}: UNVERIFIED (API runtime identity unavailable, so actAs cannot be tested)")
             continue
         try:
+            if label == "feedback-media-provision-apply":
+                require_approved_image(service)
             missing = capability_gaps(cloud, permissions, identity)
         except OperationError as exc:
             print(f"Capability for {label}: UNVERIFIED ({exc})")
@@ -826,6 +848,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # ops.yml runs this file by path, as __main__, and the verifier imports it as ops.feedback_media.manage: one
+    # module under both names keeps one OperationError, so a verifier refusal exits on one line, not a traceback.
+    sys.modules["ops.feedback_media.manage"] = sys.modules[__name__]
     try:
         main()
     except OperationError as exc:

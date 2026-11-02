@@ -294,10 +294,18 @@ def sql_admin(cloud: media.Cloud):
 
 
 def preflight_cloud(cloud: media.Cloud) -> None:
-    found = cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}:testIamPermissions", method="POST",
-                       body={"permissions": sorted(PROJECT_PERMISSIONS)}).get("permissions", [])
-    if not PROJECT_PERMISSIONS.issubset(found):
-        missing = sorted(PROJECT_PERMISSIONS - set(found))
+    def held(api: str, path: str, wanted: list[str]) -> set[str]:
+        # A malformed answer grants nothing, as in media.capability_gaps.
+        answer = cloud.call(api, path, method="POST", body={"permissions": wanted})
+        granted = answer.get("permissions", []) if isinstance(answer, dict) else []
+        return {name for name in granted if isinstance(name, str)} if isinstance(granted, list) else set()
+    missing = sorted(PROJECT_PERMISSIONS - held("cloudresourcemanager", f"v1/projects/{PROJECT}:testIamPermissions",
+                                                sorted(PROJECT_PERMISSIONS)))
+    # The service and job it deploys run the serving image, which IMAGE_PATTERN holds to media.IMAGE_REPOSITORY.
+    if media.IMAGE_READ not in held("artifactregistry", f"v1/{media.IMAGE_REPOSITORY}:testIamPermissions",
+                                    [media.IMAGE_READ]):
+        missing.append(media.IMAGE_READ + " on the API image repository")
+    if missing:
         raise media.OperationError("Verification provisioning lacks required IAM permissions: " + ", ".join(missing))
 
 

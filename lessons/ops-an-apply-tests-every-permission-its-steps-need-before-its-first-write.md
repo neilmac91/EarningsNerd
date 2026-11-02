@@ -17,8 +17,10 @@ Date: 2026-11-02 · Area: ops / protected applies (PB-03)
 switch's enable or disable, fails at its one write with nothing partial):
 1. **Label.** Label every provider call with its step and the IAM permission it needs.
 2. **Preflight.** Before the first write, and read-only:
-   - test that permission set: Resource Manager `testIamPermissions` for project grants, and the identity
-     resource itself for `actAs`. If anything is missing, refuse with the missing names;
+   - test that permission set: Resource Manager `testIamPermissions` for project grants, and the resource
+     itself for a resource-scoped prerequisite (`actAs` on the identity; image read on the Artifact Registry
+     repository of an image the apply deploys, which the caller needs apart from the Cloud Run service agent).
+     If anything is missing, refuse with the missing names;
    - then read every existing resource a later step would refuse rather than repair (one owned by something
      else, or in a state the apply never converges, such as a deleted or `DISABLED` role), and refuse it.
    Either refusal changes nothing; the steps keep their own checks.
@@ -34,7 +36,8 @@ switch's enable or disable, fails at its one write with nothing partial):
    - a failed read is `UNVERIFIED (<the refused call's label and class>)`;
    - readable drift is refused, and refused always wins.
 5. **Know the preflight's blind spots.**
-   - It sees the identity's own grants at the project, and `actAs` on the identity.
+   - It sees the identity's own grants at the project, `actAs` on the identity and image read on the
+     repository.
    - A disabled API or an organization policy passes the preflight and still surfaces at the step, so the
      labels matter.
    - A grant held only on a single resource is invisible to the project test. The preflight then reports it

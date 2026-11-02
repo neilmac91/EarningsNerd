@@ -1,6 +1,7 @@
 """The isolated live-verification boundary and signed enablement evidence fail closed."""
 from __future__ import annotations
 
+import ast
 import hashlib
 import hmac
 import importlib.util
@@ -8,6 +9,7 @@ import json
 import base64
 import struct
 import sys
+import types
 import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -91,6 +93,40 @@ def test_enable_stops_before_any_flag_write_when_live_verification_is_unavailabl
     with pytest.raises(verify.media.OperationError, match="live verification missing"):
         verify.media.set_enabled(Cloud(), service, True)
     assert calls == ["receipt"]
+
+
+def test_a_script_run_enable_refused_for_its_receipt_exits_on_one_line(monkeypatch):
+    """ops.yml runs manage.py by path, so it is __main__ while the verifier imports it as ops.feedback_media.manage:
+    the receipt's refusal must still end in the one-line exit of its __main__ block, never a traceback."""
+    path = ROOT / "ops/feedback_media/manage.py"
+    *body, guard = ast.parse(path.read_text()).body
+    assert isinstance(guard, ast.If) and ast.unparse(guard.test) == "__name__ == '__main__'"
+    script = types.ModuleType("__main__")
+    script.__file__ = str(path)
+    monkeypatch.setitem(sys.modules, "__main__", script)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setattr(sys, "argv", [str(path), "feedback-media-enable-apply"])
+    exec(compile(ast.Module(body, []), str(path), "exec"), script.__dict__)
+    calls = []
+    unstable = {"etag": "version", "template": {"containers": [{"env": []}]}, "trafficStatuses": []}
+
+    class Cloud:
+        def call(self, *_, method="GET", **__):
+            calls.append(method)
+            return unstable
+    script.Cloud = Cloud
+    script.inspect = lambda *_: True  # storage and scheduled cleanup verified; only the receipt is refused
+    # A fresh package import each run: an earlier test's copy would hide (or fake) the script's own identity.
+    package = {name: sys.modules.pop(name) for name in list(sys.modules) if name == "ops" or name.startswith("ops.")}
+    try:
+        with pytest.raises(SystemExit) as refused:
+            exec(compile(ast.Module([guard], []), str(path), "exec"), script.__dict__)
+    finally:
+        for name in [name for name in sys.modules if name == "ops" or name.startswith("ops.")]:
+            del sys.modules[name]
+        sys.modules.update(package)
+    assert refused.value.code == "Production must have one stable revision serving all traffic"
+    assert calls == ["GET"]  # the production read only: no flag write
 
 
 def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
@@ -251,7 +287,33 @@ def test_missing_cloud_permissions_stop_before_resource_creation():
             return {"permissions": []}
     with pytest.raises(verify.media.OperationError, match="lacks required IAM"):
         verify.preflight_cloud(Cloud())
-    assert len(calls) == 1 and calls[0][1].endswith(":testIamPermissions")
+    assert len(calls) == 2 and all(call[1].endswith(":testIamPermissions") for call in calls)
+
+
+@pytest.mark.parametrize("granted", [True, False, "string-answer", "unhashable-entries"])
+def test_verification_preflight_tests_image_read_on_the_api_image_repository(granted):
+    calls = []
+    answers = {True: {"permissions": [verify.media.IMAGE_READ]}, False: {"permissions": []},
+               # Malformed answers grant nothing: a bare string is never read as containing the name.
+               "string-answer": {"permissions": verify.media.IMAGE_READ},
+               "unhashable-entries": {"permissions": [{"name": verify.media.IMAGE_READ}]}}
+    class Cloud:
+        def call(self, api, path, **kwargs):
+            calls.append((api, path, kwargs.get("method"), kwargs.get("body")))
+            if api == "artifactregistry":
+                return answers[granted]
+            return {"permissions": sorted(verify.PROJECT_PERMISSIONS)}
+    assert verify.IMAGE_PATTERN.pattern.startswith(r"us-west1-docker\.pkg\.dev/earnings-nerd/earningsnerd/")
+    assert verify.media.IMAGE_REPOSITORY == "projects/earnings-nerd/locations/us-west1/repositories/earningsnerd"
+    if granted is True:
+        verify.preflight_cloud(Cloud())
+    else:
+        with pytest.raises(verify.media.OperationError) as refused:
+            verify.preflight_cloud(Cloud())
+        assert str(refused.value) == ("Verification provisioning lacks required IAM permissions: "
+                                      "artifactregistry.repositories.downloadArtifacts on the API image repository")
+    assert calls[1] == ("artifactregistry", f"v1/{verify.media.IMAGE_REPOSITORY}:testIamPermissions", "POST",
+                        {"permissions": ["artifactregistry.repositories.downloadArtifacts"]})
 
 
 @pytest.mark.parametrize("defect", [None, "private-policy", "identity", "bucket", "secret", "runtime-source", "pool", "image", "missing-receipt", "manual-scaling", "accelerator"])

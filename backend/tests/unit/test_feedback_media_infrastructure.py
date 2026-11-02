@@ -33,11 +33,14 @@ def live_verification_is_an_independent_prerequisite(monkeypatch):
     monkeypatch.setattr(ops, "require_live_verification", lambda *_: None)
 
 
+API_IMAGE = "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend"
+
+
 def service():
     return {
         "etag": "service-version", "template": {
             "serviceAccount": "runtime@example.invalid",
-            "containers": [{"image": "registry.invalid/application:verified", "env": [
+            "containers": [{"image": API_IMAGE + ":verified", "env": [
                 {"name": "DATABASE_URL", "valueSource": {"secretKeyRef": {"secret": "db", "version": "latest"}}},
                 {"name": "SECRET_KEY", "valueSource": {"secretKeyRef": {"secret": "signing", "version": "latest"}}},
                 {"name": "RESEND_API_KEY", "valueSource": {"secretKeyRef": {"secret": "mail", "version": "latest"}}},
@@ -90,6 +93,7 @@ class CloudFixture:
         # capability_answer replaces the project answer outright (a malformed one); fail_paths refuses a read.
         self.granted = None
         self.act_as = True
+        self.image_read = True
         self.capability_answer = None
         self.fail_paths = {}
         if absent:
@@ -138,6 +142,9 @@ class CloudFixture:
             if api == "iam":
                 assert body == {"permissions": [ops.ACT_AS]}
                 return {"permissions": [ops.ACT_AS] if self.act_as else []}
+            if api == "artifactregistry":
+                assert path == f"v1/{ops.IMAGE_REPOSITORY}:testIamPermissions" and body == {"permissions": [ops.IMAGE_READ]}
+                return {"permissions": [ops.IMAGE_READ] if self.image_read else []}
             assert api == "cloudresourcemanager" and path == f"v1/projects/{ops.PROJECT}:testIamPermissions"
             if self.capability_answer is not None:
                 return copy.deepcopy(self.capability_answer)
@@ -255,7 +262,7 @@ def test_inspection_is_read_only_and_requires_both_current_successful_execution_
             elif defect == "old":
                 bad["completionTime"] = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
             elif defect == "image":
-                bad["template"]["containers"][0]["image"] = "registry.invalid/application:retired"
+                bad["template"]["containers"][0]["image"] = API_IMAGE + ":retired"
             elif defect == "unbounded":
                 bad["template"]["containers"][0]["env"].append({"name": "DB_MAX_OVERFLOW", "value": "20"})
             else:
@@ -514,8 +521,9 @@ def step_permissions(steps):
 LABEL = re.compile(r".+ \[[a-z][\w.]*(?:, [a-z][\w.]*)*\]")
 # The permission verbs each HTTP method can need: a read names only reads, and a write names what it changes,
 # with actAs beside a create or update that runs as an identity. Whether it is the exact permission stays review-checked.
-METHOD_VERBS = {"GET": {"get", "list", "getIamPolicy"}, "PUT": {"setIamPolicy"}, "PATCH": {"update", "actAs"},
-                "POST": {"create", "run", "runWithOverrides", "setIamPolicy", "actAs"}}
+METHOD_VERBS = {"GET": {"get", "list", "getIamPolicy"}, "PUT": {"setIamPolicy"},
+                "PATCH": {"update", "actAs", "downloadArtifacts"},
+                "POST": {"create", "run", "runWithOverrides", "setIamPolicy", "actAs", "downloadArtifacts"}}
 
 
 def label_problems(calls, steps):
@@ -525,7 +533,7 @@ def label_problems(calls, steps):
     for (api, path, method, _body), label in zip(calls, steps):
         capability = method == "POST" and path.endswith(":testIamPermissions")
         verbs = {name.rsplit(".", 1)[-1] for name in step_permissions([label])}
-        fits = bool(verbs - {"actAs"}) and verbs <= METHOD_VERBS.get(method, set())
+        fits = bool(verbs - {"actAs", "downloadArtifacts"}) and verbs <= METHOD_VERBS.get(method, set())
         if capability != (label == ops.CAPABILITY_READ) or (not capability and not (LABEL.fullmatch(label or "") and fits)):
             problems.append((api, path, method, label))
     return problems
@@ -558,9 +566,11 @@ def test_provisioning_preflight_names_exactly_the_permissions_its_steps_use(monk
         assert ops.OPERATION_READ in cloud.steps  # the real poll ran, under its own label
         assert label_problems(cloud.calls, cloud.steps) == []
         used |= step_permissions(cloud.steps)
-    assert ops.ACT_AS in used
-    assert used - {ops.ACT_AS} == ops.PROVISION_PERMISSIONS, (
-        sorted(used - {ops.ACT_AS} - ops.PROVISION_PERMISSIONS), sorted(ops.PROVISION_PERMISSIONS - used))
+    # actAs and image read are tested on their own resources (the runtime identity, the image repository).
+    resource_scoped = {ops.ACT_AS, ops.IMAGE_READ}
+    assert resource_scoped <= used
+    assert used - resource_scoped == ops.PROVISION_PERMISSIONS, (
+        sorted(used - resource_scoped - ops.PROVISION_PERMISSIONS), sorted(ops.PROVISION_PERMISSIONS - used))
 
 
 def test_provision_from_nothing_tests_its_capability_before_its_first_write(capsys):
@@ -568,7 +578,8 @@ def test_provision_from_nothing_tests_its_capability_before_its_first_write(caps
     ops.provision(cloud, cloud.service)
     first_write = cloud.calls.index(cloud.writes[0])
     capability = [i for i, call in enumerate(cloud.calls) if call[1].endswith(":testIamPermissions")]
-    assert len(capability) == 2 and max(capability) < first_write
+    assert len(capability) == 3 and max(capability) < first_write
+    assert ("artifactregistry", f"v1/{ops.IMAGE_REPOSITORY}:testIamPermissions") in {call[:2] for call in cloud.calls}
     assert cloud.role["includedPermissions"] == ops.PERMISSIONS and cloud.job["labels"] == {"purpose": "feedback-media"}
     assert set(cloud.buckets) == set(ops.BUCKETS.values()) and cloud.schedule["state"] == "ENABLED"
     assert cloud.metric == ops.heartbeat_spec() and len(cloud.policies) == 2
@@ -577,13 +588,16 @@ def test_provision_from_nothing_tests_its_capability_before_its_first_write(caps
 
 
 @pytest.mark.parametrize("missing", ["logging.logMetrics.create", "iam.roles.create", "run.jobs.runWithOverrides",
-                                     "act-as", "nothing-granted", "string-answer", "non-string-entries", "no-list"])
+                                     "act-as", "image-read", "nothing-granted", "string-answer", "non-string-entries", "no-list"])
 def test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission(missing):
     cloud = CloudFixture(absent=True)
     expected = sorted(ops.PROVISION_PERMISSIONS)  # an answer that grants nothing, or cannot be read, lacks everything
     if missing == "act-as":
         cloud.act_as = False
         expected = ["iam.serviceAccounts.actAs on the API runtime identity"]
+    elif missing == "image-read":
+        cloud.image_read = False
+        expected = ["artifactregistry.repositories.downloadArtifacts on the API image repository"]
     elif missing == "nothing-granted":
         cloud.granted = []
     elif missing == "string-answer":
@@ -807,7 +821,7 @@ def test_a_failed_read_never_stops_another_resources_drift_check(capsys, unreada
     cloud = CloudFixture()
     cloud.fail_paths[unreadable] = 403
     if refused == "Cleanup job":
-        cloud.job["template"]["template"]["containers"][0]["image"] = "registry.invalid/application:retired"
+        cloud.job["template"]["template"]["containers"][0]["image"] = API_IMAGE + ":retired"
     else:
         cloud.policies[0]["enabled"] = False
     with pytest.raises(ops.OperationError, match=re.escape(f"refused: {refused} (also unverified: {unverified})") + "$"):
@@ -867,10 +881,10 @@ def test_provision_refuses_a_state_it_would_not_repair_before_any_write(state, r
 def test_provision_still_converges_drift_in_resources_this_feature_owns(monkeypatch):
     monkeypatch.setattr(ops.time, "sleep", lambda _seconds: pytest.fail("provisioning waited for readiness"))
     cloud = CloudFixture()
-    cloud.job["template"]["template"]["containers"][0]["image"] = "registry.invalid/application:retired"
+    cloud.job["template"]["template"]["containers"][0]["image"] = API_IMAGE + ":retired"
     cloud.schedule["httpTarget"]["body"] = "overridden-command"
     ops.provision(cloud, cloud.service)
-    assert cloud.job["template"]["template"]["containers"][0]["image"] == "registry.invalid/application:verified"
+    assert cloud.job["template"]["template"]["containers"][0]["image"] == API_IMAGE + ":verified"
     assert cloud.schedule["httpTarget"]["body"] == "e30="
 
 
@@ -917,3 +931,35 @@ def test_only_the_inspect_operation_prints_the_capability_report(monkeypatch, ca
     assert ("Capability for" in output) is (operation == "feedback-media-inspect")
     if operation == "feedback-media-disable-apply":
         assert {call[0] for call in cloud.calls} == {"run"}
+
+
+@pytest.mark.parametrize("image", [
+    "registry.invalid/application:verified",  # not Artifact Registry
+    "us-west1-docker.pkg.dev/other-project/earningsnerd/backend:verified",  # another project's repository
+    "us-west1-docker.pkg.dev/earnings-nerd/other-repository/backend:verified",
+    "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:verified/../x",
+    "",
+])
+def test_provision_refuses_an_api_image_outside_the_tested_repository_before_any_call(image, capsys):
+    cloud = CloudFixture(absent=True)
+    cloud.service["template"]["containers"][0]["image"] = image
+    with pytest.raises(ops.OperationError, match="^API image is outside the approved Artifact Registry repository$"):
+        ops.provision(cloud, cloud.service)
+    assert cloud.calls == []  # refused before the preflight and every write
+    ops.report_capabilities(cloud, cloud.service)
+    output = capsys.readouterr().out
+    assert ("Capability for feedback-media-provision-apply: UNVERIFIED "
+            "(API image is outside the approved Artifact Registry repository)") in output
+    assert image == "" or image not in output
+
+
+def test_inspection_reports_a_missing_image_read_for_both_operations(capsys):
+    cloud = CloudFixture()
+    cloud.image_read = False
+    ops.report_capabilities(cloud, cloud.service)
+    output = capsys.readouterr().out
+    assert ("Capability for feedback-media-provision-apply: missing "
+            "artifactregistry.repositories.downloadArtifacts on the API image repository") in output
+    assert "artifactregistry.repositories.downloadArtifacts on the API image repository" in output.split(
+        "Capability for feedback-media-verify-apply: ", 1)[1]
+    assert cloud.writes == []
