@@ -499,7 +499,7 @@ describe('account snapshots follow the resolved identity', () => {
       queryKeys.whatChanged.byViewer(7, null), // the anonymous entry, which a reader whose /me failed reads with their session
       queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
       queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
-      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(),
+      queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(), queryKeys.adminInviteReadiness(),
       queryKeys.adminFeedback.list({ status: 'new' }),
     ]
     const shared = [
@@ -528,7 +528,7 @@ describe('account query ownership structural gate', () => {
   const accountOwned = [
     'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
     'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
-    'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
+    'notificationPreferences', 'authConnections', 'adminInvites', 'adminInviteReadiness', 'adminFeedback', 'feedback',
   ]
 
   it('every query family is classified, and an account change removes exactly the account-owned ones', () => {

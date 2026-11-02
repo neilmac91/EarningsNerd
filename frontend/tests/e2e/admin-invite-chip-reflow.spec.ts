@@ -64,8 +64,9 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * box as it was before any press: the line gives up its room.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
- * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
- * middleware's session gate is satisfied by its non-credential presence cookie.
+ * browser with page.route fixtures (an admin with two pending invites, the invite readiness read with both
+ * capabilities available, and three feedback reports), and the middleware's session gate is satisfied by its
+ * non-credential presence cookie. "Email invites" starts off, so the bulk summary's rows are links to share by hand.
  */
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
@@ -105,6 +106,9 @@ async function openAdmin(page: Page, baseURL: string, theme: Theme, path: string
     switch (pathname) {
       case '/api/auth/me':
         return json(200, { id: 1, email: 'ada@example.com', full_name: 'Ada', is_pro: false, is_beta: false, is_admin: true, email_verified: true })
+      case '/api/admin/invites/readiness':
+        // New links and invitation email both available, so Send and Resend act (the page fails closed on a 404).
+        return json(200, { collection: { available: true, reasons: [] }, invitation_email: { available: true, reasons: [] } })
       case '/api/admin/invites':
         return json(200, {
           invites: [INVITED, SHORT].map((email, i) => ({ id: i + 1, email, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' })),

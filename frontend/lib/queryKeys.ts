@@ -34,6 +34,9 @@ export const queryKeys = {
   watchlistInsights: () => ['watchlist-insights'] as const,
   earningsAlertTickers: () => ['earnings-alert-tickers'] as const,
   adminInvites: () => ['admin-invites'] as const,
+  // Same prefix as the list: an invite action's invalidation re-reads what holds new links and invitation email too,
+  // and the account reset removes it with the list (features/auth/lib/accountQueryState).
+  adminInviteReadiness: () => ['admin-invites', 'readiness'] as const,
   dashboardFeed: () => ['dashboard-feed'] as const,
   dashboardCalendar: () => ['dashboard-calendar'] as const,
   notifications: () => ['notifications'] as const,

@@ -45,7 +45,7 @@ export class LoggedOutFirst extends Error {
 /** Every query family that holds one account's data, by key prefix. Most are unkeyed by the reader,
  * so after a logout or login in this tab the next account would read the previous one's snapshot
  * until a refetch; the reset removes them all. `savedSummaries` covers `savedSummaryStatus`, which
- * shares its prefix. tests/unit/accountQueryState.spec.tsx classifies every family in queryKeys as
+ * shares its prefix, and `adminInvites` covers `adminInviteReadiness` the same way. tests/unit/accountQueryState.spec.tsx classifies every family in queryKeys as
  * account-owned or shared, and every member of an owned family under its one prefix, so a new family
  * or member cannot escape this list.
  */
