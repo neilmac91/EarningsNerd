@@ -60,3 +60,24 @@ print (`analysis_export_metadata.fine_print_summary`): each marked note's places
 in our data", "N figures with no check recorded" and, apart, "N growth figures with no check recorded",
 "N calculated from filed figures", and "No figures need review · N checked" never beside a record-only
 note; `test_export_note_marks.py` holds both exports' letters to the shared fixture's `marked_letters`.
+
+**A later filing's value is evidence, not a note (2026-10-30, MPA WP5a-B)**: where a later filing reports a value other
+than the year's own annual report gave, the figure shows the later value and carries the own one as `first_reported`
+(a calculated figure's inputs carry theirs), and its checks, letters and totals stand: a recast is the comparable basis
+for the years after it, and marking every difference would mark about 4% of all figures. What changes is growth: a
+comparison that crosses the change (the earlier year shown as first reported, the later year restated) reads n/m and
+carries the growth as first reported (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Since D3 (the founder's,
+2026-11-01) that is the only kind that does: a leading edge or a run of restated years mostly compares two values one
+filing reports, so it keeps its number, and the page can still print a number that joins two scopes where a run is
+mixed (34 of 123 in D3's census) until E288 reads the basis itself. Only an exact sign flip
+or factor of 1,000ⁿ, a likely tagging error, adds a note, through the existing `source_conflict` reason so no data
+notes version moves, and only on an own row that passed its checks. Read "own report" by replaying ingest's rule on
+stored rows (`trend_analysis/first_reports.py`), every clause of it, ranking the figure's own filing with the rest,
+never by trusting a row's columns, since a history row, a filing-owned row and a demoted winner hold the cell alike:
+ingest reads the winning element alone, so a row of another element is another line (a reading since changed, E264's
+fee line; a per-filing row read from another line, E278's gross revenue), and a value the cross-check replaced is no
+filing's own; `test_first_reports.py` holds the replay to ingest's pick over sync sequences that leave several
+candidates in a cell, a change of the winning element among them. Hold a producer to the page's decoder, not to a copy
+of it: `test_first_reports_wire.py` pins the datasets the producer builds on four shapes over two windows,
+`later-filings-producer.spec.ts` runs the page's real decoders over them, and `test_first_reports_exports.py` prints
+them through the PDF and workbook.

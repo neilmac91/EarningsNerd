@@ -251,6 +251,41 @@ def test_the_multi_period_dataset_opens_each_cited_filings_document(dataset_db):
     assert [item["source_url"] for item in cited] == [annual_doc, original]
 
 
+def test_an_annual_dataset_reads_its_filings_once_and_links_each_years_own_report(dataset_db):
+    """The annual twin. The year's own-report rows the dataset reads as evidence (``trend_analysis/first_reports.py``)
+    join the one filings read, so the evidence opens the own report's document, and its link, under ``source_url``,
+    folds to its folder in the snapshot like any other."""
+    db, company, _other, prefix = dataset_db
+    own, later = f"{prefix}-24-000010", f"{prefix}-25-000010"
+    _filing(db, company, own, "own-10k.htm", "10-K")
+    _filing(db, company, later, "later-10k.htm", "10-K")
+    for accession, year, value, current in ((own, 2023, 400, False), (later, 2023, 420, True),
+                                            (later, 2024, 500, True)):
+        db.add(FinancialFact(
+            company_id=company.id, concept="revenue", value=Decimal(value), unit="USD",
+            period_start=date(year, 1, 1), period_end=date(year, 12, 31), fiscal_year=year, fiscal_period="FY",
+            form="10-K", accession=accession, raw_tag="us-gaap:Revenues", source="companyfacts", reconciled=True,
+            is_latest=current))
+    db.flush()
+
+    statements = []
+    engine = db.get_bind()
+
+    def spy(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", spy)
+    try:
+        dataset = svc.build_dataset(db, company, "annual", "FY2023", "FY2024")
+    finally:
+        event.remove(engine, "before_cursor_execute", spy)
+    assert len([statement for statement in statements if "FROM filings" in statement]) == 1
+    first = _points(dataset, "revenue")["FY2023"]["first_reported"]
+    assert (first["value"], first["accession"]) == (400.0, own)
+    assert first["source_url"] == _document(company.cik, own, "own-10k.htm")
+    assert folder_links(first)["source_url"] == build_sec_archive_url(company.cik, own)
+
+
 def test_a_snapshot_reads_each_looked_up_link_as_its_folder(dataset_db):
     """A filing row that turns folder links into documents moves no snapshot, and the folder build hashes as main hashed it."""
     db, company, other, prefix = dataset_db

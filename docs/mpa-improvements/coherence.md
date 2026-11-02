@@ -370,6 +370,85 @@ FDX, the case that found the defect, holds none of them.
 
 The mark's words and ink belong to this notation system (§2.2).
 
+**As shipped (WP5a-B).** WP5a ships as three pull requests, deployed in the order of the WP5a brief's D13, F1 → X → B:
+the page's readers (F1, #1776), then the exports' later-filing line and evidence (X, #1866, recorded in §5's "As
+shipped (WP5a-X, 2026-10-31)"), inert until the producer, then the producer (B), so no surface states a false cause in
+between. The producer is `backend/app/services/trend_analysis/first_reports.py`, built on the recommendations of the
+WP5a decision brief, each held in one named constant or function a review can overturn:
+- D1: a figure carries its own report's value where the two differ by more than 0.1% of the own value
+  (`EVIDENCE_TOLERANCE`); a crossing (D3) reads n/m where the later year's shown-to-first-reported ratio is more than
+  1% from the earlier year's, which is 1 (`BASIS_TOLERANCE`).
+- D2, option A: the sign-or-scale mark is the existing `source_conflict` reason, so no data notes version moves; the
+  dialog's evidence says what was found (`disagreement`). Per-share figures are not sign-tested (`SIGN_TEST_EXEMPT`).
+- D3: EPS basic and diluted keep their evidence and never read n/m by the crossing rule (`BASIS_EXEMPT`), though a
+  scale finding still reads their growth n/m (item 4); and, the founder's
+  choice of 2026-11-01 on the census by kind (below), growth reads n/m only where it crosses a change of basis
+  (`crossed`): the earlier year shown as first reported, the later year's value shown more than 1% from its own
+  report's. A leading edge (the earlier year restated, the later shown as first reported) and a run (both restated)
+  keep their growth. A sign or scale finding in either year still reads n/m both ways, whatever the kind, a
+  per-share figure's included (item 4).
+- D4: margins, free cash flow, working capital and the current ratio read n/m where an input crosses
+  (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
+  operands were recorded; item 5's evidence sits on the recorded operands.
+- D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E269, E270).
+- D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
+  (`grounds_a_mark`).
+
+The own report is ingest's rule replayed on stored rows: an accession's own year is the latest fiscal-year row stored
+there, a balance included, unless its filing row's period of report lies further on, and a test holds the reader to
+the own report ingest's `_own_report` picks, over sync sequences that leave several own candidates in a cell (demoted
+former winners, an amendment kept non-current, an own report filed again), the figure's own filing ranked among them.
+A row is the figure's line only under the same XBRL element where both record one (`same_line`), as ingest reads the
+winning tag's items alone, and a per-filing row whose value the backfill's cross-check replaced is no filing's own
+report (`replaced`): before, a reading since changed (E264's fee-line rows of a financial filer) and a per-filing row
+of another line (E278's gross revenue) gave false evidence and n/m on SEC's payloads (KKR, MET, IBKR). A gate syncs
+E264's shape, the old line then the total: until E264's cleanup (3), an old-reading value still shown keeps that
+reading's own evidence and the old reading's rows give a figure of the new reading none; after it, the reader reads the
+own report ingest picks.
+Every record that lists a reported figure lists its evidence with it: a calculated figure's inputs (item 5), and the
+figures a YoY or CAGR compares (`fact_provenance.fact_operand`); a window change compares margins, whose evidence sits
+on their inputs. So a CAGR that keeps its number across a change of basis (D5) still shows the changed endpoint's own
+report in its dialog. Growth as first reported is n/m across a sign or scale finding in either year's evidence, an
+input's included. On WP5b's REGN shape: revenue FY2018 and FY2019 and total assets FY2018 carry evidence (3 figures at
+0.1%, not the 2 the 1% wording above gives); revenue growth reads n/m on FY2018 alone, its crossing, with +14.3% as
+first reported, and the net margin's change with +16.0pp; FY2019 (+27.4%, a run) and FY2020 (+29.6%, the leading edge)
+compare two values the FY2020 10-K reports and keep their numbers, as FY2021 keeps +89.1%. The shared fixture's REGN
+case (`analysis_later_filings.json`), planted under the rule before D3, still plants n/m on FY2019 and FY2020 for the
+readers, which read either. The data notes' line takes its places from the points (the page's `laterFilingPlaces`, and
+its backend twin in X), so the envelope is unchanged.
+
+**The census by kind (D3).** `backend/scripts/restatement_census.py` reads each company's companyfacts as ingest does
+and counts the YoY comparisons whose two years' shown-to-first-reported ratios differ by more than 1%, by kind, with
+whether the filing behind the earlier year's value shown gives the later year the value shown (*like-for-like*: the
+growth shown is that filing's own comparison), another value (*mixed*) or none (*unknown*). Its run of 2026-11-02
+(59 of 60 companies, their newest ten fiscal years, 8,696 cells; reported figures, not per-share; growth already n/m
+by opposite signs left out, 40 reported and 8 calculated):
+
+| kind | comparisons | like-for-like | mixed | unknown | read n/m |
+|---|---|---|---|---|---|
+| crossing | 82 (32 companies) | 13 | 64 | 5 | 82 |
+| leading edge | 158 (47) | 155 | 0 | 3 | 2 (findings) |
+| inside a run | 123 (38) | 88 | 34 | 1 | 0 |
+| all | 363 (50) | 256 | 98 | 9 | 84 (33) |
+
+Calculated figures (D4) add 219 such comparisons at 44 companies, 57 of them read n/m (22 companies). The rule as the
+brief first framed it (n/m wherever the ratios differ) would have read all 582 n/m, 256 of the reported ones hiding a
+like-for-like growth and, at a leading edge, printing a mixed one as first reported. The founder chose crossings only
+over three others put with the census of 2026-11-01 (that rule less its leading edges; the rule as built; no n/m until
+the store keeps each filing's prior-year values). The 34 mixed runs keep their growth, as before evidence, until E288
+lets the rule read the basis itself.
+
+The rebuild wave comes in two parts, since the reader takes a year's own report from any non-current row of the
+figure's line in the cell.
+At B's deploy, every company whose stored rows already hold one beside a later filing's value (a demoted former
+winner, a row the per-filing writer stored, or a history row a sync since #1682 stored) gains its evidence and n/m
+with no sync. The rest follow company by company, as each one's next companyfacts sync after #1682 stores its history
+rows (lazy, on the coverage route, 24-hour TTL, no backfill). Either way the dataset's fingerprint moves, so each saved
+annual analysis whose window holds such a year regenerates its narrative once at next open, unmetered, and its saved
+PDF answers 409 until the analysis is re-run (`backend/app/routers/analysis.py`, the PDF export). The size is
+unmeasured until the founder runs `ops/detection/later_filing_wave.sql` (Ops `detection-sql`, read-only): an upper
+bound on the cells, companies and saved annual analyses that move at deploy.
+
 ### 1.7 The full-population measurement
 
 [`ops/detection/mpa_notation_frequency.sql`](../../ops/detection/mpa_notation_frequency.sql)

@@ -13,12 +13,13 @@ from app.models import Company, FinancialFact
 from app.services.fact_provenance import CALCULATION_VERSION, calculated_provenance
 from app.services.trend_analysis.dataset_quality import add_comparisons, data_notes, dataset_point
 from app.services.trend_analysis.detectors import detect_inflections
+from app.services.trend_analysis.first_reports import read_first_reports
 from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.periods import (
     MODES, DATASET_CONCEPT_ORDER, _QUARTERS, _period_sort_key, concept_label, parse_period_key,
 )
 from app.services.trend_analysis.series import _series_map, _valued_points
-from app.services.trend_analysis.source_documents import filing_documents, folder_links
+from app.services.trend_analysis.source_documents import folder_links
 from app.services.trend_analysis.units import UnitConflict, keep_one_unit, one_unit, series_unit
 from app.utils.datetimes import ensure_utc, iso_z
 
@@ -284,17 +285,17 @@ def _append_series(
 
 
 def _series_points(
-    db: Session, company: Company, mode: str, periods: list[dict[str, Any]],
+    db: Session, company: Company, mode: str, periods: list[dict[str, Any]], rows: list[FinancialFact],
     by_fy_fp: dict[tuple[int, str, str], FinancialFact | UnitConflict],
     instant_by_end: dict[tuple[str, date], FinancialFact | UnitConflict],
 ) -> list[dict[str, Any]]:
-    """Align each concept's points, linked to the filing documents they cite, and attach comparisons and window figures."""
+    """Align each concept's points, linked to their filings, with own-report evidence, then comparisons and windows."""
     def _row_for(concept: str, bucket: dict[str, Any]) -> Optional[FinancialFact]:
         if mode == "quarterly" and concept in INSTANT_CONCEPTS:
             return one_unit(instant_by_end.get((concept, bucket["period_end"])))
         return one_unit(by_fy_fp.get((bucket["fiscal_year"], bucket["fiscal_period"], concept)))
 
-    documents = filing_documents(db, company.id, (_row_for(c, b) for c in DATASET_CONCEPT_ORDER for b in periods))
+    reports = read_first_reports(db, company, mode, rows, (_row_for(c, b) for c in DATASET_CONCEPT_ORDER for b in periods))
     series_list: list[dict[str, Any]] = []
     for concept in DATASET_CONCEPT_ORDER:
         points: list[dict[str, Any]] = []
@@ -305,10 +306,10 @@ def _series_points(
                 points.append({"period": bucket["key"], "value": None})
                 continue
             any_value = True
-            points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None), documents))
+            points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None), reports.documents))
         if not any_value:
             continue
-
+        reports.attach(points)
         unit, is_percent = _attach_growth(points, periods, mode, concept)
         cagr, cagr_window, window_pp, window_pp_range = _series_window_figures(
             mode, unit, is_percent, periods, points,
@@ -317,7 +318,7 @@ def _series_points(
             series_list, concept, unit, is_percent,
             cagr, cagr_window, window_pp, window_pp_range, points,
         )
-    return series_list
+    return reports.basis_rule(series_list, _growth, _pp_delta)
 
 
 def _assign_markers(series_list: list[dict[str, Any]]) -> None:
@@ -357,7 +358,7 @@ def build_dataset(
 
     rows, by_fy_fp, instant_by_end = _index_facts(db, company)
     periods = _period_axis(rows, mode, start_fy, start_fp, end_fy, end_fp)
-    series_list = _series_points(db, company, mode, periods, by_fy_fp, instant_by_end)
+    series_list = _series_points(db, company, mode, periods, rows, by_fy_fp, instant_by_end)
     _assign_markers(series_list)
 
     dataset: dict[str, Any] = {

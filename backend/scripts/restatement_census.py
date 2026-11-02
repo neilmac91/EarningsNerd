@@ -32,6 +32,21 @@ another tag; and the largest gaps with both tags, accessions, filed dates and va
 reading their cause (whether either filing carries the other's value under another us-gaap tag, and a
 split-like ratio for per-share values).
 
+It also counts the YoY comparisons whose two years sit on different shown-to-first-reported ratios (MPA WP5a item
+3, D3), by the analysis's own rule (``trend_analysis/first_reports.py``: a year carries evidence where its
+within-tag own value differs from the winner by more than ``EVIDENCE_TOLERANCE``; the two years' winner-to-own
+ratios differ by more than ``BASIS_TOLERANCE``), by kind: *crossing*, evidence on the later year alone (REGN
+FY2018), which the analysis reads n/m (D3, the founder's, 2026-11-01: crossings only); *leading edge*, evidence on
+the earlier year alone (REGN FY2020), and *inside a run*, evidence on both (REGN FY2019), which keep their number
+unless a sign or scale finding sits in either year (item 4).
+For each reported comparison it reads whether the filing behind the earlier year's value shown gives the later year
+the value shown (within 0.1%, under the winning tag): *like-for-like*, the growth shown is that filing's own
+comparison; *mixed*, it gives the later year another value; *unknown*, it gives none. A comparison whose growth is
+undefined or already n/m (opposite signs) is left out: it loses no number. Per-share figures are counted apart: D3
+keeps them out of the rule. Calculated figures (D4: margins, free cash flow, working capital, the current ratio) are
+counted from their inputs' cells, a comparison reading n/m where an input crosses; their like-for-like reading is
+not taken.
+
 READ-ONLY: it writes nothing (no database, no files, no cache). Payloads stay in memory and are
 dropped after each company. It stops early, and says so, if SEC answers 403 or 429 repeatedly.
 
@@ -258,6 +273,16 @@ def _split_ratio(concept: str, winner: float, own: float) -> Optional[int]:
     return n if n >= 2 and abs(ratio - n) / n < 0.02 else None
 
 
+def _givers(record: dict[str, Any]) -> dict[str, list[float]]:
+    """Each accession's values for the winner's period and span among the winning tag's items."""
+    out: dict[str, list[float]] = {}
+    for candidate in record.get("candidates") or [record]:
+        if candidate.get("period_start") == record.get("period_start") and isinstance(candidate.get("value"),
+                                                                                       (int, float)):
+            out.setdefault(candidate.get("accession"), []).append(float(candidate["value"]))
+    return out
+
+
 def measure_company(
     ticker: str, payload: dict, financial_sic: bool, years: int,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -318,6 +343,8 @@ def measure_company(
             "unit": unit, "instant": instant, "winner": winner, "concept_tags": tags,
             "winner_report_fy": report_year.get(winner["accession"]),
             "within": _item(within) if within else None, "across": _item(across) if across else None,
+            # Each filing's values for the winner's period and span under the winning tag (D3's like-for-like read).
+            "givers": _givers(record),
         }
         for which in ("within", "across"):
             own = cell[which]
@@ -556,6 +583,156 @@ def _bucket_table(cells: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+BASIS_KINDS = ("crossing", "leading edge", "inside a run")
+BASES = ("like-for-like", "mixed", "unknown")
+
+
+def _evidence(cell: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """A cell's evidence as the analysis reads it: its within-tag own value past D1 (an own value ingest drops, a
+    negative one of a non-negative concept, gives none)."""
+    from app.services.facts.concepts import NON_NEGATIVE_CONCEPTS
+    from app.services.trend_analysis.first_reports import differs, disagreement
+
+    own, winner = cell["within"], cell["winner"]["value"]
+    if not cell["within_later"] or (cell["concept"] in NON_NEGATIVE_CONCEPTS and own["value"] < 0):
+        return None
+    return {"value": own["value"], "disagreement": disagreement(cell["concept"], winner, own["value"])} \
+        if differs(winner, own["value"]) else None
+
+
+def _found(*figures: tuple[float, Optional[dict[str, Any]]]) -> bool:
+    """Whether a sign or scale finding sits in either year's evidence (item 4): n/m whatever the kind."""
+    return any(first and first["disagreement"] for _value, first in figures)
+
+
+def _kind(now: Optional[dict[str, Any]], before: Optional[dict[str, Any]]) -> str:
+    return BASIS_KINDS[0] if not before else BASIS_KINDS[1] if not now else BASIS_KINDS[2]
+
+
+def _signs(change: Any) -> bool:
+    """Whether a growth is already n/m by opposite signs: it loses no number to the rule, so the table leaves it out,
+    though the analysis still gives it growth as first reported where the rule reads it n/m."""
+    from app.services.trend_analysis.formatting import NOT_MEANINGFUL
+
+    return change == NOT_MEANINGFUL
+
+
+def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reported YoY comparisons whose two years' ratios differ past ``BASIS_TOLERANCE`` or carry a sign or scale
+    finding, each with its kind, its basis (module docstring), whether its growth is already n/m by opposite signs, and
+    whether the analysis reads it n/m (a crossing, D3, not per-share; or a finding in either year, item 4), by
+    ``trend_analysis/first_reports.py``'s own rule over the within-tag own values a sync stores."""
+    from app.services.trend_analysis.dataset import _growth
+    from app.services.trend_analysis.first_reports import BASIS_EXEMPT, _ratio, basis_changed, crossed
+
+    by_line = {(c["ticker"], c["concept"], c["unit"], c["fy"]): c for c in cells}
+    found = []
+    for (ticker, concept, unit, fy), cell in sorted(by_line.items()):
+        prior = by_line.get((ticker, concept, unit, fy - 1))
+        change = None if prior is None else _growth(cell["winner"]["value"], prior["winner"]["value"])
+        if change is None:
+            continue
+        now = (cell["winner"]["value"], _evidence(cell))
+        before = (prior["winner"]["value"], _evidence(prior))
+        if not (basis_changed(_ratio(now), _ratio(before)) or _found(now, before)):
+            continue
+        given = cell.get("givers", {}).get(prior["winner"]["accession"]) or []
+        shown = cell["winner"]["value"]
+        basis = BASES[2] if not given else BASES[0] if any(
+            abs(value - shown) <= 0.001 * abs(shown) for value in given) else BASES[1]
+        found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": _kind(now[1], before[1]),
+                      "per_share": concept in PER_SHARE, "basis": basis, "signs": _signs(change),
+                      "n_m": (concept not in BASIS_EXEMPT and crossed(now, before)) or _found(now, before)})
+    return found
+
+
+def calculated_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """D4: each calculated figure's YoY whose inputs' two years' ratios differ past ``BASIS_TOLERANCE`` or carry a
+    finding, from its inputs' cells as ``facts/derive.py`` computes it (``first_reports._CALCULATED``): a crossing where
+    an input crosses, else a leading edge or a run where every such input is one, else mixed; read n/m where an input
+    crosses or carries a finding."""
+    from app.services.trend_analysis.dataset import _growth, _pp_delta
+    from app.services.trend_analysis.first_reports import BASIS_INPUTS, _CALCULATED, _ratio, basis_changed, crossed
+
+    by_line = {(c["ticker"], c["concept"], c["fy"]): c for c in cells}
+    found = []
+    for ticker, fy in sorted({(c["ticker"], c["fy"]) for c in cells}):
+        for concept, inputs in BASIS_INPUTS.items():
+            now = [by_line.get((ticker, name, fy)) for name in inputs]
+            before = [by_line.get((ticker, name, fy - 1)) for name in inputs]
+            if None in now or None in before:
+                continue
+            values = [_CALCULATED[concept](*(c["winner"]["value"] for c in group)) for group in (now, before)]
+            delta = _pp_delta if concept.endswith("_margin") else _growth
+            change = None if None in values else delta(*values)
+            if change is None:
+                continue
+            pairs = [((n["winner"]["value"], _evidence(n)), (b["winner"]["value"], _evidence(b)))
+                     for n, b in zip(now, before)]
+            moved = [_kind(n[1], b[1]) for n, b in pairs if basis_changed(_ratio(n), _ratio(b)) or _found(n, b)]
+            if not moved:
+                continue
+            crosses = any(crossed(n, b) for n, b in pairs)
+            n_m = crosses or any(_found(n, b) for n, b in pairs)
+            kind = BASIS_KINDS[0] if crosses else moved[0] if len(set(moved)) == 1 else "mixed"
+            found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": kind, "n_m": n_m,
+                          "signs": _signs(change)})
+    return found
+
+
+def _count(group: list[dict[str, Any]]) -> str:
+    return f"{len(group)} ({len({c['ticker'] for c in group})})"
+
+
+def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
+    from app.services.trend_analysis.first_reports import BASIS_TOLERANCE, EVIDENCE_TOLERANCE
+
+    tolerance, evidence = f"{BASIS_TOLERANCE * 100:g}%", f"{EVIDENCE_TOLERANCE * 100:g}%"
+    every, every_calculated = basis_comparisons(cells), calculated_comparisons(cells)
+    found = [c for c in every if not c["signs"]]
+    calculated = [c for c in every_calculated if not c["signs"]]
+    lines = [
+        f"A year carries evidence where its value shown is more than {evidence} from its own report's. The comparisons "
+        f"below are the YoYs whose two years' shown-to-first-reported ratios differ by more than {tolerance} (a year "
+        "without evidence at 1), by kind:",
+        f"- *crossing*: the earlier year shown as its own report gave it, the later year's value shown more than "
+        f"{tolerance} from its own report's. The analysis reads it n/m (D3, the founder's, 2026-11-01).",
+        "- *leading edge*: the earlier year's value shown differs from its own report's, the later year's does not. "
+        "Its growth keeps its number.",
+        "- *inside a run*: both years' values shown differ from their own reports', at ratios more than "
+        f"{tolerance} apart. Its growth keeps its number.",
+        "Of any kind, a comparison with a sign or scale finding in either year's evidence (item 4) reads n/m, a "
+        "per-share one's included, and is counted here whether or not its two years' ratios differ.",
+        "",
+        "Basis, for a reported comparison: *like-for-like* where the filing behind the earlier year's value shown "
+        "gives the later year the value shown (within 0.1%, under the winning tag), so the growth shown is one "
+        "filing's comparison; *mixed* where it gives the later year another value; *unknown* where it gives none. "
+        "Growth that is undefined or already n/m (opposite signs) is left out of the tables: "
+        f"{_count([c for c in every if c['signs']])} reported and {_count([c for c in every_calculated if c['signs']])} "
+        "calculated comparisons already n/m. Each column: comparisons (companies).",
+        "",
+        "| kind | reported, not per-share | like-for-like | mixed | unknown | read n/m | per-share (no crossing n/m, D3) |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for kind in (*BASIS_KINDS, None):
+        group = [c for c in found if kind is None or c["kind"] == kind]
+        other = [c for c in group if not c["per_share"]]
+        cols = [other, *([c for c in other if c["basis"] == basis] for basis in BASES),
+                [c for c in other if c["n_m"]], [c for c in group if c["per_share"]]]
+        lines.append(f"| {kind or '**all**'} | " + " | ".join(_count(col) for col in cols) + " |")
+    lines += ["", "Calculated figures (D4), from their inputs' cells: n/m where an input crosses or carries a finding; "
+              "*mixed* where the inputs that moved are of two kinds.", "",
+              "| kind | calculated | read n/m |", "|---|---|---|"]
+    for kind in (*BASIS_KINDS, "mixed", None):
+        group = [c for c in calculated if kind is None or c["kind"] == kind]
+        lines.append(f"| {kind or '**all**'} | {_count(group)} | {_count([c for c in group if c['n_m']])} |")
+    by_series = sorted({c["concept"] for c in calculated})
+    lines += ["", "Calculated, read n/m, by series: " + (", ".join(
+        f"{concept} {sum(1 for c in calculated if c['concept'] == concept and c['n_m'])}" for concept in by_series)
+        or "none") + "."]
+    return lines
+
+
 def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: argparse.Namespace,
            stopped: Optional[str], started: str) -> str:
     out: list[str] = ["# Restatement census (MPA WP5, coherence.md section 1.6)", ""]
@@ -603,6 +780,9 @@ def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: ar
         out += ["", f"## Size: own differs from winner ({title})", "",
                 "Each tolerance column: cells (companies) whose gap exceeds it.", ""]
         out += _size_table(cells, which)
+
+    out += ["", "## Growth across a change of basis: what the analysis reads n/m (MPA WP5a, within the winning tag)", ""]
+    out += _basis_table(cells)
 
     for which in ("across", "within"):
         out += ["", f"## Rounding noise: relative-gap histogram ({which}, later-filing cells only)", ""]
