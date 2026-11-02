@@ -143,6 +143,7 @@ INHERITED = {
     ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"): 2,
     ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"): 1,
     ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
+    ("Rebuild the E28 window's filings in place (E28 (b); pregenerate job)", "run jobs execute"): 2,
     ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
 }
 SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}

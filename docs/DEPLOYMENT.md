@@ -1007,6 +1007,25 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
   --args="scripts/earnings_calendar_job.py,--sweep-from,2026-06-28,--sweep-to,2026-07-04" --wait
 ```
 
+**E28 (b) rebuild (`rebuild-e28-excerpts-dry-run` / `-apply`).** This rebuilds in place the 10-K and 10-Q filings
+whose stored excerpt the regex fallback wrote in the E28 window (2026-10-04 09:29Z to 2026-10-16 04:10Z, by last
+write), with `backend/scripts/rebuild_e28_window_excerpts.py`. Each goes through the forced regeneration
+`precompute_one` runs, with its excerpt rebuilt. Nothing is deleted or cleared: each summary keeps its id and its
+bookmarks, keep-better keeps it when the new run ranks lower, and no user is metered.
+
+The operations execute the script on `earningsnerd-pregenerate`, which carries the model key and the SEC budget, with
+execution-scoped arguments. So its one output line, `E28_REBUILD` and counts only, lands in that job's Cloud Run logs,
+not in the Actions log:
+- the dry run exits non-zero unless the cohort is the script's reviewed `EXPECTED_COHORT`;
+- the apply writes nothing then either, nor while `SUMMARY_DURABLE_GENERATION_ENABLED` is on;
+- the apply fails the run if any rebuild failed.
+
+The order:
+1. Dispatch the dry run.
+2. Read the balance and reserve: about one paid model call a filing, about USD 0.005 each.
+3. Dispatch the apply and approve it.
+4. Dispatch `excerpt-cohort` to read the result back: the window's regex rows move to native.
+
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.
 Flag columns only: identities not stored yet are counted as `facts_unstored`, never inserted, no
