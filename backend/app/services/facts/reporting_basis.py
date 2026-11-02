@@ -23,6 +23,9 @@ the count, so its sync is unchanged. A filer that moves back to US GAAP reads it
 current, as its next sync stores them. The years the retire left behind stay non-current, since a sync
 skips an identity it holds, except a non-USD filer's amounts: a sync outside USD re-promotes the batch's
 own stored rows (``currency.py``), though not their ratios. Restoring them needs the same stored basis (E287).
+A 6-K decides nothing either: a filer whose statements are tagged only in 6-Ks (CNI) is read from its last
+periodic report that tags us-gaap or ifrs-full items, so one that moved from IFRS to US GAAP that way would
+read as IFRS. None of production's 101 foreign filers reads against its newest items of any form (E287).
 """
 from __future__ import annotations
 

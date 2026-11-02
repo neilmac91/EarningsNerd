@@ -35,7 +35,10 @@ ended 2019-03-31, from its 2019 20-F) can read as the latest again until a store
 store it behind (E287). The last US-GAAP report's rows are the series' own identities, which the writer
 skips. A filer that moves back to US GAAP reads its new reports' years as current; the retired years stay
 non-current (a sync skips an identity it holds), except a non-USD filer's amounts, which a sync outside
-USD re-promotes without their ratios. The same stored basis would restore them (E287).
+USD re-promotes without their ratios. The same stored basis would restore them (E287). A 6-K decides
+nothing, so a filer that tags its statements only in 6-Ks (CNI) is read from its last periodic report;
+none of production's 101 foreign filers reads against its newest items of any form, 6-Ks included (E287). The retire runs only when a sync fetches:
+after the rule deploys, force-sync each filer it reads as IFRS that may hold a stored series.
 
 **Evidence**: `backend/app/services/facts/reporting_basis.py`;
 `backend/app/services/facts/companyfacts.py` (`normalize_companyfacts`' first branch);
