@@ -24,7 +24,8 @@ regeneration of it since would leave its regex excerpt outside the cohort.
 
 The rebuild deletes and clears nothing. Each filing goes through ``generate_summary_background(filing_id,
 None, force_regenerate=True, rebuild_excerpt=True)``, the call ``precompute_service.precompute_one``
-makes, which drains the one orchestrator. So:
+makes, which drains the one orchestrator; this script is that flag's one other caller, though the orchestrator's
+docstrings still name only the forced precompute. So:
 - the stored summary is updated in place, keeping its id and every ``saved_summaries`` bookmark;
 - keep-better keeps it when the new run ranks lower, and a failed run keeps it too;
 - the new excerpt is stored only with a summary that replaces, in the same commit;
@@ -45,8 +46,9 @@ the ``outcomes`` counts. The outcome classes split ``precompute_one``'s comparis
   resort, the cleaned document's head, or an unknown builder);
 - ``replaced_without_excerpt``: the summary changed and the run stored no excerpt;
 - ``kept``: keep-better kept the stored summary, and its regex excerpt stays;
-- ``failed``: a terminal error event, or an exception in the run or in reading its result, whose text is
-  withheld.
+- ``failed``: a run that never started (``None``), a terminal error event, or an exception in the run or in
+  reading its result. Its text stays out of these lines; an exception is logged with its traceback to the
+  job's own logs, as the stale drain logs one.
 
 The apply refuses while ``SUMMARY_DURABLE_GENERATION_ENABLED`` is on, since the orchestrator refuses a
 lease-less run then.
@@ -81,11 +83,21 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Mapping, Optional
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from sqlalchemy.sql.elements import ColumnElement
+
+    SessionFactory = Callable[[], Session]
+    Generate = Callable[..., Awaitable[Optional[dict[str, Any]]]]
+
+logger = logging.getLogger("rebuild_e28_window_excerpts")
 
 # Make the backend root importable as `app.*` when run directly (see backfill_facts.py).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -137,15 +149,16 @@ def builder(opening: Optional[str]) -> str:
     return "unclassified"
 
 
-def _in_window(column):
+def _in_window(column: "ColumnElement[Any]") -> "ColumnElement[bool]":
     return (column >= WINDOW_START) & (column < WINDOW_END)
 
 
-def select_cohort(db) -> list[tuple[int, str, str, bool]]:
+def select_cohort(db: "Session") -> list[tuple[int, str, str, bool]]:
     """(filing_id, form, builder, created in the window) for each cohort row, in filing-id order."""
     from sqlalchemy import func, or_
 
     from app.models import Filing, FilingContentCache
+    from app.utils.datetimes import ensure_utc
 
     created = FilingContentCache.created_at
     last_write = func.coalesce(FilingContentCache.updated_at, created)
@@ -162,17 +175,12 @@ def select_cohort(db) -> list[tuple[int, str, str, bool]]:
         form = (filing_type or "").strip().upper()
         kind = builder(opening)
         if form in FORMS and kind in REGEX_BUILDERS:
-            created_in = created_at is not None and WINDOW_START <= _aware(created_at) < WINDOW_END
+            created_in = created_at is not None and WINDOW_START <= ensure_utc(created_at) < WINDOW_END
             cohort.append((filing_id, form, kind, created_in))
     return cohort
 
 
-def _aware(moment: datetime) -> datetime:
-    """SQLite hands back the stored UTC instant naive; PostgreSQL's timestamptz comes back aware."""
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-
-
-def _summary_stamp(session_factory, filing_id: int):
+def _summary_stamp(session_factory: "SessionFactory", filing_id: int) -> Optional[tuple[int, Optional[datetime]]]:
     from app.models import Summary
 
     with session_factory() as db:
@@ -180,7 +188,7 @@ def _summary_stamp(session_factory, filing_id: int):
     return None if row is None else tuple(row)
 
 
-def _stored_opening(session_factory, filing_id: int) -> Optional[str]:
+def _stored_opening(session_factory: "SessionFactory", filing_id: int) -> Optional[str]:
     from sqlalchemy import func
 
     from app.models import FilingContentCache
@@ -193,7 +201,7 @@ def _stored_opening(session_factory, filing_id: int) -> Optional[str]:
         )
 
 
-async def rebuild_one(filing_id: int, session_factory, generate) -> str:
+async def rebuild_one(filing_id: int, session_factory: "SessionFactory", generate: "Generate") -> str:
     """One filing's forced rebuild and its outcome class, from precompute_one's comparison of the summary's
     (id, updated_at) before and after the run."""
     from app.services.summary_refresh import generation_failed
@@ -209,6 +217,8 @@ async def rebuild_one(filing_id: int, session_factory, generate) -> str:
             return "kept"
         kind = builder(_stored_opening(session_factory, filing_id))
     except Exception:  # noqa: BLE001 - the orchestrator converts errors to events; anything else is a failure
+        # The job's own logs, which carry filing ids already; never the counts lines.
+        logger.warning("rebuild-e28: rebuild failed for filing %s", filing_id, exc_info=True)
         return "failed"
     return _REPLACED[kind]
 
@@ -220,7 +230,8 @@ def first_attempt(env: Mapping[str, str]) -> bool:
 
 
 def run(args: argparse.Namespace, emit: Callable[[dict[str, Any]], None], *,
-        session_factory=None, generate=None, env: Mapping[str, str] = os.environ) -> int:
+        session_factory: Optional["SessionFactory"] = None, generate: Optional["Generate"] = None,
+        env: Mapping[str, str] = os.environ) -> int:
     """Select the cohort, report it, and on --apply rebuild each filing; return the exit code."""
     mode = "apply" if args.apply else "dry_run"
     if not first_attempt(env):
@@ -297,8 +308,6 @@ def main(argv: list[str] | None = None, env: Mapping[str, str] = os.environ) -> 
 if __name__ == "__main__":
     # The pregenerate job's other scripts start the same way: the ai_call spend reads as the job's, the provenance
     # and spend lines (INFO) reach the job's Cloud Run logs, and Redis, which production does not run, is skipped.
-    import logging
-
     os.environ.setdefault("SKIP_REDIS_INIT", "true")  # before any app import builds the settings
     from app.services import ai_metrics
 

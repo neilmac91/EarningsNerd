@@ -147,9 +147,9 @@ INHERITED = {
     ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
 }
 # The most INHERITED may ever hold, pair by pair: the pairs #1195 listed, less the proxy step's, which #1258
-# fixed, at their counts then. A pair may leave INHERITED and a count may fall; none joins and none rises, here or
-# there (rule 12). Lower a ceiling with a fix; a new gcloud call discards its stderr or captures it for a closed
-# class instead.
+# fixed, at their counts then. It carries no slack: it equals INHERITED, so a fix lowers both in its own diff, and
+# a call that let stderr through again would have to raise a ceiling here, which nothing may do (rule 12). A pair
+# missing from it has a ceiling of 0. A new gcloud call discards its stderr or captures it for a closed class.
 INHERITED_CEILING = {
     ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
     ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
@@ -682,6 +682,8 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
     risen = {pair: count for pair, count in INHERITED.items() if count > INHERITED_CEILING.get(pair, 0)}
     assert not risen, f"INHERITED only shrinks: discard or classify a new call's stderr rather than list it: {risen}"
+    assert INHERITED_CEILING == INHERITED, (
+        "a fix lowers INHERITED_CEILING with INHERITED, so no slack is left for a regrowth")
     assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"),
                         (PROXY_STEP, "/tmp/proxy-secret.err"), (REBUILD_STEP, "/tmp/e28-rebuild.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is

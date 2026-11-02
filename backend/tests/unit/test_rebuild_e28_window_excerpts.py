@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
 import importlib.util
 import json
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -257,7 +259,41 @@ def test_an_exception_counts_as_failed_and_its_text_is_withheld(sessions, monkey
     assert not any(secret in line or "e28b-" in line for line in lines)
 
 
-def test_a_failed_read_of_a_runs_result_counts_as_failed_and_the_run_goes_on(sessions, monkeypatch):
+def test_a_run_that_never_started_counts_as_failed(sessions, monkeypatch):
+    """generate_summary_background returns None, no event, when the run cannot start (a missing filing, no model
+    key): the stored summary is unchanged, but that is no keep-better decision, and the run must not read green."""
+    _window_cohort(sessions)
+    monkeypatch.setattr(rebuild, "EXPECTED_COHORT", 7)
+
+    async def orchestrator(*_args, **_kwargs):
+        return None
+
+    code, reports = _run(sessions, apply=True, generate=orchestrator)
+    assert code == 1 and reports[-1]["outcomes"]["failed"] == 7 and reports[-1]["outcomes"]["kept"] == 0
+
+
+def test_the_filings_are_rebuilt_one_at_a_time(sessions, monkeypatch):
+    """One model call and one SEC fetch in flight: each rebuild finishes before the next starts, whatever the
+    orchestrator awaits (the job's memory cap and its 1 req/s SEC budget assume it)."""
+    _window_cohort(sessions)
+    monkeypatch.setattr(rebuild, "EXPECTED_COHORT", 7)
+    in_flight, most = 0, 0
+
+    async def orchestrator(filing_id, _user_id, **_flags):
+        nonlocal in_flight, most
+        in_flight += 1
+        most = max(most, in_flight)
+        await asyncio.sleep(0)  # yield, so a concurrent rewrite would start the next one here
+        await asyncio.sleep(0)
+        _replace(sessions, filing_id, NATIVE)
+        in_flight -= 1
+        return {"type": "complete"}
+
+    code, reports = _run(sessions, apply=True, generate=orchestrator)
+    assert code == 0 and most == 1 and reports[-1]["outcomes"]["replaced"] == 7
+
+
+def test_a_failed_read_of_a_runs_result_counts_as_failed_and_the_run_goes_on(sessions, monkeypatch, caplog):
     """Reading the summary's stamp or the stored excerpt sits inside the failure class too: a database error there
     fails that filing, withheld, and the next filing still runs."""
     selected = _window_cohort(sessions)
@@ -277,11 +313,15 @@ def test_a_failed_read_of_a_runs_result_counts_as_failed_and_the_run_goes_on(ses
         return {"type": "complete"}
 
     lines = []
-    code = rebuild.run(argparse.Namespace(apply=True), lambda report: lines.append(json.dumps(report)),
-                       session_factory=sessions, generate=orchestrator, env={})
+    with caplog.at_level(logging.WARNING, logger="rebuild_e28_window_excerpts"):
+        code = rebuild.run(argparse.Namespace(apply=True), lambda report: lines.append(json.dumps(report)),
+                           session_factory=sessions, generate=orchestrator, env={})
     report = json.loads(lines[-1])
     assert code == 1 and report["outcomes"]["failed"] == 1 and report["outcomes"]["replaced"] == 6
     assert not any(secret in line or "e28b-" in line for line in lines)
+    # The traceback goes to the job's own logs, as the stale drain's does, never to the counts lines.
+    [record] = [r for r in caplog.records if r.name == "rebuild_e28_window_excerpts"]
+    assert record.getMessage() == f"rebuild-e28: rebuild failed for filing {selected[2]}" and record.exc_info
 
 
 def test_main_prints_one_counts_only_line(sessions, monkeypatch, capsys):
@@ -344,7 +384,6 @@ def test_the_entry_block_starts_as_the_pregenerate_jobs_scripts_do():
                    for node in top_imports), "an app import at module level would build the settings first"
     [entry] = [node for node in tree.body if isinstance(node, ast.If) and ast.unparse(node.test) == "__name__ == '__main__'"]
     assert [ast.unparse(statement) for statement in entry.body] == [
-        "import logging",
         "os.environ.setdefault('SKIP_REDIS_INIT', 'true')",
         "from app.services import ai_metrics",
         "ai_metrics.set_trigger('job')",

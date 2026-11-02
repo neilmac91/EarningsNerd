@@ -187,7 +187,8 @@ A failed read stops setup with its exit status and only `permission_denied`, `no
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
 operator evidence; their six step/command pairs (eight call sites) remain explicitly listed in
 [the stderr gate](../backend/tests/unit/test_ops_stderr_withheld.py)'s `INHERITED` map, which its
-`INHERITED_CEILING` lets only shrink, pair by pair. A new gcloud call discards or captures its stderr instead: the E28 (b)
+`INHERITED_CEILING` lets only shrink, pair by pair: the ceiling equals the map, so a fix lowers both in its diff
+and a regrowth would have to raise a ceiling. A new gcloud call discards or captures its stderr instead: the E28 (b)
 rebuild step (`rebuild-e28-excerpts-*`) captures its job execution's, and a failed execution prints only the
 `logs-probe` class with its exit status.
 These mutating actions are not live-test probes. The gate's stdin-program check does not
@@ -1013,8 +1014,8 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
 ```
 
 **E28 (b) rebuild (`rebuild-e28-excerpts-dry-run` / `-apply`).** This rebuilds in place the 10-K and 10-Q filings
-whose stored excerpt the regex fallback wrote in the E28 window (2026-10-04 09:29Z to 2026-10-16 04:10Z, by last
-write), with `backend/scripts/rebuild_e28_window_excerpts.py`. Each goes through the forced regeneration
+whose stored excerpt the regex fallback wrote in the E28 window (2026-10-04 09:29Z to 2026-10-16 04:10Z), with
+`backend/scripts/rebuild_e28_window_excerpts.py`. Each goes through the forced regeneration
 `precompute_one` runs, with its excerpt rebuilt. Nothing is deleted or cleared: each summary keeps its id and its
 bookmarks, keep-better keeps it when the new run ranks lower, and no user is metered.
 
