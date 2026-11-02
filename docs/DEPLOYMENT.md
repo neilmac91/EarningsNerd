@@ -843,6 +843,32 @@ create/read the custom role, set bucket IAM, create/update and run the cleanup j
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.
 
+Provisioning tests those permissions before its first write (`PROVISION_PERMISSIONS` in
+`ops/feedback_media/manage.py`, through Resource Manager `testIamPermissions`, plus `actAs` tested on the
+runtime identity itself) and refuses with the missing names and nothing changed. The deploying caller also
+needs to read the image it deploys to the cleanup job: Artifact Registry Reader's
+`artifactregistry.repositories.downloadArtifacts` on the image's repository, which Google lists separately
+from the Cloud Run service agent's access. Provisioning tests it on the repository itself, and refuses
+before any call an API image outside `us-west1-docker.pkg.dev/earnings-nerd/earningsnerd`; verify-apply
+tests it the same way before its first write. It then reads every
+existing resource a later step would refuse rather than repair, and refuses that too before any write: a
+deleted, `DISABLED` or differing object role; a bucket with other settings, a public principal or another
+runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; a
+differing heartbeat metric or alert policy. Absent resources are still created and owned ones converged.
+`feedback-media-inspect` prints the same capability check for both provisioning operations, then each
+resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
+alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed
+(incomplete), `UNVERIFIED` with a closed class when its read fails, or refused for readable drift, which an
+unverified line never masks: a failed read never stops another resource's checks. One read shows what a
+retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
+error class (status, reason, and a denied permission that one of these steps names); a dropped connection
+reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
+Provider messages, resources and principals stay withheld. The check reads the identity's own
+project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled
+API or an organization policy passes it and
+still surfaces at the step itself, while a grant held only on a single resource is invisible to it, so the
+check reports that permission missing and refuses; grant provisioning permissions at the project.
+
 `earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
 one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
 `feedback-media-cleanup-hourly` invokes it at `17 * * * *` in `Etc/UTC` using OAuth and a job-scoped
@@ -897,7 +923,15 @@ images; never delete the bucket, manifests or migrations as a rollback.
 
 #### Isolated live verification before enabling screenshots
 
-Merge and verify the backend deployment, then merge the screenshot frontend before this operation.
+Merge and verify the backend deployment, then merge the screenshot frontend and every other change to
+`frontend/` or `ops/feedback_media/` meant to ship with it, before `feedback-media-provision-apply`.
+**Release freeze:** from that provision's dispatch until `feedback-media-enable-apply` completes, merge
+nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`; records-only merges are
+fine. Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
+the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
+provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
+sitting. A verify that fails after seeding its run holds a two-hour lease, by which time the probe has
+expired, so recovery is a fresh provision and then a fresh verify.
 The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
 verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
 The wrapper is never installed as a production route or added to the backend image. The unchanged
@@ -947,6 +981,15 @@ The provisioner addresses only these feature resources:
   run; absence of an active browser is not inferred from a timeout. A changed runtime source also
   refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
   through a separately reviewed operation before retrying the new source.
+
+Before any write, the provisioner requires the object role and preview bucket that media provisioning
+creates, and admits itself only while the shared production instance has room: active client backends,
+the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
+summary rehearsal's rule, applied here to `earningsnerd-db`; a session the administrator cannot see in full
+counts as a client backend). It prints the counts and refuses otherwise;
+that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
+pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
+connection at :41 to the job budget above.
 
 Before creating resources, the provisioner checks actual project IAM capabilities and SQL
 `CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.

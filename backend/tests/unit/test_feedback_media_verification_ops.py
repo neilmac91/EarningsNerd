@@ -1,6 +1,7 @@
 """The isolated live-verification boundary and signed enablement evidence fail closed."""
 from __future__ import annotations
 
+import ast
 import hashlib
 import hmac
 import importlib.util
@@ -8,6 +9,7 @@ import json
 import base64
 import struct
 import sys
+import types
 import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -91,6 +93,40 @@ def test_enable_stops_before_any_flag_write_when_live_verification_is_unavailabl
     with pytest.raises(verify.media.OperationError, match="live verification missing"):
         verify.media.set_enabled(Cloud(), service, True)
     assert calls == ["receipt"]
+
+
+def test_a_script_run_enable_refused_for_its_receipt_exits_on_one_line(monkeypatch):
+    """ops.yml runs manage.py by path, so it is __main__ while the verifier imports it as ops.feedback_media.manage:
+    the receipt's refusal must still end in the one-line exit of its __main__ block, never a traceback."""
+    path = ROOT / "ops/feedback_media/manage.py"
+    *body, guard = ast.parse(path.read_text()).body
+    assert isinstance(guard, ast.If) and ast.unparse(guard.test) == "__name__ == '__main__'"
+    script = types.ModuleType("__main__")
+    script.__file__ = str(path)
+    monkeypatch.setitem(sys.modules, "__main__", script)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setattr(sys, "argv", [str(path), "feedback-media-enable-apply"])
+    exec(compile(ast.Module(body, []), str(path), "exec"), script.__dict__)
+    calls = []
+    unstable = {"etag": "version", "template": {"containers": [{"env": []}]}, "trafficStatuses": []}
+
+    class Cloud:
+        def call(self, *_, method="GET", **__):
+            calls.append(method)
+            return unstable
+    script.Cloud = Cloud
+    script.inspect = lambda *_: True  # storage and scheduled cleanup verified; only the receipt is refused
+    # A fresh package import each run: an earlier test's copy would hide (or fake) the script's own identity.
+    package = {name: sys.modules.pop(name) for name in list(sys.modules) if name == "ops" or name.startswith("ops.")}
+    try:
+        with pytest.raises(SystemExit) as refused:
+            exec(compile(ast.Module([guard], []), str(path), "exec"), script.__dict__)
+    finally:
+        for name in [name for name in sys.modules if name == "ops" or name.startswith("ops.")]:
+            del sys.modules[name]
+        sys.modules.update(package)
+    assert refused.value.code == "Production must have one stable revision serving all traffic"
+    assert calls == ["GET"]  # the production read only: no flag write
 
 
 def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
@@ -251,7 +287,33 @@ def test_missing_cloud_permissions_stop_before_resource_creation():
             return {"permissions": []}
     with pytest.raises(verify.media.OperationError, match="lacks required IAM"):
         verify.preflight_cloud(Cloud())
-    assert len(calls) == 1 and calls[0][1].endswith(":testIamPermissions")
+    assert len(calls) == 2 and all(call[1].endswith(":testIamPermissions") for call in calls)
+
+
+@pytest.mark.parametrize("granted", [True, False, "string-answer", "unhashable-entries"])
+def test_verification_preflight_tests_image_read_on_the_api_image_repository(granted):
+    calls = []
+    answers = {True: {"permissions": [verify.media.IMAGE_READ]}, False: {"permissions": []},
+               # Malformed answers grant nothing: a bare string is never read as containing the name.
+               "string-answer": {"permissions": verify.media.IMAGE_READ},
+               "unhashable-entries": {"permissions": [{"name": verify.media.IMAGE_READ}]}}
+    class Cloud:
+        def call(self, api, path, **kwargs):
+            calls.append((api, path, kwargs.get("method"), kwargs.get("body")))
+            if api == "artifactregistry":
+                return answers[granted]
+            return {"permissions": sorted(verify.PROJECT_PERMISSIONS)}
+    assert verify.IMAGE_PATTERN.pattern.startswith(r"us-west1-docker\.pkg\.dev/earnings-nerd/earningsnerd/")
+    assert verify.media.IMAGE_REPOSITORY == "projects/earnings-nerd/locations/us-west1/repositories/earningsnerd"
+    if granted is True:
+        verify.preflight_cloud(Cloud())
+    else:
+        with pytest.raises(verify.media.OperationError) as refused:
+            verify.preflight_cloud(Cloud())
+        assert str(refused.value) == ("Verification provisioning lacks required IAM permissions: "
+                                      "artifactregistry.repositories.downloadArtifacts on the API image repository")
+    assert calls[1] == ("artifactregistry", f"v1/{verify.media.IMAGE_REPOSITORY}:testIamPermissions", "POST",
+                        {"permissions": ["artifactregistry.repositories.downloadArtifacts"]})
 
 
 @pytest.mark.parametrize("defect", [None, "private-policy", "identity", "bucket", "secret", "runtime-source", "pool", "image", "missing-receipt", "manual-scaling", "accelerator"])
@@ -366,3 +428,138 @@ def test_a_new_apply_cannot_finalize_an_active_or_unknown_previous_lease(expired
         with pytest.raises(verify.media.OperationError, match="lease"):
             verify.settle_previous_run(Cloud(), Sql(), {}, {"template": {}})
         assert calls == [("GET", None)]
+
+
+@pytest.mark.parametrize("answer, admitted", [
+    ("25|3|0|6", True),    # 22 usable: (6 + 4 + 5) * 10 = 150 <= 154
+    ("25|3|0|7", False),   # (7 + 4 + 5) * 10 = 160 > 154
+    ("25|3|2|6", False),   # reserved_connections counts against usable: 20 usable, 150 > 140 (22 would admit)
+    ("23|3|0|5", True),    # exactly at 70%: (5 + 4 + 5) * 10 = 140 <= 140
+    ("8|3|0|0", False),
+    ("0|3|0|0", False),
+    ("25|3|0|PRINCIPAL", None),
+])
+def test_production_sql_admission_refuses_the_verifier_without_room(monkeypatch, capsys, answer, admitted):
+    statements = []
+    def query(self, statement, *, env=None):
+        statements.append(statement)
+        return answer
+    monkeypatch.setattr(verify.Sql, "query", query)
+    if admitted:
+        verify.Sql({}).admit()
+    else:
+        with pytest.raises(verify.media.OperationError,
+                           match="unreadable" if admitted is None else "insufficient for the isolated verifier; nothing was created"):
+            verify.Sql({}).admit()
+    assert len(statements) == 1 and statements[0].lstrip().startswith("SELECT")
+    # A session another role owns shows backend_type NULL to a role without pg_read_all_stats; it still counts.
+    assert "backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL)" in " ".join(statements[0].split())
+    assert "PRINCIPAL" not in capsys.readouterr().out
+
+
+def test_the_verifier_role_cap_covers_its_pools_and_one_serial_connection(monkeypatch):
+    pools = {}
+    for mode in ("api", "cleanup"):
+        env = {row["name"]: row.get("value") for row in verify.runtime_env(RUN_ID, IMAGE, HASHES, VERSIONS, mode)}
+        pools[mode] = int(env["DB_POOL_SIZE"]) + int(env["DB_MAX_OVERFLOW"])
+    assert pools["api"] + pools["cleanup"] + 1 <= verify.CONNECTION_LIMIT == 4
+    statements = []
+    def query(self, statement, *, env=None):
+        statements.append(statement)
+        if "rolsuper OR" in statement:
+            return "1"
+        if "count(*) FROM pg_roles" in statement or "count(*) FROM pg_database" in statement or "FROM pg_class" in statement \
+                or "FROM pg_proc" in statement:
+            return "0"
+        if "current_database()" in statement:
+            return f"{verify.DATABASE}:{verify.DATABASE}"
+        return ""
+    monkeypatch.setattr(verify.Sql, "query", query)
+    verify.Sql({}).provision("d" * 64, {})
+    assert sum(f"CONNECTION LIMIT {verify.CONNECTION_LIMIT} PASSWORD" in statement for statement in statements) == 1
+
+
+@pytest.mark.parametrize("state", [None, "role-absent", "role-deleted", "preview-absent", "preview-public"])
+def test_live_verification_refuses_before_any_write_without_completed_media_provisioning(state):
+    calls = []
+    role = {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA", "deleted": state == "role-deleted"}
+    preview = {"name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+               "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True},
+                                    "publicAccessPrevention": "inherited" if state == "preview-public" else "enforced"},
+               "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+    class Cloud:
+        def call(self, api, path, *, method="GET", missing_ok=False, step=None, **_):
+            calls.append((api, method, step))
+            if api == "iam":
+                return None if state == "role-absent" else role
+            return None if state == "preview-absent" else preview
+    if state is None:
+        verify.require_media_prerequisites(Cloud())
+    else:
+        with pytest.raises(verify.media.OperationError, match="refused before any write: media provisioning prerequisite not verified") as refused:
+            verify.require_media_prerequisites(Cloud())
+        assert {"role-absent": "role is absent", "role-deleted": "role is deleted", "preview-absent": "Preview bucket is absent",
+                "preview-public": "preview bucket differs"}[state] in str(refused.value)
+    assert all(method == "GET" and step for _api, method, step in calls)
+
+
+@pytest.mark.parametrize("refusal", [None, "prerequisites", "admission"])
+def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_first_write(monkeypatch, refusal):
+    events = []
+    monkeypatch.setenv("GITHUB_RUN_ID", RUN_ID.split("-")[0])
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    monkeypatch.setenv("FEEDBACK_VERIFY_DEPLOYER", "github-ops-fixture@earnings-nerd.iam.gserviceaccount.com")
+    monkeypatch.setattr(verify, "current_image", lambda *_: IMAGE)
+    monkeypatch.setattr(verify, "fingerprints", lambda: HASHES)
+    monkeypatch.setattr(verify, "preflight_cloud", lambda _cloud: events.append("permissions"))
+    def prerequisites(_cloud):
+        events.append("media prerequisites")
+        if refusal == "prerequisites":
+            raise verify.media.OperationError("Live verification refused before any write")
+    monkeypatch.setattr(verify, "require_media_prerequisites", prerequisites)
+    class Sql:
+        def preflight(self):
+            events.append("sql preflight")
+        def admit(self):
+            events.append("sql admission")
+            if refusal == "admission":
+                raise verify.media.OperationError("Production SQL headroom is insufficient")
+    class Admin:
+        def __enter__(self):
+            events.append("sql admin")
+            return Sql()
+        def __exit__(self, *_):
+            return False
+    monkeypatch.setattr(verify, "sql_admin", lambda _cloud: Admin())
+    def first_write(*_args, **_kwargs):
+        events.append("first write")
+        raise verify.media.OperationError("stop after the first write")
+    monkeypatch.setattr(verify, "secret", first_write)
+    class Cloud:
+        def call(self, api, path, *, method="GET", **_):
+            assert method == "GET" and path == "v2/" + verify.media.SERVICE
+            return {"template": {"containers": [{"image": IMAGE}]}}
+    with pytest.raises(verify.media.OperationError):
+        verify.provision(Cloud())
+    expected = ["permissions", "media prerequisites", "sql admin", "sql preflight", "sql admission", "first write"]
+    stop = {None: len(expected), "prerequisites": 2, "admission": 5}[refusal]
+    assert events == expected[:stop]
+
+
+def test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name():
+    """The provision gate's rule, for the verifier's own pre-write reads: each permission they name is preflighted."""
+    labels = []
+    class Cloud:
+        def call(self, api, path, *, method="GET", missing_ok=False, step=None, **_):
+            labels.append(step)
+            return {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"} if api == "iam" else {
+                "name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+                "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
+                "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+    verify.require_media_prerequisites(Cloud())
+    named = {name for label in labels for name in label.split(" [", 1)[1].rstrip("]").split(", ")}
+    assert named == {"iam.roles.get", "storage.buckets.get"}
+    # Every Cloud Run operation poll (media.Cloud.wait's label) and the serving revision's read (current_image, which
+    # is unlabelled) also run before or between writes.
+    polled = verify.media.OPERATION_READ.split(" [", 1)[1].rstrip("]").split(", ")
+    assert named | set(polled) | {"run.revisions.get"} <= verify.PROJECT_PERMISSIONS
