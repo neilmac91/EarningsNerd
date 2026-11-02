@@ -5,17 +5,22 @@ that holds no billing state (``complimentary_access_service``). That is safe onl
 known: today ``subscription_sync``'s three (the Stripe webhook's mirror, its deletion handler, the retired reverse
 trial) and the grant's two units. A new writer, such as an admin "make Pro" route, a repair script or a migration, could
 set the flag on an account that also holds a grant, and a revoke would then clear a right the grant never gave; or it
-could clear a grant's flag, which the readout reports as drift. So this gate finds, in every Python file under
-``backend/`` (its test homes excepted), ``ops/``, ``scripts/`` and ``tasks/``, each write-shaped mention:
+could clear a grant's flag, which the readout reports as drift. So this gate walks the whole repository but the
+browser app, the test homes and anything that is not ours (as the binding inventory walks it,
+``test_subscription_identity.py``: ``.claude/``, ``.github/`` and any new folder included) and finds, in every Python
+file, each write-shaped mention:
 
-* ``assign``: an assignment to an ``is_pro`` attribute (plain, augmented or annotated, or one target of a tuple);
+* ``assign``: an assignment to an ``is_pro`` attribute (plain, augmented or annotated, one target of a tuple, or the
+  target of a ``for``, ``async for``, ``with ... as`` or comprehension);
 * ``keyword``: an ``is_pro=`` keyword argument (a constructor, ``values(is_pro=...)``, a response model);
-* ``key``: ``"is_pro"`` or ``<model>.is_pro`` as a key of a mapping literal (``update({...})``, a payload);
+* ``key``: ``"is_pro"`` or ``<model>.is_pro`` as a key of a mapping literal (``update({...})``, a payload), or as the
+  column of an ``ordered_values((<model>.is_pro, ...))`` pair;
 * ``setattr``: ``setattr``/``set_attribute``/``__setattr__`` naming ``"is_pro"``;
 * ``string``: any other string literal outside a docstring that names ``is_pro`` (raw SQL), except the name a
   ``getattr``/``hasattr`` or a ``.get`` reads;
 
-and in every SQL, shell and workflow file, each line naming ``is_pro`` outside a comment (``text``). It holds the counts,
+and in every SQL, shell and workflow file, each line naming ``is_pro`` outside a comment (``text``; planted in
+``PLANTED_TEXT``). It holds the counts,
 per (path, enclosing function or class, kind), equal to ``REVIEWED``, whose comments say why each is or is not a write
 of the flag. A new one fails until it is reviewed and listed; the reviewer confirms that a new writer of the flag never
 touches an account a complimentary grant holds (or revokes the grant with it) and lists it.
@@ -25,18 +30,19 @@ Out of reach, said so nothing is overclaimed (each planted in ``OUT_OF_REACH``):
 ``update(values)``), raw SQL assembled from pieces that are not literals, and a helper that is handed the attribute name.
 """
 import ast
+import os
 import re
 from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-PYTHON_ROOTS = ("backend", "ops", "scripts", "tasks")
-SKIPPED = (ROOT / "backend" / "tests", ROOT / ".claude" / "worktrees")
-# Directories that hold no code of ours, as the binding inventory skips them (test_subscription_identity.py): an
-# installed package's own is_pro would otherwise be read as a writer.
-SKIPPED_NAMES = {".git", "node_modules", "__pycache__", "venv", ".venv", ".mypy_cache", ".pytest_cache", ".ruff_cache"}
+# What is not ours or never reaches the database, as the binding inventory skips it (test_subscription_identity.py):
+# the browser app, the test homes, git and tool caches (an installed package's own is_pro would otherwise read as a
+# writer), and a nested checkout or worktree, a folder with its own .git, which is another tree.
+SKIPPED_ROOTS = {"frontend"}
+SKIPPED_NAMES = {"tests", ".git", "node_modules", "__pycache__", "venv", ".venv", ".mypy_cache", ".pytest_cache",
+                 ".ruff_cache"}
 TEXT_SUFFIXES = (".sql", ".sh", ".yml", ".yaml")
-TEXT_ROOTS = ("backend", "ops", "scripts", "tasks", ".github")
 _NAME = re.compile(r"\bis_pro\b", re.IGNORECASE)
 _SETATTR = {"setattr", "set_attribute", "__setattr__"}
 _READERS = {"getattr", "hasattr", "get"}
@@ -118,11 +124,43 @@ def raw(db):
 
 def reads(user, row):
     return getattr(user, "is_pro", False), hasattr(user, "is_pro"), row.get("is_pro"), user.is_pro
+
+
+def looped(user):
+    for user.is_pro in (True,):
+        pass
+
+
+async def looped_async(user, flags):
+    async for user.is_pro in flags:
+        pass
+
+
+def managed(user, ctx):
+    with ctx() as user.is_pro:
+        pass
+
+
+def comprehended(user):
+    return [0 for user.is_pro in (True,)]
+
+
+def ordered(db):
+    db.execute(update(User).ordered_values((User.is_pro, True)))
+    db.execute(update(User).ordered_values(("is_pro", False)))
 '''
 PLANTED_FOUND = {
     ("plain", "assign"): 1, ("augmented", "assign"): 1, ("annotated", "assign"): 1, ("tupled", "assign"): 1,
     ("keyword", "keyword"): 1, ("key", "key"): 1, ("column_key", "key"): 1, ("named", "setattr"): 1,
-    ("raw", "string"): 1,
+    ("raw", "string"): 1, ("looped", "assign"): 1, ("looped_async", "assign"): 1, ("managed", "assign"): 1,
+    ("comprehended", "assign"): 1, ("ordered", "key"): 2,
+}
+# Lines a SQL, shell or workflow file holds, and how many name is_pro outside a comment.
+PLANTED_TEXT = {
+    "repair.sql": ("UPDATE users SET is_pro = true;\n-- is_pro in a comment\n/* is_pro\n in a block */\n"
+                   "UPDATE users SET plan = 'pro'; -- set is_pro later\n", 1),
+    "repair.sh": ('psql -c "UPDATE users SET IS_PRO = false"\n# is_pro in a comment\n  # and indented\n', 1),
+    "ops.yml": ("      - run: psql -c 'UPDATE users SET is_pro = true'\n      # is_pro in a comment\n", 1),
 }
 OUT_OF_REACH = '''
 def built(user):
@@ -180,13 +218,25 @@ def scan_python(source: str) -> Counter:
     def visit(node: ast.AST, scope: str) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             scope = node.name
-        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            for target in targets:
-                found[(scope, "assign")] += sum(1 for t in _targets(target) if _is_flag(t))
-        elif isinstance(node, ast.Call):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign, ast.For, ast.AsyncFor, ast.comprehension)):
+            targets = [node.target]
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            targets = [item.optional_vars for item in node.items if item.optional_vars is not None]
+        for target in targets:
+            found[(scope, "assign")] += sum(1 for t in _targets(target) if _is_flag(t))
+        if isinstance(node, ast.Call):
             found[(scope, "keyword")] += sum(1 for kw in node.keywords if kw.arg == "is_pro")
             name = _callee(node)
+            if name == "ordered_values":
+                for pair in node.args:
+                    if isinstance(pair, ast.Tuple) and pair.elts and (
+                            _is_flag(pair.elts[0])
+                            or (isinstance(pair.elts[0], ast.Constant) and pair.elts[0].value == "is_pro")):
+                        found[(scope, "key")] += 1
+                        exempt.add(id(pair.elts[0]))
             if name in _SETATTR and len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) \
                     and node.args[1].value == "is_pro":
                 found[(scope, "setattr")] += 1
@@ -217,28 +267,32 @@ def _strip_comments(path: Path, text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
-def _skipped(path: Path) -> bool:
-    return any(path.is_relative_to(skipped) for skipped in SKIPPED) or bool(
-        SKIPPED_NAMES.intersection(path.relative_to(ROOT).parts))
+def scan_text(path: Path, text: str) -> int:
+    """The lines of a SQL, shell or workflow file that name ``is_pro`` outside a comment."""
+    return sum(1 for line in _strip_comments(path, text).splitlines() if _NAME.search(line))
 
 
-def scan_repository() -> Counter:
+def _scanned_files(root: Path = ROOT) -> list[Path]:
+    files = []
+    for folder, subfolders, names in os.walk(root):
+        here = Path(folder)
+        subfolders[:] = [name for name in subfolders if name not in SKIPPED_NAMES
+                         and not (here == root and name in SKIPPED_ROOTS)
+                         and not (here / name / ".git").exists()]
+        files += [here / name for name in names
+                  if Path(name).suffix in (".py", *TEXT_SUFFIXES) and (here / name).is_file()]
+    return sorted(files)
+
+
+def scan_repository(root: Path = ROOT) -> Counter:
     found: Counter = Counter()
-    for root in PYTHON_ROOTS:
-        for path in (ROOT / root).rglob("*.py"):
-            if _skipped(path):
-                continue
-            rel = path.relative_to(ROOT).as_posix()
+    for path in _scanned_files(root):
+        rel = path.relative_to(root).as_posix()
+        if path.suffix == ".py":
             for (scope, kind), count in scan_python(path.read_text(encoding="utf-8")).items():
                 found[(rel, scope, kind)] += count
-    for root in TEXT_ROOTS:
-        for path in (ROOT / root).rglob("*"):
-            if path.suffix not in TEXT_SUFFIXES or not path.is_file() or _skipped(path):
-                continue
-            text = _strip_comments(path, path.read_text(encoding="utf-8", errors="replace"))
-            count = sum(1 for line in text.splitlines() if _NAME.search(line))
-            if count:
-                found[(path.relative_to(ROOT).as_posix(), "<file>", "text")] += count
+        elif count := scan_text(path, path.read_text(encoding="utf-8", errors="replace")):
+            found[(rel, "<file>", "text")] += count
     return found
 
 
@@ -257,3 +311,29 @@ def test_every_write_shaped_mention_of_is_pro_is_reviewed():
 def test_the_scan_finds_every_planted_write_form_and_names_its_gaps():
     assert scan_python(PLANTED) == Counter(PLANTED_FOUND)
     assert scan_python(OUT_OF_REACH) == Counter(), "the out-of-reach forms are documented gaps, not findings"
+    assert {name: scan_text(Path(name), text) for name, (text, _) in PLANTED_TEXT.items()} == {
+        name: count for name, (_, count) in PLANTED_TEXT.items()}
+
+
+def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_other_trees(tmp_path):
+    """Planted writers where the gate's first form never looked (a new top-level folder, .claude/, Python under
+    .github/), beside places it must skip."""
+    writes = "def repair(user):\n    user.is_pro = True\n"
+    for rel, text in {
+        "infra/repair_pro.py": writes,
+        ".github/scripts/repair_pro.py": writes,
+        ".claude/repair_pro.sh": 'psql -c "UPDATE users SET is_pro = true WHERE id = 1"\n',
+        "frontend/scripts/fixture.py": writes,
+        "backend/tests/unit/test_fixture.py": writes,
+        "ops/tool/tests/test_fixture.py": writes,
+        "vendor/checkout/repair_pro.py": writes,
+        "vendor/checkout/.git/HEAD": "ref: refs/heads/main\n",
+        "backend/node_modules/pkg/setup.py": writes,
+    }.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text)
+    assert scan_repository(tmp_path) == Counter({
+        ("infra/repair_pro.py", "repair", "assign"): 1,
+        (".github/scripts/repair_pro.py", "repair", "assign"): 1,
+        (".claude/repair_pro.sh", "<file>", "text"): 1,
+    })

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
-import { COMPLIMENTARY_END_CLAIM } from './complimentaryAccess'
+import { COMPLIMENTARY_END_CLAIM, spacedText } from './complimentaryAccess'
 
 const mockGetCurrentUserSafe = vi.fn()
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => mockGetCurrentUserSafe() }))
@@ -151,7 +151,7 @@ describe('BillingPanel', () => {
     expect(screen.queryByText(/renews on|access until|trial|\$/i)).not.toBeInTheDocument()
     // Nothing expires on a grant's review date (docs/ops/complimentary-access.md, "End date"), so no word of the panel
     // may say the access ends, renews, expires, costs or holds until a date.
-    expect(container.textContent).not.toMatch(COMPLIMENTARY_END_CLAIM)
+    expect(spacedText(container)).not.toMatch(COMPLIMENTARY_END_CLAIM)
   })
 
   it('sends no Pro account outside a trial to checkout, even with no Stripe customer', async () => {
