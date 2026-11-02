@@ -23,6 +23,7 @@ from app.services.summary_placeholders import is_summary_ready
 from app.services.provenance_service import source_safe_business_overview
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION
 from app.services import subscription_service
+from app.services.summary_recovery import apply_sql_budget
 from app.utils.datetimes import ensure_utc, utcnow
 
 
@@ -425,6 +426,7 @@ def dispatch_intent(job_id: str, generation: int, *, recover: bool = False) -> t
     """Return stable dispatch identity. Recovery rotates a stale intent, never a live lease."""
     with SessionLocal() as db:
         _lock_timeout(db)
+        apply_sql_budget(db)
         row = db.query(SummaryJob).filter(SummaryJob.id == job_id).with_for_update().first()
         now = utcnow()
         if row is None or row.generation != generation or row.status in {"complete", "partial", "failed"}:
@@ -442,6 +444,7 @@ def dispatch_intent(job_id: str, generation: int, *, recover: bool = False) -> t
 
 def mark_dispatched(job_id: str, generation: int, token: str) -> None:
     with SessionLocal() as db:
+        apply_sql_budget(db)
         db.query(SummaryJob).filter(
             SummaryJob.id == job_id, SummaryJob.generation == generation, SummaryJob.dispatch_token == token,
         ).update({SummaryJob.last_dispatched_at: utcnow()}, synchronize_session=False)
@@ -451,6 +454,7 @@ def mark_dispatched(job_id: str, generation: int, token: str) -> None:
 def due_jobs(limit: int) -> list[tuple[str, int]]:
     now = utcnow()
     with SessionLocal() as db:
+        apply_sql_budget(db)
         # Apply dispatch_intent's recovery cooldown before the batch limit, so a
         # recently redispatched expired owner cannot crowd out undispatched work.
         rows = db.query(SummaryJob.id, SummaryJob.generation).filter(

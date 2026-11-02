@@ -92,19 +92,44 @@ does **not** satisfy the recovery endpoint's shared-secret header check. OIDC pr
 also does not authenticate this handler. The private worker separately verifies the Cloud
 Tasks OIDC identity; proving one path does not prove the other.
 
-The recovery function currently has no whole-call lock or total wall-clock deadline.
-Twenty sequential dispatches use per-operation metadata/queue HTTP timeouts, not a total
-execution bound. A timed-out HTTP client does not prove its server work stopped. The scan
-and a manual caller may overlap the scheduled caller. Per-job row locks rotate a stale
-dispatch identity only once; concurrent callers reuse it, and deterministic task names
-deduplicate task creation. Candidate selection applies the acknowledgment cooldown before
-the batch limit, so recently redispatched expired owners do not crowd out new unacknowledged
-work; the dispatch transaction rechecks eligibility under the lock. Worker claims and
-result/usage writes remain lease-fenced.
-This protects ownership under overlap, but does not establish a single active recovery
-request or a latency guarantee. A strict non-overlap/deadline requirement needs additional
-implementation and a crash/retry proof before schedule activation; platform cadence alone
-must not be presented as that proof.
+All scan, scheduled and manual recovery calls now enter one bounded recovery scope. A
+nonblocking process lock prevents local queueing; a fixed database-wide PostgreSQL session
+advisory lock excludes other recovery passes. A contender returns zero dispatched without
+reading candidates. The guard uses its own one-slot connection pool, zero overflow and a
+250ms pool wait, with two-second connect/TCP timeouts and three-second guard statement
+limits. It never borrows the last ordinary application-pool slot. Budget **one additional
+transient database connection per participating process** before activation. SQLite development
+uses only local exclusion and does not establish fleet ownership.
+Guard operations use one lazy thread of their own, so physical disconnect does not queue
+behind unrelated request-pool waiters; the local permit bounds its submissions.
+
+The pass has one 20-second async budget covering ownership acquisition, candidate selection
+and every sequential handoff. Recovery's job transactions receive local statement limits of
+at most three seconds and row-lock limits of at most one second, clipped to the remaining
+budget; normal dispatch keeps its existing behavior. There is no open PostgreSQL transaction
+or row lock across queue HTTP. Immediately before each queue handoff the caller checks the
+deadline and its live guard session. On timeout, queue/storage failure or cancellation, it
+drains actual synchronous workers before physically closing the owning guard connection and
+releasing the local permit. Session advisory ownership is not returned to a reusable pooled
+connection, and PostgreSQL releases it after a process crash/disconnection. Timeout/storage
+refusal uses the existing internal endpoint's safe 503 path; successful calls keep the integer
+count of confirmed handoffs. No new generation occurs in the recovery caller.
+
+The 20-second budget is below the internal route's 30-second middleware timeout, but it is
+**not a hard process/remote-work kill guarantee**. Cancellation cannot terminate a running
+Python SQL thread, so cleanup waits for it; ordinary pool/connect waits, driver transport
+behavior and an OS pause can extend cleanup. The guard remains held while that work drains.
+A queue create already accepted remotely can complete after the HTTP await is canceled.
+A disconnected PostgreSQL lock session can also release ownership before its old process
+notices; the next checkpoint refuses further local handoffs, while an already in-flight one
+may still finish. Per-job fencing and deterministic task names remain the authority for
+those ambiguous deliveries. Do not infer physical request non-overlap or an end-to-end
+recovery SLO from the advisory lock alone.
+
+Candidate selection applies the acknowledgment cooldown before the batch limit, so recently
+redispatched expired owners do not crowd out new unacknowledged work; each dispatch transaction
+rechecks eligibility under its short row lock. Expired or canceled batches leave undispatched
+intents for the next caller. Worker claims and result/usage writes remain independently fenced.
 
 The intended time budget is the 300-second stale-handoff threshold, up to one minute until
 the next eligible scan, bounded recovery execution, and measured queue wait, all within the

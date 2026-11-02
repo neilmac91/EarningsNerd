@@ -4,13 +4,18 @@ SUMMARY_JOB_TEST_DATABASE_URL points only to a disposable test database. Each ca
 creates and drops its own UUID schema; no production schema or network provider is used.
 """
 import os
+import asyncio
+import json
+import select as io_select
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier, Event
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
@@ -19,6 +24,7 @@ from app import database
 from app.config import settings
 from app.models import Company, Filing, Summary, SummaryJob, SummaryPreparationBudget, User, UserUsage
 from app.services import summary_job_store as store, subscription_service as usage
+from app.services import summary_jobs as jobs, summary_recovery as recovery
 from app.utils.datetimes import utcnow
 
 
@@ -63,6 +69,181 @@ def seeded(factory):
         db.add(filing)
         db.commit()
         return user.id, filing.id
+
+
+@pytest.fixture
+def recovery_guard(postgres_engine, monkeypatch):
+    # Advisory locks are database-wide, unlike this home's per-case row schema.
+    monkeypatch.setattr(recovery, "RECOVERY_LOCK_KEY", int(uuid4().hex[:15], 16))
+    monkeypatch.setattr(database, "_DATABASE_URL", postgres_engine.url)
+    monkeypatch.setattr(recovery, "_engine", None)
+    yield
+    if recovery._engine is not None:
+        recovery._engine.dispose()
+
+
+def test_recovery_session_excludes_other_caller_without_open_transaction(recovery_guard, postgres_engine):
+    first, other = recovery._RecoveryOwner(), recovery._RecoveryOwner()
+    try:
+        assert first.acquire()
+        # A second independent engine models a different process's guard pool.
+        other_engine = create_engine(postgres_engine.url, pool_size=1, max_overflow=0)
+        original = recovery._engine
+        try:
+            recovery._engine = other_engine
+            assert not other.acquire()
+        finally:
+            recovery._engine = original
+            other.release()
+            other_engine.dispose()
+        with postgres_engine.connect() as connection:
+            from sqlalchemy import column, table
+            activity = table("pg_stat_activity", column("pid"), column("state"), column("xact_start"))
+            state, transaction = connection.execute(
+                select(activity.c.state, activity.c.xact_start).where(activity.c.pid == first.backend_pid),
+            ).one()
+            assert state == "idle" and transaction is None
+    finally:
+        first.release()
+    assert first.connection is None
+    with postgres_engine.begin() as probe:
+        assert probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+        assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_recovery_real_transactions_have_local_budgets(recovery_guard, factory, seeded, postgres_engine, monkeypatch):
+    user_id, filing_id = seeded
+    view = store.ensure_job(filing_id, user_id)
+    budgets = []
+
+    def record(connection, cursor, statement, parameters, context, executemany):
+        if f"FROM {SummaryJob.__tablename__}" in statement or statement.startswith(f"UPDATE {SummaryJob.__tablename__}"):
+            budgets.append(connection.execute(select(
+                func.current_setting("statement_timeout"), func.current_setting("lock_timeout"),
+            )).one())
+
+    async def queued(*args, **kwargs):
+        return "fixed-task"
+
+    monkeypatch.setattr(jobs, "enqueue_task", queued)
+    event.listen(postgres_engine, "before_cursor_execute", record)
+    try:
+        assert await jobs.recover_due_jobs() == 1
+    finally:
+        event.remove(postgres_engine, "before_cursor_execute", record)
+    assert len(budgets) >= 3  # selection, locked intent and acknowledged update
+    assert all(statement == "3s" and lock == "1s" for statement, lock in budgets)
+    with factory() as db:
+        assert db.get(SummaryJob, view.job_id).last_dispatched_at is not None
+        # Transaction-local limits did not leak to another checkout.
+        assert db.execute(select(func.current_setting("statement_timeout"))).scalar_one() == "5s"
+
+
+@pytest.mark.asyncio
+async def test_recovery_lock_timeout_closes_pass_without_queue_work(recovery_guard, factory, seeded, monkeypatch):
+    user_id, filing_id = seeded
+    view = store.ensure_job(filing_id, user_id)
+    calls = []
+
+    async def queued(*args, **kwargs):
+        calls.append(args)
+        return "fixed-task"
+
+    monkeypatch.setattr(jobs, "enqueue_task", queued)
+    with factory() as holder:
+        holder.query(SummaryJob).filter_by(id=view.job_id).with_for_update().one()
+        with pytest.raises(recovery.SummaryRecoveryUnavailable, match="storage"):
+            await jobs.recover_due_jobs()
+    assert calls == []
+    assert not recovery._slot.locked()
+    assert await jobs.recover_due_jobs() == 1
+
+
+@pytest.mark.asyncio
+async def test_recovery_cancellation_keeps_pg_lock_until_sql_thread_finishes(
+    recovery_guard, factory, seeded, postgres_engine, monkeypatch,
+):
+    user_id, filing_id = seeded
+    view = store.ensure_job(filing_id, user_id)
+    entered, release = Event(), Event()
+    draining = asyncio.Event()
+    original_drain = recovery.RequestWork.drain
+
+    def block_selection(connection, cursor, statement, parameters, context, executemany):
+        if f"FROM {SummaryJob.__tablename__}" in statement:
+            entered.set()
+            assert release.wait(10), "test did not release its real SQL operation"
+
+    async def drain(self):
+        draining.set()
+        await original_drain(self)
+
+    monkeypatch.setattr(recovery.RequestWork, "drain", drain)
+    event.listen(postgres_engine, "before_cursor_execute", block_selection)
+    task = asyncio.create_task(jobs.recover_due_jobs())
+    try:
+        assert await asyncio.to_thread(entered.wait, 10)
+        task.cancel()
+        await asyncio.wait_for(draining.wait(), 10)
+        with postgres_engine.begin() as probe:
+            assert not probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+        assert not task.done()
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        event.remove(postgres_engine, "before_cursor_execute", block_selection)
+    with postgres_engine.begin() as probe:
+        probe.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
+    with factory() as db:
+        assert db.get(SummaryJob, view.job_id).last_dispatched_at is None
+
+
+def test_recovery_process_crash_releases_session_lock(recovery_guard, postgres_engine):
+    # The child opens only a Core guard connection against this disposable test
+    # database. It touches no table outside the fixture's schema or any provider.
+    script = '''
+import json, signal, sys
+from sqlalchemy.engine import make_url
+from app import database
+from app.services import summary_recovery as recovery
+data = json.loads(sys.stdin.readline())
+database._DATABASE_URL = make_url(data['url'])
+recovery.RECOVERY_LOCK_KEY = data['key']
+owner = recovery._RecoveryOwner()
+assert owner.acquire()
+print('acquired', flush=True)
+signal.pause()
+'''
+    process = subprocess.Popen(
+        [sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        process.stdin.write(json.dumps({
+            "url": postgres_engine.url.render_as_string(hide_password=False),
+            "key": recovery.RECOVERY_LOCK_KEY,
+        }) + "\n")
+        process.stdin.flush()
+        readable, _, _ = io_select.select([process.stdout], [], [], 15)
+        assert readable, "local recovery child did not acquire its test lock"
+        assert process.stdout.readline().strip() == "acquired"
+        contender = recovery._RecoveryOwner()
+        try:
+            assert not contender.acquire()
+        finally:
+            contender.release()
+        process.kill()
+        process.wait(timeout=10)
+        with postgres_engine.begin() as connection:
+            # The fixture's 5s statement timeout is a hang guard, not an elapsed
+            # assertion. Actual server lock release must let this statement return.
+            connection.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.communicate(timeout=10)
 
 
 def _race(call, count=4):
