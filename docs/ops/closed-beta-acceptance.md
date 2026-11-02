@@ -110,15 +110,17 @@ and every unusable link answers one refusal with no way forward. They pass only 
 work's Billing fix and the invitation work's per-case refusals, which makes both preconditions of the rehearsal.
 
 A tab must never change the credentials of an account other than the one it shows (E29 (6) in `tasks/todo.md`).
-Before any tester is admitted, that auth repair is merged and deployed in full: every password change names the
-account its tab shows, as a required field (the founder approved that contract change), with its own two-account
-tests (one target with a password, one social-only), and the founder rehearsal repeats the manual check its pull
-request describes. Neither account may change. E29 (5), an OAuth sign-in that another tab's refresh can undo, is
-fixed before the rehearsal as the chief's review of its pull request requires. Among those conditions: a completion
-that fails safely when it cannot hold the session cookies' lock; a settled lifecycle for a pending sign-in across a
-sign-out everywhere, a password reset and an inactive account; and a frontend-first or compatibility-gated rollout
-and rollback plan. Otherwise the founder accepts E29 (5) in writing. A passing integration trial of the usual path
-closes neither item; the conditions in the chief's review of the pull request that carries each item do.
+Before any tester is admitted, that auth repair is merged and deployed in full, as the chief's review of its pull
+request requires. Among those conditions: every password change names the account its tab shows, as a required field
+(the founder approved that contract change); two-account tests (one target with a password, one social-only); and a
+password form that clears when the account its tab shows changes, unless focused evidence shows the existing code
+already protects it. The founder rehearsal then repeats, on two tabs and two accounts, the check that pull request
+records; neither account may change. E29 (5), an OAuth sign-in that another tab's refresh can undo, is fixed before
+the rehearsal as the chief's review of its pull request requires. Among those conditions: a completion that fails
+safely when it cannot hold the session cookies' lock; a settled lifecycle for a pending sign-in across a sign-out
+everywhere, a password reset and an inactive account; and an enforceable frontend-first or compatibility-gated
+rollout and rollback plan. Otherwise the founder accepts E29 (5) in writing. A passing integration trial of the usual
+path closes neither item; the conditions in the chief's review of the pull request that carries each item do.
 
 ## 4. Pro capabilities: pass and fail
 
@@ -208,8 +210,9 @@ back-to-back merges usually ship as one revision, so neither change can be verif
 
 Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198 in
 `tasks/todo.md`). Such a change lands with a census of its own: E198's is `ops/detection/usd_sync_convergence.sql`
-(#1968), which merges first. Ops runs only `main`'s SQL, so dispatch the read-only `detection-sql` once the census is
-on `main` and before the change merges, and keep that run. After the change deploys:
+(#1968), which merges first and stays until the records change that reports E198's after run retires it. Ops runs
+only `main`'s SQL, so dispatch the read-only `detection-sql` once the census is on `main` and before the change merges,
+and keep that run. After the change deploys:
 1. Sync the companies the rehearsal opens (a bounded `sync-companyfacts`). It reads only SEC but writes stored figures.
    A run that prints `resync ACCEPTED` has only queued the work: wait for each ticker's `Internal durable
    sync-companyfacts complete` line in Cloud Logging (`docs/quarterly-data-repair.md`, "Sync first, and wait for
