@@ -1,4 +1,4 @@
-# Read a filer whose latest annual report is IFRS as an IFRS filer; never present its last US-GAAP year as its latest figures
+# Read a filer whose latest periodic report is IFRS as an IFRS filer; never let its companyfacts series present its last US-GAAP year as its latest figures
 
 Date: 2026-11-01   Area: sec (financial facts)
 
@@ -11,26 +11,32 @@ named the sync time, not the age of the figures. The product already tells a rea
 reports under IFRS ("Multi-period analysis for IFRS filers is coming later"), but only for a payload
 with no us-gaap data at all. The founder chose to treat such filers as IFRS filers (2026-11-01).
 
-**Rule**: Decide a filer's reporting basis from its latest annual report, never from whether any
+**Rule**: Decide a filer's reporting basis from its latest periodic report, never from whether any
 us-gaap data exists (`facts/reporting_basis.py::reports_under_ifrs`).
-- The latest annual report is the newest original 10-K, 20-F or 40-F that us-gaap or ifrs-full
-  items name. Amendments are left out, since a 20-F/A may tag only its cover.
+- The latest periodic report is the newest original 10-K, 10-Q, 20-F or 40-F that us-gaap or
+  ifrs-full items name. Amendments are left out, since a 20-F/A may tag only its cover. A 10-Q counts:
+  a filer moving from IFRS to US GAAP may file US-GAAP 10-Qs before its first 10-K (Flutter), and an
+  IFRS filer files no 10-Q.
 - When that report tags more items under ifrs-full than under us-gaap, the filer is an IFRS filer.
   A tie, a few ifrs-full items in a US-GAAP report, or IFRS reports from years before the latest
   US-GAAP report leave it a US-GAAP filer.
 - A payload with no ifrs-full data never reaches the count, so a domestic filer's sync is unchanged.
 
 An IFRS filer's sync stores nothing and retires from current use the series earlier companyfacts
-syncs stored for it (`retire_ifrs_series`). It retires only rows with no filing owner, reported
-(`companyfacts`) or calculated from them (`derived`). Rows are never deleted: a filing's own rows stay
-current, and every filing's rows stay readable by accession. Never hide such a series in a reader
-instead: Multi-Period Analysis, the peers endpoint and the quarterly repair all read `is_latest`, so
-retiring the rows keeps them consistent, and the repair refuses the payload as it refuses an
-IFRS-only filer's.
+syncs stored for it (`retire_ifrs_series`), taking the company row first as every fact writer does. It
+retires only rows with no filing owner, reported (`companyfacts`) or calculated from them (`derived`).
+Rows are never deleted: a filing's own rows stay current, and every filing's rows stay readable by
+accession. Retire the rows rather than hide the series in a reader: Multi-Period Analysis, the peers
+endpoint and the quarterly repair all read `is_latest`, so they agree, and the repair refuses the
+payload as it refuses an IFRS-only filer's. The retire covers the companyfacts series only. A row the
+per-filing writer stores later from one of the filer's pre-switch US-GAAP reports, when a reader
+summarizes it, finds no current row at its key and goes in current, so that report's year can read as
+the latest again until a stored basis lets the writer store it behind (E287).
 
 **Evidence**: `backend/app/services/facts/reporting_basis.py`;
 `backend/app/services/facts/companyfacts.py` (`normalize_companyfacts`' first branch);
 `backend/app/services/facts/ingest.py` (`_persist_companyfacts_payload`);
-`backend/tests/unit/test_companyfacts_reporting_basis.py` (16 tests, ten mutants killed); F61 in
+`backend/tests/unit/test_companyfacts_reporting_basis.py` (22 tests, sixteen mutants killed, the
+company-lock order pinned by a statement spy); F61 in
 `tasks/todo.md`; the peers endpoint read of 2026-11-01 (TM: JPY revenue for the year ended 2020-03-31;
 ITUB: BRL net interest income for FY2010).

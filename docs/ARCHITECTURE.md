@@ -398,11 +398,14 @@ unused since generation became account-required in #619; kept because migrations
   current row at each period it presents, outside the periods it leaves as found (below); a sync in USD
   alone runs the upsert alone. Older accession facts remain
   available for their own filing even when they are not the current company value. A filer whose
-  latest annual report tags more items under ifrs-full than under us-gaap (or that carries no us-gaap
-  data) is an IFRS filer (`facts/reporting_basis.py`): its sync stores nothing and retires from current
-  use the series earlier companyfacts syncs stored for it (rows with no filing owner, source
-  `companyfacts` or `derived`), so Multi-Period Analysis and the peers endpoint never read a filer that
-  moved to IFRS (Toyota, Itau) at its last US-GAAP year.
+  latest original periodic report (10-K, 10-Q, 20-F or 40-F) tags more items under ifrs-full than under
+  us-gaap, or that carries ifrs-full data and no us-gaap data, is an IFRS filer
+  (`facts/reporting_basis.py`): its sync stores nothing and, holding the company row first, retires from
+  current use the series earlier companyfacts syncs stored for it (rows with no filing owner, source
+  `companyfacts` or `derived`). So that series no longer reads a filer that moved to IFRS (Toyota, Itau)
+  at its last US-GAAP year in Multi-Period Analysis or the peers endpoint. A filing-owned row stays
+  current: one the per-filing writer stores from a pre-switch US-GAAP report when a reader summarizes it
+  can make that report's year current again (E287).
 - A filing's own figures (the filing page's annual chart, `facts/filing_scope.py`) are the FY rows
   at its company and accession, current or not, never the rows keyed by `filing_id`. Both writers
   skip a stored identity, so a companyfacts row stored first at the filing's identity (the winner

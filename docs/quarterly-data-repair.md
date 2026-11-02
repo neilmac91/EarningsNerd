@@ -39,7 +39,7 @@ A US-GAAP filer that reports in another currency (the CNY 20-F shape), or that c
 currency, normalizes through the same per-filing pick as the sync
 (`facts/currency.py::filing_currencies`): the series takes the currency of its latest annual report,
 and filings in another currency are not read, so its repair plans identities in that currency only.
-A filer whose latest annual report is IFRS (`facts/reporting_basis.py`: Toyota, Itau) normalizes to
+A filer whose latest periodic report is IFRS (`facts/reporting_basis.py`: Toyota, Itau) normalizes to
 nothing, so the repair refuses it as it refuses an IFRS-only filer; its sync retires the us-gaap
 series earlier syncs stored, which leaves the repair nothing to plan.
 The repair does not demote the rows an older sync stored in another currency, or under a filing that

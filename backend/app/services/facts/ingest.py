@@ -86,7 +86,7 @@ async def ingest_companyfacts(
 
     Freshness: a sync newer than ``COMPANYFACTS_SYNC_TTL_HOURS`` is a no-op UNLESS a Filing row
     newer than the stamp exists (a fresh filing shouldn't wait out the TTL) or ``force`` is set.
-    ``facts_synced_at`` is stamped even for empty/IFRS-only results so unsupported filers aren't
+    ``facts_synced_at`` is stamped even for empty/IFRS results so unsupported filers aren't
     refetched hourly; a FAILED fetch does not stamp (retry on next touch). ``fetcher`` is
     injectable for tests (async ``cik -> dict | None``).
     """
