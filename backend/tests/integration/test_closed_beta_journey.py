@@ -559,8 +559,7 @@ class _MemoryBucket:
 
     def delete(self, key, generation):
         stored = self.objects.pop(key, None)
-        if stored is None:
-            return None  # not this bucket's object: a row another module left due for cleanup
+        assert stored is not None, "the cleanup run reached a screenshot row this test did not create"
         assert generation in (None, stored[0])
         return stored[0]
 
@@ -616,6 +615,31 @@ def _triage_row(admin: TestClient, feedback_id: int) -> dict:
 def _attachment_state(attachment_id: str) -> str:
     with SessionLocal() as db:
         return db.get(FeedbackAttachment, attachment_id).state
+
+
+def _clean_up(bucket: _MemoryBucket) -> None:
+    """Run the hourly cleanup job over this test's screenshots alone.
+
+    The job claims every due row in the database, oldest first, up to its batch. Rows another module left due
+    are moved out of its reach for the run and put back as they were, so the run claims only this test's rows,
+    however many others wait, and leaves no trace on rows this module did not create.
+    """
+    out_of_reach = utcnow() + timedelta(days=3650)
+    with SessionLocal() as db:
+        others = {row.id: row.deletion_due_at for row in db.query(FeedbackAttachment).filter(
+            FeedbackAttachment.deleted_at.is_(None), FeedbackAttachment.object_key.notin_(list(bucket.objects)))}
+        if others:
+            db.query(FeedbackAttachment).filter(FeedbackAttachment.id.in_(list(others))).update(
+                {"deletion_due_at": out_of_reach}, synchronize_session=False)
+            db.commit()
+    try:
+        run_feedback_media_cleanup(SessionLocal, bucket)
+    finally:
+        with SessionLocal() as db:
+            for row_id, due in others.items():
+                db.query(FeedbackAttachment).filter(FeedbackAttachment.id == row_id).update(
+                    {"deletion_due_at": due}, synchronize_session=False)
+            db.commit()
 
 
 def test_feedback_reaches_triage_and_the_testers_data_leaves_with_them(browsers, outbox, bucket):
@@ -674,7 +698,7 @@ def test_feedback_reaches_triage_and_the_testers_data_leaves_with_them(browsers,
     assert _account(me["email"]) is None
     assert tester.get("/api/auth/me").status_code == 401
     assert admin.get(f"/api/feedback/attachments/{attachment_id}").status_code in (404, 410)
-    run_feedback_media_cleanup(SessionLocal, bucket)
+    _clean_up(bucket)
     assert bucket.objects == {}
     assert _attachment_state(attachment_id) == "deleted"
     assert _triage_row(admin, text.json()["id"])["user_id"] is None
@@ -820,7 +844,7 @@ def test_switching_screenshots_off_keeps_text_feedback_and_cleanup(browsers, out
     attachment_id = _triage_row(admin, shot.json()["id"])["attachments"][0]["id"]
     assert tester.get(f"/api/feedback/attachments/{attachment_id}").content == b"kept screenshot"
     assert tester.delete("/api/users/me").status_code == 200
-    run_feedback_media_cleanup(SessionLocal, bucket)
+    _clean_up(bucket)
     assert bucket.objects == {}
     assert _attachment_state(attachment_id) == "deleted"
 

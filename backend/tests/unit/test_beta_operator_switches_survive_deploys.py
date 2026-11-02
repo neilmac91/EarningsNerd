@@ -42,7 +42,8 @@ def test_no_workflow_sets_an_operator_switch():
     pinned = {}
     for path in workflows:
         executable = _executable(path.read_text(encoding="utf-8"))
-        named = sorted(key for key in OPERATOR_SWITCHES if re.search(rf"\b{key}\b", executable))
+        # Settings reads the environment without regard to case (``case_sensitive = False``), so neither does this.
+        named = sorted(key for key in OPERATOR_SWITCHES if re.search(rf"\b{key}\b", executable, re.IGNORECASE))
         if named:
             pinned[path.name] = named
     assert not pinned, f"a deploy or step would reset the founder's beta switches: {pinned}"
