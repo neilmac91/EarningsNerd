@@ -618,9 +618,9 @@ def _signs(change: Any) -> bool:
 
 
 def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The reported YoY comparisons whose two years' ratios differ past ``BASIS_TOLERANCE``, each with its kind, its
-    basis (module docstring), whether its growth is already n/m by opposite signs, and whether the analysis reads it
-    n/m (not per-share: a crossing, D3, or a sign or scale finding in either year, item 4), by
+    """The reported YoY comparisons whose two years' ratios differ past ``BASIS_TOLERANCE`` or carry a sign or scale
+    finding, each with its kind, its basis (module docstring), whether its growth is already n/m by opposite signs, and
+    whether the analysis reads it n/m (a crossing, D3, not per-share; or a finding in either year, item 4), by
     ``trend_analysis/first_reports.py``'s own rule over the within-tag own values a sync stores."""
     from app.services.trend_analysis.dataset import _growth
     from app.services.trend_analysis.first_reports import BASIS_EXEMPT, _ratio, basis_changed, crossed
@@ -634,7 +634,7 @@ def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         now = (cell["winner"]["value"], _evidence(cell))
         before = (prior["winner"]["value"], _evidence(prior))
-        if not basis_changed(_ratio(now), _ratio(before)):
+        if not (basis_changed(_ratio(now), _ratio(before)) or _found(now, before)):
             continue
         given = cell.get("givers", {}).get(prior["winner"]["accession"]) or []
         shown = cell["winner"]["value"]
@@ -642,15 +642,15 @@ def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
             abs(value - shown) <= 0.001 * abs(shown) for value in given) else BASES[1]
         found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": _kind(now[1], before[1]),
                       "per_share": concept in PER_SHARE, "basis": basis, "signs": _signs(change),
-                      "n_m": concept not in BASIS_EXEMPT and (crossed(now, before) or _found(now, before))})
+                      "n_m": (concept not in BASIS_EXEMPT and crossed(now, before)) or _found(now, before)})
     return found
 
 
 def calculated_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """D4: each calculated figure's YoY whose inputs' two years' ratios differ past ``BASIS_TOLERANCE``, from its
-    inputs' cells as ``facts/derive.py`` computes it (``first_reports._CALCULATED``): a crossing where an input crosses
-    (read n/m, as a finding in an input reads it), else a leading edge or a run where every input that moved is one,
-    else mixed."""
+    """D4: each calculated figure's YoY whose inputs' two years' ratios differ past ``BASIS_TOLERANCE`` or carry a
+    finding, from its inputs' cells as ``facts/derive.py`` computes it (``first_reports._CALCULATED``): a crossing where
+    an input crosses, else a leading edge or a run where every such input is one, else mixed; read n/m where an input
+    crosses or carries a finding."""
     from app.services.trend_analysis.dataset import _growth, _pp_delta
     from app.services.trend_analysis.first_reports import BASIS_INPUTS, _CALCULATED, _ratio, basis_changed, crossed
 
@@ -669,11 +669,12 @@ def calculated_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             pairs = [((n["winner"]["value"], _evidence(n)), (b["winner"]["value"], _evidence(b)))
                      for n, b in zip(now, before)]
-            moved = [_kind(n[1], b[1]) for n, b in pairs if basis_changed(_ratio(n), _ratio(b))]
+            moved = [_kind(n[1], b[1]) for n, b in pairs if basis_changed(_ratio(n), _ratio(b)) or _found(n, b)]
             if not moved:
                 continue
-            n_m = any(crossed(n, b) or _found(n, b) for n, b in pairs)
-            kind = BASIS_KINDS[0] if n_m else moved[0] if len(set(moved)) == 1 else "mixed"
+            crosses = any(crossed(n, b) for n, b in pairs)
+            n_m = crosses or any(_found(n, b) for n, b in pairs)
+            kind = BASIS_KINDS[0] if crosses else moved[0] if len(set(moved)) == 1 else "mixed"
             found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": kind, "n_m": n_m,
                           "signs": _signs(change)})
     return found
@@ -700,7 +701,8 @@ def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
         "Its growth keeps its number.",
         "- *inside a run*: both years' values shown differ from their own reports', at ratios more than "
         f"{tolerance} apart. Its growth keeps its number.",
-        "Of any kind, a comparison with a sign or scale finding in either year's evidence (item 4) reads n/m.",
+        "Of any kind, a comparison with a sign or scale finding in either year's evidence (item 4) reads n/m, a "
+        "per-share one's included, and is counted here whether or not its two years' ratios differ.",
         "",
         "Basis, for a reported comparison: *like-for-like* where the filing behind the earlier year's value shown "
         "gives the later year the value shown (within 0.1%, under the winning tag), so the growth shown is one "
@@ -709,7 +711,7 @@ def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
         f"{_count([c for c in every if c['signs']])} reported and {_count([c for c in every_calculated if c['signs']])} "
         "calculated comparisons already n/m. Each column: comparisons (companies).",
         "",
-        "| kind | reported, not per-share | like-for-like | mixed | unknown | read n/m | per-share (D3 keeps them out) |",
+        "| kind | reported, not per-share | like-for-like | mixed | unknown | read n/m | per-share (no crossing n/m, D3) |",
         "|---|---|---|---|---|---|---|",
     ]
     for kind in (*BASIS_KINDS, None):
@@ -718,8 +720,8 @@ def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
         cols = [other, *([c for c in other if c["basis"] == basis] for basis in BASES),
                 [c for c in other if c["n_m"]], [c for c in group if c["per_share"]]]
         lines.append(f"| {kind or '**all**'} | " + " | ".join(_count(col) for col in cols) + " |")
-    lines += ["", "Calculated figures (D4), from their inputs' cells: n/m where an input crosses; *mixed* where the "
-              "inputs that moved are of two kinds.", "",
+    lines += ["", "Calculated figures (D4), from their inputs' cells: n/m where an input crosses or carries a finding; "
+              "*mixed* where the inputs that moved are of two kinds.", "",
               "| kind | calculated | read n/m |", "|---|---|---|"]
     for kind in (*BASIS_KINDS, "mixed", None):
         group = [c for c in calculated if kind is None or c["kind"] == kind]

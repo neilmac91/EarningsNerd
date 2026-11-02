@@ -39,8 +39,9 @@ its number, unless a sign or scale finding sits in either year (below).
 A finding that signals a tagging error rather than a change of basis (item 4), an exact sign flip or an exact factor of
 1,000ⁿ between the two values (``disagreement``), also marks the figure with the existing ``source_conflict`` reason (D2
 option A: no new words, no data notes version), so its comparisons and window figures inherit the note as they inherit
-any; the mark rests only on an own row that passed its checks (D6), and growth as first reported across a finding on
-either year is "nm", since one of the two readings rests on the slip.
+any; the mark rests only on an own row that passed its checks (D6), and growth across a finding on either year reads
+n/m, its growth as first reported "nm" too, since one of the two readings rests on the slip, a per-share figure's
+included.
 
 Annual runs only (D5): WP5b stores fiscal-year rows alone, and the page refuses evidence in a quarterly run, so a
 quarterly dataset reads nothing more and carries none. No CAGR or window change reads n/m (D5, deferred).
@@ -80,8 +81,9 @@ SCALE_STEPS = (1, 2, 3)  # A factor of 1,000ⁿ for these n, either way.
 # ratio is more than this share from the earlier year's, which is 1: a year without evidence has the ratio 1
 # (coherence.md section 1.6 item 3).
 BASIS_TOLERANCE = Decimal("0.01")
-# D3: per-share figures keep their evidence but their growth never reads n/m by this rule: after a stock split every
-# earlier year is restated at one ratio, so the first year after it would read n/m across no change of what EPS measures.
+# D3: per-share figures keep their evidence but their growth never reads n/m by the crossing rule: after a stock split
+# every earlier year is restated at one ratio, so the first year after it would read n/m across no change of what EPS
+# measures. A scale finding (item 4) still reads it n/m: a slipped EPS prints no growth either.
 BASIS_EXEMPT = frozenset({"earnings_per_share", "eps_diluted"})
 # D4: a calculated figure's growth reads n/m where one of these inputs crosses a change of basis, each read from the figure's
 # recorded operand of that concept, else (a calculation stored before operands were recorded) from that concept's own
@@ -223,8 +225,8 @@ def same_line(row_tag: Any, shown_tag: Any) -> bool:
 
 def replaced(row: Any) -> bool:
     """Whether a row is a per-filing row whose value the backfill's cross-check replaced (``facts/reconcile.py``
-    ``cross_check_facts``: source companyfacts at a filing, E264's set F): it holds the period's authoritative value at
-    the time, often a later filing's, so it is no filing's own report."""
+    ``cross_check_facts``: source companyfacts at a filing, as E264 lists them): it holds the period's authoritative
+    value at the time, often a later filing's, so it is no filing's own report."""
     return getattr(row, "filing_id", None) is not None and getattr(row, "source", None) == "companyfacts"
 
 
@@ -394,14 +396,13 @@ class FirstReports:
         """Item 3, once every series' growth is attached: a YoY that crosses a change of basis (D3, ``crossed``) reads n/m
         and carries the growth their own reports give, computed as the series computes its own (``growth``, or
         ``pp_delta`` for a margin); one with a sign or scale finding in either year's evidence reads n/m both ways
-        (item 4). EPS is exempt (D3); its provenance and checks stand."""
+        (item 4), EPS's included, which is exempt from the crossing alone (D3). Its provenance and checks stand."""
         if not self._cells:
             return series_list
         points = {series["concept"]: {point["period"]: point for point in series["points"]} for series in series_list}
         for series in series_list:
             concept, delta = series["concept"], pp_delta if series.get("percent") else growth
-            if concept in BASIS_EXEMPT:
-                continue
+            exempt = concept in BASIS_EXEMPT
             for point in series["points"]:
                 before = points[concept].get(_year_before(point["period"]) or "")
                 if point.get("yoy") is None or before is None:
@@ -411,7 +412,8 @@ class FirstReports:
                 # may be a value shown: n/m, and n/m as first reported, never a number or null, whatever the kind.
                 found = _has_finding(point) or _has_finding(before) or any(
                     figure and figure[1] and figure[1]["disagreement"] for figure in (*now_figures, *before_figures))
-                if found or any(crossed(now, then) for now, then in zip(now_figures, before_figures)):
+                crossing = not exempt and any(crossed(now, then) for now, then in zip(now_figures, before_figures))
+                if found or crossing:
                     point["yoy"] = NOT_MEANINGFUL
                     point["yoy_first_reported"] = NOT_MEANINGFUL if found else delta(
                         self._as_first_reported(concept, point, now_figures),

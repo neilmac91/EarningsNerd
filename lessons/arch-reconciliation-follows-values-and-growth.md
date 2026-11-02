@@ -65,8 +65,11 @@ note; `test_export_note_marks.py` holds both exports' letters to the shared fixt
 than the year's own annual report gave, the figure shows the later value and carries the own one as `first_reported`
 (a calculated figure's inputs carry theirs), and its checks, letters and totals stand: a recast is the comparable basis
 for the years after it, and marking every difference would mark about 4% of all figures. What changes is growth: a
-comparison whose two years sit on different bases reads n/m and carries the growth as first reported, so the page never
-prints a number that joins two scopes (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Only an exact sign flip
+comparison that crosses the change (the earlier year shown as first reported, the later year restated) reads n/m and
+carries the growth as first reported (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Since D3 (the founder's,
+2026-11-01) that is the only kind that does: a leading edge or a run of restated years mostly compares two values one
+filing reports, so it keeps its number, and the page can still print a number that joins two scopes where a run is
+mixed (34 of 123 in D3's census) until E288 reads the basis itself. Only an exact sign flip
 or factor of 1,000ⁿ, a likely tagging error, adds a note, through the existing `source_conflict` reason so no data
 notes version moves, and only on an own row that passed its checks. Read "own report" by replaying ingest's rule on
 stored rows (`trend_analysis/first_reports.py`), every clause of it, ranking the figure's own filing with the rest,

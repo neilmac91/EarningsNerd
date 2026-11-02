@@ -264,7 +264,8 @@ class TestTheEvidenceOnReportedFigures:
 
         company = _synced(db, _payload())
         fact = {"reconciled": True}
-        db.add(FinancialFact(company_id=company.id, concept="revenue", raw_tag="us-gaap:X", unit="USD",
+        # On the figure's own element, so the line rule (same_line) lets it in and the ranking alone decides.
+        db.add(FinancialFact(company_id=company.id, concept="revenue", raw_tag=f"us-gaap:{REV_TAG}", unit="USD",
                              period_start=date(2018, 1, 1), period_end=FY2018, fiscal_year=2018, fiscal_period="FY",
                              value=6_702.5e6, form=form, accession=other, source="companyfacts", reconciled=True,
                              is_latest=False, provenance=reported_provenance(fact, filed)))
@@ -480,9 +481,9 @@ class TestOneOwnReport:
         # E264's shape: the company's revenue was first read under one element (here "Revenues", a line of 40% of the
         # total, read while the winning element had no data), synced after the FY2020 10-K; a later sync reads the
         # total. The old line's rows stay where the new sync skips their identities: FY2018's winner, current and
-        # still shown (E264's set A); FY2018's and FY2019's own-report history rows (set D), which hold the cells the
-        # new history rows would take; and the old winners the new ones demote (set E), the FY2020 10-K's own FY2020
-        # among them. The reader takes no row of another element than the figure shown: no evidence on FY2019 (the
+        # still shown; FY2018's and FY2019's own-report history rows, which hold the cells the new history rows would
+        # take; and the old winners the new ones demote, the FY2020 10-K's own FY2020 among them (E264 lists each
+        # kind). The reader takes no row of another element than the figure shown: no evidence on FY2019 (the
         # new line's own row was never stored) nor FY2020 (its own report under the new element equals the value
         # shown), and FY2018's evidence on the old line it shows. After E264's cleanup (step 3: the old line's rows
         # deleted, the company synced again) the reader reads the own report ingest picks, as for every sequence.
@@ -869,6 +870,18 @@ class TestASignOrScaleFindingMarksTheFigure:
         point = _point(dataset, "earnings_per_share", "FY2018")
         assert (point["first_reported"]["disagreement"], point["provenance"]["reasons"]) == ("scale", ["source_conflict"])
 
+    def test_a_per_share_scale_finding_reads_its_growth_n_m_both_ways(self, db):
+        # D3 keeps EPS out of the crossing rule, not out of item 4: the FY2020 10-K gives FY2018 EPS a thousand times
+        # its own report's, so the growth on either side of the slipped year reads n/m both ways, and the next keeps
+        # its number.
+        eps = {2017: {2015: 1.5, 2016: 1.8, 2017: 1.9}, 2018: {2016: 1.8, 2017: 1.9, 2018: 2.01},
+               2019: {2017: 1.9, 2018: 2.01, 2019: 2.2}, 2020: {2018: 2010.0, 2019: 2.2, 2020: 2.4},
+               2021: {2019: 2.2, 2020: 2.4, 2021: 2.6}}
+        dataset = _build(db, _synced(db, _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items(eps)}}})))
+        growth = _yoy(dataset, "earnings_per_share")
+        assert growth["FY2018"] == growth["FY2019"] == ("nm", "nm")
+        assert growth["FY2020"] == (pytest.approx(2.4 / 2.2 - 1), "absent")
+
     def test_d2_a_per_share_sign_flip_is_evidence_with_no_finding(self, db):
         eps = {2017: {2015: 0.5, 2016: 0.6, 2017: 0.7}, 2018: {2016: 0.6, 2017: 0.7, 2018: -0.05},
                2019: {2017: 0.7, 2018: -0.05, 2019: 0.8}, 2020: {2018: 0.05, 2019: 0.8, 2020: 0.9},
@@ -917,6 +930,16 @@ _FINDINGS = {
         2019: {2018: 15_163.8e3, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e6, 2020: 19_994.1e6},
         2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}, instant=True)),
     "an-inputs-finding": lambda: _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}})),
+    # A finding on two years in a row at one factor: their ratios agree, but each growth beside them reads n/m.
+    "a-run-of-findings": lambda: _payload(assets=_items({
+        2017: {2016: 9_520.2e6, 2017: 11_734.5e6}, 2018: {2017: 11_734.5e6, 2018: 15_163.8e6},
+        2019: {2018: 15_163.8e3, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e3, 2020: 19_994.1e6},
+        2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}, instant=True)),
+    # A per-share slip: EPS is out of the crossing rule (D3), not out of item 4.
+    "an-eps-scale-slip": lambda: _payload(tags={"EarningsPerShareBasic": {"units": {"USD/shares": _items({
+        2017: {2015: 1.5, 2016: 1.8, 2017: 1.9}, 2018: {2016: 1.8, 2017: 1.9, 2018: 2.01},
+        2019: {2017: 1.9, 2018: 2.01, 2019: 2.2}, 2020: {2018: 2010.0, 2019: 2.2, 2020: 2.4},
+        2021: {2019: 2.2, 2020: 2.4, 2021: 2.6}})}}}),
     # Working capital turns negative in FY2019 (already n/m by sign) where its current-assets input crosses: the FY2020
     # 10-K gives FY2019's current assets at 95% of the FY2019 10-K's.
     "working-capital-turning-negative-at-a-crossing": lambda: _payload(tags={
@@ -952,6 +975,34 @@ class TestTheCensusCountsTheAnalysissNM:
             assert words in table
         assert "| crossing | 1 (1) | 0 (0) | 1 (1) | 0 (0) | 1 (1) | 0 (0) |" in table
         assert "| **all** | 3 (1) | 2 (1) | 1 (1) | 0 (0) | 1 (1) | 0 (0) |" in table
+
+    def test_the_table_leaves_out_growth_already_n_m_by_sign(self):
+        # FY2018 net income is shown at minus its own report's value: its growth beside FY2017, and FY2019's beside it,
+        # are n/m by sign before any rule. The analysis still reads both n/m across the finding, but they lose no
+        # number, so the table leaves them out and says how many it left.
+        from scripts import restatement_census
+
+        cells, _info = restatement_census.measure_company("REGN", _FINDINGS["a-sign-flip"](), False, 10)
+        found = {(c["concept"], c["fy"]): c for c in restatement_census.basis_comparisons(cells)}
+        assert all(found[("net_income", year)]["signs"] and found[("net_income", year)]["n_m"] for year in (2018, 2019))
+        kept = [c for c in found.values() if not c["signs"] and not c["per_share"]]
+        assert kept and not any(c["signs"] for c in kept)
+        table = "\n".join(restatement_census._basis_table(cells))
+        assert "2 (1) reported" in table and f"| **all** | {len(kept)} (1) |" in table
+
+    @pytest.mark.parametrize("fy2019_in_fy2021, basis", [(900.45e6, "like-for-like"), (901.8e6, "mixed")],
+                             ids=["0.05%-off", "0.2%-off"])
+    def test_like_for_like_is_the_value_shown_within_a_tenth_of_a_percent(self, fy2019_in_fy2021, basis):
+        # A run: the FY2020 10-K restates FY2018 (800) and FY2019 (900), and the FY2021 10-K gives FY2019 the value
+        # shown. The filing behind FY2018's value, the FY2020 10-K, gives FY2019 900: within 0.1% of the value shown
+        # is like-for-like, beyond it mixed.
+        from scripts import restatement_census
+
+        revenue = {**_restated(1_000.0e6, 800.0e6, 1_000.0e6, 900.0e6)}
+        revenue[2021] = {**revenue[2021], 2019: fy2019_in_fy2021}
+        cells, _info = restatement_census.measure_company("REGN", _payload(_items(revenue)), False, 10)
+        [found] = [c for c in restatement_census.basis_comparisons(cells) if (c["concept"], c["fy"]) == ("revenue", 2019)]
+        assert (found["kind"], found["basis"], found["n_m"]) == ("inside a run", basis, False)
 
     @pytest.mark.requires_db
     @pytest.mark.parametrize("shape", [*_shapes(), *_FINDINGS])

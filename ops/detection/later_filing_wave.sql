@@ -2,9 +2,9 @@
 -- It names no company and changes nothing.
 -- Retire: the records PR that reports this query's run deletes this file.
 --
--- WP5a-B's annual dataset reads a year's own annual report from any non-current fiscal-year row in the figure's cell
--- (backend/app/services/trend_analysis/first_reports.py), not only the history rows a sync stores after #1682: a
--- demoted former winner or a row the per-filing writer stored holds the cell alike. So a company whose rows already
+-- WP5a-B's annual dataset reads a year's own annual report from any non-current fiscal-year row on the figure's line
+-- in its cell (backend/app/services/trend_analysis/first_reports.py), not only the history rows a sync stores after
+-- #1682: a demoted former winner or a row the per-filing writer stored holds the cell alike. So a company whose rows already
 -- hold such a value changes at B's deploy, without a sync, and every saved annual analysis of it with the year in its
 -- window changes fingerprint: its narrative regenerates once at next open (unmetered), and its saved PDF answers 409
 -- until the analysis is re-run.
@@ -15,8 +15,9 @@
 -- is stored there, or its filing row is an annual report's, as the reader admits either) and whose latest FY row stored
 -- there ends on the cell's period end, not withheld (validation unavailable), finite, and more than 0.1% of its own
 -- value off the current row (any difference where it is 0). That is an upper bound on the cells B gives evidence: the
--- reader also ranks the figure's own filing among the year's own reports and drops a filing whose filing row reports a
--- later year, and both only remove cells.
+-- reader also ranks the figure's own filing among the year's own reports, drops a filing whose filing row reports a
+-- later year, reads a row under another XBRL element than the current row's (where both record one) as another line,
+-- and skips a per-filing row whose value the backfill's cross-check replaced, and each only removes cells.
 -- Growth n/m and the inputs' evidence follow these cells, so they add no company.
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so every set shares one snapshot. Each statement gets 120 s

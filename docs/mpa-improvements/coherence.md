@@ -380,11 +380,13 @@ WP5a decision brief, each held in one named constant or function a review can ov
   1% from the earlier year's, which is 1 (`BASIS_TOLERANCE`).
 - D2, option A: the sign-or-scale mark is the existing `source_conflict` reason, so no data notes version moves; the
   dialog's evidence says what was found (`disagreement`). Per-share figures are not sign-tested (`SIGN_TEST_EXEMPT`).
-- D3: EPS basic and diluted keep their evidence and never read n/m by this rule (`BASIS_EXEMPT`); and, the founder's
+- D3: EPS basic and diluted keep their evidence and never read n/m by the crossing rule (`BASIS_EXEMPT`), though a
+  scale finding still reads their growth n/m (item 4); and, the founder's
   choice of 2026-11-01 on the census by kind (below), growth reads n/m only where it crosses a change of basis
   (`crossed`): the earlier year shown as first reported, the later year's value shown more than 1% from its own
   report's. A leading edge (the earlier year restated, the later shown as first reported) and a run (both restated)
-  keep their growth. A sign or scale finding in either year still reads n/m both ways, whatever the kind (item 4).
+  keep their growth. A sign or scale finding in either year still reads n/m both ways, whatever the kind, a
+  per-share figure's included (item 4).
 - D4: margins, free cash flow, working capital and the current ratio read n/m where an input crosses
   (`BASIS_INPUTS`), read from the recorded operand, else from the input's own figure for a calculation stored before
   operands were recorded; item 5's evidence sits on the recorded operands.
@@ -400,8 +402,9 @@ A row is the figure's line only under the same XBRL element where both record on
 winning tag's items alone, and a per-filing row whose value the backfill's cross-check replaced is no filing's own
 report (`replaced`): before, a reading since changed (E264's fee-line rows of a financial filer) and a per-filing row
 of another line (E278's gross revenue) gave false evidence and n/m on SEC's payloads (KKR, MET, IBKR). A gate syncs
-E264's shape, the old line then the total: until E264's cleanup (3), the stale value shown (set A) keeps its own
-line's evidence and the other sets give none; after it, the reader reads the own report ingest picks.
+E264's shape, the old line then the total: until E264's cleanup (3), an old-reading value still shown keeps that
+reading's own evidence and the old reading's rows give a figure of the new reading none; after it, the reader reads the
+own report ingest picks.
 Every record that lists a reported figure lists its evidence with it: a calculated figure's inputs (item 5), and the
 figures a YoY or CAGR compares (`fact_provenance.fact_operand`); a window change compares margins, whose evidence sits
 on their inputs. So a CAGR that keeps its number across a change of basis (D5) still shows the changed endpoint's own
@@ -432,7 +435,7 @@ Calculated figures (D4) add 219 such comparisons at 44 companies, 57 of them rea
 brief first framed it (n/m wherever the ratios differ) would have read all 582 n/m, 256 of the reported ones hiding a
 like-for-like growth and, at a leading edge, printing a mixed one as first reported. The founder chose crossings only
 over three others put with the census of 2026-11-01 (that rule less its leading edges; the rule as built; no n/m until
-the store keeps each filing's prior-year values). The 34 mixed runs keep their growth, as before evidence, until E285
+the store keeps each filing's prior-year values). The 34 mixed runs keep their growth, as before evidence, until E288
 lets the rule read the basis itself.
 
 The rebuild wave comes in two parts, since the reader takes a year's own report from any non-current row of the
