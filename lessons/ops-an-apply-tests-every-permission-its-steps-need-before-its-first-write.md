@@ -17,14 +17,19 @@ Date: 2026-11-02 · Area: ops / protected applies (PB-03)
 switch's enable or disable, fails at its one write with nothing partial):
 1. **Label.** Label every provider call with its step and the IAM permission it needs.
 2. **Preflight.** Before the first write, and read-only:
-   - test that permission set: Resource Manager `testIamPermissions` for project grants, and the resource
-     itself for a resource-scoped prerequisite (`actAs` on the identity; image read on the Artifact Registry
-     repository of an image the apply deploys, which the caller needs apart from the Cloud Run service agent).
-     If anything is missing, refuse with the missing names;
+   - test the reads every run makes: Resource Manager `testIamPermissions` for project grants, and the
+     resource itself for a resource-scoped prerequisite (`actAs` on the identity; image read on the Artifact
+     Registry repository of an image the apply deploys, which the caller needs apart from the Cloud Run service
+     agent). If anything is missing, refuse with the missing names;
    - then read every existing resource a later step would refuse rather than repair (one owned by something
      else, or in a state the apply never converges, such as a deleted or `DISABLED` role or a schedule an
-     update cannot resume), and refuse it.
-   Either refusal changes nothing; the steps keep their own checks.
+     update cannot resume), and refuse it. Only a read that finds a resource absent (404) plans its create: a
+     denied read stops with its label, and a malformed answer is refused, so neither is planned as absent or
+     as already approved;
+   - then test only the writes the state it read needs: a create for what is absent, a set-policy for a
+     missing grant, an update for what exists. A resource or grant made by hand in the approved shape then
+     needs no create or set-policy permission.
+   Each refusal changes nothing; the write steps keep their own ownership and etag checks.
 3. **Closed failures.** Print a refused provider call as its label and a closed error class:
    `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>)`. The permission is named
    only when one of the steps names it, otherwise "an unlisted permission". An operation that fails after
@@ -53,6 +58,11 @@ switch's enable or disable, fails at its one write with nothing partial):
   `list` or `getIamPolicy`; a write names what it changes), and the capability label used outside
   `testIamPermissions`. Absent resources answer 404 as Google does, and so do the policies and execution lists
   under them, with one policy per bucket, so a read that forgets `missing_ok` fails it.
+- `test_provision_tests_exactly_the_writes_its_state_needs` holds the write set a run tests equal to the write
+  permissions its write labels name, from nothing, over existing resources, after a founder bootstrap and with
+  grants missing. `test_a_founder_bootstrap_provisions_without_role_bucket_or_bucket_grant_permissions`,
+  `test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_planning_it` and
+  `test_a_malformed_policy_never_reads_as_private_or_granted` pin the planning's reads.
 - `test_provision_from_nothing_tests_its_capability_before_its_first_write`,
   `test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission` and
   `test_provision_refuses_a_state_it_would_not_repair_before_any_write` pin the order, and
@@ -69,11 +79,15 @@ switch's enable or disable, fails at its one write with nothing partial):
 
 In `backend/tests/unit/test_feedback_media_verification_ops.py`,
 `test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name` holds the verifier's
-labelled media-prerequisite reads, its operation poll and its revision read to its `PROJECT_PERMISSIONS`.
+labelled media-prerequisite reads, its operation poll and its revision read to its `PROJECT_PERMISSIONS`, and
+`test_a_founder_bootstrap_removes_every_owner_equivalent_and_identity_write_from_verify_apply`,
+`test_without_a_bootstrap_verify_apply_still_names_every_grant_it_would_make` and
+`test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write` pin its bootstrap planning.
 
 Review-checked: whether a label names the exact permission its call needs (the gate checks only that it fits
 the call's method); the verifier's other calls, which are unlabelled today and print the API name with the
-closed class, and its writes; and every other apply.
+closed class, and its writes, so its bootstrap plan is held to its write paths by review and the focused cases,
+not by a gate; and every other apply.
 
 **Evidence.** The five Ops runs above; neilmac91/EarningsNerd#1957, which adds the preflight, labels and
 inventory; `docs/DEPLOYMENT.md`, "Private feedback screenshots".

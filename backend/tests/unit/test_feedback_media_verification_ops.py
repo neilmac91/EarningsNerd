@@ -7,6 +7,7 @@ import hmac
 import importlib.util
 import json
 import base64
+import re
 import struct
 import sys
 import types
@@ -503,7 +504,7 @@ def test_live_verification_refuses_before_any_write_without_completed_media_prov
     assert all(method == "GET" and step for _api, method, step in calls)
 
 
-@pytest.mark.parametrize("refusal", [None, "prerequisites", "admission"])
+@pytest.mark.parametrize("refusal", [None, "prerequisites", "bootstrap", "admission"])
 def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_first_write(monkeypatch, refusal):
     events = []
     monkeypatch.setenv("GITHUB_RUN_ID", RUN_ID.split("-")[0])
@@ -517,6 +518,8 @@ def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_fi
         if refusal == "prerequisites":
             raise verify.media.OperationError("Live verification refused before any write")
     monkeypatch.setattr(verify, "require_media_prerequisites", prerequisites)
+    monkeypatch.setattr(verify, "bootstrap_gaps", lambda _cloud, _deployer: events.append("bootstrap") or (
+        ["resourcemanager.projects.setIamPolicy"] if refusal == "bootstrap" else []))
     class Sql:
         def preflight(self):
             events.append("sql preflight")
@@ -539,11 +542,14 @@ def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_fi
         def call(self, api, path, *, method="GET", **_):
             assert method == "GET" and path == "v2/" + verify.media.SERVICE
             return {"template": {"containers": [{"image": IMAGE}]}}
-    with pytest.raises(verify.media.OperationError):
+    with pytest.raises(verify.media.OperationError) as refused:
         verify.provision(Cloud())
-    expected = ["permissions", "media prerequisites", "sql admin", "sql preflight", "sql admission", "first write"]
-    stop = {None: len(expected), "prerequisites": 2, "admission": 5}[refusal]
+    expected = ["permissions", "media prerequisites", "bootstrap", "sql admin", "sql preflight", "sql admission", "first write"]
+    stop = {None: len(expected), "prerequisites": 2, "bootstrap": 3, "admission": 6}[refusal]
     assert events == expected[:stop]
+    if refusal == "bootstrap":
+        assert str(refused.value) == ("Verification provisioning lacks required IAM permissions for this state; nothing "
+                                      "was changed: resourcemanager.projects.setIamPolicy")
 
 
 def test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name():
@@ -563,3 +569,154 @@ def test_the_verification_preflight_tests_every_permission_its_reads_before_writ
     # is unlabelled) also run before or between writes.
     polled = verify.media.OPERATION_READ.split(" [", 1)[1].rstrip("]").split(", ")
     assert named | set(polled) | {"run.revisions.get"} <= verify.PROJECT_PERMISSIONS
+
+
+DEPLOYER = "github-ops-fixture@earnings-nerd.iam.gserviceaccount.com"
+
+
+class BootstrapCloud:
+    """The verifier's identity, grants and secrets as the founder's one-time owner commands leave them (or absent)."""
+
+    def __init__(self, bootstrapped=True):
+        runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
+        self.calls, self.granted, self.denied = [], None, set()
+        self.identity = {"description": verify.PURPOSE} if bootstrapped else None
+        self.sa_policy = {"bindings": [{"role": role, "members": [runner]} for role in verify.SA_ROLES] if bootstrapped else []}
+        self.project = {"bindings": [{"role": "roles/cloudsql.client", "members": [member]}] if bootstrapped else []}
+        self.secrets = {name: {"labels": {"purpose": verify.PURPOSE}} for name in (verify.DB_SECRET, verify.KEY_SECRET)} if bootstrapped else {}
+        self.secret_policy = {"bindings": [{"role": verify.ACCESSOR, "members": [runner, member]},
+                                           {"role": verify.VERSION_ADDER, "members": [runner]}]}
+        self.bucket_policy = {"bindings": [{"role": verify.media.ROLE, "members": ["serviceAccount:runtime@example.invalid"]
+                                            + ([member] if bootstrapped else [])}]}
+
+    def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        self.calls.append((api, path, method, body))
+        if any(part in path for part in self.denied):
+            raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 403)")
+        if path.endswith(":testIamPermissions"):
+            return {"permissions": [name for name in body["permissions"] if self.granted is None or name in self.granted]}
+        assert method == "GET" or path.endswith(":getIamPolicy") or ":getIamPolicy?" in path, (api, path, method)
+        if api == "iam":
+            return self.sa_policy if ":getIamPolicy" in path else self.identity
+        if api == "cloudresourcemanager":
+            return self.project
+        if api == "secretmanager":
+            if ":getIamPolicy" in path:
+                return self.secret_policy
+            if path.endswith("/versions/latest"):
+                return None  # the founder adds no value: the run adds the first version itself
+            return self.secrets.get(path.rsplit("/", 1)[-1])
+        if api == "storage":
+            return self.bucket_policy
+        return None  # Cloud Run job, service and the scheduler are the run's own creations
+
+
+def test_a_founder_bootstrap_removes_every_owner_equivalent_and_identity_write_from_verify_apply():
+    cloud = BootstrapCloud()
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == []
+    project = [set(body["permissions"]) for api, path, _method, body in cloud.calls
+               if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+    assert project == [{"run.jobs.create", "run.jobs.setIamPolicy", "run.services.create", "run.services.setIamPolicy",
+                        "cloudscheduler.jobs.create"}]
+    resource = {(api, path.rsplit("/", 1)[-1]) for api, path, _method, _body in cloud.calls
+                if api != "cloudresourcemanager" and path.endswith(":testIamPermissions")}
+    assert resource == {("iam", verify.IDENTITY + ":testIamPermissions"), ("secretmanager", verify.DB_SECRET + ":testIamPermissions"),
+                        ("secretmanager", verify.KEY_SECRET + ":testIamPermissions")}
+    assert not (verify.PROJECT_PERMISSIONS & {"resourcemanager.projects.setIamPolicy", "iam.serviceAccounts.setIamPolicy",
+                                              "iam.serviceAccounts.create", "secretmanager.secrets.setIamPolicy"})
+    assert verify.CONDITIONAL_PERMISSIONS.isdisjoint(verify.PROJECT_PERMISSIONS)
+
+
+def test_without_a_bootstrap_verify_apply_still_names_every_grant_it_would_make():
+    cloud = BootstrapCloud(bootstrapped=False)
+    cloud.granted = set()
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == sorted(verify.CONDITIONAL_PERMISSIONS - {
+        "run.jobs.update", "run.services.update", "cloudscheduler.jobs.update"})
+
+
+@pytest.mark.parametrize("defect, refusal", [
+    ("identity-foreign", "not the active feature-owned identity"),
+    ("identity-extra-member", "identity grants differ from the approved bootstrap"),
+    ("identity-token-creator", "identity grants differ from the approved bootstrap"),
+    ("identity-members-string", "Resource policy is malformed"),
+    ("project-conditional", "unexpected direct project privileges"),
+    ("project-editor", "unexpected direct project privileges"),
+    ("project-bindings-object", "Resource policy is malformed"),
+    ("secret-foreign", "secret is not feature-owned"),
+    ("secret-labels-string", "secret is not feature-owned"),
+    ("secret-admin", "secret grants differ from the approved bootstrap"),
+    ("secret-public", "public principal"),
+    ("bucket-admin", "Runtime bucket grants differ"),
+    ("identity-policy-denied", "iam operation failed (HTTP 403)"),
+    ("secret-denied", "secretmanager operation failed (HTTP 403)"),
+])
+def test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write(defect, refusal):
+    """A denied read is never planned as absent, and a malformed or differing one never as approved."""
+    cloud = BootstrapCloud()
+    member = "serviceAccount:" + verify.IDENTITY
+    if defect == "identity-foreign":
+        cloud.identity = {"description": "someone else's"}
+    elif defect == "identity-extra-member":
+        cloud.sa_policy["bindings"][0]["members"].append("user:someone@example.invalid")
+    elif defect == "identity-token-creator":
+        cloud.sa_policy["bindings"].append({"role": "roles/iam.serviceAccountTokenCreator", "members": ["serviceAccount:" + DEPLOYER]})
+    elif defect == "identity-members-string":
+        # A string would match the deployer by substring and plan no grant.
+        cloud.sa_policy["bindings"] = [{"role": role, "members": "serviceAccount:" + DEPLOYER} for role in verify.SA_ROLES]
+    elif defect == "project-conditional":
+        cloud.project["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    elif defect == "project-editor":
+        cloud.project["bindings"].append({"role": "roles/editor", "members": [member]})
+    elif defect == "project-bindings-object":
+        cloud.project["bindings"] = {"role": "roles/cloudsql.client", "members": [member]}
+    elif defect == "secret-foreign":
+        cloud.secrets[verify.KEY_SECRET] = {"labels": {}}
+    elif defect == "secret-labels-string":
+        cloud.secrets[verify.KEY_SECRET] = {"labels": "purpose=" + verify.PURPOSE}
+    elif defect == "secret-admin":
+        cloud.secret_policy["bindings"].append({"role": "roles/secretmanager.admin", "members": ["serviceAccount:" + DEPLOYER]})
+    elif defect == "secret-public":
+        cloud.secret_policy["bindings"][0]["members"].append("allUsers")
+    elif defect == "identity-policy-denied":
+        cloud.denied = {":getIamPolicy?options.requestedPolicyVersion=3"}
+    elif defect == "secret-denied":
+        cloud.denied = {"/secrets/" + verify.DB_SECRET}
+    else:
+        cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectAdmin", "members": [member]})
+    with pytest.raises(verify.media.OperationError, match=re.escape(refusal)):
+        verify.bootstrap_gaps(cloud, DEPLOYER)
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+    # Planning stopped at the read: no write permission was tested.
+    assert not [call for call in cloud.calls if call[0] == "cloudresourcemanager" and call[1].endswith(":testIamPermissions")]
+
+
+def test_a_bootstrapped_identity_the_deployer_cannot_yet_act_as_is_named_not_assumed():
+    cloud = BootstrapCloud()
+    # The founder's resource-scoped grants have not propagated yet: the run names them rather than failing mid-apply.
+    cloud.granted = verify.PROJECT_PERMISSIONS | verify.CONDITIONAL_PERMISSIONS - {"secretmanager.versions.add"}
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == [
+        "actAs and getOpenIdToken on the verification identity",
+        f"secretmanager.versions.add on {verify.DB_SECRET}", f"secretmanager.versions.add on {verify.KEY_SECRET}"]
+
+
+@pytest.mark.parametrize("case", ["bootstrapped", "not-bootstrapped", "no-deployer", "denied"])
+def test_verify_inspect_reports_what_verify_apply_would_lack_without_writing(monkeypatch, capsys, case):
+    cloud = BootstrapCloud(bootstrapped=case != "not-bootstrapped")
+    if case == "not-bootstrapped":
+        cloud.granted = verify.PROJECT_PERMISSIONS
+    if case == "denied":
+        cloud.denied = {"/secrets/" + verify.KEY_SECRET}
+    if case != "no-deployer":
+        monkeypatch.setenv("FEEDBACK_VERIFY_DEPLOYER", DEPLOYER)
+    else:
+        monkeypatch.delenv("FEEDBACK_VERIFY_DEPLOYER", raising=False)
+    verify.report_capability(cloud)
+    line = capsys.readouterr().out.strip()
+    assert line == {
+        "bootstrapped": "Capability for feedback-media-verify-apply: all required permissions present",
+        "not-bootstrapped": "Capability for feedback-media-verify-apply: missing " + ", ".join(sorted(
+            verify.CONDITIONAL_PERMISSIONS - {"run.jobs.update", "run.services.update", "cloudscheduler.jobs.update"})),
+        "no-deployer": "Capability for feedback-media-verify-apply: UNVERIFIED (the configured project deployer is unavailable)",
+        "denied": "Capability for feedback-media-verify-apply: UNVERIFIED (secretmanager operation failed (HTTP 403))",
+    }[case]
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)

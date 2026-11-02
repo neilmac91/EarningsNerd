@@ -591,12 +591,138 @@ def test_provisioning_preflight_names_exactly_the_permissions_its_steps_use(monk
         sorted(used - resource_scoped - ops.PROVISION_PERMISSIONS), sorted(ops.PROVISION_PERMISSIONS - used))
 
 
+def founder_bootstrapped():
+    """The state the founder's one-time owner commands leave: the object role, both buckets and their runtime grants."""
+    cloud = CloudFixture(absent=True)
+    cloud.role = {"includedPermissions": ops.PERMISSIONS.copy(), "stage": "GA"}
+    cloud.buckets = {name: bucket(environment) for environment, name in ops.BUCKETS.items()}
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = [{"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}]
+    return cloud
+
+
+def unbound():
+    """Existing buckets and job whose runtime grants are still missing: the grant steps run, the creates do not."""
+    cloud = CloudFixture()
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = []
+    cloud.job_policy["bindings"] = []
+    return cloud
+
+
+@pytest.mark.parametrize("state", ["absent", "existing", "bootstrapped", "unbound"])
+def test_provision_tests_exactly_the_writes_its_state_needs(monkeypatch, state):
+    """Rule 12 gate: the write set a run tests equals the write permissions its write labels name, for each state."""
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    cloud = {"absent": lambda: CloudFixture(absent=True), "existing": CloudFixture, "bootstrapped": founder_bootstrapped,
+             "unbound": unbound}[state]()
+    ops.provision(cloud, cloud.service)
+    project_tests = [body["permissions"] for api, path, _method, body in cloud.calls
+                     if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+    assert len(project_tests) == 2 and set(project_tests[0]) == ops.PROVISION_READS
+    written = step_permissions(label for (_api, _path, method, _body), label in zip(cloud.calls, cloud.steps)
+                               if method != "GET" and label != ops.CAPABILITY_READ) - {ops.ACT_AS, ops.IMAGE_READ}
+    assert set(project_tests[1]) == written
+    if state == "bootstrapped":
+        assert not written & {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    if state == "existing":
+        assert written == {"run.jobs.update", "cloudscheduler.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
+    if state == "unbound":
+        assert {"storage.buckets.setIamPolicy", "run.jobs.setIamPolicy"} <= written
+        assert not written & {"iam.roles.create", "storage.buckets.create", "run.jobs.create"}
+
+
+def test_a_founder_bootstrap_provisions_without_role_bucket_or_bucket_grant_permissions(monkeypatch):
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    cloud = founder_bootstrapped()
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    ops.provision(cloud, cloud.service)
+    assert not any(api in ("iam", "storage") and method != "GET" for api, _path, method, _body in cloud.writes)
+    # The same grants refuse a project the founder has not bootstrapped, before any write.
+    cloud = CloudFixture(absent=True)
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    with pytest.raises(ops.OperationError, match="nothing was changed: iam.roles.create, storage.buckets.create, "
+                                                 "storage.buckets.setIamPolicy$"):
+        ops.provision(cloud, cloud.service)
+    assert cloud.writes == []
+
+
+@pytest.mark.parametrize("read, refusal", [
+    ("bucket-policy-members-string", "Resource policy is malformed"),
+    ("bucket-policy-bindings-object", "Resource policy is malformed"),
+    ("job-policy-condition-string", "Resource policy is malformed"),
+    ("bucket-labels-list", "Bucket answer is malformed"),
+    ("metric-descriptor-list", "Heartbeat metric answer is malformed"),
+    ("job-labels-string", "Cleanup job answer is malformed"),
+    ("alert-policy-not-object", "Alert policy answer is malformed"),
+    ("bucket-policy-denied", "Bucket policy read [storage.buckets.getIamPolicy] failed (HTTP 403)"),
+    ("role-denied", "Object role read [iam.roles.get] failed (HTTP 403)"),
+])
+def test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_planning_it(read, refusal):
+    """A denied read is never planned as absent, and a malformed answer never as approved: both refuse first."""
+    cloud = founder_bootstrapped() if read.startswith("bucket-") else CloudFixture()
+    production = ops.BUCKETS["production"]
+    if read == "bucket-policy-members-string":
+        # A string would match the runtime by substring and plan no grant.
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE, "members": "serviceAccount:runtime@example.invalid"}]
+    elif read == "bucket-policy-bindings-object":
+        cloud.policy_of(production)["bindings"] = {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}
+    elif read == "job-policy-condition-string":
+        cloud.job_policy["bindings"][0]["condition"] = "true"
+    elif read == "bucket-labels-list":
+        cloud.buckets[production]["labels"] = ["purpose", "feedback-media"]
+    elif read == "metric-descriptor-list":
+        cloud.metric["metricDescriptor"] = []
+    elif read == "job-labels-string":
+        cloud.job["labels"] = "purpose=feedback-media"
+    elif read == "alert-policy-not-object":
+        cloud.policies.append("PRIVATE_POLICY_SENTINEL")
+    elif read == "bucket-policy-denied":
+        cloud.fail_paths[ops.policy_path("storage/v1/b/" + production, storage=True)] = 403
+    else:
+        cloud.fail_paths["v1/" + ops.ROLE] = 403
+    with pytest.raises(ops.OperationError) as refused:
+        ops.provision(cloud, cloud.service)
+    assert str(refused.value).startswith(refusal) and "SENTINEL" not in str(refused.value)
+    assert cloud.writes == []
+    # Planning stopped at the read: the write permissions were never tested.
+    assert len([call for call in cloud.calls if call[0] == "cloudresourcemanager"]) == 1
+
+
+@pytest.mark.parametrize("bindings", [
+    "allUsers",
+    {"role": "roles/storage.objectViewer", "members": ["allUsers"]},
+    [["roles/storage.objectViewer", "allUsers"]],
+    [{"role": "roles/storage.objectViewer", "members": "allUsers"}],
+    [{"role": ["roles/storage.objectViewer"], "members": ["allUsers"]}],
+    [{"role": "roles/storage.objectViewer", "members": [{"member": "allUsers"}]}],
+    [{"role": "roles/storage.objectViewer", "members": ["allUsers"], "condition": "true"}],
+], ids=["string", "object", "binding-not-object", "members-string", "role-list", "member-object", "condition-string"])
+def test_a_malformed_policy_never_reads_as_private_or_granted(bindings):
+    policy = {"version": 3, "etag": "v", "bindings": bindings}
+    for check in (ops.check_private_policy, lambda p: ops.bound(p, "roles/storage.objectViewer", "allUsers"),
+                  lambda p: ops.check_runtime_bucket_policy(p, "runtime@example.invalid", granted=False)):
+        with pytest.raises(ops.OperationError, match="^Resource policy is malformed$"):
+            check(policy)
+
+
+def test_inspection_refuses_a_malformed_component_without_a_traceback(capsys):
+    cloud = CloudFixture()
+    cloud.job["template"] = ["not", "an", "object"]
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup job") + "$"):
+        ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup job: refused (answer is malformed)" in output and "Cleanup hourly schedule: verified" in output
+    assert cloud.writes == []
+
+
 def test_provision_from_nothing_tests_its_capability_before_its_first_write(capsys):
     cloud = CloudFixture(absent=True)
     ops.provision(cloud, cloud.service)
     first_write = cloud.calls.index(cloud.writes[0])
     capability = [i for i, call in enumerate(cloud.calls) if call[1].endswith(":testIamPermissions")]
-    assert len(capability) == 3 and max(capability) < first_write
+    # Reads, actAs and image read, then the writes this state needs: all before the first write.
+    assert len(capability) == 4 and max(capability) < first_write
     assert ("artifactregistry", f"v1/{ops.IMAGE_REPOSITORY}:testIamPermissions") in {call[:2] for call in cloud.calls}
     assert cloud.role["includedPermissions"] == ops.PERMISSIONS and cloud.job["labels"] == {"purpose": "feedback-media"}
     assert set(cloud.buckets) == set(ops.BUCKETS.values()) and cloud.schedule["state"] == "ENABLED"
@@ -606,10 +732,11 @@ def test_provision_from_nothing_tests_its_capability_before_its_first_write(caps
 
 
 @pytest.mark.parametrize("missing", ["logging.logMetrics.create", "iam.roles.create", "run.jobs.runWithOverrides",
-                                     "act-as", "image-read", "nothing-granted", "string-answer", "non-string-entries", "no-list"])
+                                     "storage.buckets.getIamPolicy", "act-as", "image-read", "nothing-granted",
+                                     "string-answer", "non-string-entries", "no-list"])
 def test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission(missing):
     cloud = CloudFixture(absent=True)
-    expected = sorted(ops.PROVISION_PERMISSIONS)  # an answer that grants nothing, or cannot be read, lacks everything
+    expected = sorted(ops.PROVISION_READS)  # an answer that grants nothing, or cannot be read, stops at the reads
     if missing == "act-as":
         cloud.act_as = False
         expected = ["iam.serviceAccounts.actAs on the API runtime identity"]
@@ -745,14 +872,22 @@ def test_every_permission_a_step_label_names_can_be_named_in_a_refusal():
 
 
 def test_inspection_reports_each_operations_capability_without_writing(capsys):
-    cloud = CloudFixture()
+    cloud = CloudFixture(absent=True)
     cloud.granted = ops.PROVISION_PERMISSIONS - {"logging.logMetrics.create", "monitoring.alertPolicies.create"}
     ops.report_capabilities(cloud, cloud.service)
     output = capsys.readouterr().out
     assert ("Capability for feedback-media-provision-apply: missing logging.logMetrics.create, "
             "monitoring.alertPolicies.create") in output
-    assert "Capability for feedback-media-verify-apply: missing " in output and "resourcemanager.projects.setIamPolicy" in output
+    # The owner-equivalent grant is never a standing requirement: verify-inspect reports it only while it is needed.
+    assert "Capability for feedback-media-verify-apply (every run): missing " in output
+    assert "resourcemanager.projects.setIamPolicy" not in output
     assert cloud.writes == [] and "runtime@example.invalid" not in output
+    # On the existing state those creates are not needed, so the same grants suffice.
+    cloud = CloudFixture()
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"logging.logMetrics.create", "monitoring.alertPolicies.create"}
+    ops.report_capabilities(cloud, cloud.service)
+    assert "Capability for feedback-media-provision-apply: all required permissions present" in capsys.readouterr().out
+    cloud = CloudFixture()
 
     def unreadable(api, path, **kwargs):
         raise ops.ProviderError(kwargs["step"] + " failed (HTTP 403)")
@@ -1026,5 +1161,5 @@ def test_inspection_reports_a_missing_image_read_for_both_operations(capsys):
     assert ("Capability for feedback-media-provision-apply: missing "
             "artifactregistry.repositories.downloadArtifacts on the API image repository") in output
     assert "artifactregistry.repositories.downloadArtifacts on the API image repository" in output.split(
-        "Capability for feedback-media-verify-apply: ", 1)[1]
+        "Capability for feedback-media-verify-apply (every run): ", 1)[1]
     assert cloud.writes == []
