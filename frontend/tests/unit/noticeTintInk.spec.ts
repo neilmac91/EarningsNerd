@@ -14,7 +14,8 @@ import { noticeTint, type NoticeVariant } from '@/components/ui'
  * whose words wore the error ink on the loss tint, 4.32:1 in dark, until it took Notice's error tint (4.62:1).
  *
  * The tint is read from noticeTint() as it ships and the inks from the borrower's source, both resolved through
- * tailwind.config.js: light reads the bare `bg-` class, dark the `dark:bg-` one, each with its opacity modifier
+ * tailwind.config.js. Every class of the variant's ink family the borrower writes must be one of the inks listed, so a
+ * faded or varied ink (`dark:text-error-dark/80`, `hover:text-error-light`) fails rather than passing unmeasured: light reads the bare `bg-` class, dark the `dark:bg-` one, each with its opacity modifier
  * (`/[0.06]`, or `/10` on Tailwind's opacity scale), composited on the ground and rounded to 8-bit channels, as the
  * browser paints it. A tint or ink it cannot read fails. Out of reach: an ink written outside the borrower's own file.
  */
@@ -62,6 +63,11 @@ function tint(classes: string, theme: Theme): { colour: Rgb; alpha: number } {
   return { colour: hex(COLORS[m[1]]), alpha }
 }
 const inkOf = (cls: string) => hex(COLORS[cls.replace(/^(?:dark:)?text-/, '')])
+/** The classes of a variant's ink family a source writes that are not the inks the spec measures. */
+function unmeasuredInks(source: string, variant: NoticeVariant, ink: Record<Theme, string>): string[] {
+  const family = new RegExp(String.raw`(?<![\w:/-])(?:[\w-]+:)*text-${variant}-[\w-]+(?:\/[^\s'"\`]+)?(?=[\s'"\`]|$)`, 'g')
+  return [...new Set(source.match(family) ?? [])].filter((cls) => !Object.values(ink).includes(cls))
+}
 const GROUNDS: Record<Theme, Record<string, Rgb>> = {
   light: { panel: hex(COLORS['panel-light']), page: hex(COLORS['background-light']) },
   dark: { panel: hex(COLORS['panel-dark']), page: hex(COLORS['background-dark']) },
@@ -72,6 +78,7 @@ describe("words in a status ink inside Notice's tint (E283)", () => {
     const source = readFileSync(path.join(ROOT, file), 'utf8')
     expect(source, `${file} lends the ${variant} tint`).toContain(`noticeTint('${variant}')`)
     for (const cls of Object.values(ink)) expect(source, `${file} writes ${cls}`).toMatch(new RegExp(`(?:^|[\\s'"\`])${cls.replace(/[:/]/g, '\\$&')}(?=[\\s'"\`])`))
+    expect(unmeasuredInks(source, variant, ink), `${file} writes the ${variant} ink only as measured`).toEqual([])
     const failing: string[] = []
     for (const theme of ['light', 'dark'] as Theme[]) {
       const { colour, alpha } = tint(noticeTint(variant), theme)
@@ -94,5 +101,8 @@ describe("words in a status ink inside Notice's tint (E283)", () => {
     expect(() => tint('bg-error-light', 'light')).toThrow('a tint this spec cannot read')
     expect(() => tint('bg-error-light/[0.06] bg-error-light/10', 'light')).toThrow('2 tints')
     expect(() => tint('dark:bg-error-dark/10', 'light')).toThrow('0 tints')
+    const inks = { light: 'text-error-light', dark: 'dark:text-error-dark' }
+    expect(unmeasuredInks(`<p className="text-error-light dark:text-error-dark">a</p><ul className="text-sm dark:text-error-dark/80 hover:text-error-light">`, 'error', inks))
+      .toEqual(['dark:text-error-dark/80', 'hover:text-error-light'])
   })
 })
