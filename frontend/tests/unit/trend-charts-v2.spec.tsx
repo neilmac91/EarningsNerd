@@ -638,9 +638,11 @@ describe('the PNG export', () => {
       expect(png).toHaveAccessibleName('Download chart as PNG')
       expect(png).toHaveAccessibleDescription('Image matches your theme.')
       expect(png).toHaveAttribute('title', 'Download chart as PNG. Image matches your theme.')
-      // One sr-only line beside the button, never inside it, which holds its glyph alone.
+      // One hidden line beside the button, never inside it, which holds its glyph alone: the description reads it, and
+      // a screen reader's browse mode does not read it again as text.
       const hint = within(card).getByText('Image matches your theme.')
-      expect(hint).toHaveClass('sr-only')
+      expect(hint).toHaveAttribute('hidden')
+      expect(hint).not.toBeVisible()
       expect(png).not.toContainElement(hint)
       expect(png).toHaveAttribute('aria-describedby', hint.id)
       // The toggle takes no hint: nothing describes it, and its title is its label, as before the hint.

@@ -54,11 +54,13 @@ export default function ChartControl({
   )
   if (!hint) return button
   // Beside the button, never in it: the button holds its glyph alone, which the busy state swaps for the spinner. The
-  // sr-only box is out of the header row's flex flow, so the controls keep their gap and their places.
+  // line is `hidden`, which a description reads all the same: a screen reader says it once, as the button's
+  // description, where an sr-only line would read again as text after the button in browse mode. It takes no box, so the
+  // controls keep their gap and their places.
   return (
     <>
       {button}
-      <span id={hintId} className="sr-only">{hint}</span>
+      <span id={hintId} hidden>{hint}</span>
     </>
   )
 }

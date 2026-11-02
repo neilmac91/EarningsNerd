@@ -3163,8 +3163,9 @@ plot needs it stops with an error toast rather than paint a fallback (gate, in C
 Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
 theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
 control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
-"Image matches your theme." in an sr-only line beside the button, its name still the label (ChartControl's `hint`; the
-expand control takes none; gate: `tests/unit/trend-charts-v2.spec.tsx`). Use keyboard/touch source controls, not
+"Image matches your theme." from a `hidden` line beside the button, so browse mode does not read it twice, its name
+still the label (ChartControl's `hint`; the expand control takes none; gate: `tests/unit/trend-charts-v2.spec.tsx`).
+Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
