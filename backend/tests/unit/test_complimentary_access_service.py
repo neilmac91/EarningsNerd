@@ -315,7 +315,10 @@ def _manifest_shaped(root: Path):
     manifest the command runs carries the key, so the rest cannot be one (a key spelled with escapes is not looked for:
     the gate stops a manifest saved or pasted by mistake, not one disguised)."""
     for folder, subfolders, files in os.walk(root):
-        subfolders[:] = [name for name in subfolders if name not in _NOT_THE_REPOSITORY]
+        # A folder with its own .git (an agent's worktree under .claude/worktrees/, a nested checkout) is another tree:
+        # its copy of the runbook is not this repository's.
+        subfolders[:] = [name for name in subfolders
+                         if name not in _NOT_THE_REPOSITORY and not (Path(folder) / name / ".git").exists()]
         for name in files:
             path = Path(folder) / name
             if name.endswith(".json") and b"email_sha256" in (raw := path.read_bytes()):
@@ -323,6 +326,20 @@ def _manifest_shaped(root: Path):
             elif name.endswith(".md") and b"email_sha256" in (raw := path.read_bytes()):
                 for block in re.findall(r"```json\n(.*?)```", raw.decode("utf-8", "replace"), re.S):
                     yield path, block.encode()
+
+
+def test_the_manifest_walk_reads_json_and_markdown_and_skips_what_is_not_this_tree(tmp_path):
+    example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
+    manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
+    for rel, text in {
+        "ops/saved.json": manifest, "docs/pasted.md": example, "docs/other.md": "no manifest here",
+        "frontend/node_modules/pkg/fixture.json": manifest, ".claude/worktrees/agent/docs/runbook.md": example,
+        ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+    }.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text)
+    assert sorted(path.relative_to(tmp_path).as_posix() for path, _ in _manifest_shaped(tmp_path)) == [
+        "docs/pasted.md", "ops/saved.json"]
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
