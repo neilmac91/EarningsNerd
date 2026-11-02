@@ -229,8 +229,8 @@ unverified or any readable invariant fails.
 The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
 `detection-sql`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`), the
-lineage backfill (`repair-lineage-*`) and the financial revenue preview (`financial-revenue-preview`)
-operations captures the `DATABASE_URL` secret read's stderr,
+lineage backfill (`repair-lineage-*`), the financial revenue preview (`financial-revenue-preview`)
+and the complimentary access (`complimentary-access-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
@@ -1059,7 +1059,7 @@ backend deploy owns the persistent `earningsnerd-backfill-facts` contract and re
 `python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
 from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
 committed script operations (`repair-ticker-*`, `relabel-fy-*`, `repair-quarterly-*`, `repair-lineage-*`,
-`financial-revenue-preview`), execution-scoped arguments are the
+`financial-revenue-preview`, `complimentary-access-*`), execution-scoped arguments are the
 way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
 for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
 run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
@@ -1125,6 +1125,41 @@ The order:
 4. Dispatch the apply and approve it.
 5. Read the execution as above, then dispatch `excerpt-cohort` to read the result back: the window's regex rows
    move to native.
+
+**Complimentary access (`complimentary-access-dry-run` / `-apply` / `-readout`).** These run
+`backend/scripts/complimentary_access.py`, PB-02's grant and revoke of complimentary Pro for the invited private-beta
+testers ([runbook](ops/complimentary-access.md)), on the Ops runner through the Cloud SQL proxy, so each report lands
+in the run's log: the manifest's action, cohort label and review date, counts, refusals by their place in the manifest
+and the manifest's digest (`manifest_sha256`), never an account id, an address or the manifest's reason: a refusal
+names a fault's place and kind from a fixed table, never a value the manifest holds. The cohort label is public
+through that log, so it names no person ([runbook](ops/complimentary-access.md)). A grant and a revoke take the same
+three operations; the manifest's `action` says which. The dry run and the readout run read-only. The apply writes one
+account a unit, only after the founder approves `ops-apply` for its run, and only for the manifest whose digest its
+`confirm_digest` input names; it records `ops-run:<run id>` as its runner.
+
+The manifest is the founder's private file and is never a dispatch input. It reaches a run only as the repository
+secret `COMPLIMENTARY_ACCESS_MANIFEST`, read in the script step's environment and handed to the script on stdin, never
+written to a file or printed. The runner masks each line of a secret as text of its own wherever it appears in the
+log, so a manifest written over several lines also blanks the report text that repeats one of its lines: its action,
+cohort and review date, and every `{`, `}` and `]`. So step 1 sets the secret from the one-line form `jq -c` prints,
+which leaves the digest unchanged. While the secret exists, a workflow on any branch could read it, so it is deleted
+as soon as the apply has run; the readout needs no manifest. The manifest file itself stays in the founder's private
+store, outside this repository's checkout, so it can never be committed. The code and its two migrations must be on
+`main` and deployed first, deployed as the runbook's "Deploying" says: confirm the merge's deploy-backend run
+succeeded, or, if a later backend merge superseded it (that run then skips its deploy), the newer run that shipped
+both.
+
+The order, for a grant or a revoke, each dispatch after the previous run has finished:
+1. On the founder's own machine, offline, with the manifest outside the checkout (for example
+   `"$HOME/beta-private/manifest.json"`): `python scripts/complimentary_access.py check --manifest
+   "$HOME/beta-private/manifest.json"` (from `backend/`), then
+   `jq -c . "$HOME/beta-private/manifest.json" | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`.
+2. Dispatch `complimentary-access-dry-run` and compare its counts, refusals and `manifest_sha256` with the private
+   roster. After any edit to the manifest, set the secret again and dry-run again: an edit changes the digest.
+3. Dispatch `complimentary-access-apply` with `confirm_digest` set to that digest, and approve `ops-apply` for that
+   run.
+4. `gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`. A rerun of the apply sets it again first.
+5. Dispatch `complimentary-access-readout`.
 
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.
