@@ -11,7 +11,10 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from ops.describe.summary_configuration import runtime_configuration
@@ -33,10 +36,63 @@ expected_entrypoints = {
 GCLOUD_TIMEOUT = 40
 MAX_RESPONSE_BYTES = 1_048_576
 MAX_ENV_ENTRIES = 256
+CLEANUP_JOB = "earningsnerd-feedback-media-cleanup"
+CLEANUP_URL = (
+    "https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/"
+    "namespaces/earnings-nerd/jobs/earningsnerd-feedback-media-cleanup"
+)
+FALLBACK_TIMEOUT = 5
+MAX_TOKEN_BYTES = 16384
 IMAGE = re.compile(
     r"us-west1-docker\.pkg\.dev/earnings-nerd/earningsnerd/backend"
     r"(?::[0-9a-f]{7,40}|@sha256:[0-9a-f]{64})"
 )
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def cleanup_job_http() -> tuple[dict | None, str | None]:
+    """One fixed GET when gcloud loses the status in a generic error; no error bodies.
+
+    Credentials stay in memory/private temporary output, never argv or diagnostics.
+    No redirect may carry the Authorization header away from the fixed Google endpoint.
+    This reads the same v1 job representation used by the normal projection.
+    """
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["gcloud", "auth", "print-access-token", "--quiet"],
+                stdout=output, stderr=subprocess.DEVNULL, timeout=FALLBACK_TIMEOUT,
+                check=False,
+            )
+            output.seek(0)
+            raw = output.read(MAX_TOKEN_BYTES + 1)
+        if result.returncode or len(raw) > MAX_TOKEN_BYTES:
+            return None, "authentication_unavailable"
+        token = raw.decode("ascii").strip()
+        if not token or not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+            return None, "authentication_unavailable"
+        request = Request(CLEANUP_URL, headers={"Authorization": "Bearer " + token})
+        with build_opener(_NoRedirect()).open(request, timeout=FALLBACK_TIMEOUT) as response:
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+        if len(body) > MAX_RESPONSE_BYTES:
+            return None, "response_too_large"
+        value = json.loads(body)
+        return (value, None) if isinstance(value, dict) else (None, "unreadable_response")
+    except HTTPError as exc:
+        code = exc.code
+        exc.close()
+        classes = {401: "unauthenticated", 403: "permission_denied", 404: "not_found"}
+        return None, classes.get(code, "unavailable" if code == 429 or 500 <= code < 600 else "http_error")
+    except (subprocess.TimeoutExpired, TimeoutError):
+        return None, "timeout"
+    except (subprocess.SubprocessError, OSError, URLError):
+        return None, "unavailable"
+    except (ValueError, RecursionError):
+        return None, "unreadable_response"
 
 
 def gcloud_json(name: str, region: str) -> tuple[dict | None, str | None]:
@@ -60,6 +116,8 @@ def gcloud_json(name: str, region: str) -> tuple[dict | None, str | None]:
             return None, "not_found"
         if "UNAVAILABLE" in error or "DEADLINE_EXCEEDED" in error:
             return None, "unavailable"
+        if exc.returncode == 1 and name == CLEANUP_JOB and region == "us-west1":
+            return cleanup_job_http()
         return None, f"error (gcloud exit {exc.returncode})"
     except OSError:
         return None, "error (gcloud not executable)"

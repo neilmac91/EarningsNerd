@@ -66,6 +66,59 @@ def test_real_service_reader_reports_exact_config_without_echoing_credentials(re
     assert "observed queue/worker/SQL aggregates" in output
 
 
+def test_summary_lane_configuration_is_closed_and_does_not_print_resource_values(resources):
+    service, revision, job, worker, worker_revision, policy = resources
+    fields = {
+        "TASKS_WORKER_ROLE": "background", "TASKS_QUEUE": "background-fixture",
+        "SUMMARY_TASKS_QUEUE": "summary-fixture", "TASKS_WORKER_URL": "https://background-fixture.run.app",
+        "SUMMARY_TASKS_WORKER_URL": "https://summary-fixture.run.app",
+        "TASKS_INVOKER_EMAIL": "background@fixture.iam.gserviceaccount.com",
+        "SUMMARY_TASKS_INVOKER_EMAIL": "summary@fixture.iam.gserviceaccount.com",
+    }
+    revision["spec"]["containers"][0]["env"] += [{"name": k, "value": v} for k, v in fields.items()]
+    output, exit_, _ = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
+    assert exit_ is None
+    assert all(value not in output for key, value in fields.items() if key != "TASKS_WORKER_ROLE")
+    runtime = _line(output, "Summary/SEC runtime configuration: ")
+    assert runtime["fields"]["TASKS_WORKER_ROLE"] == {"state": "literal", "value": "background"}
+    isolation = runtime["summary_task_isolation"]
+    assert all(field == {"state": "configured_value_withheld"} for field in isolation["fields"].values())
+    assert isolation["configured_queues_distinct"] is True
+    assert isolation["configured_worker_origins_distinct"] is True
+    assert isolation["configured_invoker_identities_distinct"] is True
+    assert "distinct Cloud Run services" in isolation["limit"]
+
+
+def test_summary_lane_readback_normalizes_origins_and_never_infers_defaults():
+    from ops.describe.summary_configuration import runtime_configuration
+    empty = runtime_configuration([])
+    assert empty["fields"]["TASKS_WORKER_ROLE"] == {"state": "not_set_image_default_unverified"}
+    assert empty["summary_task_isolation"]["configured_worker_origins_distinct"] is None
+    fields = {
+        "TASKS_QUEUE": "same", "SUMMARY_TASKS_QUEUE": "same",
+        "TASKS_WORKER_URL": "https://SAME.run.app:443/", "SUMMARY_TASKS_WORKER_URL": "https://same.run.app",
+        "TASKS_INVOKER_EMAIL": "same@fixture.iam.gserviceaccount.com",
+        "SUMMARY_TASKS_INVOKER_EMAIL": "same@fixture.iam.gserviceaccount.com",
+    }
+    isolation = runtime_configuration([{"name": k, "value": v} for k, v in fields.items()])["summary_task_isolation"]
+    assert isolation["configured_queues_distinct"] is False
+    assert isolation["configured_worker_origins_distinct"] is False
+    assert isolation["configured_invoker_identities_distinct"] is False
+
+
+@pytest.mark.parametrize("field", ["TASKS_WORKER_ROLE", "SUMMARY_TASKS_QUEUE", "SUMMARY_TASKS_WORKER_URL", "SUMMARY_TASKS_INVOKER_EMAIL"])
+@pytest.mark.parametrize("kind,expected", [("invalid", "invalid_withheld"), ("secret", "secret_ref_unresolved"), ("duplicate", "duplicate_unresolved")])
+def test_summary_lane_readback_withholds_unknown_duplicate_and_secret_values(field, kind, expected):
+    from ops.describe.summary_configuration import runtime_configuration
+    entry = {"name": field, "value": SENTINEL}
+    if kind == "secret":
+        entry = {"name": field, "valueSource": {"secretKeyRef": {"secret": SENTINEL}}}
+    runtime = runtime_configuration([entry, entry] if kind == "duplicate" else [entry])
+    projected = runtime["fields"] if field == "TASKS_WORKER_ROLE" else runtime["summary_task_isolation"]["fields"]
+    assert projected[field] == {"state": expected}
+    assert SENTINEL not in json.dumps(runtime)
+
+
 @pytest.mark.parametrize("name", [
     "SUMMARY_DURABLE_GENERATION_ENABLED", "SUMMARY_NEW_JOBS_PAUSED", "SUMMARY_JOB_MAX_ATTEMPTS",
     "SUMMARY_PREWARM_MAX_PER_SCAN", "SEC_DISTRIBUTED_LIMIT_ENABLED", "SEC_DISTRIBUTED_WAIT_SECONDS",
