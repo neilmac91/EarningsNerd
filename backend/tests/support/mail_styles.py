@@ -3793,11 +3793,22 @@ class _SpamAssassinColours(HTMLParser):
         self._read_text()
 
     def unknown_decl(self, data: str) -> None:
-        self._read_text()
-        self.refused.append(
-            f"a marked section (<![{data[:20]}) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA "
-            "section's markup as text): leave it out of the page"
-        )
+        self._read_text()  # a marked section, refused where it opens (parse_html_declaration)
+
+    def parse_html_declaration(self, i: int) -> int:
+        """Refuse a marked section where every Python release starts to read one, then read on as the release does. A
+        release hands one on to ``unknown_decl`` or to ``handle_comment`` on terms of its own (as measured, 3.11.17 and
+        Ubuntu's 3.12.3, whose html.parser carries 2025's fixes, to the first where "]" closes it right before its ">"
+        and to the second, as a bogus comment, where not; 3.13.16 to the second unless it is a CDATA section), so
+        neither handler tells a marked section from a declaration or a comment. The refusal names the section by its
+        opening, up to its first "]", "<" or ">"."""
+        if self.rawdata.startswith("<![", i):
+            opens = re.split(r"[\]<>]", self.rawdata[i + 3 : i + 23], maxsplit=1)[0]
+            self.refused.append(
+                f"a marked section (<![{opens}) holds what SpamAssassin's HTML parser reads on terms of its own (a CDATA "
+                "section's markup as text): leave it out of the page"
+            )
+        return super().parse_html_declaration(i)
 
     def _ascii_name(self, tag: str) -> None:
         """Refuse a tag whose name, as the standard library's parser reads it, holds a character past ASCII."""
