@@ -1722,7 +1722,7 @@ class TestNativeReportingCurrencySync:
         # writers keep one current row per key and unit, and one ratio per key, so none leaves the lagging
         # payload's own FY2023 revenue or margin (K23) current beside K24's; here both are set current
         # anyway. The lagging sync skips their identities and demotes both: K24's are the current ones. (A filer
-        # in USD alone is main's, which leaves that hand-built state as found: the USD-only corpus below.) A first
+        # in USD alone ends the same since E198: the "older-payload" shape of the USD/CNY corpus below.) A first
         # sync since #1682 also stores K23's own FY2023 revenue, income and EPS as history rows (``own_reports``),
         # the lagging payload's winners there, so it inserts none of them; one before it stored none, so the
         # lagging sync stores K23's income and EPS behind K24's protected rows (the upsert's ``protected``).
@@ -2223,9 +2223,9 @@ class TestNativeReportingCurrencySync:
         db.close()
 
     def test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_for_a_cny_filer(self):
-        # E198 (3)'s target, for a filer in CNY: the USD-only corpus's lagging-quarter shape (Q1 2024 revenue 250 in
-        # its own 10-Q, Q1-24, restated at 260 by the next year's Q1 10-Q, Q1-25). In USD alone a payload lagging
-        # Q1-25 makes Q1-24's 250 current again (main's, E198); here 260 stays current, held twice: Q1-25's row, not
+        # E198 (3)'s target, for a filer in CNY: the "lagging-quarter" shape of the USD/CNY corpus (Q1 2024 revenue 250
+        # in its own 10-Q, Q1-24, restated at 260 by the next year's Q1 10-Q, Q1-25). Before E198 a payload lagging
+        # Q1-25 made Q1-24's 250 current again in USD alone; here 260 stays current, held twice: Q1-25's row, not
         # named and filed after the payload's newest (by its provenance), is protected and holds its key, and as a
         # current row of a filing filed after Q1-24's it also keeps the key by the newer-filing rule (``Guard.later``
         # and the convergence). Either alone keeps 260; with both taken out, 250 is current.
@@ -2260,8 +2260,8 @@ class TestNativeReportingCurrencySync:
         # stores K24B's row current, since nothing current there is protected, and the sync demotes it for K24A's
         # (an insert is not counted). Where the per-filing writer stored K24B after K24A, both behind K24's row,
         # the newest protected row is K24A's, the later filed, though K24B's has the higher id. The sync that
-        # names K24A has K24A's stored row as its winner there. A filer in USD alone is main's: 1200 stays current
-        # for good (the USD-only corpus below; the follow-up in tasks/todo.md).
+        # names K24A has K24A's stored row as its winner there. A filer in USD alone ends the same since E198 (the
+        # "k24a-amendment" shape of the USD/CNY corpus below); before it, 1200 stayed current for good.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -2750,8 +2750,8 @@ class TestNativeReportingCurrencySync:
         # proves no currency switch, so the sync still makes its own rows current where no row is: FY2022,
         # which the per-filing writer did not store. The sync that names K24 then finds every period it
         # presents held, in CNY. The earlier sync already stored K23's FY2023 1000 as its own-report history
-        # row (``own_reports``), non-current, and no sync makes it current. A filer in USD alone is main's: its
-        # upsert skips the lagging winner at that row's identity, so K24's 1050 stays (the USD-only corpus below).
+        # row (``own_reports``), non-current, and no sync makes it current. A filer in USD alone ends the same since
+        # E198: K24's rows are protected and hold there too (the "older-payload" shape of the USD/CNY corpus below).
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
@@ -2984,7 +2984,7 @@ class TestNativeReportingCurrencySync:
 
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_sync_never_promotes_a_quarter_beside_its_current_unlabelled_twin(self, currency):
-        # A filer in USD (main's sync), or in CNY. A 10-Q/A's per-filing row for the Q2 2024 quarter carries no
+        # A filer in USD, or in CNY. A 10-Q/A's per-filing row for the Q2 2024 quarter carries no
         # fiscal period (its DEI focus was missing) and is current; its Filing row is dated 2025-04-01, after the
         # Q2-24 10-Q that companyfacts names for that quarter and before the payload's newest. The upsert
         # stores the batch's labelled Q2 row behind it (the D1 rule, and a known filing date outranks
@@ -3015,7 +3015,7 @@ class TestNativeReportingCurrencySync:
 
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_quarter_whose_unlabelled_twin_is_current_is_left_as_found_beside_it(self, currency):
-        # A filer in USD (main's sync), or in CNY, synced through Q2 2024 (Q2-24's labelled row current). A 10-Q/A's per-filing row for that
+        # A filer in USD, or in CNY, synced through Q2 2024 (Q2-24's labelled row current). A 10-Q/A's per-filing row for that
         # quarter then carries no fiscal period (its DEI focus was missing) and is current too: a row with no
         # fiscal period never demotes a labelled one. The next sync finds the quarter's unlabelled
         # twin in its unit current, so it leaves the quarter as found: the labelled row stays current, never a
@@ -3208,11 +3208,11 @@ class TestNativeReportingCurrencySync:
         assert current("gross_profit") == [(stored_unit, "edgar_xbrl")]
         db.close()
 
-    def test_a_usd_filers_per_share_row_in_another_currency_runs_the_currency_step(self):
+    def test_a_usd_filers_per_share_row_in_another_currency_is_demoted(self):
         # A USD filer whose per-filing writer read its FY2024 diluted EPS in EUR/shares (a stray per-concept pick)
-        # beside the USD/shares figure companyfacts carries. A stored per-share row in another currency involves
-        # another currency as an amount row does, so the sync runs the currency step and demotes it; counting amount
-        # units alone left it current beside the USD EPS, two currencies at one period.
+        # beside the USD/shares figure companyfacts carries. The currency step reads a stored per-share row in another
+        # currency as it reads an amount row, and demotes it; counting amount units alone left it current beside the
+        # USD EPS, two currencies at one period.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3228,12 +3228,12 @@ class TestNativeReportingCurrencySync:
         db.close()
 
     @pytest.mark.parametrize("filing", ["its-usd-10-ks", "a-10-q-of-its-own"])
-    def test_a_usd_series_carrying_a_list_in_another_currency_involves_it_only_where_a_filing_reads_it(self, filing):
+    def test_a_usd_series_carrying_a_list_in_another_currency_still_reads_usd(self, filing):
         # A USD filer whose payload also tags net income in EUR. Inside its USD 10-Ks (every period again, so main's
         # per-concept pick read the EUR list), each 10-K reads USD, more of its amount items being in USD: no filing
-        # reads another currency and no row is stored in one, so the sync takes main's path, its EUR list notwithstanding.
-        # In a 10-Q of its own (Q1-25), that 10-Q reads EUR (``PayloadView.own``), so the sync involves another
-        # currency and runs the currency step. Either way the series reads USD and the 10-Q's item is not read.
+        # reads another currency and no row is stored in one, so the step's by-currency parts find nothing, its EUR
+        # list notwithstanding. In a 10-Q of its own (Q1-25), that 10-Q reads EUR (``PayloadView.own``), a filing the
+        # step reads in another currency. Either way the series reads USD and the 10-Q's item is not read.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3250,11 +3250,10 @@ class TestNativeReportingCurrencySync:
             (2022, "USD", "K22"), (2023, "USD", "K24"), (2024, "USD", "K24")]
         db.close()
 
-    def test_a_usd_filers_row_in_another_currency_of_a_concept_outside_the_batch_leaves_its_sync_mains(self):
+    def test_a_usd_filers_row_in_another_currency_of_a_concept_outside_the_batch_stays_current(self):
         # A USD filer whose per-filing writer stored FY2024 gross profit in EUR, a concept its companyfacts payload
         # does not carry. The currency step reads, votes on and demotes the batch's concepts only, so a row of
-        # another concept gives it nothing to correct: the gate reads the stored units of the batch's concepts
-        # alone, the sync is main's, and the EUR row stays current.
+        # another concept gives it nothing to correct, and the EUR row stays current.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3268,12 +3267,47 @@ class TestNativeReportingCurrencySync:
             company_id=company.id, concept="gross_profit")] == [("EUR", True)]
         db.close()
 
-    @pytest.mark.parametrize("involved", [False, True], ids=["usd-only", "a-stored-eur-row"])
+    @pytest.mark.parametrize("case, expected", [
+        ("usd-alone", False), ("a-series-in-cny", True), ("a-10-q-read-in-eur", True),
+        ("a-per-share-row-in-eur", True), ("a-non-current-row-in-eur", True), ("eur-outside-the-batch", False)])
+    def test_another_currency_reads_the_payloads_currencies_and_the_batch_concepts_stored_units(self, case, expected):
+        # _another_currency gates no sync since E198, but it sets the E264 preview's scope
+        # (scripts/financial_revenue_preview.py leaves a company out where it is True) and the history-planting helper
+        # (tests/support/sync_eras.py). Its rules: the payload's series currency, or a filing the payload reads in
+        # another (view.own), or a stored amount or per-share row of a batch concept in another currency, current or
+        # not; never a row of a concept outside the batch.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services.facts.currency import _another_currency, payload_view
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        payload = _lagging_usd_payload(fresh=True)
+        if case == "a-series-in-cny":
+            payload = _in_currency(payload, "CNY")
+        if case == "a-10-q-read-in-eur":
+            payload["facts"]["us-gaap"]["NetIncomeLoss"]["units"]["EUR"] = [_item(
+                27.0, "2025-03-31", start="2025-01-01", accn="Q1-25", fy=2025, fp="Q1", form="10-Q", filed="2025-05-05")]
+        payload = _suffixed(payload, tag)
+        stored = {"a-per-share-row-in-eur": ("eps_diluted", "EUR/shares"), "a-non-current-row-in-eur": ("revenue", "EUR"),
+                  "eur-outside-the-batch": ("gross_profit", "EUR")}.get(case)
+        if stored:
+            _store_filing_rows(db, company, f"K24{tag}", "10-K", "2025-02-15", [(*stored, date(2024, 12, 31), 1.1)])
+            if case == "a-non-current-row-in-eur":
+                db.query(FinancialFact).filter_by(company_id=company.id, unit="EUR").one().is_latest = False
+                db.commit()
+        facts = svc.normalize_companyfacts(company.id, payload)[0]
+        assert _another_currency(db, facts, payload_view(payload)) is expected
+        db.close()
+
+    @pytest.mark.parametrize("involved", [False, True], ids=["usd-alone", "a-stored-eur-row"])
     def test_a_usd_series_leaves_a_legacy_derived_ratio_current_as_usd_derived(self, involved):
         # A net margin stored before operands were recorded (no provenance), derived and with no
         # filing owner, was computed from the USD lists. In a USD series it is no other-currency
-        # ratio: where a known filing date keeps it current, the batch's own margin stays behind it. A sync in
-        # USD alone is main's; with a stored EUR row (not current) the currency step runs, with the same result.
+        # ratio: where a known filing date keeps it current, the batch's own margin stays behind it. A sync in USD
+        # alone runs the currency step as any sync does (E198); with a stored EUR row (not current) the step also reads
+        # that row, with the same result.
         from app.database import SessionLocal
         from app.models import Filing, FinancialFact
 
@@ -3306,7 +3340,7 @@ class TestNativeReportingCurrencySync:
 
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_quarantined_winner_leaves_the_row_current_beside_it_as_found(self, currency):
-        # A filer in USD (main's sync), or in CNY, synced through K24 (FY2024 revenue 1200). The journaled repair
+        # A filer in USD, or in CNY, synced through K24 (FY2024 revenue 1200). The journaled repair
         # quarantined the row its 10-K/A (K24A, 1300) has under the payload's identity, a rolled-back insert, stored
         # not current. The sync naming K24A skips that identity and never promotes it, so it leaves FY2024 as found:
         # K24's 1200 stays current, never a gap, as the repair's rollback left it.
@@ -3499,7 +3533,7 @@ class TestNativeReportingCurrencySync:
 
 
     def test_a_named_filings_feed_row_an_older_rule_stored_never_holds_its_key_against_the_payloads_winner(self):
-        # E198 (R1u), on PNC's companyfacts of 2026-11-02 (tests/fixtures/companyfacts_fi/PNC.json). Synced while its SIC
+        # E198 (R1u), on PNC's companyfacts of 2026-11-01 (tests/fixtures/companyfacts_fi/PNC.json). Synced while its SIC
         # code was blank, the generic tuple read FY2017 revenue from the ASC 606 element, whose latest item is an 8-K's
         # recast (0000713676-20-000117, filed 2020-08-04, 15,252M), and stored it current, a feed row (no filing owner).
         # Under its bank SIC code the deployed rule reads Revenues first, so the payload's winner there is the FY2018
@@ -3511,13 +3545,16 @@ class TestNativeReportingCurrencySync:
         from app.models import FinancialFact
 
         db = SessionLocal()
-        payload = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi" / "PNC.json").read_text())
+        tag = f"-{uuid.uuid4().hex[:8]}"  # the upsert reads Filing dates by accession alone: never another test's
+        payload = _suffixed(json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi" /
+                                        "PNC.json").read_text()), tag)
         company = _new_company(db, sic=None)
         _checked_sync(db, company, payload, final=True)
 
         def fy2017():
-            return sorted((r.accession, float(r.value), r.is_latest) for r in db.query(FinancialFact).filter_by(
-                company_id=company.id, concept="revenue", period_end=date(2017, 12, 31), fiscal_period="FY"))
+            return sorted((r.accession.removesuffix(tag), float(r.value), r.is_latest) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="revenue", period_end=date(2017, 12, 31),
+                                         fiscal_period="FY"))
 
         assert fy2017() == [("0000713676-20-000117", 15_252e6, True)]
         company.sic = "6021"
@@ -3577,15 +3614,17 @@ class TestNativeReportingCurrencySync:
             assert fy2023() == expected, path
         db.close()
 
+    @pytest.mark.parametrize("stored", [1250.0, 1299.9], ids=["3.8pct-off", "a-rounding-gap"])
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
-    def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency):
+    def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency, stored):
         # E198 (R2). A filer synced through K24 (FY2024 revenue 1200), a feed row with no Filing row. The per-filing
         # writer then stored K24A's FY2024 row behind it, its own rule counting the undated feed row as newer, but at
-        # another figure than the 10-K/A reports (1250 where its item reads 1300: the old cross-check's replacement, or
-        # an older rule's reading). The sync naming K24A has that identity as its winner and skips it. The convergence
-        # makes the batch's stored row current only where it holds the batch's own figure, so the key is left as found:
-        # K24's 1200, a figure a filing reported, stays current, never the stored 1250 no filing reported. Its repair, not
-        # a sync, corrects the stored identity.
+        # another figure than the 10-K/A reports (1250 or 1299.9 where its item reads 1300: the old cross-check's
+        # replacement, or an older rule's reading; E211's proxy figures sit within 1% of the reports'). The sync naming
+        # K24A has that identity as its winner and skips it. The convergence makes the batch's stored row current only
+        # where it holds the batch's own figure (to 1e-9, never a percent tolerance), so the key is left as found: K24's
+        # 1200, a figure a filing reported, stays current, never a stored figure no filing reported. Its repair, not a
+        # sync, corrects the stored identity.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3598,12 +3637,12 @@ class TestNativeReportingCurrencySync:
 
         _checked_sync(db, company, cur(_lagging_usd_payload(fresh=True)), final=True)
         _store_per_filing(db, company, cur(_with_amendment(_lagging_usd_payload(fresh=True))), f"K24A{tag}", "10-K/A",
-                          "2025-04-01", edit=lambda fact: {**fact, "value": 1250.0} if fact["concept"] == "revenue" else fact,
+                          "2025-04-01", edit=lambda fact: {**fact, "value": stored} if fact["concept"] == "revenue" else fact,
                           writer=svc.upsert_facts)
         _checked_sync(db, company, cur(_with_amendment(_lagging_usd_payload(fresh=True))), final=True)
         assert sorted((float(r.value), r.accession.removesuffix(tag), r.is_latest) for r in db.query(FinancialFact).filter_by(
             company_id=company.id, concept="revenue", period_end=date(2024, 12, 31))) == [
-            (1200.0, "K24", True), (1250.0, "K24A", False)]
+            (1200.0, "K24", True), (stored, "K24A", False)]
         db.close()
 
 def _quarter_restated_payload(*, q1_25):
@@ -3635,8 +3674,8 @@ def _usd_lists(payload):
 
 
 def _in_currency(payload, currency):
-    """The payload with its USD and USD/shares lists relabelled ``currency``: the same filer reporting in it. A
-    filer in USD alone is main's (``Guard.usd_only``); in another currency every sync runs the currency step."""
+    """The payload with its USD and USD/shares lists relabelled ``currency``: the same filer reporting in it. Every
+    sync runs the currency step in either (E198), so a shape run both ways ends the same where no currency differs."""
     for node in payload["facts"]["us-gaap"].values():
         node["units"] = {unit.replace("USD", currency, 1): items for unit, items in node["units"].items()}
     return payload
@@ -4264,8 +4303,8 @@ class TestProxyStatementItemsSync:
     def test_a_sync_involving_another_currency_never_keeps_a_proxy_row_as_a_newer_filings(
         self, monkeypatch, shape, order,
     ):
-        # Where a sync involves another currency than USD (an 8-K the payload reads as EUR, or a filer
-        # reporting in EUR), the currency step protects a stored row of a newer filing: one the payload
+        # In a sync with an 8-K the payload reads as EUR, or of a filer reporting in EUR (as in USD alone since
+        # E198), the currency step protects a stored row of a newer filing: one the payload
         # does not name, filed after its newest (``Guard.ids``: a lagging payload here), and has the
         # upsert keep a current row of a filing filed after the batch row's own (``Guard.later``, which
         # also holds the ratios). A proxy statement's row is neither (``is_proxy_form``), as main's

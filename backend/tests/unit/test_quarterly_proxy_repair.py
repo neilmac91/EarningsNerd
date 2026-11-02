@@ -1252,7 +1252,8 @@ def test_a_winner_in_another_currency_refuses_until_a_sync(db, monkeypatch):
         # in USD, every other concept in CNY. Today's pick reads each filing in its own currency and never
         # a foreign filing's items, so the shape is planted with the old units, on a sync in USD alone
         # (the pick both the collector and ``payload_view`` read says USD and no foreign filing), which
-        # is main's upsert: main 163ce89c's own run of this test stored these 21 rows, every one current.
+        # ran as the upsert alone before E198 (this harness's era): main 163ce89c's own run of this test stored
+        # these 21 rows, every one current.
         collect = companyfacts._collect_companyfacts_values
 
         def old_units(usgaap, tags, unit_key, *, instant, foreign=frozenset()):
@@ -1289,7 +1290,8 @@ def test_no_winner_but_a_stored_report_row_refuses(db, monkeypatch):
 
 def _a_stored_eur_row(db, company):
     """A stored, non-current EUR net income row (a stray the per-filing pick once read): every sync of the company's net
-    income then involves another currency than USD (``currency._another_currency``), so the currency step runs."""
+    income then involves another currency than USD (``currency._another_currency``), so even a sync as before E198
+    (``usd_syncs_before_e198``) runs the currency step."""
     db.add(FinancialFact(company_id=company.id, concept="net_income", unit="EUR", value=1.0,
                          period_end=date(2019, 5, 31), period_start=date(2018, 6, 1), fiscal_year=2019,
                          fiscal_period="FY", accession=_accn(company, "X19"), form="10-K", source="edgar_xbrl",
@@ -2820,11 +2822,11 @@ def test_a_sync_since_e198_clears_the_current_figure_refusal_without_the_later_1
 @pytest.mark.parametrize("stored_behind", [False, True], ids=["k27-first-read-by-it", "k27-stored-behind-first"])
 def test_a_sync_involving_another_currency_clears_the_current_figure_refusal_without_the_later_10ks_filing(
         monkeypatch, stored_behind):
-    # docs/quarterly-data-repair.md, "A company synced since #1682": a sync in USD alone stores K27's row behind the
-    # filing row until K27's Filing is stored; a sync that involves another currency dates K27's row by its `filed` in
-    # the payload (``currency._filed``) and makes it current over the filing row (``_promote_batch_rows``), so the
-    # current-figure refusal clears with no Filing, and the step leaves and lists the row: whether that sync first reads
-    # K27 or a sync in USD alone stored K27's row behind the filing row before it.
+    # docs/quarterly-data-repair.md, "A company synced since #1682": before E198 a sync in USD alone stored K27's row
+    # behind the filing row until K27's Filing was stored; a sync that involves another currency (and since E198 every
+    # sync) dates K27's row by its `filed` in the payload (``currency._filed``) and makes it current over the filing row
+    # (``_promote_batch_rows``), so the current-figure refusal clears with no Filing, and the step leaves and lists the
+    # row: whether that sync first reads K27 or a sync in USD alone stored K27's row behind the filing row before it.
     with _database() as db:
         company, payload, filing = _replaced_at_the_winners_identity(db, monkeypatch)
         _resync(db, company, payload)
