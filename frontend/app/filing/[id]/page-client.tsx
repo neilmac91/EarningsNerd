@@ -353,7 +353,6 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             filingId={filing.id}
             filingLabel={`${filing.company?.ticker || formatCompanyName(filing.company?.name) || 'Filing'} ${filing.filing_type}`}
             secUrl={originalUrl}
-            embedded
           />
         }
       >
