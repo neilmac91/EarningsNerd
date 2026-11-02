@@ -14,11 +14,13 @@ from Cloud Run and the Ops proxy, so three Ops operations run it: `complimentary
   environment: every operation but the apply runs read-only, the readback runs first and a session that is not the
   step's stops it before the script, the script's own failure fails it, the script gets exactly its subcommand and
   flags (read by the script's own parser), and the manifest reaches it on stdin alone, never in an environment
-  variable psql or the script inherits; with the secret empty or unset, the dry run and the apply refuse before any
-  database call while the readout still runs;
+  variable psql or the script inherits; the step's own output, which GitHub writes to the public log, holds no part of
+  the manifest in any run, a refusal included; with the secret empty or unset, the dry run and the apply refuse before
+  any database call while the readout still runs;
 - the manifest is the founder's private file: its repository secret is named once in every workflow, in that step's
   env, in the text and in the parsed workflow alike (so no YAML alias hands it to a second step), no workflow reads the
-  whole secrets context, no dispatch input is named for a manifest, the step's script moves the manifest only through
+  whole secrets context (each expression closed where GitHub closes it, outside a quoted literal), no dispatch input is
+  named for a manifest, the step's script moves the manifest only through
   a pipe and redirects nothing, so it writes it to no file, and no file this repository tracks is a manifest.
 
 Out of reach, said so nothing is overclaimed: how GitHub masks the secret in the log (the runner registers each line
@@ -28,6 +30,7 @@ initial environment: `unset` keeps the value out of every child's environment, b
 still holds it for the step's life, readable by a process of the same user on that runner, as with any env-delivered
 secret.
 """
+import functools
 import hashlib
 import json
 import os
@@ -88,14 +91,15 @@ sys.exit(int(os.environ[tool.upper() + "_EXIT"]))
 def _manifest_text() -> str:
     """A synthetic grant manifest the script accepts, written as a founder would (indented, a trailing newline), with
     a reason that holds what a careless transport would expand or mangle: a format directive, a quote, a backslash, a
-    command substitution and backticks."""
+    command substitution and backticks, and an apostrophe, which bash re-quotes when it prints a variable (`set`), so
+    a printed copy of the manifest would not be the text the runner masks."""
     from app.services.complimentary_access_manifest import email_fingerprint
     from app.utils.datetimes import utcnow
 
     return json.dumps({
         "action": "grant",
         "cohort": "private-beta-2026-11",
-        "reason": 'Private beta: 100% "$(id)" `id` \\ %s',
+        "reason": "Private beta: the founder's 100% \"$(id)\" `id` \\ %s",
         "review_on": (utcnow().date() + timedelta(days=30)).isoformat(),
         "operator_account_id": 1,
         "accounts": [{"account_id": 1000 + n, "email_sha256": email_fingerprint(f"tester-{n}@example.invalid")}
@@ -259,8 +263,21 @@ def _run_script_step(tmp_path, op, *, manifest, digest=DIGEST, readback=None, ps
     result = subprocess.run(  # fixed argv; the script under test is repository content
         ["bash", "-e", "-c", step["run"]], cwd=tmp_path, env=env, stdin=subprocess.DEVNULL,
         capture_output=True, text=True, check=False)
+    if manifest:
+        _assert_the_log_holds_no_manifest(result.stdout + result.stderr, manifest)
     calls = tmp_path / "calls"
     return result, [json.loads(line) for line in calls.read_text().splitlines()] if calls.exists() else []
+
+
+def _assert_the_log_holds_no_manifest(log: str, manifest: str) -> None:
+    """The step's own output, which GitHub writes to the public log, holds no part of the manifest: not its reason,
+    an account id or a fingerprint. The runner masks only the secret's exact text, and a printed shell variable
+    (`set`) re-quotes the reason's apostrophe, so no mask would hide that copy. The stand-ins print only the readback,
+    so every word checked here would come from the step itself."""
+    parsed = json.loads(manifest)
+    planted = [parsed["reason"].split("'")[0], "account_id", "email_sha256",
+               *(entry["email_sha256"] for entry in parsed["accounts"])]
+    assert [text for text in planted if text in log] == [], "the step printed part of the manifest"
 
 
 @pytest.mark.parametrize("op, argv, parsed, fed", [
@@ -370,35 +387,58 @@ def test_the_manifest_secret_is_named_once_in_every_workflow_in_the_script_steps
     named = {path.name: len(re.findall(SECRET, path.read_text(encoding="utf-8"), re.IGNORECASE)) for path in WORKFLOW_FILES}
     assert {name: count for name, count in named.items() if count} == {"ops.yml": 1}
     # A YAML alias repeats a node without repeating its text, so the parsed workflows must name it once too.
-    parsed = {path.name: sum(bool(re.search(SECRET, text, re.IGNORECASE))
-                             for text in _strings(yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)))
+    parsed = {path.name: sum(bool(re.search(SECRET, text, re.IGNORECASE)) for _, text in _values(_parsed(path)))
               for path in WORKFLOW_FILES}
     assert {name: count for name, count in parsed.items() if count} == {"ops.yml": 1}
     assert BY_NAME[COMPLIMENTARY][1]["env"]["MANIFEST"] == "${{ secrets." + SECRET + " }}"
-    # GitHub reads context names in any case too (`SECRETS[...]`, `toJSON(Secrets)`).
-    whole = [(path.name, expression.strip()) for path in WORKFLOW_FILES
-             for expression in re.findall(r"\$\{\{(.*?)\}\}", path.read_text(encoding="utf-8"), re.DOTALL)
+    # GitHub reads context names in any case too (`SECRETS[...]`, `toJSON(Secrets)`). An if: is an expression whole.
+    whole = [(path.name, expression.strip()) for path in WORKFLOW_FILES for key, text in _values(_parsed(path))
+             for expression in ([text] if key == "if" else _expressions(text))
              if re.search(r"\bsecrets\b(?!\.[A-Za-z_])", expression, re.IGNORECASE)]
     assert whole == [], "an expression reads the whole secrets context"
     # Read from the parsed jobs, so a quoted `'inherit'` counts as the bare word does.
     inherits = [f"{path.name}: {name}" for path in WORKFLOW_FILES
-                for name, job in ((yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader) or {})
-                                  .get("jobs") or {}).items()
+                for name, job in (_parsed(path).get("jobs") or {}).items()
                 if isinstance(job, dict) and str(job.get("secrets", "")).strip().lower() == "inherit"]
     assert inherits == [], "a reusable workflow call hands on every secret"
 
 
-def _strings(node):
-    """Every key and scalar of a parsed workflow, a node an alias repeats once per place it appears."""
+@functools.cache
+def _parsed(path) -> dict:
+    """A workflow as GitHub reads it (BaseLoader expands every YAML alias), parsed once per session."""
+    return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader) or {}
+
+
+def _values(node, key=None):
+    """Every key and scalar of a parsed workflow, each scalar with the key it sits under (a key with none), a node an
+    alias repeats once per place it appears."""
     if isinstance(node, dict):
-        for key, value in node.items():
-            yield str(key)
-            yield from _strings(value)
+        for name, value in node.items():
+            yield None, str(name)
+            yield from _values(value, name)
     elif isinstance(node, list):
         for value in node:
-            yield from _strings(value)
+            yield from _values(value, key)
     elif node is not None:
-        yield str(node)
+        yield key, str(node)
+
+
+def _expressions(text: str) -> list[str]:
+    """Each `${{ }}` expression in a workflow value, closed where GitHub's template reader closes one: at the first
+    `}}` outside a single-quoted literal (a literal's `''` escape flips the state twice). The first `}}` alone would
+    end `format('{{{0}}}', toJSON(secrets))` inside its literal, before the read of the secrets."""
+    found, start = [], text.find("${{")
+    while start != -1:
+        quoted, end = False, None
+        for at in range(start + 3, len(text)):
+            if text[at] == "'":
+                quoted = not quoted
+            elif not quoted and text[at] == "}" and text[at - 1] == "}":
+                end = at
+                break
+        found.append(text[start + 3:] if end is None else text[start + 3:end - 1])
+        start = -1 if end is None else text.find("${{", end + 1)
+    return found
 
 
 def test_no_tracked_file_is_a_manifest():
@@ -427,7 +467,7 @@ def test_no_dispatch_input_is_named_for_a_manifest():
     as an input (the runbook, docs/ops/complimentary-access.md)."""
     offenders = []
     for path in WORKFLOW_FILES:
-        triggers = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader).get("on")
+        triggers = _parsed(path).get("on")
         if not isinstance(triggers, dict):
             continue
         for event in ("workflow_dispatch", "workflow_call"):
