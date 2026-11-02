@@ -1,8 +1,18 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+
+/** A card's change line ("CAGR +13.4%"). Its change and letter sit in their own inline-block beside the label (E289), so
+ *  the line's text spans two elements, which getByText (one element's own text) cannot read as one. */
+function changeLine(pattern: RegExp, scope: ParentNode = document) {
+  const lines = [...scope.querySelectorAll('[data-kpi-change]')].map((change) => change.parentElement!)
+    .filter((line) => pattern.test(line.textContent ?? ''))
+  expect(lines, String(pattern)).toHaveLength(1)
+  return lines[0]
+}
 
 const annualDataset: AnalysisDataset = {
   ticker: 'TST',
@@ -100,14 +110,14 @@ describe('KpiStrip', () => {
 
   it('shows CAGR for monetary KPI cards in annual mode', () => {
     render(<KpiStrip dataset={annualDataset} />)
-    expect(screen.getByText(/CAGR \+13\.4%/)).toBeInTheDocument()
-    expect(screen.getByText(/CAGR \+19\.5%/)).toBeInTheDocument()
+    expect(changeLine(/CAGR \+13\.4%/)).toBeInTheDocument()
+    expect(changeLine(/CAGR \+19\.5%/)).toBeInTheDocument()
   })
 
   it('shows the window pp change (not a blank card) for the percent-unit net-margin KPI', () => {
     render(<KpiStrip dataset={annualDataset} />)
     // Previously blank (CAGR is null for percent series) — now shows the window's pp move.
-    expect(screen.getByText(/Chg \+13\.6pp/)).toBeInTheDocument()
+    expect(changeLine(/Chg \+13\.6pp/)).toBeInTheDocument()
   })
 
   it('uses YoY (not CAGR) as the growth label in quarterly mode', () => {
@@ -127,9 +137,9 @@ describe('KpiStrip', () => {
       })),
     }
     render(<KpiStrip dataset={quarterly} />)
-    expect(screen.getByText(/YoY \+18\.3%/)).toBeInTheDocument()
+    expect(changeLine(/YoY \+18\.3%/)).toBeInTheDocument()
     // The percent-unit card's quarterly YoY is a pp delta too.
-    expect(screen.getByText(/YoY \+4\.0pp/)).toBeInTheDocument()
+    expect(changeLine(/YoY \+4\.0pp/)).toBeInTheDocument()
   })
 
   it('sets the value and its change line in the figure face, with tabular lining numerals', () => {
@@ -152,7 +162,7 @@ describe('KpiStrip', () => {
     expect(token).toHaveAttribute('aria-hidden', 'true')
     expect(token.nextElementSibling).toHaveClass('sr-only')
     expect(token.nextElementSibling).toHaveTextContent(/^not meaningful$/)
-    expect(token.parentElement).toHaveTextContent(/^YoY n\/mnot meaningful/)
+    expect(token.closest('[data-kpi-change]')!.parentElement).toHaveTextContent(/^YoY n\/mnot meaningful/)
   })
 
   it('names the actual period of an older available metric and retains zero in the selected latest period', () => {
@@ -174,7 +184,7 @@ describe('KpiStrip', () => {
     render(<KpiStrip dataset={quarterly} />)
     const cash = screen.getAllByRole('term').find((term) => term.textContent === 'Free cash flow')!.parentElement!
     expect(within(cash).getByText('Q1 2026', { exact: false })).toHaveTextContent('Q1 2026 · latest available')
-    expect(within(cash).getByText(/YoY \+20\.0%/)).toBeInTheDocument()
+    expect(changeLine(/YoY \+20\.0%/, cash)).toBeInTheDocument()
     expect(within(cash).getByRole('button', { name: /Free cash flow, Q1 2026:/ })).toBeInTheDocument()
     const revenue = screen.getAllByRole('term').find((term) => term.textContent === 'Revenue')!.parentElement!
     expect(within(revenue).getByText('Q2 2026')).toBeInTheDocument()
@@ -182,5 +192,25 @@ describe('KpiStrip', () => {
     // Zero is a value. Its note (no check recorded) marks nothing, so the name names none (D-061).
     expect(within(revenue).getByRole('button', { name: /^Revenue, Q2 2026: \$0\.00\. View source/ })).toBeInTheDocument()
     expect(screen.queryByText('Q3 2026')).not.toBeInTheDocument()
+  })
+
+  it('keeps a change line\u2019s letter with its change, so a long change wraps after its label, never before the letter', () => {
+    // The producer's an-inputs-finding FY2018..FY2021 (E289): the net margin's window change across the slipped year,
+    // -36,374.6pp, takes revenue's note a, and at 320px "Chg -36,374.6pp" with its letter fills the card (chief
+    // design's probe on #1951). The change and its letter are one inline-block; the label stays outside it.
+    const produced: { datasets: Record<string, AnalysisDataset> } = JSON.parse(
+      readFileSync('../backend/tests/fixtures/analysis_first_reports_produced.json', 'utf8'),
+    )
+    const { container } = render(<KpiStrip dataset={produced.datasets['an-inputs-finding FY2018..FY2021']} />)
+    const margin = screen.getAllByRole('term').find((term) => term.textContent === 'Net margin')!.parentElement!
+    const change = margin.querySelector('[data-kpi-change]')!
+    expect(change).toHaveClass('inline-block')
+    expect(change.textContent).toBe('-36,374.6ppa')
+    expect(change.querySelector('[data-note-letter="a"]')).not.toBeNull()
+    expect(change.parentElement!.textContent).toBe('Chg -36,374.6ppa')
+    // Every change line's letter sits inside its pair: revenue's CAGR carries note a too.
+    const marks = [...container.querySelectorAll('[data-analysis-kpi] dd:last-child [data-note-letter]')]
+    expect(marks).toHaveLength(2)
+    for (const mark of marks) expect(mark.closest('[data-kpi-change]')).not.toBeNull()
   })
 })
