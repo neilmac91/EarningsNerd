@@ -208,8 +208,8 @@ describe("words inside Notice's tint (E283)", () => {
 
   it('every borrower keeps its words in the ink unless INKED lists it, and every tint has an element to read', () => {
     const files = borrowers()
-    // The reader reaches the tree: the warning it keeps in the ink, and each listed borrower.
-    expect(files).toEqual(expect.arrayContaining(['app/dashboard/settings/page.tsx', ...INKED.map((entry) => entry.file)]))
+    // The reader reaches the tree: the limit banner it keeps in the ink, and each listed borrower.
+    expect(files).toEqual(expect.arrayContaining(['app/dashboard/page.tsx', ...INKED.map((entry) => entry.file)]))
     const unplaced: string[] = []
     const unlisted: string[] = []
     for (const file of files) {

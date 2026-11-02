@@ -680,8 +680,19 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  the loss tone, which is a direction (§1). Set it through the prop, never a border colour on top:
                  Card's own dark:border-white/10 beat the settings card's dark override, so it drew its hairline
                  in light only (a design selector in eslint.config.mjs fails a border colour written in a Card's
-                 className; designRules.spec.ts plants it). The card's confirmation warning lends Notice's error
-                 tint (noticeTint), its words in the ink and the error ink on its glyph alone (§4 › Inline notice).
+                 className; designRules.spec.ts plants it). The card's confirmation warning is a warning Notice,
+                 the risk the reader weighs before an act they cannot undo, its list the Notice's body (D-076;
+                 §4 › Inline notice).
+                 A class written on a Card or a section (CardHeader, CardBody, CardFooter, CardTitle) never sets
+                 what the component sets: the hairline, the fill, the corner, the shadow, a section's padding,
+                 layout or title type. Stylesheet order decides between two such classes, whichever is written
+                 last: rounded-2xl loses to rounded-xl, CardBody's py-3 loses to py-4 while py-5 wins, and a bare
+                 bg-white loses in dark to Card's dark:bg-panel-dark. What Card offers is a prop (tone, radius,
+                 elevation, interactive); spacing, position and a ring, which composes with the shadow, are the
+                 caller's (gate: tests/unit/cardClassesNoOverrides.spec.tsx, every <Card> and section in the app
+                 read through its imports, cx() and conditions and measured against the classes it renders, as
+                 inputClassesNoOverrides.spec.tsx holds the field; the two forwarders of a caller's className are
+                 listed, traced).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -1650,9 +1661,12 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  result, an error, a limit, a mode of the account). The variant is written at every call
                  site, never a default (the default-info trap of lessons/frontend-status-colors-for-status-only.md):
                  `info` is an advisory state in the info ink; `warning` a state the reader weighs (a limit near or
-                 reached, a risk in what they are about to do: an invite link anyone can redeem) in the warning
-                 ink, its glyph the triangle, where an error's is the circle; `error` takes role="alert"; and the
-                 action slot takes a small Button. Guidance is no state (a sign-in that would show a company's
+                 reached, a risk in what they are about to do: an invite link anyone can redeem, deleting the
+                 account) in the warning ink, its glyph the triangle, where an error's is the circle, so its title
+                 never opens on "Warning:"; `error` takes role="alert"; and the action slot takes a small Button.
+                 More than a sentence (a list) is the Notice's children, under the description in the
+                 description's secondary ink and size, since the description is a <p>: the settings page's delete
+                 warning lists what deleting removes (D-076). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's
@@ -1691,10 +1705,8 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  E196 (3)). The warning tint goes to two banners, each keeping its words in the ink and the warning
                  ink on its glyph alone, as a Notice keeps them (E196 (2)): the verification banner, a strip under
                  the header, and the dashboard's limit banner, which keeps a banner's shape, its upgrade at its end
-                 from sm and at its full width below, as the trial banner above it does. The settings page's Delete
-                 account warning keeps its heading, its list and its closing line in the error tint, its words in
-                 the ink in the same way (E283): a Notice's description is a <p>, which cannot hold a list, and its
-                 role="alert" would read the whole warning out as the confirmation opens. Each borrower is listed
+                 from sm and at its full width below, as the trial banner above it does. A list is no reason to
+                 borrow: it is a Notice's children (D-076). Each borrower is listed
                  with the variant it writes, as a string literal (gate: statusTintResidue.spec.ts's
                  TINT_BORROWED). Words in another ink inside a tint are listed with their inks and measured at
                  4.5:1 on the panel and the page in both themes, today the Copilot bubble's sentence in the error
