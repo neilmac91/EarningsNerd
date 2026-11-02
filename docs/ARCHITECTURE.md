@@ -294,7 +294,10 @@ whose inputs carry theirs. A YoY that crosses a change of basis (D3: the earlier
 later year's value shown more than 1% from its own report's) reads "nm" with `yoy_first_reported`, as does one with
 a sign or scale finding in either year. That is evidence, not a note: values, validation and totals stand. The one exception is
 read-time: an exact sign flip or factor of 1,000ⁿ between the two values marks the figure `needs_review` with the
-existing `source_conflict` reason, on a copy of its provenance, where the own row passed its checks. "Own report"
+existing `source_conflict` reason, on a copy of its provenance, where the own row passed its checks, and marks every
+calculated figure whose input carries it, at any depth, the same way (E289), so the two share a note where neither
+carries another reason; a calculation that recorded no operand of an input reads the mark the dataset's own figure of
+it took. "Own report"
 replays `facts/own_reports.py`'s rule on stored rows, held to it by `test_first_reports.py`; quarterly datasets read
 and carry none of it. The page (`features/analysis/lib/laterFilings.ts`) and the exports (its backend twin,
 `trend_analysis/later_filings.py`, since #1866) derive the data notes' later-filing line from the points, so the notes

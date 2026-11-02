@@ -41,7 +41,11 @@ A finding that signals a tagging error rather than a change of basis (item 4), a
 option A: no new words, no data notes version), so its comparisons and window figures inherit the note as they inherit
 any; the mark rests only on an own row that passed its checks (D6), and growth across a finding on either year reads
 n/m, its growth as first reported "nm" too, since one of the two readings rests on the slip, a per-share figure's
-included.
+included. A calculated figure takes the same mark where an input, at any depth, carries a finding that grounds one
+(E289, chief design's ruling on #1888); where neither carries another reason it joins its input's note and letter, and a
+legacy calculation, whose ``legacy_calculation`` stays, keys a note of its own. A calculation that recorded no operand
+of an input (a legacy one records none) reads the mark the dataset's own figure of that input took for the year, as D4
+reads that figure. Evidence alone marks neither.
 
 Annual runs only (D5): WP5b stores fiscal-year rows alone, and the page refuses evidence in a quarterly run, so a
 quarterly dataset reads nothing more and carries none. No CAGR or window change reads n/m (D5, deferred).
@@ -258,6 +262,9 @@ class FirstReports:
         self._own_ends = own_period_ends([*current, *history], dates) if history else {}
         self._cells: dict[Cell, list[FinancialFact]] = {}
         self._stored: dict[tuple[Cell, str], FinancialFact] = {}
+        # (concept, period) of each figure its own finding marked, which a calculation that recorded no operand of the
+        # concept reads (E289, as D4 reads the figure).
+        self._marked_figures: set[tuple[Any, Any]] = set()
         for row in history:
             # A calculated metric's evidence sits on its inputs (item 5); a withheld row, one whose stored value is not
             # a finite number, or one whose value the cross-check replaced is no one's evidence.
@@ -339,8 +346,9 @@ class FirstReports:
 
     def attach(self, points: list[dict[str, Any]]) -> None:
         """Give each figure of one series its evidence, a reported one its own and a calculated one its inputs' (item
-        5), and mark a reported one where the two filings disagree in a way that signals a tagging error (item 4, D6),
-        before its comparisons copy its provenance."""
+        5), and mark a figure where two filings disagree in a way that signals a tagging error (item 4, D6), a reported
+        one on its own finding and a calculated one on an input's (E289), before its comparisons copy its provenance.
+        An input's series is attached before its calculations' (``DATASET_CONCEPT_ORDER``)."""
         if not self._cells:
             return
         for point in points:
@@ -350,6 +358,8 @@ class FirstReports:
             with_inputs = self._with_inputs(provenance)
             if with_inputs is not None:
                 point["provenance"] = provenance = with_inputs
+            if provenance.get("method") == "calculated" and self._an_input_grounds_a_mark(point, provenance):
+                point["provenance"], point["reconciled"] = _marked(provenance), False
             if provenance.get("method") != "reported":
                 continue
             own = self.own_report(point)
@@ -359,7 +369,30 @@ class FirstReports:
             point["first_reported"] = first
             if first["disagreement"] and grounds_a_mark(own):
                 point["provenance"], point["reconciled"] = _marked(provenance), False
+                self._marked_figures.add((point.get("concept"), point.get("period")))
 
+    def _grounded(self, provenance: Mapping[str, Any]) -> bool:
+        """Whether a recorded input of a calculation, at any depth, carries a sign or scale finding that grounds a mark:
+        its own report's row passed its checks (D6), as for a reported figure. ``_has_finding`` reads every finding,
+        for the n/m rule; evidence without one (a crossing, a run, a leading edge) grounds nothing."""
+        for operand in provenance.get("inputs") or []:
+            if (operand.get("first_reported") or {}).get("disagreement"):
+                own = self.own_report(operand)
+                if own is not None and grounds_a_mark(own):
+                    return True
+            if self._grounded(operand.get("provenance") or {}):
+                return True
+        return False
+
+    def _an_input_grounds_a_mark(self, point: Mapping[str, Any], provenance: Mapping[str, Any]) -> bool:
+        """E289 (1): a recorded input's grounded finding (``_grounded``), else, for an input the calculation recorded no
+        operand of (one stored before operands were), the mark the dataset's own figure of that input took for the year
+        on its own finding, as D4 reads that figure in the operand's place (``_figures``)."""
+        if self._grounded(provenance):
+            return True
+        recorded = {operand.get("concept") for operand in provenance.get("inputs") or []}
+        return any((name, point.get("period")) in self._marked_figures
+                   for name in BASIS_INPUTS.get(point.get("concept"), ()) if name not in recorded)
 
     def _input(self, operand: Mapping[str, Any]) -> Optional[dict[str, Any]]:
         """A calculated figure's reported input's evidence, as a reported figure's (item 5)."""

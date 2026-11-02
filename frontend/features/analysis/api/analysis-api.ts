@@ -56,8 +56,8 @@ export type GrowthValue = number | 'nm'
 /** The value a fiscal year's own annual report gave, on a reported figure of an annual run for which a later filing
  *  reports another, the one shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals
  *  or letters. Only an exact sign flip or factor of 1,000ⁿ between the two (`disagreement`) can also be a note, the
- *  producer's `source_conflict`, which it writes only where the own-report row passed its checks (D6) and never on a
- *  calculated figure for an input's finding, so a `disagreement` can come with no note. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
+ *  producer's `source_conflict`, which it writes only where the own-report row passed its checks (D6), on the figure
+ *  and on every figure calculated from it (E289), so a `disagreement` can come with no note. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
  *  which refuses it in a quarterly run until quarterly evidence lands with its reader, D5); a point without it renders
  *  as before. */
 export interface FirstReported {

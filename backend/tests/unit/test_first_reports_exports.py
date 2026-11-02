@@ -30,6 +30,8 @@ later_filing_places say:
 6. Reach: between them the datasets print every kind of evidence above (REACH), so a producer that stops sending a
    field or a finding fails here as well as in its own tests. None carries a growth whose own reports give none (a
    null yoy_first_reported); test_export_later_filings.py's own case does.
+7. A calculated figure whose input carries a sign or scale finding prints its input's letter beside it in both files'
+   grids (E289: the producer marks it with its input's reasons, so it joins its input's note).
 """
 from __future__ import annotations
 
@@ -47,12 +49,14 @@ from app.services.analysis_export_metadata import (
     BASIS_CHANGE_CAUSE, exact_figure, growth_text, note_index, period_label,
 )
 from app.services.trend_analysis.data_notes import marks_figure, resolve_data_notes
+from app.services.trend_analysis.first_reports import BASIS_INPUTS
 from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.later_filings import later_filing_places
 from tests.unit import test_export_later_filings as exports
 from tests.unit.test_export_later_filings import (
     EXPORTED, NEW_WORDS, _figure_cells, _files, _methods, _pdf, _sources, _switched_off, _workbook,
 )
+from tests.unit.test_export_note_marks import FORMAT, PDF_MARK
 
 PRODUCED = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "analysis_first_reports_produced.json")
                       .read_text())["datasets"]
@@ -308,7 +312,7 @@ def test_every_n_m_the_workbook_prints_says_why(name):
 # ---- 6. Reach -------------------------------------------------------------------------------------------------------
 REACH = {"a figure", *INPUTS.values(), "an input two levels down", "a growth as first reported",
          "a growth as first reported, n/m across a finding", "the top line's growth across the change",
-         "a finding beside its data note's letter",
+         "a finding beside its data note's letter", "a calculated figure beside its input's letter",
          *(f"{finding} on {holder}" for finding in FINDINGS.values() for holder in ("a figure", "an input"))}
 
 
@@ -335,6 +339,10 @@ def _reach(dataset: dict) -> set[str]:
            for series in dataset["series"] for point in _window(dataset, series)
            if (note := indexed.get((series["concept"], point["period"], "value")))):
         reach.add("a finding beside its data note's letter")
+    if any(_found_on_inputs(point["provenance"]) and marks_figure(note)
+           for series in dataset["series"] if series["concept"] in BASIS_INPUTS for point in _window(dataset, series)
+           if (note := indexed.get((series["concept"], point["period"], "value")))):
+        reach.add("a calculated figure beside its input's letter")
     return reach
 
 
@@ -342,3 +350,39 @@ def test_the_produced_datasets_reach_every_kind_of_evidence():
     # Each kind is held at its places above; a dataset the producer pins that reaches a new kind fails here until
     # REACH names it.
     assert set().union(*map(_reach, PRODUCED.values())) == REACH
+
+
+# ---- 7. A calculated figure's letter (E289) -------------------------------------------------------------------------
+def _found_on_inputs(provenance: dict) -> set[str]:
+    """The concepts of a calculation's recorded inputs, at any depth, whose evidence carries a sign or scale finding."""
+    found = set()
+    for operand in provenance.get("inputs") or []:
+        if (operand.get("first_reported") or {}).get("disagreement"):
+            found.add(operand["concept"])
+        found |= _found_on_inputs(operand.get("provenance") or {})
+    return found
+
+
+def _grid_letters(html: str, label: str, periods: list[str]) -> dict[str, list[str]]:
+    """The letters the PDF's grid raises in each period's cell of a metric's row."""
+    [row] = re.findall(rf"<tr><td>{re.escape(html_lib.escape(label))}</td>(.*?)</tr>", html)
+    return {period: [letter for _target, letter in PDF_MARK.findall(cell)]
+            for period, cell in zip(periods, re.findall(r'<td class="num">(.*?)</td>', row), strict=True)}
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_a_calculated_figure_over_its_inputs_finding_prints_its_inputs_letter_in_both_files(name):
+    dataset = PRODUCED[name]
+    indexed = note_index(resolve_data_notes(dataset))
+    periods = [period["key"] for period in dataset["periods"]]
+    html, book = _pdf(dataset), _workbook(dataset)
+    metrics = {(series["concept"], period): cell for sheet, cell, series, period in _figure_cells(book, dataset)
+               if sheet == "Metrics"}
+    for series in (series for series in dataset["series"] if series["concept"] in BASIS_INPUTS):
+        grid = _grid_letters(html, series["label"], periods)
+        for point in _window(dataset, series):
+            if found := _found_on_inputs(point["provenance"]):
+                [letter] = {indexed[(concept, point["period"], "value")]["letter"] for concept in found}
+                place = (series["concept"], point["period"])
+                assert grid[point["period"]] == [letter], place
+                assert FORMAT.fullmatch(metrics[place].number_format)["letter"] == letter, place

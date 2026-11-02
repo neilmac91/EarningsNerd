@@ -393,6 +393,13 @@ WP5a decision brief, each held in one named constant or function a review can ov
 - D5: no CAGR or window change reads n/m, and a quarterly run carries no evidence (E269, E270).
 - D6: any own row the publication policy shows gives evidence; only one that passed its checks grounds the mark
   (`grounds_a_mark`).
+- E289 (chief design's ruling on #1888, built after B): a calculated figure takes the mark where an input, at any
+  depth, carries a sign or scale finding that grounds one (`_an_input_grounds_a_mark`); evidence alone gives it none.
+  Where neither carries another reason it joins its input's note and letter, with no new words and the data notes at
+  version 3; its comparisons, and a window change from it, take the note as from any marked figure, the window change
+  across the slipped year keeping its number (E269). A legacy calculation records no inputs, so it reads the mark the
+  dataset's own figure of each input took for the year, as D4 reads that figure, and keys a note of its own, a second
+  letter with the same words. Not ruled: a calculated figure over an input marked for another reason.
 
 The own report is ingest's rule replayed on stored rows: an accession's own year is the latest fiscal-year row stored
 there, a balance included, unless its filing row's period of report lies further on, and a test holds the reader to
@@ -1052,7 +1059,7 @@ do. The full transcripts are in
   across the change of basis reads n/m. The founder confirmed this on 2026-10-25 (D-061).
 - **A legacy figure carries no mark.** A reader learns of its incomplete record only in the fine
   print's detail or the dialog. That is the founder decision in §2.9, and the backfill (§1.5)
-  removes the case.
+  removes the case. Its record never marks it; an input's sign or scale finding can (E289, §1.6).
 - **Growth figures keep their direction ink when marked.** Direction and doubt are separate axes.
   The neutral letter sits next to the colour, so the colour is not read as confirmation.
 - **Closed by the quiet scheme:**
@@ -1180,7 +1187,7 @@ openpyxl and Pillow. The full pass/fail table is in
 - **Settled.** The 52 DejaVu daggers go with the per-value dagger.
 - **Partly settled.** In the workbook, a figure in question gets a visible letter in the grid, and
   the comment triangle stays the evidence for every note. A legacy cell keeps its comment only,
-  as it carries no mark on the page.
+  as it carries no mark on the page, unless an input's sign or scale finding marks it (E289).
 
 The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
 
