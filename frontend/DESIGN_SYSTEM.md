@@ -1190,7 +1190,8 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
                  and names one, only for a marked note. Its name and title say its source in the list's
                  words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
-                 not print; the analysis PDF prints the same label (gate: test_export_service.py).
+                 not print; the analysis PDF prints the same label (gates: narrative-pane.spec.tsx for the
+                 chip and the list; test_export_service.py for the PDF).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -3172,8 +3173,9 @@ plot needs it stops with an error toast rather than paint a fallback (gate, in C
 Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
 theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
 control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
-"Image matches your theme." from a `hidden` line beside the button, so browse mode does not read it twice, its name
-still the label (ChartControl's `hint`; the expand control takes none; gate: `tests/unit/trend-charts-v2.spec.tsx`).
+"Image matches your theme.", which a `hidden` line beside the button carries, so browse mode does not read it twice.
+Its name stays the label (ChartControl's `hint`; the expand control takes none; gate:
+`tests/unit/trend-charts-v2.spec.tsx`).
 Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
