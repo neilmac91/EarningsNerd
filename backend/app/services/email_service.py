@@ -789,7 +789,7 @@ def render_earnings_day_alert(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Companies you follow report earnings today:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
-    <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">You can check EarningsNerd for new filings and available summaries.</p>
     """
     def _text_row(it: dict) -> str:
         ticker = str(it.get("ticker", ""))
@@ -804,7 +804,7 @@ def render_earnings_day_alert(
     text_body = (
         f"{_greeting_text(name)}\n\nCompanies you follow report earnings today:\n\n"
         + "\n\n".join(_text_row(it) for it in items)
-        + "\n\nWe'll have the AI summary ready shortly after they file."
+        + "\n\nYou can check EarningsNerd for new filings and available summaries."
     )
     if len(items) == 1:
         # The subject names one company's ticker, so the line names the company in full, and its slot where the
