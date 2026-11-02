@@ -271,8 +271,8 @@ def test_a_dry_run_counts_outcomes_and_names_each_refusal_by_place_without_writi
         "action": "grant", "mode": "dry-run", "manifest_sha256": digest, "cohort": COHORT,
         "review_on": REVIEW_ON.isoformat(), "entries": 3, "cap": MAX_ACTIVE_GRANTS, "active_grants_before": 0,
         "active_grants_after": 1, "outcomes": {"eligible": 1, "refused": 2},
-        "refusals": [{"entry": 2, "reasons": ["email_not_verified"]},
-                     {"entry": 3, "reasons": ["not_invited_beta", "no_redeemed_invite"]}],
+        "refusals": [{"entry": 2, "codes": ["email_not_verified"]},
+                     {"entry": 3, "codes": ["not_invited_beta", "no_redeemed_invite"]}],
         "stopped": None,
     }
     for account in (eligible, unverified, uninvited):
@@ -303,9 +303,9 @@ def test_a_grant_refuses_an_account_this_path_cannot_own(world, fields, expected
     tester = world.tester(**fields)
     manifest = world.manifest("grant", [tester], operator_id=operator.id)
 
-    assert service.dry_run(world.db, *manifest, today=TODAY).refusals == [{"entry": 1, "reasons": expected}]
+    assert service.dry_run(world.db, *manifest, today=TODAY).refusals == [{"entry": 1, "codes": expected}]
     report = _apply(world, manifest)
-    assert (report.outcomes, report.refusals) == ({"refused": 1}, [{"entry": 1, "reasons": expected}])
+    assert (report.outcomes, report.refusals) == ({"refused": 1}, [{"entry": 1, "codes": expected}])
     state = _committed(tester.id)
     assert (state.is_pro, state.grant, state.actions) == (fields.get("is_pro", False), None, [])
 
@@ -321,7 +321,7 @@ def test_a_grant_refuses_an_account_with_a_subscription_row_of_any_status(world,
     report = _apply(world, manifest)
 
     expected = ["subscription_exists"] + (["pro_from_another_source"] if status in ("active", "trialing") else [])
-    assert report.refusals == [{"entry": 1, "reasons": expected}]
+    assert report.refusals == [{"entry": 1, "codes": expected}]
     state = _committed(tester.id)
     assert (state.grant, state.actions) == (None, [])
 
@@ -336,8 +336,8 @@ def test_an_id_that_names_no_account_or_another_persons_account_is_refused(world
 
     report = _apply(world, manifest)
 
-    assert report.refusals == [{"entry": 1, "reasons": ["account_not_found"]},
-                               {"entry": 2, "reasons": ["identity_mismatch"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["account_not_found"]},
+                               {"entry": 2, "codes": ["identity_mismatch"]}]
     assert (_committed(stranger.id).is_pro, _committed(stranger.id).grant) == (False, None)
 
 
@@ -350,7 +350,7 @@ def test_an_address_change_since_the_manifest_was_written_is_refused(world):
 
     report = _apply(world, manifest)
 
-    assert report.refusals == [{"entry": 1, "reasons": ["identity_mismatch"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["identity_mismatch"]}]
     assert _committed(tester.id).grant is None
 
 
@@ -499,8 +499,8 @@ def test_a_unit_refuses_what_changed_since_its_dry_run(world, monkeypatch):
     report = _apply(world, manifest)
 
     assert report.outcomes == {"granted": 1, "refused": 2}
-    assert report.refusals == [{"entry": 1, "reasons": ["subscription_exists"]},
-                               {"entry": 2, "reasons": ["stripe_identity"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["subscription_exists"]},
+                               {"entry": 2, "codes": ["stripe_identity"]}]
     assert [_committed(a.id).is_pro for a in (subscribed, customer, untouched)] == [False, False, True]
 
 
@@ -527,7 +527,7 @@ def test_a_unit_refuses_a_grant_when_a_racing_apply_filled_the_cap(world, monkey
     monkeypatch.setattr(service, "dry_run", dry_run_then_a_racing_apply)
     report = _apply(world, late_manifest)
 
-    assert (report.outcomes, report.refusals) == ({"refused": 1}, [{"entry": 1, "reasons": ["cap_reached"]}])
+    assert (report.outcomes, report.refusals) == ({"refused": 1}, [{"entry": 1, "codes": ["cap_reached"]}])
     assert (_committed(racer.id).is_pro, _committed(late.id).is_pro) == (True, False)
 
 
@@ -601,7 +601,7 @@ def test_a_revoke_refuses_a_grant_of_another_cohort(world):
 
     report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, cohort="another-cohort"))
 
-    assert report.refusals == [{"entry": 1, "reasons": ["granted_in_another_cohort"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).is_pro is True
 
 
@@ -612,7 +612,7 @@ def test_a_grant_refuses_an_account_another_cohort_holds(world):
 
     report = _apply(world, world.manifest("grant", [tester], operator_id=operator.id, cohort="another-cohort"))
 
-    assert report.refusals == [{"entry": 1, "reasons": ["granted_in_another_cohort"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).grant.cohort == COHORT
 
 
@@ -626,7 +626,7 @@ def test_a_grant_whose_pro_another_writer_cleared_is_reported_not_restored(world
 
     report = _apply(world, manifest)
 
-    assert report.refusals == [{"entry": 1, "reasons": ["grant_without_pro"]}]
+    assert report.refusals == [{"entry": 1, "codes": ["grant_without_pro"]}]
     assert _committed(tester.id).is_pro is False
 
 

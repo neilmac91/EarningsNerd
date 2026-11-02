@@ -810,7 +810,7 @@ def test_postgres_two_applies_racing_at_the_cap_grant_one_between_them(postgres_
     assert calls[1] == access.MAX_ACTIVE_GRANTS - 1
     assert results["first"].outcomes == {"granted": 1}, results
     assert (results["second"].outcomes, results["second"].refusals) == (
-        {"refused": 1}, [{"entry": 1, "reasons": ["cap_reached"]}]), results
+        {"refused": 1}, [{"entry": 1, "codes": ["cap_reached"]}]), results
     with _session(postgres_engine) as db:
         active = db.query(ComplimentaryAccessGrant).filter(ComplimentaryAccessGrant.revoked_at.is_(None)).count()
         assert active == access.MAX_ACTIVE_GRANTS

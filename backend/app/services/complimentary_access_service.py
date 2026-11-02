@@ -261,7 +261,7 @@ def _report(manifest: Manifest, digest: str, mode: str, before: int) -> Report:
 def _tally(report: Report, position: int, outcome: str, refusals: list[str]) -> None:
     report.outcomes[outcome] = report.outcomes.get(outcome, 0) + 1
     if refusals:
-        report.refusals.append({"entry": position, "reasons": refusals})
+        report.refusals.append({"entry": position, "codes": refusals})
 
 
 def dry_run(db: Session, manifest: Manifest, digest: str, *, today: date) -> Report:

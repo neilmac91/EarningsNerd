@@ -122,7 +122,7 @@ def test_every_report_and_log_line_carries_no_planted_id_or_address(accounts, tm
     assert code == 0
     report = json.loads(out)
     assert (report["outcomes"], report["refusals"]) == ({"eligible": 2, "refused": 1},
-                                                         [{"entry": 3, "reasons": ["email_not_verified"]}])
+                                                         [{"entry": 3, "codes": ["email_not_verified"]}])
     texts = [out, err, logged]
 
     code, out, err, logged = _run(capsys, caplog, "apply", "--manifest", str(grant),
