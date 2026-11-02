@@ -266,7 +266,8 @@ def test_a_banks_gross_revenues_is_no_total():
 def test_a_partial_line_never_fills_a_year_the_fee_tag_lacks():
     # Below 90% of the fee tag wherever both report (BLK's line at 62%), a total element is a partial line: it fills
     # no year, not even one the fee tag lacks.
-    years, _ = _fy(_years({REV: {2021: 6.0e9, 2022: 6.2e9, 2023: 6.4e9}, FEE: {2022: 10.0e9, 2023: 10.5e9, 2024: 11e9}}))
+    years, _ = _fy(_years({REV: {2021: 6.0e9, 2022: 6.2e9, 2023: 6.4e9},
+                           FEE: {2022: 10.0e9, 2023: 10.5e9, 2024: 11e9}}))
     assert years == {2022: (10.0, FEE), 2023: (10.5, FEE), 2024: (11.0, FEE)}
 
 
@@ -289,7 +290,8 @@ def test_a_restated_total_is_read_only_beside_the_fee_tag_it_sits_under(part, ta
 
 def test_the_second_fee_element_fills_where_it_matches_the_first():
     # E286: HUT tags its total with both ASC 606 elements, equal wherever both report; the one including assessed tax
-    # fills the transition period ended December 2023, which the other lacks.
+    # fills calendar 2023, which the other lacks: its FY2024 10-K's comparative after the year end moved from June to
+    # December (the six-month transition period is no year), so it overlaps the June 2023 year by six months.
     years = _millions(_load("HUT"))
     assert (years["2023-06-30"], years["2023-12-31"], years["2025-12-31"]) == (
         (82.16, FEE), (96.05, FEEI), (235.12, FEE))
@@ -341,6 +343,30 @@ def test_with_no_total_a_banks_fee_tag_short_of_its_sum_is_no_total(fee, tags):
     years = range(2023, 2026)
     payload = _years({FEE: {y: fee for y in years}, NII: {y: 60e6 for y in years}, NONII: {y: 450e6 for y in years}})
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+
+
+def _quarters(tag_vals):
+    """{tag: {quarter end: value}} as 10-Q quarter items, one accession per quarter: a 10-Q's own facts, no year."""
+    return {"facts": {"us-gaap": {tag: {"units": {"USD": [
+        _item(v, end, f"{end[:5]}{int(end[5:7]) - 2:02d}-01", f"Q{end}", form="10-Q",
+              filed=f"{end[:5]}{int(end[5:7]) + 1:02d}-10", fp=f"Q{int(end[5:7]) // 3}")
+        for end, v in sorted(vals.items())]}} for tag, vals in tag_vals.items()}}}
+
+
+@pytest.mark.parametrize("fee,tags", [(112e6, ()), (127e6, (FEE,))])
+def test_with_no_year_a_banks_fee_tag_is_held_to_a_quarters_sum(fee, tags):
+    # The trust bank above as a 10-Q's own facts (E278's path) or a payload with no 10-K yet: no filing reports a year
+    # beside both lines, so each quarter's sum (127M) is the floor (E286's review: years alone let the fee subset in).
+    ends = ("2025-03-31", "2025-06-30")
+    payload = _quarters({FEE: {e: fee for e in ends}, NII: {e: 15e6 for e in ends}, NONII: {e: 112e6 for e in ends}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+
+
+def test_a_quarters_sum_never_leaves_a_total_out():
+    # STT's Q3 2020 10-Q: its total revenue beside a noninterest income it tagged near zero (0 here; 2.4B in its
+    # 10-K's years), 5.8 times net interest income alone. A quarter's sum cannot judge a total, so it stays (E290).
+    payload = _quarters({REV: {"2020-09-30": 2784e6}, NII: {"2020-09-30": 478e6}, NONII: {"2020-09-30": 0.0}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV,)
 
 
 def test_a_fee_tag_four_percent_below_the_total_is_not_the_total():
@@ -414,7 +440,8 @@ def test_a_shared_quarter_refuses_a_fee_tag_below_the_total():
     assert _fee_rows(_facts(payload)) == []
 
 
-@pytest.mark.parametrize("beside,part,tags", [(None, 0, (RNOIE, FEE)), (NII, 7.0e9, (RNOIE,)), (NII, 1.0e9, (RNOIE, FEE))])
+@pytest.mark.parametrize("beside,part,tags", [
+    (None, 0, (RNOIE, FEE)), (NII, 7.0e9, (RNOIE,)), (NII, 1.0e9, (RNOIE, FEE))])
 def test_a_shared_quarter_never_admits_the_fee_tag_on_its_own(beside, part, tags):
     # The fee tag matches the total at the one quarter they share; whether it fills Q1 2018 is the part test's: a part
     # above its 6.6B there refuses it, one below does not (E286; E264 refused any part beside it).
@@ -480,14 +507,17 @@ def test_the_default_authority_is_unchanged():
     assert plain[2025] == 2_440_000_000.0  # a non-financial filer's reading: the first tag with data
 
 
-@pytest.mark.parametrize("ticker", [t for t in TICKERS if t != "AJG"])
+REPLAY_EXEMPT = {("AJG", date(2017, 6, 30), "Q")}  # the replay gate's one exempt period, and its reason there
+
+
+@pytest.mark.parametrize("ticker", TICKERS)
 def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker):
     """Rule 12: replayed at every filing date in the fixture, each state the trimmed fixture passed through (its
     first kept period on, so a filer's earlier years are never replayed), no revenue row (or calculation operand)
     carries the fee tag at a period any total tag reports more than 1% above it, in the full fixture; the fee-subset
-    filers carry none at all. Not AJG: ASC 606 moved revenue between its 2017 quarters, and its Revenues restated
-    them to the fee tag's figures (Q2: 1,563.4M first reported, 1,489.5M restated), so a first-reported quarter
-    reads above the fee tag the rule reads there."""
+    filers carry none at all. Except AJG's Q2 2017 (``REPLAY_EXEMPT``, which must fire): ASC 606 moved revenue
+    between its 2017 quarters, and its Revenues restated them to the fee tag's figures (Q2: 1,563.4M first reported,
+    1,489.5M restated), so the first-reported quarter reads above the fee tag the rule reads there."""
     full = _load(ticker)
     totals: dict = {}
     for tag in fi_revenue.TOTAL_TAGS:
@@ -496,6 +526,7 @@ def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker
             totals.setdefault(key, []).append(value)
     filed = sorted({i["filed"] for node in full["facts"]["us-gaap"].values() for items in node["units"].values()
                     for i in items})
+    exempted = set()
     for cutoff in filed:
         rows = _fee_rows(_facts(_as_of(full, cutoff)))
         assert not (rows and ticker in ("IBKR", "AMT", "AXP", "KKR", "MET", "CLSK", "WBHC")), (cutoff, rows[:1])
@@ -503,8 +534,13 @@ def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker
             for tag, start, end, value in _operands(fact):
                 start = date.fromisoformat(start) if isinstance(start, str) else start
                 end = date.fromisoformat(end) if isinstance(end, str) else end
-                larger = [v for v in totals.get((end, _classify_duration(start, end)), []) if v > value * 1.01]
+                key = (end, _classify_duration(start, end))
+                if (ticker, *key) in REPLAY_EXEMPT:
+                    exempted.add((ticker, *key))
+                    continue
+                larger = [v for v in totals.get(key, []) if v > value * 1.01]
                 assert larger == [], (cutoff, end, value)
+    assert exempted == {e for e in REPLAY_EXEMPT if e[0] == ticker}  # no wider than the period it exists for
 
 
 def test_the_total_tags_stay_out_of_the_generic_registries():

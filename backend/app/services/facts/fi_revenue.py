@@ -7,21 +7,24 @@ per-period merge (the first tag with data wins a period). A later tag fills peri
 evidence that it measures the same thing: its value at the latest period it shares with them matches a value they
 reported there (WFC, MS, JPM; never IBKR's gross Revenues beside its net total). A total element sharing none does
 not fill; an ASC 606 element sharing no year has its own test (2). Periods are years where two tags share any, else
-quarters. A bank's sum is its net interest income plus its noninterest income as one filing reports them for a year;
-its net total is that sum, or less a provision (HDB).
+quarters. A bank's sum is its net interest income plus its noninterest income as one filing reports them for a year
+(a quarter, only in (2)); its net total is that sum, or less a provision (HDB).
 
 1. The total elements, in order: RevenuesNetOfInterestExpense, Revenues, SalesRevenueNet, then RealEstateRevenueNet
    and SalesRevenueServicesNet, which filers tagged before ASC 606 (ARE, BRX, PLD, MRSH). One is left out when a
-   filing reads it more than 3% above the bank's sum (WBHC's gross Revenues, MUFG's segment figure; USB's total
-   reads 1.2% above); when it reports one year, which another total element reports among others (CLSK's FY2019
-   component); or when it is below the ASC 606 element (excluding assessed tax) at every period both report. Below
-   90% of it, that is a partial line (BLK's FY2024 10-K). From 90%, it is the total before ASC 606 restated it (AJG
-   FY2014-15): read last, so it fills only the periods every other tag lacks, and only when that element is read.
+   filing reads it more than 3% above the bank's sum for a year (WBHC's gross Revenues, MUFG's segment figure; USB's
+   total reads 1.2% above). A quarter's sum leaves none out, since STT's 2020 10-Qs tag their noninterest income near
+   zero; so WBHC's 10-Qs still read its gross Revenues (E290). One is also left out when it reports one year, which
+   another total element reports among others (CLSK's FY2019 component); or when it is below the ASC 606 element
+   (excluding assessed tax) at every period both report. Below 90% of it, that is a partial line (BLK's FY2024
+   10-K). From 90%, it is the total before ASC 606 restated it (AJG FY2014-15): read last, so it fills only the
+   periods every other tag lacks, and only when that element is read.
 2. The ASC 606 elements, excluding then including assessed tax (CBOE, ARE, BRX, SDEV and HUT tag their total with
    the latter), after the totals, each read only when it is the filer's total. Either its value matches the earlier
    tags' at the latest year it shares with them (ICE, NDAQ, EQIX, O, PNC); or it shares no year with them, matches
    them at the latest quarter they share if they share one (a quarter can refuse it, never admit it), and no filing
-   reads it more than 3% below the bank's sum (RF's, FITB's and WAL's fee lines read 1-9% of it). Either way no
+   reads it more than 3% below the bank's sum (RF's, FITB's and WAL's fee lines read 1-9% of it): a year's, or where
+   no filing reports the element for a year beside both lines, a quarter's (a 10-Q's own facts). Either way no
    period it fills reads it below the interest, premium, investment or lease revenue beside it, a total never being
    below one of its parts: TRC's and PAPL's totals sit above their lease and interest lines, while BNY's 2018 fee
    quarters sit below its noninterest income and SYF's fees below its net interest income.
@@ -64,15 +67,16 @@ def _items(usgaap: dict, tag: str, unit: str, foreign: frozenset) -> _Items:
     return out
 
 
-def _by_filing(usgaap: dict, tag: str, unit: str, foreign: frozenset) -> dict[tuple[date, str], float]:
-    """Each admitted annual item of ``tag``, {(period end, accession): value}. One filing states a bank's lines on one
-    basis, where the latest filed values can mix bases (PNC's 2017 noninterest income, recast in a 2020 filing)."""
+def _by_filing(usgaap: dict, tag: str, unit: str, foreign: frozenset, klass: str = "FY") -> dict:
+    """Each admitted item of ``tag`` for a year (``klass`` "Q": a quarter), {(period end, accession): value}. One filing
+    states a bank's lines on one basis, where the latest filed values can mix bases (PNC's 2017 noninterest income,
+    recast in a 2020 filing)."""
     node = usgaap.get(tag)
     units = node.get("units") if isinstance(node, dict) else None
     listed = units.get(unit) if isinstance(units, dict) else None
     return {(key[0], str(item.get("accn") or "")): float(value)
             for key, _start, value, item in admitted_items(listed if isinstance(listed, list) else [], instant=False)
-            if key[1] == "FY" and item.get("accn") not in foreign}
+            if key[1] == klass and item.get("accn") not in foreign}
 
 
 def _read(values: list[tuple[str, float]]) -> float:
@@ -116,10 +120,11 @@ def _fee_admitted(fee: _Items, held: _Items, beside: list, bank_ratios: list[flo
 
 def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozenset()) -> tuple[str, ...]:
     """The tags a financial filer's revenue is read from, in priority order (module docstring); () for none."""
-    nii, non = (_by_filing(usgaap, tag, unit, foreign) for tag in ("InterestIncomeExpenseNet", "NoninterestIncome"))
+    lines = ("InterestIncomeExpenseNet", "NoninterestIncome")  # a bank's sum (module docstring)
+    sums = {klass: [_by_filing(usgaap, line, unit, foreign, klass) for line in lines] for klass in ("FY", "Q")}
 
-    def bank_ratios(tag: str) -> list[float]:  # the tag over the bank's sum, in each filing reporting all three
-        line = _by_filing(usgaap, tag, unit, foreign)
+    def bank_ratios(tag: str, klass: str = "FY") -> list[float]:  # the tag over the bank's sum, per filing and period
+        (nii, non), line = sums[klass], _by_filing(usgaap, tag, unit, foreign, klass)
         return [line[k] / parts for k in set(line) & set(nii) & set(non) if (parts := nii[k] + non[k]) > 0]
 
     fee = _items(usgaap, FEE_TAG, unit, foreign)
@@ -144,6 +149,7 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
         series = _items(usgaap, tag, unit, foreign)
         beside = [(key, v) for part in NON_606_TAGS for key, got in _items(usgaap, part, unit, foreign).items()
                   if key in series and (v := _read(got)) > 0]  # each positive part, as read, at a period it reports
-        if _fee_admitted(series, held, beside, bank_ratios(tag)):
+        ratios = bank_ratios(tag) or bank_ratios(tag, "Q")  # a quarter's sum where no filing reports a year (a 10-Q)
+        if _fee_admitted(series, held, beside, ratios):
             _take(chosen, held, tag, series)
     return (*chosen, *(restated if FEE_TAG in chosen else ()))

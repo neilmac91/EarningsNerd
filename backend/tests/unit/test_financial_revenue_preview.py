@@ -318,7 +318,9 @@ def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_ro
     offline = tmp_path / "companyfacts"
     offline.mkdir()
     payloads = {}
-    for path in sorted(FIXTURES / f"{ticker}.json" for ticker in SIC):  # BXSL, a BDC, carries no SIC code
+    fixtures = sorted(FIXTURES.glob("*.json"))
+    assert {path.stem for path in fixtures} - set(SIC) == {"BXSL"}  # a BDC with no SIC code; any other needs one
+    for path in (path for path in fixtures if path.stem != "BXSL"):
         payloads[path.stem] = json.loads(path.read_text())
         _seed(db, path.stem, payloads[path.stem], SIC[path.stem])
         shutil.copy(path, offline / f"CIK{int(payloads[path.stem]['cik']):010d}.json")

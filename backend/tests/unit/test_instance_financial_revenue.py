@@ -207,6 +207,15 @@ WBHC_2025 = _facts(**{REV: _years(2025, [357457000, 313070000, 250872000], 1),
 CLSK_2019 = _facts(**{RNOIE: [("2018-10-01", "2019-09-30", 3752987)],
                       REV: [("2018-10-01", "2019-09-30", 4532782), ("2017-10-01", "2018-09-30", 578635)]})
 CBOE_2025 = _facts(**{FEEI: _years(2025, [4714200000, 4094500000, 3773500000], 1)})
+# A 10-Q's own facts carry no year (E286's review). The trust bank's Q3 2025 10-Q: the quarter and the nine months of
+# each line. STT's Q3 2020 10-Q, in millions: its total revenue beside a noninterest income it tagged as zero.
+TRUST_Q3_2025 = _facts(**{tag: [("2025-07-01", "2025-09-30", q * M), ("2024-07-01", "2024-09-30", p * M),
+                                 ("2025-01-01", "2025-09-30", 3 * q * M), ("2024-01-01", "2024-09-30", 3 * p * M)]
+                          for tag, q, p in ((FEE, 112, 108), (NII, 15, 14), (NONII, 112, 108),
+                                            ("NetIncomeLoss", 23, 21))})
+STT_Q3_2020 = _facts(**{REV: [("2020-07-01", "2020-09-30", 2784 * M), ("2019-07-01", "2019-09-30", 2903 * M)],
+                        NII: [("2020-07-01", "2020-09-30", 478 * M), ("2019-07-01", "2019-09-30", 644 * M)],
+                        NONII: [("2020-07-01", "2020-09-30", 0), ("2019-07-01", "2019-09-30", 0)]})
 # JPM's figures with both of its total elements on the face: the choice's order, not the bank anchors', picks the row.
 JPM_2025_TWO_TOTALS_FACE = [*JPM_2025_FACE, *_face((REV, "Total revenue", "Revenue", [182447, 177556, 158104]))]
 # An insurer whose Revenues line reads below its fee element, so the choice refuses both: the insurer keeps its anchor.
@@ -257,6 +266,10 @@ MATRIX = {
         TRUST, None, None, "10-K", "2025-12-31", (None, None), (None, (FEE, 450 * M))),
     "generic: a bank's gross Revenues above net interest plus noninterest income gives none (WBHC FY2025)": (
         WBHC_2025, None, None, "10-K", "2025-12-31", (None, None), (None, (REV, 357457000))),
+    "generic: a bank's fee line short of its quarter's sum gives none on a 10-Q (shape)": (
+        TRUST_Q3_2025, None, None, "10-Q", "2025-09-30", (None, None), (None, (FEE, 112 * M))),
+    "generic: a quarter's sum never leaves a total out, unchanged (STT Q3 2020, noninterest income tagged 0)": (
+        STT_Q3_2020, None, None, "10-Q", "2020-09-30", (None, (REV, 2784 * M)), (None, (REV, 2784 * M))),
     "generic: the total, never a one-year component under the net total element (CLSK FY2019, no statement)": (
         CLSK_2019, None, None, "10-K", "2019-09-30", (None, (REV, 4532782)), (None, (REV, 4532782))),
     "generic: the total under the ASC 606 element including assessed tax, unchanged (CBOE FY2025, no statement)": (

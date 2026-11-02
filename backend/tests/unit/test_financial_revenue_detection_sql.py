@@ -51,7 +51,7 @@ def test_every_tag_reading_statement_copies_the_rules_tags():
     fees = re.findall(r"ARRAY\[([^\]]*)\]::text\[\] AS fee_tags", code)
     totals = re.findall(r"ARRAY\[([^\]]*)\]::text\[\] AS total_tags", code)
     assert [re.findall(r"'([^']*)'", t) for t in fees] == [[NAMESPACE + tag for tag in FEE_TAGS]] * FEE_SETS
-    assert "fee_tag " not in code and "fee_tag)" not in code  # no single-tag copy left beside the arrays
+    assert re.search(r"\bfee_tag\b", code) is None  # no single-tag copy left beside the arrays, in any position
     assert [re.findall(r"'([^']*)'", t) for t in totals] == [[NAMESPACE + tag for tag in TOTAL_TAGS]] * TOTAL_SETS
 
 
