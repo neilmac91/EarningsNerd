@@ -547,12 +547,12 @@ def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker
                 start = date.fromisoformat(start) if isinstance(start, str) else start
                 end = date.fromisoformat(end) if isinstance(end, str) else end
                 key = (end, _classify_duration(start, end))
-                if (ticker, *key) in REPLAY_EXEMPT:
+                larger = [v for v in totals.get(key, []) if v > value * 1.01]
+                if larger and (ticker, *key) in REPLAY_EXEMPT:
                     exempted.add((ticker, *key))
                     continue
-                larger = [v for v in totals.get(key, []) if v > value * 1.01]
                 assert larger == [], (cutoff, end, value)
-    assert exempted == {e for e in REPLAY_EXEMPT if e[0] == ticker}  # no wider than the period it exists for
+    assert exempted == {e for e in REPLAY_EXEMPT if e[0] == ticker}  # each one held back a failure: no wider
 
 
 def test_the_total_tags_stay_out_of_the_generic_registries():
