@@ -27,6 +27,8 @@ NOW = datetime(2026, 11, 2, tzinfo=timezone.utc)
 IMAGE = "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend@sha256:" + "a" * 64
 ENV = {"GITHUB_ACTIONS": "true", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "456",
        "SUMMARY_DELIVERY_APPROVED": "true", "SUMMARY_DELIVERY_DEPLOYER": "github-actions@earnings-nerd.iam.gserviceaccount.com"}
+EXPECTED_SQL_PERMISSIONS = ["cloudsql.instances.connect", "cloudsql.instances.create", "cloudsql.instances.delete",
+                            "cloudsql.instances.get", "cloudsql.instances.list"]
 
 
 def document():
@@ -108,12 +110,16 @@ def test_cleanup_survives_expiry_and_code_changes_but_requires_exact_approval():
     lambda m: m.update(identities=["production@earnings-nerd.iam.gserviceaccount.com"]),
     lambda m: m.update(secrets=["DATABASE_URL"]), lambda m: m.update(database="earningsnerd"),
     lambda m: m["services"][0].update(max_instances=100),
+    lambda m: m.pop("sql_permissions"),
+    lambda m: m["sql_permissions"]["required"].append("cloudsql.instances.update"),
+    lambda m: m["sql_permissions"]["granted"].append("secretmanager.versions.access"),
+    lambda m: m["sql_permissions"]["missing"].append("cloudsql.instances.get"),
 ])
 def test_rehashed_manifest_cannot_choose_other_cleanup_targets(mutation):
     doc = document()
     mutation(doc["manifest"])
     doc["sha256"] = spec.digest(doc["manifest"])
-    with pytest.raises(spec.Refused, match="fixed_resource_scope"):
+    with pytest.raises(spec.Refused, match="fixed_resource_scope|sql_permissions_unverified"):
         approved(doc, cleanup=True)
 
 
@@ -152,7 +158,7 @@ class FakeCloud:
             self.calls += 1
         if path.endswith(":testIamPermissions"):
             assert api == "cloudresourcemanager" and method == "POST"
-            assert body == {"permissions": list(spec.SQL_PERMISSIONS)}
+            assert body == {"permissions": EXPECTED_SQL_PERMISSIONS}
             return {"permissions": self.permissions}
         if api == "sqladmin":
             name = self.manifest["sql_instance"]["name"]
@@ -460,25 +466,33 @@ def test_whole_http_deadline_interrupts_real_header_and_body_trickles(monkeypatc
 
 
 def test_request_timer_refuses_takeover_and_restores_success_and_error_paths(monkeypatch):
-    previous = signal.getsignal(signal.SIGALRM)
-    for fail in (False, True):
-        try:
-            with manage.request_deadline(time.monotonic() + 1):
-                assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
-                if fail:
-                    raise ValueError("fixed-test-error")
-        except ValueError:
-            assert fail
-        assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
-        assert signal.getsignal(signal.SIGALRM) == previous
-    with monkeypatch.context() as patch:
-        patch.setattr(signal, "getitimer", lambda *a: (1.0, 0.0))
-        with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
-            pytest.fail("must not take over existing timer")
-    with monkeypatch.context() as patch:
-        patch.setattr(threading, "current_thread", lambda: object())
-        with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
-            pytest.fail("must not run timer outside main thread")
+    def unrelated_handler(signum, frame):
+        raise AssertionError("unrelated timer must remain disarmed")
+
+    ambient = signal.signal(signal.SIGALRM, unrelated_handler)
+    previous = unrelated_handler
+    try:
+        for fail in (False, True):
+            try:
+                with manage.request_deadline(time.monotonic() + 1):
+                    assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
+                    if fail:
+                        raise ValueError("fixed-test-error")
+            except ValueError:
+                assert fail
+            assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+            assert signal.getsignal(signal.SIGALRM) == previous
+        with monkeypatch.context() as patch:
+            patch.setattr(signal, "getitimer", lambda *a: (1.0, 0.0))
+            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+                pytest.fail("must not take over existing timer")
+        with monkeypatch.context() as patch:
+            patch.setattr(threading, "current_thread", lambda: object())
+            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+                pytest.fail("must not run timer outside main thread")
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, ambient)
 
 
 def test_actual_queue_requests_cannot_extend_attempt_ceiling(monkeypatch):
@@ -656,6 +670,7 @@ def test_runtime_cannot_redirect_both_environment_and_url_to_other_instance(monk
 def test_missing_sql_permissions_are_reviewable_and_apply_makes_no_mutation(monkeypatch, tmp_path, missing):
     cloud = FakeCloud(document()["manifest"], populated=False)
     cloud.permissions.remove(missing)
+    assert instance.permission_snapshot(cloud)["missing"] == [missing]
     monkeypatch.setattr(manage, "Cloud", lambda: cloud)
     monkeypatch.setattr(manage, "production_snapshot", lambda cloud: (IMAGE, ("DATABASE_URL", "SECRET_KEY")))
     original = cloud.call
@@ -671,7 +686,7 @@ def test_missing_sql_permissions_are_reviewable_and_apply_makes_no_mutation(monk
     output = tmp_path / "plan.json"
     assert manage.main(["plan", "--output", str(output)]) == 0
     doc = json.loads(output.read_text())
-    assert doc["manifest"]["sql_permissions"] == {"required": list(spec.SQL_PERMISSIONS),
+    assert doc["manifest"]["sql_permissions"] == {"required": EXPECTED_SQL_PERMISSIONS,
                                                  "granted": cloud.permissions, "missing": [missing]}
     cloud.seen.clear()
     result = manage.apply(cloud, doc, doc["sha256"], doc["manifest"]["nonce"], ENV)
@@ -679,7 +694,7 @@ def test_missing_sql_permissions_are_reviewable_and_apply_makes_no_mutation(monk
     assert result["sql_permissions"]["missing"] == [missing]
     assert result["cleanup"]["state"] == "not_needed"
     assert cloud.seen == [("cloudresourcemanager", "v1/projects/earnings-nerd:testIamPermissions", "POST",
-                           {"permissions": list(spec.SQL_PERMISSIONS)})]
+                           {"permissions": EXPECTED_SQL_PERMISSIONS})]
     # Grant changes require a fresh reviewed plan; a missing-permission plan
     # cannot silently turn into an apply authorization after IAM is changed.
     cloud.permissions = list(spec.SQL_PERMISSIONS)
