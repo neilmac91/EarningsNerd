@@ -65,8 +65,10 @@ environment map, no CI deploy resets the founder's switches. A console edit and 
 
 `_grant_pro` and `_revoke_pro` are the only places the tests grant or revoke a tester's complimentary Pro (the pool
 check seeds its generating accounts as Pro, and the Stripe test's paying account becomes Pro through its own
-checkout event). The complimentary-access operation replaces their bodies when it lands; every test must then pass
-unchanged. That is its integration acceptance.
+checkout event). When the complimentary-access operation lands, its grant and revoke replace the `mirror` holder's
+body and `_revoke_pro`'s, run as the operator runs them: the dry run, then the apply of the digest that dry run
+reported. The two row holders stand for a subscriber's Pro, which a grant never writes, so they keep their rows.
+Every test must then pass unchanged. That is its integration acceptance.
 
 ## 3. Live acceptance checklist
 
@@ -135,8 +137,10 @@ Dormant flags stay off for the beta unless they pass their own acceptance: `ENAB
 pricing table lists the Change Report for both plans), `REVERSE_TRIAL_ENABLED` (global, not targeted, and with no
 revoke before its end), and the forward-looking entitlements `history_retention_days` and `priority_model`, which
 nothing enforces. The serving API and worker set `REVERSE_TRIAL_ENABLED`, and `describe-service` withholds its
-value, so the founder confirms it is false before the rehearsal. If it is true, each verified tester gets a
-seven-day trial row that, once lapsed, overrides a grant kept only in the `is_pro` mirror.
+value, so the founder confirms it is false before the rehearsal. If it is true, `/verify-email` gives each tester
+who signed up with a password a seven-day trial row and sets `is_pro` (Google and Apple sign-ups never call it). A
+subscription row outranks the `is_pro` mirror, so once the trial lapses that tester is enforced Free while
+`/api/auth/me` still reads Pro, and a complimentary grant cannot restore Pro over the row.
 
 ## 5. Operational acceptance
 
@@ -200,7 +204,7 @@ so an incident rollback does not wait.
 | Pause a wave's invitations | `/admin/invites`: revoke each pending invitation of the cohort | New registrations with those links | Admitted testers, their sessions, Pro and data | `test_pausing_invitations_keeps_existing_testers_signed_in_and_their_rights` |
 | Close all new accounts | `LEGAL_COLLECTION_ENABLED=false` on the API service | Every mint, re-send and registration answers 503, and so do the contact form and waitlist joins | Existing accounts, sessions, sign-in, linking, Pro, export and deletion; waiting invitations stay usable for a reopening until they expire (seven days after minting by default) | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers`; `tests/unit/test_account_agreement.py` (closed collection keeps password and social sign-in) |
 | Pause new summaries | `SUMMARY_NEW_JOBS_PAUSED=true` on the API service, the task worker and the pregenerate job | New summary generation | Stored summaries, sign-in, feedback. It does not stop Ask this Filing or Multi-Period Analysis: `COPILOT_MONTHLY_QUESTION_CAP=0` on the API service refuses every Pro question as a fair-use refusal, and `NEXT_PUBLIC_ENABLE_ANALYSIS=false` on Vercel, then a redeploy, hides the analysis page while its API still answers | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` |
-| Revoke one tester's Pro | The complimentary-access operation's revoke, once it lands; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
+| Revoke one tester's Pro | The complimentary-access revoke (its dry run, then its apply), once that code is deployed and its Ops operations exist; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
 | Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads (the draft is kept) | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` |
 | Hide the feedback launcher | `NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET=false` on Vercel, then a redeploy | The whole launcher, text feedback included | Everything else | — |
 | Suspend one tester | No route exists; a direct database write of `users.is_active=false` | That account's sign-in | Its data | — |

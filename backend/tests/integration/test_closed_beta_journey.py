@@ -877,11 +877,15 @@ def test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account(bro
     assert tester.get(f"/api/summaries/filing/{stored}").status_code == 200
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == fresh).count() == 0
-    # The rest of the account carries on: feedback and a fresh sign-in.
+    # The rest of the account carries on: Pro and its export of a stored summary, feedback, and a fresh sign-in.
+    assert _plan_views(tester) == (True, True)
+    exported = tester.get(f"/api/summaries/filing/{stored}/export/csv")
+    assert exported.status_code == 200 and exported.content, exported.text[:200]
     assert _send_text(tester, me, "Generation is paused but feedback still works.").status_code == 201
     assert tester.post("/api/auth/logout").status_code == 200
     reset_rate_limiters()
     _sign_in(tester, me["email"])
+    assert _plan_views(tester) == (True, True)
 
 # ── the social path: an invited Google sign-up, then a returning sign-in ──────
 
