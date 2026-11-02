@@ -141,11 +141,17 @@ EXEMPT = {
         "a summary's quality tier: prose reasons for the partial tier, stored on the summary, never on a fact",
     ("app/services/copilot/quotations.py", "_displayed_quotation_reasons"):
         "the Copilot's quotation checks: why a quotation was refused, never a fact's provenance",
+    ("app/services/legal_readiness_service.py", "collection_readiness"):
+        "the conditions that hold new collection, for the admin's banner (EN-BETA PB-01), never a fact's provenance",
+    ("app/services/legal_readiness_service.py", "invitation_email_readiness"):
+        "the conditions that hold invitation email, for the admin's banner (EN-BETA PB-01), never a fact's provenance",
 }
 # (file under backend/, function) -> why it mentions `reasons` but never writes a fact's reason. A function outside
 # the emitter modules that mentions `reasons` (a name, an attribute, a keyword or a string) is here or in EXEMPT, and
 # each entry still mentions it and writes no reason the reader finds: held exact, like EXEMPT.
 READS_ONLY = {
+    ("app/services/legal_readiness_service.py", "<module>"):
+        "the readiness Capability shape's field (available, reasons), which the two readiness functions in EXEMPT fill",
     ("app/services/analysis_export_metadata.py", "fine_print_summary"):
         "prints a marked note's summary words (data_notes.note_summary) in the PDF's and the workbook's fine print",
     ("app/services/data_quality_service.py", "partial_reason_counts"):

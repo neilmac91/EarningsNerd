@@ -5028,8 +5028,8 @@ def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
     ready. Returns the engine, a session factory, the request sessions as they open, whether each checkout,
     statement and checkin ran on the loop, the seeded invite ids and each admin's id as the audit log stores it."""
     from app.models import InviteCode, User
-    from app.routers import admin, auth
-    from app.services import legal_readiness_service
+    from app.routers import auth
+    from app.services import email_service, legal_readiness_service
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'admin-invites.db'}",
@@ -5084,10 +5084,14 @@ def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
-    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    monkeypatch.setattr(email_service, "send_invite_email", send_invite_email)
     monkeypatch.setattr(legal_readiness_service, "is_collection_available", lambda: True)
-    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: True)
     return engine, sessions, request_sessions, on_loop, pending, used, admin_ids
+
+
+# The recipient's request an emailed invitation records (routers/admin.py InvitePermission), dated today.
+_PERMISSION = {"requested_via": "email", "requested_on": utcnow().date().isoformat()}
 
 
 async def _invite_request(transport: httpx.ASGITransport, method: str, path: str, body: dict | None,
@@ -5108,11 +5112,12 @@ async def _invite_request(transport: httpx.ASGITransport, method: str, path: str
 @pytest.mark.parametrize("method,path,body,case", [
     ("GET", "/api/admin/invites", None, "list"),
     ("POST", "/api/admin/invites", {"cohort": "wave-{i}"}, "mint"),
-    ("POST", "/api/admin/invites", {"email": "new-{i}@example.com", "send_email": True}, "mint_email"),
+    ("POST", "/api/admin/invites", {"email": "new-{i}@example.com", "send_email": True, "permission": _PERMISSION},
+     "mint_email"),
     ("POST", "/api/admin/invites/{pending}/revoke", None, "revoke"),
     ("POST", "/api/admin/invites/9999/revoke", None, "revoke_missing"),
     ("POST", "/api/admin/invites/{used}/revoke", None, "revoke_used"),
-    ("POST", "/api/admin/invites/{pending}/resend", None, "resend"),
+    ("POST", "/api/admin/invites/{pending}/resend", {"permission": _PERMISSION}, "resend"),
     ("POST", "/api/admin/invites/9999/resend", None, "resend_missing"),
     ("POST", "/api/admin/invites/{used}/resend", None, "resend_used"),
     ("POST", "/api/admin/invites/{pending}/resend", None, "resend_unready"),
@@ -5133,16 +5138,18 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
 
     sent: list[tuple[str, str]] = []
 
-    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+    async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
+                                name: str | None = None) -> str:
         await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
         if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
             raise RuntimeError("the mail provider refused the message")
         sent.append((to_email, magic_link))
+        return f"em_{delivery_ref}"
 
     engine, sessions, request_sessions, on_loop, pending, used, admin_ids = _invite_fixture(
         monkeypatch, tmp_path, send_invite_email)
     if case == "resend_unready":
-        monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: False)
+        monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: False)
     emails = [f"admin-{i}@example.com" for i in range(8)]
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     try:
@@ -5208,8 +5215,9 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
         if case in ("mint", "mint_email"):
             assert audits == sorted(
                 ("invite_minted", admin_ids[emails[i]], emails[i], "invite", str(payload["id"]),
-                 (("cohort", None), ("emailed", i % 2 == 0)) if case == "mint_email" else
-                 (("cohort", f"wave-{i}"), ("emailed", False)))
+                 (("cohort", None), ("delivery_status", "accepted" if i % 2 == 0 else "unknown"),
+                  ("emailed", i % 2 == 0)) if case == "mint_email" else
+                 (("cohort", f"wave-{i}"), ("delivery_status", None), ("emailed", False)))
                 for i, payload in enumerate(payloads))
         elif case == "revoke":
             assert audits == sorted(
@@ -5217,7 +5225,8 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
         elif case == "resend":
             assert audits == sorted(
                 ("invite_resent", admin_ids[emails[i]], emails[i], "invite", str(by_admin[pending[i]]["id"]),
-                 (("cohort", f"seed-{i}"), ("emailed", i % 2 == 0), ("revoked_invite_id", pending[i])))
+                 (("cohort", f"seed-{i}"), ("delivery_status", "accepted" if i % 2 == 0 else "unknown"),
+                  ("emailed", i % 2 == 0), ("revoked_invite_id", pending[i])))
                 for i in range(8))
         else:
             assert audits == []
@@ -5231,22 +5240,25 @@ async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(
     """The mint and the re-send release their session before the invite mail, and write their audit row in a unit
     of their own after it, so no pool slot waits on the mail provider and the row records that the mail went."""
     from app.models import AuditLog
-    from app.routers import admin
+    from app.services import email_service
 
     held: list[tuple[str, int, int]] = []
     engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
 
-    async def send_invite_email(*, to_email: str, magic_link: str, name: str | None = None) -> None:
+    async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
+                                name: str | None = None) -> str:
         checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
         with sessions() as db:
             held.append((to_email, checked_out, db.query(AuditLog).count()))
+        return f"em_{delivery_ref}"
 
-    monkeypatch.setattr(admin, "send_invite_email", send_invite_email)
+    monkeypatch.setattr(email_service, "send_invite_email", send_invite_email)
     try:
         response = await _invite_request(
             httpx.ASGITransport(app=app, raise_app_exceptions=False), "POST",
             "/api/admin/invites" if route == "mint" else f"/api/admin/invites/{pending[0]}/resend",
-            {"email": "new-{i}@example.com", "send_email": True} if route == "mint" else None, 0,
+            {"email": "new-{i}@example.com", "send_email": True, "permission": _PERMISSION} if route == "mint"
+            else {"permission": _PERMISSION}, 0,
         )
         assert response.status_code == 200, response.text
         assert held == [("new-0@example.com" if route == "mint" else "invitee-0@example.com", 0, 0)]

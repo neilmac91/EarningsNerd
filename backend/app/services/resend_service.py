@@ -44,6 +44,12 @@ class _ReplyToDefault(Enum):
     SETTINGS = "settings"
 
 
+def is_configured() -> bool:
+    """Whether a send could reach the provider: its key is set. The transport alone reads it (the mail gate,
+    tests/unit/test_mail_rendered_addresses.py, counts any other read as a send)."""
+    return bool(settings.RESEND_API_KEY.strip())
+
+
 def _error_name(response: httpx.Response) -> str:
     try:
         body = response.json()
@@ -61,6 +67,7 @@ async def send_email(
     text: str | None = None,
     idempotency_key: str | None = None,
     reply_to: str | None | _ReplyToDefault = _ReplyToDefault.SETTINGS,
+    tags: list[dict[str, str]] | None = None,
 ) -> dict:
     """Send one email. ``text`` is its plain-text part, sent only when given (an empty string asks for none).
     Given none, Resend builds one from the HTML: so it does for the mails the routers send (the contact form's
@@ -68,7 +75,8 @@ async def send_email(
     before batches held their text part, whose replay must be the request its key was bound to (E110).
     Omitting ``reply_to`` uses the current setting; explicit ``None`` omits the header, so a durable
     batch can replay the omission it froze before Reply-To was introduced. A string overrides the setting;
-    an empty string also omits the header."""
+    an empty string also omits the header. ``tags`` are the provider's name/value pairs, sent only when given; its
+    webhooks carry them back, so an invitation's events find its delivery row even when this call's answer was lost."""
     if not settings.RESEND_API_KEY:
         # Nothing was sent: a durable delivery may retry once the secret is configured.
         raise ResendRetryableError("Resend is not configured. Set RESEND_API_KEY.")
@@ -86,6 +94,8 @@ async def send_email(
         payload["reply_to"] = reply_address
     if text is not None:
         payload["text"] = text
+    if tags:
+        payload["tags"] = tags
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",

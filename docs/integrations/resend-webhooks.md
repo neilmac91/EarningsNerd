@@ -36,11 +36,15 @@ and metadata only. The backend side is in place: `POST /api/webhooks/resend` ver
    in full.
 2. **Create or open the webhook in Resend.** On the Webhooks page (`https://resend.com/webhooks`), open
    the webhook for `https://api.earningsnerd.io/api/webhooks/resend` if one exists, or choose **Add
-   Webhook** and enter that URL. Two webhooks for one URL deliver every event twice. Select the seven
+   Webhook** and enter that URL. Two webhooks for one URL deliver every event twice. Select the nine
    events the backend handles: `email.sent`, `email.delivered`, `email.delivery_delayed`,
-   `email.bounced`, `email.complained`, `email.opened`, `email.clicked`. Resend offers four more
-   (`email.failed`, `email.received`, `email.scheduled`, `email.suppressed`); the backend answers them
-   200 and logs "Unhandled Resend webhook event type", so leave them off unless you want those log lines.
+   `email.bounced`, `email.complained`, `email.failed`, `email.suppressed`, `email.opened`,
+   `email.clicked`. All but the last two also update the invitation delivery record and the
+   suppression list once a delivery's signature verifies ([LEGAL_READINESS.md](../LEGAL_READINESS.md#invitation-email));
+   a delivery whose write fails is answered 503, so Resend sends it again, and applying one twice
+   changes nothing (retries keep their `svix-id`). Resend offers two more (`email.received`,
+   `email.scheduled`); the backend answers them 200 and logs "Unhandled Resend webhook event type", so
+   leave them off unless you want those log lines.
 3. **Store and bind the signing secret.** Resend shows it on the webhook details page. Either paste it
    into a new secret or a new version in the Secret Manager console, or use a terminal command that
    neither echoes it nor writes it to your shell history:

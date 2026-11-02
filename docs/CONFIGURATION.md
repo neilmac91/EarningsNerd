@@ -91,6 +91,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `LEGAL_OPERATOR_POSTAL_ADDRESS` | `""` | Verified public postal address; multiline text supported. |
 | `LEGAL_OPERATOR_COUNTRY` | `""` | Operator country for the public notice. |
 | `LEGAL_OPERATOR_EMAIL` | `""` | Reachable legal-contact address; validated as an email before the notice can be published. |
+| `LEGAL_INVITATION_EMAIL_ENABLED` | `false` | Operator opt-in for requested beta-invitation email, separate from promotion (which stays closed in code). Effective only with collection ready, `RESEND_API_KEY` and a valid Svix `RESEND_WEBHOOK_SECRET`; each send records the recipient's request and honours unsubscribe, bounce and complaint suppression. See [LEGAL_READINESS.md](LEGAL_READINESS.md#invitation-email). |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
 | `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work, internal jobs and the account mail of forgot-password and resend-verification (F60). Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
 | `SUMMARY_DURABLE_GENERATION_ENABLED` | `false` | Opt-in exact-filing summary jobs with PostgreSQL ownership, durable billing receipts and private Cloud Tasks workers. Requires `DURABLE_TASKS_ENABLED`, applied schema and verified recovery. Disabling selects legacy generation; use the admission pause before draining/rollback. |

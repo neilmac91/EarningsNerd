@@ -44,7 +44,8 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
 from app.models import InviteCode, User
-from app.services import invite_service
+from app.models.invite_mail import InviteDelivery, MailRecipient
+from app.services import invite_delivery_service, invite_service, mail_suppression_service
 from app.utils.datetimes import utcnow
 
 # The case's other sessions waiting for a row another transaction has written ("transactionid") or locked ("tuple").
@@ -350,3 +351,173 @@ def test_a_redemption_behind_a_write_refuses_the_revoked_invite(postgres_engine,
     assert redeemed is False
     assert _state(postgres_engine) == (False, True, 2 if write == "re-send" else 1)
     assert write != "re-send" or _replacement_live(postgres_engine)
+
+
+# --------------------------------------------------------------------------------------------- EN-BETA PB-01
+# Requested invitation email: a send and an opt-out both take the address's row lock (mail_suppression_service), so an
+# opt-out that commits first stops the send, and one that comes second waits for the send's commit and applies to every
+# later send; two emailed mints for one address make one link.
+
+def _permission() -> invite_delivery_service.Permission:
+    return invite_delivery_service.Permission("email", utcnow().date())
+
+
+def _prepare(email: str):
+    def write(db: Session) -> invite_delivery_service.PreparedInvite:
+        return invite_delivery_service.prepare_invite_send(
+            db, created_by=None, email=email, expires_in_hours=None, cohort=None, permission=_permission())
+    return write
+
+
+def _held_after_its_checks(monkeypatch):
+    """Holds a send after its suppression and live-link checks, its delivery written and uncommitted, under the
+    address's lock, until released; returns the events that say it got there and let it go on."""
+    reached, release = threading.Event(), threading.Event()
+    new_delivery = invite_delivery_service._new_delivery
+
+    def held(*args, **kwargs):
+        made = new_delivery(*args, **kwargs)
+        reached.set()
+        release.wait(timeout=30)
+        return made
+    monkeypatch.setattr(invite_delivery_service, "_new_delivery", held)
+    return reached, release
+
+
+def _unsubscribe(token: str):
+    def write(db: Session) -> bool:
+        return invite_delivery_service.unsubscribe(db, token)
+    return write
+
+
+def _delivered_once(engine, email: str) -> str:
+    """An earlier emailed link to ``email``, revoked since, so its unsubscribe token is the address's; returns it."""
+    with _session(engine) as db:
+        prepared = invite_delivery_service.prepare_invite_send(
+            db, created_by=None, email=email, expires_in_hours=None, cohort=None, permission=_permission())
+        invite_service.revoke_invite(db, prepared.issued["id"])
+    return prepared.unsubscribe_link.split("#token=", 1)[1]
+
+
+def _suppressed(engine, email: str):
+    with _session(engine) as db:
+        row = db.query(MailRecipient).filter(
+            MailRecipient.recipient_hash == mail_suppression_service.recipient_hash(email)).one()
+        return row.suppression_reason
+
+
+def _live_links(engine, email: str) -> int:
+    with _session(engine) as db:
+        return db.query(InviteCode).filter(InviteCode.email == email, InviteCode.used_at.is_(None),
+                                           InviteCode.is_revoked.is_(False)).count()
+
+
+def test_an_opt_out_that_commits_first_stops_the_send(postgres_engine):
+    """The opt-out holds the address's lock, uncommitted; the send waits at it, then sees the suppression and refuses,
+    minting nothing."""
+    email = "opted-out@example.com"
+    _delivered_once(postgres_engine, email)
+    locked, release = threading.Event(), threading.Event()
+
+    def opt_out(db: Session) -> None:
+        recipient = mail_suppression_service.lock_recipient(db, mail_suppression_service.recipient_hash(email))
+        mail_suppression_service.suppress_locked(recipient, "unsubscribed", "unsubscribe:case")
+        locked.set()
+        release.wait(timeout=30)
+        db.commit()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        holder = pool.submit(_run, postgres_engine, opt_out)
+        try:
+            if not locked.wait(timeout=5):
+                pytest.fail("the opt-out must hold the address's lock")
+            send = pool.submit(_run, postgres_engine, _prepare(email))
+            waited = _waiting(postgres_engine, 1)
+        finally:
+            release.set()
+        assert holder.result(timeout=60)[1] is None
+        _, error = send.result(timeout=60)
+    assert waited, "the send must wait for the opt-out's lock"
+    assert isinstance(error, invite_delivery_service.RecipientSuppressed), error
+    assert _live_links(postgres_engine, email) == 0
+
+
+def test_an_opt_out_waits_for_a_send_authorised_first_and_applies_after_it(postgres_engine, monkeypatch):
+    """The send holds the address's lock from its checks to its commit; the opt-out waits for that commit, so the send
+    it authorised goes as authorised, and the opt-out then stops every later send."""
+    email = "late-opt-out@example.com"
+    token = _delivered_once(postgres_engine, email)
+    reached, release = _held_after_its_checks(monkeypatch)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        send = pool.submit(_run, postgres_engine, _prepare(email))
+        try:
+            if not reached.wait(timeout=5):
+                pytest.fail("the send must pass its checks" + (f": {send.result()[1]!r}" if send.done() else ""))
+            opt_out = pool.submit(_run, postgres_engine, _unsubscribe(token))
+            waited = _waiting(postgres_engine, 1)
+        finally:
+            release.set()
+        prepared, send_error = send.result(timeout=60)
+        unsubscribed, opt_out_error = opt_out.result(timeout=60)
+    assert waited, "the opt-out must wait for the send's lock"
+    assert (send_error, opt_out_error, unsubscribed) == (None, None, True)
+    with _session(postgres_engine) as db:
+        assert db.get(InviteDelivery, prepared.delivery_id).status == "sending"
+    assert _suppressed(postgres_engine, email) == "unsubscribed"
+    with _session(postgres_engine) as db:
+        invite_service.revoke_invite(db, prepared.issued["id"])
+    _, later = _run(postgres_engine, _prepare(email))
+    assert isinstance(later, invite_delivery_service.RecipientSuppressed), later
+
+
+def test_without_the_lock_an_opt_out_commits_inside_a_send_it_should_have_stopped(postgres_engine, monkeypatch):
+    """The control: read without the row lock, the send's check is stale by its commit. The opt-out does not wait: it
+    commits while the send is past its check, and the send commits after it, a send authorised after the opt-out."""
+    email = "unordered@example.com"
+    token = _delivered_once(postgres_engine, email)
+
+    def lockless(db: Session, hashed: str) -> MailRecipient:
+        return db.query(MailRecipient).filter(MailRecipient.recipient_hash == hashed).one()
+
+    monkeypatch.setattr(mail_suppression_service, "lock_recipient", lockless)
+    reached, release = _held_after_its_checks(monkeypatch)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        send = pool.submit(_run, postgres_engine, _prepare(email))
+        try:
+            if not reached.wait(timeout=5):
+                pytest.fail("the send must pass its checks" + (f": {send.result()[1]!r}" if send.done() else ""))
+            unsubscribed, opt_out_error = _run(postgres_engine, _unsubscribe(token))  # does not wait
+        finally:
+            release.set()
+        prepared, send_error = send.result(timeout=60)
+    assert (opt_out_error, unsubscribed, send_error) == (None, True, None)
+    assert _suppressed(postgres_engine, email) == "unsubscribed"
+    with _session(postgres_engine) as db:
+        assert db.get(InviteDelivery, prepared.delivery_id).status == "sending"
+
+
+def test_two_emailed_mints_for_one_address_make_one_link(postgres_engine, monkeypatch):
+    """The first send holds the new address's row (inserted, uncommitted) and its lock; the second waits at the
+    address's unique key, then finds the first's link live and refuses, minting nothing."""
+    email = "twice@example.com"
+    reached, release = _held_after_its_checks(monkeypatch)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(_run, postgres_engine, _prepare(email))
+        try:
+            if not reached.wait(timeout=5):
+                pytest.fail("the first send must pass its checks" + (f": {first.result()[1]!r}" if first.done() else ""))
+            second = pool.submit(_run, postgres_engine, _prepare(email))
+            waited = _waiting(postgres_engine, 1)
+        finally:
+            release.set()
+        prepared, first_error = first.result(timeout=60)
+        _, second_error = second.result(timeout=60)
+    assert waited, "the second send must wait for the first's row"
+    assert first_error is None, first_error
+    assert isinstance(second_error, invite_delivery_service.InvitePendingForAddress), second_error
+    assert second_error.invite_id == prepared.issued["id"]
+    assert _live_links(postgres_engine, email) == 1
+    with _session(postgres_engine) as db:
+        assert db.query(InviteDelivery).count() == 1

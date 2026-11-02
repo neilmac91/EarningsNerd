@@ -19,11 +19,13 @@ Completeness and email-format checks do not verify legal sufficiency or delivera
 the identity, appropriate public address and contact channel before authorizing publication.
 
 `LEGAL_COLLECTION_ENABLED=true` is a separate opt-in, effective only with a complete published
-notice. Neither switch enables new checkout or promotional mail. Those capabilities remain
-unavailable until the offer/assent, checkout/deletion coordination, marketing permission,
-unsubscribe and suppression work is implemented and verified. There is no temporary configuration
-bypass for those missing controls. Requested account messages and existing billing management
-continue to work. The waitlist's confirmation email contains only the requested confirmation; the
+notice. Neither switch enables new checkout or promotional mail. New checkout stays closed in code
+until the offer/assent and checkout/deletion coordination work is implemented and verified, and so
+does general promotional mail, which has no permission record of its own. Requested beta-invitation
+email is a capability of its own, behind its own switch: its permission record, send-time
+suppression, unsubscribe and authenticated bounce/complaint updates are implemented
+([Invitation email](#invitation-email)). There is no temporary configuration bypass for a missing
+control. Requested account messages and existing billing management continue to work. The waitlist's confirmation email contains only the requested confirmation; the
 referral update a member would get when someone joins through their link is promotional mail, and
 is not sent while promotional mail is held.
 
@@ -52,11 +54,12 @@ state cookie cannot replay a consumed state row.
 
 Direct admin account creation is refused. Use the existing invitation flow so the recipient can
 make their own statements; an administrator cannot attest for them. Manual invitation links can
-be minted only when collection is ready and email delivery is not requested. While marketing is
-closed, requested invitation emails and reissues of email-bound invitations return 503 before
-creating a replacement or revoking an existing link. Unbound manual links may be reissued while
-collection is ready; listing and revoking existing invitations remain available during the hold.
-The email sender also independently refuses invitation delivery. Invitation wording, in the email
+be minted only when collection is ready. While invitation email is unavailable, a requested
+invitation email, and a re-send that would email (one that asks to, or one of an email-bound
+invitation that names no choice), return 503 before creating a replacement or revoking an
+existing link. A re-send that asks for a manual link (`send_email: false`) works for bound and
+unbound invitations while collection is ready; listing and revoking existing invitations remain
+available during the hold. The email sender also independently refuses invitation delivery. Invitation wording, in the email
 and in the default message an administrator copies for a manual link, promises account access only,
 not Pro access or an available subscription offer; the registration page's lines promising an
 invitee full Pro show only once checkout is available. Agreement evidence is stored
@@ -93,9 +96,92 @@ operator-disclosure guarantee.
 Remaining subscription work includes immutable account-bound offers, renewal assent and evidence,
 published-price protection, acknowledgments and applicable withdrawal handling. The checkout and
 account-deletion protocol must recover late Stripe results without holding database connections
-across provider calls, and coordinate competing checkout intents for the same account. Remaining
-marketing work includes separate permission, durable send-time suppression, unsubscribe and
-authenticated bounce/complaint updates. Do not enable either capability by removing its hold alone.
+across provider calls, and coordinate competing checkout intents for the same account. For
+requested beta invitations the marketing controls now exist ([Invitation email](#invitation-email));
+general promotional mail stays closed, and would need a permission record and wording of its own
+on the same suppression list. Do not enable a capability by removing its hold alone.
+
+## Invitation email
+
+A requested beta invitation can be emailed only while every condition holds
+(`legal_readiness_service.invitation_email_readiness`; the admin page's banner names each one that
+does not):
+
+- collection is available (above), since the link must be redeemable;
+- `LEGAL_INVITATION_EMAIL_ENABLED` is true: the operator's switch, set only after the founder
+  approves the permission policy below and an approved test send has passed;
+- `RESEND_API_KEY` is set; and
+- `RESEND_WEBHOOK_SECRET` holds a usable Svix secret, without which bounces and complaints cannot be
+  authenticated, so they could not suppress later sends.
+
+The admin route and the sender each check again; neither trusts the browser's copy. General
+promotional mail (the waitlist's referral update, any campaign) stays closed in code whatever the
+switch says.
+
+**Permission.** An invitation is emailed only to someone who asked for one. With each emailed
+invitation the admin records how the recipient asked (email, message, call, in person or other) and
+on which day, within the last year; the record is stored with the send. Knowing the person, an
+admin's checkbox or an account's acceptance of the Terms is not this permission. It covers the
+invitation email for that link and its re-sends, nothing else, and an unsubscribe ends it. Whether a
+recorded request is a sufficient basis for this mail wherever a tester lives is the founder's
+decision, made before the switch is turned on.
+
+**One link per person.** An emailed invitation is refused while another live invitation is bound to
+the address, and a re-send of a bound invitation is refused while a different live one exists, so a
+repeated submit, a retry or a second tab cannot mail two different links. A re-send revokes the old
+link in the same transaction that creates its replacement.
+
+**Suppression.** An unsubscribe, a permanent bounce, a complaint or the provider's own suppression
+list suppresses the address for invitation and any future promotional mail, and a suppressed address
+is refused before anything is written. Requested account mail (verification, password reset, the
+sign-in notices) never reads the list. The list keeps a pseudonymous SHA-256 of the normalized
+address under a fixed prefix, with the suppression's reason and source. It is not peppered with
+`SECRET_KEY`, because rotating that key would silently forget every opt-out; the cost is that the
+hash of a known address can be recomputed. It survives account deletion, since honouring an opt-out
+means recognizing the address again. Its retention, and its mention in the privacy notice, are the
+founder's decision.
+
+**Unsubscribe.** Each invitation's footer links `/email/unsubscribe#token=…`. The token rides in the
+fragment, which no request carries, so no server or proxy log records it, and the page posts it only
+when its reader presses the button, so a link scanner's fetch changes nothing. A send and an opt-out
+take the address's row lock in turn: a send authorised before an opt-out committed may still go out,
+and none authorised after it does (proven on PostgreSQL in
+`backend/tests/integration/test_admin_invite_transactions.py`).
+
+**Delivery record.** Each emailed link has one delivery row with a server-made reference, sent as the
+provider's idempotency key (`en-invite-<ref>`) and as the tag `en_invite_delivery`, which the
+provider's events carry back. Its state says only what the evidence supports: `sending` (committed
+before the call), `accepted` (the provider took it: not delivered, not read), `delayed`, `delivered`
+(the recipient's mail server accepted it: not proof it reached the inbox), `bounced`, `complained`,
+`suppressed` (by the provider), `failed` (nothing was sent) or `unknown` (the provider may have
+accepted it and the answer was lost; a row still `sending` five minutes after its commit reads
+unknown). Signed events move a row up that order and never down, so a duplicate, a retry or a late
+event changes nothing; an unsigned delivery records nothing, and a failed write answers 503 so the
+provider sends it again. Neither the link's token nor the unsubscribe token is stored. An unknown
+outcome is never retried blind: the admin's re-send, which revokes the link and mails a new one, is
+its recovery.
+
+### Enabling invitation email
+
+Operator steps, in order, each after the one before has passed. No deploy or workflow does any of
+them.
+
+1. Founder: approve the permission policy above, and the suppression list's retention and notice.
+2. Confirm collection is ready (`GET /api/legal/readiness`) and that `REGISTRATION_MODE` is the
+   intended mode (`invite_only` for the beta).
+3. Resend: subscribe the webhook to `email.sent`, `email.delivered`, `email.delivery_delayed`,
+   `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`, and bind
+   `RESEND_WEBHOOK_SECRET` ([resend-webhooks.md](integrations/resend-webhooks.md)); the admin banner
+   then no longer names `provider_feedback_unverified`.
+4. Set `LEGAL_INVITATION_EMAIL_ENABLED=true` on `earningsnerd-backend`.
+5. Canary, with destinations the founder approves: email one invitation to an inbox the founder holds;
+   confirm its receipt, its From/Reply-To and SPF/DKIM/DMARC headers, that its link opens
+   `https://www.earningsnerd.io/register?invite=…`, registration with the tester's own agreement,
+   verification, login and a password reset. Then unsubscribe from that email and confirm that a
+   second emailed invitation to the address is refused.
+6. Rollback: set `LEGAL_INVITATION_EMAIL_ENABLED=false`. Sends stop at once (the route and the sender
+   both check); links already issued stay valid until they expire or are revoked; the delivery record
+   and the suppression list stay.
 
 Nothing here certifies the existing deletion endpoint's provider cleanup, changes retention
 periods, registers a copyright agent, or resolves historical billing records. Those remain separate
