@@ -10,6 +10,7 @@ from app.services.entitlements import (
     get_entitlements,
     get_plan,
     is_pro_user,
+    subscription_awaits_payment,
 )
 
 
@@ -104,3 +105,25 @@ def test_can_use_copilot_tracks_free_taste(used, allowed):
 def test_pro_can_always_use_copilot_regardless_of_taste_counter():
     pro = SimpleNamespace(is_pro=True, subscription=None, copilot_free_taste_used=99)
     assert can_use_copilot(pro) is True
+
+
+@pytest.mark.parametrize("status,awaits", [
+    ("past_due", True), ("unpaid", True), ("PAST_DUE", True),
+    ("active", False), ("trialing", False), ("canceled", False), ("incomplete", False),
+    ("incomplete_expired", False), ("paused", False), (None, False),
+])
+def test_only_a_past_due_or_unpaid_row_awaits_payment(status, awaits):
+    """Checkout sends such an account to the billing portal instead of a second subscription (E98 (4))."""
+    assert subscription_awaits_payment(_user(subscription=_sub(status))) is awaits
+
+
+class _Unloadable:
+    @property
+    def subscription(self):
+        raise RuntimeError("detached instance")
+
+
+@pytest.mark.parametrize("user", [_user(is_pro=True), _user(is_pro=False), _Unloadable()],
+                         ids=["no_row_mirror_pro", "no_row_mirror_free", "unloadable_row"])
+def test_no_row_or_an_unloadable_one_never_awaits_payment(user):
+    assert subscription_awaits_payment(user) is False

@@ -183,6 +183,11 @@ def configure_logging(
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
 
+    # Stripe logs provider error messages at INFO and response bodies / POST data at DEBUG,
+    # before our safe route catch runs. Keep those SDK records out at either application level
+    # (E18); app.routers.subscriptions still logs the error class and validated request id.
+    logging.getLogger("stripe").setLevel(logging.WARNING)
+
     # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

@@ -19,8 +19,9 @@ from app.services.subscription_sync import (
     apply_checkout_completed,
     apply_subscription_deleted,
     apply_subscription_upsert,
+    outranks_binding,
 )
-from app.services.subscription_webhook_service import _apply_event
+from app.services.subscription_webhook_service import _apply_event, _future_trial_end
 from app.utils.datetimes import utcnow
 
 
@@ -212,6 +213,82 @@ def test_trial_started_is_recorded_only_when_the_upsert_applies(db, sub_id, tria
     assert analytics == (started if applied else [])
     assert (_state(user) != before) is applied
 
+
+
+def _stripe(sub_id, status, created, trial_days=None):
+    """A subscription as Stripe holds it now: what the webhook reads before ranking (E98)."""
+    return {"id": sub_id, "customer": "cus_a", "status": status, "created": created,
+            "trial_end": _ts(trial_days) if trial_days is not None else None}
+
+
+@pytest.mark.parametrize("candidate, bound, outranks", [
+    pytest.param(_stripe("sub_a", "canceled", 1), _stripe("sub_b", "incomplete", 2), False, id="stale_old_vs_never_active_new"),
+    pytest.param(_stripe("sub_a", "active", 1), _stripe("sub_b", "incomplete_expired", 2), True, id="old_still_billed"),
+    pytest.param(_stripe("sub_b", "unpaid", 2), _stripe("sub_a", "past_due", 1), True, id="newer_unpaid_over_older_past_due"),
+    pytest.param(_stripe("sub_b", "active", 2), _stripe("sub_a", "active", 1), True, id="newer_of_two_live"),
+    pytest.param(_stripe("sub_a", "active", 1), _stripe("sub_b", "active", 2), False, id="older_of_two_live"),
+    pytest.param(_stripe("sub_b", "active", 1), _stripe("sub_a", "active", 1), True, id="same_second_higher_id"),
+    pytest.param(_stripe("sub_a", "active", 1), _stripe("sub_b", "active", 1), False, id="same_second_lower_id"),
+    pytest.param(_stripe("sub_b", "trialing", 2, trial_days=-1), _stripe("sub_a", "active", 1), False, id="elapsed_trial"),
+    pytest.param(_stripe("sub_a", "trialing", 1, trial_days=30), _stripe("sub_b", "past_due", 2), True, id="future_trial"),
+])
+def test_outranks_binding_orders_by_pro_then_created_then_id(candidate, bound, outranks):
+    assert outranks_binding(candidate, bound) is outranks
+    assert outranks_binding(bound, candidate) is not outranks  # a total order: exactly one of the two wins
+
+
+@pytest.mark.parametrize("stripe_a, bound_b, binds", [
+    pytest.param(_stripe("sub_a", "canceled", 1), _stripe("sub_b", "incomplete", 2), False, id="stale_canceled_old"),
+    pytest.param(_stripe("sub_a", "past_due", 1), _stripe("sub_b", "incomplete_expired", 2), False, id="live_old_past_due"),
+    pytest.param(_stripe("sub_a", "active", 1), _stripe("sub_b", "incomplete", 2), True, id="old_still_billed"),
+])
+def test_the_guarded_writer_with_stripes_bound_state_rebinds_only_an_outranking_subscription(db, stripe_a, bound_b, binds):
+    """The guarded writer's late-event case for its Stripe-ranked path (bound=, E98): after A-to-B, old A's
+    late event, carried as Stripe holds A, binds only when it outranks B; otherwise the call returns None
+    and changes nothing, even though B never activated and the account is not entitled."""
+    user = _user(db)
+    _apply(db, apply_checkout_completed, _checkout(user))
+    _apply(db, apply_subscription_upsert, {"id": "sub_a", "customer": "cus_a", "status": "past_due"})
+    _apply(db, apply_subscription_upsert, {"id": "sub_b", "customer": "cus_a", "status": bound_b["status"]})
+    assert get_plan(user).value == "free"
+    before = _state(user)
+
+    result = apply_subscription_upsert(db, stripe_a, user=user, bound=bound_b)
+    db.commit()
+    db.expire_all()
+
+    if binds:
+        assert (result, user.stripe_subscription_id, get_plan(user).value) == (user, "sub_a", "pro")
+    else:
+        assert (result, _state(user)) == (None, before)
+
+
+@pytest.mark.parametrize("trial_end, started", [
+    pytest.param(None, False, id="absent"), pytest.param(0, False, id="zero"),
+    pytest.param("elapsed", False, id="elapsed"), pytest.param("future_as_text", False, id="digit_string"),
+    pytest.param(True, False, id="bool"), pytest.param("future_as_float", False, id="float"),
+    pytest.param(253402300800, False, id="past_the_last_datetime"),
+    pytest.param("future", True, id="future"),
+])
+def test_trial_started_needs_a_whole_second_trial_end_still_ahead(db, trial_end, started):
+    """An initial binding's created(trialing) records a trial start only for an int trial_end still ahead
+    (E98 (5)); time-based values are computed here, not at collection."""
+    future = _ts(30)
+    value = {"elapsed": _ts(-1), "future": future, "future_as_text": str(future),
+             "future_as_float": float(future)}.get(trial_end, trial_end) if isinstance(trial_end, str) else trial_end
+    user = _user(db, stripe_customer_id="cus_a")
+    obj = {"id": "sub_a", "customer": "cus_a", "status": "trialing", "trial_end": value}
+
+    analytics = _apply_event(db, "customer.subscription.created", obj, user)
+
+    assert analytics == ([(str(user.id), EVENT_TRIAL_STARTED, {"source": "stripe", "trial_end": future})]
+                         if started else [])
+
+
+@pytest.mark.parametrize("value", [253402300800, 10**18, 10**20, -(10**20)])
+def test_an_unrepresentable_trial_end_is_not_a_future_one(value):
+    """ValueError, OSError or OverflowError from the clock conversion reads as no trial, never a crash."""
+    assert _future_trial_end(value) is False
 
 # ── Every writer of the binding is inventoried ────────────────────────────────────────────────
 #
