@@ -67,7 +67,6 @@ const STATUS_TINT = /(?<![\w-])(?:bg|border(?:-[trblxyse])?|ring(?:-offset)?|fro
 const RESIDUE: Record<string, number> = {
   // A status tint on a genuine state, no open item: held at its count until a primitive takes the surface.
   'app/dashboard/page.tsx': 2, // the delete button's hover tint (the limit banner borrows the warning tint, the meter is UsageMeter's)
-  'app/delete-account/page.tsx': 2, // the deletion card's error ring
   'app/global-error.tsx': 2, // the error boundary's stack well
   'features/admin/components/EmailChipsInput.tsx': 4, // an invalid address chip
   'features/admin/components/InviteRow.tsx': 2, // the revoke button's hover tint
@@ -78,7 +77,7 @@ const RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/FilingViewer.tsx': 4, // the viewer's warning strip
 }
 /** Equal to the table, never above it: lower both with the table in the same commit. */
-const RESIDUE_MAX = { files: 10, uses: 32 }
+const RESIDUE_MAX = { files: 9, uses: 30 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -255,10 +254,11 @@ const NEUTRAL_NOTICES_MAX = { files: 2, uses: 3 }
     on purpose, with the state it shows, and moves TINT_BORROWED_MAX with it. */
 const TINT_BORROWED: Record<string, Record<string, number>> = {
   'app/dashboard/page.tsx': { warning: 1 }, // the limit banner: a banner's shape, the upgrade at its end from sm (E196 (2))
+  'app/dashboard/settings/page.tsx': { error: 1 }, // the Delete account card's warning: a list, which a Notice's description cannot hold (E283)
   'features/auth/components/VerificationBanner.tsx': { warning: 1 }, // the strip under the header: an unverified address (E196 (2))
   'features/filings/components/copilot/CopilotMessage.tsx': { error: 1 }, // the error bubble: the answer card's shape, with the thread's tail (E196 (3))
 }
-const TINT_BORROWED_MAX = { files: 3, calls: 3 }
+const TINT_BORROWED_MAX = { files: 4, calls: 4 }
 
 describe('status tints are a census (DESIGN_SYSTEM.md §4 › Inline notice, §12)', () => {
   const uses = new Map<string, number>()

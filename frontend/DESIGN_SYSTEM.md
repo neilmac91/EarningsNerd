@@ -673,6 +673,15 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
                  eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
                  className; designRules.spec.ts plants it).
+                 <Card tone="danger"> is the hairline of a card whose action cannot be undone, deleting the
+                 account (the settings page's Delete account card and /delete-account's): border-error-light/40
+                 dark:border-error-dark/40, about 2:1 against the panel in both themes (2.05 and 1.93, where the
+                 default hairline reads 1.19 and 1.36; E283). A destructive surface takes the status error, never
+                 the loss tone, which is a direction (§1). Set it through the prop, never a border colour on top:
+                 Card's own dark:border-white/10 beat the settings card's dark override, so it drew its hairline
+                 in light only (a design selector in eslint.config.mjs fails a border colour written in a Card's
+                 className; designRules.spec.ts plants it). The card's confirmation warning lends Notice's error
+                 tint (noticeTint), its words in the ink and the error ink on its glyph alone (§4 › Inline notice).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -1676,9 +1685,14 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  E196 (3)). The warning tint goes to two banners, each keeping its words in the ink and the warning
                  ink on its glyph alone, as a Notice keeps them (E196 (2)): the verification banner, a strip under
                  the header, and the dashboard's limit banner, which keeps a banner's shape, its upgrade at its end
-                 from sm and at its full width below, as the trial banner above it does. Each borrower is listed
+                 from sm and at its full width below, as the trial banner above it does. The settings page's Delete
+                 account warning keeps its heading, its list and its closing line in the error tint, its words in
+                 the ink in the same way (E283): a Notice's description is a <p>, which cannot hold a list, and its
+                 role="alert" would read the whole warning out as the confirmation opens. Each borrower is listed
                  with the variant it writes, as a string literal (gate: statusTintResidue.spec.ts's
-                 TINT_BORROWED).
+                 TINT_BORROWED). Words in another ink inside a tint are listed with their inks and measured at
+                 4.5:1 on the panel and the page in both themes, today the Copilot bubble's sentence in the error
+                 ink (gate: noticeTintInk.spec.ts's INKED, which fails an unlisted borrower's).
                  GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
                  tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
                  draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
