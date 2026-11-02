@@ -1257,6 +1257,22 @@ sends it, since a dataset without the fields exports byte for byte as before. On
   the builders with their later-filing seams switched off. `test_export_note_marks.py` reads the line's words from
   `DataNotes.tsx`.
 
+**As built (WP3 sources, 2026-11-02).** The PDF's sources say what the page says (§2.5's "Narrative and sources"
+row, N9), from one port (`analysis_export_metadata.source_words` and `method_words`):
+- **Narrative sources.** A citation's label is the page's source-list label, after a dot as there, with its links
+  after it. A calculated source reads "calculated before we kept its inputs" where its record says so,
+  "calculated from filed figures" where its inputs are kept, and otherwise "calculated figure". A reported source
+  reads "SEC filing". The stored label ("Calculated · operating_margin", "XBRL · us-gaap:Revenues") prints only
+  where the page prints it: for a citation saved without a method.
+- **Sources & methods.** Each figure's method takes the same words, first letter raised, in place of a bare
+  "Calculated", "Reported" or "Unknown". A figure with no recorded method reads "Source method is not recorded",
+  as in the page's dialog.
+- A legacy calculation still has no filing link, since none is recorded. Its label now says why.
+- `test_export_service.py` reads the words from `NarrativePane.tsx` and `SourceValue.tsx`, and fails when they
+  differ.
+- **Open.** Sources & methods still prints a formula as stored ("100 * net_income / revenue"), where the page's
+  dialog prints words (`figureDisplay.ts`'s `FORMULAS`), and the workbook's Formula column and comments do the same.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 
