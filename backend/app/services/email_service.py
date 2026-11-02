@@ -265,6 +265,26 @@ def _listed(names: list[str], room: int = 89) -> str:
     return joined(next((shown for shown in range(len(names), 1, -1) if len(joined(shown)) <= room), 1))
 
 
+def render_contact_confirmation(*, name: str | None) -> tuple[str, str]:
+    """Render our acknowledgement without echoing the caller's submitted subject or message."""
+    greeting = _greeting(name)
+    html_body = f"""
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
+    <p style="margin:0 0 16px;"><strong>Thanks for contacting EarningsNerd</strong></p>
+    <p style="margin:0 0 16px;">Thanks for getting in touch. The aim is to reply within 2 business days.</p>
+    <p style="margin:0 0 16px;">If you have anything to add, just reply to this email.</p>
+    <p style="margin:0;">EarningsNerd</p>
+    """
+    text_body = (
+        f"{_greeting_text(name)}\n\n"
+        "Thanks for contacting EarningsNerd\n\n"
+        "Thanks for getting in touch. The aim is to reply within 2 business days.\n\n"
+        "If you have anything to add, just reply to this email.\n\n"
+        "EarningsNerd"
+    )
+    return _wrap_html(html_body, preheader="We received your contact form submission."), _wrap_text(text_body)
+
+
 def render_welcome_email(
     *,
     name: str | None,
