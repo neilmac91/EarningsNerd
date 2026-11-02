@@ -478,9 +478,8 @@ class TestHistoryRowsThroughTheSync:
         after = dataset()
         assert _evidence_places(before) == _basis_places(before) == set()
         assert _evidence_places(after) == {("revenue", "FY2018"), ("revenue", "FY2019"), ("total_assets", "FY2018")}
-        # Growth across the change of basis reads n/m, where it had a number.
-        assert _basis_places(after) == {(concept, f"FY{year}") for concept in ("revenue", "net_margin")
-                                        for year in (2018, 2019, 2020)}
+        # Growth across the change of basis reads n/m at its crossing (D3), where it had a number.
+        assert _basis_places(after) == {(concept, "FY2018") for concept in ("revenue", "net_margin")}
         assert {_point(after, *place)["yoy"] for place in _basis_places(after)} == {"nm"}
         assert all(isinstance(_point(before, *place)["yoy"], float) for place in _basis_places(after))
         assert after["snapshot_id"] != before["snapshot_id"]

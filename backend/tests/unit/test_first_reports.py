@@ -25,7 +25,7 @@ from app.services.trend_analysis.first_reports import (
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
 from tests.unit.test_companyfacts_own_report_history import (
-    K18, K19, K20, K21, _K, _NET_INCOME, _REVENUE, _item, _items, _payload, _shapes,
+    K18, K19, K20, K21, REV_TAG, _K, _NET_INCOME, _REVENUE, _item, _items, _payload, _shapes,
 )
 
 FY2018 = date(2018, 12, 31)
@@ -170,11 +170,18 @@ class TestTheEvidenceOnReportedFigures:
         assert (("revenue", "FY2018") in _evidence(_build(db, company))) is carries
         assert differs(later, 6_000.0e6) is carries
 
-    def test_the_own_report_held_by_a_filing_owned_row_gives_its_evidence_and_its_filing_rows_dates(self, db):
+    @pytest.mark.parametrize("tag, source, evidence", [
+        (f"us-gaap:{REV_TAG}", "edgar_xbrl", True), (None, "edgar_xbrl", True), ("us-gaap:Revenues", "edgar_xbrl", False),
+        (f"us-gaap:{REV_TAG}", "companyfacts", False)],
+        ids=["the-winning-element", "no-element-recorded", "another-element", "a-value-the-cross-check-replaced"])
+    def test_the_own_report_held_by_a_filing_owned_row_gives_its_evidence_and_its_filing_rows_dates(
+            self, db, tag, source, evidence):
         # The per-filing writer processed the FY2018 10-K before the sync: its row holds the own report's cell, so
         # the sync stores no history row there, and the winner, whose filing is newer, demotes it. Its record carries
         # no filed day: the filing row's is read, from the dataset's one read of the filings, with the document as
-        # the link.
+        # the link. It is the year's own report on the figure's line alone: read under the winning element, or under
+        # none recorded (the per-filing writer records few), never another element's line (E278's rows), and never a
+        # value the backfill's cross-check replaced, which is the period's authority then, not its filing's own.
         from app.models import FinancialFact
         from app.services.fact_provenance import reported_provenance
 
@@ -182,18 +189,32 @@ class TestTheEvidenceOnReportedFigures:
         _filing(db, company, K18, "2019-02-07", period_end=FY2018, document="regn-10k2018.htm")
         _filing(db, company, K20, "2021-02-08", period_end=date(2020, 12, 31))
         filing_id = _rows_filing_id(db, K18)
-        db.add(FinancialFact(company_id=company.id, filing_id=filing_id, concept="revenue", raw_tag="us-gaap:Revenues",
+        db.add(FinancialFact(company_id=company.id, filing_id=filing_id, concept="revenue", raw_tag=tag,
                              unit="USD", period_start=date(2018, 1, 1), period_end=FY2018, fiscal_year=2018,
-                             fiscal_period="FY", value=6_710.8e6, form="10-K", accession=K18, source="edgar_xbrl",
+                             fiscal_period="FY", value=6_710.8e6, form="10-K", accession=K18, source=source,
                              reconciled=True, is_latest=True, provenance=reported_provenance({"reconciled": True})))
         db.commit()
         result = svc._persist_companyfacts_payload(db, company, _payload())
         assert result["history"] == 2  # FY2019 revenue and FY2018 total assets; FY2018 revenue's cell was held
         [held] = _rows(db, company, concept="revenue", accession=K18, period_end=FY2018)
         assert (held.filing_id, held.is_latest) == (filing_id, False)
-        first = _evidence(_build(db, company))[("revenue", "FY2018")]
-        assert (first["value"], first["accession"], first["filed_at"]) == (6_710.8e6, K18, "2019-02-07")
-        assert first["source_url"] == build_sec_archive_url(company.cik, K18) + "regn-10k2018.htm"
+        found = _evidence(_build(db, company)).get(("revenue", "FY2018"))
+        assert (found is not None) is evidence
+        if evidence:
+            assert (found["value"], found["accession"], found["filed_at"]) == (6_710.8e6, K18, "2019-02-07")
+            assert found["source_url"] == build_sec_archive_url(company.cik, K18) + "regn-10k2018.htm"
+
+    def test_a_row_stored_under_another_element_is_never_the_years_own_report(self, db):
+        # A demoted former winner under an element the company's reading has since left (E264's fee line, read for a
+        # financial filer before its SIC was known): another line in the same cell, so no evidence, where a row of
+        # the winning element gives it.
+        company = _synced(db, _up_to(2018), _payload())
+        [held] = _rows(db, company, concept="revenue", accession=K18, period_end=FY2018)
+        assert (held.raw_tag, held.is_latest) == (f"us-gaap:{REV_TAG}", False)
+        assert ("revenue", "FY2018") in _evidence(_build(db, company))
+        held.raw_tag = "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax"
+        db.commit()
+        assert ("revenue", "FY2018") not in _evidence(_build(db, company))
 
     def test_a_demoted_former_winner_holds_the_own_report(self, db):
         # Synced after the FY2018 10-K, then after the FY2021 one: the FY2018 10-K's own value won first and was
@@ -454,6 +475,44 @@ class TestOneOwnReport:
         assert picked == expected
         assert expected
 
+    @pytest.mark.requires_db
+    def test_across_a_change_of_element_the_reader_reads_the_shown_elements_rows_alone(self, db):
+        # E264's shape: the company's revenue was first read under one element (here "Revenues", a line of 40% of the
+        # total, read while the winning element had no data), synced after the FY2020 10-K; a later sync reads the
+        # total. The old line's rows stay where the new sync skips their identities: FY2018's winner, current and
+        # still shown (E264's set A); FY2018's and FY2019's own-report history rows (set D), which hold the cells the
+        # new history rows would take; and the old winners the new ones demote (set E), the FY2020 10-K's own FY2020
+        # among them. The reader takes no row of another element than the figure shown: no evidence on FY2019 (the
+        # new line's own row was never stored) nor FY2020 (its own report under the new element equals the value
+        # shown), and FY2018's evidence on the old line it shows. After E264's cleanup (step 3: the old line's rows
+        # deleted, the company synced again) the reader reads the own report ingest picks, as for every sequence.
+        from app.models import FinancialFact
+        from scripts import restatement_census
+
+        line = {report: {year: value * 0.4 for year, value in values.items()} for report, values in _REVENUE.items()}
+        old = _payload([], tags={"Revenues": {"units": {"USD": _items(line)}}})
+        for tag in old["facts"]["us-gaap"].values():
+            tag["units"]["USD"] = [item for item in tag["units"]["USD"] if item["fy"] <= 2020]
+        new = _payload(tags={"Revenues": {"units": {"USD": _items(line)}}})
+        company = _synced(db, old, new)
+        evidence = _evidence(_build(db, company))
+        assert ("revenue", "FY2019") not in evidence and ("revenue", "FY2020") not in evidence
+        assert _point(_build(db, company), "revenue", "FY2018")["raw_tag"] == "us-gaap:Revenues"
+        assert (evidence[("revenue", "FY2018")]["value"], evidence[("revenue", "FY2018")]["accession"]) == (
+            pytest.approx(0.4 * 6_710.8e6), K18)
+
+        db.query(FinancialFact).filter_by(company_id=company.id, concept="revenue", raw_tag="us-gaap:Revenues").delete(
+            synchronize_session=False)
+        db.commit()
+        svc._persist_companyfacts_payload(db, company, new)
+        cells, _info = restatement_census.measure_company("REGN", new, False, 10)
+        ingest = {f"FY{cell['fy']}": (cell["within"]["value"], cell["within"]["accession"]) for cell in cells
+                  if cell["concept"] == "revenue" and cell["within_later"] and differs(cell["winner"]["value"],
+                                                                                         cell["within"]["value"])}
+        read = {period: (first["value"], first["accession"])
+                for (concept, period), first in _evidence(_build(db, company)).items() if concept == "revenue"}
+        assert read == ingest == {"FY2018": (6_710.8e6, K18), "FY2019": (7_863.4e6, K19)}
+
     def test_an_annual_filings_own_end_reads_its_annual_rows_and_its_filing_row(self):
         def row(accession, end, *, form="10-K", start=True, period="FY"):
             return SimpleNamespace(accession=accession, period_end=end, form=form, fiscal_period=period,
@@ -478,21 +537,26 @@ class TestOneOwnReport:
 
 @pytest.mark.requires_db
 class TestGrowthAcrossAChangeOfBasis:
-    def test_regn_revenue_and_net_margin_growth_read_n_m_with_the_growth_their_own_reports_give(self, db):
+    def test_regn_revenue_and_net_margin_growth_read_n_m_at_the_crossing_with_the_growth_their_own_reports_give(
+            self, db):
+        # D3, crossings only: FY2018 is shown as the FY2020 10-K restated it beside FY2017 as first reported, so its
+        # growth reads n/m with the growth the two own reports give. FY2019 (a run: both years restated) and FY2020
+        # (the leading edge: FY2019 restated, FY2020 as first reported) compare two values the FY2020 10-K reports
+        # on one basis, so they keep their numbers.
         dataset = _build(db, _synced(db, _payload()))
         revenue, margin = _yoy(dataset, "revenue"), _yoy(dataset, "net_margin")
-        assert {period: value[0] for period, value in revenue.items()} == {
-            "FY2017": None, "FY2018": "nm", "FY2019": "nm", "FY2020": "nm", "FY2021": pytest.approx(16_071.7 / 8_497.1 - 1)}
-        assert [revenue[period][1] for period in ("FY2018", "FY2019", "FY2020")] == [
-            pytest.approx(6_710.8 / 5_872.2 - 1, abs=1e-9), pytest.approx(7_863.4 / 6_710.8 - 1, abs=1e-9),
-            pytest.approx(8_497.1 / 7_863.4 - 1, abs=1e-9)]
-        assert revenue["FY2021"][1] == "absent"
-        # D4: the margin's pp change reads n/m across its revenue input's change, and gives the change in percentage
-        # points between the margins the two years' own reports give.
-        own = {2017: 1_198.5 / 5_872.2, 2018: 2_444.4 / 6_710.8, 2019: 2_115.8 / 7_863.4, 2020: 3_513.2 / 8_497.1}
-        assert [margin[f"FY{year}"] for year in (2018, 2019, 2020)] == [
-            ("nm", pytest.approx(100 * (own[year] - own[year - 1]), abs=1e-6)) for year in (2018, 2019, 2020)]
-        assert margin["FY2021"][0] == pytest.approx(100 * (8_075.3 / 16_071.7 - 3_513.2 / 8_497.1), abs=1e-6)
+        assert revenue == {
+            "FY2017": (None, "absent"), "FY2018": ("nm", pytest.approx(6_710.8 / 5_872.2 - 1, abs=1e-9)),
+            "FY2019": (pytest.approx(6_557.6 / 5_145.6 - 1), "absent"),
+            "FY2020": (pytest.approx(8_497.1 / 6_557.6 - 1), "absent"),
+            "FY2021": (pytest.approx(16_071.7 / 8_497.1 - 1), "absent")}
+        # D4: the margin's pp change reads n/m where its revenue input crosses, and gives the change in percentage
+        # points between the margins the two years' own reports give; elsewhere it keeps the change shown.
+        own = {2017: 1_198.5 / 5_872.2, 2018: 2_444.4 / 6_710.8}
+        shown = {2018: 2_444.4 / 5_145.6, 2019: 2_115.8 / 6_557.6, 2020: 3_513.2 / 8_497.1, 2021: 8_075.3 / 16_071.7}
+        assert margin["FY2018"] == ("nm", pytest.approx(100 * (own[2018] - own[2017]), abs=1e-6))
+        assert [margin[f"FY{year}"] for year in (2019, 2020, 2021)] == [
+            (pytest.approx(100 * (shown[year] - shown[year - 1]), abs=1e-6), "absent") for year in (2019, 2020, 2021)]
         # Net income kept its basis; total assets' 0.24% moves no ratio past 1%.
         assert all(isinstance(value, float) and first == "absent" for period, (value, first)
                    in {**_yoy(dataset, "net_income"), **_yoy(dataset, "total_assets")}.items() if period != "FY2017")
@@ -506,18 +570,40 @@ class TestGrowthAcrossAChangeOfBasis:
 
     def test_a_run_restated_at_one_ratio_keeps_its_growth(self, db):
         # FY2018 and FY2019 both later reported at 80% of their own reports: the growth between them is the same on
-        # either basis; only the changes across the run's edges read n/m.
+        # either basis. Only the change into the run (its crossing) reads n/m; the change out of it, its leading
+        # edge, compares two values the restating filing reports, and keeps its number (D3).
         dataset = _build(db, _synced(db, _payload(_items(_restated(1_000.0e6, 800.0e6, 1_250.0e6, 1_000.0e6)))))
         revenue = _yoy(dataset, "revenue")
         assert revenue["FY2019"] == (pytest.approx(0.25), "absent")
-        assert revenue["FY2018"][0] == revenue["FY2020"][0] == "nm"
+        assert revenue["FY2018"][0] == "nm"
+        assert revenue["FY2020"] == (pytest.approx(8_497.1 / 1_000.0 - 1), "absent")
 
-    @pytest.mark.parametrize("fy2019_later, n_m", [(908.1e6, False), (909.0e6, False), (909.9e6, True)],
+    @pytest.mark.parametrize("fy2019_later, n_m", [(991.0e6, False), (990.0e6, False), (989.0e6, True)],
                              ids=["0.9%", "exactly-1%", "1.1%"])
     def test_d1_growth_reads_n_m_only_past_a_one_percent_move_of_the_ratio(self, db, fy2019_later, n_m):
-        # FY2018 later reported at 90% of its own report, FY2019 at 90.81%, 90.9% or 90.99%.
-        dataset = _build(db, _synced(db, _payload(_items(_restated(1_000.0e6, 900.0e6, 1_000.0e6, fy2019_later)))))
+        # FY2018 shown as first reported; FY2019 later reported at 99.1%, 99% or 98.9% of its own report: a crossing,
+        # whose ratio must move past 1%.
+        dataset = _build(db, _synced(db, _payload(_items(_restated(1_000.0e6, 1_000.0e6, 1_000.0e6, fy2019_later)))))
+        assert ("revenue", "FY2019") in _evidence(dataset)
         assert (_yoy(dataset, "revenue")["FY2019"][0] == "nm") is n_m
+
+    @pytest.mark.parametrize("fy2018_later, fy2019_later, kind, n_m", [
+        (1_000.0e6, 900.0e6, "crossing", True), (900.0e6, 1_000.0e6, "leading edge", False),
+        (800.0e6, 900.0e6, "inside a run", False)], ids=["crossing", "leading-edge", "inside-a-run"])
+    def test_d3_growth_reads_n_m_at_a_crossing_alone(self, db, fy2018_later, fy2019_later, kind, n_m):
+        # D3 (the founder's, 2026-11-01): FY2019's growth reads n/m only where FY2018 is shown as first reported and
+        # FY2019 is not. A leading edge (FY2018 restated, FY2019 as first reported) and a run (both restated, at
+        # ratios 10% apart) mostly compare two values one filing reports, so they keep the growth shown.
+        from scripts import restatement_census
+
+        payload = _payload(_items(_restated(1_000.0e6, fy2018_later, 1_000.0e6, fy2019_later)))
+        dataset = _build(db, _synced(db, payload))
+        growth = _yoy(dataset, "revenue")["FY2019"]
+        assert growth == (("nm", pytest.approx(0.0)) if n_m else (pytest.approx(fy2019_later / fy2018_later - 1),
+                                                                   "absent"))
+        cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
+        [counted] = [c for c in restatement_census.basis_comparisons(cells) if (c["concept"], c["fy"]) == ("revenue", 2019)]
+        assert (counted["kind"], counted["n_m"]) == (kind, n_m)
 
     def test_a_change_of_sign_reads_n_m_with_no_growth_as_first_reported(self, db):
         loss = {report: {year: (-500.0e6 if year == 2018 else _NET_INCOME[year]) for year in range(report - 2, report + 1)}
@@ -568,8 +654,8 @@ class TestGrowthAcrossAChangeOfBasis:
         from app.services.trend_analysis.observations import build_observation_catalogue
 
         catalogue = build_observation_catalogue(_build(db, _synced(db, _payload())))
-        growth = [item for item in catalogue if item.markdown.startswith("Revenue growth in")]
-        assert [(item.markdown.split()[3], item.required) for item in growth] == [("FY2021", True)]
+        growth = [item.markdown.split()[3] for item in catalogue if item.markdown.startswith("Revenue growth in")]
+        assert "FY2018" not in growth and {"FY2019", "FY2020", "FY2021"} <= set(growth)
 
 
 @pytest.mark.parametrize("now, before, changed", [
@@ -768,8 +854,10 @@ class TestASignOrScaleFindingMarksTheFigure:
         series = next(series for series in dataset["series"] if series["concept"] == "total_assets")
         assert ("source_conflict" in series["cagr_provenance"]["reasons"]) is (finding is not None)
         assert series["cagr_reconciled"] is (finding is None)
+        # FY2019 compares FY2018 restated with FY2019 as first reported, a leading edge (D3): an exact finding reads it
+        # n/m both ways (item 4), while a near miss, no finding, keeps the growth shown, as it was before evidence.
         following = _point(dataset, "total_assets", "FY2019")
-        assert following["yoy"] == "nm" and (following["yoy_first_reported"] == "nm") is (finding is not None)
+        assert (following["yoy"] == "nm") is (following.get("yoy_first_reported") == "nm") is (finding is not None)
 
     def test_a_per_share_factor_meets_in_decimal_where_floats_round(self, db):
         # 2.01 x 1,000 is 2009.9999999999998 in floats; the comparison is exact in Decimal.
@@ -808,7 +896,8 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert _point(dataset, "revenue", "FY2018")["first_reported"]["disagreement"] == "scale"
         margin = _yoy(dataset, "net_margin")
         assert margin["FY2018"] == margin["FY2019"] == ("nm", "nm")
-        assert margin["FY2020"][0] == "nm" and isinstance(margin["FY2020"][1], float)
+        # FY2020 compares FY2019 restated with FY2020 as first reported, no finding in either: its change stands (D3).
+        assert isinstance(margin["FY2020"][0], float) and margin["FY2020"][1] == "absent"
 
     def test_a_flip_of_a_non_negative_figure_never_reaches_the_dataset(self, db):
         # Ingest drops a negative revenue (facts/own_reports.py), so FY2018's own report leaves no row: no evidence,
@@ -821,18 +910,29 @@ class TestASignOrScaleFindingMarksTheFigure:
 
 
 class TestTheCensusCountsTheAnalysissNM:
-    """``scripts/restatement_census.py`` counts the n/m comparisons by the producer's own rule (D3's measurement):
-    over WP5b's shapes, the comparisons it counts are the ones the dataset built from the same payload reads n/m."""
+    """``scripts/restatement_census.py`` counts the comparisons by the producer's own rule (D3's measurement): over
+    WP5b's shapes, the reported and the calculated comparisons it reads n/m are the ones the dataset built from the
+    same payload reads n/m, and its table says what it counts."""
 
-    def test_regn_gives_one_comparison_of_each_kind(self):
+    def test_regn_gives_one_comparison_of_each_kind_with_its_basis(self):
         from scripts import restatement_census
 
         cells, _info = restatement_census.measure_company("REGN", _payload(), False, 10)
-        assert [(c["concept"], c["fy"], c["kind"], c["per_share"]) for c in restatement_census.basis_comparisons(cells)] \
-            == [("revenue", 2018, "crossing", False), ("revenue", 2019, "inside a run", False),
-                ("revenue", 2020, "leading edge", False)]
-        table = restatement_census._basis_table(cells)
-        assert "| **all** | 3 (1) | 0 (0) | 3 (1) |" in table and "| leading edge | 1 (1) | 0 (0) | 1 (1) |" in table
+        assert [(c["concept"], c["fy"], c["kind"], c["basis"], c["n_m"], c["per_share"])
+                for c in restatement_census.basis_comparisons(cells)] == [
+            ("revenue", 2018, "crossing", "mixed", True, False),
+            ("revenue", 2019, "inside a run", "like-for-like", False, False),
+            ("revenue", 2020, "leading edge", "like-for-like", False, False)]
+        assert [(c["concept"], c["fy"], c["kind"], c["n_m"]) for c in restatement_census.calculated_comparisons(cells)
+                if c["concept"] == "net_margin"] == [("net_margin", 2018, "crossing", True),
+                                                     ("net_margin", 2019, "inside a run", False),
+                                                     ("net_margin", 2020, "leading edge", False)]
+        table = "\n".join(restatement_census._basis_table(cells))
+        for words in ("*crossing*", "*leading edge*", "*inside a run*", "*like-for-like*", "Calculated figures (D4)",
+                      "already n/m (opposite signs)"):
+            assert words in table
+        assert "| crossing | 1 (1) | 0 (0) | 1 (1) | 0 (0) | 1 (1) | 0 (0) |" in table
+        assert "| **all** | 3 (1) | 2 (1) | 1 (1) | 0 (0) | 1 (1) | 0 (0) |" in table
 
     @pytest.mark.requires_db
     @pytest.mark.parametrize("shape", [*_shapes(), "a-negative-own-revenue"])
@@ -842,11 +942,14 @@ class TestTheCensusCountsTheAnalysissNM:
 
         payload = _shapes().get(shape) or _payload(_items({**_REVENUE, 2018: {**_REVENUE[2018], 2018: -6_710.8e6}}))
         cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
-        counted = {(c["concept"], f"FY{c['fy']}") for c in restatement_census.basis_comparisons(cells)}
+        counted = {(c["concept"], f"FY{c['fy']}") for c in [*restatement_census.basis_comparisons(cells),
+                                                             *restatement_census.calculated_comparisons(cells)]
+                   if c["n_m"]}
         dataset = _build(db, _synced(db, payload), "FY2015", "FY2021")
         read = {(series["concept"], point["period"]) for series in dataset["series"] for point in series["points"]
-                if "yoy_first_reported" in point and series["concept"] not in BASIS_INPUTS}
+                if "yoy_first_reported" in point}
         assert counted == read
+        assert any(concept in BASIS_INPUTS for concept, _period in read) or not read
 
 
 @pytest.mark.requires_db

@@ -239,11 +239,14 @@ def test_the_exports_dataset_tests_hold_on_each_produced_dataset(test, case):
     test(deepcopy(case))
 
 
-def test_regns_places_are_the_shared_fixtures():
-    """The backend twin gives the producer's REGN the places the page's shared fixture plants for REGN, as the page's
+def test_regns_places_are_the_shared_fixtures_at_its_crossing():
+    """The backend twin gives the producer's REGN the values the page's shared fixture plants for REGN and its comparisons
+    at the crossing alone (D3: FY2019 and FY2020, a run and a leading edge, keep their growth), as the page's
     laterFilingPlaces does in later-filings-producer.spec.ts."""
     shared = next(case for case in exports.CASES if case["name"] == "regn_own_reports_beside_later_comparatives")
-    assert later_filing_places(PRODUCED["regn FY2017..FY2021"]) == shared["expected"]
+    assert later_filing_places(PRODUCED["regn FY2017..FY2021"]) == {
+        "values": shared["expected"]["values"],
+        "comparisons": [place for place in shared["expected"]["comparisons"] if place["period"] == "FY2018"]}
 
 
 # ---- 2. Sources & methods -------------------------------------------------------------------------------------------

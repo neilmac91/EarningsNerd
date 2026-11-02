@@ -8,7 +8,7 @@ as ``backend/tests/fixtures/analysis_first_reports_produced.json`` and the page'
   shape differs from the committed file, so the file is never stale;
 - ``frontend/tests/unit/later-filings-producer.spec.ts`` runs every committed dataset through the real
   ``decodeLaterFilings`` and ``decodeDataNotes`` (each must be admitted unchanged) and holds REGN's
-  ``laterFilingPlaces`` to the shared fixture's REGN case (``analysis_later_filings.json``).
+  ``laterFilingPlaces`` to the shared fixture's REGN case (``analysis_later_filings.json``) at its crossing (D3).
 
 So a producer change the page would refuse fails one of the two: the backend test until the file is regenerated, the
 frontend spec once it is. Regenerate after a deliberate change, from ``backend/``:
@@ -103,7 +103,9 @@ def test_every_committed_dataset_carries_the_evidence_it_is_pinned_for():
     for name, dataset in datasets.items():
         points = [point for series in dataset["series"] for point in series["points"]]
         assert dataset["mode"] == "annual" and any("first_reported" in point for point in points), name
-        assert any("yoy_first_reported" in point for point in points), name
+        # D3: REGN's later window holds its run and its leading edge, whose growth keeps its number; every other window
+        # holds a crossing or a finding, which read n/m.
+        assert any("yoy_first_reported" in point for point in points) is (name != "regn FY2018..FY2021"), name
     findings = {name for name, dataset in datasets.items() for series in dataset["series"] for point in series["points"]
                 if (point.get("first_reported") or {}).get("disagreement")}
     assert {name.split(" ")[0] for name in findings} == {"a-sign-flip", "a-scale-factor", "an-inputs-finding"}

@@ -19,14 +19,22 @@ is its own. The year's own reports are the rows whose accession's own end is the
 concept, unit and span, the figure's own row among them where its filing is one; they rank as ingest ranks them, an
 original before an amendment, then the earliest filed, then the accession (companyfacts' listing order, ingest's last
 key, is not stored). The first is the year's own report, and where that is the figure's own filing there is no evidence,
-as ingest then stores no history row. A span is the start date; a missing one is "duration unknown" for a flow (the
+as ingest then stores no history row. A row is the shown figure's line only under the same XBRL element where both
+record one: ingest reads the winning tag's items alone, so a row stored under another element (a reading since
+changed, as E264's for a financial filer's revenue; a per-filing row read from another line, as E278's) is another
+line, never the year's own report. Nor is a per-filing row whose value the backfill's cross-check replaced: it holds the
+period's authoritative value at the time, often a later filing's, not its own filing's. A span is the start date; a missing one is "duration unknown" for a flow (the
 per-filing writer's rows before #831), so it matches nothing, while a balance has none by nature.
 ``tests/unit/test_first_reports.py`` holds the two rules to one answer over WP5b's own-report shapes synced in sequence.
 
-Growth across a change of basis reads n/m (item 3): where the two years of a YoY sit on different bases, the ratio of
-the value shown to the value first reported moving by more than ``BASIS_TOLERANCE`` between them, the comparison reads
-"nm" and carries the growth their own reports give (``yoy_first_reported``); a calculated figure's growth reads n/m
-where one of its inputs changed basis (D4). Nothing else of the comparison changes: its provenance and checks stand.
+Growth across a change of basis reads n/m (item 3) where the YoY crosses it (D3, ``crossed``): the earlier year is shown
+as first reported and the later year's value shown is more than ``BASIS_TOLERANCE`` from its own report's. The
+comparison reads "nm" and carries the growth their own reports give (``yoy_first_reported``), which at a crossing is the
+later year's own report's comparison on one basis; a calculated figure's growth reads n/m where one of its inputs
+crosses (D4). Nothing else of the comparison changes: its provenance and checks stand. Where the earlier year carries
+evidence (a leading edge, or a run of restated years), the two values shown mostly come from one filing's basis
+(the D3 census of 2026-11-01: 155 of 158 leading edges and 88 of 123 runs are like-for-like), so the growth keeps
+its number, unless a sign or scale finding sits in either year (below).
 
 A finding that signals a tagging error rather than a change of basis (item 4), an exact sign flip or an exact factor of
 1,000ⁿ between the two values (``disagreement``), also marks the figure with the existing ``source_conflict`` reason (D2
@@ -68,13 +76,14 @@ SOURCE_CONFLICT = "source_conflict"
 # diluted EPS, -0.05 in its own report, 0.05 later); its scale still is.
 SIGN_TEST_EXEMPT = frozenset({"earnings_per_share", "eps_diluted"})
 SCALE_STEPS = (1, 2, 3)  # A factor of 1,000ⁿ for these n, either way.
-# D1: a YoY reads n/m across a change of basis where one year's shown-to-first-reported ratio differs from the other's
-# by more than this share (coherence.md section 1.6 item 3). A year without evidence has the ratio 1.
+# D1: a YoY that crosses a change of basis (D3, ``crossed``) reads n/m where the later year's shown-to-first-reported
+# ratio is more than this share from the earlier year's, which is 1: a year without evidence has the ratio 1
+# (coherence.md section 1.6 item 3).
 BASIS_TOLERANCE = Decimal("0.01")
 # D3: per-share figures keep their evidence but their growth never reads n/m by this rule: after a stock split every
 # earlier year is restated at one ratio, so the first year after it would read n/m across no change of what EPS measures.
 BASIS_EXEMPT = frozenset({"earnings_per_share", "eps_diluted"})
-# D4: a calculated figure's growth reads n/m where one of these inputs changed basis, each read from the figure's
+# D4: a calculated figure's growth reads n/m where one of these inputs crosses a change of basis, each read from the figure's
 # recorded operand of that concept, else (a calculation stored before operands were recorded) from that concept's own
 # figure for the year in the dataset. Empty, calculated growth would keep its number beside its inputs' evidence.
 BASIS_INPUTS: Mapping[str, tuple[str, ...]] = METRIC_INPUTS
@@ -160,6 +169,14 @@ def basis_changed(now: Optional[Decimal], before: Optional[Decimal]) -> bool:
     return abs(now / before - 1) > BASIS_TOLERANCE
 
 
+def crossed(now: Figure, before: Figure) -> bool:
+    """D3 (the founder's, 2026-11-01): whether a YoY crosses a change of basis: the earlier year shown as first reported
+    (no evidence, so its value and its own report's are one basis) and the later year's ratio past ``BASIS_TOLERANCE``
+    from it (``basis_changed``). Where the earlier year carries evidence, the filing that gives its value shown mostly
+    gives the later year's too, so the two values shown are one filing's comparison and the growth keeps its number."""
+    return not (before and before[1]) and basis_changed(_ratio(now), _ratio(before))
+
+
 def disagreement(concept: str, shown: float, own: float) -> Optional[str]:
     """What an exact comparison of the two values finds (item 4), in Decimal so a factor that floats round still meets:
     "opposite_sign" where the value shown is the own value negated (not for a per-share figure, D2), "scale" where one
@@ -196,6 +213,21 @@ def _marked(provenance: Mapping[str, Any]) -> dict[str, Any]:
             "reasons": list(dict.fromkeys([*provenance.get("reasons", []), SOURCE_CONFLICT]))}
 
 
+def same_line(row_tag: Any, shown_tag: Any) -> bool:
+    """Whether a stored row can hold the shown figure's line: the same XBRL element where both record one, as ingest
+    reads the winning tag's items alone (``own_reports._own_report``); either where one records none (the per-filing
+    writer records the element of revenue, net income, operating cash flow, capital expenditures, cash and long-term
+    debt alone, ``edgar/xbrl_instance.py``)."""
+    return not (row_tag and shown_tag) or row_tag == shown_tag
+
+
+def replaced(row: Any) -> bool:
+    """Whether a row is a per-filing row whose value the backfill's cross-check replaced (``facts/reconcile.py``
+    ``cross_check_facts``: source companyfacts at a filing, E264's set F): it holds the period's authoritative value at
+    the time, often a later filing's, so it is no filing's own report."""
+    return getattr(row, "filing_id", None) is not None and getattr(row, "source", None) == "companyfacts"
+
+
 def own_period_ends(rows: Iterable[FinancialFact], filings: Mapping[str, FilingDates]) -> dict[str, date]:
     """Each annual filing's own period end, by dashless accession, from the company's stored fiscal-year rows."""
     fiscal = [row for row in rows if row.fiscal_period == "FY"]
@@ -225,9 +257,10 @@ class FirstReports:
         self._cells: dict[Cell, list[FinancialFact]] = {}
         self._stored: dict[tuple[Cell, str], FinancialFact] = {}
         for row in history:
-            # A calculated metric's evidence sits on its inputs (item 5); a withheld row, or one whose stored value is
-            # not a finite number, is no one's evidence.
-            if row.concept not in METRIC_FORMULAS and published_value(row) is not None and _finite(row.value):
+            # A calculated metric's evidence sits on its inputs (item 5); a withheld row, one whose stored value is not
+            # a finite number, or one whose value the cross-check replaced is no one's evidence.
+            if row.concept not in METRIC_FORMULAS and published_value(row) is not None and _finite(row.value) \
+                    and not replaced(row):
                 self._cells.setdefault(_cell(row), []).append(row)
         if self._cells:
             for row in current:
@@ -254,14 +287,15 @@ class FirstReports:
 
     def own_report(self, figure: Mapping[str, Any]) -> Optional[FinancialFact]:
         """The stored row of the figure's year's own annual report where that is another filing than the figure's, else
-        None. Ingest's rule: every own report of the year ranks, the figure's own filing among them where it is one, and
-        where that ranks first the year's own report is the value shown."""
-        cell, accession = _cell(figure), _key(figure.get("accession"))
+        None. Ingest's rule: every own report of the year on the figure's line (``same_line``) ranks, the figure's own
+        filing among them where it is one, and where that ranks first the year's own report is the value shown."""
+        cell, accession, tag = _cell(figure), _key(figure.get("accession")), figure.get("raw_tag")
         if cell[3] is None and cell[0] not in _BALANCES:
             return None  # A flow of unknown duration (no start) is no span to match.
         ranked = [(self._rank(row.form, row.accession, provenance_for_fact(row).get("filed_at")), row)
                   for row in self._cells.get(cell, ())
-                  if _key(row.accession) != accession and self._own_ends.get(_key(row.accession)) == row.period_end]
+                  if _key(row.accession) != accession and self._own_ends.get(_key(row.accession)) == row.period_end
+                  and same_line(row.raw_tag, tag)]
         if not ranked:
             return None
         own_end = self._own_ends.get(accession)
@@ -357,9 +391,10 @@ class FirstReports:
         return None if any(value is None for value in values) else _CALCULATED[concept](*values)
 
     def basis_rule(self, series_list: list[dict[str, Any]], growth: Callable, pp_delta: Callable) -> list[dict[str, Any]]:
-        """Item 3, once every series' growth is attached: a YoY whose two years sit on different bases reads n/m and
-        carries the growth their own reports give, computed as the series computes its own (``growth``, or
-        ``pp_delta`` for a margin). EPS is exempt (D3); its provenance and checks stand."""
+        """Item 3, once every series' growth is attached: a YoY that crosses a change of basis (D3, ``crossed``) reads n/m
+        and carries the growth their own reports give, computed as the series computes its own (``growth``, or
+        ``pp_delta`` for a margin); one with a sign or scale finding in either year's evidence reads n/m both ways
+        (item 4). EPS is exempt (D3); its provenance and checks stand."""
         if not self._cells:
             return series_list
         points = {series["concept"]: {point["period"]: point for point in series["points"]} for series in series_list}
@@ -372,12 +407,12 @@ class FirstReports:
                 if point.get("yoy") is None or before is None:
                     continue
                 now_figures, before_figures = self._figures(concept, point, points), self._figures(concept, before, points)
-                if any(basis_changed(_ratio(now), _ratio(then)) for now, then in zip(now_figures, before_figures)):
+                # Across a finding in either year's evidence (item 4), one of the two readings rests on the slip, and it
+                # may be a value shown: n/m, and n/m as first reported, never a number or null, whatever the kind.
+                found = _has_finding(point) or _has_finding(before) or any(
+                    figure and figure[1] and figure[1]["disagreement"] for figure in (*now_figures, *before_figures))
+                if found or any(crossed(now, then) for now, then in zip(now_figures, before_figures)):
                     point["yoy"] = NOT_MEANINGFUL
-                    # Across a finding in either year's evidence (item 4), one of the two readings rests on the slip:
-                    # n/m, never a number or null.
-                    found = _has_finding(point) or _has_finding(before) or any(
-                        figure and figure[1] and figure[1]["disagreement"] for figure in (*now_figures, *before_figures))
                     point["yoy_first_reported"] = NOT_MEANINGFUL if found else delta(
                         self._as_first_reported(concept, point, now_figures),
                         self._as_first_reported(concept, before, before_figures))

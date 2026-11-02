@@ -3,7 +3,7 @@
   "cases": [
     {
       "name": "regn_own_reports_beside_later_comparatives",
-      "about": "WP5b's REGN shape at D1's 0.1%: revenue FY2018 and FY2019 and total assets FY2018 carry their own 10-K's value. Revenue's and net margin's changes FY2018 to FY2020 read n/m across the change of basis; total assets' 0.24% gap moves no growth past 1%. Net margin is calculated: its revenue input carries the evidence (item 5), and it is no figure of the line's (D8: reported figures only).",
+      "about": "WP5b's REGN shape at D1's 0.1%: revenue FY2018 and FY2019 and total assets FY2018 carry their own 10-K's value. Revenue's and net margin's changes FY2018 to FY2020 read n/m across the change of basis, as planted under the rule before D3's census; the producer since reads n/m at the crossing alone (FY2018), its datasets pinned in analysis_first_reports_produced.json, and the readers read either. Total assets' 0.24% gap moves no growth past 1%. Net margin is calculated: its revenue input carries the evidence (item 5), and it is no figure of the line's (D8: reported figures only).",
       "dataset": {
         "ticker": "REGN",
         "company_name": "Regeneron Pharmaceuticals",
