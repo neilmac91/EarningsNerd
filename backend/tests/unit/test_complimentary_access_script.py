@@ -188,6 +188,7 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
         json.dumps(valid).encode()[:-20] + email.encode(): "manifest: is not valid JSON",
         json.dumps(valid).encode() + f" {email} {account_id}".encode(): "manifest: is not valid JSON",
         json.dumps({**valid, email: account_id}).encode(): "grant.<unexpected key>: is not a manifest key",
+        json.dumps(valid).encode()[:-1] + f', "action": "{email}"}}'.encode(): "manifest: names a key twice in one object",
     }
     for n, (raw, problem) in enumerate(malformed.items()):
         path = tmp_path / f"malformed-{n}.json"
@@ -196,6 +197,13 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
             code, out, err, logged = _run(capsys, caplog, subcommand, "--manifest", str(path))
             assert (code, json.loads(out)) == (1, {"refused": "manifest", "problems": [problem]}), (n, subcommand)
             texts += [out, err, logged]
+    # A manifest the command cannot read is a refusal, before any database work: exit 2 is kept for the database or a
+    # unit failing. Its path, which here names an address, is not printed.
+    missing = tmp_path / f"{email}.json"
+    for subcommand in ("dry-run", "check"):
+        code, out, err, logged = _run(capsys, caplog, subcommand, "--manifest", str(missing))
+        assert (code, json.loads(out)) == (1, {"refused": "manifest_unreadable"}), subcommand
+        texts += [out, err, logged]
     _assert_nothing_planted(texts, operator, testers)
 
 

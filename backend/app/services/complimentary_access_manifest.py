@@ -145,9 +145,33 @@ def _describe(error: dict) -> str:
     return f"{place or 'manifest'}: {_FAULTS.get(error['type'], 'is not valid')}"
 
 
+class _RepeatedKey(Exception):
+    pass
+
+
+def _refuse_repeated_keys(raw: bytes) -> None:
+    """A JSON object that names a key twice keeps its last value under every parser here, so a hand-edited manifest
+    whose first lines say ``grant`` could run as a revoke, or a second ``accounts`` replace the first: refuse it. The
+    fault names no key, since a malformed manifest could carry an address as one. Text that is not JSON is left to
+    the strict parse after, which words its fault from its type."""
+
+    def pairs(items: list) -> dict:
+        if len({key for key, _ in items}) != len(items):
+            raise _RepeatedKey()
+        return dict(items)
+
+    try:
+        json.loads(raw, object_pairs_hook=pairs)
+    except _RepeatedKey:
+        raise ManifestError(["manifest: names a key twice in one object"]) from None
+    except (ValueError, RecursionError):
+        return
+
+
 def load_manifest(raw: bytes) -> tuple[Manifest, str]:
-    """Parse a manifest's JSON strictly (no unknown keys, no coerced types) and return it with its digest. Raises
-    :class:`ManifestError` naming each fault's place and kind; no input value enters the message."""
+    """Parse a manifest's JSON strictly (no unknown keys, no repeated keys, no coerced types) and return it with its
+    digest. Raises :class:`ManifestError` naming each fault's place and kind; no input value enters the message."""
+    _refuse_repeated_keys(raw)
     try:
         manifest = _MANIFEST.validate_json(raw)
     except ValidationError as exc:

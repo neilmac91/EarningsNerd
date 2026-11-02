@@ -194,6 +194,7 @@ def _planted(**changes) -> bytes:
 
 _NOT_AN_ACTION = ["manifest: must be grant or revoke"]
 _NOT_JSON = ["manifest: is not valid JSON"]
+_REPEATED = ["manifest: names a key twice in one object"]
 
 
 @pytest.mark.parametrize("raw, problems", [
@@ -203,7 +204,13 @@ _NOT_JSON = ["manifest: is not valid JSON"]
     (_planted(action={PLANTED_ADDRESS: PLANTED_ID}), _NOT_AN_ACTION),
     (_planted(action=[PLANTED_ADDRESS]), _NOT_AN_ACTION),
     (_planted(action=None), _NOT_AN_ACTION),
-    (_planted()[:-1] + f', "action": "{PLANTED_ADDRESS}"}}'.encode(), _NOT_AN_ACTION),  # a repeated key: the last wins
+    # A repeated key, which every parser here resolves to its last value: refused, naming no key.
+    (_planted()[:-1] + f', "action": "{PLANTED_ADDRESS}"}}'.encode(), _REPEATED),
+    (_planted()[:-1] + f', "accounts": [{{"account_id": {PLANTED_ID}, "email_sha256": "{PLANTED_ADDRESS}"}}]}}'.encode(),
+     _REPEATED),
+    (('{"action": "grant", "cohort": "c-1", "reason": "Private beta tester", "review_on": "2030-08-01", '
+      '"operator_account_id": 1, "accounts": [{"account_id": %d, "email_sha256": "%s", "account_id": %d}]}'
+      % (PLANTED_ID, PLANTED_ADDRESS, PLANTED_ID)).encode(), _REPEATED),
     (json.dumps({"cohort": COHORT, "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS}]}).encode(),
      _NOT_AN_ACTION),
     # Malformed JSON: cut off inside an address, trailed by one, broken UTF-8 beside one; an address as the manifest.
