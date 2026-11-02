@@ -15,9 +15,12 @@ rather than skip it:
   and each line between is blank or one entry, `'key': 'words',`, whose strings are single-quoted and hold no quote and
   no backslash, so no escape is left to decode. A comment, a spread, a computed or double-quoted key, two entries on a
   line, an entry without its comma, a key given twice, another declaration and a literal never closed fail.
-- Every other mention of FORMULAS in the file reads it, `FORMULAS[formula]`, and neither assigns to it nor deletes it:
-  a write after the declaration fails (`FORMULAS[formula] ??= ...`, `Object.assign(FORMULAS, ...)`), and so does a
-  comment that names it, since the reader does not lex comments.
+- Every other mention of FORMULAS in the file reads it, `FORMULAS[formula]`, and neither assigns to it nor deletes it.
+  TypeScript takes an assignment target inside parentheses and through a non-null assertion, so the reader looks past
+  both: a write after the declaration fails (`FORMULAS[formula] ??= ...`, `(FORMULAS[formula]) = ...`,
+  `FORMULAS[formula]! = ...`, `delete (FORMULAS[formula])`, a for-in or for-of head, `Object.assign(FORMULAS, ...)`).
+  So does a type assertion beside a mention (`as`, `satisfies`, `<string>`), which the reader does not look past, and
+  a comment that names it, since the reader does not lex comments.
 - formulaWords is named once in the file, on the line `export const formulaWords = (formula: string) =>
   FORMULAS[formula] ?? formula.replaceAll('_', ' ')`, whose two strings are the fallback. Any other form fails,
   `replace` among them, which in JavaScript replaces the first match alone where str.replace replaces each.
@@ -61,9 +64,14 @@ CLOSING = re.compile(r"\s*};?\s*")
 FALLBACK = re.compile(r"export const formulaWords = \(formula: string\) => FORMULAS\[formula\] \?\? "
                       r"formula\.replaceAll\('([^'\\]*)', '([^'\\]*)'\)\s*")
 READ = "FORMULAS[formula]"
-# What makes a mention a write: an assignment of any kind after it, or a delete before it.
-ASSIGNED = re.compile(r"\s*(?:\?\?|\|\||&&|\*\*|<<|>>>|>>|[-+*/%&|^])?=(?!=)")
-DELETED = re.compile(r"\bdelete\s*$")
+# What makes a mention a write: an assignment of any kind after it (an arrow is none), or a delete or a for-in or
+# for-of head before it. The reader looks past the parentheses and non-null assertions around a mention (CLOSED after
+# it; before it, its opening parentheses are stripped) and refuses a type assertion beside one.
+ASSIGNED = re.compile(r"\s*(?:\?\?|\|\||&&|\*\*|<<|>>>|>>|[-+*/%&|^])?=(?![=>])")
+CLOSED = re.compile(r"(?:\s*\)|\s*!(?!=))*")
+WRITTEN_BEFORE = re.compile(r"(?<![\w$.])(?:delete|for(?:\s+await)?)$")
+ASSERTED_AFTER = re.compile(r"\s*(?:as|satisfies)\b")
+ASSERTED_BEFORE = re.compile(r"(?<!=)>$")
 # A formula the page has no words for, so each export prints the page's fallback: its underscores turn to spaces.
 UNWORDED = "total_debt / total_equity"
 
@@ -88,8 +96,10 @@ def read_formulas(source: str) -> tuple[dict[str, str], tuple[str, str]]:
     declaration = sum(len(line) + 1 for line in lines[:declared[0]]) + len("const ")
     for mention in re.finditer(r"\bFORMULAS\b", source):
         at = mention.start()
-        read = (source.startswith(READ, at) and not ASSIGNED.match(source, at + len(READ))
-                and not DELETED.search(source, 0, at))
+        before = source[:at].rstrip(" \t\r\n(")
+        after = CLOSED.match(source, at + len(READ)).end()
+        read = (source.startswith(READ, at) and not ASSIGNED.match(source, after) and not ASSERTED_AFTER.match(source, after)
+                and not WRITTEN_BEFORE.search(before) and not ASSERTED_BEFORE.search(before))
         context = source[max(at - 20, 0):at + 40]
         assert at == declaration or read, f"a mention of FORMULAS the gate cannot read: {context!r}"
     definitions = [FALLBACK.fullmatch(line) for line in lines if "formulaWords" in line]
@@ -215,6 +225,16 @@ REFUSED = {
     "a compound assignment": (GUARD, GUARD + "  FORMULAS[formula] ??= formula\n", "a mention of"),
     "an augmented assignment": (GUARD, GUARD + "  FORMULAS[formula] += ' (stored)'\n", "a mention of"),
     "a delete": (GUARD, GUARD + "  delete FORMULAS[formula]\n", "a mention of"),
+    "a parenthesised assignment": (GUARD, GUARD + "  ;(FORMULAS[formula]) = formula\n", "a mention of"),
+    "a parenthesised delete": (GUARD, GUARD + "  delete (FORMULAS[formula])\n", "a mention of"),
+    "a delete with no space": (GUARD, GUARD + "  delete(FORMULAS[formula])\n", "a mention of"),
+    "nested parentheses": (GUARD, GUARD + "  ;((FORMULAS[formula])) ??= formula\n", "a mention of"),
+    "a non-null assertion": (GUARD, GUARD + "  FORMULAS[formula]! = formula\n", "a mention of"),
+    "an as assertion": (GUARD, GUARD + "  ;(FORMULAS[formula] as string) = formula\n", "a mention of"),
+    "a satisfies assertion": (GUARD, GUARD + "  ;(FORMULAS[formula] satisfies string) = formula\n", "a mention of"),
+    "an angle-bracket assertion": (GUARD, GUARD + "  ;(<string>FORMULAS[formula]) = formula\n", "a mention of"),
+    "a for-of head": (GUARD, GUARD + "  for (FORMULAS[formula] of [formula]) break\n", "a mention of"),
+    "a for-in head": (GUARD, GUARD + "  for (FORMULAS[formula] in { formula }) break\n", "a mention of"),
     "an Object.assign": (GUARD, GUARD + "  Object.assign(FORMULAS, GROWTH)\n", "a mention of"),
     "an export of it": ("export function", "export { FORMULAS }\n\nexport function", "a mention of"),
     "a fallback that replaces the first underscore alone": (
@@ -244,6 +264,12 @@ PASSED = {
     "a read that compares": (
         GUARD, GUARD + "  if (FORMULAS[formula] === undefined || FORMULAS[formula] == null) return null\n", FORM_WORDS),
     "another name that holds it": (GUARD, GUARD + "  const METRIC_FORMULAS = formula\n", FORM_WORDS),
+    "reads in parentheses and through non-null assertions, compared": (
+        GUARD, GUARD + "  if ((FORMULAS[formula]) !== formula && FORMULAS[formula]! != null) return null\n", FORM_WORDS),
+    "a read passed to a method named delete": (GUARD, GUARD + "  seen.delete(FORMULAS[formula])\n", FORM_WORDS),
+    "a read as a parameter's default, before an arrow": (
+        GUARD, GUARD + "  const word = (words = FORMULAS[formula]) => words\n", FORM_WORDS),
+    "a for-of over a read": (GUARD, GUARD + "  for (const part of FORMULAS[formula]) break\n", FORM_WORDS),
 }
 # Each form the rule forbids that the reader passes, a gap the module docstring names, as an edit of FORM, and what the
 # reader reads from it.

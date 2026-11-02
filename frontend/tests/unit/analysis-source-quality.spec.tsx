@@ -396,6 +396,22 @@ describe('Financial origin and source checks', () => {
     expect(substitutedFormula(provenance)).toBeNull()
   })
 
+  // A Q4 calculated from the year less its three quarters (facts/quarterly.py) reads in FORMULAS' words, which the PDF and
+  // the workbook print too. It subtracts three operands from one, so it takes no two-operand line: with two valued inputs,
+  // which reach substitutedFormula's shapes, the dialog still prints no arithmetic.
+  it('says how a Q4 from the year less its three quarters is calculated, with no two-operand line', async () => {
+    const provenance: FactProvenance = { ...calculated, formula: 'FY - (Q1 + Q2 + Q3)', inputs: [
+      { ...calculated.inputs[0], value: 134902000000 }, { ...calculated.inputs[0], value: 94791000000 },
+    ] }
+    render(<SourceValue point={{ ...dataset.series[0].points[1], provenance }} label="Revenue" concept="revenue">$40.1B</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
+    expect(within(dialog).getByText('Full year − first, second and third quarters')).toBeInTheDocument()
+    expect(dialog).not.toHaveTextContent('Q1 + Q2 + Q3')
+    expect(dialog).not.toHaveTextContent('134,902,000,000 −')
+    expect(substitutedFormula(provenance)).toBeNull()
+  })
+
   it('explains an absent metric-period slot with the same unavailable note counted in the report', async () => {
     const missing = structuredClone(dataset)
     missing.series[0].points.pop()
