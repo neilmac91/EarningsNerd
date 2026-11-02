@@ -657,8 +657,12 @@ def _parse_stream(stdout: bytes) -> dict[str, Any]:
     iteration_types: list[str] = []
 
     def record_iterations(usage_value: Any) -> None:
-        """Each usage.iterations entry's type, once, in order of first sight; a malformed entry or list is `invalid`."""
-        if type(usage_value) is not dict or "iterations" not in usage_value:
+        """Each usage.iterations entry's type, once, in order of first sight; a malformed entry or list is `invalid`.
+
+        `null` reads as absent: the CLI writes `iterations: null` into a usage object it builds or copies when the API
+        reported none (CLI 2.1.316: `iterations: e.iterations ?? null`), so it says nothing about a fallback.
+        """
+        if type(usage_value) is not dict or usage_value.get("iterations") is None:
             return
         items = usage_value["iterations"]
         kinds = ([item["type"] if type(item) is dict and type(item.get("type")) is str else "invalid" for item in items]

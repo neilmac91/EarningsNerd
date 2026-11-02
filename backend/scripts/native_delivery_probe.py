@@ -3,15 +3,18 @@
 
 One synthetic opaque-token packet, one reserved leaf, one CLI dispatch, no retry. This is a
 transport/schema-discovery probe with an output-fidelity check; it is not a source-role dispatch and
-borrows no E7 slot. Its journal is synthetic, and with its ledger it is retained evidence: the dispatch
-roots must sit outside any `.claude` ancestor, which on the releasing machine means a temporary
-directory, so ``run`` copies both into the manifest's ``retain_root`` and validates the copy (macOS clears
-``/private/tmp`` on restart, which lost the 2026-10-01 probe's ledger).
+borrows no E7 slot. Its journal is synthetic, and with its ledger it is retained evidence. The dispatch
+roots must sit outside any Claude project context, so outside the home directory (its ``~/.claude`` makes
+it one), and the releasing machine uses a temporary directory, which does not last: macOS clears
+``/private/tmp`` at restart, and its daily maintenance removes entries untouched for three days (the
+2026-10-01 probe's ledger is gone). So ``run`` copies both into the manifest's ``retain_root`` and
+validates the copy.
 
 Usage (from ``backend/``, on the releasing machine, outside iCloud; the parent directory of the
 manifest's ``journal_root``/``delivery_root`` must already exist, e.g. ``mkdir -p /private/tmp/...``, and
-``retain_root`` must be an existing durable directory outside temporary, iCloud-synced and repository
-directories, e.g. ``mkdir -p ~/en-probe-ledgers``):
+``retain_root`` must be an existing durable directory outside temporary directories, cloud-synced home
+directories and git work trees, e.g. ``mkdir -p ~/en-probe-ledgers``; ``probe_id`` is a label such as
+``engineering-probe-native-delivery-4``):
 
     python scripts/native_delivery_probe.py plan --manifest <probe-manifest.json>
     python scripts/native_delivery_probe.py run  --manifest <probe-manifest.json>
@@ -26,10 +29,12 @@ validates the copy with ``validate_delivery_binding``.
 
 Exit codes: 0 complete with exact fidelity; 2 terminal non-complete outcome (settled, retained);
 3 preflight refusal or CLI drift (nothing written; see the manifest's ``drift_plan``); 4 unknown
-delivery (reservation left pending: inspect the ledger, then settle or retire through the journal;
-never re-run against the same roots); 5 complete but the reply is not the expected tokens (settled
-eligible in the synthetic journal, fidelity recorded); 6 the retained copy did not validate (the original
-stays at the dispatch roots: copy it by hand before a restart); 1 manifest/usage error or an unexpected crash.
+delivery (reservation left pending: inspect the retained ledger, then settle or retire it through the
+retained journal and validate it there; never re-run against the same roots; 4 takes precedence over 6,
+and the run still prints whether the copy validated); 5 complete but the reply is not the expected tokens
+(settled eligible in the synthetic journal, fidelity recorded); 6 the retained copy did not validate (the
+original stays at the dispatch roots: copy it by hand before it is cleared); 1 manifest/usage error or an
+unexpected crash.
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -60,10 +66,14 @@ _MANIFEST_KEYS = frozenset({
 })
 _OPTIONAL_KEYS = frozenset({"version_confound"})
 _FIXTURE_KEYS = frozenset({"seed", "token_count", "echo_tokens"})
-_SYNCED_HOME_DIRS = (("Library", "Mobile Documents"), ("Documents",), ("Desktop",))
-# Directories whose contents do not survive a restart (macOS clears /private/tmp and the per-user /var/folders).
+# A label: it names the retained copy's directory under the retain root and the context id's prefix.
+_PROBE_ID = re.compile(r"engineering-probe-[a-z0-9]+(?:-[a-z0-9]+)*")
+# Home directories a sync client uploads: iCloud Drive, iCloud Desktop & Documents, and the File Provider clients
+# (Dropbox, OneDrive, Google Drive) under ~/Library/CloudStorage. Raw streams stay on the machine.
+_SYNCED_HOME_DIRS = (("Library", "Mobile Documents"), ("Library", "CloudStorage"), ("Documents",), ("Desktop",))
+# Directories whose contents do not last (macOS clears /private/tmp at restart and, by default, entries untouched for
+# three days; the per-user /var/folders is cleared too).
 _TEMP_ROOTS = ("/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp", "/var/folders", "/private/var/folders")
-_REPOSITORY = Path(__file__).resolve().parents[2]
 
 
 def _temp_roots() -> tuple[Path, ...]:
@@ -100,6 +110,9 @@ def _load_manifest(path: Path) -> dict[str, Any]:
         raise _usage_error("probe accession must be synthetic (CIK 0000000000)")
     if not str(manifest["programme_id"]).startswith("engineering-probe-"):
         raise _usage_error("probe programme_id must start with engineering-probe-")
+    if type(manifest["probe_id"]) is not str or _PROBE_ID.fullmatch(manifest["probe_id"]) is None:
+        raise _usage_error("probe_id must be a label such as engineering-probe-native-delivery-4 "
+                           "(lowercase letters and digits joined by single hyphens)")
     return manifest
 
 
@@ -113,7 +126,7 @@ def _local_root(value: Any, name: str) -> tuple[Path, str | None]:
     for parts in _SYNCED_HOME_DIRS:
         synced = home.joinpath(*parts)
         if resolved == synced or synced in resolved.parents:
-            return path, f"{name} must not live under an iCloud-synced directory ({synced})"
+            return path, f"{name} must not live under a cloud-synced directory ({synced})"
     if path.exists() or path.is_symlink():
         return path, f"{name} already exists; choose a fresh directory"
     if not path.parent.is_dir():
@@ -121,30 +134,40 @@ def _local_root(value: Any, name: str) -> tuple[Path, str | None]:
     return path, None
 
 
+def _under(path: Path, ancestor: Path) -> bool:
+    """``path`` (existing, resolved) is ``ancestor`` or lies under it, compared by file identity: a case variant on a
+    case-insensitive volume or a macOS firmlink (``/System/Volumes/Data/private/tmp``) names the same directory under
+    another string."""
+    try:
+        mark = ancestor.stat()
+    except OSError:  # no such directory on this machine, so nothing lies under it
+        return False
+    return any(os.path.samestat(candidate.stat(), mark) for candidate in (path, *path.parents))
+
+
 def _retain_root(value: Any, probe_id: str, *, temp_roots: tuple[Path, ...] | None = None,
-                 home: Path | None = None, repository: Path | None = None) -> tuple[Path, str | None]:
+                 home: Path | None = None) -> tuple[Path, str | None]:
     """The durable directory the run's journal and ledger are copied into; returns (target, refusal).
 
-    The retain root exists and lies outside every temporary directory, every iCloud-synced home directory and the
-    repository (raw streams stay out of git); ``<retain_root>/<probe_id>`` is written once.
+    The retain root exists and lies outside every temporary directory, every cloud-synced home directory and every git
+    work tree (raw streams stay out of git, as the adapter's own isolation rule keeps the dispatch out of one);
+    ``<retain_root>/<probe_id>`` is written once.
     """
     if type(value) is not str or not value or not Path(value).is_absolute():
         return Path("/"), "retain_root must be an absolute path"
     root = Path(value).resolve()
     if not root.is_dir():
         return root, f"retain_root {root} must be an existing directory (mkdir -p it first)"
-    temps = temp_roots if temp_roots is not None else _temp_roots()
-    for temp in temps:
-        if root == temp or temp in root.parents:
-            return root, f"retain_root must not live under a temporary directory ({temp}); it does not survive a restart"
-    home_dir = (home or Path.home()).resolve()
+    for temp in temp_roots if temp_roots is not None else _temp_roots():
+        if _under(root, temp):
+            return root, f"retain_root must not live under a temporary directory ({temp}); its contents do not last"
+    home_dir = home or Path.home()
     for parts in _SYNCED_HOME_DIRS:
-        synced = home_dir.joinpath(*parts)
-        if root == synced or synced in root.parents:
-            return root, f"retain_root must not live under an iCloud-synced directory ({synced})"
-    repo = (repository or _REPOSITORY).resolve()
-    if root == repo or repo in root.parents:
-        return root, "retain_root must not live inside the repository: raw streams stay out of git"
+        if _under(root, home_dir.joinpath(*parts)):
+            return root, f"retain_root must not live under a cloud-synced directory ({home_dir.joinpath(*parts)})"
+    for candidate in (root, *root.parents):
+        if (candidate / ".git").exists() or (candidate / ".git").is_symlink():
+            return root, f"retain_root must not live inside a git work tree ({candidate}): raw streams stay out of git"
     target = root / probe_id
     if target.exists() or target.is_symlink():
         return target, f"{target} already exists; a probe's retained copy is written once"
@@ -161,15 +184,18 @@ def _same_tree(source: Path, copy: Path) -> bool:
 
 def _retain_copy(journal_root: Path, delivery_root: Path, target: Path, *, reservation_id: str) -> dict[str, Any]:
     """Copy the journal and the ledger to ``target``, check the copy byte for byte against them, and validate it;
-    a failure is reported, never repaired (``lessons/evals-retain-a-probe-ledger-outside-the-temporary-directory.md``)."""
+    a failure is reported, never repaired (``lessons/evals-retain-a-probe-ledger-outside-the-temporary-directory.md``).
+
+    A link is copied as the file it points to, so nothing in the copy points back into the temporary original.
+    """
     try:
         target.mkdir(mode=0o700, parents=False)
-        shutil.copytree(journal_root, target / "journal", symlinks=True)
-        shutil.copytree(delivery_root, target / "delivery", symlinks=True)
+        shutil.copytree(journal_root, target / "journal", symlinks=False)
+        shutil.copytree(delivery_root, target / "delivery", symlinks=False)
         if not (_same_tree(journal_root, target / "journal") and _same_tree(delivery_root, target / "delivery")):
             return {"path": str(target), "valid": False, "error": "the copy differs from the original"}
         check = delivery.validate_delivery_binding(target / "journal", target / "delivery", reservation_id=reservation_id)
-    except (OSError, ValueError) as exc:
+    except Exception as exc:  # the reporting boundary: whatever fails here, run still writes and prints its record
         return {"path": str(target), "valid": False, "error": f"{type(exc).__name__}: {exc}"}
     return {"path": str(target), "valid": True,
             **{key: check[key] for key in ("outcome", "journal_status", "classifier_version", "ledger_schema_version")}}
@@ -370,13 +396,19 @@ def run(manifest: dict[str, Any]) -> int:
     if retained["valid"]:
         (Path(retained["path"]) / "delivery" / "probe-result.json").write_bytes(body)
     print(json.dumps(result_record, indent=2, sort_keys=True))
-    if outcome["outcome"] == "unknown":
-        print("UNKNOWN delivery: reservation left pending; inspect the ledger, then settle or retire via the journal. "
+    if retained["valid"]:
+        evidence_journal, evidence_ledger = Path(retained["path"]) / "journal", Path(retained["path"]) / "delivery"
+        print(f"Retained copy validated at {retained['path']}: it is the evidence; the dispatch roots are temporary.")
+    else:
+        evidence_journal, evidence_ledger = journal_root, delivery_root
+        print(f"RETAINED COPY DID NOT VALIDATE ({retained['error']}); the original stays at {journal_root} and "
+              f"{delivery_root}: copy both by hand before they are cleared.")
+    if outcome["outcome"] == "unknown":  # outranks a copy that did not validate: the reservation still needs settling
+        print(f"UNKNOWN delivery: reservation left pending. Inspect the ledger under {evidence_ledger}, then settle or "
+              f"retire it through the journal at {evidence_journal} and validate it there. "
               "Do not re-run this probe against the same journal.")
         return EXIT_UNKNOWN
     if not retained["valid"]:
-        print(f"RETAINED COPY DID NOT VALIDATE ({retained['error']}); the original stays at {journal_root} and "
-              f"{delivery_root}: copy both by hand before a restart.")
         return EXIT_RETAIN
     if outcome["outcome"] != "complete":
         return EXIT_INEXACT_OR_TERMINAL

@@ -35,16 +35,22 @@ well formed (one `message_start`, one `content_block_start`/`content_block_stop`
 `input_transformations: []`. That field is preserved thinking's report of thinking blocks the API
 dropped from the input (or, on an unenforced request, let through): a client that sends the
 `thinking-binding-controls-2026-08-01` beta header gets it on every response, an empty list when
-nothing was dropped (the Claude API's model-migration guide: preserved thinking, and server-side
-fallback). The stream carried no documented fallback signal: no `fallback` block, the field only on
+nothing was dropped (`platform.claude.com/docs/en/build-with-claude/preserved-thinking`; on a stream it
+arrives on `message_start`'s message, and the final `message_delta` carries it again only after a
+mid-stream fallback: `platform.claude.com/docs/en/build-with-claude/streaming`). A fallback is marked by
+a `fallback` content block, and `usage.iterations` records each attempt, a `fallback_message` entry for
+the fallback model's (`platform.claude.com/docs/en/build-with-claude/refusals-and-fallback`, whose own
+samples read `usage.iterations or []`). The stream carried no documented fallback signal: no `fallback` block, the field only on
 `message_start`, and only `message` entries in `usage.iterations` (on `message_delta` and on the
 result), while every model field named the requested model. Schema 3 and classifier 4 read a fallback
 only from its documented signals (below); schema 3 has not been dispatched yet. The probe 3 ledger
 stays a schema 2 receipt, read back by classifier 3 exactly as written; the founder copied it to
-`~/en-probe-3-ledger` on the releasing machine, and that copy's validation, before a restart clears the
-original, is F21's first step in `tasks/todo.md`, followed by a confirming probe at the merged head.
+`~/en-probe-3-ledger` on the releasing machine, and that copy's validation, before macOS clears the
+original (at restart, or by default once it has gone three days untouched), is F21's first step in
+`tasks/todo.md`, followed by a confirming probe at the merged head.
 `backend/scripts/native_delivery_probe.py` now copies a run's journal and ledger into the manifest's
-`retain_root` and validates the copy (exit 6 when it does not validate;
+`retain_root` and validates the copy (exit 6 when it does not validate; an unknown delivery exits 4 and
+is settled or retired in the copy's journal;
 `lessons/evals-retain-a-probe-ledger-outside-the-temporary-directory.md`).
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
@@ -166,7 +172,9 @@ after a mid-stream fallback), or a `fallback_message` entry in any `usage.iterat
 `message_start`, `message_delta`, the assistant event or the result event). Any other iteration type,
 or a malformed `iterations` value or entry, fails as `stream_binding:usage_iteration_type:<type>`
 (`invalid` for a malformed one), since a renamed or retired fallback type would otherwise read as a
-clean reply; a `usage` that is not an object carries no iterations. On `message_start`, on its message
+clean reply; a `usage` that is not an object carries no iterations, and `iterations: null` reads as
+absent (the SDKs type the field as nullable, and the CLI writes `iterations: null` into the usage objects
+it builds or copies when the API reported none). On `message_start`, on its message
 or its event object, `input_transformations` is preserved thinking's report of thinking blocks dropped
 from the input: an empty list is accepted, and any other value fails as
 `stream_binding:input_transformed`, since one prompt carries no thinking blocks. Classifier 3 (schema 2
