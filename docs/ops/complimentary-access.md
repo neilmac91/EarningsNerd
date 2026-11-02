@@ -103,7 +103,9 @@ fault names its place and kind, never the value. This example is synthetic (rese
 ```
 
 A revoke manifest has `"action": "revoke"`, the same cohort and entries, its own reason, and no `review_on`. The
-manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it.
+manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it. Every
+report prints the cohort, and the readout counts grants by it, so it reaches the public Ops log: choose a label that
+names no person, as the example's does.
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
 as a workflow input: the repository and its Actions logs are public.
