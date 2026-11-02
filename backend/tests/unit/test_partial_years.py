@@ -4,8 +4,8 @@ CBAN's and FIX's Q1 2026 10-Qs tag their Q1 2025 comparatives with the full-year
 filed after the 10-Ks, won FY2025 wherever the latest filed item wins. ``without_partial_years`` drops such an item
 for every reader of companyfacts duration items: the collector's admission (``currency.admitted_items``), the
 backfill cross-check's authority (``reconcile.extract_authoritative_values``) and the per-filing fallback
-(``edgar/xbrl_companyfacts.py``). The fixtures are trimmed from SEC's payloads of 2026-11-02 to the items ending
-from 2024 on.
+(``edgar/xbrl_companyfacts.py``). The fixtures are trimmed from SEC's payloads (CBAN's of 2026-11-02, FIX's of
+2026-11-01) to the items ending from 2024 on.
 """
 import ast
 import json
@@ -60,6 +60,23 @@ def test_a_recast_year_matching_no_shorter_item_stays():
     # Macy's restated FY2021 in a December 2024 10-Q: 1,419M against the 10-K's 1,430M, no quarter of either.
     recast = _item("2025-01-01", "2025-12-31", 90000000, accn="restating-10q")
     assert without_partial_years([QUARTER, ANNUAL, recast]) == [QUARTER, ANNUAL, recast]
+
+
+@pytest.mark.parametrize("value", [20952001, 20953000, 20900000])
+def test_only_the_very_figure_marks_a_partial_year(value):
+    # Estee Lauder's FY2023 operating income, 1,509M in its 10-K and again in two 10-Qs, sits 0.3% below its nine
+    # months' 1,514M: a real year whose fourth quarter lost money. A tolerance of 0.5% would drop it, and DLR's and
+    # TRC's real years with it.
+    year = _item("2025-01-01", "2025-12-31", value, accn="q1-2026")
+    assert without_partial_years([QUARTER, year]) == [QUARTER, year]
+
+
+@pytest.mark.parametrize("end", ["2025-05-15", "2025-08-31"])
+def test_a_span_neither_a_quarter_nor_six_or_nine_months_never_drops_the_year(end):
+    # 134 and 242 days from the year's start: no class of _classify_duration, so no part of a year here.
+    span = _item("2025-01-01", end, 20952000, accn="other-span")
+    year = _item("2025-01-01", "2025-12-31", 20952000, accn="q1-2026")
+    assert without_partial_years([span, year]) == [span, year]
 
 
 def test_an_annual_reports_year_equal_to_its_first_quarter_stays():
@@ -179,6 +196,10 @@ EXEMPT = {
     ("app/services/proxy_fact_repair.py", "proxy_items"): "reads proxy statements' items, which no rule here admits",
     ("app/services/edgar/instance/financial_revenue.py", "_choose"):
         "builds a companyfacts-shaped map of one filing's own facts for fi_revenue, which reads it via admitted_items",
+    ("scripts/restatement_census.py", "_accession_index"):
+        "indexes what each filing carries, as evidence; its winners come from _collect_companyfacts_values",
+    ("scripts/native_delivery_probe.py", "plan"): "an eval unit manifest's units, not companyfacts",
+    ("scripts/native_delivery_probe.py", "run"): "an eval unit manifest's units, not companyfacts",
 }
 
 
@@ -193,9 +214,10 @@ def _reads_units(node: ast.AST) -> bool:
 
 
 def _unit_readers() -> dict[tuple[str, str], set[str]]:
-    """Each function in app/ that reads a ``units`` map, with the rule's names it uses."""
+    """Each function in app/ or scripts/ (the Ops steps' code) that reads a ``units`` map, with the rule's names it
+    uses."""
     found = {}
-    for path in sorted((BACKEND / "app").rglob("*.py")):
+    for path in sorted([*(BACKEND / "app").rglob("*.py"), *(BACKEND / "scripts").rglob("*.py")]):
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _reads_units(node):
                 names = {sub.id if isinstance(sub, ast.Name) else sub.attr for sub in ast.walk(node)

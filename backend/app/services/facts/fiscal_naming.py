@@ -48,8 +48,11 @@ def without_partial_years(items: list) -> list:
     figures as 2025-01-01 to 2025-12-31, and HP's tagged a first half so. Filed after the 10-K, such an item would
     win the year wherever the latest filed item wins. So a quarterly report's (``QUARTERLY_FORMS``) item spanning a
     year is dropped where its value, not zero, equals that of a shorter item from the same start (a quarter, or six
-    or nine months to date), in any filing: the rest of a year is never exactly nothing. A 10-Q's recast of a prior
-    year (Macy's FY2021) matches no shorter item and stays, as does every annual report's item and every zero.
+    or nine months to date), in any filing. Equals exactly: a real year can sit near its nine months (Estee Lauder's
+    FY2023 operating income, 0.3% below), and where the rest of a year nets to exactly nothing (BMY's FY2011
+    investing cash flow) the annual report's own item still gives the year. A 10-Q's recast of a prior year (Macy's
+    FY2021) matches no shorter item and stays, as does every annual report's item and every zero. Another filing's
+    item only exposes the mis-tag: a reader still reads each value from the item it read it from before.
     """
     from app.services.facts.concepts import _classify_duration, _parse_date  # call time, as currency's admission
 

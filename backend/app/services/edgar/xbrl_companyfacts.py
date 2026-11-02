@@ -132,8 +132,8 @@ def select_fact_data_with_concept(
     Taking the first concept present is wrong: issuers retire tags over time (e.g. AAPL last reported `Revenues` in
     FY2018 and has used `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a stale concept would shadow
     the live one and surface years-old values as "current". Prefer a concept with facts from the target filing;
-    concepts absent from that accession are unavailable. A quarterly report's year that holds part of one is dropped
-    first, against every filing's items (``without_partial_years``).
+    concepts absent from that accession are unavailable. First, a quarterly report's year that holds part of one is
+    dropped (``without_partial_years``): another filing's item can expose it, yet every value read is this filing's.
     """
     best_end: Optional[str] = None
     best_data: list = []
