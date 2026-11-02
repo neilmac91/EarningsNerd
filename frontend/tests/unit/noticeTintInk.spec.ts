@@ -21,7 +21,7 @@ import { noticeTint, type NoticeVariant } from '@/components/ui'
  * written, under the helper's own name or a namespace import's member, so every tint has an element to read; an
  * alias, a call anywhere else, a variable variant and the helper read as a value fail. Inside each tint's element (the
  * element and everything inside it, an element in a JSX prop included), the text colours of every className's strings
- * and template chunks are read on each element but a glyph: an icon (a self-closing element whose tag ends in `Icon`,
+ * and template chunks are read, under any variant, on each element but a glyph: an icon (a self-closing element whose tag ends in `Icon`,
  * or an <svg>) or an element that holds nothing but glyphs and blank text. Any other child, a component's included,
  * counts as words. A colour outside the ink family (`text-text-…`, or `text-current` and `text-inherit`, which take
  * the ink above) is a word in another ink: its source must be listed in INKED for that tint's variant, and a listed
@@ -83,10 +83,11 @@ function tint(classes: string, theme: Theme): { colour: Rgb; alpha: number } {
   return { colour: hex(COLORS[m[1]]), alpha }
 }
 const inkOf = (cls: string) => hex(COLORS[cls.replace(/^(?:dark:)?text-/, '')])
-/** The colour a text class names, under any variants and with any opacity (`dark:text-error-dark/80` names
-    `error-dark`), or null for a size, an alignment or anything else that is no text colour. */
+/** The colour a text class names, under any variants, an arbitrary or named one included, and with any opacity
+    (`dark:text-error-dark/80` names `error-dark`, `[&_li]:text-error-light` names `error-light`), or null for a size,
+    an alignment or anything else that is no text colour. The utility follows the last colon outside brackets. */
 const textColour = (token: string) => {
-  const m = /^(?:[\w-]+:)*!?text-(.+?)(?:\/.+)?$/.exec(token)
+  const m = /^!?text-(.+?)(?:\/.+)?$/.exec(token.split(/:(?![^[]*\])/).pop()!)
   return m && (m[1] in COLORS || m[1].startsWith('[')) ? m[1] : null
 }
 /** The ink family: the ink's own tokens, and the two that take the ink above. */
@@ -260,6 +261,7 @@ describe("words inside Notice's tint (E283)", () => {
         '      <p className="text-current">{sentence}</p>',
         '      <p className="text-[#b91c1c]"><Message /></p>',
         '      <Note className="text-info-light" />',
+        '      <ol className="[&_li]:text-warning-light *:text-error-light aria-[current]:text-success-light data-[open=true]:text-info-light group-hover/row:dark:text-error-dark [&:hover]:text-text-primary-light"><li>one</li></ol>',
         '    </div>',
         '  </section>',
         ')',
@@ -271,13 +273,16 @@ describe("words inside Notice's tint (E283)", () => {
     )
     const { found, unplaced } = tints(planted)
     expect(found.map((t) => [t.variant, planted.getLineAndCharacterOfPosition(t.element.getStart(planted)).line + 1])).toEqual([['error', 5]])
-    expect(wordInks(found[0].element, planted)).toEqual(['dark:text-error-dark/80', 'hover:text-error-light', 'text-success-light', 'text-[#b91c1c]', 'text-info-light'])
+    expect(wordInks(found[0].element, planted)).toEqual([
+      'dark:text-error-dark/80', 'hover:text-error-light', 'text-success-light', 'text-[#b91c1c]', 'text-info-light',
+      '[&_li]:text-warning-light', '*:text-error-light', 'aria-[current]:text-success-light', 'data-[open=true]:text-info-light', 'group-hover/row:dark:text-error-dark',
+    ])
     expect(unplaced).toEqual([
       'planted.tsx:1 noticeTint is imported under another name',
-      'planted.tsx:18 noticeTint is read as a value, not called',
-      "planted.tsx:19 noticeTint(…) is called outside an element's className",
-      'planted.tsx:20 noticeTint(…) variant is not one string literal',
-      "planted.tsx:21 noticeTint(…) is called outside an element's className",
+      'planted.tsx:19 noticeTint is read as a value, not called',
+      "planted.tsx:20 noticeTint(…) is called outside an element's className",
+      'planted.tsx:21 noticeTint(…) variant is not one string literal',
+      "planted.tsx:22 noticeTint(…) is called outside an element's className",
     ])
   })
 })
