@@ -2,11 +2,11 @@
 
 CBAN's and FIX's Q1 2026 10-Qs tag their Q1 2025 comparatives with the full-year span 2025-01-01..2025-12-31, and,
 filed after the 10-Ks, won FY2025 wherever the latest filed item wins. ``without_partial_years`` drops such an item
-for every reader of companyfacts duration items: the collector's admission (``currency.admitted_items``), the
-backfill cross-check's authority (``reconcile.extract_authoritative_values``), the per-filing fallback
-(``edgar/xbrl_companyfacts.py``) and the restatement census's evidence index; the gate below pins every reader. The
-fixtures are trimmed from SEC's payloads (CBAN's of 2026-11-02, FIX's of
-2026-11-01) to the items ending from 2024 on.
+for every reader that picks a figure from companyfacts duration items: the collector's admission
+(``currency.admitted_items``), the backfill cross-check's authority (``reconcile.extract_authoritative_values``) and
+the per-filing fallback (``edgar/xbrl_companyfacts.py``). The restatement census's evidence index, which reads every
+tag, keeps every item, and the gate below pins every reader. The fixtures are trimmed from SEC's payloads (CBAN's of
+2026-11-02, FIX's of 2026-11-01) to the items ending from 2024 on.
 """
 import ast
 import json
@@ -132,7 +132,7 @@ def test_order_identity_and_every_unreadable_item_are_kept():
     assert without_partial_years([]) == []
 
 
-# --- the readers, on SEC's own payloads --------------------------------------------------------------------------------
+# --- the readers, on SEC's own payloads -------------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
 def payloads():
@@ -145,7 +145,8 @@ def _fy2025(facts):
 
 
 def _q4_2025(facts):
-    return {fact["concept"]: fact["value"] for fact in facts if fact["period_end"] == END and fact["fiscal_period"] == "Q4"}
+    return {fact["concept"]: fact["value"] for fact in facts
+            if fact["period_end"] == END and fact["fiscal_period"] == "Q4"}
 
 
 def test_the_collector_reads_cbans_fy2025_from_its_10k_and_derives_its_q4(payloads):
@@ -196,31 +197,44 @@ def test_the_per_filing_fallback_reads_no_year_from_the_10q(payloads, name, acce
     assert {point.get("period_start") for point in points if point["period"] == "2025-03-31"} == {"2025-01-01"}
 
 
-def test_the_restatement_census_indexes_no_partial_year():
-    from scripts.restatement_census import _accession_index  # its evidence reads items as the collector does
+def test_the_restatement_census_indexes_every_item():
+    """Its evidence index reads every tag, where a real year can equal its part: AMT's Q1 2020 10-Q
+    (0001053507-20-000093) reports the 425.7M it paid for a redeemable noncontrolling interest in Q1 2019 as that
+    quarter and as FY2019, as its 10-K does. Across every tag of 696 cached payloads the rule drops 2,664 items, 2,156
+    of them such years at 273 companies (none on the collector's duration tags), so the index keeps every item."""
+    from scripts.restatement_census import _accession_index
 
-    year = _item("2025-01-01", "2025-12-31", 20952000, accn="q1-2026")
-    usgaap = {"InterestIncomeExpenseNet": {"units": {"USD": [QUARTER, ANNUAL, year]}}}
-    assert dict(_accession_index(usgaap, {"q1-2026", "10k-2025"})) == {
-        "10k-2025": [("InterestIncomeExpenseNet", "USD", "2025-01-01", "2025-12-31", 91901000)]}
+    accn = "0001053507-20-000093"
+    items = [_item("2019-01-01", "2019-03-31", 425700000, accn=accn),
+             _item("2019-01-01", "2019-12-31", 425700000, accn=accn)]
+    assert without_partial_years(items) == items[:1]
+    usgaap = {"PaymentsForRepurchaseOfRedeemableNoncontrollingInterest": {"units": {"USD": items}}}
+    assert [entry[2:] for entry in _accession_index(usgaap, {accn})[accn]] == [
+        ("2019-01-01", "2019-03-31", 425700000), ("2019-01-01", "2019-12-31", 425700000)]
 
 
 # --- the gate (CLAUDE.md rule 12): every companyfacts reader goes through the rule ------------------------------------
 #
-# Every read of a ``units`` map in backend/app and backend/scripts (``x["units"]``, ``x.get``, ``setdefault`` or
-# ``pop`` of "units", the same through a module constant equal to "units", or a ``case {"units": ...}`` pattern) is
-# counted per scope: Class.method, outer.inner, or <module> for module-level code and its lambdas. READERS pins each
-# scope's count and the shape of its code:
-# - "rule": the scope calls admitted_items or without_partial_years;
-# - "proxy": the scope calls is_proxy_form, so the values it reads are proxy statements', never a quarterly report's;
-# - "no value": the scope reads no item's "val", and one that yields items hands them only to callers in its own
-#   module that read none either, with no other module importing it.
-# A new scope, a new read in a pinned scope, or a pinned scope that loses its shape fails. Named blind spots: a key
-# held in a parameter or built at run time (``node.get(key)``); a read swapped for another in a pinned scope, which
-# keeps its count; a pinned "rule" scope that passes instant=True for a duration list, or reads one list raw beside
-# the one it rules. The collector, authority and fallback tests above hold the three readers that choose a winner.
+# A read of a ``units`` map in backend/app and backend/scripts is the string "units" anywhere but a dict display's key
+# (``x["units"]``, ``x.get("units")``, ``itemgetter("units")``, ``case {"units": ...}``, a record path, a local alias),
+# a name bound to "units" at module or class level in any scanned module, wherever it is used (``UNITS``,
+# ``Keys.UNITS``, imported or annotated), or an attribute named ``units``. READERS pins each scope's count of them
+# (Class.method, outer.inner, or <module> for module-level code and its lambdas) and the shape of its code:
+# - "rule": it calls admitted_items or without_partial_years;
+# - "proxy": it calls is_proxy_form, which tests/unit/test_quarterly_proxy_repair.py holds to keeping proxies alone;
+# - "no value": a function that, nested code included, reads no item's "val" (the string, a name bound to it, or an
+#   attribute so named), nor does any scope that names it (a function with its nested code, a module or class body in
+#   its own code): in its own module, or in a module importing it by any form (``from m import f [as g]``,
+#   ``import m [as a]``, ``from p import m``, relative) or importing the package whose ``__init__`` imports it;
+# - "raw": none of these, pinned only with the reason it reads every item.
+# A new scope, a new read in a pinned scope, or a pinned scope that changes shape fails. Named blind spots: a key or a
+# name built at run time; items handed on to code that reads the value without naming the scope (a helper called with
+# them, a caller's caller); a read swapped for another in a pinned scope, which keeps its count; a "rule" scope that
+# passes instant=True for a duration list, or reads one list raw beside the one it rules; which way a "proxy" scope
+# uses is_proxy_form. The collector, authority and fallback tests above hold the three readers that choose a winner.
 
 RULE = {"admitted_items", "without_partial_years"}
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 READERS = {  # (path, scope): (reads, shape)
     ("app/services/edgar/instance/financial_revenue.py", "_choose"): (1, "no value"),
     ("app/services/edgar/xbrl_companyfacts.py", "select_fact_data_with_concept"): (2, "rule"),
@@ -235,34 +249,52 @@ READERS = {  # (path, scope): (reads, shape)
     ("scripts/financial_revenue_preview.py", "deployed_rule"): (1, "rule"),
     ("scripts/native_delivery_probe.py", "plan"): (1, "no value"),  # an eval unit manifest's units
     ("scripts/native_delivery_probe.py", "run"): (1, "no value"),
-    ("scripts/restatement_census.py", "_accession_index"): (1, "rule"),
+    ("scripts/restatement_census.py", "_accession_index"): (1, "raw"),  # evidence of every tag, as the test above
 }
 
 
-class _Reads(ast.NodeVisitor):
-    """One module's reads of a ``units`` map per scope, each scope's node, and each named call's scope."""
+def _bound(trees) -> dict[str, set[str]]:
+    """Each string's names, bound at module or class level (in an if or a try block too) in any of ``trees``."""
+    names: dict[str, set[str]] = {}
+    for tree in trees:
+        todo = list(tree.body)
+        while todo:
+            node = todo.pop()
+            if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Constant):
+                for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                    if isinstance(target, ast.Name) and isinstance(node.value.value, str):
+                        names.setdefault(node.value.value, set()).add(target.id)
+            elif not isinstance(node, FUNCTIONS):
+                todo.extend(ast.iter_child_nodes(node))
+    return names
 
-    def __init__(self, tree: ast.Module):
-        self.constants = {target.id for node in tree.body if isinstance(node, ast.Assign)
-                          and isinstance(node.value, ast.Constant) and node.value.value == "units"
-                          for target in node.targets if isinstance(target, ast.Name)}
-        self.stack: list[str] = []
+
+def _key(node, key: str, names: set[str]) -> bool:
+    """``node`` is ``key``: the string, a name bound to it, or an attribute so named."""
+    return (isinstance(node, ast.Constant) and node.value == key) or (
+        isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in names) or (
+        isinstance(node, ast.Attribute) and node.attr in names | {key})
+
+
+class _Reads(ast.NodeVisitor):
+    """One module's reads of a ``units`` map per scope, each scope's definitions, and the scopes naming each name."""
+
+    def __init__(self, tree: ast.Module, names: set[str]):
+        self.names, self.stack, self.depth = names, [], 0
         self.reads: dict[str, int] = {}
-        self.scopes: dict[str, ast.AST] = {"<module>": tree}
-        self.calls: list[tuple[str, str]] = []
+        self.scopes: dict[str, list[ast.AST]] = {"<module>": [tree]}
+        self.refs: dict[str, set[str]] = {}
         self.visit(tree)
 
     def _here(self) -> str:
         return ".".join(self.stack) or "<module>"
 
-    def _units(self, node) -> bool:
-        return (isinstance(node, ast.Constant) and node.value == "units") or (
-            isinstance(node, ast.Name) and node.id in self.constants)
-
     def _scope(self, node):
         self.stack.append(node.name)
-        self.scopes.setdefault(self._here(), node)
+        self.scopes.setdefault(self._here(), []).append(node)
+        self.depth += isinstance(node, FUNCTIONS)
         self.generic_visit(node)
+        self.depth -= isinstance(node, FUNCTIONS)
         self.stack.pop()
 
     visit_FunctionDef = visit_AsyncFunctionDef = visit_ClassDef = _scope
@@ -270,21 +302,36 @@ class _Reads(ast.NodeVisitor):
     def _read(self):
         self.reads[self._here()] = self.reads.get(self._here(), 0) + 1
 
-    def visit_Subscript(self, node):
-        if isinstance(node.ctx, ast.Load) and self._units(node.slice):
-            self._read()
-        self.generic_visit(node)
+    def _constant(self, node, targets) -> bool:  # a module or class constant: each use of its name is the read
+        return not self.depth and isinstance(node.value, ast.Constant) and all(
+            isinstance(target, ast.Name) for target in targets)
 
-    def visit_Call(self, node):
-        if (isinstance(node.func, ast.Attribute) and node.func.attr in ("get", "setdefault", "pop") and node.args
-                and self._units(node.args[0])):
-            self._read()
-        if isinstance(node.func, ast.Name):
-            self.calls.append((node.func.id, self._here()))
-        self.generic_visit(node)
+    def visit_Assign(self, node):
+        if not self._constant(node, node.targets):
+            self.generic_visit(node)
 
-    def visit_MatchMapping(self, node):
-        if any(self._units(key) for key in node.keys):
+    def visit_AnnAssign(self, node):
+        if not self._constant(node, [node.target]):
+            self.generic_visit(node)
+
+    def visit_Dict(self, node):  # a dict display's keys build a payload
+        for child in ast.iter_child_nodes(node):
+            if not (any(child is key for key in node.keys) and _key(child, "units", self.names)):
+                self.visit(child)
+
+    def visit_Constant(self, node):
+        if node.value == "units":
+            self._read()
+
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Load):
+            self.refs.setdefault(node.id, set()).add(self._here())
+            if node.id in self.names:
+                self._read()
+
+    def visit_Attribute(self, node):
+        self.refs.setdefault(node.attr, set()).add(self._here())
+        if node.attr in self.names | {"units"}:
             self._read()
         self.generic_visit(node)
 
@@ -295,7 +342,7 @@ def _own(scope: ast.AST):
     while todo:
         node = todo.pop()
         yield node
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if not isinstance(node, (*FUNCTIONS, ast.ClassDef)):
             todo.extend(ast.iter_child_nodes(node))
 
 
@@ -304,36 +351,75 @@ def _calls(scope: ast.AST, names: set[str]) -> bool:
                                                or getattr(node.func, "attr", None) in names) for node in _own(scope))
 
 
-def _reads_value(scope: ast.AST) -> bool:
-    def val(key):
-        return isinstance(key, ast.Constant) and key.value == "val"
-    return any((isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load) and val(node.slice))
-               or (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                   and node.func.attr in ("get", "pop") and node.args and val(node.args[0])) for node in _own(scope))
+def _reads_value(scopes, names: set[str]) -> bool:
+    """``scopes`` read an item's "val" anywhere but a dict display's key: a function with its nested code, a module or
+    class body in its own code alone."""
+    for scope in scopes:
+        nodes = list(ast.walk(scope) if isinstance(scope, FUNCTIONS) else _own(scope))
+        keys = {id(key) for node in nodes if isinstance(node, ast.Dict) for key in node.keys}
+        if any(id(node) not in keys and _key(node, "val", names) for node in nodes):
+            return True
+    return False
+
+
+def _shape(scope: ast.AST, names: set[str]) -> str:
+    """One definition's shape, before the scopes naming it are read."""
+    if _calls(scope, RULE):
+        return "rule"
+    if _calls(scope, {"is_proxy_form"}):
+        return "proxy"
+    return "no value" if isinstance(scope, FUNCTIONS) and not _reads_value([scope], names) else "raw"
+
+
+def _imports(tree: ast.Module, module: str) -> tuple[set[str], set[str]]:
+    """The modules ``module`` imports names from, and those it binds to a name, by any form, relative ones resolved."""
+    package = module[:-len(".__init__")] if module.endswith(".__init__") else module.rpartition(".")[0]
+    sources, bound = set(), set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            bound |= {alias.name for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            parts = package.split(".")[:len(package.split(".")) + 1 - node.level] if node.level else []
+            base = ".".join(parts + [node.module] if node.module else parts)
+            sources.add(base)
+            bound |= {f"{base}.{alias.name}" for alias in node.names}
+    return sources, bound
+
+
+def _reaches(imports: tuple[set[str], set[str]], module: str) -> bool:
+    """An import reaches ``module``: names imported from it, it or a package above it bound, or a sibling by name."""
+    sources, bound = imports
+    return any(module == name or module.endswith(f".{name}") for name in sources) or any(
+        module == name or module.startswith(f"{name}.") or module.endswith(f".{name}") for name in bound)
 
 
 def _scan(root: Path, dirs: tuple[str, ...]) -> dict[tuple[str, str], tuple[int, str]]:
-    """{(path, scope): (reads, shape)} over the .py files under ``dirs``: the shape is "raw" where none applies."""
-    modules = {path: ast.parse(path.read_text()) for name in dirs for path in sorted((root / name).rglob("*.py"))}
+    """{(path, scope): (reads, shape)} over the .py files under ``dirs``."""
+    trees = {".".join(path.relative_to(root).with_suffix("").parts): (path, ast.parse(path.read_text()))
+             for name in dirs for path in sorted((root / name).rglob("*.py"))}
+    names = _bound(tree for _path, tree in trees.values())
+    units, val = names.get("units", set()), names.get("val", set())
+    reads = {module: _Reads(tree, units) for module, (_path, tree) in trees.items()}
+    imports = {module: _imports(tree, module) for module, (_path, tree) in trees.items()}
     found = {}
-    for path, tree in modules.items():
-        reads, module = _Reads(tree), ".".join(path.relative_to(root).with_suffix("").parts)
-        for scope, count in reads.reads.items():
-            node, shape = reads.scopes[scope], "no value"
-            if _calls(node, RULE):
-                shape = "rule"
-            elif _calls(node, {"is_proxy_form"}):
-                shape = "proxy"
-            elif _reads_value(node):
-                shape = "raw"
-            elif any(isinstance(sub, (ast.Yield, ast.YieldFrom)) for sub in _own(node)):
-                name = scope.rsplit(".", 1)[-1]
-                callers = [reads.scopes[caller] for callee, caller in reads.calls if callee == name]
-                imported = any(isinstance(sub, ast.ImportFrom) and sub.module == module
-                               and any(alias.name == name for alias in sub.names)
-                               for other in modules.values() if other is not tree for sub in ast.walk(other))
-                if imported or any(_reads_value(caller) for caller in callers):
-                    shape = "raw"
+    for module, (path, _tree) in trees.items():
+        for scope, count in reads[module].reads.items():
+            shapes = {_shape(node, val) for node in reads[module].scopes[scope]}
+            shape = shapes.pop() if len(shapes) == 1 else "raw"
+            if shape == "no value":
+                name = scope.rpartition(".")[2]
+                targets = {module} | {other[:-len(".__init__")] for other in trees
+                                      if other.endswith(".__init__") and _reaches(imports[other], module)}
+                for other, (_other_path, other_tree) in trees.items():
+                    if other != module and not any(_reaches(imports[other], target) for target in targets):
+                        continue
+                    aliases = {name} | {alias.asname for node in ast.walk(other_tree)
+                                        if isinstance(node, ast.ImportFrom)
+                                        for alias in node.names if alias.name == name and alias.asname}
+                    callers = {caller for alias in aliases for caller in reads[other].refs.get(alias, ())}
+                    callers -= {scope} if other == module else set()
+                    if any(_reads_value(reads[other].scopes[caller], val) for caller in callers):
+                        shape = "raw"
             found[(str(path.relative_to(root)), scope)] = (count, shape)
     return found
 
@@ -347,7 +433,17 @@ def test_every_companyfacts_reader_is_pinned_with_its_shape():
 
 
 PLANTED = """
+import operator
+from typing import Final
+
 UNITS = "units"
+KEY: Final = "units"
+VAL = "val"
+FAST = False
+
+
+class Keys:
+    UNITS = "units"
 
 
 def mixed(node_a, node_b):  # a rule call beside a raw read
@@ -365,8 +461,37 @@ class Quarterly:
         return without_partial_years(node["units"]["USD"])
 
 
+if FAST:  # two definitions of one name
+    def twice(node):
+        return without_partial_years(node["units"]["USD"])
+else:
+    def twice(node):
+        return node["units"]["USD"][0]["val"]
+
+
 def by_constant(node):
     return node[UNITS]["USD"][0]["val"]
+
+
+def by_annotated(node):
+    return node.get(KEY)["USD"][0][VAL]
+
+
+def by_class_key(node):
+    return node[Keys.UNITS]["USD"][0]["val"]
+
+
+def by_getter(node):
+    return operator.itemgetter("units")(node)["USD"][0]["val"]
+
+
+def by_alias(node):
+    key = "units"
+    return node[key]["USD"][0]["val"]
+
+
+def by_attribute(concept):
+    return concept.units["USD"][0].val
 
 
 def popped(node):
@@ -382,6 +507,10 @@ def matched(node):
 peek = lambda node: node.get("units")["USD"][0]["val"]
 
 
+def payload(items):  # a dict display's key builds a payload, and is no read
+    return {"units": {"USD": [{"val": item} for item in items]}}
+
+
 def _every(node):  # an iterator that reads no value itself
     yield from node["units"]["USD"]
 
@@ -390,8 +519,34 @@ def picks(node):  # but whose caller does
     return max(_every(node), key=lambda item: item["filed"])["val"]
 
 
+class Reader:
+    def _listed(self, node):  # a list, read through self
+        return list(node["units"]["USD"])
+
+    def latest(self, node):
+        return self._listed(node)[-1]["val"]
+
+
+def _nested(node):  # its nested function reads the value
+    def pick(items):
+        return items[0]["val"]
+    return pick(node["units"]["USD"])
+
+
+def _mapped(node):
+    return node["units"]["USD"]
+
+
+def mapped(nodes):  # names it without calling it
+    return [item["val"] for items in map(_mapped, nodes) for item in items]
+
+
+def _counted(node):
+    return node["units"]["USD"]
+
+
 def counts(node):
-    return sum(1 for item in _every(node) if item.get("form") == "10-K")
+    return sum(1 for item in _counted(node) if item.get("form") == "10-K")
 
 
 def by_parameter(node, key):  # a named blind spot: the key held in a parameter
@@ -404,15 +559,38 @@ def test_the_gate_reads_each_planted_reader(tmp_path):
     (tmp_path / "scripts" / "planted.py").write_text(PLANTED)
     found = {scope: shape for (_path, scope), shape in _scan(tmp_path, ("scripts",)).items()}
     assert found == {"mixed": (2, "rule"), "Annual.values": (1, "raw"), "Quarterly.values": (1, "rule"),
-                     "by_constant": (1, "raw"), "popped": (1, "raw"), "matched": (1, "raw"), "<module>": (1, "raw"),
-                     "_every": (1, "raw")}  # "mixed" is pinned nowhere; pinned at one read, its second fails
+                     "twice": (2, "raw"), "by_constant": (1, "raw"), "by_annotated": (1, "raw"),
+                     "by_class_key": (1, "raw"), "by_getter": (1, "raw"), "by_alias": (1, "raw"),
+                     "by_attribute": (1, "raw"), "popped": (1, "raw"), "matched": (1, "raw"), "<module>": (1, "raw"),
+                     "_every": (1, "raw"), "Reader._listed": (1, "raw"), "_nested": (1, "raw"),
+                     "_mapped": (1, "raw"), "_counted": (1, "no value")}  # "mixed" pinned at one read fails its second
     (tmp_path / "scripts" / "planted.py").write_text(PLANTED.replace("    return max(_every(node), key=lambda item: "
                                                                      "item[\"filed\"])[\"val\"]\n", "    pass\n"))
     assert _scan(tmp_path, ("scripts",))[("scripts/planted.py", "_every")] == (1, "no value")
 
 
-def test_a_yielding_reader_imported_elsewhere_is_raw(tmp_path):
-    (tmp_path / "scripts").mkdir()
-    (tmp_path / "scripts" / "lister.py").write_text("def _every(node):\n    yield from node[\"units\"][\"USD\"]\n")
-    (tmp_path / "scripts" / "user.py").write_text("from scripts.lister import _every\n")
-    assert _scan(tmp_path, ("scripts",)) == {("scripts/lister.py", "_every"): (1, "raw")}
+LISTER = "def _every(node):\n    return list(node[\"units\"][\"USD\"])\n"
+READS = "\n\n\ndef latest(node):\n    return {}(node)[-1][\"val\"]\n"
+COUNTS = "\n\n\ndef count(node):\n    return len({}(node))\n"
+
+
+@pytest.mark.parametrize("user, code, shape", [
+    ("user.py", "from scripts.pkg.lister import _every" + READS.format("_every"), "raw"),
+    ("user.py", "from scripts.pkg.lister import _every as every" + READS.format("every"), "raw"),
+    ("user.py", "from scripts.pkg import lister" + READS.format("lister._every"), "raw"),
+    ("user.py", "import scripts.pkg.lister as basis" + READS.format("basis._every"), "raw"),
+    ("user.py", "import scripts.pkg.lister" + READS.format("scripts.pkg.lister._every"), "raw"),
+    ("pkg/user.py", "from .lister import _every" + READS.format("_every"), "raw"),
+    ("pkg/user.py", "from . import lister" + READS.format("lister._every"), "raw"),
+    ("user.py", "from scripts.pkg import _every" + READS.format("_every"), "raw"),  # through the package's __init__
+    ("user.py", "from scripts.pkg.lister import _every" + COUNTS.format("_every"), "no value"),
+    ("user.py", "from scripts import other" + READS.format("other._every"), "no value"),  # another module's
+    ("user.py", "from scripts.pkg.lister import _every\n\nLATEST = _every({})[-1][\"val\"]\n", "raw"),
+    ("user.py", "from scripts.pkg.lister import _every\n\nCOUNT = len(_every({}))" + READS.format("max"), "no value"),
+])
+def test_a_scope_named_from_another_module_by_any_import_form_is_read(tmp_path, user, code, shape):
+    (tmp_path / "scripts" / "pkg").mkdir(parents=True)
+    (tmp_path / "scripts" / "pkg" / "__init__.py").write_text("from .lister import _every\n")
+    (tmp_path / "scripts" / "pkg" / "lister.py").write_text(LISTER)
+    (tmp_path / "scripts" / user).write_text(code)
+    assert _scan(tmp_path, ("scripts",)) == {("scripts/pkg/lister.py", "_every"): (1, shape)}

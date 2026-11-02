@@ -54,6 +54,9 @@ def without_partial_years(items: list) -> list:
     FY2011 investing cash flow) the annual report's own item still gives the year. A 10-Q's recast of a prior year
     (Macy's FY2021) matches no shorter item and stays, as does every annual report's item and every zero. Another
     filing's item only exposes the mis-tag: a reader still reads each value from the item it read it from before.
+    Sized on the collector's duration concepts, where it drops no real year on 696 cached payloads; across every tag
+    a rate, a count or a one-off payment can equal its quarter (2,156 of the 2,664 items it drops there), so an
+    all-tag reader such as the restatement census's evidence index keeps every item.
     """
     from app.services.facts.concepts import _classify_duration, _parse_date  # call time, as currency's admission
 
