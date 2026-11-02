@@ -180,7 +180,10 @@ describe('ChangePasswordForm submit', () => {
     api.getConnections.mockResolvedValue({ has_password: true, providers: [] })
     const post = deferred<unknown>()
     api.changePassword.mockReturnValue(post.promise)
-    renderWithClient(<ChangePasswordForm />)
+    // The account the tab shows, which the change names (E29 (6)).
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), user(null))
+    renderWithClient(<ChangePasswordForm />, client)
 
     const current = await screen.findByLabelText('Current password')
     const submit = screen.getByRole('button', { name: 'Update password' })
@@ -205,6 +208,7 @@ describe('ChangePasswordForm submit', () => {
     fireEvent.submit(form) // Enter in a field while the request is in flight
     await settle()
     expect(api.changePassword).toHaveBeenCalledTimes(1)
+    expect(api.changePassword).toHaveBeenCalledWith('old-password-1', 'new-password-12', user(null).id)
 
     await act(async () => post.resolve({}))
     // Success clears the fields, so the button turns unavailable while it still holds focus.

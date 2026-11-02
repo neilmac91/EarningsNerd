@@ -141,10 +141,13 @@ def _email() -> str:
     return f"pwbytes_{uuid.uuid4().hex[:12]}@example.com"
 
 
-def _create_user(email: str, hashed_password: str) -> None:
+def _create_user(email: str, hashed_password: str) -> int:
+    """Create a verified, active account; return its id (a password change names it)."""
     with SessionLocal() as db:
-        db.add(User(email=email, hashed_password=hashed_password, email_verified=True, is_active=True))
+        user = User(email=email, hashed_password=hashed_password, email_verified=True, is_active=True)
+        db.add(user)
         db.commit()
+        return user.id
 
 
 def _login(client: TestClient, email: str, password: str):
@@ -362,13 +365,13 @@ def test_reset_password_accepts_a_long_password_and_login_takes_it_whole(client,
 @LONG_PASSWORDS
 def test_change_password_accepts_a_long_password_and_login_takes_it_whole(client, password):
     email = _email()
-    _create_user(email, get_password_hash(SHORT))
+    user_id = _create_user(email, get_password_hash(SHORT))
     signed_in = _login(client, email, SHORT)
     assert signed_in.status_code == 200
     resp = client.post(
         "/api/auth/change-password",
         headers={"Authorization": f"Bearer {signed_in.json()['access_token']}"},
-        json={"current_password": SHORT, "new_password": password},
+        json={"current_password": SHORT, "new_password": password, "account_id": user_id},
     )
     assert resp.status_code == 200, resp.text
     assert _stored_hash(email).startswith("$argon2id$")
@@ -399,11 +402,11 @@ def test_login_takes_a_long_password_against_its_bcrypt4_hash(client, password):
 @STORED_LONG_PASSWORDS
 def test_change_password_takes_a_long_current_password_against_its_bcrypt4_hash(client, password):
     email = _email()
-    _create_user(email, _bcrypt4_hash(password))
+    user_id = _create_user(email, _bcrypt4_hash(password))
     resp = client.post(
         "/api/auth/change-password",
         headers={"Authorization": f"Bearer {create_access_token(data={'sub': email})}"},
-        json={"current_password": password, "new_password": SHORT},
+        json={"current_password": password, "new_password": SHORT, "account_id": user_id},
     )
     assert resp.status_code == 200, resp.text
     assert _stored_hash(email).startswith("$argon2id$")  # the changed password is the new format
@@ -421,7 +424,7 @@ def test_a_checked_password_past_its_bound_is_refused_before_any_lookup_or_check
     assert bound == 8 * password_utils.PASSWORD_MAX_LENGTH
     email = _email()
     stored = _bcrypt4_hash(SHORT)
-    _create_user(email, stored)
+    user_id = _create_user(email, stored)
     checked: list[str] = []
     monkeypatch.setattr("app.routers.auth.verify_password", lambda _plain, hashed: checked.append(hashed) or False)
     too_long = "x" * (bound + 1)
@@ -429,7 +432,8 @@ def test_a_checked_password_past_its_bound_is_refused_before_any_lookup_or_check
     for path, payload, headers, field in (
         ("/api/auth/login", {"email": email, "password": too_long}, {}, "password"),
         ("/api/auth/login", {"email": _email(), "password": too_long}, {}, "password"),
-        ("/api/auth/change-password", {"current_password": too_long, "new_password": SHORT + "-next"}, bearer,
+        ("/api/auth/change-password",
+         {"current_password": too_long, "new_password": SHORT + "-next", "account_id": user_id}, bearer,
          "current_password"),
     ):
         resp = client.post(path, json=payload, headers=headers)
@@ -644,12 +648,12 @@ def test_reset_password_refuses_a_password_that_is_not_valid_text(client, range_
 def test_change_password_refuses_a_new_password_that_is_not_valid_text(client, range_api, password):
     lookups = range_api(set())
     email = _email()
-    _create_user(email, get_password_hash(SHORT))
+    user_id = _create_user(email, get_password_hash(SHORT))
     before = _stored_hash(email)
     resp = _post_json(
         client,
         "/api/auth/change-password",
-        {"current_password": SHORT, "new_password": password},
+        {"current_password": SHORT, "new_password": password, "account_id": user_id},
         Authorization=f"Bearer {create_access_token(data={'sub': email})}",
     )
     body = _refused(resp, 422)
@@ -664,7 +668,7 @@ def test_login_and_the_current_password_check_refuse_a_password_that_is_not_vali
     # Neither applies the policy (a stored hash from any earlier rule keeps signing in), so each refuses as for any
     # wrong password, against either scheme's hash: no hash was ever made from a password UTF-8 cannot encode.
     email = _email()
-    _create_user(email, get_password_hash(SHORT) if scheme == "argon2id" else _bcrypt4_hash(SHORT))
+    user_id = _create_user(email, get_password_hash(SHORT) if scheme == "argon2id" else _bcrypt4_hash(SHORT))
     surrogate = MARK + "-long-enough\ud800-tail"
     login = _refused(_post_json(client, "/api/auth/login", {"email": email, "password": surrogate}), 401)
     assert login == {"detail": "Incorrect email or password"}
@@ -672,7 +676,7 @@ def test_login_and_the_current_password_check_refuse_a_password_that_is_not_vali
     change = _post_json(
         client,
         "/api/auth/change-password",
-        {"current_password": surrogate, "new_password": SHORT + "-next"},
+        {"current_password": surrogate, "new_password": SHORT + "-next", "account_id": user_id},
         Authorization=f"Bearer {create_access_token(data={'sub': email})}",
     )
     assert _refused(change, 400) == {"detail": "Current password is incorrect."}
