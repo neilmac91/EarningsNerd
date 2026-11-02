@@ -647,7 +647,9 @@ Located in `backend/scripts/`:
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
   `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or
   `--backfill-company-sic` and otherwise exits before application initialization. `--tickers`
-  confines every mode to the named companies, and one that names none exits there too.
+  confines every mode to the named companies, and one that names none exits there too. Through
+  `gcloud run jobs execute --args`, which splits on commas, pass the list behind gcloud's `^;^`
+  delimiter: `--args="^;^scripts/backfill_facts.py;--tickers;JPM,BAC"`.
 - `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
   value-identical rows, flag columns only (unstored identities are counted, never inserted; dry
   run by default; `--apply` writes; `--tickers`, `--limit`)
