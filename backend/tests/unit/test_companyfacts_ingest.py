@@ -3698,12 +3698,39 @@ class TestNativeReportingCurrencySync:
                                 ("0001104659-26-047689", 1_831_286_000.0, stays)]
         db.close()
 
-    @pytest.mark.parametrize("stored", [1250.0, 1299.9], ids=["3.8pct-off", "a-rounding-gap"])
+    def test_the_planting_helper_leaves_a_usd_sync_as_mains_on_both_of_its_paths(self, monkeypatch):
+        # tests/support/sync_eras.py reproduces a sync in USD alone before E198 on two paths: the guard protects no row,
+        # and the currency step changes none. The lagging-quarter shape tells each apart from today's sync. Q1 2024
+        # revenue is 250 in its own 10-Q (Q1-24), restated at 260 by the next year's Q1 10-Q (Q1-25). Main's upsert let a
+        # payload lagging Q1-25 make Q1-24's 250 current again. A guard that still protected Q1-25's row would keep 260,
+        # and so would a step that still converged; both are states production's syncs never left. Since E198 the sync
+        # keeps 260 (test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_for_a_cny_filer, and the
+        # corpus's USD twin).
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+
+        def q1_2024():
+            return [(r.accession.removesuffix(tag), float(r.value)) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept="revenue", period_end=date(2024, 3, 31), is_latest=True)]
+
+        with monkeypatch.context() as before:
+            usd_syncs_before_e198(before)
+            svc._persist_companyfacts_payload(db, company, _suffixed(_quarter_restated_payload(q1_25=True), tag))
+            assert q1_2024() == [("Q1-25", 260.0)]
+            svc._persist_companyfacts_payload(db, company, _suffixed(_quarter_restated_payload(q1_25=False), tag))
+            assert q1_2024() == [("Q1-24", 250.0)]
+        db.close()
+
+    @pytest.mark.parametrize("stored", [1250.0, 1299.9, 1300.0001], ids=["3.8pct-off", "a-rounding-gap", "a-gap-under-1e-7"])
     @pytest.mark.parametrize("currency", ["USD", "CNY"])
     def test_a_stored_row_at_the_winners_identity_holding_another_figure_is_never_made_current(self, currency, stored):
         # E198 (R2). A filer synced through K24 (FY2024 revenue 1200), a feed row with no Filing row. The per-filing
         # writer then stored K24A's FY2024 row behind it, its own rule counting the undated feed row as newer, but at
-        # another figure than the 10-K/A reports (1250 or 1299.9 where its item reads 1300: the old cross-check's
+        # another figure than the 10-K/A reports (1250, 1299.9 or 1300.0001 where its item reads 1300: the old cross-check's
         # replacement, or an older rule's reading; E211's proxy figures sit within 1% of the reports'). The sync naming
         # K24A has that identity as its winner and skips it. The convergence makes the batch's stored row current only
         # where it holds the batch's own figure (to 1e-9, never a percent tolerance), so the key is left as found: K24's
