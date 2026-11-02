@@ -440,10 +440,14 @@ UNITS = "units"
 KEY: Final = "units"
 VAL = "val"
 FAST = False
+try:
+    TRIED = "units"
+except ImportError:
+    pass
 
 
 class Keys:
-    UNITS = "units"
+    CLASS_UNITS = "units"
 
 
 def mixed(node_a, node_b):  # a rule call beside a raw read
@@ -478,7 +482,11 @@ def by_annotated(node):
 
 
 def by_class_key(node):
-    return node[Keys.UNITS]["USD"][0]["val"]
+    return node[Keys.CLASS_UNITS]["USD"][0]["val"]
+
+
+def by_tried(node):
+    return node[TRIED]["USD"][0]["val"]
 
 
 def by_getter(node):
@@ -560,9 +568,9 @@ def test_the_gate_reads_each_planted_reader(tmp_path):
     found = {scope: shape for (_path, scope), shape in _scan(tmp_path, ("scripts",)).items()}
     assert found == {"mixed": (2, "rule"), "Annual.values": (1, "raw"), "Quarterly.values": (1, "rule"),
                      "twice": (2, "raw"), "by_constant": (1, "raw"), "by_annotated": (1, "raw"),
-                     "by_class_key": (1, "raw"), "by_getter": (1, "raw"), "by_alias": (1, "raw"),
-                     "by_attribute": (1, "raw"), "popped": (1, "raw"), "matched": (1, "raw"), "<module>": (1, "raw"),
-                     "_every": (1, "raw"), "Reader._listed": (1, "raw"), "_nested": (1, "raw"),
+                     "by_class_key": (1, "raw"), "by_tried": (1, "raw"), "by_getter": (1, "raw"),
+                     "by_alias": (1, "raw"), "by_attribute": (1, "raw"), "popped": (1, "raw"), "matched": (1, "raw"),
+                     "<module>": (1, "raw"), "_every": (1, "raw"), "Reader._listed": (1, "raw"), "_nested": (1, "raw"),
                      "_mapped": (1, "raw"), "_counted": (1, "no value")}  # "mixed" pinned at one read fails its second
     (tmp_path / "scripts" / "planted.py").write_text(PLANTED.replace("    return max(_every(node), key=lambda item: "
                                                                      "item[\"filed\"])[\"val\"]\n", "    pass\n"))
