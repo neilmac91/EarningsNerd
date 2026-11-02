@@ -1,9 +1,10 @@
 """PB-04's offline acceptance corpus: real SEC payloads through every surface that prints their figures.
 
 EN-BETA-2026-11, workstream PB-04 (Pro data integrity). Each case is a committed SEC companyfacts payload
-(``tests/fixtures/companyfacts_fi``, fetched 2026-11-02 and trimmed to the revenue rule's tags), with a Filing row for
-each 10-K and 10-Q accession it names, as the app lists filings, synced through the real ingest (its fetcher seam: no
-network). Every surface then reads the stored rows, and every figure it prints is held to them:
+(``tests/fixtures/companyfacts_fi``, fetched 2026-11-02 and trimmed to the revenue rule's tags; E291's
+``companyfacts_partial_years``, trimmed to the items ending from 2024 on), with a Filing row for each 10-K and 10-Q
+accession it names, as the app lists filings, synced through the real ingest (its fetcher seam: no network). Every
+surface then reads the stored rows, and every figure it prints is held to them:
 
 - the Multi-Period Analysis dataset, annual (the last ten years) and quarterly (the last twelve quarters): each value
   is the stored current row of its period and concept, in that row's unit, at that row's accession, and every link it
@@ -16,8 +17,10 @@ network). Every surface then reads the stored rows, and every figure it prints i
   income for a bank, revenue otherwise) for its latest year.
 
 A case fails when a surface prints a figure no stored current row holds, in another unit, or under another filing's
-link. Nothing here fetches, calls a model or writes outside the test's own database. Extend the corpus as payloads
-land (#1950's CBAN and FIX; a non-financial filer's full statements); retire it with the surfaces it reads.
+link. Those checks hold a surface to the stored winner, so ``READ_OFF`` pins the winner itself where a figure was read
+off its filing: each such figure is current at that filing, and so is what every surface above prints. Nothing here
+fetches, calls a model or writes outside the test's own database. Extend the corpus as payloads land (a filer's
+balance sheet and cash flows; a 20-F filer's, in its own currency); retire it with the surfaces it reads.
 """
 import asyncio
 import io
@@ -43,17 +46,37 @@ from app.services.facts.ingest import ingest_companyfacts
 from app.services.peers_service import default_concept_for, get_peers
 from app.utils.sec_urls import build_sec_archive_url
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi"
-# Each case: its SIC code (the revenue rule reads a financial filer's total), and what it brings to the corpus.
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+# Each case: its payload's folder, its SIC code (the revenue rule reads a financial filer's total), and what it brings.
 CORPUS = {
-    "WBHC": ("6021", "a community bank whose same-day 10-Q/A repeats its original"),
-    "PNC": ("6021", "a bank whose 8-K recast gives prior years another figure"),
-    "WFC": ("6021", "a bank whose payload carries no total for most years"),
-    "IBKR": ("6211", "a broker with 10-Q/As and its net revenue total"),
-    "AXP": ("6199", "a card issuer whose fee line a later filing recasts"),
-    "MET": ("6311", "an insurer read on its total revenue"),
-    "AMT": ("6798", "a tower REIT whose fee element is its total"),
-    "TRC": ("6500", "a land company reporting real estate revenue"),
+    "WBHC": ("companyfacts_fi", "6021", "a community bank whose same-day 10-Q/A repeats its original"),
+    "PNC": ("companyfacts_fi", "6021", "a bank whose 8-K recast gives prior years another figure"),
+    "WFC": ("companyfacts_fi", "6021", "a bank whose payload carries no total for most years"),
+    "IBKR": ("companyfacts_fi", "6211", "a broker with 10-Q/As and its net revenue total"),
+    "AXP": ("companyfacts_fi", "6199", "a card issuer whose fee line a later filing recasts"),
+    "MET": ("companyfacts_fi", "6311", "an insurer read on its total revenue"),
+    "AMT": ("companyfacts_fi", "6798", "a tower REIT whose fee element is its total"),
+    "TRC": ("companyfacts_fi", "6500", "a land company reporting real estate revenue"),
+    "CBAN": ("companyfacts_partial_years", "6022", "a bank whose 10-Q tags a quarter's figure with its year (E291)"),
+    "FIX": ("companyfacts_partial_years", "1700", "a contractor whose 10-Q tags a quarter's figure with its year "
+            "(E291), with gross profit, operating income and their margins"),
+}
+CBAN_10K, FIX_10K = "0000711669-26-000007", "0001104659-26-017530"  # each FY2025 10-K
+# Figures read off a filing's own statements, as (value, that filing's accession). A year's figure is its 10-K's (each
+# 10-Q above read its first quarter's instead); a Q4 is the 10-K's year less the third quarter's nine months, and a
+# margin is the 10-K's own two figures. Every surface prints each at that filing.
+READ_OFF = {
+    ("FIX", "revenue", 2025, "FY"): (9_101_641_000, FIX_10K),  # the Q1 2026 10-Q's year: 1,831,286,000
+    ("FIX", "gross_profit", 2025, "FY"): (2_195_899_000, FIX_10K),
+    ("FIX", "operating_income", 2025, "FY"): (1_314_589_000, FIX_10K),
+    ("FIX", "net_income", 2025, "FY"): (1_022_558_000, FIX_10K),
+    ("FIX", "net_margin", 2025, "FY"): (1_022_558_000 / 9_101_641_000 * 100, FIX_10K),  # 11.23%; not 55.84
+    ("FIX", "revenue", 2025, "Q4"): (2_646_067_000, FIX_10K),
+    ("CBAN", "net_income", 2025, "FY"): (28_253_000, CBAN_10K),  # the Q1 2026 10-Q's year: 6,613,000
+    ("CBAN", "net_interest_income", 2025, "FY"): (91_901_000, CBAN_10K),
+    ("CBAN", "noninterest_income", 2025, "FY"): (40_280_000, CBAN_10K),
+    ("CBAN", "eps_diluted", 2025, "FY"): (1.59, CBAN_10K),  # the 10-Q's year: 0.38
+    ("CBAN", "net_income", 2025, "Q4"): (7_843_000, CBAN_10K),
 }
 EXPORTED = datetime(2026, 11, 2, 12, tzinfo=timezone.utc)
 FILING_FORMS = ("10-K", "10-K/A", "10-Q", "10-Q/A")
@@ -67,8 +90,8 @@ def _document(cik: str, accession: str) -> str:
 def corpus():
     """Each case synced once into its own database: {ticker: (session, company, payload)}."""
     built, engines = {}, []
-    for ticker, (sic, _why) in CORPUS.items():
-        payload = json.loads((FIXTURES / f"{ticker}.json").read_text())
+    for ticker, (folder, sic, _why) in CORPUS.items():
+        payload = json.loads((FIXTURES / folder / f"{ticker}.json").read_text())
         engine = create_engine("sqlite://")
         Base.metadata.create_all(engine)
         engines.append(engine)
@@ -245,3 +268,18 @@ def test_the_peers_panel_ranks_the_stored_current_figure_of_the_latest_year(corp
     latest = years[max(years)]
     assert (subject["value"], subject["fiscal_year"], subject["period_end"]) == (
         published_value(latest), latest.fiscal_year, latest.period_end.isoformat()), (ticker, answer["concept"])
+
+
+@pytest.mark.parametrize("ticker, concept, year, period", list(READ_OFF))
+def test_a_figure_read_off_its_filing_is_current_at_that_filing_and_the_analysis_shows_it(corpus, ticker, concept, year,
+                                                                                         period):
+    # The checks above hold each surface to the stored winner; this holds the winner to the filing. The workbook, the
+    # PDF and the peers panel print the analysis's point and the current row, so they print this figure too.
+    db, company, _payload = corpus[ticker]
+    value, accession = READ_OFF[(ticker, concept, year, period)]
+    row = _current(db, company)[(concept, year, period)]
+    assert (published_value(row), row.accession) == (pytest.approx(value, rel=1e-9, abs=0), accession), (ticker, concept)
+    shown = [(point["value"], point["accession"]) for dataset in _datasets(db, company)
+             for series, point in _valued(dataset)
+             if series["concept"] == concept and (point["fiscal_year"], point["fiscal_period"]) == (year, period)]
+    assert shown == [(pytest.approx(value, rel=1e-9, abs=0), accession)], (ticker, concept, shown)
