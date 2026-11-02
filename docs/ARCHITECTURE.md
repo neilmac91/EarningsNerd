@@ -276,7 +276,10 @@ names, so the analysis router continues to resolve them through the same module.
 `fact_provenance` links each fact to its filing row's `document_url` when that is an SEC archive
 URL inside the fact's accession folder, and to the folder otherwise; `trend_analysis/source_documents.py`
 folds each looked-up link back to its folder for the snapshot hash, keeping links with a stored
-`source_sha256` receipt as stored (E149, #1481).
+`source_sha256` receipt as stored (E149, #1481). Its builders always write a provenance's `inputs` list, empty for a
+reported figure, but `provenance_for_fact` serves a stored current-version provenance as stored, so the web admits the
+list where the dataset and the stream's completion enter (`features/analysis/lib/provenanceInputs.ts`, E294): a
+missing list reads as empty, and a malformed one refuses.
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;
