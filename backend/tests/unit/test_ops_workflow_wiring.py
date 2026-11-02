@@ -21,6 +21,7 @@ The fiscal-year relabel step, the quarterly fact repair step and the lineage bac
 for exactly their two operations, with no `continue-on-error`, and any other operation would get a
 read-only dry run or preview. The quarterly and lineage steps' `if:` is pinned as written, since
 `selected()` reads past a leading `always()`, which would run the step after a failed approval check.
+The E28 (b) rebuild step is pinned the same way, and runs its committed script on the pregenerate job.
 Each step compares the settings its session reports with its own guards before its script runs. Whenever the quarterly repair step
 ran, the step after it keeps the report file the script wrote as an artifact. A batch the script
 refuses as a whole, or a run stopped before its report, writes no file; its log then holds the
@@ -72,8 +73,8 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PREVIEW, PROXY, QUARTERLY, RELABEL,
-    RESOLVE, ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
+    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PREVIEW, PROXY, QUARTERLY, REBUILD,
+    RELABEL, RESOLVE, ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
 DB_COMMAND = re.compile(
@@ -290,6 +291,25 @@ def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_output
     assert "continue-on-error" not in step, "a failed company must fail the run"
     assert step["env"]["OP"] == "${{ steps.request.outputs.operation }}"
     assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
+
+
+def test_the_e28_rebuild_step_runs_for_exactly_its_operations_and_its_committed_script():
+    """The E28 (b) rebuild step runs for its two operations alone and fails with the job's execution. Its `if:` is
+    pinned as written, with no status function, so GitHub's success() stops it after a refused approval check, and
+    the dry run, which no approval gates, is never an -apply. It executes the pregenerate job once, on the committed
+    script; that only the -apply operation sends `--apply` runs in test_ops_stderr_withheld.py."""
+    step = BY_NAME[REBUILD][1]
+    assert selected(step) == {"rebuild-e28-excerpts-dry-run", "rebuild-e28-excerpts-apply"}
+    assert step["if"] == (
+        "contains('rebuild-e28-excerpts-dry-run rebuild-e28-excerpts-apply', steps.request.outputs.operation)"), (
+        "no status function: the step keeps GitHub's success(), so a refused approval check stops it")
+    assert "continue-on-error" not in step, "a refusal or a failed rebuild must fail the run"
+    assert step["env"] == {"OP": "${{ steps.request.outputs.operation }}"}
+    assert {op for op in selected(step) if op.endswith("-apply")} == {"rebuild-e28-excerpts-apply"}
+    run = step["run"]
+    assert run.count("gcloud run jobs execute earningsnerd-pregenerate ") == 1 and run.count(";--apply") == 1
+    scripts = re.findall(r"\^;\^(scripts/[\w./-]+\.py)", run)
+    assert scripts == ["scripts/rebuild_e28_window_excerpts.py"] and (ROOT / "backend" / scripts[0]).is_file()
 
 
 @pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE, PREVIEW])

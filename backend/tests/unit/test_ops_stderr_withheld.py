@@ -1,17 +1,18 @@
-"""No gcloud call in the describe-service, describe-jobs, logs-probe or Cloud SQL proxy steps lets its error text
-reach the job log, inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
+"""No gcloud call in the describe-service, describe-jobs, logs-probe, Cloud SQL proxy or E28 rebuild steps lets its
+error text reach the job log, inherited or echoed, and no other ops.yml gcloud call may start letting it through
+(rule 12).
 
 gcloud's stderr can name the acting principal, a host or a URL, and the Actions log of this public
 repository is public. Two leaks were found after #1181: describe-service's shell read inherited
 gcloud's stderr, and logs-probe printed the stderr it had captured. Both now print a closed class.
 These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless INHERITED
-lists it (the jobs-channel and rollback actions whose progress output remains operator evidence), a file that
-captures stderr is only ever tested with `grep -q`, the logs-probe and proxy-secret classifiers name the class
-describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
-captures or reads one only in the two gcloud_json() seams or the fixed summary snapshot's private,
-auto-removed files with bounded reads. No step turns on bash's trace, which would print a secret before its
-mask or a captured error text, whatever the condition, and the proxy step, which holds DATABASE_URL, is run
-as a re-run with debug logs too. The sole local-only exception is verify.py's one command
+lists it (the jobs-channel and rollback actions whose progress output remains operator evidence; a copy,
+INHERITED_CEILING, must equal it, so growing it takes a raised ceiling a review refuses), a file that captures stderr is only ever tested with `grep -q`, the logs-probe,
+proxy-secret and E28 rebuild classifiers name the class describe-service's gcloud_json() names, and an ops/ module
+never lets a child process inherit stderr and captures or reads one only in the two gcloud_json() seams or the
+fixed summary snapshot's private, auto-removed files with bounded reads. No step turns on bash's trace, which
+would print a secret before its mask or a captured error text, whatever the condition, and the proxy step, which
+holds DATABASE_URL, is run as a re-run with debug logs too. The sole local-only exception is verify.py's one command
 spawn: its caller owns the terminal streams. A static-reference guard keeps that launcher out of Actions;
 indirect/dynamic invocation remains a review concern. Its observer and every other spawn stay gated.
 Python a step runs is a file run by path from ops/ or scripts/,
@@ -145,6 +146,20 @@ INHERITED = {
     ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
     ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
 }
+# The most INHERITED may hold, pair by pair: the pairs #1195 listed, less the proxy step's, which #1258 fixed, at
+# their counts then. The gate holds it equal to INHERITED, so a fix lowers both in its own diff, and a call that
+# let stderr through again would have to raise a ceiling here as well. That is a tripwire, not a ratchet: one diff
+# can raise both, and only review refuses a raised ceiling (a true ratchet would read the base revision, which CI's
+# checkout does not hold). A new gcloud call discards its stderr or captures it for a closed class.
+INHERITED_CEILING = {
+    ("Jobs-channel no-op probe (args override on an existing job)", "run jobs execute"): 1,
+    ("Trigger companyfacts resync (internal endpoint; jobs-channel fallback)", "run jobs execute"): 1,
+    ("Trigger filing-history backfill (internal endpoint; jobs-channel fallback)", "run jobs execute"): 2,
+    ("Run the weekly data-quality report once (P1-9; jobs channel)", "run jobs execute"): 1,
+    ("Reset a single filing's summary (per-filing regen; jobs channel)", "run jobs execute"): 2,
+    ("Roll service traffic back to a named revision", "run services update-traffic"): 1,
+}
+REBUILD_STEP = "Rebuild the E28 window's filings in place (E28 (b); pregenerate job)"
 SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}
 OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*")
 # Only these two seams may capture/read child stderr; both reduce it to closed failure classes.
@@ -530,6 +545,39 @@ def test_proxy_secret_read_withholds_stderr_and_stops_on_failure(tmp_path, monke
         assert reached.count("nohup") == 1 and reached.count("pg_isready") >= 2
 
 
+REBUILD_ARGV = ["run", "jobs", "execute", "earningsnerd-pregenerate", "--region=fixture-region",
+                "--args=^;^scripts/rebuild_e28_window_excerpts.py", "--wait"]
+
+
+@pytest.mark.parametrize("stderr,code,klass", [("Execution [fixture] has successfully completed. " + SENTINEL, 0, None),
+                                               *CORPUS])
+@pytest.mark.parametrize("op,mode,apply", [
+    ("rebuild-e28-excerpts-dry-run", "dry run", False),
+    ("rebuild-e28-excerpts-apply", "apply", True),
+    ("relabel-fy-apply", "dry run", False),  # any other operation would get the dry run, never --apply
+])
+def test_the_e28_rebuild_step_passes_apply_only_for_its_apply_and_withholds_stderr(tmp_path, monkeypatch, capsys,
+                                                                                  stderr, code, klass, op, mode, apply):
+    """Run the rebuild step against a fake gcloud: one execution of the pregenerate job, `--apply` only for the
+    -apply operation, gcloud's stderr (its progress, success included) never printed, and a failure's exit status
+    kept with the class describe-service's gcloud_json() names."""
+    _, steps = _steps()
+    argv = REBUILD_ARGV[:5] + [REBUILD_ARGV[5] + (";--apply" if apply else "")] + REBUILD_ARGV[6:]
+    answers = {json.dumps(argv): {"stdout": "", "stderr": stderr, "rc": code},
+               "*": {"stderr": "ERROR: unexpected call " + SENTINEL, "rc": 2}}
+    result, calls = _step_shell(steps[REBUILD_STEP]["run"], tmp_path, answers, {"OP": op, "REGION": "fixture-region"})
+    assert calls == [argv] and result.returncode == code and result.stderr == ""
+    assert "PRIVATE_" not in result.stdout and "example.invalid" not in result.stdout
+    if code:
+        assert result.stdout == (f"::error::rebuild-e28-excerpts {mode}: the execution did not complete ({klass}; "
+                                 "gcloud's error text withheld); if the job ran, its first attempt's E28_REBUILD lines "
+                                 "in the job's Cloud Run logs are the record (docs/DEPLOYMENT.md)\n")
+        assert _policy_class(monkeypatch, capsys, stderr, code) == klass
+    else:
+        assert result.stdout == (f"rebuild-e28-excerpts {mode}: the pregenerate job's execution completed "
+                                 "(counts in its Cloud Run logs)\n")
+
+
 def _executable_lines(run):
     """A run: block's executable lines: comment lines dropped, backslash continuations joined."""
     lines = [line for line in run.splitlines() if not line.lstrip().startswith("#")]
@@ -633,7 +681,11 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         elif where != "discarded":
             captured.append((name, where))
     assert inherited == INHERITED, "a gcloud call lets its stderr reach the job log; discard or classify it"
-    assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"), (PROXY_STEP, "/tmp/proxy-secret.err")]
+    assert INHERITED_CEILING == INHERITED, (
+        "INHERITED only shrinks: a fix lowers INHERITED_CEILING with it; discard or classify a new call's stderr "
+        "rather than raise a ceiling")
+    assert captured == [(PROBE_STEP, "/tmp/probe.err"), (PROBE_STEP, "/tmp/sentry.err"),
+                        (PROXY_STEP, "/tmp/proxy-secret.err"), (REBUILD_STEP, "/tmp/e28-rebuild.err")]
     # A file that captured stderr is only tested, never printed: every other command naming it, in any step, is
     # a grep -q.
     for _, path in captured:
