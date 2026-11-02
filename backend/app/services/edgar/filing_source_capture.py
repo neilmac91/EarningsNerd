@@ -168,7 +168,7 @@ async def load_or_capture_source(
     # Configuration is read once. The pipeline snapshots opt-in on its run, so a
     # later flag flip cannot turn legacy input into an artifact-backed generation.
     bucket = settings.FILING_SOURCE_ARTIFACTS_BUCKET
-    if not bucket:
+    if not bucket or bucket == settings.FEEDBACK_MEDIA_BUCKET:
         raise FilingSourceError("artifact_not_configured")
     deadline = min(deadline, time.monotonic() + SOURCE_STAGE_SECONDS)
     storage = BoundedFilingSourceStorage(bucket)

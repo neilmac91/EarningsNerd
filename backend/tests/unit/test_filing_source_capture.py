@@ -4,7 +4,7 @@ import hashlib
 import json
 import time
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -281,3 +281,24 @@ async def test_primary_charset_decoding_matches_legacy_httpx_text(monkeypatch, o
     assert result.grounding_text == expected and '€1.2 billion' in result.grounding_text
     assert result.bundle.members[0].sha256 == hashlib.sha256(body).hexdigest()
     assert result.grounding_sha256 == hashlib.sha256(expected.encode()).hexdigest()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('bucket', ['', 'configured-feedback-bucket'])
+async def test_missing_or_feedback_bucket_refused_before_any_artifact_io(monkeypatch, bucket):
+    identity = seed_source()
+    monkeypatch.setattr(settings, 'FILING_SOURCE_ARTIFACTS_ENABLED', True)
+    monkeypatch.setattr(settings, 'FILING_SOURCE_ARTIFACTS_BUCKET', bucket)
+    monkeypatch.setattr(settings, 'FEEDBACK_MEDIA_BUCKET', 'configured-feedback-bucket')
+    object_boundary = Mock(side_effect=AssertionError('configuration refusal must precede adapter construction'))
+    database_boundary = Mock(side_effect=AssertionError('configuration refusal must precede metadata lookup'))
+    sec_boundary = AsyncMock(side_effect=AssertionError('configuration refusal must precede SEC retrieval'))
+    monkeypatch.setattr(storage, 'BoundedFilingSourceStorage', object_boundary)
+    monkeypatch.setattr(store, 'lookup_bundle', database_boundary)
+    monkeypatch.setattr(capture.sec_edgar_service, 'get_filing_primary_bytes', sec_boundary)
+    monkeypatch.setattr(capture.sec_edgar_service, 'get_filing_attachment_bytes', sec_boundary)
+    with pytest.raises(FilingSourceError, match='^artifact_not_configured$'):
+        await load(identity)
+    object_boundary.assert_not_called()
+    database_boundary.assert_not_called()
+    sec_boundary.assert_not_awaited()

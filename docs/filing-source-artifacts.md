@@ -1,6 +1,6 @@
 # Verified filing source artifacts
 
-`FILING_SOURCE_ARTIFACTS_ENABLED=false` and an empty `FILING_SOURCE_ARTIFACTS_BUCKET` preserve the existing generation path. This feature prepares code for private primary/exhibit reuse; it provisions no bucket, IAM, lifecycle policy, schedule or backfill. It does not activate durable summary jobs or preparation caps.
+`FILING_SOURCE_ARTIFACTS_ENABLED=false` and an empty `FILING_SOURCE_ARTIFACTS_BUCKET` preserve the existing generation path. This feature prepares code for private primary/exhibit reuse; it provisions no bucket, IAM, lifecycle policy, schedule or backfill. It does not activate durable summary jobs or preparation caps. Enabled preparation rejects an empty bucket or a bucket equal to configured `FEEDBACK_MEDIA_BUCKET` before artifact SQL, object or SEC I/O.
 
 For a new enabled-mode 10-K, 10-Q or 8-K generation (including amendments), the existing `stream_filing_summary` orchestrator loads or captures the exact filing's source before starting any model task. Completed summary reads still return immediately and do not backfill artifacts. 6-K and 20-F generation retain their existing paths.
 
