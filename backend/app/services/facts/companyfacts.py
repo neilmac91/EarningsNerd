@@ -1,6 +1,7 @@
 """Normalize SEC companyfacts into reported and derived fiscal-period rows."""
 from __future__ import annotations
 
+import math
 from datetime import date
 from typing import Any, Callable
 
@@ -10,12 +11,12 @@ from app.services.facts.calendar import (
 )
 from app.services.facts.concepts import (
     COMPANYFACTS_DURATION_TAGS, COMPANYFACTS_INSTANT_TAGS, NON_NEGATIVE_CONCEPTS,
-    _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _unit_for,
+    _FI_SKIPPED_CONCEPTS, _QUARTER_PERIODS, _VALID_FP, _parse_date, _unit_for,
 )
 from app.services.facts.currency import admitted_items, companyfacts_currencies
 from app.services.facts.derive import derive_same_period_metrics
 from app.services.facts.fi_revenue import financial_revenue_tags
-from app.services.facts.fiscal_naming import reported_fiscal_year, year_ending_on
+from app.services.facts.fiscal_naming import partial_years, reported_fiscal_year, year_ending_on
 from app.services.facts.own_reports import own_report_history
 from app.services.facts.reporting_basis import reports_under_ifrs
 from app.services.facts.quarterly import (
@@ -41,7 +42,8 @@ from app.services.facts.transport import logger
 # period.
 
 def _collect_companyfacts_values(
-    usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool, foreign: frozenset = frozenset()
+    usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool, foreign: frozenset = frozenset(),
+    partial: list | None = None,
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Winning item per (period_end, klass) for one concept, across its candidate tags.
 
@@ -53,6 +55,8 @@ def _collect_companyfacts_values(
     EARLIEST-filed item's `fp`/`fy` — the one case where those fields are trustworthy (the original filing
     that reported the period as its own current period), used only as the in-progress-year quarter fallback.
     A ``foreign`` accession's item (``filing_currencies``) is never read: neither a winner nor a candidate.
+    ``partial``, when given, gathers each tag's partial years (``fiscal_naming.partial_years``) that admission's
+    other checks would keep, in a candidate's shape: no winner, candidate or vote, only the calendar's exclusions.
     """
     claimed: dict[tuple[date, str], dict[str, Any]] = {}
     for tag in tags:
@@ -101,6 +105,12 @@ def _collect_companyfacts_values(
         for key, record in tag_best.items():
             record["candidates"] = tag_candidates[key]
             claimed.setdefault(key, record)
+        for item in partial_years(items) if partial is not None else ():
+            if item.get("accn") not in foreign and math.isfinite(item["val"]):
+                partial.append({"value": float(item["val"]), "unit": unit_key, "period_start": _parse_date(item["start"]),
+                                "period_end": _parse_date(item["end"]), "accession": item.get("accn"),
+                                "filed": str(item.get("filed") or ""), "raw_tag": f"us-gaap:{tag}",
+                                "first_fp": item.get("fp")})
     return claimed
 
 
@@ -125,10 +135,11 @@ def normalize_companyfacts(
         meta["unsupported_ifrs"] = ifrs  # an IFRS filer, or no us-gaap data: the sync stores nothing
         return [], meta
 
-    duration_values, instant_values = _collect_companyfacts_concepts(usgaap, financial_sic)
+    partial: dict[str, list] = {}  # each concept's partial years, which the calendar's exclusions alone read
+    duration_values, instant_values = _collect_companyfacts_concepts(usgaap, financial_sic, partial)
 
     fy_windows = _fiscal_year_windows(duration_values)
-    duration_values = fiscal_duration_values(duration_values, fy_windows, meta)
+    duration_values = fiscal_duration_values(duration_values, fy_windows, meta, partial)
     fy_labels = fiscal_year_labels(duration_values, fy_windows)
     fy_ends = {end for _start, end in fy_windows}
     quarter_labels = _label_quarters(duration_values, fy_windows, fy_labels)
@@ -184,17 +195,19 @@ def normalize_companyfacts(
     return kept, meta
 
 
-def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool) -> tuple[
+def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool, partial: dict | None = None) -> tuple[
     dict[str, dict[tuple[date, str], dict[str, Any]]], dict[str, dict[tuple[date, str], dict[str, Any]]],
 ]:
-    """Collect each concept in the series currency from the filings in it; durations first, registry order."""
+    """Collect each concept in the series currency from the filings in it; durations first, registry order.
+    ``partial`` gathers each duration concept's partial years (``_collect_companyfacts_values``)."""
     currency, foreign = companyfacts_currencies(usgaap)  # the pick the sync's demotion reads too
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
         unit_key = _unit_for(concept, currency)  # the series currency, or its per-share unit
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:  # its total, never the fee line (facts/fi_revenue.py)
             tags = financial_revenue_tags(usgaap, unit_key, foreign)
-        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False, foreign=foreign)
+        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False, foreign=foreign,
+                                              partial=None if partial is None else partial.setdefault(concept, []))
         if values:
             duration_values[concept] = values
 

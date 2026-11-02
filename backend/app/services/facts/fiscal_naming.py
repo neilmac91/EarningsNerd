@@ -57,9 +57,25 @@ def without_partial_years(items: list) -> list:
     item and stays, as does every annual report's item and every zero (UEC's FY2018 revenue, which no 10-K tags).
     Another filing's item only exposes the mis-tag: a reader still reads each value from the item it read it from.
     Sized on the collector's duration concepts, where it drops no real year on 696 cached payloads; across every tag
-    a rate, a count or a one-off payment can equal its quarter (2,392 of the 3,157 items it drops there), so an
-    all-tag reader such as the restatement census's evidence index keeps every item.
+    a rate, a count or a one-off payment can equal a part of it, or a part its own filing reports (2,392 of the 3,157
+    items it drops there), so an all-tag reader such as the restatement census's evidence index keeps every item.
     """
+    return [item for item, partial in zip(items, _partial(items)) if not partial]
+
+
+def partial_years(items: list) -> list:
+    """The items ``without_partial_years`` drops, in order: each a quarterly report's numeric item spanning a year.
+
+    No reader takes a value or a winner from one. The companyfacts collector hands them to the calendar alone, which
+    records one whose dates are no fiscal year as any rolling year (ARTW's March-February years, AMZN's trailing twelve
+    months, LMB's year from its inception): the quarterly repair quarantines a stored row only by that record
+    (``calendar.fiscal_duration_values``).
+    """
+    return [item for item, partial in zip(items, _partial(items)) if partial]
+
+
+def _partial(items: list) -> list[bool]:
+    """Whether each item is a quarterly report's year that holds part of one (``without_partial_years``)."""
     from app.services.facts.concepts import _classify_duration, _parse_date  # call time, as currency's admission
 
     def span(item: Any) -> tuple[Any, Any, Any]:  # (span class, start, value) of a numeric duration item
@@ -77,9 +93,9 @@ def without_partial_years(items: list) -> list:
              if klass in ("Q", "YTD6", "YTD9")]
     same_start = {(start, value) for _accn, start, value in parts}
     same_filing = {(accn, value) for accn, _start, value in parts if accn is not None}
-    return [item for item, (klass, start, value) in zip(items, spans)
-            if not (klass == "FY" and value != 0 and str(item.get("form") or "").upper() in QUARTERLY_FORMS
-                    and ((start, value) in same_start or (filing(item), value) in same_filing))]
+    return [klass == "FY" and value != 0 and str(item.get("form") or "").upper() in QUARTERLY_FORMS
+            and ((start, value) in same_start or (filing(item), value) in same_filing)
+            for item, (klass, start, value) in zip(items, spans)]
 
 
 def focus_years(end: date) -> tuple[int, int]:
