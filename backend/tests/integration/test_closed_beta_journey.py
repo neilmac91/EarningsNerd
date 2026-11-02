@@ -324,20 +324,14 @@ def _grant_pro(email: str, holder: str = "mirror") -> None:
 
 
 def _revoke_pro(email: str) -> None:
-    with SessionLocal() as db:
-        user = db.query(User).filter(User.email == email).one()
-        if user.complimentary_access_grant is None:  # a row holder's Pro, not a grant's: end it as the old seam did
-            user.is_pro = False
-            db.query(Subscription).filter(Subscription.user_id == user.id).update({"status": "canceled"})
-            db.commit()
-            return
+    """Revokes a ``mirror`` holder's grant as the operator does. No test here revokes a row holder's Pro."""
     report = _complimentary_access("revoke", email)
     assert report["outcomes"] == {"revoked": 1} and not report["refusals"], report
 
 
 def _complimentary_access(action: str, email: str) -> dict:
     """PB-02's operator procedure (docs/ops/complimentary-access.md) for one account: a manifest naming it by id and
-    address fingerprint, signed by an active verified administrator; the dry run; then the apply of the digest that
+    address fingerprint, naming as its operator an active, verified administrator; the dry run; then the apply of the digest that
     dry run reported, on the app's own sessions."""
     operator, account = _account(_seed_admin()), _account(email)
     today = utcnow().date()
@@ -355,13 +349,15 @@ def _complimentary_access(action: str, email: str) -> dict:
 
 
 def _account_state(email: str) -> tuple:
-    """What a grant or a billing event could change on an account: its plan inputs and its other flags."""
+    """What a grant or a billing event could change on an account: its plan inputs, its grant and its other flags."""
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == email).one()
         row = db.query(Subscription).filter(Subscription.user_id == user.id).one_or_none()
+        grant = user.complimentary_access_grant
         return (user.is_pro, user.is_beta, user.is_admin, user.is_active, user.email_verified,
                 user.stripe_customer_id, user.copilot_free_taste_used,
-                None if row is None else (row.plan, row.status, row.stripe_customer_id, row.stripe_subscription_id))
+                None if row is None else (row.plan, row.status, row.stripe_customer_id, row.stripe_subscription_id),
+                None if grant is None else (grant.cohort, grant.revoked_at is None))
 
 
 def _plan_views(browser: TestClient) -> tuple[bool, bool]:
