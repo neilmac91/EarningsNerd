@@ -1341,7 +1341,7 @@ Theme behaviour is consistent but undocumented. The PDF and workbook are always 
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 
 **As built (#1959).** The page has no export menu, so the chart's PNG control says it: its
-tooltip and accessible description read "Image matches your theme."
+tooltip ends with, and its accessible description reads, "Image matches your theme."
 
 ## 6. Sequencing by measured overlap
 
