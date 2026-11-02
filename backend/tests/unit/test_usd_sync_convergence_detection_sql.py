@@ -46,6 +46,14 @@ def test_every_set_copies_is_proxy_forms_pattern_and_reads_the_form_as_it_does()
     assert uses and len(normalized_uses) == len(uses)
 
 
+def test_the_copied_proxy_pattern_uses_only_what_both_engines_read_alike():
+    # Letters, digits, classes, the ? * + quantifiers, plain groups and anchors, as test_proxy_form_detection_sql.py
+    # holds its own copy: a lookaround, a backreference, an inline flag or a class shorthand in _PROXY_FORM would need
+    # its own translation into PostgreSQL's regex, not this transform. (The amount code reads ASCII capitals, where
+    # is_amount_unit reads any upper-case letter: no currency code is outside ASCII.)
+    assert re.fullmatch(r"[\^$A-Z0-9 \[\]?*+()/-]+", _params("proxy_form")[0])
+
+
 def test_every_amount_test_reads_a_unit_as_is_amount_unit_and_another_currency_as_the_sync_does():
     assert _params("amount_code") == ["^[A-Z]{3}$"] * AMOUNT_SETS
     code = re.compile(_params("amount_code")[0])
