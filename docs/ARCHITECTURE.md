@@ -69,19 +69,61 @@ the local attempt is cancelled/drained before durable handoff. Summary generatio
 single pipeline and SSE contract. Its synchronous workers are owned and drained before releasing
 generation leadership. A valid cached excerpt no longer launches a redundant document download.
 
+### Durable summary ownership and isolation
+
+The optional durable summary path adds a persisted job per exact filing around the same
+orchestrator. Browsers observe the job; a private summary worker owns generation, leases and
+fenced result/usage settlement. It requires both durable flags and explicit
+`SUMMARY_TASKS_QUEUE`, `SUMMARY_TASKS_WORKER_URL` and `SUMMARY_TASKS_INVOKER_EMAIL` settings.
+Both background and summary routes must be valid; their queues and normalized worker origins
+must differ. A missing or shared route refuses the handoff before credential/network access,
+with no fallback to the background queue.
+
+`TASKS_WORKER_ROLE` defaults to `background`; the separate summary service uses `summary`.
+The configured role selects the OIDC audience and invoker identity, never the incoming body or
+queue headers. The HTTP receiver, process supervisor and fresh child each reject an incompatible
+task kind; the receiver returns 503 rather than acknowledging it. Both roles accept empty probes,
+which bypass business execution and the busy-child guard and therefore prove no spare capacity.
+Origin normalization is only an isolation comparison: task targets and OIDC audiences preserve
+the configured URL spelling except its trailing slash, so an image update does not invalidate
+already queued tokens. Different Cloud Run URL aliases can still identify one service; deployment
+evidence must establish distinct service resources and private IAM, not merely different URLs.
+
+All recovery callers share `summary_recovery.py`: a nonblocking process permit and a PostgreSQL
+session advisory lock exclude concurrent passes. One 20-second work budget covers guard
+acquisition, candidate selection and sequential queue handoffs. Each participating process needs
+one additional transient database connection and one lazy guard thread. SQL work drains before
+the guard connection closes and the local permit releases. The budget is not a hard process or
+remote-request kill: synchronous work and cleanup can overrun it, an accepted remote create can
+finish after cancellation, and a lost guard connection can release ownership before its old
+process notices. Per-job fencing and deterministic task names still resolve those ambiguities.
+
+Production activation remains held until the role/resource checks, actual-delivery rehearsal,
+recovery cadence and capacity evidence pass. Inventory active pregenerate, internal precompute,
+admin/script and old-revision writers; pause and drain or migrate them before enabling durable
+ownership. Zero optional prewarm caps do not stop legacy direct precompute. New durable-mode
+binaries reject lease-less generation before source/provider work, but cannot fence an old binary.
+See [durable summary generation](./durable-summary-generation.md) for the ownership transition and
+[summary task isolation](./summary-task-isolation.md) for the configuration and verification limits.
+
+### Shared generation pipeline
 
 There is a single generation pipeline — `app/services/summary_pipeline.py`
 (`stream_filing_summary`, a transport-agnostic async generator yielding plain event dicts).
-Every consumer drains it:
+The caller depends on the ownership mode:
 
 - **User-facing:** `POST /api/summaries/filing/{id}/generate-stream`
-  (`routers/summaries.py`) maps events through `to_sse()`; progress is also pollable via
+  (`routers/summaries.py`) maps legacy generation or durable job-observer events through
+  `to_sse()`; progress is also pollable via
   `GET .../progress`. SSE heartbeats every 3s.
+- **Durable worker:** `summary_jobs.py` drains the same generator with its persisted job's
+  valid lease, independent of the browser connection.
 - **Batch (cron/precompute/pregenerate):** `generate_summary_background()`
   (`summary_generation_service.py`) drains the same generator headless — funnel telemetry
   suppressed, `current_user=None` — used by `precompute_service.py` (the token-gated
   `/internal/jobs/precompute` trigger) and `scripts/pregenerate_examples.py` (weekly cron).
-  There is **no legacy second path** (removed July 2026, S1).
+  These direct callers require migration or a pause before durable ownership is enabled.
+  There is **no legacy second orchestrator** (removed July 2026, S1).
 
 ```
 stream_filing_summary(filing_id, ...)
@@ -97,7 +139,7 @@ stream_filing_summary(filing_id, ...)
                                          a partial verdict refunds the unit
   f. Persist Summary + FilingContentCache (settles the unit; a provider-side failure before
                                          this refunds it, a client disconnect never does;
-                                         the lease-less caller — the background drain —
+                                         in legacy mode the lease-less background drain
                                          counts full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
@@ -173,6 +215,9 @@ frontend/
 |---|---|
 | `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) + the progress row: a run's write (`record_progress`, one upsert), the progress poll's answer (`progress_poll_answer`, whose stale mark is one conditional UPDATE), and the read-only surfaces' reading of it (`progress_read_status`: the watchlist insights and the dashboard feed, which write nothing) |
+| `summary_jobs.py` + `summary_job_store.py` | Exact-filing durable ownership, queue intent/acknowledgment, worker leases, observer status and fenced result/usage receipts |
+| `summary_recovery.py` | Recovery pass exclusion, 20-second work budget, guarded handoffs and physical SQL drain before ownership release |
+| `durable_tasks.py` + `task_routing.py` | Task envelopes and confirmed Cloud Tasks delivery; separate summary/background routes, role-selected OIDC verification and task-kind restrictions |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` and Pro's summary and analysis fair-use ceilings (`PRO_SUMMARY_MONTHLY_CAP`, `ANALYSIS_MONTHLY_CAP`, D-050) |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
@@ -305,7 +350,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` each is queued to `services/internal_task_runner.py`, otherwise it runs as a background task after the 202, and one that uses the database opens its own session (`services/job_sessions.py`); a precompute `dry_run` answers synchronously |
+| `internal.py` | `/internal` | token-gated jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` these queue to `services/internal_task_runner.py`, otherwise they run as background tasks after the 202 with their own database sessions (`services/job_sessions.py`). Precompute `dry_run` answers synchronously. The separate `summary-recovery` endpoint also answers synchronously, confirming up to 20 repaired handoffs within the recovery scope; it performs no generation and is not queued as another internal job. |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture
@@ -341,6 +386,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
 `contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
+`summary_job.py` (durable filing ownership and preparation budgets),
+`sec_request_gate.py` (shared SEC admission/cooldown),
 `filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary), `section_review.py` (`section_reviews`: a reader's labels, completion time and frozen receipt for one filing section). Additional tables via migrations: `invite_codes`,
 `feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
