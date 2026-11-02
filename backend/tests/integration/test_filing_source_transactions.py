@@ -70,7 +70,7 @@ def test_two_independent_transactions_choose_one_complete_source(factory):
     assert store.lookup_bundle(identity) == results[0]
 
 
-def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factory, monkeypatch):
+def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factory, postgres_engine, monkeypatch):
     identity = seed_source(factory=factory)
     entered, release = Event(), Event()
     class PausedSession(Session):
@@ -79,7 +79,7 @@ def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factor
             entered.set()
             assert release.wait(5)
             raise OperationalError('synthetic rollback', None, None)
-    paused = sessionmaker(**{**factory.kw, 'class_': PausedSession})
+    paused = sessionmaker(**{**database.SessionLocal.kw, 'bind': postgres_engine}, class_=PausedSession)
     # Only the writer's first session pauses; independent readers use normal sessions.
     calls = 0
     def session():
@@ -102,7 +102,7 @@ def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factor
 
 
 @pytest.mark.parametrize('phase', ['bundle', 'extraction'])
-def test_lost_commit_acknowledgement_requires_fresh_committed_readback(factory, monkeypatch, phase):
+def test_lost_commit_acknowledgement_requires_fresh_committed_readback(factory, postgres_engine, monkeypatch, phase):
     identity = seed_source(factory=factory)
     bundle = candidate(identity)
     if phase == 'extraction':
@@ -113,7 +113,7 @@ def test_lost_commit_acknowledgement_requires_fresh_committed_readback(factory, 
             super().commit()
             calls.append('committed')
             raise OperationalError('synthetic lost acknowledgement', None, None)
-    alternate = sessionmaker(**{**factory.kw, 'class_': LostAckSession})
+    alternate = sessionmaker(**{**database.SessionLocal.kw, 'bind': postgres_engine}, class_=LostAckSession)
     def session():
         calls.append('session')
         return alternate() if 'committed' not in calls else factory()

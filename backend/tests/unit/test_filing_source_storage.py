@@ -341,13 +341,15 @@ async def test_child_receives_the_shorter_absolute_operation_or_caller_deadline(
         "    from pathlib import Path\n"
         f"    Path({str(captured)!r}).write_text(str(request['deadline']))\n",
     ))
-    started = time.monotonic()
+    # This gate compares deadline values; interpreter startup must not consume a
+    # two-second correctness window. The independent wait is only a hang guard.
+    started = time.monotonic() + 60
     # Replace only the adapter clock; the real event loop and child keep real monotonic time.
     monkeypatch.setattr(storage, "time", SimpleNamespace(monotonic=lambda: started))
     monkeypatch.setattr(storage, "STORAGE_OPERATION_SECONDS", 3.0)
-    receipt = await storage.BoundedFilingSourceStorage(BUCKET).put(
+    receipt = await asyncio.wait_for(storage.BoundedFilingSourceStorage(BUCKET).put(
         IDENTITY, CONTENT, deadline=started + caller_seconds,
-    )
+    ), 10)
     assert receipt == StoredSourceObject("17", SHA, len(CONTENT))
     assert float(captured.read_text()) == started + min(caller_seconds, 3.0)
 
@@ -477,10 +479,36 @@ async def test_cancellation_kills_native_child_and_holds_single_permit_through_r
 async def test_absolute_deadline_stops_drip_reads_and_native_work(tmp_path, monkeypatch):
     ready = sleeping_worker(tmp_path, monkeypatch, drip=True)
     store = storage.BoundedFilingSourceStorage(BUCKET)
-    with pytest.raises(FilingSourceError, match="^artifact_storage_timeout$"):
-        await store.read(IDENTITY, SHA, len(CONTENT), "17", deadline=time.monotonic() + 3)
-    assert ready.exists() and process_finished(int(ready.read_text()))
-    assert not storage._execution_lock.locked()
+    entered = asyncio.Event()
+    deadlines = []
+    started = time.monotonic()
+    monkeypatch.setattr(storage, 'time', SimpleNamespace(monotonic=lambda: started))
+    def recorded_timeout_at(deadline):
+        owner = asyncio.timeout_at(deadline)
+        deadlines.append(owner)
+        return owner
+    monkeypatch.setattr(storage, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'timeout_at': recorded_timeout_at}))
+    actual_header = storage._response_header
+    def header_received(*args):
+        result = actual_header(*args)
+        entered.set()
+        return result
+    monkeypatch.setattr(storage, '_response_header', header_received)
+    task = asyncio.create_task(store.read(IDENTITY, SHA, len(CONTENT), "17", deadline=started + 30))
+    try:
+        # Receipt-header entry proves the native child started and the parent is
+        # reading its real pipe. Expire that owner's real timeout during the drip.
+        await asyncio.wait_for(entered.wait(), 10)
+        assert len(deadlines) == 1 and deadlines[0].when() == started + storage.STORAGE_OPERATION_SECONDS
+        deadlines[0].reschedule(asyncio.get_running_loop().time())
+        with pytest.raises(FilingSourceError, match="^artifact_storage_timeout$"):
+            await asyncio.wait_for(task, 10)
+        assert deadlines[0].expired()
+        assert ready.exists() and process_finished(int(ready.read_text()))
+        assert not storage._execution_lock.locked()
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
 
 
 @pytest.mark.asyncio

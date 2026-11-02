@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -160,20 +161,35 @@ async def test_concurrent_capture_winner_text_is_reloaded_not_candidate(monkeypa
 @pytest.mark.asyncio
 async def test_total_deadline_cancels_sec_wait_and_issues_no_receipt(monkeypatch, objects):
     identity = seed_source()
-    cancelled = asyncio.Event()
+    entered, cancelled = asyncio.Event(), asyncio.Event()
+    deadlines = []
+    def recorded_timeout(seconds):
+        owner = asyncio.timeout(seconds)
+        deadlines.append((seconds, owner))
+        return owner
+    monkeypatch.setattr(capture, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'timeout': recorded_timeout}))
     async def wait(*a, **k):
+        entered.set()
         try:
             await asyncio.Event().wait()
         finally:
             cancelled.set()
     monkeypatch.setattr(capture.sec_edgar_service, 'get_filing_primary_bytes', wait)
     owner = RequestWork()
+    task = asyncio.create_task(capture.load_or_capture_source(identity, deadline=time.monotonic()+30, owner=owner))
     try:
+        # Initial SQL dispatch/lookup is setup, not the SEC cancellation under test.
+        await asyncio.wait_for(entered.wait(), 10)
+        assert len(deadlines) == 1 and 0 < deadlines[0][0] <= capture.SOURCE_STAGE_SECONDS
+        deadlines[0][1].reschedule(asyncio.get_running_loop().time())
         with pytest.raises(FilingSourceError, match='artifact_storage_timeout'):
-            await capture.load_or_capture_source(identity, deadline=time.monotonic()+0.05, owner=owner)
+            await asyncio.wait_for(task, 10)
+        assert deadlines[0][1].expired() and cancelled.is_set()
     finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
         await owner.drain()
-    assert cancelled.is_set() and objects.puts == []
+    assert objects.puts == []
     assert store.lookup_bundle(identity) is None
 
 
