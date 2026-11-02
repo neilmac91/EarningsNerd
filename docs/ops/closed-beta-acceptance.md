@@ -25,7 +25,7 @@ depend on it.
 | Backend runtime | Ops `describe-service` (read-only; [F51](../OPERATIONS.md#agent-production-readbacks-f51)): serving revision, image digest, `SENTRY_RELEASE`, `REGISTRATION_MODE`, sizing lines, worker invoker verdict | It prints only the names of the `LEGAL_*` and `FEEDBACK_MEDIA_*` settings, when set, and withholds `REVERSE_TRIAL_ENABLED`, `PRO_TRIAL_DAYS` and `STRIPE_BETA_PROMO_CODE_ID`. The founder reads those values on the service; the live answers below show only their effect. |
 | Frontend release | The GitHub deployment named `Production` for the commit, and the `www` alias it serves where the Vercel dashboard shows it | Record `NEXT_PUBLIC_ENABLE_CALENDAR` and `NEXT_PUBLIC_ENABLE_ANALYSIS` too: the earnings-day alert bells and Multi-Period Analysis exist only while they are on. |
 | Live answers | `GET /health/detailed`; `GET /api/legal/readiness` (collection, checkout and marketing availability, the two agreement versions, the operator notice); `GET /api/auth/registration` (`invite_only`, `beta_promo_enabled`) | Public reads; no account needed. |
-| Screenshots | `GET /api/feedback/capabilities` signed in: `attachments_enabled` is true only while `FEEDBACK_MEDIA_ENABLED` is on and a bucket is set; no Ops read prints either value. The newest `feedback-media-inspect` and `feedback-media-verify-*` receipts | Enabling needs `feedback-media-provision-apply`, `-verify-apply` and `-enable-apply`. At the enable, the provision's storage probe, the latest scheduled cleanup and the verify receipt must each be at most two hours old, and the cleanup heartbeat must have been seen in the last two hours. Both bind the serving backend image, and the receipt also binds `main`'s `frontend/` tree and the verification sources. So land every `frontend/` and `ops/feedback_media/` change the window needs first; then, from the provision dispatch until the enable completes, merge nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`. |
+| Screenshots | `GET /api/feedback/capabilities` signed in: `attachments_enabled` is true only while `FEEDBACK_MEDIA_ENABLED` is on and a bucket is set; no Ops read prints either value. The newest `feedback-media-inspect` and `feedback-media-verify-*` receipts | Enabling needs `feedback-media-provision-apply`, `-verify-apply` and `-enable-apply`. At the enable, the provision's storage probe, the latest scheduled cleanup and the verify receipt must each be at most two hours old, and the cleanup heartbeat must have been seen in the last two hours. Both bind the serving backend image, and the receipt also binds `main`'s `frontend/` tree and the verification sources. So land every `frontend/` and `ops/feedback_media/` change the window needs first; then, from the provision dispatch until the enable completes, merge nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`. Dispatch each of the three only when no CI run for a push to `main` is in flight: the Ops pre-flight refuses them while one is, so even a docs-only merge in the window can cost an approval and part of the two hours. |
 | Agreement versions | `TERMS_VERSION` and `ELIGIBILITY_VERSION` in `backend/app/services/legal_readiness_service.py`, as `/api/legal/readiness` serves them | A version change asks every new tester for fresh assent. |
 | Model | `AI_DEFAULT_MODEL` and `OPENAI_BASE_URL` from `describe-service` | A change re-opens the summary, Copilot and analysis checks. |
 
@@ -75,8 +75,9 @@ Every test must then pass unchanged. That is its integration acceptance.
 Run in order at the founder rehearsal ([section 6](#6-staged-admission)), on a phone and on a desktop browser,
 with two founder-controlled tester accounts (one password, one Google), a third disposable one for step 23 and the
 administrator account. Step 22 also needs a used, a revoked and an expired link: mint the expired one 48 hours ahead
-(the admin page's shortest expiry), or an hour ahead through the API with `expires_in_hours` set to 1. A step passes only on what the tester's
-own screen and inbox show; a badge, a provider's acceptance or a mocked response is not a pass.
+(the admin page's shortest expiry), or an hour ahead through the API with `expires_in_hours` set to 1. A step passes
+only on what the tester's own screen and inbox show; a badge, a provider's acceptance or a mocked response is not a
+pass.
 
 | # | Step | Passes when | Synthetic proof |
 | --- | --- | --- | --- |
@@ -201,12 +202,19 @@ Land every deploy or repair that moves stored financial figures before the rehea
 analysis over a period that moved refuses its export, telling the tester to run it again, and an acceptance holds
 only for the identities it was taken on. Merge backend changes one at a time, each after the previous `deploy-backend`
 run shows its migration line and a healthy revision ([deploy discipline](../../AGENTS.md#6-deploy-discipline)):
-back-to-back merges ship as one revision, so neither change can be verified or rolled back on its own.
+back-to-back merges usually ship as one revision, so neither change can be verified or rolled back on its own.
 
 Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198 in
-`tasks/todo.md`). After such a deploy, sync the companies the rehearsal opens (a bounded `sync-companyfacts`, SEC reads
-only) and dispatch the read-only `detection-sql` again before the rehearsal. Compare its census with the run taken
-before the change merged company by company, not by totals: the census does not bound every key such a sync moves.
+`tasks/todo.md`). Such a change lands with a census of its own: E198's is `ops/detection/usd_sync_convergence.sql`
+(#1968), which merges first. Ops runs only `main`'s SQL, so dispatch the read-only `detection-sql` once the census is
+on `main` and before the change merges, and keep that run. After the change deploys:
+1. Sync the companies the rehearsal opens (a bounded `sync-companyfacts`). It reads only SEC but writes stored figures.
+   A run that prints `resync ACCEPTED` has only queued the work: wait for each ticker's `Internal durable
+   sync-companyfacts complete` line in Cloud Logging (`docs/quarterly-data-repair.md`, "Sync first, and wait for
+   it"), since a ticker without that line has not synced. A run that prints `resync COMPLETED` (the jobs channel) has
+   already waited.
+2. Dispatch `detection-sql` again, and compare the census with the run from before the merge company by company, not
+   by totals. The census leaves out what its own header lists, so it does not bound every key such a sync moves.
 
 ## 7. Rollback levers
 
