@@ -7,6 +7,7 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { REASON_SUMMARIES, reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
+import { substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -371,6 +372,28 @@ describe('Financial origin and source checks', () => {
     expect(within(dialog).getByText('Needs review · Note a')).toBeInTheDocument()
     expect(within(dialog).getByText(/The source inputs use different units or currencies/)).toBeInTheDocument()
     expect(within(dialog).getByText(/Calculated by EarningsNerd from recorded inputs/)).toBeInTheDocument()
+  })
+
+  // The growth keys the producer stores (trend_analysis/dataset_quality.py and dataset.py) read in FORMULAS' words, the
+  // words the PDF's and the workbook's Sources & methods print (backend test_export_formula_words.py), never the key with
+  // its underscores spaced. Their two valued inputs reach substitutedFormula's shapes, and no shape is a growth's, so
+  // the comparison has no arithmetic line.
+  it.each([
+    ['YoY', 'year_over_year_growth', '(Current − same period last year) ÷ absolute same period last year'],
+    ['QoQ', 'quarter_over_quarter_growth', '(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter'],
+    ['CAGR', 'compound_annual_growth', '(Last ÷ first) to the power of (1 ÷ fiscal years from first to last) − 1'],
+    ['Window change', 'percentage_point_change', 'Current percentage − comparison percentage'],
+  ])('says how a %s comparison is calculated in words', async (label, formula, words) => {
+    const provenance: FactProvenance = { ...calculated, formula, inputs: [
+      { ...calculated.inputs[0], value: 40111000000 }, { ...calculated.inputs[0], value: 34146000000 },
+    ] }
+    render(<SourceValue point={dataset.series[0].points[1]} label="Revenue" concept="revenue" comparison={{ label, display: '+17.5%', provenance }}>$40.1B</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
+    expect(within(dialog).getByRole('heading', { name: `${label} comparison` })).toBeInTheDocument()
+    expect(within(dialog).getByText(`Calculation: ${words}`)).toBeInTheDocument()
+    expect(dialog).not.toHaveTextContent(formula.replaceAll('_', ' '))
+    expect(substitutedFormula(provenance)).toBeNull()
   })
 
   it('explains an absent metric-period slot with the same unavailable note counted in the report', async () => {

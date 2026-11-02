@@ -30,6 +30,10 @@ export function exactFigure(value: number, figure: Figure): string {
   return [amount, figure.unit].filter(Boolean).join(' ')
 }
 
+// A recorded formula's words, keyed by the expression the producer stores: a quarter's period calculation, a metric's
+// (fact_provenance.py METRIC_FORMULAS) and a growth's (trend_analysis/dataset_quality.py and dataset.py). The PDF and
+// the workbook print these words, and the same fallback, through one port (analysis_export_metadata.FORMULA_WORDS);
+// backend/tests/unit/test_export_formula_words.py reads both here, one entry a line, and fails when they differ.
 const FORMULAS: Record<string, string> = {
   'FY - YTD9': 'Full year − first nine months',
   'YTD9 - YTD6': 'First nine months − first six months',
@@ -40,6 +44,10 @@ const FORMULAS: Record<string, string> = {
   'operating_cash_flow - abs(capital_expenditures)': 'Operating cash flow − absolute cash capital expenditures',
   'current_assets - current_liabilities': 'Current assets − current liabilities',
   'current_assets / current_liabilities': 'Current assets ÷ current liabilities',
+  'year_over_year_growth': '(Current − same period last year) ÷ absolute same period last year',
+  'quarter_over_quarter_growth': '(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter',
+  'compound_annual_growth': '(Last ÷ first) to the power of (1 ÷ fiscal years from first to last) − 1',
+  'percentage_point_change': 'Current percentage − comparison percentage',
 }
 
 export const formulaWords = (formula: string) => FORMULAS[formula] ?? formula.replaceAll('_', ' ')

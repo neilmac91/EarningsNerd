@@ -1034,7 +1034,9 @@ class TestAnalysisPdfHtml:
         assert '<li id="analysis-data-note-b"><span class="note-letter"></span>' in html
         assert "Use a reported quarterly EPS figure." in html
         assert 'href="https://example.com/filing?x=1&amp;y=2"' in html
-        assert "annual_minus_ytd" in html
+        # A formula the page has no words for reads as the page's fallback, never its stored key
+        # (test_export_formula_words.py).
+        assert " · annual minus ytd · " in html and "annual_minus_ytd" not in html
         assert "2500 USD (2024-01-01 to 2024-12-31)" in html
         assert "a" * 64 in html and "quarterly-v2" in html
         assert "Source data as of July 1, 2026, 09:00 UTC</span> · " in html and "2026-07-01T09:00:00Z" not in html
