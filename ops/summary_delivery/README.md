@@ -65,7 +65,7 @@ Before fixtures run, each service must deny an anonymous request and a valid
 Google identity token for another service's audience and a correct-audience token
 for the runtime identity, which has no intended invocation grant. It must then
 accept its invoker identity's own audience. Twelve health requests check effective
-ingress, including inherited public or all-authenticated IAM. Real
+ingress and reject unexpected effective invocation grants. Real
 task delivery still passes the existing receiver's signed Google-token verifier.
 
 The runtime identity checks its own metadata identity and effective access to
