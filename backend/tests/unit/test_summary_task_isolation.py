@@ -134,6 +134,46 @@ async def test_worker_identity_is_bound_to_its_role_not_the_task_body(isolated_r
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("role,host", [("background", "background-worker-uw"), ("summary", "summary-worker-uw")])
+@pytest.mark.parametrize("spelling", ["https://{host}.a.run.app:443", "https://{host}.A.RUN.APP/", "https://{host}.A.RUN.APP:443/"])
+async def test_previously_queued_audience_spelling_survives_worker_upgrade(
+    isolated_routes, monkeypatch, role, host, spelling,
+):
+    configured = spelling.format(host=host)
+    field = "TASKS_WORKER_URL" if role == "background" else "SUMMARY_TASKS_WORKER_URL"
+    monkeypatch.setattr(settings, field, configured)
+    monkeypatch.setattr(settings, "TASKS_WORKER_ROLE", role)
+    expected_email = settings.TASKS_INVOKER_EMAIL if role == "background" else settings.SUMMARY_TASKS_INVOKER_EMAIL
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = {**json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key())), "kid": "previous-queue-fixture"}
+    monkeypatch.setattr(transport, "_get_google_jwks", AsyncMock(return_value={"keys": [jwk]}))
+    # This is the old adapter's audience, independent of the new route helper.
+    previous_audience = configured.rstrip("/")
+    previous_token = jwt.encode({
+        "iss": "https://accounts.google.com", "aud": previous_audience, "sub": "fixture",
+        "email": expected_email, "email_verified": True,
+        "exp": int(utcnow().timestamp()) + 600,
+    }, key, algorithm="RS256", headers={"kid": "previous-queue-fixture"})
+    await transport.verify_task_identity(previous_token)
+
+    sent = []
+    client = httpx.AsyncClient
+
+    def respond(request):
+        sent.append(json.loads(request.content)["task"])
+        return httpx.Response(200, json={}, request=request)
+
+    monkeypatch.setattr(transport, "_access_token", AsyncMock(return_value="unused-test-token"))
+    monkeypatch.setattr(transport.httpx, "AsyncClient", lambda **kw: client(transport=httpx.MockTransport(respond), **kw))
+    kind, payload = ("summary", {"job_id": "c" * 32, "generation": 1}) if role == "summary" else (
+        "account_mail", {"email": "fixture@example.com", "mail": "verification"},
+    )
+    await transport.enqueue_task(kind, payload)
+    assert sent[0]["httpRequest"]["oidcToken"]["audience"] == previous_audience
+    assert sent[0]["httpRequest"]["url"] == previous_audience + "/internal/tasks/execute"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("role,kind", [("background", "summary"), ("summary", "account_mail"), ("summary", "internal_job")])
 async def test_wrong_kind_is_refused_before_spawn_and_again_in_the_child_runner(monkeypatch, role, kind):
     monkeypatch.setattr(settings, "TASKS_WORKER_ROLE", role)

@@ -25,6 +25,7 @@ class TaskRoute:
     queue: str
     worker_url: str
     invoker_email: str
+    worker_origin: str
 
 
 def _route(queue_name: str, worker_url: str, invoker_email: str) -> TaskRoute:
@@ -47,11 +48,13 @@ def _route(queue_name: str, worker_url: str, invoker_email: str) -> TaskRoute:
         or not re.fullmatch(r"[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com", invoker_email)
     ):
         raise TaskUnavailable("Durable tasks are not configured")
-    # Cloud Run's audience is the canonical origin, not its optional slash/default port.
+    # Existing queued tasks retain the configured audience spelling. Normalize only
+    # for the isolation comparison; changing an accepted audience would strand them.
     return TaskRoute(
         queue=f"projects/{parts[0]}/locations/{parts[1]}/queues/{parts[2]}",
-        worker_url=f"https://{worker.hostname}",
+        worker_url=worker_url.rstrip("/"),
         invoker_email=invoker_email,
+        worker_origin=f"https://{worker.hostname}",
     )
 
 
@@ -65,7 +68,7 @@ def summary_route() -> TaskRoute:
         settings.SUMMARY_TASKS_QUEUE, settings.SUMMARY_TASKS_WORKER_URL,
         settings.SUMMARY_TASKS_INVOKER_EMAIL,
     )
-    if summary.queue == background.queue or summary.worker_url == background.worker_url:
+    if summary.queue == background.queue or summary.worker_origin == background.worker_origin:
         raise TaskUnavailable("Summary tasks require an isolated queue and worker")
     return summary
 

@@ -29,7 +29,10 @@ The summary route requires a complete valid background route and a complete vali
 route. Queue names and normalized worker origins must differ. Invalid or incomplete routing
 fails before the metadata credential read or Cloud Tasks request. Optional trailing slash,
 host case and HTTPS port 443 cannot disguise an identical worker origin. Existing background
-delivery does not require any summary configuration.
+delivery does not require any summary configuration. Normalization is used only for that
+comparison: the HTTP target and OIDC audience retain the configured URL spelling with its
+trailing slash removed, as older queued tasks were minted. A new image must not invalidate
+those tasks merely by lowercasing the host or removing an explicit port from the audience.
 
 Task naming preserves the existing hash of server-owned dedupe key and envelope. The full task
 name additionally belongs to its queue namespace. Moving a queue does not deduplicate against
