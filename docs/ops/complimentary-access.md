@@ -155,7 +155,8 @@ operations in `.github/workflows/ops.yml`: `complimentary-access-dry-run`, `comp
 runs only after the founder approves `ops-apply` for its run, takes the dry run's `manifest_sha256` in its
 `confirm_digest` input and records `ops-run:<run id>` as its runner. The manifest is never an input: it reaches the
 run only as the repository secret `COMPLIMENTARY_ACCESS_MANIFEST`, set from the founder's machine before the dry run
-(`jq -c . manifest.json | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`, after the offline `check`) and deleted after the readout
+(`jq -c . "$HOME/beta-private/manifest.json" | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`, after the offline
+`check`, with the file kept outside this repository's checkout) and deleted as soon as the apply has run
 (`gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`). The step hands it to the script on stdin, never through a file, an
 argument or the log. `docs/DEPLOYMENT.md`, "Complimentary access", gives the order. Nothing can be dispatched before
 the code is on `main` and deployed.

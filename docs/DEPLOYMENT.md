@@ -1130,19 +1130,22 @@ secret `COMPLIMENTARY_ACCESS_MANIFEST`, read in the script step's environment an
 written to a file or printed. The runner masks each line of a secret as text of its own wherever it appears in the
 log, so a manifest written over several lines also blanks the report text that repeats one of its lines: its action,
 cohort and review date, and every `{`, `}` and `]`. So step 1 sets the secret from the one-line form `jq -c` prints,
-which leaves the digest unchanged. While the secret exists, a workflow on any branch could read it, so it lives only as long
-as the procedure. The code and its migration must be on `main` and deployed first: confirm the merge's deploy-backend
+which leaves the digest unchanged. While the secret exists, a workflow on any branch could read it, so it is deleted
+as soon as the apply has run; the readout needs no manifest. The manifest file itself stays in the founder's private
+store, outside this repository's checkout, so it can never be committed. The code and its migration must be on `main` and deployed first: confirm the merge's deploy-backend
 run succeeded.
 
 The order, for a grant or a revoke, each dispatch after the previous run has finished:
-1. On the founder's own machine, offline: `python scripts/complimentary_access.py check --manifest manifest.json`
-   (from `backend/`), then `jq -c . manifest.json | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`.
+1. On the founder's own machine, offline, with the manifest outside the checkout (for example
+   `"$HOME/beta-private/manifest.json"`): `python scripts/complimentary_access.py check --manifest
+   "$HOME/beta-private/manifest.json"` (from `backend/`), then
+   `jq -c . "$HOME/beta-private/manifest.json" | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`.
 2. Dispatch `complimentary-access-dry-run` and compare its counts, refusals and `manifest_sha256` with the private
    roster. After any edit to the manifest, set the secret again and dry-run again: an edit changes the digest.
 3. Dispatch `complimentary-access-apply` with `confirm_digest` set to that digest, and approve `ops-apply` for that
    run.
-4. Dispatch `complimentary-access-readout`.
-5. `gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`.
+4. `gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`. A rerun of the apply sets it again first.
+5. Dispatch `complimentary-access-readout`.
 
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.

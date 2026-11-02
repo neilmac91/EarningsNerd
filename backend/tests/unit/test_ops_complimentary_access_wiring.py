@@ -17,12 +17,16 @@ from Cloud Run and the Ops proxy, so three Ops operations run it: `complimentary
   variable psql or the script inherits; with the secret empty or unset, the dry run and the apply refuse before any
   database call while the readout still runs;
 - the manifest is the founder's private file: its repository secret is named once in every workflow, in that step's
-  env, no workflow reads the whole secrets context, no dispatch input is named for a manifest, and the step's script
-  moves the manifest only through a pipe and redirects nothing, so it writes it to no file.
+  env, in the text and in the parsed workflow alike (so no YAML alias hands it to a second step), no workflow reads the
+  whole secrets context, no dispatch input is named for a manifest, the step's script moves the manifest only through
+  a pipe and redirects nothing, so it writes it to no file, and no file this repository tracks is a manifest.
 
 Out of reach, said so nothing is overclaimed: how GitHub masks the secret in the log (the runner registers each line
-of a multi-line secret as a mask; docs/DEPLOYMENT.md says to store the manifest on one line), and what the script
-prints, which test_complimentary_access_script.py holds free of ids, addresses and the reason.
+of a multi-line secret as a mask; docs/DEPLOYMENT.md says to store the manifest on one line); what the script prints,
+which test_complimentary_access_script.py holds free of ids, addresses and the reason; and the step shell's own
+initial environment: `unset` keeps the value out of every child's environment, but the shell's /proc/<pid>/environ
+still holds it for the step's life, readable by a process of the same user on that runner, as with any env-delivered
+secret.
 """
 import hashlib
 import json
@@ -365,6 +369,11 @@ def test_the_manifest_secret_is_named_once_in_every_workflow_in_the_script_steps
     inherit`), so no workflow reads the context but by a secret's name."""
     named = {path.name: len(re.findall(SECRET, path.read_text(encoding="utf-8"), re.IGNORECASE)) for path in WORKFLOW_FILES}
     assert {name: count for name, count in named.items() if count} == {"ops.yml": 1}
+    # A YAML alias repeats a node without repeating its text, so the parsed workflows must name it once too.
+    parsed = {path.name: sum(bool(re.search(SECRET, text, re.IGNORECASE))
+                             for text in _strings(yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)))
+              for path in WORKFLOW_FILES}
+    assert {name: count for name, count in parsed.items() if count} == {"ops.yml": 1}
     assert BY_NAME[COMPLIMENTARY][1]["env"]["MANIFEST"] == "${{ secrets." + SECRET + " }}"
     # GitHub reads context names in any case too (`SECRETS[...]`, `toJSON(Secrets)`).
     whole = [(path.name, expression.strip()) for path in WORKFLOW_FILES
@@ -377,6 +386,40 @@ def test_the_manifest_secret_is_named_once_in_every_workflow_in_the_script_steps
                                   .get("jobs") or {}).items()
                 if isinstance(job, dict) and str(job.get("secrets", "")).strip().lower() == "inherit"]
     assert inherits == [], "a reusable workflow call hands on every secret"
+
+
+def _strings(node):
+    """Every key and scalar of a parsed workflow, a node an alias repeats once per place it appears."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield str(key)
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _strings(value)
+    elif node is not None:
+        yield str(node)
+
+
+def test_no_tracked_file_is_a_manifest():
+    """A manifest names real accounts and lives in the founder's private store, outside this public repository's
+    checkout (docs/DEPLOYMENT.md, "Complimentary access"): no JSON file the repository tracks parses as one."""
+    from app.services.complimentary_access_manifest import ManifestError, load_manifest
+
+    listed = subprocess.run(["git", "ls-files", "-z", "--", "*.json"], cwd=ROOT, capture_output=True, check=True)
+    names = [name for name in listed.stdout.decode().split("\0") if name]
+    assert names, "git ls-files found no JSON file: the scan is not reading this checkout"
+    manifests = []
+    for name in names:
+        raw = (ROOT / name).read_bytes()
+        if b"operator_account_id" not in raw:  # every manifest names its operator
+            continue
+        try:
+            load_manifest(raw)
+        except ManifestError:
+            continue
+        manifests.append(name)
+    assert manifests == [], "a tracked file is a complimentary-access manifest"
 
 
 def test_no_dispatch_input_is_named_for_a_manifest():
