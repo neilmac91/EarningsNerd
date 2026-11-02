@@ -1111,6 +1111,25 @@ def test_e289_an_inputs_finding_on_an_own_row_that_did_not_pass_marks_no_calcula
     assert "reconciled" not in point
 
 
+def test_e289_a_recorded_operand_decides_over_the_datasets_figure():
+    # A margin derived while the FY2018 10-K's revenue was current records that report's value: no evidence, so no
+    # mark, though the dataset's revenue, shown from a later filing at a thousandth of it, is marked (D4: the recorded
+    # operand stands for its input; the dataset's figure only where none was recorded).
+    reports = FirstReports({}, {}, None, history=[_own()])
+    revenue = {**_figure(value=6_710.8e3), "period": "FY2018"}
+    reports.attach([revenue])
+    assert revenue["provenance"]["reasons"] == ["source_conflict"]
+    own = {**_figure(value=6_710.8e6), "accession": K18, "filed_at": "2019-02-07"}
+    margin = {**_figure("net_margin", 36.4, "calculated", [own]), "period": "FY2018"}
+    reports.attach([margin])
+    assert "first_reported" not in margin["provenance"]["inputs"][0]
+    assert (margin["provenance"]["validation"], margin["provenance"]["reasons"]) == ("passed", [])
+    # With no operand of revenue recorded, the dataset's marked revenue stands in.
+    legacy = {**_figure("net_margin", 36_424.9, "calculated"), "period": "FY2018"}
+    reports.attach([legacy])
+    assert (legacy["provenance"]["validation"], legacy["provenance"]["reasons"]) == ("needs_review", ["source_conflict"])
+
+
 def test_e289_an_input_questioned_for_another_reason_marks_no_calculation():
     # Not ruled (chief design, #1888): an input whose own note questions it for another reason, here a value the
     # automated check has not matched that a later filing also changed with no finding, leaves its calculation be.
