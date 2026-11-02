@@ -1632,7 +1632,9 @@ def test_the_rest_pagination_limit_and_a_bare_os_error_fail_at_once(monkeypatch,
     monkeypatch.setenv('REVIEW_GATE_HEAD', HEAD)
     def unreadable():
         raise OSError('offline')
-    assert review_gate.main(fetch=unreadable, sleep=pytest.fail, clock=lambda: 0.0) == 1
+    def sleep(seconds: float) -> None:
+        pytest.fail(f"the gate slept {seconds:g} s where a bare OSError fails at once")
+    assert review_gate.main(fetch=unreadable, sleep=sleep, clock=lambda: 0.0) == 1
     assert 'failed to read trusted GitHub evidence' in capsys.readouterr().out
 
 
@@ -1844,11 +1846,17 @@ def test_transient_errors_in_a_row_back_off_to_the_cap_and_the_deadline_then_tim
         expected: list[float]) -> None:
     """F57: after the k-th transient error in a row the gate sleeps poll * 2 ** (k - 1), at most two minutes (or the
     poll interval, when that is longer) and never past its deadline; errors until the deadline end in the timeout.
-    The sleep fails the test past the expected sleeps, so a gate that misses its deadline fails here, never hangs."""
+    The sleep fails the test past the expected sleeps and the read past the expected reads (one more than the
+    sleeps), so a gate that misses its deadline fails here, never hangs, whether or not it sleeps between reads."""
     base = _f57_env(monkeypatch, tmp_path, poll, timeout)
     sleeps, sleep, clock = _timed(limit=len(expected))
+    reads: list[None] = []
 
     def fetch() -> review_gate.State:
+        reads.append(None)
+        if len(reads) > len(expected) + 1:
+            pytest.fail(f"the gate read GitHub {len(reads)} times where it should have stopped after "
+                        f"{len(expected) + 1}")
         raise _http_error(503)
     assert review_gate.main(fetch=fetch, sleep=sleep, clock=clock, wall=lambda: NOW, **base) == 1
     assert sleeps == expected
@@ -1909,8 +1917,9 @@ def test_every_status_outside_500_to_599_fails_at_once_naming_it(
     (json.JSONDecodeError("Expecting value", "<html>body-never-printed</html>", 0), "JSONDecodeError"),
     (ssl.SSLError(1, f"decryption failed or bad record mac reading {LEAKY_URL}"), "SSLError"),
     (OSError("offline"), "OSError"),
+    (http.client.LineTooLong("header line"), "LineTooLong"),
 ], ids=["the-gates-own-error", "a-value-error", "a-key-error", "a-type-error", "a-body-that-is-not-json",
-        "an-ssl-error-mid-response", "a-bare-os-error"])
+        "an-ssl-error-mid-response", "a-bare-os-error", "an-http-client-error-outside-the-three"])
 def test_the_gates_own_error_and_any_other_still_fail_at_once(
         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, error: BaseException,
         printed: str) -> None:
@@ -1930,7 +1939,8 @@ class _StillPolling(Exception):
 def test_a_fetch_that_only_ever_fails_transiently_never_passes_whatever_the_clock_reads(
         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, reading: str) -> None:
     """F57: the gate passes only on a complete read, so while GitHub keeps failing it waits on (stopped here after
-    1,500 polls) or times out, whatever its clock reads; it never returns 0, and no sleep passes the cap."""
+    1,500 polls) or times out, whatever its clock reads; it never returns 0, and no sleep passes the cap. A read past
+    the 1,500th fails the test, so a gate that polls on without sleeping fails here rather than hangs."""
     base = _f57_env(monkeypatch, tmp_path)
     readings: list[None] = []
     sleeps: list[float] = []
@@ -1946,7 +1956,13 @@ def test_a_fetch_that_only_ever_fails_transiently_never_passes_whatever_the_cloc
         if len(sleeps) == 1_500:
             raise _StillPolling
 
+    reads: list[None] = []
+
     def fetch() -> review_gate.State:
+        reads.append(None)
+        if len(reads) > 1_500:
+            pytest.fail(f"the gate read GitHub {len(reads)} times with {len(sleeps)} sleeps between: it polls on "
+                        "without sleeping")
         raise TRANSIENT[len(sleeps) % len(TRANSIENT)][1]()
     try:
         code = review_gate.main(fetch=fetch, sleep=sleep, clock=clock, wall=lambda: NOW, **base)
@@ -1960,28 +1976,37 @@ def test_a_fetch_that_only_ever_fails_transiently_never_passes_whatever_the_cloc
     assert all(0 < seconds <= review_gate.TRANSIENT_BACKOFF_CAP for seconds in sleeps)
 
 
+@pytest.mark.parametrize("second", ["a-503", "a-concurrent-update"])
 def test_a_failed_read_never_decides_on_an_earlier_polls_snapshot(
-        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-    """F57: a poll whose read failed decides nothing, so the gate never passes on an earlier poll's snapshot. That
-    snapshot waits on another head's manual review, open at the first poll's wall time and an hour old at the
-    second's, when the snapshot judged again would pass; the second read fails instead, so the gate retries and then
-    times out."""
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, second: str) -> None:
+    """F57: a poll whose read failed, or met a concurrent update, decides nothing, so the gate never passes on an
+    earlier poll's snapshot. That snapshot waits on another head's manual review, open at the first poll's wall time
+    and an hour old at the second's, when the snapshot judged again passes (a control run shows it first); the second
+    read fails or meets a change instead, so the gate polls again and then times out."""
     base = _f57_env(monkeypatch, tmp_path)
     other = _state_edit("running", "2026-09-15T19:01:30Z", "Manual request", head=OTHER)
     history = [_state_edit("completed", "2026-09-15T19:02:00Z", edited="2026-09-15T19:02:00Z"), other,
                _state_edit("running", "2026-09-15T19:00:01Z")]
     state = review_gate.State([_comment(history)], "body", [HEAD], False, None, (), CREATED, READY_EVENTS, HEAD)
+    # The premise: judged again at the second poll's wall time, the earlier snapshot passes.
+    _, never, _ = _timed(limit=0)
+    assert review_gate.main(fetch=_reads(state), resolve=lambda short: HEAD, sleep=never, clock=lambda: 0.0,
+                            wall=lambda: _at("2026-09-15T20:01:31Z"), **base) == 0
+    capsys.readouterr()
+    failure = (_http_error(503) if second == "a-503"
+               else review_gate.SnapshotChanged("the pull request changed while it was read"))
     walls = iter([_at("2026-09-15T19:10:00Z")])
     ticks = iter([0.0, 0.0])  # the start and the first poll; the clock has run out by the second
     sleeps, sleep, _ = _timed(limit=1)
-    code = review_gate.main(fetch=_reads(state, _http_error(503)), resolve=lambda short: HEAD, sleep=sleep,
+    code = review_gate.main(fetch=_reads(state, failure), resolve=lambda short: HEAD, sleep=sleep,
                             clock=lambda: next(ticks, 10_000.0), wall=lambda: next(walls, _at("2026-09-15T20:01:31Z")),
                             **base)
     assert code == 1 and sleeps == [20]
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 3, lines
     assert f"review of {OTHER[:7]} (Manual request) started at 19:01:30Z has not completed" in lines[0]
-    assert lines[1] == f"review-gate: GitHub could not be read (HTTPError 503), {RETRY}"
+    assert lines[1] == (f"review-gate: GitHub could not be read (HTTPError 503), {RETRY}" if second == "a-503"
+                        else "review-gate: the pull request changed while it was read")
     assert lines[2].startswith("review-gate: timed out after 20 minutes") and _no_leak(lines)
 
 
