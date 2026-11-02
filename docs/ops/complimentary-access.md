@@ -155,13 +155,33 @@ as a masked repository secret, read only in that step's environment and never ec
 `.github/workflows/monthly-sql-export.yml` reads its configuration; the digest the founder confirms is the apply's
 input. Nothing can be dispatched before the code is on `main` and deployed.
 
+## Deploying
+
+The change deploys the backend with two migrations (`applied=2` on the deploy's migration line). Both lock `users`,
+which every signed-in request reads, so deploy it in a quiet window, as the only backend deploy in flight:
+
+- `20261102_earningsnerd_complimentary_access_grants.sql` creates the ledger. Its reference to `users` takes SHARE ROW
+  EXCLUSIVE on `users` for a catalog change: reads go on, and writes to `users` wait until it commits.
+- `20261102_trend_analysis_creator_set_null.sql` swaps the analysis stamp's reference in one statement and validates it
+  in another, each committing on its own. The swap takes ACCESS EXCLUSIVE on `users` and `trend_analysis` for a catalog
+  change, so while it waits for that lock every query on `users` waits behind it. The validation takes SHARE UPDATE
+  EXCLUSIVE on `trend_analysis` and ROW SHARE on `users`, which stop no read or write.
+- Each file waits at most 2 s for a lock, not the session's 10 s, so a blocked attempt holds those queries for at most
+  2 s. `apply_migrations.sh` retries a lock timeout up to five times, 15 s apart, then fails the deploy and prints the
+  blocking sessions. A failed deploy is not retried: run it again once the blocker has finished, and it resumes where
+  the file stopped, since each step reads the catalog first.
+
+`tests/integration/test_subscription_event_transactions.py` reads the locks each statement holds, and probes `users`
+from a second session, on CI's PostgreSQL.
+
 ## Rollback
 
 - **A mistaken grant:** revoke it (above). **A mistaken revoke:** grant again; a re-grant reopens the account's ledger
   row and writes a new audit row.
 - **Code rollback:** the ledger table is additive. A revision without this code still reads `is_pro`, so granted
   accounts stay Pro under it, and Billing loses only its complimentary line (the flag keeps them out of checkout).
-  Revoke before rolling back if the grants should end with the code.
+  Revoke before rolling back if the grants should end with the code. The stamp's reference stays `ON DELETE SET NULL`
+  under an older revision, which only lets an account's deletion through.
 - **Schema:** the migration only creates the table (`CREATE TABLE IF NOT EXISTS`). Dropping it would need a migration
   of its own after the grants are revoked.
 
