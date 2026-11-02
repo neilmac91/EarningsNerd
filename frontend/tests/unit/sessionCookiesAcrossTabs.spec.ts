@@ -258,8 +258,9 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
         }
         // A change that names the account its tab shows is refused for any other, before its current password is read
         // and before anything is revoked or minted (E29 (6)).
-        const named = (JSON.parse(typeof config.data === 'string' ? config.data : '{}') as { account_id?: number }).account_id
-        if (named !== undefined && named !== ACCOUNT_IDS[session]) {
+        // As the route reads it: a null account_id names no account, as an absent one does.
+        const named = (JSON.parse(typeof config.data === 'string' ? config.data : '{}') as { account_id?: number | null }).account_id
+        if (named != null && named !== ACCOUNT_IDS[session]) {
           shared.events.push(`${name}'s ${url} refused: it names another account than ${session}`)
           throw conflict(config, 'This browser is logged in to a different account from the one this page shows, so the password was not changed.')
         }
