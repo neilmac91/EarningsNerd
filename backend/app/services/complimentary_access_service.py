@@ -41,6 +41,7 @@ from app.utils.datetimes import utcnow
 # The key of the PostgreSQL advisory lock every grant and revoke unit takes first: "COMPGRNT" in ASCII.
 GRANT_LOCK_KEY = 0x434F4D5047524E54
 
+# The audit actions, spelled again as literals at their two create_audit_log calls (legalTruth.spec.tsx's reader).
 AUDIT_GRANTED = "complimentary_access_granted"
 AUDIT_REVOKED = "complimentary_access_revoked"
 
@@ -290,10 +291,12 @@ def dry_run(db: Session, manifest: Manifest, digest: str, *, today: date) -> Rep
         db.rollback()  # the read transaction ends here, before the caller reports or applies
 
 
-def _audit(
-    db: Session, action: str, *, operator: str, runner: Optional[str], manifest: Manifest, digest: str,
-    account: _Account, before: dict, after: dict, billing_owned: Optional[bool] = None,
-) -> None:
+def _audit_details(
+    *, operator: str, runner: Optional[str], manifest: Manifest, digest: str, account: _Account, before: dict,
+    after: dict, billing_owned: Optional[bool] = None,
+) -> dict:
+    """What a grant's or a revoke's audit row records: the cohort, reason and manifest it ran from, the operator, the
+    run's provenance, the invite the account redeemed, and the account's plan state before and after."""
     details = {
         "cohort": manifest.cohort,
         "reason": manifest.reason,
@@ -308,11 +311,7 @@ def _audit(
         details["review_on"] = manifest.review_on.isoformat()
     if billing_owned is not None:
         details["billing_owned"] = billing_owned
-    # Mandatory: staged in this unit's transaction, so the row commits with the change it records or neither does.
-    create_audit_log(
-        db, action, user_id=manifest.operator_account_id, entity_type="user", entity_id=str(account.user.id),
-        details=details, mandatory=True,
-    )
+    return details
 
 
 def _grant_one(
@@ -344,8 +343,14 @@ def _grant_one(
             db.add(grant)
         user.is_pro = True
         after = {"is_pro": True, "plan": get_plan(user).value, "grant": "active"}
-        _audit(db, AUDIT_GRANTED, operator=operator, runner=runner, manifest=manifest, digest=digest,
-               account=account, before=before, after=after)
+        # Mandatory: staged in this unit's transaction, so the row commits with the change it records or neither does.
+        # The action is spelled here, as legalTruth.spec.tsx reads every audit action the backend writes.
+        create_audit_log(
+            db, action="complimentary_access_granted", user_id=manifest.operator_account_id, entity_type="user",
+            entity_id=str(user.id), mandatory=True,
+            details=_audit_details(operator=operator, runner=runner, manifest=manifest, digest=digest,
+                                   account=account, before=before, after=after),
+        )
         db.commit()
         return "granted", []
     except Exception:
@@ -374,8 +379,12 @@ def _revoke_one(
             # Only the grant's own Pro: an account with billing state keeps whatever its webhook set.
             user.is_pro = False
         after = {"is_pro": bool(user.is_pro), "plan": get_plan(user).value, "grant": "revoked"}
-        _audit(db, AUDIT_REVOKED, operator=operator, runner=runner, manifest=manifest, digest=digest,
-               account=account, before=before, after=after, billing_owned=billing_owned)
+        create_audit_log(
+            db, action="complimentary_access_revoked", user_id=manifest.operator_account_id, entity_type="user",
+            entity_id=str(user.id), mandatory=True,
+            details=_audit_details(operator=operator, runner=runner, manifest=manifest, digest=digest,
+                                   account=account, before=before, after=after, billing_owned=billing_owned),
+        )
         db.commit()
         return ("revoked_billing_untouched" if billing_owned else "revoked"), []
     except Exception:

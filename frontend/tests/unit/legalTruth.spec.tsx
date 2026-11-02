@@ -2876,6 +2876,8 @@ const AUDITED_UNNAMED: Record<string, string> = {
   oauth_unlinked: 'a Google or Apple sign-in unlinked in the account settings',
   summaries_bulk_reset: "an administrator's bulk reset of generated summaries, so they regenerate",
   summaries_refresh_stale: "an administrator's regeneration of stale summaries in place",
+  complimentary_access_granted: "an administrator's complimentary Pro grant for an invited private-beta account (PB-02)",
+  complimentary_access_revoked: "an administrator's revoke of a complimentary Pro grant (PB-02)",
 }
 
 /** Where a Python string literal that starts at `at` ends: its closing quote, or its line's end (pythonCode has dropped

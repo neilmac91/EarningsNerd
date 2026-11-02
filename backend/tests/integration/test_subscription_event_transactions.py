@@ -15,6 +15,7 @@ import os
 import threading
 import time
 from datetime import timedelta
+from pathlib import Path
 import uuid
 
 import pytest
@@ -670,6 +671,18 @@ def test_postgres_concurrent_customer_claims_keep_the_first(postgres_engine):
 # --------------------------------------------------------------------------- PB-02: complimentary grants
 
 
+PB02_MIGRATION = Path(__file__).resolve().parents[2] / "migrations" / "20261102_earningsnerd_complimentary_access_grants.sql"
+_PB02_COLUMNS = text(
+    "SELECT column_name, data_type, is_nullable, character_maximum_length FROM information_schema.columns"
+    " WHERE table_schema = :schema AND table_name = 'earningsnerd_complimentary_access_grants'"
+    " ORDER BY ordinal_position"
+)
+_PB02_CONSTRAINTS = text(
+    "SELECT c.contype, pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid"
+    " JOIN pg_namespace n ON n.oid = t.relnamespace"
+    " WHERE n.nspname = :schema AND t.relname = 'earningsnerd_complimentary_access_grants' ORDER BY 1, 2"
+)
+
 def _pb02_account(engine, *, admin=False):
     """An admin operator, or an invited tester who verified and confirmed their own signup."""
     now = utcnow()
@@ -829,3 +842,35 @@ def test_postgres_deleting_a_granted_account_removes_its_grant_through_the_forei
     with _session(postgres_engine) as db:
         assert db.query(ComplimentaryAccessGrant).count() == 0
         assert [row.action for row in db.query(AuditLog)] == [access.AUDIT_GRANTED]
+
+
+
+def test_postgres_the_migration_builds_the_ledger_the_model_maps_and_reapplies_cleanly(postgres_engine):
+    """CI's migrations job seeds with create_all, which makes this file's CREATE TABLE IF NOT EXISTS skip there; this
+    case applies the file itself, twice, into a schema holding only the users table, and compares what it built with
+    the table the model maps (the fixture's create_all), column by column and constraint by constraint."""
+    sql = PB02_MIGRATION.read_text(encoding="utf-8")
+    applied = f"pb02_migration_{uuid.uuid4().hex}"
+    with postgres_engine.connect() as conn:
+        mapped = conn.execute(text("SELECT current_schema()")).scalar()
+        conn.rollback()
+        conn.execute(CreateSchema(applied))
+        conn.commit()
+        try:
+            conn.exec_driver_sql(f"SET search_path TO {applied}")
+            User.__table__.create(conn)
+            conn.exec_driver_sql(sql)
+            conn.exec_driver_sql(sql)  # a ledger reset or an edited file re-runs it: it must converge
+            conn.commit()
+            built = [tuple(row) for row in conn.execute(_PB02_COLUMNS, {"schema": applied})]
+            constraints = [(kind, definition.replace(f"{applied}.", "")) for kind, definition in
+                           conn.execute(_PB02_CONSTRAINTS, {"schema": applied})]
+            assert built and built == [tuple(row) for row in conn.execute(_PB02_COLUMNS, {"schema": mapped})]
+            assert constraints == [(kind, definition.replace(f"{mapped}.", "")) for kind, definition in
+                                   conn.execute(_PB02_CONSTRAINTS, {"schema": mapped})]
+            assert sorted(kind for kind, _ in constraints) == ["c", "f", "p", "u"]
+        finally:
+            conn.rollback()
+            conn.exec_driver_sql(f"SET search_path TO {mapped}")
+            conn.execute(DropSchema(applied, cascade=True))
+            conn.commit()
