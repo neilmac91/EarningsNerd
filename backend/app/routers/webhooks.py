@@ -149,7 +149,7 @@ async def handle_resend_webhook(request: Request):
         await handle_email_opened(data)
     elif event_type == "email.clicked":
         await handle_email_clicked(data)
-    elif event_type not in resend_webhook_service.FEEDBACK_EVENTS:
+    elif not isinstance(event_type, str) or event_type not in resend_webhook_service.FEEDBACK_EVENTS:
         logger.warning(f"Unhandled Resend webhook event type: {event_type}")
 
     # Durable feedback (EN-BETA PB-01): only from a delivery the signature check authenticated, so with no secret set

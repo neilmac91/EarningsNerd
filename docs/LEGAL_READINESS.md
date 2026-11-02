@@ -135,7 +135,11 @@ link in the same transaction that creates its replacement.
 list suppresses the address for invitation and any future promotional mail, and a suppressed address
 is refused before anything is written. Requested account mail (verification, password reset, the
 sign-in notices) never reads the list. The list keeps a pseudonymous SHA-256 of the normalized
-address under a fixed prefix, with the suppression's reason and source. It is not peppered with
+address under a fixed prefix, with the suppression's reason and source. It holds a row for each
+address an invitation was emailed to (the lock that address's sends and its opt-out take, unsuppressed
+until something suppresses it) and for each address that unsubscribed, bounced permanently, complained
+or was suppressed by the provider on any mail EarningsNerd sends, which starts once
+`RESEND_WEBHOOK_SECRET` is bound (F46). A manual re-issue, which sends nothing, adds no row. It is not peppered with
 `SECRET_KEY`, because rotating that key would silently forget every opt-out; the cost is that the
 hash of a known address can be recomputed. It survives account deletion, since honouring an opt-out
 means recognizing the address again. Its retention, and its mention in the privacy notice, are the

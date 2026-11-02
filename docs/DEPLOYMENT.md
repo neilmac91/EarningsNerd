@@ -451,12 +451,6 @@ compatible image. Preserve that reader and its dependencies when reverting the o
 `main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
 bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
-**Invite readiness floor (PB-01, #1965).** An API-only rollback past this PR removes
-`GET /api/admin/invites/readiness`. The admin invites page fails closed on that read, so Send and
-Resend stay unavailable there until the frontend is rolled back too. The API itself still mints
-invites, and links already issued stay valid. A frontend-only rollback is safe: the older page
-does not read the route.
-
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
 gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --limit=5
@@ -479,6 +473,12 @@ false). Once traffic rolls forward the column stays, the ledger having recorded 
 drop file's `migration_ledger` row and the next deploy drops it again. The drop discarded the
 column's values, which only a database backup keeps
 (`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
+
+**Invite readiness floor (PB-01, #1965).** An API-only rollback past this PR removes
+`GET /api/admin/invites/readiness`. The admin invites page fails closed on that read, so Send and
+Resend stay unavailable there until the frontend is rolled back too. The API itself still mints
+invites, and links already issued stay valid. A frontend-only rollback is safe: the older page
+does not read the route.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every

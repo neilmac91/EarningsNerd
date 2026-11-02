@@ -106,14 +106,14 @@ def _recipients(value: Any) -> tuple[str, ...]:
 
 def parse_event(event_type: Any, data: Any, event_id: Any) -> Optional[ProviderEvent]:
     """The validated feedback a signed delivery carries, or None when it carries none the controls act on."""
-    if event_type not in FEEDBACK_EVENTS or not isinstance(data, dict):
+    if not isinstance(event_type, str) or event_type not in FEEDBACK_EVENTS or not isinstance(data, dict):
         return None
-    if not isinstance(event_id, str) or not _EVENT_ID.match(event_id):
+    if not isinstance(event_id, str) or not _EVENT_ID.fullmatch(event_id):
         return None
     email_id = data.get("email_id")
-    email_id = email_id if isinstance(email_id, str) and _EMAIL_ID.match(email_id) else None
+    email_id = email_id if isinstance(email_id, str) and _EMAIL_ID.fullmatch(email_id) else None
     ref = _tag_value(data.get("tags"), DELIVERY_TAG)
-    ref = ref if isinstance(ref, str) and _DELIVERY_REF.match(ref) else None
+    ref = ref if isinstance(ref, str) and _DELIVERY_REF.fullmatch(ref) else None
     bounce_type = None
     if event_type == EVENT_BOUNCED:
         bounce = data.get("bounce") if isinstance(data.get("bounce"), dict) else {}
@@ -123,7 +123,7 @@ def parse_event(event_type: Any, data: Any, event_id: Any) -> Optional[ProviderE
     if event_type == EVENT_FAILED:
         failed = data.get("failed") if isinstance(data.get("failed"), dict) else {}
         raw = failed.get("reason")
-        failure_reason = raw if isinstance(raw, str) and _REASON.match(raw) else "unspecified"
+        failure_reason = raw if isinstance(raw, str) and _REASON.fullmatch(raw) else "unspecified"
     return ProviderEvent(
         event_id=event_id,
         type=event_type,

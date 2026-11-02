@@ -455,6 +455,45 @@ def test_a_manual_resend_of_a_bound_invite_sends_nothing(client, admin, mail_rea
     client.cookies.clear()
 
 
+def test_a_manual_resend_adds_no_address_to_the_suppression_list(client, admin, collection_ready):
+    """A manual re-issue sends nothing, so it adds no address to the suppression list (review of #1965): while
+    invitation email is held, as this ships, a Resend of a bound invite leaves no row there, so the list holds only
+    addresses invitation email was sent to or that opted out, bounced or complained."""
+    email = _address()
+    minted = client.post("/api/admin/invites", json={"email": email, "send_email": False}, headers=admin["headers"])
+    assert minted.status_code == 200, minted.text
+
+    resent = _resend(client, admin, minted.json()["id"], send_email=False)
+
+    assert resent.status_code == 200, resent.text
+    assert resent.json()["revoked_invite_id"] == minted.json()["id"]
+    assert _recipient(email) is None
+
+
+def test_a_webhook_whose_type_is_not_a_string_is_acknowledged_and_records_nothing(client, mail_ready):
+    """Validated where it enters (rule 9): a signed delivery whose type is a list, an object or a number is no
+    feedback. It answers 200, as an unknown type does, where a list or an object raised a 500 at the membership test,
+    so the provider would have retried it for ever."""
+    for odd in (["email.bounced"], {"type": "email.bounced"}, 7):
+        body = json.dumps({"type": odd, "created_at": "2026-11-02T12:00:00.000Z", "data": {}}).encode()
+        answer = client.post("/api/webhooks/resend", content=body, headers=_sign(body, f"msg_{uuid4().hex}"))
+        assert answer.status_code == 200, (odd, answer.text)
+    assert resend_webhook_service.parse_event(["email.bounced"], {}, "msg_1") is None
+
+
+def test_an_id_with_a_trailing_newline_is_no_id():
+    """The parser's patterns match the whole value: a 64-character email id with a trailing newline (65 characters,
+    past its 64-character column, which failed every retry with 503) and a delivery ref with one are refused, where an
+    end anchor let both through."""
+    event = resend_webhook_service.parse_event(
+        "email.delivered",
+        {"email_id": "x" * 64 + "\n", "tags": {resend_webhook_service.DELIVERY_TAG: "a" * 32 + "\n"}},
+        "msg_1",
+    )
+    assert event is not None and event.email_id is None and event.delivery_ref is None
+    assert resend_webhook_service.parse_event("email.delivered", {}, "msg_1\n") is None
+
+
 def test_an_emailed_resend_to_a_suppressed_address_refuses_before_revoking(client, admin, mail_ready, transport):
     email = _address()
     first = _mint(client, admin, email)

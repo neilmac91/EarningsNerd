@@ -1,7 +1,8 @@
 """Requested beta-invitation email: its suppression list and its per-link delivery ledger (EN-BETA PB-01).
 
 ``MailRecipient`` is one row per address, keyed by ``mail_suppression_service.recipient_hash`` (the address is never
-stored here). It is the lock a send and an unsubscribe both take, so an opt-out that commits first stops the send,
+stored here), for each address an invitation was emailed to and each one feedback or an unsubscribe suppressed; a
+manual re-issue, which sends nothing, adds none. It is the lock a send and an unsubscribe both take, so an opt-out that commits first stops the send,
 and it holds the address's suppression: an unsubscribe, a permanent bounce, a complaint or the provider's own
 suppression list. Suppression covers invitation and any future promotional mail; requested account mail (verification,
 password reset, security notices) never reads it. It outlives the invitation, the delivery and any account, since

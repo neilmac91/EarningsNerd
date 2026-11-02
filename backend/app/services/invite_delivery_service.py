@@ -272,9 +272,12 @@ def prepare_reissue(
         hashed: Optional[str] = None
         if current.email:
             hashed = mail_suppression_service.recipient_hash(current.email)
-            recipient = mail_suppression_service.lock_recipient(db, hashed)
             if send_email:
-                _refuse_suppressed(recipient)
+                _refuse_suppressed(mail_suppression_service.lock_recipient(db, hashed))
+            else:
+                # A manual re-issue sends nothing, so it checks no suppression and adds no address to the list: it
+                # waits only on a row an emailed send or an opt-out already holds (review of #1965).
+                mail_suppression_service.lock_existing_recipient(db, hashed)
         old = invite_service.lock_unused_invite(db, invite_id)
         if old.email:
             _refuse_second_live_link(db, old.email, exclude_invite_id=invite_id)

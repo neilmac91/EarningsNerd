@@ -66,6 +66,21 @@ def lock_recipient(db: Session, hashed: str) -> MailRecipient:
     )
 
 
+def lock_existing_recipient(db: Session, hashed: str) -> Optional[MailRecipient]:
+    """The address's row under its row lock if the list already holds one, else None, writing nothing.
+
+    For a step that sends nothing (a manual re-issue): it adds no address to the list, which holds a row only for an
+    address invitation email was sent to or that opted out, bounced or complained, and it waits only where an emailed
+    send or an opt-out already holds that row's lock."""
+    return (
+        db.query(MailRecipient)
+        .filter(MailRecipient.recipient_hash == hashed)
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+
+
 def suppress_locked(recipient: MailRecipient, reason: str, event: str) -> bool:
     """Suppress a locked recipient; the first suppression stands. True when this call suppressed it."""
     if reason not in SUPPRESSION_REASONS:

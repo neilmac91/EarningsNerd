@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS earningsnerd_mail_recipients (
     CONSTRAINT ck_earningsnerd_mail_recipients_suppressed CHECK ((suppressed_at IS NULL) = (suppression_reason IS NULL))
 );
 
+-- The deliveries table's references to invite_codes and users take SHARE ROW EXCLUSIVE on both while it is created;
+-- writes to users wait behind that lock, so this statement waits at most 2 s (not the session's 10 s) before
+-- apply_migrations.sh retries it, as #1955's grants table does. A re-run finds the table and takes no lock on them.
+SET lock_timeout = '2s';
 CREATE TABLE IF NOT EXISTS earningsnerd_invite_deliveries (
     id SERIAL PRIMARY KEY,
     invite_id INTEGER NOT NULL UNIQUE REFERENCES invite_codes(id) ON DELETE CASCADE,
@@ -43,6 +47,7 @@ CREATE TABLE IF NOT EXISTS earningsnerd_invite_deliveries (
         permission_via IN ('email', 'message', 'call', 'in_person', 'other')
     )
 );
+RESET lock_timeout;
 -- Catalog guards so ledger-reset replays never take a lock on these now-live tables.
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_earningsnerd_invite_deliveries_recipient') THEN
