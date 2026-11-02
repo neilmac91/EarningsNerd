@@ -10,8 +10,7 @@ from app.utils.datetimes import utcnow
 logger = logging.getLogger("app.services.edgar.xbrl_service")
 
 # Cache key version: bump it whenever extraction semantics change, so the previous logic's entries age out unread.
-# v2: accession-aware primary path (issue #240); v1 entries could hold the
-# latest 10-K's figures for any accession and must age out unread.
+# v2: accession-aware primary path (issue #240); v1 entries could hold the latest 10-K's figures for any accession.
 # v3: financial-institution revenue via the as-reported income statement (filing 528 / MCB fix) —
 # v2 entries can hold a bank's fee-income-only "revenue" subset and must age out unread.
 # v4: T5.3 shareholder-returns concepts (dividends_paid, share_repurchases) — v3 entries lack the
@@ -20,7 +19,8 @@ logger = logging.getLogger("app.services.edgar.xbrl_service")
 # v6: fallback facts must originate in the selected accession; no latest-filing surrogate.
 # v7: annual points carry the issuer's fiscal year where the calendar year of their end misnames it.
 # v8, v9 (E260): earnings_per_share is basic only, first on the instance path (v8), then on every path (v9).
-_XBRL_CACHE_VERSION = "v11"  # v10 (E278): financial revenue is E264's choice, not the fee line; v11: E286's rule.
+# v10 (E278): financial revenue is E264's choice, not the fee line; v11: E286's rule.
+_XBRL_CACHE_VERSION = "v12"  # v12 (E291): the fallback drops a quarterly report's year that holds part of one.
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (aware UTC cached_datetime, data_dict)
