@@ -41,7 +41,12 @@
 -- The openings, the CASE's arms, the marks and the output columns are pinned by
 -- backend/tests/unit/test_excerpt_source_cohort_sql.py; nothing runs this file in CI (its rehearsal is on a local
 -- PostgreSQL, recorded in its PR).
--- Retire: the session that closes E28 (b) deletes this file and its test in that records PR.
+-- Retire: the session that closes E28 (b) deletes this file and its test, with the rebuild that reads this
+-- file's openings and marks: backend/scripts/rebuild_e28_window_excerpts.py and its test, the
+-- rebuild-e28-excerpts-* operations and step in .github/workflows/ops.yml (the apply in its four apply lists),
+-- REBUILD in backend/tests/support/ops_workflow.py, the step's pins in test_ops_workflow_wiring.py and
+-- test_ops_stderr_withheld.py, and docs/DEPLOYMENT.md's section. That touches backend/ and the Ops workflow, so it
+-- is a high-tier PR, not a records one.
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '10s';
