@@ -3563,6 +3563,41 @@ class TestNativeReportingCurrencySync:
         assert fy2017() == [("0000713676-19-000015", 16_329e6, True), ("0000713676-20-000117", 15_252e6, False)]
         db.close()
 
+    def test_a_named_filings_stale_margin_yields_to_the_batchs_own_calculation(self):
+        # E198 (R1u) for a ratio, which the convergence never converges, so only Guard.later decides it. An older
+        # reading took FY2023 revenue from an 8-K's recast (X8K, filed 2024-08-01, 900) and derived the net margin
+        # under X8K's accession (100 / 900). Read now under a lower-priority tag, the 8-K yields the year to K23's own
+        # 10-K (1000), whose margin (100 / 1000) the sync inserts. The 8-K's margin is a feed row (no filing owner) of a
+        # filing the payload names, so Guard.later never passes it and the upsert's own Filing-date rule decides it:
+        # with no Filing row for the 8-K it yields. Passed to the upsert by its date alone, it stayed current for good.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+
+        def payload(*, x8k_first):
+            k = [_item(800.0, "2022-12-31", start="2022-01-01", accn=f"K22{tag}", fy=2022, filed="2023-02-15"),
+                 _item(1000.0, "2023-12-31", start="2023-01-01", accn=f"K23{tag}", fy=2023, filed="2024-02-15")]
+            x = [_item(900.0, "2023-12-31", start="2023-01-01", accn=f"X8K{tag}", fy=2023, form="8-K",
+                       filed="2024-08-01")]
+            income = [_item(100.0, "2023-12-31", start="2023-01-01", accn=f"K23{tag}", fy=2023, filed="2024-02-15")]
+            return _payload({REV_TAG: {"units": {"USD": k + (x if x8k_first else [])}},
+                             "Revenues": {"units": {"USD": [] if x8k_first else x}},
+                             "NetIncomeLoss": {"units": {"USD": income}}})
+
+        def margins():
+            return sorted((r.accession.removesuffix(tag), round(float(r.value), 4), r.is_latest) for r in db.query(
+                FinancialFact).filter_by(company_id=company.id, concept="net_margin", period_end=date(2023, 12, 31),
+                                         fiscal_period="FY"))
+
+        svc._persist_companyfacts_payload(db, company, payload(x8k_first=True))
+        assert margins() == [("X8K", round(100 / 9, 4), True)]
+        _checked_sync(db, company, payload(x8k_first=False), final=True)
+        assert margins() == [("K23", 10.0, True), ("X8K", round(100 / 9, 4), False)]
+        db.close()
+
     @pytest.mark.parametrize("filing_row", [False, True], ids=["no-8k-filing-row", "a-later-8k-filing-row"])
     @pytest.mark.parametrize("path", ["insert", "per-filing", "history-row"])
     def test_a_named_filings_feed_row_holds_its_key_only_where_the_upserts_own_rule_keeps_it(self, path, filing_row):
