@@ -39,7 +39,8 @@
 -- and waits at most 10 s for a lock (SET LOCAL below; the step's PGOPTIONS allow 600 s). Cost per statement: one scan
 -- of financial_fact for the keys that hold a row that is not current (no index holds is_latest alone), then their rows
 -- through uq_financial_fact_identity's (company, concept, period_end) prefix, the provenance of those rows parsed once,
--- and filings by company. A list stops at 50 rows and carries its set's full count (of_n).
+-- and the filings of those keys' companies once, by accession, hash-joined. A list stops at 50 rows and carries its
+-- set's full count (of_n).
 -- JSON: -> and ->> raise for a whole json value holding a NUL or a lone-surrogate escape, so provenance is read after
 -- rewriting a NUL or any surrogate escape to the escape of U+FFFD (same length; nothing else moves), as #1532 did.
 -- Patterns assume standard_conforming_strings = on (the default).
@@ -91,20 +92,23 @@ WITH params AS (
     JOIN usd_alone a ON a.company_id = ff.company_id
     CROSS JOIN params p
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
+), filing_dates AS MATERIALIZED (
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    FROM filings f
+    WHERE f.company_id IN (SELECT company_id FROM keyed)
+    GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag, ff.source,
            ff.filing_id, ff.form, ff.fiscal_year,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(
-               (SELECT max(f.filing_date)::date FROM filings f
-                WHERE f.company_id = ff.company_id
-                  AND replace(f.accession_number, '-', '') = replace(ff.accession, '-', '')),
+           coalesce(fd.filed,
                CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
                     THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
+    LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -159,19 +163,22 @@ WITH params AS (
     FROM financial_fact ff
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND ff.unit = 'pure'
+), filing_dates AS MATERIALIZED (
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    FROM filings f
+    WHERE f.company_id IN (SELECT company_id FROM keyed)
+    GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(
-               (SELECT max(f.filing_date)::date FROM filings f
-                WHERE f.company_id = ff.company_id
-                  AND replace(f.accession_number, '-', '') = replace(ff.accession, '-', '')),
+           coalesce(fd.filed,
                CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
                     THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
+    LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -243,19 +250,22 @@ WITH params AS (
     FROM financial_fact ff
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
+), filing_dates AS MATERIALIZED (
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    FROM filings f
+    WHERE f.company_id IN (SELECT company_id FROM keyed)
+    GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.fiscal_year,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(
-               (SELECT max(f.filing_date)::date FROM filings f
-                WHERE f.company_id = ff.company_id
-                  AND replace(f.accession_number, '-', '') = replace(ff.accession, '-', '')),
+           coalesce(fd.filed,
                CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
                     THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
+    LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
@@ -314,19 +324,22 @@ WITH params AS (
     FROM financial_fact ff
     JOIN usd_alone a ON a.company_id = ff.company_id
     WHERE NOT ff.is_latest AND ff.fiscal_period IS NOT NULL AND split_part(ff.unit, '/', 1) = 'USD'
+), filing_dates AS MATERIALIZED (
+    SELECT f.company_id, replace(f.accession_number, '-', '') AS acc, max(f.filing_date)::date AS filed
+    FROM filings f
+    WHERE f.company_id IN (SELECT company_id FROM keyed)
+    GROUP BY f.company_id, replace(f.accession_number, '-', '')
 ), dated AS MATERIALIZED (
     SELECT ff.company_id, ff.concept, ff.period_end, ff.fiscal_period, ff.unit, ff.is_latest, ff.raw_tag,
            upper(btrim(regexp_replace(coalesce(ff.form, ''), '\s+', ' ', 'g'))) ~ p.proxy_form AS proxy,
            coalesce(pv.pv ->> 'validation', '') = 'unavailable' AS quarantined,
-           coalesce(
-               (SELECT max(f.filing_date)::date FROM filings f
-                WHERE f.company_id = ff.company_id
-                  AND replace(f.accession_number, '-', '') = replace(ff.accession, '-', '')),
+           coalesce(fd.filed,
                CASE WHEN pv.pv ->> 'filed_at' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
                     THEN substring(pv.pv ->> 'filed_at' FROM 1 FOR 10)::date END) AS filed
     FROM financial_fact ff
     JOIN keyed k ON k.company_id = ff.company_id AND k.concept = ff.concept AND k.period_end = ff.period_end
                 AND k.fiscal_period = ff.fiscal_period AND k.unit = ff.unit
+    LEFT JOIN filing_dates fd ON fd.company_id = ff.company_id AND fd.acc = replace(ff.accession, '-', '')
     CROSS JOIN params p
     CROSS JOIN LATERAL (
         SELECT CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
