@@ -7,6 +7,7 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { REASON_SUMMARIES, reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
+import { substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -371,6 +372,44 @@ describe('Financial origin and source checks', () => {
     expect(within(dialog).getByText('Needs review · Note a')).toBeInTheDocument()
     expect(within(dialog).getByText(/The source inputs use different units or currencies/)).toBeInTheDocument()
     expect(within(dialog).getByText(/Calculated by EarningsNerd from recorded inputs/)).toBeInTheDocument()
+  })
+
+  // The growth keys the producer stores (trend_analysis/dataset_quality.py and dataset.py) read in FORMULAS' words, the
+  // words the PDF's and the workbook's Sources & methods print (backend test_export_formula_words.py), never the key with
+  // its underscores spaced. Their two valued inputs reach substitutedFormula's shapes, and no shape is a growth's, so
+  // the comparison has no arithmetic line.
+  it.each([
+    ['YoY', 'year_over_year_growth', '(Current − same period last year) ÷ absolute same period last year'],
+    ['QoQ', 'quarter_over_quarter_growth', '(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter'],
+    ['CAGR', 'compound_annual_growth', '(Last ÷ first) to the power of (1 ÷ years from first to last) − 1'],
+    ['Window change', 'percentage_point_change', 'Current percentage − comparison percentage'],
+  ])('says how a %s comparison is calculated in words', async (label, formula, words) => {
+    const provenance: FactProvenance = { ...calculated, formula, inputs: [
+      { ...calculated.inputs[0], value: 40111000000 }, { ...calculated.inputs[0], value: 34146000000 },
+    ] }
+    render(<SourceValue point={dataset.series[0].points[1]} label="Revenue" concept="revenue" comparison={{ label, display: '+17.5%', provenance }}>$40.1B</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
+    expect(within(dialog).getByRole('heading', { name: `${label} comparison` })).toBeInTheDocument()
+    expect(within(dialog).getByText(`Calculation: ${words}`)).toBeInTheDocument()
+    expect(dialog).not.toHaveTextContent(formula.replaceAll('_', ' '))
+    expect(substitutedFormula(provenance)).toBeNull()
+  })
+
+  // A Q4 calculated from the year less its three quarters (facts/quarterly.py) reads in FORMULAS' words, which the PDF and
+  // the workbook print too. It subtracts three operands from one, so it takes no two-operand line: with two valued inputs,
+  // which reach substitutedFormula's shapes, the dialog still prints no arithmetic.
+  it('says how a Q4 from the year less its three quarters is calculated, with no two-operand line', async () => {
+    const provenance: FactProvenance = { ...calculated, formula: 'FY - (Q1 + Q2 + Q3)', inputs: [
+      { ...calculated.inputs[0], value: 134902000000 }, { ...calculated.inputs[0], value: 94791000000 },
+    ] }
+    render(<SourceValue point={{ ...dataset.series[0].points[1], provenance }} label="Revenue" concept="revenue">$40.1B</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
+    expect(within(dialog).getByText('Full year − first, second and third quarters')).toBeInTheDocument()
+    expect(dialog).not.toHaveTextContent('Q1 + Q2 + Q3')
+    expect(dialog).not.toHaveTextContent('134,902,000,000 −')
+    expect(substitutedFormula(provenance)).toBeNull()
   })
 
   it('explains an absent metric-period slot with the same unavailable note counted in the report', async () => {

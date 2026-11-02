@@ -324,8 +324,9 @@ async def create_checkout_session(
         else:
             customer = await run_on_stripe_threads(stripe.Customer.retrieve, account.stripe_customer_id)
 
-        # Create checkout session
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
+        # Create checkout session. Its return URLs are built on FRONTEND_URL, the one canonical origin
+        # Settings loads (E111), never on whichever origin the CORS allowlist lists first (E32).
+        frontend_url = settings.FRONTEND_URL
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
@@ -400,11 +401,10 @@ async def _billing_portal_url(customer_id: str) -> str:
     failure answers the portal's fixed 400 detail (E18). Checkout's recovery path (E98) and the portal
     route share it."""
     try:
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
         portal_session = await run_on_stripe_threads(
             stripe.billing_portal.Session.create,
             customer=customer_id,
-            return_url=f"{frontend_url}/dashboard",
+            return_url=f"{settings.FRONTEND_URL}/dashboard",  # as checkout's return URLs (E32)
         )
         return portal_session.url
     except stripe.error.StripeError as e:

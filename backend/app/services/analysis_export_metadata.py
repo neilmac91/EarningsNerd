@@ -30,11 +30,24 @@ FCF_DEFINITION = (
     "This definition excludes finance-lease principal payments and may differ from the "
     "company's own free cash flow measure."
 )
-_FORMULA_LABELS = {
-    "year_over_year_growth": "(current - same period last year) / abs(same period last year)",
-    "quarter_over_quarter_growth": "(current quarter - previous fiscal quarter) / abs(previous fiscal quarter)",
-    "compound_annual_growth": "(last / first) ^ (1 / fiscal years between endpoints) - 1",
-    "percentage_point_change": "current percentage - comparison percentage",
+# A recorded formula in the page's words (figureDisplay.ts's FORMULAS, the evidence dialog's), key for key: one
+# vocabulary for the page, the PDF's Sources & methods and the workbook's Formula column and comments (chief design on
+# #1953). test_export_formula_words.py reads the page's words and fallback and fails where these differ.
+FORMULA_WORDS = {
+    "FY - YTD9": "Full year − first nine months",
+    "FY - (Q1 + Q2 + Q3)": "Full year − first, second and third quarters",
+    "YTD9 - YTD6": "First nine months − first six months",
+    "YTD6 - Q1": "First six months − first quarter",
+    "100 * operating_income / revenue": "Operating income ÷ revenue × 100",
+    "100 * net_income / revenue": "Net income ÷ revenue × 100",
+    "100 * gross_profit / revenue": "Gross profit ÷ revenue × 100",
+    "operating_cash_flow - abs(capital_expenditures)": "Operating cash flow − absolute cash capital expenditures",
+    "current_assets - current_liabilities": "Current assets − current liabilities",
+    "current_assets / current_liabilities": "Current assets ÷ current liabilities",
+    "year_over_year_growth": "(Current − same period last year) ÷ absolute same period last year",
+    "quarter_over_quarter_growth": "(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter",
+    "compound_annual_growth": "(Last ÷ first) to the power of (1 ÷ years from first to last) − 1",
+    "percentage_point_change": "Current percentage − comparison percentage",
 }
 # The fine print's closing line. The page's asks the reader to select a figure, which a file cannot offer, so each
 # export names where it keeps a figure's evidence instead; its words hold the surface rules data_notes' reason words
@@ -89,7 +102,9 @@ def display_instant(value: datetime | str | None) -> str | None:
 
 
 def formula_text(formula: Any) -> str:
-    return _FORMULA_LABELS.get(str(formula), str(formula)) if formula else ""
+    """A recorded formula as the page's evidence dialog prints it (figureDisplay.ts formulaWords): its words, else its
+    stored expression with each underscore a space ("total debt / total equity"); "" where none is recorded."""
+    return FORMULA_WORDS.get(str(formula), str(formula).replace("_", " ")) if formula else ""
 
 
 def point_method(point: dict[str, Any]) -> str:
