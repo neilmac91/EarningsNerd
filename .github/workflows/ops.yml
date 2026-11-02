@@ -971,7 +971,7 @@ jobs:
       - name: Run financial revenue preview (read-only)
         id: fi_revenue_preview
         # backend/scripts/financial_revenue_preview.py (E264 step 2; its docstring is the runbook). For each
-        # financial company (SIC 6000-6799, or the named tickers) synced since E264's deploy, it reads SEC's
+        # financial company (SIC 6000-6799, or the named tickers) synced since E286's deploy, it reads SEC's
         # companyfacts once through the shared limiter, before the company's session opens. It then compares
         # the stored revenue and margin rows with what the deployed rule would write. It only reads, so it has
         # no apply and needs no approval. The session is read-only through this step's own PGOPTIONS, which

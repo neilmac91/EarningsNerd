@@ -4,7 +4,7 @@
 statement that reads a tag, with the ``us-gaap:`` namespace the collector writes into ``raw_tag``; compares
 ``companies.sic`` as ``facts/concepts.py::_is_financial_sic`` does, as text in byte order between its two literals,
 an empty or NULL code being none; and counts a margin above 100% where ``facts/derive.py`` stores margins as
-percentages. Its set 8 splits the rows the cross-check replaced at E264's deploy by ``created_at``, which dates a row's
+percentages. Its set 8 splits the rows the cross-check replaced at E286's deploy by ``created_at``, which dates a row's
 rule only while the per-filing writer inserts and never rewrites a stored row. This gate holds every copy to its
 source, that premise to the writer, the transaction to READ ONLY, and the file to statements that read. Nothing runs
 the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with the SQL file, whose header names it.
@@ -119,6 +119,14 @@ def test_the_writer_never_rewrites_a_stored_row_so_created_at_dates_its_rule():
         assert stored() == before
     finally:
         db.close()
+
+
+def test_set_8_splits_where_the_preview_does():
+    # The preview reads a row as old when created_at is NULL or before E286_DEPLOYED_AT; set 8 must read it alike,
+    # off its one timestamp parameter, the literal the preview's own test holds to that constant.
+    code = _code()
+    assert code.count("ff.created_at IS NULL OR ff.created_at < p.e286_deployed AS old_rule") == 1
+    assert re.findall(r"::timestamptz AS (\w+)", code) == ["e286_deployed"]
 
 
 def test_the_file_reads_in_one_bounded_read_only_transaction():
