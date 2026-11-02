@@ -25,24 +25,26 @@ common directory relative to it. No marker anywhere -> exit 0 with no output, wh
 The two names are never written whole in this source or its test: each is built at run time from
 the fragments below, so reading the hook shows no name and no form the hook flags. One directory's
 last path component sits under a dated parent (``<word>-<date>/<component>``); the other is a
-two-word name (``<word>-<word>``). Before matching, every scanned string is normalised: case-fold,
-``\\/`` and ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask run, or one bracketed
-token) that stands where the date would stand is rewritten to the plain date, so every cut rule
-below applies to token masks too. Each rewrite is tracked, so positions map back to the original
-text. A string is flagged when it then contains either name whole; the dated name with its date
-per-digit masked (the structure kept); or a cut of either name that spans a junction (the
-word/date, date/component or word/word boundary), is at least eight characters long in the ORIGINAL
-text (a rewritten token counts as its own characters, an escape as written), and whose two ends are
-each clean. An end is clean when it is the name's own end, the text's edge, a non-path-character
-border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``; an ASCII or Unicode ellipsis is
-not one, so a truncation marker counts as a border -- next to the date's tolerant digits too, where
-a dot of an ASCII ``...`` run is never taken for a masked digit), or -- for the left end -- a ``/``
-where the cut begins at one of the name's own path-segment starts, so the name under a different
-parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths) is caught while a
-mid-segment look-alike is not. A listing that prints the dated parent directory's name alone is
-flagged by design: a cut of the longer name cannot be told from it. The scan is linear in the
-text's length (fixed-substring search to candidate junctions, a bounded walk around each; the
-regular expressions have no unbounded repetition and use only bounded slices).
+two-word name (``<word>-<word>``). Before matching, every scanned string is normalised: case-fold
+(``str.casefold``), ``\\/`` and ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask
+run, or one bracketed token) that stands where the date would stand is rewritten to the plain date,
+so every cut rule below applies to token masks too. A string is flagged when it then contains either
+name whole; the dated name with its date per-digit masked (the structure kept); or a cut of either
+name that spans a junction (the word/date, date/component or word/word boundary), is at least eight
+normalised characters long, and whose two ends are each clean. Only the token rewrite is tracked back
+for that length, so a whole-date token counts as written (one ``*`` is one character, not the
+ten-character date it stands for), while an escaped slash counts as the one ``/`` it stands for and
+a case fold as what it folds to. An end is clean when it is the name's own end, the text's edge, a
+non-path-character border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``; an ASCII or
+Unicode ellipsis is not one, so a truncation marker counts as a border), or -- for the left end -- a
+``/`` where the cut begins at one of the name's own path-segment starts, so the name under a
+different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths) is caught
+while a mid-segment look-alike is not. At the date's tolerant digits an ASCII ``...`` run has two
+readings, a truncation marker (a border) and masked digits, and a cut under either reading counts.
+A listing that prints the dated parent directory's name alone is flagged by design: a cut of the
+longer name cannot be told from it. The scan is linear in the text's length (fixed-substring search
+to candidate junctions, a bounded walk around each, at most once per reading; the regular
+expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -140,11 +142,10 @@ _TOKEN = r"[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\}"
 # then one complete token, then the component slash, the text end, an ASCII '...' run, or a non-path
 # non-mask character (never '-' or another mask char, which would be a per-digit mask the walk
 # already handles). Rewritten to the plain date so the walk's cut rules apply to a token mask as to
-# a per-digit one; the rewrite is tracked, so the eight-character minimum is measured on the
-# original text. Built from fragments, so this source holds no joined form.
+# a per-digit one; the rewrite is tracked, so the eight-character minimum counts the token as
+# written. Built from fragments, so this source holds no joined form.
 _DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _TOKEN + r")(?=/|$|\.\.\.|[^0-9a-z._/#*?-])")
 _ESCAPED_SLASH_RE = re.compile(r"\\/|%2f")  # after case-folding, %2F is %2f
-_NON_ASCII_RE = re.compile(r"[^\x00-\x7f]")
 
 FLAGGED = (
     "Excluded-directory guard: this tool result contains a form of a directory name that CODE RED "
@@ -181,36 +182,15 @@ def _tracked_sub(text: str, regex, replacement) -> tuple[str, list]:
     return "".join(pieces), records
 
 
-def _fold(text: str) -> tuple[str, list]:
-    """Case-fold `text`. Returns it and, when folding changed its length (a few non-ASCII
-    characters fold to several), the per-character rewrites."""
-    if text.isascii():
-        return text.lower(), []
-    folded = text.casefold()
-    if len(folded) == len(text):  # every character folded to exactly one
-        return folded, []
-    records, shift = [], 0
-    for match in _NON_ASCII_RE.finditer(text):
-        new_len = len(match.group().casefold())
-        if new_len != 1:
-            start = match.start()
-            records.append((start + shift, new_len, start, 1))
-            shift += new_len - 1
-    return folded, records
-
-
 def _normalize(text: str) -> tuple[str, list]:
-    """The text the walk reads, and the rewrites (each step's, in order) that map its positions back
-    to the original: case-fold; undo the \\/ and %2f escapes of a slash; rewrite a whole-date token in
-    date position to the plain date."""
-    maps = []
-    text, records = _fold(text)
-    if records:
-        maps.append(([r[0] for r in records], records))
+    """The text the walk reads, and the rewrites that map its positions back for the length rule:
+    case-fold (``str.casefold``, so a sharp s reads as the two letters it folds to); undo the \\/ and
+    %2f escapes of a slash; rewrite a whole-date token in date position to the plain date. Only the
+    token step is tracked, so a cut's length counts normalised characters, a token as written."""
+    text = text.casefold()
     if "\\/" in text or "%2f" in text:
-        text, records = _tracked_sub(text, _ESCAPED_SLASH_RE, lambda match: "/")
-        if records:
-            maps.append(([r[0] for r in records], records))
+        text = _ESCAPED_SLASH_RE.sub("/", text)
+    maps = []
     if "-" in text:
         text, records = _tracked_sub(text, _DATE_TOKEN_RE, lambda match: "-" + _DATE)
         if records:
@@ -219,7 +199,8 @@ def _normalize(text: str) -> tuple[str, list]:
 
 
 def _map_back(position: int, maps: list) -> int:
-    """The original-text position of a position in the normalized text, through each rewrite step."""
+    """The position before the tracked rewrites of a position in the normalized text, through each
+    tracked step (the whole-date token step)."""
     for starts, records in reversed(maps):
         i = bisect.bisect_right(starts, position) - 1
         if i >= 0:
@@ -270,20 +251,58 @@ def _border_after(text: str, j: int) -> bool:
     return j == len(text) or not _is_path_char(text[j]) or text[j:j + 3] == "..."
 
 
-def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant) -> bool:
-    """Whether `text` holds a cut of `canon` (`cm` its per-offset match, `tolerant` the offsets that
-    accept any masked character) spanning one of `junctions`, at least eight characters long in the
-    original text, with both ends clean. A tolerant offset never takes a dot of an ASCII '...' run,
-    so the run stays a border. The right end is clean at the name's own end, the text edge, a
-    non-path border, or an ASCII ellipsis. The left end is clean there too, or at a '/' where the cut
-    begins at one of the name's path-segment starts. Plain and per-digit-masked whole names are the
-    longest such cuts, so this covers them too."""
+def _cut_at(text: str, maps: list, canon: str, matches, c0: int, t0: int, seg_starts) -> bool:
+    """Whether a cut of `canon` spanning the junction at canonical offset `c0` and text index `t0`
+    qualifies under one reading of the text (`matches`): at least eight characters long, counting
+    normalised characters and a whole-date token as written, with both ends clean. The right end is
+    clean at the name's own end, the text edge, a non-path border, or an ASCII ellipsis. The left end
+    is clean there too, or at a '/' where the cut begins at one of the name's path-segment starts."""
     n, m = len(text), len(canon)
+    if not (matches(c0, t0) and matches(c0 + 1, t0 + 1) and matches(c0 + 2, t0 + 2)):
+        return False
+    ci, ti = c0 - 1, t0 - 1
+    while ci >= 0 and ti >= 0 and matches(ci, ti):
+        ci -= 1
+        ti -= 1
+    left_c, left_t = ci + 1, ti + 1
+    ci, ti = c0 + 3, t0 + 3
+    while ci < m and ti < n and matches(ci, ti):
+        ci += 1
+        ti += 1
+    right_c, right_t = ci, ti
+    if not (right_c == m or _border_after(text, right_t)):
+        return False
+    right_orig = _map_back(right_t, maps) if maps else right_t
+    # Try the greedy left end and each segment start between it and the junction: a cut that begins
+    # at a segment start preceded by '/' is the name under another parent.
+    candidates = [(left_t, left_c)]
+    candidates += [(left_t + (s - left_c), s) for s in seg_starts if left_c < s <= c0]
+    for lt, lc in candidates:
+        if right_orig - (_map_back(lt, maps) if maps else lt) < 8:
+            continue
+        if lc == 0 or _border_before(text, lt) or (lc in seg_starts and lt > 0 and text[lt - 1] == "/"):
+            return True
+    return False
 
-    def matches(ci: int, ti: int) -> bool:
+
+def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant) -> bool:
+    """Whether `text` holds a qualifying cut (`_cut_at`) of `canon` spanning one of `junctions`; `cm`
+    is the per-offset match and `tolerant` the offsets that accept any masked character. An ASCII '...'
+    run at tolerant offsets has two readings, a truncation marker (a border: a tolerant offset never
+    takes its dots) and masked digits (it does); a cut under either reading counts. Plain and
+    per-digit-masked whole names are the longest such cuts, so this covers them too. Each hit costs
+    one bounded walk per reading, so the scan stays linear."""
+    n = len(text)
+
+    def as_digits(ci: int, ti: int) -> bool:
+        return cm(ci, text[ti])
+
+    def as_marker(ci: int, ti: int) -> bool:
         ch = text[ti]
         return cm(ci, ch) and not (ch == "." and ci in tolerant and _in_ellipsis(text, ti))
 
+    # Without an ASCII '...' run the two readings agree, so one pass is enough.
+    readings = (as_marker, as_digits) if tolerant and "..." in text else (as_digits,)
     for find_sub, c0, delta in junctions:
         start = 0
         while True:
@@ -294,30 +313,8 @@ def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant
             t0 = hit + delta
             if t0 < 0 or t0 + 3 > n:
                 continue
-            if not (matches(c0, t0) and matches(c0 + 1, t0 + 1) and matches(c0 + 2, t0 + 2)):
-                continue
-            ci, ti = c0 - 1, t0 - 1
-            while ci >= 0 and ti >= 0 and matches(ci, ti):
-                ci -= 1
-                ti -= 1
-            left_c, left_t = ci + 1, ti + 1
-            ci, ti = c0 + 3, t0 + 3
-            while ci < m and ti < n and matches(ci, ti):
-                ci += 1
-                ti += 1
-            right_c, right_t = ci, ti
-            if not (right_c == m or _border_after(text, right_t)):
-                continue
-            right_orig = _map_back(right_t, maps) if maps else right_t
-            # Try the greedy left end and each segment start between it and the junction: a cut that
-            # begins at a segment start preceded by '/' is the name under another parent.
-            candidates = [(left_t, left_c)]
-            candidates += [(left_t + (s - left_c), s) for s in seg_starts if left_c < s <= c0]
-            for lt, lc in candidates:
-                if right_orig - (_map_back(lt, maps) if maps else lt) < 8:
-                    continue
-                if lc == 0 or _border_before(text, lt) or (lc in seg_starts and lt > 0 and text[lt - 1] == "/"):
-                    return True
+            if any(_cut_at(text, maps, canon, matches, c0, t0, seg_starts) for matches in readings):
+                return True
     return False
 
 

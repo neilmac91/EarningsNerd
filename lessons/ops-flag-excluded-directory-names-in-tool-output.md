@@ -27,10 +27,11 @@ These steps are gated by nothing, so this lesson stays in session reading.
 hook (`backend/tests/unit/test_excluded_dir_output_guard.py`), inspects a tool result after the tool
 runs and states, factually, when the result carries a form of either excluded directory's name:
 plain, per-digit or whole-token date-masked, or a cut or truncated form that spans a name junction,
-is at least eight characters long in the original text (a mask token counts as its own characters,
-however long the date it stands for) and has clean ends. A '/' at a name segment start and an ASCII
-or Unicode ellipsis count as clean borders, next to the date's masked digits too: a dot of an ASCII
-`...` run is never taken for a masked digit. It is a detector, not a filter: it leaves the result
+is at least eight characters long after normalisation (an escaped slash counts as one character, a
+mask token as its own characters, however long the date it stands for) and has clean ends. A '/' at
+a name segment start and an ASCII or Unicode ellipsis count as clean borders; next to the date's
+masked digits an ASCII `...` run is read both as a truncation marker and as masked digits, and a cut
+under either reading is flagged. It is a detector, not a filter: it leaves the result
 unchanged and never echoes the matched text. It acts only when the marker sits in the git common
 directory of the clone that holds the event's `cwd` OR of the clone that `$CLAUDE_PROJECT_DIR` names
 (either suffices). It never scans `tool_input` (the CODE RED git commands carry the names as
