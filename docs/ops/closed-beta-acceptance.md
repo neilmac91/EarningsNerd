@@ -86,7 +86,7 @@ pass.
 | 3 | Link scanners | Opening the link with a plain `GET` (`curl`) and again in a browser leaves the invitation `pending` in `/admin/invites` | `frontend/tests/e2e/legal-readiness.spec.ts` (no write request before submit); `backend/tests/unit/test_read_only_get_endpoints.py` (GET routes write nothing, except allowlisted ones such as the Google callback, which needs the state the tester's own browser started) |
 | 4 | Register | Both agreement boxes start unchecked; registration answers with the check-your-email notice | onboarding test; `frontend/tests/e2e/legal-readiness.spec.ts` (both boxes start unchecked) |
 | 5 | Verification mail | The mail arrives in the tester's inbox within the founder's mail window and its link verifies the account. A mail scanner that runs scripts can open the link first: the page then reports a failure although the account is verified; record it | onboarding test (capture only) |
-| 6 | Sign in | Password and Google sign-in return to the home page signed in, and the account menu shows the tester's own address | onboarding and Google tests |
+| 6 | Sign in | Password and Google sign-in return to the home page signed in, and the account menu shows the tester's own address. If the build offers Sign in with Apple (`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN`), one Apple sign-in in Safari does the same | onboarding and Google tests |
 | 7 | Complimentary Pro | The account shows Pro on the dashboard, in Settings and in usage, and Settings offers no upgrade or checkout | matrix and grant tests (the plan through `/api/auth/me` and usage; nothing tests Settings' billing control) |
 | 8 | Search and filing | A covered company's filing page loads | — |
 | 9 | Cached summary | A filing with a stored summary renders it at once | matrix test (cached read) |
@@ -266,8 +266,9 @@ Before the founder rehearsal the founder supplies, outside this repository where
   kept without the account after deletion while screenshots are deleted, screenshot retention (180 days at most),
   and the support channel;
 - the roster, which stays private, and the cohort labels: one per invitation wave and one for the complimentary
-  grant. Each label names no person, because every complimentary-access report prints the grant's label and the Ops
-  run's log is public;
+  grant. Each label is an opaque code, such as `private-beta-2026-11`, and appears in public reports: every
+  complimentary-access report prints the grant's label, and the Ops run's log is public. No name, address,
+  workplace or private description belongs in a label; the mapping from labels to people stays with the roster;
 - the beta's end and review dates, and what complimentary access becomes at the end;
 - the daily model spend limit, the error and capacity limits of section 6, the mail arrival window of section 3, the
   support answer window and the tolerated loss window of section 5;
