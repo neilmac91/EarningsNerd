@@ -143,6 +143,11 @@ class OAuthState(Base):
     agreement_terms_version = Column(String(32), nullable=True)
     agreement_eligibility_version = Column(String(32), nullable=True)
     agreement_accepted_at = Column(DateTime(timezone=True), nullable=True)
+    # Whether the start asked for the OAuth session handoff (E29 (5)): True only from a frontend with the
+    # /auth/complete landing page, which sends ``handoff=1`` on a GET start or ``"handoff": true`` on a POST start.
+    # False or NULL (a row written before the column existed among them) takes the cookie-setting callback path, so
+    # the frontend and the API roll back independently. Additive: self-healed by database.ensure_additive_columns.
+    session_handoff = Column(Boolean, nullable=True)
 
 
 class LoginAttempt(Base):

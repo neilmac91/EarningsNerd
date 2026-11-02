@@ -59,9 +59,11 @@ _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 _NESTED = (*_FUNCTIONS, *_COMPREHENSIONS, ast.ClassDef)
 _STRIPS = ("rstrip", "strip")
 
-# The bare origin, as the home page, where it stands: (module, function) -> (how many reads, why). The OAuth callbacks
-# left the list when they began landing a sign-in on /auth/complete, whose exchange then goes home (E29 (5)).
+# The bare origin, as the home page, where it stands: (module, function) -> (how many reads, why).
 BARE_ORIGINS = {
+    # A start that asked for the session handoff lands on /auth/complete instead, an f-string the scan follows (E29 (5)).
+    ("backend/app/routers/auth.py", "google_callback"): (1, "a reader Google signs in lands on the home page"),
+    ("backend/app/routers/auth.py", "apple_callback"): (1, "a reader Apple signs in lands on the home page"),
     ("backend/app/services/email_service.py", "_filing_url"): (1, "an alert with no filing page of ours links the home page"),
 }
 
@@ -641,20 +643,23 @@ from urllib.parse import urljoin
 
 from app.config import settings
 
-def _filing_url(filing_id, filing_url):
-    home = settings.FRONTEND_URL
-    detour = urljoin(home, "/nowhere")
-    return filing_url or home
-
 def google_callback():
+    frontend_url = settings.FRONTEND_URL
+    return RedirectResponse(url=frontend_url)
+
+def apple_callback():
+    frontend_url = settings.FRONTEND_URL
+    detour = urljoin(frontend_url, "/nowhere")
+    return _apple_redirect(frontend_url)
+
+def elsewhere():
     return RedirectResponse(url=settings.FRONTEND_URL)
 '''
-    scanned = scan_module(source, "backend/app/services/email_service.py")
-    assert Counter(function for _, function in scanned.bare) == {"_filing_url": 2}
-    # A function the list does not name fails as unfollowed, the OAuth callbacks among them since they left it.
-    assert [function for _, function in scanned.unfollowed] == ["google_callback"]
+    scanned = scan_module(source, "backend/app/routers/auth.py")
+    assert Counter(function for _, function in scanned.bare) == {"google_callback": 1, "apple_callback": 2}
+    assert [function for _, function in scanned.unfollowed] == ["elsewhere"]
     # A listed function that reads the bare origin more often than listed fails the main test's count.
-    assert Counter(function for _, function in scanned.bare)["_filing_url"] != BARE_ORIGINS[("backend/app/services/email_service.py", "_filing_url")][0]
+    assert Counter(function for _, function in scanned.bare)["apple_callback"] != BARE_ORIGINS[("backend/app/routers/auth.py", "apple_callback")][0]
 
 
 def test_the_resolver_reads_the_routes_next_serves(tmp_path):

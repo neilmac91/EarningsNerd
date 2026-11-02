@@ -154,6 +154,9 @@ ALLOWED_MENTIONS = {
     ("backend/app/services/oauth_account_service.py", "consume_oauth_state", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "unlink_oauth_provider", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "commit_oauth_sign_in", "delete"): 1,
+    # An account-wide revocation (logout-all, a password change or reset) deletes the account's SessionHandoff rows,
+    # the OAuth sign-ins whose landing page has not yet exchanged its code (E29 (5)); it removes no refresh token.
+    ("backend/app/services/refresh_token_service.py", "revoke_all_for_user", "delete"): 1,
     # The table's migration defines the column, with that ON DELETE SET NULL.
     ("backend/migrations/20260613_create_refresh_tokens.sql", "<file>", "text"): 1,
 }

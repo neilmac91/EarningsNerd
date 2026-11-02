@@ -195,7 +195,8 @@ let loginInFlight: Promise<void> | null = null
 // with the previous session's cookies once answered after the callback and set those over the new session's. The
 // identity read (getCurrentUser in auth-api.ts) waits for the refreshes queued before it too (sessionCookiesSettled),
 // so it reads the account the browser holds once they have answered. A browser with no lock manager (an older
-// browser, a non-secure context; jsdom) runs each tab alone, as before. Locks are per origin: tabs of two origins
+// browser, a non-secure context; jsdom) runs each tab alone, as before, but for the OAuth sign-in's exchange, which
+// posts only under the lock and so posts nothing there (withSessionCookiesForPost's 'strict'). Locks are per origin: tabs of two origins
 // under the cookie domain (the apex and www) share the cookies but no lock, as they share no session marker either.
 const SESSION_COOKIES_LOCK = 'earningsnerd-session-cookies'
 const sessionCookieLocks = (): LockManager | undefined =>
@@ -313,14 +314,35 @@ export function refreshSettled(limitMs: number, atLimit: 'cancel' | 'leave' = 'c
     .finally(() => clearTimeout(timer))
 }
 
-/** A post that refuses at its limit (withSessionCookiesForPost's `atLimit` 'refuse') sent nothing: a silent refresh,
- * in this tab or another, was still unanswered. */
+/** A post that refuses at its limit (withSessionCookiesForPost's policy 'refuse' or 'strict') sent nothing: a silent
+ * refresh, in this tab or another, was still unanswered. */
 export class SessionStillRenewing extends Error {
   constructor() {
     super('Your session is still renewing. Try again in a moment.')
     this.name = 'SessionStillRenewing'
   }
 }
+
+/** A post that sends only inside the session cookies' lock (withSessionCookiesForPost's policy 'strict') sent nothing:
+ * the browser has no lock manager (an older browser, a non-secure context), or it refused the lock request for a
+ * reason other than the post's own limit (a SecurityError where site data is blocked for the origin, and the like). */
+export class SessionLockUnavailable extends Error {
+  constructor() {
+    super('This browser could not hold the session lock, so nothing was sent.')
+    this.name = 'SessionLockUnavailable'
+  }
+}
+
+/**
+ * What a post through withSessionCookiesForPost does where it cannot hold the session cookies' lock. 'send' (a password
+ * login, a logout, a logout of every session): at its limit it cancels this tab's refresh still unanswered and sends
+ * without the lock, and with no lock manager or a lock the browser refuses it sends once this tab's refresh has settled.
+ * 'refuse' (the password change): at its limit it sends nothing and rejects with SessionStillRenewing, leaving this
+ * tab's refresh be, and with no lock manager or a refused lock it still sends. 'strict' (the OAuth sign-in's exchange of
+ * its one-time code, E29 (5)): it sends only inside a granted lock; at its limit as 'refuse', and with no lock manager or
+ * a lock the browser refuses it sends nothing and rejects with SessionLockUnavailable.
+ */
+export type SessionLockPolicy = 'send' | 'refuse' | 'strict'
 
 /**
  * Sends a request whose answer sets or clears the session cookies (a password login, an OAuth sign-in's exchange of its
@@ -342,20 +364,27 @@ export class SessionStillRenewing extends Error {
  * browser has no lock manager, or refuses the lock, `send` runs once this tab's refresh has settled, as before, and any
  * other tab's refresh can answer after it. A check that must share a turn with the request (a logout's explicit
  * generation) goes in `send`, after both waits. `send` must be a request whose own 401 starts no refresh
- * (NO_REFRESH_PATHS): a refresh asked for under the hold would wait for the lock its own caller holds. With `atLimit`
+ * (NO_REFRESH_PATHS): a refresh asked for under the hold would wait for the lock its own caller holds. With `policy`
  * 'refuse' (the password change), at the limit it sends nothing and rejects with SessionStillRenewing: it neither
  * cancels this tab's refresh still unanswered (refreshSettled's 'leave') nor sends without the lock, so the limit's
  * gaps above are not its own. A lock the browser refuses, or no lock manager, still sends, once this tab's refresh has
- * settled.
+ * settled. With 'strict' (the OAuth sign-in's exchange of its one-time code), `send` runs only inside a granted lock:
+ * at the limit it refuses as 'refuse' does, and with no lock manager it sends nothing and rejects with
+ * SessionLockUnavailable at once, as it does when the browser rejects the lock request for any reason but this call's
+ * own limit. So none of the gaps above that a post without the lock opens is its own; what it leaves open is a refresh
+ * that waited past REFRESH_LOCK_WAIT_MS, which goes out beside whatever holds the lock.
  */
 export function withSessionCookiesForPost<T>(
   limitMs: number,
   send: () => Promise<T>,
-  atLimit: 'send' | 'refuse' = 'send',
+  policy: SessionLockPolicy = 'send',
 ): Promise<T> {
-  const refuse = atLimit === 'refuse'
+  // 'refuse' and 'strict' send nothing at the limit, and leave this tab's refresh be; 'strict' sends nothing unlocked.
+  const refuse = policy !== 'send'
+  const strict = policy === 'strict'
   const locks = sessionCookieLocks()
   if (!locks) {
+    if (strict) return Promise.reject(new SessionLockUnavailable())
     return refreshSettled(limitMs, refuse ? 'leave' : 'cancel').then((outcome) => {
       if (refuse && outcome === 'limit') throw new SessionStillRenewing()
       return send()
@@ -370,11 +399,13 @@ export function withSessionCookiesForPost<T>(
     }
     let sent: Promise<T> | undefined
     // Once the hold has ended: the request made under it, or, never granted the lock, the request without it when the
-    // browser refused it, and when the wait ran out, unless this post refuses at its limit.
+    // browser refused it, and when the wait ran out, unless this post refuses at its limit; a strict post sends nothing
+    // unlocked, its own limit apart from any other refusal.
     const afterTheHold = () => {
       clearTimeout(limit)
       if (sent) return sent
       if (refuse && wait.signal.aborted) throw new SessionStillRenewing()
+      if (strict) throw new SessionLockUnavailable()
       return send()
     }
     return locks.request(SESSION_COOKIES_LOCK, { mode: 'shared', signal: wait.signal }, () => {
@@ -405,10 +436,14 @@ export function withSessionCookiesForPost<T>(
  * the gate while an earlier one is still out. What this leaves open is withSessionCookiesForPost's: at the limit,
  * another tab's refresh, in flight or still waiting for the lock; a logout another tab presses behind a refresh queued
  * while the login is out; a refresh that waited past REFRESH_LOCK_WAIT_MS; and, where the browser has no lock manager
- * or refuses the lock, any other tab's refresh.
+ * or refuses the lock, any other tab's refresh. The OAuth code exchange passes `policy` 'strict' (E29 (5)): it sends
+ * only inside a granted lock, so at the limit it sends nothing and rejects with SessionStillRenewing, leaving this tab's
+ * refresh be, and with no lock manager or a refused lock it sends nothing and rejects with SessionLockUnavailable; its
+ * landing page offers the same code again (app/auth/complete/page.tsx). The gate holds this tab's refreshes behind it
+ * until it settles, whatever its outcome. The password login keeps 'send'.
  */
-export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
-  const sent = withSessionCookiesForPost(limitMs, send)
+export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>, policy: 'send' | 'strict' = 'send'): Promise<T> {
+  const sent = withSessionCookiesForPost(limitMs, send, policy)
   const clear = () => { if (loginInFlight === answered) loginInFlight = null }
   const answered: Promise<void> = sent.then(clear, clear)
   loginInFlight = answered

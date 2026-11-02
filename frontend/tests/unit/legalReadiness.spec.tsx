@@ -199,7 +199,7 @@ describe('explicit account agreement', () => {
     mounted.unmount()
     mocks.get.mockClear()
     render(<SocialAuthButtons apiBase="" />)
-    expect(screen.getByRole('link', { name: `Continue with ${provider}` })).toHaveAttribute('href', `/api/auth/${provider.toLowerCase()}`)
+    expect(screen.getByRole('link', { name: `Continue with ${provider}` })).toHaveAttribute('href', `/api/auth/${provider.toLowerCase()}?handoff=1`)
     expect(mocks.get).not.toHaveBeenCalled()
   })
 })

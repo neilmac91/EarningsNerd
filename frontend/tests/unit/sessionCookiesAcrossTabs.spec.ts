@@ -20,7 +20,9 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * (SessionStillRenewing) rather than cancel its own tab's refresh or post beside one. An OAuth sign-in's callback is a
  * navigation no lock can hold, so it sets no session cookie: the tab it lands in exchanges a one-time code in a post
  * under the same hold as a password login's (completeOAuthSignIn), and that post's answer sets the new session's
- * cookies (E29 (5)). The callback that set them on its navigation, before E29 (5), stays here as the control the
+ * cookies (E29 (5)). The exchange posts only inside a granted lock: at its limit it posts nothing and refuses
+ * (SessionStillRenewing), cancelling no refresh, and with no lock manager or a lock the browser refuses it posts
+ * nothing (SessionLockUnavailable), so its landing page can post the same code again. The callback that set them on its navigation, before E29 (5), stays here as the control the
  * exchange is measured against (signInByNavigation), with the identity read's wait for the refreshes queued before it.
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
@@ -697,9 +699,10 @@ describe.each([
   })
 })
 
+// The posts that go out without the lock at their limit, and with no lock manager. The OAuth code exchange is not one:
+// it posts only inside a granted lock (its own cases, in its describe below and under no navigator.locks).
 const EACH_POST = [
   ['a login', (tab: Tab) => tab.auth.login(EMAIL, PASSWORD), '/api/auth/login', (tab: Tab) => tab.auth.LOGIN_REFRESH_WAIT_MS],
-  ['an OAuth code exchange', (tab: Tab) => tab.auth.completeOAuthSignIn(CODE), OAUTH_COMPLETE, (tab: Tab) => tab.auth.LOGIN_REFRESH_WAIT_MS],
   ['a logout', (tab: Tab) => tab.auth.logout(), '/api/auth/logout', (tab: Tab) => tab.auth.LOGOUT_REFRESH_WAIT_MS],
   ['a logout of every session', (tab: Tab) => tab.auth.logoutAllSessions(), '/api/auth/logout-all', (tab: Tab) => tab.auth.LOGOUT_REFRESH_WAIT_MS],
 ] as const
@@ -1054,6 +1057,107 @@ describe("an OAuth sign-in's code exchange in one tab and another tab's silent r
   })
 })
 
+describe("an OAuth sign-in's code exchange where it cannot hold the lock: it posts nothing, and its code can be posted again (E29 (5))", () => {
+  it("refuses at its limit while another tab's refresh, sent with the previous account's cookies, still holds the lock, and posts nothing; the same code then exchanges under the lock once that refresh has answered", async () => {
+    fakeTimers()
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    signInByHandoff()
+    let settled = false
+    const completing = tabB.auth.completeOAuthSignIn(CODE).catch((error: unknown) => error).finally(() => { settled = true })
+    await vi.advanceTimersByTimeAsync(tabB.auth.LOGIN_REFRESH_WAIT_MS - 1)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await completing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+    // No request reached the exchange's route, and the browser keeps X's cookies: the code is unredeemed.
+    expect(browser.events).toEqual(["A's refresh sent with X", 'an OAuth callback hands the landing tab a one-time code for Y'])
+    expect(browser.cookies).toEqual({ session: 'X', token: 1, fresh: false })
+    expect(vi.getTimerCount()).toBe(0)
+
+    // Tab A's refresh answers after the refusal and renews X: no exchange's answer is there for it to undo.
+    stalled.resolve()
+    await refreshing
+    expect(browser.cookies).toMatchObject({ session: 'X', fresh: true })
+    // The landing page's Try again: the same code, under the lock, and the browser ends on Y.
+    await tabB.auth.completeOAuthSignIn(CODE)
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", 'an OAuth callback hands the landing tab a one-time code for Y', "A's refresh answered for X",
+      `B posts ${OAUTH_COMPLETE} as X`, `B's ${OAUTH_COMPLETE} answered`,
+    ])
+    expect(browser.cookies).toMatchObject({ session: 'Y', fresh: true })
+    expect(browser.server.X).toEqual({ tip: 2, revoked: false, swept: false })
+    expect(tabB.session.hasActiveSession()).toBe(true)
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("refuses at its limit while its own tab's refresh is unanswered, neither cancelling it nor posting: that refresh lands, and one its tab asks for meanwhile joins it (E96)", async () => {
+    fakeTimers()
+    const answer = hold()
+    tabB.refreshAnswers.push(answer.promise)
+    const own = tabB.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    const signal = tabB.refresh.mock.calls[0][1] as AbortSignal
+    signInByHandoff()
+    const completing = tabB.auth.completeOAuthSignIn(CODE).catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(1_000)
+    // Asked for in the exchange's tab while it waits: it joins the refresh in flight, one refresh, never a second.
+    const joined = tabB.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(tabB.auth.LOGIN_REFRESH_WAIT_MS - 1_000)
+    expect(await completing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+    expect(signal.aborted).toBe(false)
+    expect(browser.events).toEqual(["B's refresh sent with X", 'an OAuth callback hands the landing tab a one-time code for Y'])
+
+    answer.resolve()
+    await Promise.all([own, joined])
+    expect(browser.events.slice(2)).toEqual(["B's refresh answered for X"])
+    expect(browser.server.X).toEqual({ tip: 2, revoked: false, swept: false })
+    expect(vi.getTimerCount()).toBe(0)
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("holds back a refresh its tab asks for while it waits for the lock, until it refuses, then lets it go", async () => {
+    fakeTimers()
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const refreshingA = tabA.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    signInByHandoff()
+    const completing = tabB.auth.completeOAuthSignIn(CODE).catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(1_000)
+    // The landing tab's own refresh, asked for while the exchange waits: the login's tab gate holds it.
+    const held = tabB.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(tabB.refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(tabB.auth.LOGIN_REFRESH_WAIT_MS - 1_000)
+    expect(await completing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+
+    // Let go, it queues for the lock behind tab A's refresh and goes out with the cookies that refresh set.
+    stalled.resolve()
+    await Promise.all([refreshingA, held])
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", 'an OAuth callback hands the landing tab a one-time code for Y', "A's refresh answered for X",
+      "B's refresh sent with X", "B's refresh answered for X",
+    ])
+    expect(browser.server.X).toEqual({ tip: 3, revoked: false, swept: false })
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('posts nothing and refuses with SessionLockUnavailable when the browser refuses the lock, and leaves no timer behind', async () => {
+    fakeTimers()
+    browser.locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
+    signInByHandoff()
+    expect(await tabB.auth.completeOAuthSignIn(CODE).catch((error: unknown) => error)).toBeInstanceOf(tabB.client.SessionLockUnavailable)
+    expect(browser.events).toEqual(['an OAuth callback hands the landing tab a one-time code for Y'])
+    expect(browser.cookies).toEqual({ session: 'X', token: 1, fresh: false })
+    expect(vi.getTimerCount()).toBe(0)
+    // The password login, beside it, keeps its own behavior: it posts without the lock the browser refused.
+    await tabB.auth.login(EMAIL, PASSWORD)
+    expect(browser.events.slice(1)).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered"])
+  })
+})
+
 describe("the control: a callback that set the session cookies on its navigation (before E29 (5)), which no lock can hold, and another tab's silent refresh", () => {
   it("ends on the previous account when a refresh another tab sent before the navigation answers after it, the loss E29 (5) closes", async () => {
     const answer = hold()
@@ -1200,24 +1304,22 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     expect(browser.cookies).toMatchObject({ session: 'X', fresh: true })
   })
 
-  it("an OAuth code exchange holds back its own tab's refresh asked for while it is out, which then renews the new session (the login's tab gate, which needs no lock)", async () => {
+  it("an OAuth code exchange posts nothing and refuses with SessionLockUnavailable: it never posts beside another tab's refresh, whose answer then leaves the previous session as it was", async () => {
     withoutLocks()
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
+    await settle()
     signInByHandoff()
-    const exchangeAnswer = hold<Outcome>('took')
-    tabB.postAnswers.push(exchangeAnswer.promise)
-    const completing = tabB.auth.completeOAuthSignIn(CODE)
-    await settle()
-    const reading = tabB.client.default.get('/api/watchlist/')
-    await settle()
-    expect(tabB.refresh).not.toHaveBeenCalled()
+    expect(await tabB.auth.completeOAuthSignIn(CODE).catch((error: unknown) => error)).toBeInstanceOf(tabB.client.SessionLockUnavailable)
+    expect(browser.events).toEqual(["A's refresh sent with X", 'an OAuth callback hands the landing tab a one-time code for Y'])
 
-    exchangeAnswer.resolve('took')
-    await completing
-    expect(await reading).toMatchObject({ status: 200, data: { reader: 'Y' } })
-    expect(browser.events.slice(1)).toEqual([
-      `B posts ${OAUTH_COMPLETE} as X`, 'B reads /api/watchlist/ as X', `B's ${OAUTH_COMPLETE} answered`,
-      "B's refresh sent with Y", "B's refresh answered for Y", 'B reads /api/watchlist/ as Y',
-    ])
+    stalled.resolve()
+    await unanswered
+    // Nothing reached the exchange's route: the code is still unredeemed, and the browser holds X's session, renewed.
+    expect(browser.events.filter((event) => event.includes(OAUTH_COMPLETE))).toEqual([])
+    expect(browser.cookies).toEqual({ session: 'X', token: 2, fresh: true })
+    expect(browser.server.Y).toEqual({ tip: 0, revoked: false, swept: false })
   })
 
   it("a password change posts at once, never waiting for another tab's refresh, whose answer can then set the token the change revoked", async () => {

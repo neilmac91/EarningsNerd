@@ -451,6 +451,17 @@ compatible image. Preserve that reader and its dependencies when reverting the o
 `main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
 bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
+**OAuth session handoff (E29 (5), #1963): no rollback coupling.** The API hands an OAuth sign-in to the
+frontend's `/auth/complete` landing page only when the start asked for it (`handoff=1` on the login page's
+`GET /api/auth/{google,apple}` link, `"handoff": true` in the sign-up page's POST start); any other start takes the
+callback path that sets the session cookies on its redirect home. An older frontend never asks, and an older API
+ignores the ask, so the Vercel frontend and the Cloud Run backend each roll back alone, in either order, and their
+releases need not be atomic. A start made before a rollback whose callback lands after it takes the path the serving
+API knows (a state row from before the `oauth_states.session_handoff` column reads as no ask). The follow-up that
+retires the cookie-setting path (E295 in `tasks/todo.md`) ends this: from then on every sign-in hands off, so the
+frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first and never rolls back past it
+while that backend serves.
+
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
 gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --limit=5

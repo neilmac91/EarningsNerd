@@ -18,7 +18,7 @@ import SocialAuthButtons from '@/features/auth/components/SocialAuthButtons'
 import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
-import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { ENABLE_APPLE_SIGNIN, TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 
@@ -52,8 +52,11 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   email_unverified:
     'Your login provider has not verified that email address. Verify it with the provider, or sign up with an email and password.',
   // The landing page's exchange of the login's one-time code was refused or never made: the code was used, expired or
-  // missing, or this browser lacks the cookie that binds it (app/auth/complete/page.tsx, E29 (5)).
-  oauth_handoff_failed: 'Your Google or Apple login did not finish. Log in again.',
+  // missing, or this browser lacks the cookie that binds it (app/auth/complete/page.tsx, E29 (5)). It names the
+  // providers this build offers, as the buttons below it do (SocialAuthButtons): a build without Apple names Google.
+  oauth_handoff_failed: ENABLE_APPLE_SIGNIN
+    ? 'Your Google or Apple login did not finish. Log in again.'
+    : 'Your Google login did not finish. Log in again.',
 }
 
 function LoginContent() {
