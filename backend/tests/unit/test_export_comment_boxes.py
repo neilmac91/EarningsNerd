@@ -142,10 +142,16 @@ def test_the_rule_and_the_builder_s_helper_give_each_example_its_box(text, chara
     assert (comment.width, comment.height, comment.text, comment.author) == (*box, text, "EarningsNerd")
 
 
+def in_openpyxl_comments(module: str | None) -> bool:
+    """openpyxl's comments package, or a module inside it."""
+    return module == "openpyxl.comments" or (module or "").startswith("openpyxl.comments.")
+
+
 def test_every_comment_the_app_builds_takes_the_sizing_helper():
     """Only the workbook builder reaches openpyxl's Comment, and only inside ``_comment``: imported by name from
-    openpyxl.comments (under any alias), never reached as an attribute (``openpyxl.comments.Comment``) and never through
-    the module itself, so every comment the app builds takes a box sized to its text."""
+    openpyxl.comments or a module inside it (``openpyxl.comments.comments`` defines it), under any alias and never by a
+    star, never reached as an attribute (``openpyxl.comments.Comment``) and never through the module itself, so every
+    comment the app builds takes a box sized to its text. A dynamic import (``importlib``) is out of its reach."""
     importers, stray = [], []
     for path in sorted(APP.rglob("*.py")):
         tree = ast.parse(path.read_text(), filename=str(path))
@@ -154,8 +160,10 @@ def test_every_comment_the_app_builds_takes_the_sizing_helper():
         inside = {id(node) for node in ast.walk(helper)} if helper and path == HELPER_FILE else set()
         names = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "openpyxl.comments":
-                names |= {alias.asname or alias.name for alias in node.names}
+            if isinstance(node, ast.ImportFrom) and in_openpyxl_comments(node.module):
+                if any(alias.name == "*" for alias in node.names):
+                    stray.append(f"{where}:{node.lineno} imports everything {node.module} holds")
+                names |= {alias.asname or alias.name for alias in node.names if alias.name != "*"}
             elif isinstance(node, ast.ImportFrom) and node.module == "openpyxl" and any(
                     alias.name == "comments" for alias in node.names):
                 stray.append(f"{where}:{node.lineno} imports openpyxl's comments module")
