@@ -309,7 +309,9 @@ async def test_real_binary_roundtrip_empty_environment_fixed_argv_and_reaped_chi
     create = asyncio.create_subprocess_exec
 
     async def record(*args, **kwargs):
-        assert len(kwargs["env"]) == 0 and kwargs["stderr"] == asyncio.subprocess.DEVNULL
+        environment_entry_count = len(kwargs["env"])
+        assert environment_entry_count == 0
+        assert kwargs["stderr"] == asyncio.subprocess.DEVNULL
         assert not kwargs.get("start_new_session") and "process_group" not in kwargs
         assert BUCKET not in args and IDENTITY not in args and SHA not in args and CONTENT not in args
         process = await create(*args, **kwargs)
