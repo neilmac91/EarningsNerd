@@ -1231,8 +1231,9 @@ describe('the repository config', SLOW, () => {
   // prop, since cx does no tailwind-merge and a border colour on top competes with the tone's by stylesheet order (the
   // settings page's Delete account card lost its dark override to Card's own hairline). It reads a string, a template
   // chunk and a cx() argument, under a variant or `!`, on a side, as a named or an arbitrary colour, an opacity and an
-  // arbitrary property; another element's border colour, a width, a style, a table's border keywords, a divide colour
-  // and the prop itself pass.
+  // arbitrary property that sets one, the shorthand included; another element's border colour, a width (Tailwind's
+  // `length:` and `line-width:` hints and keywords included), a style, a table's border keywords, a divide colour and
+  // the prop itself pass.
   it("reads a border colour in a Card's className and nowhere else", async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const probe = [
@@ -1249,8 +1250,11 @@ describe('the repository config', SLOW, () => {
       '      <Card className="p-4 [border-color:transparent]">g</Card>',
       '      <Card className="border-opacity-50 p-4">h</Card>',
       '      <Card className="border-x-error-dark/20 p-4">i</Card>',
-      '      <Card className="border border-2 border-t border-b-0 border-x-4 border-[3px] border-dashed border-collapse border-spacing-2 divide-y divide-border-light p-4">j</Card>',
-      '      <Card tone="danger" className="p-4">k</Card>',
+      '      <Card className="p-4 [border:1px_solid_transparent]">j</Card>',
+      '      <Card className="[border-top:1px_solid_transparent] p-4">k</Card>',
+      '      <Card className="border border-2 border-t border-b-0 border-x-4 border-[3px] border-dashed border-collapse border-spacing-2 divide-y divide-border-light p-4">l</Card>',
+      '      <Card className="border-[length:2px] border-t-[length:3px] border-[line-width:2px] border-[thin] border-[.5px] [border-width:2px] [border-top-style:dashed] p-4">m</Card>',
+      '      <Card tone="danger" className="p-4">n</Card>',
       '    </div>',
       '  )',
       '}',
@@ -1258,7 +1262,7 @@ describe('the repository config', SLOW, () => {
     ].join('\n')
     const [app] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') })
     expect(app.messages.map((m) => `${m.line} ${m.ruleId} ${m.message}`)).toEqual(
-      [5, 6, 7, 8, 9, 10, 11, 12, 13].map((line) => `${line} no-restricted-syntax A Card's hairline is its tone prop (tone="danger" for an action that cannot be undone), never a border colour on top.`),
+      [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((line) => `${line} no-restricted-syntax A Card's hairline is its tone prop (tone="danger" for an action that cannot be undone), never a border colour on top.`),
     )
   })
 

@@ -274,12 +274,14 @@ const DESIGN_SHARED_RULES = [
   // colour on top competes with the tone's by stylesheet order, and Card's own `dark:border-white/10` beat the settings
   // card's dark override. Read in a Card's className as a string, a template chunk or a cx() argument, under any
   // variant or `!`, on any side, as a named or an arbitrary colour (`border-[#fff]`) or an opacity, and as an
-  // arbitrary property (`[border-color:…]`); a width (`border`, `border-2`, `border-t`, `border-b-0`, `border-[3px]`), a
-  // style (`border-dashed`), a table's `border-collapse` and `border-spacing-*`, and a divide colour pass. A side's
-  // letter is never read as a colour's first (`border-t` is a width, `border-t-transparent` a colour).
+  // arbitrary property that sets one (`[border-color:…]`, the shorthand `[border:…]`, a side's `[border-top:…]`); a
+  // width (`border`, `border-2`, `border-t`, `border-b-0`, `border-[3px]`, `border-[length:2px]`, `border-[thin]`,
+  // `[border-width:…]`), a style (`border-dashed`), a table's `border-collapse` and `border-spacing-*`, and a divide
+  // colour pass. A side's letter is never read as a colour's first (`border-t` is a width, `border-t-transparent` a
+  // colour).
   // Planted: tests/unit/designRules.spec.ts.
   ...['Literal[value=', 'TemplateElement[value.raw='].map((node) => ({
-    selector: `JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='className'] ${node}/(?:^|[\\s:!])(?:border(?:-[trblxyse])?-(?!(?:(?:0|2|4|8|px|solid|dashed|dotted|double|hidden|none)(?:$|\\s))|(?:collapse|separate|spacing)\\b|[trblxyse](?:$|\\s|-))(?:\\[(?!\\d)|[a-z])|\\[(?:--tw-)?border(?:-[a-z]+)*-(?:color|opacity):)/]`,
+    selector: `JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='className'] ${node}/(?:^|[\\s:!])(?:border(?:-[trblxyse])?-(?!(?:(?:0|2|4|8|px|solid|dashed|dotted|double|hidden|none)(?:$|\\s))|(?:collapse|separate|spacing)\\b|[trblxyse](?:$|\\s|-))(?:\\[(?!\\d|\\.|length:|line-width:|(?:thin|medium|thick)\\])|[a-z])|\\[(?:--tw-)?border(?!(?:-[a-z]+)*-(?:width|style|radius|spacing|collapse|image)\\b)(?:-[a-z]+)*:)/]`,
     message: "A Card's hairline is its tone prop (tone=\"danger\" for an action that cannot be undone), never a border colour on top.",
   })),
 ]

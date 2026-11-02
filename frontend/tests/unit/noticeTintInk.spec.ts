@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
+import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { noticeTint, type NoticeVariant } from '@/components/ui'
 
@@ -13,11 +14,14 @@ import { noticeTint, type NoticeVariant } from '@/components/ui'
  * them so, and each such borrower is listed in INKED. The one today is the settings page's Delete account warning,
  * whose words wore the error ink on the loss tint, 4.32:1 in dark, until it took Notice's error tint (4.62:1).
  *
- * The tint is read from noticeTint() as it ships and the inks from the borrower's source, both resolved through
- * tailwind.config.js. Every class of the variant's ink family the borrower writes must be one of the inks listed, so a
- * faded or varied ink (`dark:text-error-dark/80`, `hover:text-error-light`) fails rather than passing unmeasured: light reads the bare `bg-` class, dark the `dark:bg-` one, each with its opacity modifier
- * (`/[0.06]`, or `/10` on Tailwind's opacity scale), composited on the ground and rounded to 8-bit channels, as the
- * browser paints it. A tint or ink it cannot read fails. Out of reach: an ink written outside the borrower's own file.
+ * What it reads: the tint from noticeTint() as it ships, and the inks from the borrower's own element, the one whose
+ * className calls noticeTint(variant), with every element inside it, through the TypeScript AST (each className's
+ * strings and template chunks). Every text colour there must be one of the inks INKED lists, and each of those must be
+ * there, so words moved to another ink, or a faded one (`dark:text-error-dark/80`), fail rather than pass unmeasured.
+ * Both resolve through tailwind.config.js: light reads the bare `bg-` class, dark the `dark:bg-` one, each with its
+ * opacity modifier (`/[0.06]`, or `/10` on Tailwind's opacity scale), composited on the ground and rounded to 8-bit
+ * channels, as the browser paints it. A tint or ink it cannot read fails. Out of reach: a class held in a variable or
+ * passed from another file, and an ink set on a component the element renders rather than written inside it.
  */
 const require = createRequire(import.meta.url)
 const flattenColorPalette = (require('tailwindcss/lib/util/flattenColorPalette') as { default: (c: unknown) => Record<string, string> }).default
@@ -63,22 +67,51 @@ function tint(classes: string, theme: Theme): { colour: Rgb; alpha: number } {
   return { colour: hex(COLORS[m[1]]), alpha }
 }
 const inkOf = (cls: string) => hex(COLORS[cls.replace(/^(?:dark:)?text-/, '')])
-/** The classes of a variant's ink family a source writes that are not the inks the spec measures. */
-function unmeasuredInks(source: string, variant: NoticeVariant, ink: Record<Theme, string>): string[] {
-  const family = new RegExp(String.raw`(?<![\w:/-])(?:[\w-]+:)*text-${variant}-[\w-]+(?:\/[^\s'"\`]+)?(?=[\s'"\`]|$)`, 'g')
-  return [...new Set(source.match(family) ?? [])].filter((cls) => !Object.values(ink).includes(cls))
+/** A text colour class under any variants and with any opacity (`dark:text-error-dark/80`); a size or an alignment is not. */
+const isTextColour = (token: string) => {
+  const m = /^(?:[\w-]+:)*!?text-(.+?)(?:\/.+)?$/.exec(token)
+  return !!m && (m[1] in COLORS || m[1].startsWith('['))
 }
 const GROUNDS: Record<Theme, Record<string, Rgb>> = {
   light: { panel: hex(COLORS['panel-light']), page: hex(COLORS['background-light']) },
   dark: { panel: hex(COLORS['panel-dark']), page: hex(COLORS['background-dark']) },
 }
 
+/** The text colours written on the element whose className calls noticeTint(variant) and on every element inside it,
+    or null where no element lends the tint. */
+function inksInTint(source: string, file: string, variant: NoticeVariant): string[] | null {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const classAttribute = (node: ts.Node): node is ts.JsxAttribute => ts.isJsxAttribute(node) && /^\w*[cC]lassName$/.test(node.name.getText(sf))
+  let block: ts.JsxElement | undefined
+  const find = (node: ts.Node): void => {
+    if (block) return
+    if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some((p) => classAttribute(p) && p.getText(sf).includes(`noticeTint('${variant}')`))) {
+      block = node
+      return
+    }
+    ts.forEachChild(node, find)
+  }
+  find(sf)
+  if (!block) return null
+  const tokens: string[] = []
+  const strings = (node: ts.Node): void => {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) tokens.push(...node.text.split(/\s+/))
+    ts.forEachChild(node, strings)
+  }
+  const collect = (node: ts.Node): void => {
+    if (classAttribute(node)) strings(node)
+    else ts.forEachChild(node, collect)
+  }
+  collect(block)
+  return tokens.filter((token) => token && isTextColour(token))
+}
+
 describe("words in a status ink inside Notice's tint (E283)", () => {
   it.each(INKED)('$file: its $variant words clear 4.5:1 in the tint on the panel and the page, in both themes', ({ file, variant, ink }) => {
-    const source = readFileSync(path.join(ROOT, file), 'utf8')
-    expect(source, `${file} lends the ${variant} tint`).toContain(`noticeTint('${variant}')`)
-    for (const cls of Object.values(ink)) expect(source, `${file} writes ${cls}`).toMatch(new RegExp(`(?:^|[\\s'"\`])${cls.replace(/[:/]/g, '\\$&')}(?=[\\s'"\`])`))
-    expect(unmeasuredInks(source, variant, ink), `${file} writes the ${variant} ink only as measured`).toEqual([])
+    const inks = inksInTint(readFileSync(path.join(ROOT, file), 'utf8'), file, variant)
+    expect(inks, `${file} lends the ${variant} tint to an element`).not.toBeNull()
+    expect(inks!.filter((cls) => !Object.values(ink).includes(cls)), `inside the tint, ${file} sets words only in the measured inks`).toEqual([])
+    expect(Object.values(ink).filter((cls) => !inks!.includes(cls)), `inside the tint, ${file} writes each measured ink`).toEqual([])
     const failing: string[] = []
     for (const theme of ['light', 'dark'] as Theme[]) {
       const { colour, alpha } = tint(noticeTint(variant), theme)
@@ -90,7 +123,7 @@ describe("words in a status ink inside Notice's tint (E283)", () => {
     expect(failing).toEqual([])
   })
 
-  it('fails what it should: the loss tint the warning wore, and a tint it cannot read', () => {
+  it('fails what it should: the loss tint the warning wore, a tint it cannot read, and words in another ink', () => {
     // The loss tint (loss-soft-dark, an rgba token) under the error ink, on the dark panel: 4.32:1, under the floor.
     const m = /^rgba\((\d+),(\d+),(\d+),(\d*\.?\d+)\)$/.exec(COLORS['loss-soft-dark'] ?? '')
     if (!m) throw new Error(`loss-soft-dark is not the rgba this case reads: ${COLORS['loss-soft-dark']}`)
@@ -101,8 +134,20 @@ describe("words in a status ink inside Notice's tint (E283)", () => {
     expect(() => tint('bg-error-light', 'light')).toThrow('a tint this spec cannot read')
     expect(() => tint('bg-error-light/[0.06] bg-error-light/10', 'light')).toThrow('2 tints')
     expect(() => tint('dark:bg-error-dark/10', 'light')).toThrow('0 tints')
-    const inks = { light: 'text-error-light', dark: 'dark:text-error-dark' }
-    expect(unmeasuredInks(`<p className="text-error-light dark:text-error-dark">a</p><ul className="text-sm dark:text-error-dark/80 hover:text-error-light">`, 'error', inks))
-      .toEqual(['dark:text-error-dark/80', 'hover:text-error-light'])
+    // The tint's element and what is inside it are read; an ink outside it, on the same page, is not.
+    const planted = [
+      '<section>',
+      '  <h2 className="text-error-light dark:text-error-dark">Delete account</h2>',
+      "  <div className={cx('rounded-lg border p-4', noticeTint('error'))}>",
+      '    <h3 className="text-sm text-error-light dark:text-error-dark">Warning</h3>',
+      '    <p className={`text-left ${on ? "text-text-tertiary-light" : ""} dark:text-error-dark/80`}>words</p>',
+      "    <ul className={cx('list-disc', 'hover:text-error-light')}><li>one</li></ul>",
+      '  </div>',
+      '</section>',
+    ].join('\n')
+    expect(inksInTint(planted, 'planted.tsx', 'error')).toEqual([
+      'text-error-light', 'dark:text-error-dark', 'text-text-tertiary-light', 'dark:text-error-dark/80', 'hover:text-error-light',
+    ])
+    expect(inksInTint(planted, 'planted.tsx', 'warning')).toBeNull()
   })
 })
