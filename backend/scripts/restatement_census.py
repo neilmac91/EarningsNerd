@@ -202,12 +202,15 @@ def _tag_collections(usgaap: dict, financial_sic: bool) -> dict[str, tuple[tuple
 
 
 def _accession_index(usgaap: dict, accessions: set[str]) -> dict[str, list[tuple]]:
-    """Every us-gaap item the given filings carry: accession -> [(tag, unit, start, end, value)]."""
+    """Every us-gaap item the given filings carry, less a quarterly report's year that holds part of one, as every
+    reader drops it (``without_partial_years``): accession -> [(tag, unit, start, end, value)]."""
+    from app.services.facts.fiscal_naming import without_partial_years
+
     index: dict[str, list[tuple]] = defaultdict(list)
     for tag, node in usgaap.items():
         units = node.get("units") if isinstance(node, dict) else None
         for unit, items in units.items() if isinstance(units, dict) else ():
-            for item in items if isinstance(items, list) else ():
+            for item in without_partial_years(items) if isinstance(items, list) else ():
                 if isinstance(item, dict) and item.get("accn") in accessions:
                     index[item["accn"]].append((tag, unit, item.get("start"), item.get("end"), item.get("val")))
     return index
