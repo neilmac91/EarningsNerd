@@ -25,7 +25,8 @@ name: Ops
 #     Complimentary access is the exception, the first operation here that reads and writes users: it
 #     reads accounts with the invite, agreement, subscription and grant rows a grant checks, and its
 #     apply writes an account's Pro flag, a row of its own grants table and an audit row. It prints
-#     counts, never an account id or an address.
+#     counts and the manifest's action, cohort label and review date, never an account id, an
+#     address or the reason, so the cohort label names no person.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step. The complimentary-access manifest, the one
 #     repository secret this workflow reads, reaches one step's env alone and is never printed.
@@ -1058,8 +1059,9 @@ jobs:
         # any drift, read-only and with no manifest. The manifest is the founder's private file: it reaches this step
         # only as a repository secret in its env, and the run moves it into a shell variable no command inherits and
         # hands it to the script on stdin, never through a file, an argument or this log. What lands in this log:
-        # counts, refusals by their place in the manifest and the manifest's digest; never an account id, an address
-        # or the manifest's reason. It runs here rather than in the jobs channel so its report reaches this log.
+        # the manifest's action, cohort label and review date, counts, refusals by their place in the manifest and
+        # the manifest's digest; never an account id, an address or the manifest's reason, so the cohort label names
+        # no person. It runs here rather than in the jobs channel so its report reaches this log.
         if: contains('complimentary-access-dry-run complimentary-access-apply complimentary-access-readout', steps.request.outputs.operation)
         working-directory: backend
         timeout-minutes: 15
