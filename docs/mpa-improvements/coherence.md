@@ -1298,7 +1298,8 @@ row, N9), from one port (`analysis_export_metadata.source_words` and `method_wor
       wrapped the stored growth definitions, and a text cell never prints "###". Rendered in LibreOffice, every
       formula prints whole, the three longest growth words on two lines.
     - A Q4 calculated from the year less its three quarters ("FY - (Q1 + Q2 + Q3)", `facts/quarterly.py`), which had
-      no words on any surface, reads "Full year − first three quarters", beside "Full year − first nine months".
+      no words on any surface, reads "Full year − first, second and third quarters", beside "Full year − first nine
+      months": ordinals, since `planLimitsLockstep.spec.ts` keeps typed counts of quarters out of copy.
 
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").

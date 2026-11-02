@@ -35,7 +35,7 @@ FCF_DEFINITION = (
 # #1953). test_export_formula_words.py reads the page's words and fallback and fails where these differ.
 FORMULA_WORDS = {
     "FY - YTD9": "Full year − first nine months",
-    "FY - (Q1 + Q2 + Q3)": "Full year − first three quarters",
+    "FY - (Q1 + Q2 + Q3)": "Full year − first, second and third quarters",
     "YTD9 - YTD6": "First nine months − first six months",
     "YTD6 - Q1": "First six months − first quarter",
     "100 * operating_income / revenue": "Operating income ÷ revenue × 100",

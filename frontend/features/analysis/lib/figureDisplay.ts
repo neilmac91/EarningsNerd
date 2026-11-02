@@ -36,7 +36,7 @@ export function exactFigure(value: number, figure: Figure): string {
 // backend/tests/unit/test_export_formula_words.py reads both here, one entry a line, and fails when they differ.
 const FORMULAS: Record<string, string> = {
   'FY - YTD9': 'Full year − first nine months',
-  'FY - (Q1 + Q2 + Q3)': 'Full year − first three quarters',
+  'FY - (Q1 + Q2 + Q3)': 'Full year − first, second and third quarters',
   'YTD9 - YTD6': 'First nine months − first six months',
   'YTD6 - Q1': 'First six months − first quarter',
   '100 * operating_income / revenue': 'Operating income ÷ revenue × 100',
