@@ -48,6 +48,7 @@ def cache_and_summary(filing_id):
 async def test_real_pipeline_commits_source_before_provider_and_atomically_replaces_legacy(source):
     identity, objects, primary = source
     observed = []
+    served_cache_at_provider = []
     async def provider(text, *args, **kwargs):
         assert text == PRIMARY.decode()
         assert LEGACY not in kwargs['filing_excerpt']
@@ -58,7 +59,7 @@ async def test_real_pipeline_commits_source_before_provider_and_atomically_repla
             bundle = db.query(FilingSourceBundle).filter_by(identity_sha256=identity.sha256).one()
             extraction = db.query(FilingSourceExtraction).filter_by(bundle_id=bundle.id).one()
             observed.append((bundle.id, extraction.id))
-        assert cache_and_summary(identity.filing_id) == (LEGACY, LEGACY, None)
+        served_cache_at_provider.append(cache_and_summary(identity.filing_id))
         return deepcopy(CANONICAL_PAYLOAD)
     with stream_boundaries() as mock, patch.object(pipeline.openai_service, 'summarize_filing', AsyncMock(side_effect=provider)) as model, \
             patch.object(pipeline, 'get_or_cache_excerpt', summary_generation_service.get_or_cache_excerpt):
@@ -67,6 +68,7 @@ async def test_real_pipeline_commits_source_before_provider_and_atomically_repla
         mock.assert_not_awaited()
         model.assert_awaited_once()
     primary.assert_awaited_once()
+    assert served_cache_at_provider == [(LEGACY, LEGACY, None)]
     excerpt, risk, raw = cache_and_summary(identity.filing_id)
     assert 'Revenue $5.1 billion' in excerpt
     assert risk is None
@@ -124,9 +126,9 @@ async def test_preparation_failure_never_enters_provider_or_mutates_served_cache
         monkeypatch.setattr(capture.store, 'commit_extraction', lambda *a: (_ for _ in ()).throw(FilingSourceError('artifact_commit_unverified', retryable=True)))
     with stream_boundaries() as model:
         events = await drain(identity.filing_id)
+    model.assert_not_awaited()
     assert events[-1]['type'] == 'error'
     assert events[-1]['code'] == 'filing_source_unavailable'
-    model.assert_not_awaited()
     assert cache_and_summary(identity.filing_id) == (LEGACY, LEGACY, None)
 
 
@@ -147,9 +149,9 @@ async def test_actual_generation_pre_task_barrier_rejects_unverified_inputs(sour
     monkeypatch.setattr(pipeline.fetch, 'fetch_document', corrupt_after_fetch)
     with stream_boundaries() as model:
         events = await drain(identity.filing_id)
+    model.assert_not_awaited()
     assert events[-1]['type'] == 'error'
     assert events[-1]['code'] == 'filing_source_unavailable'
-    model.assert_not_awaited()
     assert cache_and_summary(identity.filing_id) == (LEGACY, LEGACY, None)
 
 

@@ -13,7 +13,7 @@ from threading import Barrier, Event
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
@@ -178,6 +178,20 @@ def test_migration_replay_matches_orm_columns_constraints_and_preserves_rows(fac
     identity = seed_source(factory=factory)
     original = store.commit_bundle(candidate(identity))
     migration = Path(__file__).resolve().parents[2]/'migrations/20261102_earningsnerd_filing_source_bundles.sql'
+    def schema_contract():
+        inspector = inspect(postgres_engine)
+        result = {}
+        for name in ('earningsnerd_filing_source_bundles', 'earningsnerd_filing_source_members', 'earningsnerd_filing_source_extractions'):
+            result[name] = {
+                'columns': [(row['name'], str(row['type']), row['nullable'], row['default']) for row in inspector.get_columns(name)],
+                'primary_key': inspector.get_pk_constraint(name)['constrained_columns'],
+                'unique': sorted(tuple(row['column_names']) for row in inspector.get_unique_constraints(name)),
+                'checks': sorted(row['sqltext'] for row in inspector.get_check_constraints(name)),
+                'foreign_keys': sorted((tuple(row['constrained_columns']), row['referred_table'], tuple(row['referred_columns'])) for row in inspector.get_foreign_keys(name)),
+                'indexes': sorted((tuple(row['column_names']), row['unique']) for row in inspector.get_indexes(name)),
+            }
+        return result
+    original_schema = schema_contract()
     for _ in range(3):
         with postgres_engine.begin() as connection:
             connection.exec_driver_sql(migration.read_text())
@@ -188,6 +202,7 @@ def test_migration_replay_matches_orm_columns_constraints_and_preserves_rows(fac
         for table in tables:
             table.drop(connection)
         connection.exec_driver_sql(migration.read_text())
+    assert schema_contract() == original_schema
     assert store.commit_bundle(original) == original
     assert store.commit_extraction(original, 'decoder', 'extractor', 'b'*64, 12)
 
