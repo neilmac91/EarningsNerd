@@ -148,11 +148,10 @@ _CF_YTD9_WINDOW = (250, 295)
 
 _QUARTER_PERIODS = ("Q1", "Q2", "Q3", "Q4")
 
-# us-gaap tag candidates per standardized concept, in priority order. Ordering follows
-# HEADLINE_GAAP_TAGS for the shared concepts (companyfacts context: the ASC-606 revenue tag first).
-# Periods are merged ACROSS tags (first tag with data wins per period), so a filer that migrated
-# tags (SalesRevenueNet → RevenueFromContractWithCustomer...) keeps its full history. us-gaap only:
-# IFRS filers (ifrs-full) are detected and reported unsupported (v1 scope).
+# us-gaap tag candidates per standardized concept, in priority order. Ordering follows HEADLINE_GAAP_TAGS for the
+# shared concepts (companyfacts context: the ASC-606 revenue tag first). Periods are merged ACROSS tags (first tag with
+# data wins per period), so a filer that migrated tags (SalesRevenueNet → RevenueFromContractWithCustomer...) keeps its
+# full history. us-gaap only: IFRS filers (ifrs-full) are detected and reported unsupported (v1 scope).
 COMPANYFACTS_DURATION_TAGS: dict[str, tuple[str, ...]] = {
     "revenue": (
         "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -160,6 +159,7 @@ COMPANYFACTS_DURATION_TAGS: dict[str, tuple[str, ...]] = {
         "RevenueFromContractWithCustomerIncludingAssessedTax",
         "SalesRevenueNet",
         "NetSales",
+        "GrossInvestmentIncomeOperating",  # a BDC's total investment income, last: BDCs carry no SIC code (E286)
     ),
     "net_income": ("NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"),
     "gross_profit": ("GrossProfit",),
