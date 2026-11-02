@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app import database
 from app.services.durable_tasks import TaskUnavailable
-from app.services.request_work import RequestWork, request_work_scope, run_executor_work
+from app.services.request_work import RequestWork, run_executor_work
 
 RECOVERY_BUDGET_SECONDS = 20.0
 SQL_STATEMENT_SECONDS = 3.0
@@ -44,16 +44,20 @@ class SummaryRecoveryUnavailable(TaskUnavailable):
     """Closed recovery refusal; internal HTTP keeps its existing safe 503 contract."""
 
 
+def _guard_executor() -> ThreadPoolExecutor:
+    global _executor
+    if _executor is None or getattr(_executor, "_shutdown", False):
+        _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="summary_recovery_")
+    return _executor
+
+
 async def _guard_call(call: Callable[[], T]) -> T:
-    """Guard cleanup cannot queue behind unrelated request-pool waiters.
+    """Guard calls cannot queue behind unrelated request-pool waiters.
 
     The nonblocking local permit admits one pass, and that pass awaits each
     owned call before another; this executor cannot accumulate recovery work.
     """
-    global _executor
-    if _executor is None or getattr(_executor, "_shutdown", False):
-        _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="summary_recovery_")
-    return await run_executor_work(_executor, call)
+    return await run_executor_work(_guard_executor(), call)
 
 
 def _remaining() -> float | None:
@@ -149,15 +153,18 @@ async def before_handoff() -> None:
 async def _release_owner(owner: _RecoveryOwner) -> None:
     """Finish mandatory disconnect even when the request is repeatedly cancelled.
 
-    RequestWork cancels queued calls when its waiter is cancelled. Release must
-    run even before its thread starts, so only a shielded child owns that future.
-    The parent retains the local permit until the actual disconnect finishes.
+    Own the concurrent future directly: RequestWork cancels queued calls, while
+    asyncio shutdown cancels every Task, including shielded cleanup children.
+    Neither can discard this mandatory release. The local permit remains held.
     """
-    async def disconnect() -> None:
-        async with request_work_scope():
-            await _guard_call(owner.release)
-
-    cleanup = asyncio.create_task(disconnect())
+    try:
+        actual = _guard_executor().submit(owner.release)
+    except RuntimeError:
+        # An externally shut-down executor rejected submission: no worker owns
+        # the connection. Mandatory cleanup may block this exceptional path.
+        owner.release()
+        return
+    cleanup = asyncio.wrap_future(actual)
     cancelled = False
     while True:
         try:
@@ -167,6 +174,18 @@ async def _release_owner(owner: _RecoveryOwner) -> None:
             break
         except asyncio.CancelledError:
             cancelled = True
+            if actual.cancelled():
+                # Only the actual future proves the callable never started. An
+                # externally cancelled queue cannot discard mandatory release.
+                owner.release()
+                break
+            if actual.done():
+                actual.result()  # Propagate an actual failure without retrying a terminal future.
+                break
+            if cleanup.cancelled():
+                # A cancelled wrapper does not prove its thread stopped. Rejoin
+                # the same actual future without spawning another disconnect.
+                cleanup = asyncio.wrap_future(actual)
     if cancelled:
         raise asyncio.CancelledError
 

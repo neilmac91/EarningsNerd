@@ -316,6 +316,111 @@ signal.pause()
         process.communicate(timeout=10)
 
 
+def test_asyncio_run_shutdown_finishes_recovery_disconnect(recovery_guard, postgres_engine):
+    # A separate process supplies the outer hang guard: asyncio shutdown cancels
+    # every remaining Task, including any cleanup child an implementation adds.
+    script = '''
+import asyncio, json, sys, threading
+from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.engine import make_url
+from app import database
+from app.services import summary_recovery as recovery
+
+data = json.loads(sys.stdin.readline())
+database._DATABASE_URL = make_url(data['url'])
+recovery.RECOVERY_LOCK_KEY = data['key']
+owner = recovery._RecoveryOwner()
+recovery._RecoveryOwner = lambda: owner
+executor = ThreadPoolExecutor(max_workers=1)
+recovery._executor = executor
+cancelled, release = threading.Event(), threading.Event()
+cleanup_queued = asyncio.Event()
+pass_task = None
+calls, observations, failures = [], {}, []
+original_submit, original_release = executor.submit, owner.release
+
+def submit(call, *args, **kwargs):
+    future = original_submit(call, *args, **kwargs)
+    calls.append(future)
+    if len(calls) == 3:
+        cleanup_queued.set()
+    return future
+executor.submit = submit
+
+def disconnect():
+    assert recovery._slot.locked()
+    original_release()
+    observations['permit_held_during_release'] = recovery._slot.locked()
+owner.release = disconnect
+
+class ObservedTask(asyncio.Task):
+    def cancel(self, *args, **kwargs):
+        if self is pass_task:
+            cancelled.set()
+        return super().cancel(*args, **kwargs)
+
+def observer():
+    engine = create_engine(data['url'])
+    try:
+        assert cancelled.wait(10)
+        with engine.begin() as connection:
+            got = connection.execute(select(func.pg_try_advisory_lock(data['key']))).scalar_one()
+            if got:
+                connection.execute(select(func.pg_advisory_unlock(data['key'])))
+            observations['guard_held_before_release'] = not got and recovery._slot.locked()
+    except BaseException as error:
+        failures.append(type(error).__name__)
+    finally:
+        release.set()
+        engine.dispose()
+
+async def one_pass():
+    async with recovery.recovery_scope() as acquired:
+        assert acquired
+        executor.submit(lambda: release.wait(10))
+
+async def main():
+    global pass_task
+    asyncio.get_running_loop().set_task_factory(
+        lambda loop, coro, **kwargs: ObservedTask(coro, loop=loop, **kwargs))
+    pass_task = asyncio.create_task(one_pass())
+    await asyncio.wait_for(cleanup_queued.wait(), 10)
+    # Return with recovery pending; asyncio.run itself must cancel/drain it.
+
+watcher = threading.Thread(target=observer)
+watcher.start()
+asyncio.run(main())
+watcher.join(timeout=10)
+executor.shutdown(wait=True)
+assert not watcher.is_alive() and not failures
+observations.update(shutdown_cancelled=pass_task.cancelled(), owner_closed=owner.connection is None,
+                    local_slot_free=not recovery._slot.locked())
+print(json.dumps(observations), flush=True)
+recovery._engine.dispose()
+'''
+    process = subprocess.Popen(
+        [sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True,
+    )
+    try:
+        output, errors = process.communicate(json.dumps({
+            "url": postgres_engine.url.render_as_string(hide_password=False),
+            "key": recovery.RECOVERY_LOCK_KEY,
+        }) + "\n", timeout=15)
+        assert process.returncode == 0, errors[-2000:]
+        assert json.loads(output) == {
+            "guard_held_before_release": True, "permit_held_during_release": True,
+            "shutdown_cancelled": True, "owner_closed": True, "local_slot_free": True,
+        }
+        with postgres_engine.begin() as probe:
+            probe.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.communicate(timeout=10)
+
+
 def _race(call, count=4):
     barrier = Barrier(count)
     def worker():

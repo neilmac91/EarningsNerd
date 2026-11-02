@@ -1,5 +1,6 @@
 """Recovery contenders and cancellations cannot outlive or steal one pass's ownership."""
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from unittest.mock import AsyncMock
 
@@ -176,3 +177,82 @@ def test_sql_budget_does_not_change_ordinary_dispatch():
             pytest.fail("ordinary dispatch must not open a recovery SQL budget")
 
     recovery.apply_sql_budget(NoDatabaseAccess())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["cancelled", "rejected"])
+async def test_discarded_cleanup_call_gets_mandatory_fallback(monkeypatch, failure):
+    entered, unblock = Event(), Event()
+    calls = []
+    owner = recovery._RecoveryOwner()
+    monkeypatch.setattr(owner, "release", lambda: calls.append("released"))
+    executor = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(recovery, "_executor", executor)
+    original_submit = executor.submit
+
+    def block():
+        entered.set()
+        assert unblock.wait(10)
+
+    def submit(call):
+        if failure == "rejected":
+            raise RuntimeError("executor shut down during submission")
+        future = original_submit(call)
+        assert future.cancel()  # The occupied worker proves release never began.
+        return future
+
+    executor.submit(block)
+    try:
+        assert await asyncio.to_thread(entered.wait, 10)
+        monkeypatch.setattr(executor, "submit", submit)
+        if failure == "cancelled":
+            with pytest.raises(asyncio.CancelledError):
+                await recovery._release_owner(owner)
+        else:
+            await recovery._release_owner(owner)
+        assert calls == ["released"]
+    finally:
+        unblock.set()
+        executor.shutdown(wait=True)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_wrapper_rejoins_running_disconnect_without_second_release(monkeypatch):
+    entered, unblock = Event(), Event()
+    calls = []
+    owner = recovery._RecoveryOwner()
+    executor = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(recovery, "_executor", executor)
+    original_wrap = asyncio.wrap_future
+    wrapped = []
+    rejoined = asyncio.Event()
+
+    def disconnect():
+        calls.append("released")
+        entered.set()
+        assert unblock.wait(10)
+
+    def wrap(actual):
+        result = original_wrap(actual)
+        wrapped.append(result)
+        if len(wrapped) == 1:
+            assert entered.wait(10) and actual.running()
+            result.cancel()  # Cancelling this wrapper cannot terminate its thread.
+        else:
+            rejoined.set()
+        return result
+
+    monkeypatch.setattr(owner, "release", disconnect)
+    monkeypatch.setattr(recovery.asyncio, "wrap_future", wrap)
+    task = asyncio.create_task(recovery._release_owner(owner))
+    try:
+        await asyncio.wait_for(rejoined.wait(), 10)
+        assert calls == ["released"] and not task.done()
+        unblock.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert calls == ["released"]
+    finally:
+        unblock.set()
+        await asyncio.gather(task, return_exceptions=True)
+        executor.shutdown(wait=True)
