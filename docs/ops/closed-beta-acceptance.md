@@ -196,7 +196,9 @@ the feedback and support inboxes are answered. Stop admitting, and use section 7
 
 Land every deploy or repair that moves stored financial figures before the rehearsal. During a wave, a saved
 analysis over a period that moved refuses its export, telling the tester to run it again, and an acceptance holds
-only for the identities it was taken on.
+only for the identities it was taken on. Merge backend changes one at a time, each after the previous `deploy-backend`
+run shows its migration line and a healthy revision ([deploy discipline](../../AGENTS.md#6-deploy-discipline)):
+back-to-back merges ship as one revision, so neither change can be verified or rolled back on its own.
 
 Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198 in
 `tasks/todo.md`). After such a deploy, sync the companies the rehearsal opens (a bounded `sync-companyfacts`, SEC reads
@@ -247,7 +249,9 @@ Before the founder rehearsal the founder supplies, outside this repository where
 - what testers are told and agree to: the beta's duration, that feedback text (and its hashed network address) is
   kept without the account after deletion while screenshots are deleted, screenshot retention (180 days at most),
   and the support channel;
-- the roster and the two cohort labels;
+- the roster, which stays private, and the cohort labels: one per invitation wave and one for the complimentary
+  grant. Each label names no person, because every complimentary-access report prints the grant's label and the Ops
+  run's log is public;
 - the beta's end and review dates, and what complimentary access becomes at the end;
 - the daily model spend limit, the error and capacity limits of section 6, the mail arrival window of section 3, the
   support answer window and the tolerated loss window of section 5;
