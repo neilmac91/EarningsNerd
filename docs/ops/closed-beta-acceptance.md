@@ -95,10 +95,10 @@ response is not a pass.
 | 22 | Unusable invitations | A used, revoked and expired link each show a page the tester can act on | invalid-invitation test (status only) |
 | 23 | Deletion | A disposable tester account deletes itself; its session ends; its screenshot cannot be opened at once and its object is gone after the next hourly cleanup run | feedback test |
 
-A stale tab must never change the credentials of an account other than the one it shows. Before any tester is
-admitted, the auth repair for that case carries its own two-account tests (one target with a password, one
-social-only), and the founder rehearsal repeats it by hand: sign in as one account, sign in as the other in a new
-tab, then submit the first tab's password form. The server refuses, and neither account changes.
+A tab must never change the credentials of an account other than the one it shows (E29 in `tasks/todo.md`).
+Before any tester is admitted, that auth repair is merged and deployed with its own two-account tests (one
+target with a password, one social-only), and the founder rehearsal repeats the manual check its pull request
+describes. Neither account may change.
 
 ## 4. Pro capabilities: pass and fail
 
