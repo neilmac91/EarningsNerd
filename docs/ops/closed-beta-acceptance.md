@@ -109,10 +109,13 @@ and every unusable link answers one refusal with no way forward. They pass only 
 work's Billing fix and the invitation work's per-case refusals, which makes both preconditions of the rehearsal.
 
 A tab must never change the credentials of an account other than the one it shows (E29 (6) in `tasks/todo.md`).
-Before any tester is admitted, that auth repair is merged and deployed with its own two-account tests (one
-target with a password, one social-only), and the founder rehearsal repeats the manual check its pull request
-describes. Neither account may change. E29 (5), an OAuth sign-in that another tab's refresh can undo, is fixed or
-dispositioned in writing before the rehearsal.
+Before any tester is admitted, that auth repair is merged and deployed in full: every password change names the
+account its tab shows, as a required field (the founder approved that contract change), with its own two-account
+tests (one target with a password, one social-only), and the founder rehearsal repeats the manual check its pull
+request describes. Neither account may change. E29 (5), an OAuth sign-in that another tab's refresh can undo, is
+fixed before the rehearsal, including a completion that fails safely when it cannot hold the session cookies' lock
+and the life of a pending sign-in across a sign-out everywhere, a password reset and an inactive account, or the
+founder accepts it in writing. A trial that passes the usual path closes neither item: its review's conditions do.
 
 ## 4. Pro capabilities: pass and fail
 
