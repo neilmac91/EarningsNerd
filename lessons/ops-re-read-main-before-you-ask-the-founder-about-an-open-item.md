@@ -15,5 +15,8 @@ date: `git fetch origin main`, grep main's `tasks/todo.md` for the item's row, a
 --grep=<item>` for a merge. If the row is gone or a merged pull request names the item, read that pull request first,
 then ask only what it left open and say what it already did.
 
+**Gate.** None: review-checked. The check reads remote state at the moment a question is put, which no repository
+gate sees.
+
 **Evidence.** #1932 (`99f9d970`) and #1936 (`1cbafa08`), merged before the questions; D-076 in
 `docs/brand/decisions-log.md`, which records the stale previews.

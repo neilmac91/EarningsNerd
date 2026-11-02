@@ -696,8 +696,8 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  imports, cx() and conditions and measured against the classes it renders, as
                  inputClassesNoOverrides.spec.tsx holds the field; a logical property reads as the side it sets in
                  this left-to-right app, a shorthand as its longhands; the components that forward a caller's
-                 className to a Card are listed, traced, and their call sites read as a Card's; one of the five
-                 used as a value fails).
+                 className to a Card are listed, traced, and their call sites read against the Card's classes and
+                 their own; one of the five used as a value or re-exported fails).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -1672,9 +1672,11 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  More than a sentence (a list) is the Notice's children, in the description's secondary ink and
                  size, since the description is a <p>: the settings page's delete warning lists what deleting
                  removes (D-076). The words a caller writes into a Notice (its title, description and children)
-                 rest in the ink, a link in the accent ink, and a title written as a string never opens on its
-                 state's name and a colon (gate: tests/unit/noticeTintInk.spec.ts, every <Notice> under any
-                 alias). Guidance is no state (a sign-in that would show a company's
+                 rest in the ink, a link in the accent ink at full strength (gate:
+                 tests/unit/noticeTintInk.spec.ts, every <Notice> under any alias; out of its reach, words a
+                 component inside the Notice inks itself), and a title never opens on its state's name and a
+                 colon (gate: tests/unit/noticeTitlesAreOnePhrase.spec.ts, every piece of a Notice's or a
+                 GuidanceCard's title). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's

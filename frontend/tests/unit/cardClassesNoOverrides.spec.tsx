@@ -48,10 +48,12 @@ import { FRONTEND_ROOT, MARKER, competing, declCache, loadDeclarations, parseCla
  *
  * A position the scan cannot follow fails closed: spread props, a className from a parameter or a prop, an import it
  * cannot read, one of the five (or a forwarder) used as a value rather than a tag (`createElement(Card)`, `as={Card}`,
- * `memo(Card)`), and a module of theirs loaded with import(). A cx() that joins a forwarded className with literals
- * still reads the literals. FORWARDERS lists each component that passes its caller's className on to a Card, traced
- * by hand: its call sites are read as a Card's are, against the classes of the Card it renders, and its unreadable
- * positions are listed at their count. Out of reach: a class set inside a component a Card renders as its child, and a
+ * `memo(Card)`, a class that extends a forwarder), a namespace of theirs read as a value, a re-export of one (the
+ * components/ui barrel's own aside), and a module of theirs loaded with import(). A cx() that joins a forwarded
+ * className with literals still reads the literals. FORWARDERS lists each component that passes its caller's className
+ * on to a Card, traced by hand: its call sites are read as a Card's are, against the classes of the Card it renders and
+ * the classes it writes there beside its caller's, a local it renders lazily (SectorPeers' `Card`, SectorPeersCard) is
+ * read as the forwarder it loads, and its unreadable positions are listed at their count. Out of reach: a class set inside a component a Card renders as its child, and a
  * page that sets `dir="rtl"` (the logical properties would then name the other side).
  */
 
@@ -66,19 +68,28 @@ const JOINERS: Record<string, string[]> = { clsx: ['clsx', 'default'], 'componen
 /** Components that pass their caller's className on to a Card, each traced by hand, with the Card props they render it
     with. Their call sites are read as a Card's; their forwarding positions, which the scan cannot follow, are listed at
     their count. A new forwarder is listed here on purpose. */
-interface Forwarder { file: string; module: string; name: string; combo: Combo; unread: number; how: string }
+interface Forwarder {
+  file: string; module: string; name: string; combo: Combo; unread: number; how: string
+  /** The file whose <Card> holds the classes the forwarder adds beside its caller's: a caller's class is checked against
+      them too, since they lose or win against it by stylesheet order the same way. */
+  card: string
+  /** A local tag in the forwarder's own file that is another forwarder loaded lazily (`lazy(() => import(…))`), read
+      as that forwarder: its render's className is read as a call site's. */
+  lazy?: { tag: string; module: string }
+}
 const FORWARDERS: Forwarder[] = [
   {
     file: 'components/ChartErrorBoundary.tsx', module: 'components/ChartErrorBoundary', name: 'ChartErrorBoundary', combo: {}, unread: 1,
-    how: "<Card className={cx(this.props.className, 'p-cap-6 text-center')}>: a class component's prop",
+    card: 'components/ChartErrorBoundary.tsx', how: "<Card className={cx(this.props.className, 'p-cap-6 text-center')}>: a class component's prop",
   },
   {
     file: 'features/peers/components/SectorPeersCard.tsx', module: 'features/peers/components/SectorPeersCard', name: 'default', combo: {}, unread: 1,
-    how: "<Card as=\"section\" className={cx(className, 'p-cap-6')}>: a parameter",
+    card: 'features/peers/components/SectorPeersCard.tsx', how: "<Card as=\"section\" className={cx(className, 'p-cap-6')}>: a parameter",
   },
   {
-    file: 'features/peers/components/SectorPeers.tsx', module: 'features/peers/components/SectorPeers', name: 'default', combo: {}, unread: 1,
-    how: "import('./SectorPeersCard'), rendered lazily with SectorPeers' own className, which its call sites give",
+    file: 'features/peers/components/SectorPeers.tsx', module: 'features/peers/components/SectorPeers', name: 'default', combo: {}, unread: 2,
+    card: 'features/peers/components/SectorPeersCard.tsx', lazy: { tag: 'Card', module: 'features/peers/components/SectorPeersCard' },
+    how: "import('./SectorPeersCard'), rendered lazily as its local <Card className={className}>: a parameter",
   },
 ]
 
@@ -107,7 +118,7 @@ function cardPropValues(): Record<string, (string | boolean)[]> {
 }
 const CARD_PROPS = cardPropValues()
 
-interface Site { file: string; line: number; label: string; component: ComponentName; combos: Combo[]; added: string[] }
+interface Site { file: string; line: number; label: string; component: ComponentName; combos: Combo[]; added: string[]; forwarder?: Forwarder }
 interface Scan { sites: Site[]; unreadable: { file: string; line: number; why: string }[] }
 
 /** `@/components/ui`, `@/components/ui/` and `../ui/Card` alike, as a path under frontend/ without extension; a package
@@ -139,8 +150,13 @@ function scanSource(file: string, text: string): Scan {
   const importOf = (id: ts.Identifier) => (resolve(id) ? undefined : imports.get(id.text))
   const forwarderOf = (module: string, name: string) => FORWARDERS.find((f) => f.module === module && f.name === name)
   /** What a tag or a reference names: one of the five, a forwarder, or nothing of this gate's. */
+  const lazyAlias = FORWARDERS.find((f) => f.file === file)?.lazy
   const named = (node: ts.Expression): { component: ComponentName; forwarder?: Forwarder } | undefined => {
     if (ts.isIdentifier(node)) {
+      if (lazyAlias && node.text === lazyAlias.tag && resolve(node)) {
+        const forwarder = FORWARDERS.find((f) => f.module === lazyAlias.module && f.name === 'default')
+        return forwarder ? { component: 'Card', forwarder } : undefined
+      }
       const imp = importOf(node)
       if (!imp) return undefined
       if (imp.module in MODULES && imp.name in COMPONENTS) return { component: imp.name as ComponentName }
@@ -236,13 +252,26 @@ function scanSource(file: string, text: string): Scan {
     return CARD_PROPS[name]
   }
 
-  /** A reference that only names a type, an import or a tag, which renders nothing on its own. */
+  /** A reference that only names a type, an import or a tag, which renders nothing on its own, or a name that is no
+      reference at all (a property, a key, an attribute's name). A class's `extends` is a value: it renders the parent. */
   const isTagOrType = (node: ts.Node): boolean => {
     const p = node.parent
     if (ts.isImportSpecifier(p) || ts.isImportClause(p) || ts.isNamespaceImport(p)) return true
     if ((ts.isJsxOpeningElement(p) || ts.isJsxSelfClosingElement(p) || ts.isJsxClosingElement(p)) && p.tagName === node) return true
-    if (ts.isTypeQueryNode(p) || ts.isTypeReferenceNode(p) || ts.isQualifiedName(p) || ts.isExpressionWithTypeArguments(p)) return true
+    if (ts.isTypeQueryNode(p) || ts.isTypeReferenceNode(p) || ts.isQualifiedName(p)) return true
+    if (ts.isExpressionWithTypeArguments(p)) return !(ts.isHeritageClause(p.parent) && p.parent.token === ts.SyntaxKind.ExtendsKeyword && ts.isClassLike(p.parent.parent))
+    if (ts.isPropertyAccessExpression(p) && p.name === node) return true
+    if ((ts.isPropertyAssignment(p) || ts.isPropertySignature(p) || ts.isPropertyDeclaration(p) || ts.isMethodDeclaration(p) || ts.isMethodSignature(p) || ts.isJsxAttribute(p) || ts.isEnumMember(p)) && p.name === node) return true
+    if (ts.isBindingElement(p) && p.propertyName === node) return true
+    // A declaration's own name declares, it does not refer: the lazy alias's `const [Card] = useState(…)`.
+    if ((ts.isBindingElement(p) || ts.isVariableDeclaration(p) || ts.isParameter(p) || ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p)) && p.name === node) return true
+    if (ts.isExportSpecifier(p) && p.parent.parent.moduleSpecifier) return true
     return false
+  }
+  /** A namespace import of the Card modules or a forwarder's, which a tag or a type may read a member of. */
+  const isOurNamespace = (id: ts.Identifier): boolean => {
+    const imp = importOf(id)
+    return !!imp && imp.name === '*' && (imp.module in MODULES || FORWARDERS.some((f) => f.module === imp.module))
   }
 
   const scan: Scan = { sites: [], unreadable: [] }
@@ -269,16 +298,27 @@ function scanSource(file: string, text: string): Scan {
               combos = combos.flatMap((c) => values.map((v) => ({ ...c, [name]: v })))
             }
           }
-          if (added.length) scan.sites.push({ file, line: lineOf(node), label, component: hit.component, combos, added })
+          if (added.length) scan.sites.push({ file, line: lineOf(node), label, component: hit.component, combos, added, forwarder: hit.forwarder })
         } catch (err) {
           if (!(err instanceof Unreadable)) throw err
           partial.push(err.message)
         }
         for (const why of partial) scan.unreadable.push({ file, line: lineOf(node), why })
       }
-    } else if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) && !isTagOrType(node) && !(ts.isIdentifier(node) && ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node)) {
-      const hit = named(node)
+    } else if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) && !isTagOrType(node)) {
+      const base = ts.isIdentifier(node) && ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node
+      const hit = base ? undefined : named(node)
       if (hit) scan.unreadable.push({ file, line: lineOf(node), why: `<${hit.forwarder ? 'a forwarder' : hit.component}> used as a value, so where it renders and with what cannot be read` })
+      else if (ts.isIdentifier(node) && !base && isOurNamespace(node)) {
+        scan.unreadable.push({ file, line: lineOf(node), why: `the namespace \`${node.text}\` used as a value, so the components read off it cannot be followed` })
+      }
+    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier) && file !== 'components/ui/index.ts') {
+      const from = moduleKey(file, node.moduleSpecifier.text)
+      const forwarded = (name: string) => (from in MODULES && name in COMPONENTS) || FORWARDERS.some((f) => f.module === from && f.name === name)
+      const clause = node.exportClause
+      const reexports = !clause ? from in MODULES || FORWARDERS.some((f) => f.module === from)
+        : ts.isNamedExports(clause) ? clause.elements.some((el) => forwarded((el.propertyName ?? el.name).text)) : from in MODULES || FORWARDERS.some((f) => f.module === from)
+      if (reexports) scan.unreadable.push({ file, line: lineOf(node), why: `a Card or a forwarder re-exported from '${node.moduleSpecifier.text}', so its imports from here cannot be read` })
     } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
       const [arg] = node.arguments
       const loaded = arg && ts.isStringLiteralLike(arg) ? moduleKey(file, arg.text) : undefined
@@ -316,14 +356,27 @@ function placeable(own: string[], added: string[]): string[] {
   })
 }
 
-/** Every finding of a scan as `file:line <Component> finding`, sorted. */
+const literalCache = new Map<string, string[]>()
+/** The classes a forwarder writes on its Card beside its caller's, read off the one <Card> in its `card` file. */
+function forwarderLiterals(forwarder: Forwarder): string[] {
+  if (!literalCache.has(forwarder.card)) {
+    const sites = scanSource(forwarder.card, readFileSync(path.join(FRONTEND_ROOT, forwarder.card), 'utf8')).sites.filter((s) => s.label === 'Card')
+    if (sites.length !== 1) throw new Error(`${forwarder.card}: ${sites.length} <Card> sites, where a forwarder renders one`)
+    literalCache.set(forwarder.card, sites[0].added)
+  }
+  return literalCache.get(forwarder.card)!
+}
+
+/** Every finding of a scan as `file:line <Component> finding`, sorted. A forwarder's call site is read against its
+    Card's own classes and the classes the forwarder adds beside its caller's. */
 async function check(scan: Scan): Promise<string[]> {
-  const utilities = scan.sites.flatMap((s) => [...s.added, ...s.combos.flatMap((c) => ownClasses(s.component, c))]).map((t) => parseClass(t).utility)
+  const ownOf = (site: Site, combo: Combo) => [...ownClasses(site.component, combo), ...(site.forwarder ? forwarderLiterals(site.forwarder) : [])]
+  const utilities = scan.sites.flatMap((s) => [...s.added, ...s.combos.flatMap((c) => ownOf(s, c))]).map((t) => parseClass(t).utility)
   await loadDeclarations(utilities)
   const out = new Set<string>()
   for (const site of scan.sites) {
     for (const combo of site.combos) {
-      const own = ownClasses(site.component, combo)
+      const own = ownOf(site, combo)
       const props = Object.keys(combo).length ? ` ${JSON.stringify(combo)}` : ''
       for (const f of competing(own, placeable(own, site.added))) out.add(`${site.file}:${site.line} <${site.label}${props}> ${f}`)
     }
@@ -373,7 +426,7 @@ describe('a class on a Card never competes with what Card sets (E283, D-076)', S
     for (const u of scan.unreadable) unread[u.file] = (unread[u.file] ?? 0) + 1
     expect(
       unread,
-      `a position the gate cannot read: ${scan.unreadable.map((u) => `${u.file}:${u.line} ${u.why}`).join('; ')}. A component that forwards a caller's className to a Card is traced and listed in FORWARDERS`,
+      `a position the gate cannot read: ${scan.unreadable.map((u) => `${u.file}:${u.line} ${u.why}`).join('; ')}. Write it so the gate can read it; a component that forwards a caller's className to a Card is traced and listed in FORWARDERS`,
     ).toEqual(Object.fromEntries(FORWARDERS.map((f) => [f.file, f.unread])))
   })
 
@@ -518,6 +571,27 @@ export const P = () => <><ChartErrorBoundary className="mt-8 bg-white">x</ChartE
       '<ChartErrorBoundary → Card> bg-white vs dark:bg-panel-dark [background-color] (no dark twin)',
       '<SectorPeers → Card> rounded-2xl vs rounded-xl [border-radius] (same chain)',
     ])
+    // A caller's class against the classes the forwarder adds beside it: ChartErrorBoundary's p-cap-6 text-center.
+    const beside = `import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
+export const P = () => <ChartErrorBoundary className="mt-8 p-4 text-left">x</ChartErrorBoundary>`
+    expect(await findingsOf(beside, 'app/fixture/page.tsx')).toEqual([
+      '<ChartErrorBoundary → Card> p-4 vs p-cap-6 [padding] (same chain)',
+      '<ChartErrorBoundary → Card> text-left vs text-center [text-align] (same chain)',
+    ])
+    // SectorPeers' lazy local <Card> is SectorPeersCard: its render is read as a call site's.
+    const lazySource = `import { lazy, useState } from 'react'
+import { cx } from '@/components/ui/cx'
+const loadCard = () => import('./SectorPeersCard')
+export default function SectorPeers({ className }: { className?: string }) {
+  const [Card] = useState(() => lazy(loadCard))
+  return <Card className={cx(className, 'bg-white')} />
+}`
+    expect(await findingsOf(lazySource, 'features/peers/components/SectorPeers.tsx')).toEqual([
+      '<SectorPeersCard → Card> bg-white vs bg-panel-light [background-color] (same chain)',
+      '<SectorPeersCard → Card> bg-white vs dark:bg-panel-dark [background-color] (no dark twin)',
+      "unreadable: import('./SectorPeersCard') loads a Card or a forwarder, rendered where the gate cannot read it",
+      'unreadable: a class from `className`, which is not a const with an initializer',
+    ])
     const forwarding = `${IMPORTS}export const F = ({ className }: { className?: string }) => <Card className={cx(className, 'p-cap-6 rounded-lg')}>x</Card>`
     expect(await findingsOf(forwarding)).toEqual([
       '<Card> rounded-lg vs rounded-xl [border-radius] (same chain)',
@@ -553,5 +627,33 @@ export const load = () => import('@/components/ui/Card')
     ])
     // A type names no render: `typeof Card` and `ComponentProps<typeof Card>` pass.
     expect(await findingsOf(`${IMPORTS}import type { ComponentProps } from 'react'\nexport type P = ComponentProps<typeof Card>`)).toEqual([])
+    // A re-export, a subclass and the namespace read as a value fail; the barrel's own re-export is the module itself.
+    expect(await findingsOf(`import * as ui from '@/components/ui/Card'
+import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
+export { Card as Panel } from '@/components/ui'
+export * from '@/components/ui/Card'
+export class Boundary extends ChartErrorBoundary {}
+const { CardBody } = ui
+`)).toEqual([
+      "unreadable: a Card or a forwarder re-exported from '@/components/ui', so its imports from here cannot be read",
+      "unreadable: a Card or a forwarder re-exported from '@/components/ui/Card', so its imports from here cannot be read",
+      'unreadable: <a forwarder> used as a value, so where it renders and with what cannot be read',
+      'unreadable: the namespace `ui` used as a value, so the components read off it cannot be followed',
+    ])
+    expect(await findingsOf("export { Card, CardBody } from './Card'", 'components/ui/index.ts')).toEqual([])
+    // Names that refer to nothing: a key, a property, an attribute's name, a member, and a namespace tag beside a named import.
+    expect(await findingsOf(`${IMPORTS}import * as ui from '@/components/ui/Card'
+const keys = { Card: 1 }
+interface Shape { Card: string }
+export const S = (x: { Card: number }) => <><ui.Card className="mt-2">a</ui.Card><Other Card="b" />{x.Card}{keys.Card}</>
+`)).toEqual([])
+  })
+
+  it('reads a shorthand of one value as each longhand: a function’s spaces sit inside its parentheses', async () => {
+    // px-cap-5 is padding-left and padding-right min(1.25rem, 5vw): the same value written longhand passes.
+    expect(await findingsOf(`${IMPORTS}export const S = () => <CardBody className="[padding-left:min(1.25rem,_5vw)]">x</CardBody>`)).toEqual([])
+    expect(await findingsOf(`${IMPORTS}export const S = () => <CardBody className="[padding-left:min(1rem,_5vw)]">x</CardBody>`)).toEqual([
+      '<CardBody> [padding-left:min(1rem,_5vw)] vs px-cap-5 [padding-left] (same chain)',
+    ])
   })
 })

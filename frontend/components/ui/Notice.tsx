@@ -24,9 +24,9 @@
    role="status" for the others. Both themes audited: title = primary ink,
    message = secondary/secondary-dark, icons ≥3:1 inside their tints.
 
-   A Notice that says more than a sentence takes it as its children, under the description in the description's
-   secondary ink and size: the settings page's delete warning lists what deleting removes (D-076). A list cannot sit
-   in the description, which is a <p>.
+   A Notice that says more than a sentence takes it as its children, after the title (and the description, when there
+   is one) in the description's secondary ink and size: the settings page's delete warning leads into the list of what
+   deleting removes (D-076). A list cannot sit in the description, which is a <p>.
 
    The row wraps. The text column's basis is 9rem (about 20 characters), so
    where it cannot keep that beside the glyph (a card on a phone at 200%
@@ -114,7 +114,8 @@ export interface NoticeProps {
   title: ReactNode
   /** Supporting copy under the title. */
   description?: ReactNode
-  /** More than a sentence under the description, such as a list, in the description's secondary ink and size. */
+  /** More than a sentence, such as a list, after the title and any description, in the description's secondary ink
+      and size. */
   children?: ReactNode
   /** Usually a small secondary/ghost <Button> ("Try again", "Reset password"). */
   action?: ReactNode

@@ -73,6 +73,8 @@ export const LONGHANDS: Record<string, string[]> = {
   ...Object.fromEntries(SIDES.map((s) => [`border-${s}`, [`border-${s}-width`, `border-${s}-style`, `border-${s}-color`]])),
   background: ['background-color', 'background-image', 'background-position', 'background-size', 'background-repeat', 'background-attachment', 'background-origin', 'background-clip'],
   font: ['font-style', 'font-variant', 'font-weight', 'font-stretch', 'font-size', 'line-height', 'font-family'],
+  'scroll-margin': SIDES.map((s) => `scroll-margin-${s}`),
+  'scroll-padding': SIDES.map((s) => `scroll-padding-${s}`),
   outline: ['outline-color', 'outline-style', 'outline-width'],
   overflow: ['overflow-x', 'overflow-y'],
   gap: ['row-gap', 'column-gap'],
@@ -96,6 +98,8 @@ const LOGICAL: Record<string, string[]> = (() => {
     'inset-inline-start': ['left'], 'inset-inline-end': ['right'], 'inset-block-start': ['top'], 'inset-block-end': ['bottom'],
     'border-start-start-radius': ['border-top-left-radius'], 'border-start-end-radius': ['border-top-right-radius'],
     'border-end-start-radius': ['border-bottom-left-radius'], 'border-end-end-radius': ['border-bottom-right-radius'],
+    'inline-size': ['width'], 'block-size': ['height'], 'min-inline-size': ['min-width'], 'max-inline-size': ['max-width'],
+    'min-block-size': ['min-height'], 'max-block-size': ['max-height'],
   })
   for (const part of ['', '-width', '-style', '-color']) {
     out[`border-inline${part}`] = [`border-left${part}`, `border-right${part}`]
@@ -116,7 +120,11 @@ export function longhands(decls: { prop: string; value: string }[]): Decl[] {
     if (logical && depth < 4) return logical.flatMap((p) => expand(p, value, plumbing, depth + 1))
     const parts = LONGHANDS[prop]
     if (!parts || depth >= 4) return [{ prop, value, plumbing }]
-    const each = /\s/.test(value) ? `${prop}(${value})` : value
+    // A shorthand of several values keeps them whole, so it differs from a longhand; one value (a function such as
+    // `min(1.25rem, 5vw)` included, whose spaces sit inside its parentheses) is each longhand's value.
+    let bare = value
+    for (let prev = ''; prev !== bare; ) [prev, bare] = [bare, bare.replace(/\([^()]*\)/g, '')]
+    const each = /\s/.test(bare.trim()) ? `${prop}(${value})` : value
     return parts.flatMap((p) => expand(p, each, plumbing, depth + 1))
   }
   return decls.flatMap(({ prop, value }) => {
