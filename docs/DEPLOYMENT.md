@@ -850,7 +850,8 @@ then does it test the writes that state needs: a create for each absent resource
 missing runtime or invoker grant, an update for the existing job and schedule, and both executions. A role,
 bucket or grant the founder made by hand in the approved shape therefore needs no `iam.roles.create`,
 `storage.buckets.create` or `storage.buckets.setIamPolicy`. Absent resources are still created and owned ones
-converged, and each write step keeps its own ownership and etag checks.
+converged, and each write step keeps its own ownership and etag checks: a policy read without an etag is
+refused, and a grant step writes exactly when the plan found the grant missing.
 `feedback-media-inspect` prints the same capability check for both provisioning operations, then each
 resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
 alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed
@@ -992,7 +993,8 @@ Before creating resources, the provisioner checks actual project IAM capabilitie
 Its identity, grant, secret and Cloud Run create permissions are tested only while this run would make that write
 (`bootstrap_gaps` in `ops/feedback_media/verify_manage.py`). Once the founder has made the verification identity,
 its one unconditional `roles/cloudsql.client` project grant, the deployer's service-account user and OpenID-token
-creator grants on it, the two labelled secrets with their accessor grants, and its preview-bucket grant, the run
+creator grants on it, the two labelled secrets with their accessor grants and the deployer's version-adder grant on
+each, and its preview-bucket grant, the run
 needs no `resourcemanager.projects.setIamPolicy`, `iam.serviceAccounts.*` write or `secretmanager.secrets.*` write.
 A pre-existing identity, grant or secret in any other shape, a malformed policy, or a denied read is refused
 before the first write. `feedback-media-verify-inspect` prints what a verify-apply would lack on the current state.

@@ -275,9 +275,20 @@ def check_runtime_bucket_policy(policy: dict, runtime: str, *, granted: bool = T
 
 
 def bound(policy: dict, role: str, member: str) -> bool:
-    """Whether the policy already holds this member in the role's unconditional binding, so bind() writes nothing."""
+    """Whether the policy already holds this member in an unconditional binding of the role.
+
+    bind() writes exactly when this is false, so a planner that reads it as true never meets an untested write.
+    """
     return any(binding.get("role") == role and not binding.get("condition") and member in binding.get("members", [])
                for binding in policy_bindings(policy))
+
+
+def policy_etag(policy: dict) -> str:
+    """A read policy's etag. Its write-back is conditional on it, so a policy without one is refused, never written."""
+    etag = policy.get("etag") if isinstance(policy, dict) else None
+    if not isinstance(etag, str) or not etag:
+        raise OperationError("Resource policy has no etag")
+    return etag
 
 
 @closed_shape("Cleanup job")
@@ -340,14 +351,15 @@ def bind(cloud: Cloud, api: str, path: str, role: str, member: str, *, storage: 
          read_step: str | None = None, write_step: str | None = None) -> None:
     policy = cloud.call(api, policy_path(path, storage=storage), step=read_step)
     check_private_policy(policy)
+    policy_etag(policy)  # the write-back carries it, so a concurrent change fails the write rather than being lost
+    if bound(policy, role, member):
+        return
     bindings = policy.setdefault("bindings", [])
     binding = next((b for b in bindings if b.get("role") == role and not b.get("condition")), None)
     if binding is None:
         binding = {"role": role, "members": []}
         bindings.append(binding)
-    if member in binding["members"]:
-        return
-    binding["members"].append(member)
+    binding.setdefault("members", []).append(member)
     cloud.call(api, path + ("/iam" if storage else ":setIamPolicy"),
                method="PUT" if storage else "POST", body=policy if storage else {"policy": policy}, step=write_step)
 
@@ -459,6 +471,7 @@ def policy_matches(policy: dict, expected: dict) -> bool:
     return condition == expected_condition
 
 
+@closed_shape("Alert policy")
 def monitoring_policies(cloud: Cloud) -> list[dict]:
     policies, page_token = [], None
     for _ in range(10):
@@ -616,8 +629,9 @@ def provision_writes(cloud: Cloud, runtime: str) -> frozenset[str]:
     Provisioning creates what is absent and converges what it owns; these states it refuses instead. Each step
     still checks what it reaches, so this only moves the refusals ahead of the writes. Only a read that finds a
     resource absent (404) plans its create; a denied read stops here with its label, and a malformed answer or
-    drift is refused, so neither is planned as absent or as already approved. A resource or grant the founder
-    made by hand in the approved shape needs no create or setIamPolicy permission.
+    drift is refused, so neither is planned as absent or as already approved; a policy without an etag is refused
+    too, because its write-back would not be conditional. A resource or grant the founder made by hand in the
+    approved shape needs no create or setIamPolicy permission.
     """
     writes, member = set(EVERY_RUN_WRITES), "serviceAccount:" + runtime
     check_channel(cloud)
@@ -641,6 +655,7 @@ def provision_writes(cloud: Cloud, runtime: str) -> frozenset[str]:
         check_bucket(bucket, environment)
         policy = cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True), step=BUCKET_POLICY_READ)
         check_runtime_bucket_policy(policy, runtime, granted=False)
+        policy_etag(policy)
         if not bound(policy, ROLE, member):
             writes.add("storage.buckets.setIamPolicy")
     job = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
@@ -650,6 +665,7 @@ def provision_writes(cloud: Cloud, runtime: str) -> frozenset[str]:
         check_owned_job(job)
         policy = cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ)
         check_private_policy(policy)
+        policy_etag(policy)
         writes.add("run.jobs.update")  # the job's specification is always converged
         if not bound(policy, "roles/run.invoker", member):
             writes.add("run.jobs.setIamPolicy")

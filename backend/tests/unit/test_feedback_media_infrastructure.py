@@ -610,12 +610,23 @@ def unbound():
     return cloud
 
 
-@pytest.mark.parametrize("state", ["absent", "existing", "bootstrapped", "unbound"])
+def split_bindings():
+    """Grants held through a later binding of the same role: present, so neither planned nor written."""
+    cloud = CloudFixture()
+    other, runtime = "serviceAccount:other@example.invalid", "serviceAccount:runtime@example.invalid"
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = [{"role": ops.ROLE, "members": [other]}, {"role": ops.ROLE, "members": [runtime]}]
+    cloud.job_policy["bindings"] = [{"role": "roles/run.invoker", "members": [other]},
+                                    {"role": "roles/run.invoker", "members": [runtime]}]
+    return cloud
+
+
+@pytest.mark.parametrize("state", ["absent", "existing", "bootstrapped", "unbound", "split-bindings"])
 def test_provision_tests_exactly_the_writes_its_state_needs(monkeypatch, state):
     """Rule 12 gate: the write set a run tests equals the write permissions its write labels name, for each state."""
     monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
     cloud = {"absent": lambda: CloudFixture(absent=True), "existing": CloudFixture, "bootstrapped": founder_bootstrapped,
-             "unbound": unbound}[state]()
+             "unbound": unbound, "split-bindings": split_bindings}[state]()
     ops.provision(cloud, cloud.service)
     project_tests = [body["permissions"] for api, path, _method, body in cloud.calls
                      if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
@@ -625,7 +636,7 @@ def test_provision_tests_exactly_the_writes_its_state_needs(monkeypatch, state):
     assert set(project_tests[1]) == written
     if state == "bootstrapped":
         assert not written & {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
-    if state == "existing":
+    if state in ("existing", "split-bindings"):
         assert written == {"run.jobs.update", "cloudscheduler.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
     if state == "unbound":
         assert {"storage.buckets.setIamPolicy", "run.jobs.setIamPolicy"} <= written
@@ -657,6 +668,8 @@ def test_a_founder_bootstrap_provisions_without_role_bucket_or_bucket_grant_perm
     ("alert-policy-not-object", "Alert policy answer is malformed"),
     ("bucket-policy-denied", "Bucket policy read [storage.buckets.getIamPolicy] failed (HTTP 403)"),
     ("role-denied", "Object role read [iam.roles.get] failed (HTTP 403)"),
+    ("bucket-policy-no-etag", "Resource policy has no etag"),
+    ("alert-page-not-list", "Alert policy answer is malformed"),
 ])
 def test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_planning_it(read, refusal):
     """A denied read is never planned as absent, and a malformed answer never as approved: both refuse first."""
@@ -677,6 +690,10 @@ def test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_pla
         cloud.job["labels"] = "purpose=feedback-media"
     elif read == "alert-policy-not-object":
         cloud.policies.append("PRIVATE_POLICY_SENTINEL")
+    elif read == "bucket-policy-no-etag":
+        del cloud.policy_of(production)["etag"]  # its write-back would not be conditional
+    elif read == "alert-page-not-list":
+        cloud.policies = 7
     elif read == "bucket-policy-denied":
         cloud.fail_paths[ops.policy_path("storage/v1/b/" + production, storage=True)] = 403
     else:
@@ -704,6 +721,51 @@ def test_a_malformed_policy_never_reads_as_private_or_granted(bindings):
                   lambda p: ops.check_runtime_bucket_policy(p, "runtime@example.invalid", granted=False)):
         with pytest.raises(ops.OperationError, match="^Resource policy is malformed$"):
             check(policy)
+
+
+@pytest.mark.parametrize("case", ["second-binding", "no-members", "no-etag"])
+def test_bind_writes_exactly_when_the_planners_bound_test_is_false(case):
+    """A member already in any unconditional binding of the role is not re-granted, so a plan that read the grant as
+    present never meets an untested setIamPolicy; a binding without members still takes one; an etag-less policy is
+    refused before any write, since its write-back would not be conditional."""
+    cloud = CloudFixture()
+    production, member = ops.BUCKETS["production"], "serviceAccount:runtime@example.invalid"
+    if case == "second-binding":
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE, "members": ["serviceAccount:other@example.invalid"]},
+                                                   {"role": ops.ROLE, "members": [member]}]
+    elif case == "no-members":
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE}]
+    else:  # a grant to add, on a policy whose write-back could not be conditional
+        cloud.policy_of(production)["bindings"] = []
+        del cloud.policy_of(production)["etag"]
+    assert ops.bound(cloud.policy_of(production), ops.ROLE, member) is (case == "second-binding")
+    if case == "no-etag":
+        with pytest.raises(ops.OperationError, match="^Resource policy has no etag$"):
+            ops.bind(cloud, "storage", "storage/v1/b/" + production, ops.ROLE, member, storage=True)
+        assert cloud.writes == []
+        return
+    ops.bind(cloud, "storage", "storage/v1/b/" + production, ops.ROLE, member, storage=True)
+    assert (len(cloud.writes) == 1) is (case == "no-members")
+    assert ops.bound(cloud.policy_of(production), ops.ROLE, member)
+    if case == "no-members":
+        assert cloud.writes[0][3]["etag"] == "bucket-version"  # the write-back is conditional on the read
+
+
+def test_provision_reads_are_exactly_the_reads_its_runs_make(monkeypatch):
+    """The first stage tests PROVISION_READS on every run, so it must hold reads only, and every read the runs make."""
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    read_verbs = METHOD_VERBS["GET"]
+    assert all(name.rsplit(".", 1)[-1] in read_verbs for name in ops.PROVISION_READS)
+    assert not any(name.rsplit(".", 1)[-1] in read_verbs for name in ops.EVERY_RUN_WRITES | ops.CONDITIONAL_WRITES)
+    read = set()
+    for make in (lambda: CloudFixture(absent=True), CloudFixture, founder_bootstrapped, unbound):
+        cloud = make()
+        cloud.pending = True
+        cloud.wait = types.MethodType(ops.Cloud.wait, cloud)
+        ops.provision(cloud, cloud.service)
+        read |= step_permissions(label for (_api, _path, method, _body), label in zip(cloud.calls, cloud.steps)
+                                 if method == "GET")
+    assert read == ops.PROVISION_READS
 
 
 def test_inspection_refuses_a_malformed_component_without_a_traceback(capsys):

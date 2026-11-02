@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import hmac
 import importlib.util
@@ -579,15 +580,18 @@ class BootstrapCloud:
 
     def __init__(self, bootstrapped=True):
         runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
-        self.calls, self.granted, self.denied = [], None, set()
+        self.calls, self.granted, self.denied, self.latest_version = [], None, set(), None
         self.identity = {"description": verify.PURPOSE} if bootstrapped else None
-        self.sa_policy = {"bindings": [{"role": role, "members": [runner]} for role in verify.SA_ROLES] if bootstrapped else []}
-        self.project = {"bindings": [{"role": "roles/cloudsql.client", "members": [member]}] if bootstrapped else []}
+        # Google returns every IAM policy with an etag; its write-back is conditional on it.
+        self.sa_policy = {"etag": "BwYsa", "bindings": [{"role": role, "members": [runner]} for role in verify.SA_ROLES]
+                          if bootstrapped else []}
+        self.project = {"etag": "BwYproject", "bindings": [{"role": "roles/cloudsql.client", "members": [member]}]
+                        if bootstrapped else []}
         self.secrets = {name: {"labels": {"purpose": verify.PURPOSE}} for name in (verify.DB_SECRET, verify.KEY_SECRET)} if bootstrapped else {}
-        self.secret_policy = {"bindings": [{"role": verify.ACCESSOR, "members": [runner, member]},
-                                           {"role": verify.VERSION_ADDER, "members": [runner]}]}
-        self.bucket_policy = {"bindings": [{"role": verify.media.ROLE, "members": ["serviceAccount:runtime@example.invalid"]
-                                            + ([member] if bootstrapped else [])}]}
+        self.secret_policy = {"etag": "BwYsecret", "bindings": [{"role": verify.ACCESSOR, "members": [runner, member]},
+                                                               {"role": verify.VERSION_ADDER, "members": [runner]}]}
+        self.bucket_policy = {"etag": "CAE=", "bindings": [{"role": verify.media.ROLE, "members": ["serviceAccount:runtime@example.invalid"]
+                                                           + ([member] if bootstrapped else [])}]}
 
     def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
         self.calls.append((api, path, method, body))
@@ -604,7 +608,7 @@ class BootstrapCloud:
             if ":getIamPolicy" in path:
                 return self.secret_policy
             if path.endswith("/versions/latest"):
-                return None  # the founder adds no value: the run adds the first version itself
+                return self.latest_version  # None: the founder adds no value, and the run adds the first version itself
             return self.secrets.get(path.rsplit("/", 1)[-1])
         if api == "storage":
             return self.bucket_policy
@@ -649,6 +653,9 @@ def test_without_a_bootstrap_verify_apply_still_names_every_grant_it_would_make(
     ("bucket-admin", "Runtime bucket grants differ"),
     ("identity-policy-denied", "iam operation failed (HTTP 403)"),
     ("secret-denied", "secretmanager operation failed (HTTP 403)"),
+    ("secret-policy-no-etag", "Resource policy has no etag"),
+    ("project-policy-no-etag", "Resource policy has no etag"),
+    ("secret-version-disabled", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
 ])
 def test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write(defect, refusal):
     """A denied read is never planned as absent, and a malformed or differing one never as approved."""
@@ -681,6 +688,13 @@ def test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write(
         cloud.denied = {":getIamPolicy?options.requestedPolicyVersion=3"}
     elif defect == "secret-denied":
         cloud.denied = {"/secrets/" + verify.DB_SECRET}
+    elif defect == "secret-policy-no-etag":
+        del cloud.secret_policy["etag"]
+    elif defect == "project-policy-no-etag":
+        del cloud.project["etag"]
+    elif defect == "secret-version-disabled":
+        # The run reads the latest value and never rotates one: a disabled latest version would stop it mid-apply.
+        cloud.latest_version = {"name": "projects/p/secrets/s/versions/3", "state": "DISABLED"}
     else:
         cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectAdmin", "members": [member]})
     with pytest.raises(verify.media.OperationError, match=re.escape(refusal)):
@@ -699,11 +713,14 @@ def test_a_bootstrapped_identity_the_deployer_cannot_yet_act_as_is_named_not_ass
         f"secretmanager.versions.add on {verify.DB_SECRET}", f"secretmanager.versions.add on {verify.KEY_SECRET}"]
 
 
-@pytest.mark.parametrize("case", ["bootstrapped", "not-bootstrapped", "no-deployer", "denied"])
+@pytest.mark.parametrize("case", ["bootstrapped", "not-bootstrapped", "no-image-read", "no-deployer", "denied"])
 def test_verify_inspect_reports_what_verify_apply_would_lack_without_writing(monkeypatch, capsys, case):
     cloud = BootstrapCloud(bootstrapped=case != "not-bootstrapped")
     if case == "not-bootstrapped":
-        cloud.granted = verify.PROJECT_PERMISSIONS
+        cloud.granted = verify.PROJECT_PERMISSIONS | {verify.media.IMAGE_READ}
+    if case == "no-image-read":
+        # Exactly the preflight verify-apply runs first, so the line never reads complete while the apply would refuse.
+        cloud.granted = verify.PROJECT_PERMISSIONS | verify.CONDITIONAL_PERMISSIONS
     if case == "denied":
         cloud.denied = {"/secrets/" + verify.KEY_SECRET}
     if case != "no-deployer":
@@ -716,7 +733,62 @@ def test_verify_inspect_reports_what_verify_apply_would_lack_without_writing(mon
         "bootstrapped": "Capability for feedback-media-verify-apply: all required permissions present",
         "not-bootstrapped": "Capability for feedback-media-verify-apply: missing " + ", ".join(sorted(
             verify.CONDITIONAL_PERMISSIONS - {"run.jobs.update", "run.services.update", "cloudscheduler.jobs.update"})),
+        "no-image-read": ("Capability for feedback-media-verify-apply: missing artifactregistry.repositories.downloadArtifacts"
+                          " on the API image repository"),
         "no-deployer": "Capability for feedback-media-verify-apply: UNVERIFIED (the configured project deployer is unavailable)",
         "denied": "Capability for feedback-media-verify-apply: UNVERIFIED (secretmanager operation failed (HTTP 403))",
     }[case]
     assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+
+class IdentityCloud(BootstrapCloud):
+    """BootstrapCloud with the object role and preview bucket readable, recording writes, for ensure_identity."""
+
+    def __init__(self):
+        super().__init__()
+        self.writes = []
+
+    def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        if method != "GET" and not path.endswith(":getIamPolicy") and ":getIamPolicy?" not in path:
+            self.calls.append((api, path, method, body))
+            self.writes.append((api, path, body))
+            return {}
+        if api == "iam" and path == "v1/" + verify.media.ROLE:
+            self.calls.append((api, path, method, body))
+            return {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"}
+        if api == "storage" and path == "storage/v1/b/" + verify.BUCKET:
+            self.calls.append((api, path, method, body))
+            return {"name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+                    "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
+                    "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+        return super().call(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
+
+
+@pytest.mark.parametrize("case", ["second-binding", "missing-role"])
+def test_ensure_identity_writes_the_identity_policy_exactly_when_bootstrap_planning_does(case):
+    """The identity-policy write happens exactly when bootstrap_gaps planned its setIamPolicy, so it is never untested."""
+    cloud = IdentityCloud()
+    runner = "serviceAccount:" + DEPLOYER
+    if case == "second-binding":
+        # The deployer holds each role; the second through a later binding of the same role.
+        cloud.sa_policy["bindings"] = [{"role": verify.SA_ROLES[0], "members": [runner]},
+                                       {"role": verify.SA_ROLES[1], "members": []},
+                                       {"role": verify.SA_ROLES[1], "members": [runner]}]
+    else:
+        cloud.sa_policy["bindings"] = [{"role": verify.SA_ROLES[0], "members": [runner]}]
+    planned = "iam.serviceAccounts.setIamPolicy" in verify.bootstrap_gaps(cloud_copy(cloud), DEPLOYER)
+    verify.ensure_identity(cloud, DEPLOYER)
+    identity_writes = [body for api, path, body in cloud.writes if api == "iam" and path.endswith(":setIamPolicy")]
+    assert planned is (case == "missing-role")
+    assert len(identity_writes) == (1 if case == "missing-role" else 0)
+    assert cloud.writes == [] if case == "second-binding" else all(api == "iam" for api, _path, _body in cloud.writes)
+    if identity_writes:
+        assert identity_writes[0]["policy"]["etag"] == "BwYsa"  # conditional on the read
+        assert verify.media.bound(identity_writes[0]["policy"], verify.SA_ROLES[1], runner)
+
+
+def cloud_copy(cloud):
+    """A planning view of the same state that grants nothing, so every write the state needs is named."""
+    planning = BootstrapCloud()
+    planning.sa_policy = copy.deepcopy(cloud.sa_policy)
+    planning.granted = set()
+    return planning

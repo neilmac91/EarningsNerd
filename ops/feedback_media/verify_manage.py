@@ -304,21 +304,28 @@ def sql_admin(cloud: media.Cloud):
             process.wait(timeout=5)
 
 
-def preflight_cloud(cloud: media.Cloud) -> None:
+def preflight_gaps(cloud: media.Cloud) -> list[str]:
+    """What every verify-apply run needs and the identity lacks: its project permissions and the image read."""
     # A malformed answer grants nothing (media.held).
     missing = sorted(PROJECT_PERMISSIONS - media.held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}",
                                                       sorted(PROJECT_PERMISSIONS)))
     # The service and job it deploys run the serving image, which IMAGE_PATTERN holds to media.IMAGE_REPOSITORY.
     if media.IMAGE_READ not in media.held(cloud, "artifactregistry", "v1/" + media.IMAGE_REPOSITORY, [media.IMAGE_READ]):
         missing.append(media.IMAGE_READ + " on the API image repository")
+    return missing
+
+
+def preflight_cloud(cloud: media.Cloud) -> None:
+    missing = preflight_gaps(cloud)
     if missing:
         raise media.OperationError("Verification provisioning lacks required IAM permissions: " + ", ".join(missing))
 
 
 def check_grants(policy: dict, approved: dict[str, set[str]], kind: str) -> None:
-    """Refuse a malformed policy, a public principal, a conditional grant, or any role or member beyond the approved
-    bootstrap shape."""
+    """Refuse a malformed or etag-less policy, a public principal, a conditional grant, or any role or member beyond the
+    approved bootstrap shape."""
     media.check_private_policy(policy)
+    media.policy_etag(policy)
     if any(binding.get("condition") or not set(binding.get("members", [])) <= approved.get(binding["role"], set())
            for binding in media.policy_bindings(policy)):
         raise media.OperationError(f"Existing verification {kind} grants differ from the approved bootstrap")
@@ -348,7 +355,9 @@ def bootstrap_gaps(cloud: media.Cloud, deployer: str) -> list[str]:
         elif media.held(cloud, "iam", f"v1/projects/-/serviceAccounts/{IDENTITY}",
                         [media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"]) != {media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"}:
             resource_gaps.append("actAs and getOpenIdToken on the verification identity")
-    grants = [binding for binding in media.policy_bindings(project_policy(cloud)) if member in binding.get("members", [])]
+    policy = project_policy(cloud)
+    media.policy_etag(policy)
+    grants = [binding for binding in media.policy_bindings(policy) if member in binding.get("members", [])]
     if any(binding.get("role") != "roles/cloudsql.client" or binding.get("condition") for binding in grants):
         raise media.OperationError("Verification identity has unexpected direct project privileges")
     if not grants:
@@ -364,11 +373,17 @@ def bootstrap_gaps(cloud: media.Cloud, deployer: str) -> list[str]:
         check_grants(policy, {ACCESSOR: {runner, member}, VERSION_ADDER: {runner}}, "secret")
         if not (media.bound(policy, ACCESSOR, runner) and media.bound(policy, ACCESSOR, member)):
             needed.add("secretmanager.secrets.setIamPolicy")
-        if (cloud.call("secretmanager", path + "/versions/latest", missing_ok=True) is None
-                and "secretmanager.versions.add" not in media.held(cloud, "secretmanager", path, ["secretmanager.versions.add"])):
-            resource_gaps.append(f"secretmanager.versions.add on {name}")
+        version = cloud.call("secretmanager", path + "/versions/latest", missing_ok=True)
+        if version is None:
+            if "secretmanager.versions.add" not in media.held(cloud, "secretmanager", path, ["secretmanager.versions.add"]):
+                resource_gaps.append(f"secretmanager.versions.add on {name}")
+        elif version.get("state") != "ENABLED":
+            # The run reads the latest value and never rotates one, so a disabled or destroyed latest version would
+            # stop it after earlier writes.
+            raise media.OperationError(f"Verification secret {name} has a latest version that is not enabled")
     bucket_policy = cloud.call("storage", media.policy_path("storage/v1/b/" + BUCKET, storage=True))
     media.check_runtime_bucket_policy(bucket_policy, IDENTITY, granted=False)
+    media.policy_etag(bucket_policy)
     if not media.bound(bucket_policy, media.ROLE, member):
         needed.add("storage.buckets.setIamPolicy")
     for kind, path in (("jobs", JOB), ("services", SERVICE)):
@@ -379,6 +394,7 @@ def bootstrap_gaps(cloud: media.Cloud, deployer: str) -> list[str]:
             continue
         policy = cloud.call("run", media.policy_path("v2/" + path))
         media.check_private_policy(policy)
+        media.policy_etag(policy)
         needed.add(f"run.{kind}.update")
         if not media.bound(policy, "roles/run.invoker", member):
             needed.add(f"run.{kind}.setIamPolicy")
@@ -414,6 +430,7 @@ def ensure_identity(cloud: media.Cloud, deployer: str) -> None:
     elif identity.get("description") != PURPOSE or identity.get("disabled"):
         raise media.OperationError("Existing verification identity is not the active feature-owned identity")
     policy = project_policy(cloud)
+    media.policy_etag(policy)  # setIamPolicy carries it: a concurrent change fails the write rather than being lost
     member = "serviceAccount:" + IDENTITY
     grants = [b for b in media.policy_bindings(policy) if member in b.get("members", [])]
     if any(b.get("role") != "roles/cloudsql.client" or b.get("condition") for b in grants):
@@ -427,13 +444,14 @@ def ensure_identity(cloud: media.Cloud, deployer: str) -> None:
     changed = False
     for role in SA_ROLES:
         member = "serviceAccount:" + deployer
+        if media.bound(sa_policy, role, member):  # the test bootstrap_gaps planned with
+            continue
         binding = next((row for row in sa_policy.get("bindings", []) if row.get("role") == role and not row.get("condition")), None)
         if binding is None:
             sa_policy.setdefault("bindings", []).append({"role": role, "members": [member]})
-            changed = True
-        elif member not in binding.get("members", []):
+        else:
             binding.setdefault("members", []).append(member)
-            changed = True
+        changed = True
     if changed:
         cloud.call("iam", "v1/" + SA_PATH + ":setIamPolicy", method="POST", body={"policy": sa_policy})
     member = "serviceAccount:" + IDENTITY
@@ -934,8 +952,7 @@ def report_capability(cloud: media.Cloud) -> None:
     try:
         if not DEPLOYER_PATTERN.fullmatch(deployer):
             raise media.OperationError("the configured project deployer is unavailable")
-        found = media.held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}", sorted(PROJECT_PERMISSIONS))
-        missing = sorted(PROJECT_PERMISSIONS - found) or bootstrap_gaps(cloud, deployer)
+        missing = preflight_gaps(cloud) or bootstrap_gaps(cloud, deployer)
     except media.OperationError as exc:
         print(f"Capability for feedback-media-verify-apply: UNVERIFIED ({exc})")
         return
