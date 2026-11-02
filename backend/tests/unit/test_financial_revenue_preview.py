@@ -525,9 +525,10 @@ def test_a_stale_current_row_at_a_key_the_batch_fills_is_k_from_either_writer_an
     assert near_twin.id not in {i for name in preview.SETS for i in _set(report, "QTR", name)}
 
 
-def test_the_deploy_instant_splits_synced_companies_and_the_rule_of_a_row(db, tmp_path, capsys, sec):
-    at, before = preview.E286_DEPLOYED_AT, preview.E286_DEPLOYED_AT - timedelta(seconds=1)
-    for ticker, cik, synced in (("ATI", 21, at), ("BEF", 22, before)):
+def test_the_deploy_instants_split_synced_companies_and_the_rule_of_a_row(db, tmp_path, capsys, sec):
+    synced_at = preview.E286_SYNCED_AT
+    assert synced_at == datetime(2026, 11, 2, 8, 17, 14, tzinfo=UTC)  # the services' last old request ended
+    for ticker, cik, synced in (("ATI", 21, synced_at), ("BEF", 22, synced_at - timedelta(seconds=1))):
         company = _company(db, ticker, cik, synced=synced)
         sec.payloads[company.cik] = _total_and_fee(cik)
     db.commit()
@@ -537,11 +538,14 @@ def test_the_deploy_instant_splits_synced_companies_and_the_rule_of_a_row(db, tm
     assert code == 0 and [(line["ticker"], line["outcome"]) for line in lines[1:-1]] == [
         ("ATI", "previewed"), ("BEF", "pending_resync")]
     assert sec.reads == ["0000000021"]
+    at, before = preview.E286_DEPLOYED_AT, preview.E286_DEPLOYED_AT - timedelta(seconds=1)
     entry = {"id": 1, **{name: None for name in preview.REPORT_FIELDS}, "value": 1.0}
     assert [preview._entry({**entry, "created_at": created}, None, set())["rule"]
             for created in (at, before, None, at.replace(tzinfo=None))] == ["new", "old", "old", "new"]
     # E286's deploy (#1938) changed every writer's rule at once: the extraction's rows split where the feed's do.
-    assert at == datetime(2026, 11, 2, 8, 31, 0, tzinfo=UTC)
+    assert at == datetime(2026, 11, 2, 11, 35, 0, tzinfo=UTC)  # a retried old-image attempt's latest end
+    assert [preview._entry({**entry, "created_at": created}, None, set())["rule"]
+            for created in (synced_at, at - timedelta(hours=1))] == ["old", "old"]  # synced is not the rows' split
     extracted, replaced = {**entry, "filing_id": 7, "source": "edgar_xbrl"}, {**entry, "filing_id": 7,
                                                                                 "source": "companyfacts"}
     for row in (extracted, replaced):
@@ -974,8 +978,11 @@ def test_an_offline_run_reads_no_sec_even_in_the_peak_and_reads_each_payload_fro
 # --- constants and the output's shape ----------------------------------------------------------------------------------
 
 def test_the_deploy_instant_is_the_census_literal_and_the_script_names_no_tag_or_sic():
-    literal = re.search(r"'([^']+)'::timestamptz AS e286_deployed", CENSUS.read_text()).group(1)
+    census = CENSUS.read_text()
+    literal = re.search(r"'([^']+)'::timestamptz AS e286_deployed", census).group(1)
     assert preview.E286_DEPLOYED_AT == datetime.fromisoformat(literal + ":00")
+    # The header and set 8's key name the same instant in prose, which the founder reads in the Ops log.
+    assert set(re.findall(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) UTC", census)) == {literal.removesuffix("+00")}
     assert (preview.FEED_TOLERANCE, preview.CONCEPTS) == (0.005, ("revenue", "net_margin", "operating_margin",
                                                                   "gross_margin"))
     tree = ast.parse(SCRIPT.read_text())
@@ -1018,7 +1025,7 @@ def test_the_start_line_is_flushed_before_the_first_read_and_each_line_has_its_e
     assert (start["cohort_size"], start["blank_sic_companies"], start["cohort"]) == (2, 2, [
         {"ticker": "C100", "sic": "6211", "synced_since_deploy": True},
         {"ticker": "C300", "sic": "6211", "synced_since_deploy": False}])
-    assert start["rule"] == {"e286_deployed_at": "2026-11-02T08:31:00Z",
+    assert start["rule"] == {"e286_synced_at": "2026-11-02T08:17:14Z", "e286_deployed_at": "2026-11-02T11:35:00Z",
                              "feed_tolerance": 0.005, "per_filing": "cross_check_facts (1%)"}
     assert (start["workflow_commit"], start["execution"]) == (COMMIT, "github_actions_runner")
     assert all(set(line) == COMPANY_KEYS for line in companies) and set(summary) == SUMMARY_KEYS

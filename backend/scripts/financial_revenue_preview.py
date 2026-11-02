@@ -34,8 +34,10 @@ operands: outside the choice, inside it, or legacy (none recorded: rows stored b
 - missing (informational): batch identities no stored row holds.
 Each listed row carries its stored and deployed figures, the gap, its rule and a closed ``why`` (WHY). The rule is old
 when the row was created before E286's deploy (#1938), which changed every writer's rule at once (the feed's tag
-choice, the cross-check's authority and the per-filing extraction). Its instant is the first moment no writer can still
-run the old image (tasks/todo.md, E264), and census set 8 splits at the same one.
+choice, the cross-check's authority and the per-filing extraction): from the first moment no writer, a job's retried
+attempt included, can still run the old image. Census set 8 splits at the same instant. A company counts as synced
+since the deploy from an earlier one, when no service can (only the services sync companyfacts); tasks/todo.md, E264,
+says how each was read.
 
 Outcomes per company (OUTCOMES): previewed; pending_resync (synced before the deploy, no SEC read: step (1)'s rest
 of the cohort); not_financial; fetch_failed; payload_rejected; unsupported_ifrs; another_currency (the sync's
@@ -102,7 +104,8 @@ from app.services.quarterly_fact_repair import _validate_payload  # noqa: E402
 from app.services.sec_rate_limiter import sec_rate_limiter  # noqa: E402
 from app.utils.datetimes import ensure_utc, iso_z, utc_from_iso, utcnow  # noqa: E402
 
-E286_DEPLOYED_AT = utc_from_iso("2026-11-02T08:31:00+00:00")  # census SQL's e286_deployed; job 125162249807
+E286_SYNCED_AT = utc_from_iso("2026-11-02T08:17:14+00:00")  # no service runs the old image from here (docstring)
+E286_DEPLOYED_AT = utc_from_iso("2026-11-02T11:35:00+00:00")  # census SQL's e286_deployed: no writer does
 FEED_TOLERANCE = 0.005
 CONCEPTS = ("revenue", "net_margin", "operating_margin", "gross_margin")
 MARGINS = frozenset(CONCEPTS[1:])
@@ -207,7 +210,7 @@ def read_cohort(db: Session, tickers: list[str]) -> tuple[list[Member], int]:
     """The named companies, or every financial one (``_is_financial_sic``, in Python); and the blank-SIC count."""
     rows = db.query(Company.id, Company.ticker, Company.cik, Company.sic, Company.facts_synced_at).order_by(
         Company.ticker, Company.id).all()
-    members = [Member(id_, ticker, cik, sic, synced is not None and ensure_utc(synced) >= E286_DEPLOYED_AT)
+    members = [Member(id_, ticker, cik, sic, synced is not None and ensure_utc(synced) >= E286_SYNCED_AT)
                for id_, ticker, cik, sic, synced in rows
                if (ticker in tickers if tickers else _is_financial_sic(sic))]
     unknown = sorted(set(tickers) - {member.ticker for member in members})
@@ -485,7 +488,7 @@ def run(args: argparse.Namespace, emit: Callable[[dict], None], *, fetch: Callab
             "started": True, "run_id": run_id, "workflow_commit": args.workflow_commit, "dry_run": True,
             "execution": "github_actions_runner", "production_image_used": False,
             "payload_source": "sec" if args.companyfacts_dir is None else "offline_directory",
-            "rule": {"e286_deployed_at": iso_z(E286_DEPLOYED_AT),
+            "rule": {"e286_synced_at": iso_z(E286_SYNCED_AT), "e286_deployed_at": iso_z(E286_DEPLOYED_AT),
                      "feed_tolerance": FEED_TOLERANCE,
                      "per_filing": f"cross_check_facts ({CROSS_CHECK_TOLERANCE:.0%})"},
             "cohort_size": len(members), "blank_sic_companies": blank,
