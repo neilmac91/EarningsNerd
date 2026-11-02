@@ -372,7 +372,7 @@ def test_a_dry_run_counts_outcomes_and_names_each_refusal_by_place_without_writi
 
 def _subscription(user_id: int, status: str) -> Subscription:
     return Subscription(user_id=user_id, plan="pro" if status in ("active", "trialing") else "free", status=status,
-                        trial_end=NOW + timedelta(days=3650) if status == "trialing" else None)
+                        trial_end=None)  # no end: a trialing row then grants Pro whatever the real clock says
 
 
 @pytest.mark.parametrize("fields, expected", [

@@ -60,8 +60,8 @@ day of the apply, at most 366 days later.
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
 past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
 nothing may say that access ends by itself: Settings › Billing and the dashboard's plan card, the two places that name
-the access, carry no end, renewal, expiry, trial, price or date (`frontend/tests/unit/complimentaryAccess.ts`, read by
-their specs); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
+the access, carry no end, renewal, expiry, trial, price, date or countdown
+(`frontend/tests/unit/complimentaryAccess.ts`, read by their specs over each whole surface); any other page or message, the invitation and the mail included (PB-01's), is review-checked.
 
 ## Who can be granted
 
@@ -137,16 +137,19 @@ Before the first grant, the testers' accounts must exist as a grant can see them
   password account a trialing `Subscription` row, and a grant refuses an account with a row of any status, the lapsed
   trial's included (`subscription_exists`). Keep it off, its default, while testers verify.
 
-1. **Prepare, offline.** On the founder's machine, with no settings and no database:
-   `python scripts/complimentary_access.py fingerprint < addresses.txt` prints one fingerprint per address, in order.
-   Write the manifest with each account's id and fingerprint, then
-   `python scripts/complimentary_access.py check --manifest manifest.json` validates it and prints its digest.
-2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest manifest.json` against
-   production. It writes nothing.
+1. **Prepare, offline.** On the founder's machine, with no settings and no database, from `backend/`, with both files
+   in a folder of the private store outside the repository (`$PRIVATE` below; the checkout ignores the two names at its
+   root and under `backend/` as a backstop, never as a place to keep them):
+   `python scripts/complimentary_access.py fingerprint < "$PRIVATE/addresses.txt"` prints one fingerprint per address,
+   in order. Write `$PRIVATE/manifest.json` with each account's id and fingerprint, then
+   `python scripts/complimentary_access.py check --manifest "$PRIVATE/manifest.json"` validates it and prints its
+   digest.
+2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest "$PRIVATE/manifest.json"`
+   against production. It writes nothing.
 3. **Review.** Compare the counts, every refusal and the digest with the private roster. Fix what is refused (a tester
    who has not verified yet is granted by a later rerun) and dry-run again after any edit, since an edit changes the
    digest.
-4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest manifest.json
+4. **Apply (founder-approved).** `python scripts/complimentary_access.py apply --manifest "$PRIVATE/manifest.json"
    --confirm-digest <manifest_sha256> --runner <ops-run:id>`. It runs only the manifest whose digest it is handed.
    Each account is one unit: under the grants' lock and the account's row lock it is checked again, then its ledger
    row, its flag and its audit row commit together, or nothing does. A rerun grants what is newly eligible and changes

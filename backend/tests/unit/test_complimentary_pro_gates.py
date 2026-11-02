@@ -35,7 +35,7 @@ from app.services.complimentary_access_manifest import email_fingerprint, load_m
 from app.services.entitlements import ANALYSIS_MONTHLY_CAP, FREE_TIER_SUMMARY_LIMIT
 from app.services.filing_scan_service import run_filing_scan
 from app.services.legal_readiness_service import ELIGIBILITY_VERSION, TERMS_VERSION
-from app.services.subscription_service import get_current_month
+from app.services import subscription_service, summary_generation_service, summary_pipeline
 from main import app
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
 
@@ -44,6 +44,10 @@ INVITED = datetime(2030, 5, 1, 12, tzinfo=timezone.utc)
 # The filing scan's clock (test_filing_scan.py's): a watch from June 1 sees a June 16 filing on June 17.
 SCAN_NOW = datetime(2026, 6, 17, tzinfo=timezone.utc)
 WATCH_SINCE = datetime(2026, 6, 1, tzinfo=timezone.utc)
+# The usage month every case seeds and every route reads: one the clock never returns, so the seed and the request
+# meet in one bucket at any hour, and a reader of the month this module forgot to pin fails at once instead of on the
+# 1st (lessons/test-fixture-months-are-never-the-wall-clock-month.md).
+MONTH = "2000-01"
 
 
 @pytest.fixture(scope="module")
@@ -58,6 +62,17 @@ def _isolated():
     reset_inflight()
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _pinned_month(monkeypatch):
+    """Every module that reads the month under its own name (``subscription_service.get_current_month``, the one
+    clock, imported into each)."""
+    from app.routers import subscriptions as subscriptions_router
+
+    for module in (subscription_service, summary_pipeline, summary_generation_service, summaries_router,
+                   subscriptions_router, analysis_router):
+        monkeypatch.setattr(module, "get_current_month", lambda: MONTH)
     reset_inflight()
 
 
@@ -128,13 +143,13 @@ def cohort():
 
 def _usage(user_id: int, **counts) -> None:
     with SessionLocal() as db:
-        db.add(UserUsage(user_id=user_id, month=get_current_month(), **counts))
+        db.add(UserUsage(user_id=user_id, month=MONTH, **counts))
         db.commit()
 
 
 def _counts(user_id: int) -> SimpleNamespace:
     with SessionLocal() as db:
-        row = db.query(UserUsage).filter_by(user_id=user_id, month=get_current_month()).one_or_none()
+        row = db.query(UserUsage).filter_by(user_id=user_id, month=MONTH).one_or_none()
         user = db.get(User, user_id)
         return SimpleNamespace(summaries=row.summary_count if row else 0, questions=row.qa_count if row else 0,
                                analyses=row.analysis_count if row else 0, taste=user.copilot_free_taste_used)
