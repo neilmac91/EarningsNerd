@@ -1,10 +1,10 @@
 """PB-04's offline acceptance corpus: real SEC payloads through every surface that prints their figures.
 
 EN-BETA-2026-11, workstream PB-04 (Pro data integrity). Each case is a committed SEC companyfacts payload
-(``tests/fixtures/companyfacts_fi``, fetched 2026-11-02 and trimmed to the revenue rule's tags; E291's
-``companyfacts_partial_years``, trimmed to the items ending from 2024 on), with a Filing row for each 10-K and 10-Q
-accession it names, as the app lists filings, synced through the real ingest (its fetcher seam: no network). Every
-surface then reads the stored rows, and every figure it prints is held to them:
+(``tests/fixtures/companyfacts_fi``, SEC's payloads of 2026-11-01 and 11-02 trimmed to the revenue rule's tags, as
+``test_fi_revenue.py`` records; E291's ``companyfacts_partial_years``, trimmed to the items ending from 2024 on), with a
+Filing row for each 10-K and 10-Q accession it names, as the app lists filings, synced through the real ingest (its
+fetcher seam: no network). Every surface then reads the stored rows, and every figure it prints is held to them:
 
 - the Multi-Period Analysis dataset, annual (the last ten years) and quarterly (the last twelve quarters): each value
   is the stored current row of its period and concept, in that row's unit, at that row's accession, and every link it
@@ -47,7 +47,8 @@ from app.services.peers_service import default_concept_for, get_peers
 from app.utils.sec_urls import build_sec_archive_url
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-# Each case: its payload's folder, its SIC code (the revenue rule reads a financial filer's total), and what it brings.
+# Each case: its payload's folder, its SIC code (the revenue rule reads a financial filer's total; a ``companyfacts_fi``
+# payload's is the one test_financial_revenue_preview.py gives it), and what it brings.
 CORPUS = {
     "WBHC": ("companyfacts_fi", "6021", "a community bank whose same-day 10-Q/A repeats its original"),
     "PNC": ("companyfacts_fi", "6021", "a bank whose 8-K recast gives prior years another figure"),
@@ -57,6 +58,16 @@ CORPUS = {
     "MET": ("companyfacts_fi", "6311", "an insurer read on its total revenue"),
     "AMT": ("companyfacts_fi", "6798", "a tower REIT whose fee element is its total"),
     "TRC": ("companyfacts_fi", "6500", "a land company reporting real estate revenue"),
+    "AJG": ("companyfacts_fi", "6411", "an insurance broker"),
+    "ARE": ("companyfacts_fi", "6798", "an office REIT"),
+    "BLK": ("companyfacts_fi", "6211", "an asset manager filed as a broker"),
+    "CBOE": ("companyfacts_fi", "6200", "an exchange operator"),
+    "ICE": ("companyfacts_fi", "6200", "an exchange operator whose older 10-K reports a fee tag beside its total"),
+    "KKR": ("companyfacts_fi", "6282", "an asset manager"),
+    "TROW": ("companyfacts_fi", "6282", "an asset manager"),
+    "CLSK": ("companyfacts_fi", "6199", "a bitcoin miner filed under finance services"),
+    "HUT": ("companyfacts_fi", "6199", "a bitcoin miner filed under finance services"),
+    "BXSL": ("companyfacts_fi", None, "a business development company with no SIC code, read as a non-financial filer"),
     "CBAN": ("companyfacts_partial_years", "6022", "a bank whose 10-Q tags a quarter's figure with its year (E291)"),
     "FIX": ("companyfacts_partial_years", "1700", "a contractor whose 10-Q tags a quarter's figure with its year "
             "(E291), with gross profit, operating income and their margins"),
@@ -129,8 +140,9 @@ def corpus():
 
 
 def _current(db, company) -> dict[tuple[str, int, str], FinancialFact]:
-    rows = db.query(FinancialFact).filter(FinancialFact.company_id == company.id, FinancialFact.is_latest.is_(True),
-                                          FinancialFact.fiscal_period.isnot(None), FinancialFact.fiscal_year.isnot(None))
+    rows = db.query(FinancialFact).filter(
+        FinancialFact.company_id == company.id, FinancialFact.is_latest.is_(True),
+        FinancialFact.fiscal_period.isnot(None), FinancialFact.fiscal_year.isnot(None))
     return {(row.concept, row.fiscal_year, row.fiscal_period): row for row in rows}
 
 
@@ -247,7 +259,8 @@ def _filed_value(payload: dict, row: FinancialFact) -> float | None:
     """The value the row's own filing reported for its span under the row's tag, as SEC's companyfacts lists it."""
     tag = row.raw_tag.split(":", 1)[1]
     items = payload["facts"]["us-gaap"].get(tag, {}).get("units", {}).get(row.unit) or []
-    values = {item["val"] for item in items if item["accn"] == row.accession and item["end"] == row.period_end.isoformat()
+    values = {item["val"] for item in items
+              if item["accn"] == row.accession and item["end"] == row.period_end.isoformat()
               and (row.period_start is None or item.get("start") == row.period_start.isoformat())}
     return values.pop() if len(values) == 1 else None
 
@@ -278,8 +291,9 @@ def test_a_figure_read_off_its_filing_is_current_at_that_filing_and_the_analysis
     db, company, _payload = corpus[ticker]
     value, accession = READ_OFF[(ticker, concept, year, period)]
     row = _current(db, company)[(concept, year, period)]
-    assert (published_value(row), row.accession) == (pytest.approx(value, rel=1e-9, abs=0), accession), (ticker, concept)
+    expected = (pytest.approx(value, rel=1e-9, abs=0), accession)
+    assert (published_value(row), row.accession) == expected, (ticker, concept)
     shown = [(point["value"], point["accession"]) for dataset in _datasets(db, company)
              for series, point in _valued(dataset)
              if series["concept"] == concept and (point["fiscal_year"], point["fiscal_period"]) == (year, period)]
-    assert shown == [(pytest.approx(value, rel=1e-9, abs=0), accession)], (ticker, concept, shown)
+    assert shown == [expected], (ticker, concept, shown)
