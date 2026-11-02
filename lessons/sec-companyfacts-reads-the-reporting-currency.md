@@ -65,7 +65,7 @@ figure, an older rule's reading), which its repair, not a sync, corrects; such a
 Plant the state earlier syncs stored
 through `tests/support/sync_eras.py` (every USD sync in production's history was the upsert alone),
 and read a repair's or preview's cohort against the syncs since the deploy: the first sync of a
-company since then converges its keys (`ops/detection/usd_sync_convergence.sql` sizes them).
+company since then converges its keys (E198's one-off census, #1968, sizes them).
 Count rows that are not current too: the vote reads them, and a later sync still converges the keys
 a demotion left; reading current rows only left a misvoted filing's demoted restatement behind for
 good once its convenience rows were demoted. Rows are never deleted: once a company stores a row in
@@ -282,7 +282,7 @@ sync that names the later filing.
 `backend/tests/unit/test_companyfacts_ingest.py` (`TestNativeReportingCurrency`,
 `TestFilingCurrencies`, `TestNativeReportingCurrencySync`, whose
 `test_a_usd_filers_sync_converges_as_one_in_another_currency_does` and currency-parametrized tests hold
-every sync to the one rule); `backend/tests/support/sync_eras.py`; `ops/detection/usd_sync_convergence.sql`
-(E198's census); the peer panel's currency guard in
+every sync to the one rule); `backend/tests/support/sync_eras.py`; E198's one-off census
+(#1968); the peer panel's currency guard in
 `backend/app/services/peers_service.py`; #1365 (the list-level pick); F61 call 3 (the per-filing
 pick).
