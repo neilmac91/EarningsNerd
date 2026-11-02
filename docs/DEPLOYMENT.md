@@ -834,13 +834,20 @@ existing notification channel; absent grants fail the apply rather than being wo
 
 Provisioning tests those permissions before its first write (`PROVISION_PERMISSIONS` in
 `ops/feedback_media/manage.py`, through Resource Manager `testIamPermissions`, plus `actAs` tested on the
-runtime identity itself) and refuses with the missing names and nothing changed. `feedback-media-inspect`
-prints the same capability check for both provisioning operations, then every component's state before it
-fails: verified, absent or not yet observed (incomplete), `UNVERIFIED` with a closed class when its read
-fails, or refused for readable drift, which an unverified component never masks. One read shows what a
+runtime identity itself) and refuses with the missing names and nothing changed. It then reads every
+existing resource a later step would refuse rather than repair, and refuses that too before any write: a
+deleted, `DISABLED` or differing object role; a bucket with other settings, a public principal or another
+runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; a
+differing heartbeat metric or alert policy. Absent resources are still created and owned ones converged.
+`feedback-media-inspect` prints the same capability check for both provisioning operations, then each
+resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
+alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed
+(incomplete), `UNVERIFIED` with a closed class when its read fails, or refused for readable drift, which an
+unverified line never masks: a failed read never stops another resource's checks. One read shows what a
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
-error class (status, reason, and a denied permission that one of these steps names); provider messages,
-resources and principals stay withheld. The check reads the identity's own
+error class (status, reason, and a denied permission that one of these steps names); a dropped connection
+reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
+Provider messages, resources and principals stay withheld. The check reads the identity's own
 project grants (and `actAs` on the runtime identity): a disabled API or an organization policy passes it and
 still surfaces at the step itself, while a grant held only on a single resource is invisible to it, so the
 check reports that permission missing and refuses; grant provisioning permissions at the project.

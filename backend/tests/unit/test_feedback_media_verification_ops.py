@@ -497,5 +497,7 @@ def test_the_verification_preflight_tests_every_permission_its_reads_before_writ
     verify.require_media_prerequisites(Cloud())
     named = {name for label in labels for name in label.split(" [", 1)[1].rstrip("]").split(", ")}
     assert named == {"iam.roles.get", "storage.buckets.get"}
-    # Every Cloud Run operation poll and the serving revision's read (current_image) also run before or between writes.
-    assert named | {"run.operations.get", "run.revisions.get"} <= verify.PROJECT_PERMISSIONS
+    # Every Cloud Run operation poll (media.Cloud.wait's label) and the serving revision's read (current_image, which
+    # is unlabelled) also run before or between writes.
+    polled = verify.media.OPERATION_READ.split(" [", 1)[1].rstrip("]").split(", ")
+    assert named | set(polled) | {"run.revisions.get"} <= verify.PROJECT_PERMISSIONS

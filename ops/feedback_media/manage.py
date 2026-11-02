@@ -3,8 +3,9 @@
 Only fixed resources in earnings-nerd/us-west1 are addressable. API errors print a closed
 status, never response bodies, access tokens, service configuration or user data. Every mutation
 is an explicit -apply operation, protected by ops.yml's owner approval and first-attempt gate.
-Each provider call names its step and the IAM permission it needs, and provisioning tests every
-permission its steps use before its first write, so a missing grant refuses the run cleanly.
+Each provider call names its step and the IAM permission it needs. Before its first write, provisioning
+tests every permission its steps use and reads every existing resource it would refuse rather than repair,
+so a run that cannot finish changes nothing.
 """
 from __future__ import annotations
 
@@ -16,8 +17,9 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from http.client import HTTPException
 from pathlib import Path
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -35,7 +37,10 @@ PROBE_ARGS = [*CLEANUP_ARGS, "--verify-storage"]
 CHANNEL = f"projects/{PROJECT}/notificationChannels/2698479126467110226"
 HEARTBEAT_METRIC = "earningsnerd_feedback_cleanup_success"
 HEARTBEAT_MESSAGE = "Feedback media scheduled cleanup succeeded"
+METRIC_PATH = f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}"
+SCHEDULE_DESCRIPTION = "EarningsNerd private feedback media cleanup"
 MONITORING_OWNER = {"component": "feedback-media"}
+POLICY_DRIFT = "Existing feedback monitoring policy differs from the approved owned definition"
 OPERATIONS = (
     "feedback-media-inspect", "feedback-media-provision-apply",
     "feedback-media-enable-apply", "feedback-media-disable-apply",
@@ -164,20 +169,24 @@ class Cloud:
             except Exception:  # an unreadable error body yields no class; the labelled refusal itself stands
                 detail = ""
             raise ProviderError(f"{label} failed (HTTP {exc.code}{detail})") from None
-        except (URLError, TimeoutError, ValueError):
+        # URLError and timeouts are OSErrors; so is a connection dropped before a response, which urllib raises
+        # outside its URLError wrapper. HTTPException covers a response cut short.
+        except (OSError, ValueError, HTTPException):
             raise ProviderError(f"{label} unavailable or unreadable") from None
 
-    def wait(self, operation: dict) -> dict:
+    def wait(self, operation: dict, step: str | None = None) -> dict:
+        """Poll a long-running operation; a failure names the step that started it (unlabelled callers keep the old wording)."""
+        prefix = f"{step}: " if step else ""
         deadline = time.monotonic() + 180
         while not operation.get("done"):
             if time.monotonic() >= deadline:
-                raise OperationError("Cloud Run operation still pending; inspect before retrying")
+                raise OperationError(f"{prefix}Cloud Run operation still pending; inspect before retrying")
             time.sleep(2)
             operation = self.call("run", "v2/" + operation["name"], step=OPERATION_READ)
         if operation.get("error"):
             code = operation["error"].get("code") if isinstance(operation["error"], dict) else None
             status = GRPC_STATUSES[code] if type(code) is int and 0 < code < len(GRPC_STATUSES) else "unclassified"
-            raise ProviderError(f"Cloud Run operation failed ({status}); provider payload withheld")
+            raise ProviderError(f"{prefix}Cloud Run operation failed ({status}); provider payload withheld")
         return operation.get("response", {})
 
 
@@ -203,12 +212,23 @@ def check_private_policy(policy: dict) -> None:
         raise OperationError("Resource policy includes a public principal")
 
 
-def check_runtime_bucket_policy(policy: dict, runtime: str) -> None:
+def check_runtime_bucket_policy(policy: dict, runtime: str, *, granted: bool = True) -> None:
+    """Refuse a public principal, and any runtime grant but the unconditional object role (required unless not `granted` yet)."""
     check_private_policy(policy)
     member = "serviceAccount:" + runtime
     grants = [binding for binding in policy.get("bindings", []) if member in binding.get("members", [])]
-    if not grants or any(binding.get("role") != ROLE or binding.get("condition") for binding in grants):
+    if (granted and not grants) or any(binding.get("role") != ROLE or binding.get("condition") for binding in grants):
         raise OperationError("Runtime bucket grants differ from the approved unconditional object role")
+
+
+def check_owned_job(job: dict) -> None:
+    if job.get("labels", {}).get("purpose") != "feedback-media":
+        raise OperationError("Existing cleanup job is not owned by this feature")
+
+
+def check_owned_schedule(schedule: dict) -> None:
+    if schedule.get("description") != SCHEDULE_DESCRIPTION:
+        raise OperationError("Existing cleanup schedule is not owned by this feature")
 
 
 def policy_path(path: str, *, storage: bool = False) -> str:
@@ -377,43 +397,56 @@ def monitoring_policies(cloud: Cloud) -> list[dict]:
     raise OperationError("Monitoring policy inventory exceeds the bounded inspection size")
 
 
+def missing_policies(policies: list[dict], drift: str) -> list[dict]:
+    """The owned alert policies not yet created; one present in any other form, or more than once, is refused."""
+    missing = []
+    for expected in policy_specs():
+        matching = [policy for policy in policies if policy.get("displayName") == expected["displayName"]]
+        if not matching:
+            missing.append(expected)
+        elif len(matching) != 1 or not policy_matches(matching[0], expected):
+            raise OperationError(drift)
+    return missing
+
+
 def ensure_monitoring(cloud: Cloud) -> None:
     check_channel(cloud)
-    metric_path = f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}"
-    metric = cloud.call("logging", metric_path, missing_ok=True, step=METRIC_READ)
+    metric = cloud.call("logging", METRIC_PATH, missing_ok=True, step=METRIC_READ)
     if metric is None:
         metric = cloud.call("logging", f"v2/projects/{PROJECT}/metrics", method="POST", body=heartbeat_spec(),
                             step=METRIC_CREATE)
     check_heartbeat_metric(metric)
-    policies = monitoring_policies(cloud)
-    for expected in policy_specs():
-        matching = [policy for policy in policies if policy.get("displayName") == expected["displayName"]]
-        if not matching:
-            created = cloud.call("monitoring", f"v3/projects/{PROJECT}/alertPolicies", method="POST", body=expected,
-                                 step=POLICY_CREATE)
-            matching = [created]
-        if len(matching) != 1 or not policy_matches(matching[0], expected):
-            raise OperationError("Existing feedback monitoring policy differs from the approved owned definition")
+    for expected in missing_policies(monitoring_policies(cloud), POLICY_DRIFT):
+        created = cloud.call("monitoring", f"v3/projects/{PROJECT}/alertPolicies", method="POST", body=expected,
+                             step=POLICY_CREATE)
+        if not policy_matches(created, expected):
+            raise OperationError(POLICY_DRIFT)
     print("Feedback cleanup failure and stale-heartbeat alert routing configured; delivery not exercised")
 
 
-def inspect_monitoring(cloud: Cloud) -> bool:
+def inspect_channel(cloud: Cloud) -> bool:
     check_channel(cloud)
-    metric = cloud.call("logging", f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}", missing_ok=True, step=METRIC_READ)
-    if metric is not None:
-        check_heartbeat_metric(metric)
-    policies = monitoring_policies(cloud)
-    absent = [] if metric is not None else ["heartbeat metric"]
-    for expected in policy_specs():
-        matching = [policy for policy in policies if policy.get("displayName") == expected["displayName"]]
-        if not matching:
-            absent.append(f"policy '{expected['displayName']}'")
-        elif len(matching) != 1 or not policy_matches(matching[0], expected):
-            raise OperationError("Feedback cleanup alert policies must exactly match the enabled, owned definitions")
-    if absent:
+    print("Feature alert channel: enabled email with no verification pending; end-to-end delivery unverified")
+    return True
+
+
+def inspect_policies(cloud: Cloud) -> bool:
+    missing = missing_policies(monitoring_policies(cloud),
+                               "Feedback cleanup alert policies must exactly match the enabled, owned definitions")
+    if missing:
         # Not yet provisioned is incomplete, not drift: provisioning creates exactly these.
-        print("Feedback cleanup monitoring: absent " + ", ".join(absent))
+        print("Feedback cleanup alert policies: absent " + ", ".join(f"'{spec['displayName']}'" for spec in missing))
         return False
+    print("Feedback cleanup alert policies: enabled, owned and routed to the feature channel")
+    return True
+
+
+def inspect_heartbeat(cloud: Cloud) -> bool:
+    metric = cloud.call("logging", METRIC_PATH, missing_ok=True, step=METRIC_READ)
+    if metric is None:
+        print("Feedback cleanup heartbeat metric: absent")
+        return False
+    check_heartbeat_metric(metric)
     now = datetime.now(timezone.utc)
     query = urlencode({
         "filter": policy_specs()[1]["conditions"][0]["conditionAbsent"]["filter"],
@@ -424,7 +457,6 @@ def inspect_monitoring(cloud: Cloud) -> bool:
     heartbeat_seen = any(isinstance(value, str) and 1 <= len(value) <= 20 and value.isascii()
                          and value.isdecimal() and int(value) > 0 for value in values)
     print("Normal-cleanup monitoring heartbeat: " + ("observed" if heartbeat_seen else "not yet observed"))
-    print("Feature alert channel: enabled email with no verification pending; end-to-end delivery unverified")
     return heartbeat_seen
 
 
@@ -484,27 +516,56 @@ def require_execution_success(execution: dict, label: str) -> None:
         raise OperationError(f"{label} did not succeed; inspect its counts-only job ledger before a fresh approved run")
 
 
+def refuse_unrepairable_state(cloud: Cloud, runtime: str) -> None:
+    """Refuse, read-only and before provisioning's first write, every existing resource a step would refuse.
+
+    Provisioning creates what is absent and converges what it owns; these states it refuses instead. Each step
+    still checks what it reaches, so this only moves the refusals ahead of the writes.
+    """
+    check_channel(cloud)
+    metric = cloud.call("logging", METRIC_PATH, missing_ok=True, step=METRIC_READ)
+    if metric is not None:
+        check_heartbeat_metric(metric)
+    missing_policies(monitoring_policies(cloud), POLICY_DRIFT)
+    role = cloud.call("iam", "v1/" + ROLE, missing_ok=True, step=ROLE_READ)
+    if role is not None:
+        check_role(role)
+    for environment, name in BUCKETS.items():
+        bucket = cloud.call("storage", "storage/v1/b/" + name, missing_ok=True, step=BUCKET_READ)
+        if bucket is not None:
+            check_bucket(bucket, environment)
+            check_runtime_bucket_policy(cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True),
+                                                   step=BUCKET_POLICY_READ), runtime, granted=False)
+    job = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
+    if job is not None:
+        check_owned_job(job)
+        check_private_policy(cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ))
+    schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True, step=SCHEDULE_READ)
+    if schedule is not None:
+        check_owned_schedule(schedule)
+
+
 def provision(cloud: Cloud, service: dict) -> None:
     spec = job_spec(service)  # validate required identity/secret references before any mutation
     runtime = spec["template"]["template"]["serviceAccount"]
     missing = capability_gaps(cloud, PROVISION_PERMISSIONS, runtime)
     if missing:
         raise OperationError("Provisioning identity lacks required permissions; nothing was changed: " + ", ".join(missing))
+    refuse_unrepairable_state(cloud, runtime)
     ensure_monitoring(cloud)  # create the success metric before the first genuine cleanup heartbeat
     ensure_buckets(cloud, runtime)
     current = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
-    if current is not None and current.get("labels", {}).get("purpose") != "feedback-media":
-        raise OperationError("Existing cleanup job is not owned by this feature")
     if current is None:
         cloud.wait(cloud.call("run", f"v2/{PARENT}/jobs?jobId=earningsnerd-feedback-media-cleanup", method="POST", body=spec,
-                              step=JOB_CREATE))
+                              step=JOB_CREATE), JOB_CREATE)
     else:
+        check_owned_job(current)
         spec["etag"] = current["etag"]
         # Cloud Run v2 Job.patch replaces its editable specification; it has no updateMask.
-        cloud.wait(cloud.call("run", f"v2/{JOB}", method="PATCH", body=spec, step=JOB_UPDATE))
+        cloud.wait(cloud.call("run", f"v2/{JOB}", method="PATCH", body=spec, step=JOB_UPDATE), JOB_UPDATE)
     bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + runtime,
          read_step=JOB_POLICY_READ, write_step=JOB_POLICY_WRITE)
-    schedule = {"name": SCHEDULE, "description": "EarningsNerd private feedback media cleanup",
+    schedule = {"name": SCHEDULE, "description": SCHEDULE_DESCRIPTION,
                 "schedule": "17 * * * *", "timeZone": "Etc/UTC", "attemptDeadline": "60s",
                 "retryConfig": {"retryCount": 0}, "httpTarget": {
                     "uri": f"https://run.googleapis.com/v2/{JOB}:run", "httpMethod": "POST",
@@ -513,18 +574,17 @@ def provision(cloud: Cloud, service: dict) -> None:
     current_schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True, step=SCHEDULE_READ)
     if current_schedule is None:
         cloud.call("cloudscheduler", f"v1/{PARENT}/jobs", method="POST", body=schedule, step=SCHEDULE_CREATE)
-    elif current_schedule.get("description") == schedule["description"]:
+    else:
+        check_owned_schedule(current_schedule)
         cloud.call("cloudscheduler", f"v1/{SCHEDULE}?updateMask=schedule,timeZone,attemptDeadline,retryConfig,httpTarget",
                    method="PATCH", body=schedule, step=SCHEDULE_UPDATE)
-    else:
-        raise OperationError("Existing cleanup schedule is not owned by this feature")
     # Cleanup can succeed with no rows without contacting GCS. A separate manifest-backed probe
     # proves object create/read/conditional-delete using the runtime identity, without user data.
     require_execution_success(cloud.wait(cloud.call("run", "v2/" + JOB + ":run", method="POST", body={},
-                                                    step=CLEANUP_RUN)), "Cleanup execution")
+                                                    step=CLEANUP_RUN), CLEANUP_RUN), "Cleanup execution")
     require_execution_success(cloud.wait(cloud.call("run", "v2/" + JOB + ":run", method="POST", step=PROBE_RUN, body={
         "overrides": {"containerOverrides": [{"name": "cleanup", "args": PROBE_ARGS}]},
-    })), "Storage probe execution")
+    }), PROBE_RUN), "Storage probe execution")
     # A new log metric may take several minutes to publish its first time series. No new writes
     # occur while waiting, and a timeout leaves the rollout disabled rather than claiming monitoring.
     deadline = time.monotonic() + 300
@@ -593,9 +653,10 @@ def inspect_bucket(cloud: Cloud, environment: str, runtime: str) -> bool:
 def inspect(cloud: Cloud) -> bool:
     """Read every prerequisite and print its state; raise after all of them if any was refused or unreadable.
 
-    Absent resources are incomplete (False). A component whose provider read fails is UNVERIFIED and readable
-    drift is refused; both raise only once every component has been read, so one inspection shows the whole
-    state before a retry, and an unverified component never masks a refused one.
+    Each component is one independently readable resource with its own sub-resources, so a failed read never
+    stops another resource's checks. Absent resources are incomplete (False). A component whose provider read
+    fails is UNVERIFIED and readable drift is refused; both raise only once every component has been read, so
+    one inspection shows the whole state before a retry, and an unverified component never masks a refused one.
     """
     service = cloud.call("run", "v2/" + SERVICE, step=SERVICE_READ)
     runtime = service.get("template", {}).get("serviceAccount")
@@ -604,8 +665,11 @@ def inspect(cloud: Cloud) -> bool:
     components = [("Feedback object role", lambda: inspect_role(cloud))]
     components += [(f"{environment} bucket", lambda environment=environment: inspect_bucket(cloud, environment, runtime))
                    for environment in BUCKETS]
-    components += [("Cleanup job and schedule", lambda: inspect_cleanup(cloud, service, runtime)),
-                   ("Alert routing and heartbeat", lambda: inspect_monitoring(cloud))]
+    components += [("Cleanup job", lambda: inspect_job(cloud, service, runtime)),
+                   ("Cleanup schedule", lambda: inspect_schedule(cloud, runtime)),
+                   ("Alert channel", lambda: inspect_channel(cloud)),
+                   ("Alert policies", lambda: inspect_policies(cloud)),
+                   ("Heartbeat metric", lambda: inspect_heartbeat(cloud))]
     ready, refused, unverified = True, [], []
     for name, check in components:
         try:
@@ -624,11 +688,10 @@ def inspect(cloud: Cloud) -> bool:
     return ready
 
 
-def inspect_cleanup(cloud: Cloud, service: dict, runtime: str) -> bool:
+def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     job = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
-    schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True, step=SCHEDULE_READ)
-    if job is None or schedule is None:
-        print(f"Cleanup job: {'present' if job else 'absent'}; hourly schedule: {'present' if schedule else 'absent'}")
+    if job is None:
+        print("Cleanup job: absent")
         return False
     expected = job_spec(service)["template"]["template"]
     task = job.get("template", {}).get("template", {})
@@ -655,17 +718,26 @@ def inspect_cleanup(cloud: Cloud, service: dict, runtime: str) -> bool:
                 latest.setdefault(mode, execution)
     succeeded = recent_success(latest.get("cleanup"), expected, CLEANUP_ARGS)
     probe_succeeded = recent_success(latest.get("probe"), expected, PROBE_ARGS)
-    schedule_ready = (schedule.get("state") == "ENABLED" and schedule.get("schedule") == "17 * * * *"
-                      and schedule.get("timeZone") == "Etc/UTC"
-                      and schedule.get("httpTarget", {}).get("uri") == f"https://run.googleapis.com/v2/{JOB}:run"
-                      and schedule.get("httpTarget", {}).get("httpMethod") == "POST"
-                      and schedule.get("httpTarget", {}).get("body") == "e30="
-                      and schedule.get("httpTarget", {}).get("oauthToken", {}).get("serviceAccountEmail") == runtime)
     print("Cleanup last execution: " + ("succeeded" if succeeded else "unverified"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else "unverified"))
     print("Runtime enumerated storage permission audit: " + ("verified by the successful probe" if probe_succeeded else "unverified"))
-    print("Cleanup hourly schedule: " + ("verified" if schedule_ready else "unverified"))
-    return succeeded and probe_succeeded and schedule_ready
+    return succeeded and probe_succeeded
+
+
+def inspect_schedule(cloud: Cloud, runtime: str) -> bool:
+    schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True, step=SCHEDULE_READ)
+    if schedule is None:
+        print("Cleanup hourly schedule: absent")
+        return False
+    check_owned_schedule(schedule)
+    ready = (schedule.get("state") == "ENABLED" and schedule.get("schedule") == "17 * * * *"
+             and schedule.get("timeZone") == "Etc/UTC"
+             and schedule.get("httpTarget", {}).get("uri") == f"https://run.googleapis.com/v2/{JOB}:run"
+             and schedule.get("httpTarget", {}).get("httpMethod") == "POST"
+             and schedule.get("httpTarget", {}).get("body") == "e30="
+             and schedule.get("httpTarget", {}).get("oauthToken", {}).get("serviceAccountEmail") == runtime)
+    print("Cleanup hourly schedule: " + ("verified" if ready else "unverified"))
+    return ready
 
 
 def checkout_on_path() -> None:
@@ -724,7 +796,8 @@ def set_enabled(cloud: Cloud, service: dict, enabled: bool) -> None:
     env += [{"name": "FEEDBACK_MEDIA_BUCKET", "value": BUCKETS["production"]},
             {"name": "FEEDBACK_MEDIA_ENABLED", "value": str(enabled).lower()}]
     cloud.wait(cloud.call("run", f"v2/{SERVICE}?updateMask=template.containers", method="PATCH", step=SERVICE_UPDATE,
-                          body={"name": SERVICE, "etag": service["etag"], "template": {"containers": containers}}))
+                          body={"name": SERVICE, "etag": service["etag"], "template": {"containers": containers}}),
+               SERVICE_UPDATE)
     current = cloud.call("run", "v2/" + SERVICE, step=SERVICE_READ)
     traffic = [entry for entry in current.get("trafficStatuses", []) if entry.get("percent", 0) > 0]
     latest = current.get("latestReadyRevision", "").rsplit("/", 1)[-1]
