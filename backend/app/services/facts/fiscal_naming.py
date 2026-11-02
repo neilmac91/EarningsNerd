@@ -42,20 +42,22 @@ def is_proxy_form(form: Any) -> bool:
 
 
 def without_partial_years(items: list) -> list:
-    """One tag's companyfacts items in one unit, less each quarterly report's year that holds part of one (E291).
+    """One tag's companyfacts items in one unit, less each quarterly report's year that holds part of one (E291, E292).
 
-    A 10-Q can tag a prior-year comparative with a full-year span: CBAN's and FIX's Q1 2026 10-Qs tag Q1 2025's
-    figures as 2025-01-01 to 2025-12-31, and HP's tagged a first half so. Filed after the 10-K, such an item would
-    win the year wherever the latest filed item wins. So a quarterly report's (``QUARTERLY_FORMS``) item spanning a
-    year is dropped where its value, not zero, equals that of a shorter item from the same start (a quarter, or six
-    or nine months to date), in any filing, under the same tag: a year whose quarter sits under a sibling tag of its
-    concept is kept (OSPN's Q1 2018 10-Q; E292). Equals exactly: a real year can sit near its nine months (Estee
-    Lauder's FY2023 operating income, 0.3% below), and where the rest of a year nets to exactly nothing (BMY's
-    FY2011 investing cash flow) the annual report's own item still gives the year. A 10-Q's recast of a prior year
-    (Macy's FY2021) matches no shorter item and stays, as does every annual report's item and every zero. Another
-    filing's item only exposes the mis-tag: a reader still reads each value from the item it read it from before.
+    A 10-Q can tag a shorter figure with a full-year span: CBAN's and FIX's Q1 2026 10-Qs tag Q1 2025's figures as
+    2025-01-01 to 2025-12-31, HP's tagged a first half so, and WAL's Q2 and Q3 2015 10-Qs tag their own six and nine
+    months' EPS as calendar 2012. Filed after the 10-K, such an item would win the year wherever the latest filed item
+    wins. So a quarterly report's (``QUARTERLY_FORMS``) item spanning a year is dropped where its value, not zero,
+    equals that of a shorter item under the same tag (a quarter, or six or nine months to date): one from the same
+    start in any filing, or one from any start in the same filing (STT's Q1 2019 10-Q tags its first quarters of 2018
+    and 2019 as FY2017 and FY2018). A year whose quarter sits under a sibling tag of its concept is kept (OSPN's Q1
+    2018 10-Q; E292). Equals exactly: a real year can sit near its nine months (Estee Lauder's FY2023 operating
+    income, 0.3% below), and where the rest of a year nets to exactly nothing (BMY's FY2011 investing cash flow) the
+    annual report's own item still gives the year. A 10-Q's recast of a prior year (Macy's FY2021) matches no shorter
+    item and stays, as does every annual report's item and every zero (UEC's FY2018 revenue, which no 10-K tags).
+    Another filing's item only exposes the mis-tag: a reader still reads each value from the item it read it from.
     Sized on the collector's duration concepts, where it drops no real year on 696 cached payloads; across every tag
-    a rate, a count or a one-off payment can equal its quarter (2,156 of the 2,664 items it drops there), so an
+    a rate, a count or a one-off payment can equal its quarter (2,392 of the 3,157 items it drops there), so an
     all-tag reader such as the restatement census's evidence index keeps every item.
     """
     from app.services.facts.concepts import _classify_duration, _parse_date  # call time, as currency's admission
@@ -68,10 +70,13 @@ def without_partial_years(items: list) -> list:
         return (_classify_duration(start, end), start, value) if start and end else (None, None, None)
 
     spans = [span(item) for item in items]
-    parts = {(start, value) for klass, start, value in spans if klass in ("Q", "YTD6", "YTD9")}
+    parts = [(item.get("accn"), start, value) for item, (klass, start, value) in zip(items, spans)
+             if klass in ("Q", "YTD6", "YTD9")]
+    same_start = {(start, value) for _accn, start, value in parts}
+    same_filing = {(accn, value) for accn, _start, value in parts}
     return [item for item, (klass, start, value) in zip(items, spans)
-            if not (klass == "FY" and value != 0 and (start, value) in parts
-                    and str(item.get("form") or "").upper() in QUARTERLY_FORMS)]
+            if not (klass == "FY" and value != 0 and str(item.get("form") or "").upper() in QUARTERLY_FORMS
+                    and ((start, value) in same_start or (item.get("accn"), value) in same_filing))]
 
 
 def focus_years(end: date) -> tuple[int, int]:

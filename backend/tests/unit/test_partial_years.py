@@ -1,12 +1,13 @@
-"""A quarterly report's year that holds only part of one never reaches a reader (E291, ``facts/fiscal_naming.py``).
+"""A quarterly report's year that holds only part of one never reaches a reader (E291, E292; ``facts/fiscal_naming``).
 
 CBAN's and FIX's Q1 2026 10-Qs tag their Q1 2025 comparatives with the full-year span 2025-01-01..2025-12-31, and,
-filed after the 10-Ks, won FY2025 wherever the latest filed item wins. ``without_partial_years`` drops such an item
+filed after the 10-Ks, won FY2025 wherever the latest filed item wins; WAL's 2015 10-Qs tag their own six and nine
+months' EPS as calendar 2012. ``without_partial_years`` drops such an item
 for every reader that picks a figure from companyfacts duration items: the collector's admission
 (``currency.admitted_items``), the backfill cross-check's authority (``reconcile.extract_authoritative_values``) and
 the per-filing fallback (``edgar/xbrl_companyfacts.py``). The restatement census's evidence index, which reads every
-tag, keeps every item, and the gate below pins every reader. The fixtures are trimmed from SEC's payloads (CBAN's of
-2026-11-02, FIX's of 2026-11-01) to the items ending from 2024 on.
+tag, keeps every item, and the gate below pins every reader. The fixtures are trimmed from SEC's payloads (CBAN's,
+WAL's and STT's of 2026-11-02, FIX's and ARTW's of 2026-11-01) to the tags and years their tests read.
 """
 import ast
 import json
@@ -82,8 +83,8 @@ def test_only_the_very_figure_marks_a_partial_year(value):
 
 @pytest.mark.parametrize("end", ["2025-05-15", "2025-08-31"])
 def test_a_span_neither_a_quarter_nor_six_or_nine_months_never_drops_the_year(end):
-    # 134 and 242 days from the year's start: no class of _classify_duration, so no part of a year here.
-    span = _item("2025-01-01", end, 20952000, accn="other-span")
+    # 134 and 242 days from the year's start, in the year's own filing: no class of _classify_duration, so no part.
+    span = _item("2025-01-01", end, 20952000, accn="q1-2026")
     year = _item("2025-01-01", "2025-12-31", 20952000, accn="q1-2026")
     assert without_partial_years([span, year]) == [span, year]
 
@@ -102,7 +103,7 @@ def test_a_zero_year_stays():
 
 @pytest.mark.parametrize("start", ["2025-04-01", "2024-12-31", "2025-01-02"])
 def test_a_shorter_item_from_another_start_never_drops_the_year(start):
-    # Macy's FY2023 EPS equals its Q3's by coincidence: only the year's own start ties a part to it.
+    # Macy's FY2023 EPS equals its Q3's by coincidence: from another start, only the year's own filing ties a part.
     part = _item(start, "2025-06-30" if start == "2025-04-01" else "2025-03-31", 20952000, accn="q")
     year = _item("2025-01-01", "2025-12-31", 20952000, accn="q-later")
     assert without_partial_years([part, year]) == [part, year]
@@ -132,11 +133,62 @@ def test_order_identity_and_every_unreadable_item_are_kept():
     assert without_partial_years([]) == []
 
 
+# --- a part from any start in the year's own filing (E292) ------------------------------------------------------------
+
+WAL_10K, WAL_Q2, WAL_Q3 = "0001212545-15-000090", "0001212545-15-000188", "0001212545-15-000211"
+
+
+def test_a_10q_year_equal_to_a_period_the_same_10q_reports_is_dropped():
+    # WAL's Q2 2015 10-Q tags its own six months' EPS, 0.85, as calendar 2012, whose EPS its 10-K put at 0.84.
+    half = _item("2015-01-01", "2015-06-30", 0.85, accn=WAL_Q2, filed="2015-08-07")
+    year = _item("2012-01-01", "2012-12-31", 0.85, accn=WAL_Q2, filed="2015-08-07")
+    annual = _item("2012-01-01", "2012-12-31", 0.84, form="10-K", accn=WAL_10K, filed="2015-02-17")
+    assert without_partial_years([half, year, annual]) == [half, annual]
+
+
+@pytest.mark.parametrize("end", ["2019-03-31", "2019-06-30", "2019-09-30"])
+def test_a_quarter_six_or_nine_months_the_same_filing_reports_marks_its_year(end):
+    # STT's Q1 2019 10-Q tags its first quarters of 2018 and 2019 as FY2017 and FY2018; UDR's 2014 10-Qs tag their
+    # quarter, six and nine months of 2013 as FY2012.
+    part = _item("2019-01-01", end, 673000000, accn="q-2019")
+    year = _item("2018-01-01", "2018-12-31", 673000000, accn="q-2019")
+    assert without_partial_years([part, year]) == [part]
+
+
+def test_a_part_from_another_start_in_another_filing_never_drops_the_year():
+    # WAL's figures, the half year in another filing: across filings a part from another start is a coincidence.
+    half = _item("2015-01-01", "2015-06-30", 0.85, accn="another-10q")
+    year = _item("2012-01-01", "2012-12-31", 0.85, accn=WAL_Q2)
+    assert without_partial_years([half, year]) == [half, year]
+
+
+@pytest.mark.parametrize("value", [0.84, 0.86])
+def test_only_the_very_figure_the_filing_reports_marks_its_year(value):
+    half = _item("2015-01-01", "2015-06-30", 0.85, accn=WAL_Q2)
+    year = _item("2012-01-01", "2012-12-31", value, accn=WAL_Q2)
+    assert without_partial_years([half, year]) == [half, year]
+
+
+def test_a_zero_year_its_own_filing_reports_as_a_part_stays():
+    # UEC's FY2018 revenue is zero in its 10-Qs, which no 10-K tags, beside a zero half year in the same filing.
+    half = _item("2018-08-01", "2019-01-31", 0, accn="0001437749-19-004590", filed="2019-03-12")
+    year = _item("2017-08-01", "2018-07-31", 0, accn="0001437749-19-004590", filed="2019-03-12")
+    assert without_partial_years([half, year]) == [half, year]
+
+
+@pytest.mark.parametrize("form", ["10-K", "10-K/A", "20-F", "8-K", None])
+def test_no_other_forms_year_equal_to_its_own_part_is_dropped(form):
+    part = _item("2019-01-01", "2019-03-31", 673000000, form=form, accn="one-filing")
+    year = _item("2018-01-01", "2018-12-31", 673000000, form=form, accn="one-filing")
+    assert without_partial_years([part, year]) == [part, year]
+
+
 # --- the readers, on SEC's own payloads -------------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
 def payloads():
-    return {name: json.loads((FIXTURES / f"{name}.json").read_text()) for name in ("CBAN", "FIX")}
+    names = ("CBAN", "FIX", "WAL", "STT", "ARTW")
+    return {name: json.loads((FIXTURES / f"{name}.json").read_text()) for name in names}
 
 
 def _fy2025(facts):
@@ -195,6 +247,35 @@ def test_the_per_filing_fallback_reads_no_year_from_the_10q(payloads, name, acce
     points = parse_company_facts(payloads[name], accession)[metric]
     assert points and all(point["period"] != "2025-12-31" for point in points)  # was a Q4-labelled Q1 value
     assert {point.get("period_start") for point in points if point["period"] == "2025-03-31"} == {"2025-01-01"}
+
+
+def test_the_collector_reads_wals_fy2012_eps_from_its_10k(payloads):
+    facts, _meta = normalize_companyfacts(3, payloads["WAL"], financial_sic=True)
+    fy = {fact["concept"]: (fact["value"], fact["accession"]) for fact in facts
+          if fact["period_end"] == date(2012, 12, 31) and fact["fiscal_period"] == "FY"}
+    assert fy == {"earnings_per_share": (0.84, WAL_10K), "eps_diluted": (0.83, WAL_10K)}  # the Q3 10-Q read 1.45, 1.44
+
+
+def test_the_collector_derives_stts_q4_net_interest_income(payloads):
+    facts, _meta = normalize_companyfacts(4, payloads["STT"], financial_sic=True)
+    q4 = {fact["period_end"]: fact["value"] for fact in facts
+          if fact["concept"] == "net_interest_income" and fact["fiscal_period"] == "Q4"}
+    # withheld while the Q1 2019 10-Q's 643M and 673M stood as FY2017 and FY2018 candidates
+    assert (q4.get(date(2017, 12, 31)), q4.get(date(2018, 12, 31))) == (616000000.0, 697000000.0)
+
+
+def test_the_cross_checks_authority_takes_no_year_artws_10q_made_of_its_quarters(payloads):
+    # ARTW's Q1 2023 10-Q tags its December-February quarters of 2022 and 2023 as March-February years.
+    ends = {end.isoformat() for (concept, end) in extract_authoritative_values(payloads["ARTW"])}
+    assert ends == {"2021-11-30", "2022-11-30", "2023-11-30"}  # not 2022-02-28 (-406,489) nor 2023-02-28 (342,210)
+
+
+@pytest.mark.parametrize("accession", [WAL_Q2, WAL_Q3])
+def test_the_per_filing_fallback_reads_no_2012_eps_from_wals_2015_10qs(payloads, accession):
+    points = parse_company_facts(payloads["WAL"], accession)
+    assert points["earnings_per_share"] and points["eps_diluted"]
+    assert all(point["period"] != "2012-12-31" for metric in ("earnings_per_share", "eps_diluted")
+               for point in points[metric])
 
 
 def test_the_restatement_census_indexes_every_item():
