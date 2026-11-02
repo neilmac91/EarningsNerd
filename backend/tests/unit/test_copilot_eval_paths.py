@@ -1539,8 +1539,10 @@ def _backend_root_insertions(tree: ast.AST, source: str | None) -> frozenset[int
     """Only a canonical insertion of the root the walker already resolves imports against.
 
     Resolve the ancestor from the tracked source identity, not a filename exemption or
-    a universal parents index. Aliases, rebound names and other spellings stay refused.
-    This shares the surrounding walk's stated limits for computed mutation/exec.
+    a universal parents index. Path is allowed only in the canonical constructor;
+    additional pathlib imports and escaping that class to an alias/callback stay
+    refused. This shares the surrounding walk's non-sandbox limits for computed
+    mutation/exec and monkeypatches made by other modules.
     """
     if source not in TRACKED or not source.startswith("backend/") or not isinstance(tree, ast.Module):
         return frozenset()
@@ -1562,8 +1564,17 @@ def _backend_root_insertions(tree: ast.AST, source: str | None) -> frozenset[int
     expected = ast.dump(ast.parse(
         f"sys.path.insert(0, str(Path(__file__).resolve().parents[{ancestors.index(BACKEND)}]))", mode="eval",
     ).body)
-    return frozenset(id(node.func.value) for node in ast.walk(tree)
-                     if isinstance(node, ast.Call) and ast.dump(node) == expected)
+    insertions = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and ast.dump(node) == expected]
+    constructor_names = {id(node) for insertion in insertions for node in ast.walk(insertion)
+                         if isinstance(node, ast.Name) and node.id == "Path"}
+    if any(isinstance(node, ast.Name) and node.id == "Path" and id(node) not in constructor_names
+           or isinstance(node, ast.Import) and any(alias.name == "pathlib" or alias.name.startswith("pathlib.")
+                                                  for alias in node.names)
+           or isinstance(node, ast.ImportFrom) and node.module == "pathlib"
+           and (node.level != 0 or len(node.names) != 1 or node.names[0].name != "Path" or node.names[0].asname is not None)
+           for node in ast.walk(tree)):
+        return frozenset()
+    return frozenset(id(node.func.value) for node in insertions)
 
 
 def _changes_sys_path(tree: ast.AST, source: str | None = None) -> bool:
@@ -2151,6 +2162,15 @@ def test_only_the_tracked_source_backend_root_is_an_allowed_import_path_insertio
                     source + "\nsys.path.append('elsewhere')", source + "\nimport site\nsite.addsitedir('elsewhere')",
                     "from unknown import *\n" + source):
         assert _changes_sys_path(ast.parse(changed), worker), changed
+    for resolver_change in ("Path.resolve = lambda self: Path('/outside/a/b/c.py')",
+                            "Path.resolve: object = replacement", "Path.parents = replacement", "del Path.resolve",
+                            "alias = Path\nalias.resolve = replacement", "change_resolver(Path)", "classes = [Path]",
+                            "import pathlib\npathlib.Path.resolve = replacement",
+                            "import pathlib as p\np.Path.resolve = replacement",
+                            "from pathlib import Path as P\nP.resolve = replacement",
+                            "from pathlib import PurePath\nPurePath.parents = replacement",
+                            "from pathlib import PosixPath\nPosixPath.resolve = replacement"):
+        assert _changes_sys_path(ast.parse(imports + resolver_change + "\n" + insertion), worker), resolver_change
     # _bindings covers function parameters, comprehensions, captures and imports, not just assignments.
     for name in ("sys", "Path", "str", "__file__"):
         for rebound in (f"{name} = replacement", f"del {name}", f"def f({name}): pass",
