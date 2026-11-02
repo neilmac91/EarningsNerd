@@ -214,7 +214,7 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
         if (!owns(atGeneration)) return
         setPending({ key: submission.key, uncertain: submission.uncertain })
         setPhase('editing')
-        toast.error('Screenshot uploads are off. Your note is still here.')
+        toast.error('Could not send your feedback. Your draft is still here.')
         return
       }
       // Validation and admission failures cannot have published this request. An uncertain

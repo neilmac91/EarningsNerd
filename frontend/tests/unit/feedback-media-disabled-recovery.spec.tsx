@@ -73,7 +73,7 @@ describe('FeedbackWidget: a screenshot draft when uploads are turned off mid-ses
     await screen.findByText(/^Screenshot uploads are unavailable right now\./)
     expect(api.getFeedbackCapabilities).toHaveBeenCalledTimes(2)
     expect(api.getFeedbackSubmission).not.toHaveBeenCalled()
-    expect(api.toastError.mock.calls).toEqual([['Screenshot uploads are off. Your note is still here.']])
+    expect(api.toastError.mock.calls).toEqual([['Could not send your feedback. Your draft is still here.']])
     const key = api.submitFeedback.mock.calls[0][1].submissionId
     const message = screen.getByLabelText('Feedback message')
     expect(message).toHaveValue(NOTE)
