@@ -13,8 +13,11 @@ import json
 import os
 import re
 import secrets
+import signal
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -24,28 +27,104 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ops.feedback_media.manage import Cloud as BaseCloud  # noqa: E402
-from ops.summary_delivery import spec  # noqa: E402
+from ops.summary_delivery import auth, instance, spec  # noqa: E402
+
+APPLY_SECONDS = 40 * 60
+CLEANUP_SECONDS = 25 * 60
 
 
-class Cloud(BaseCloud):
+@contextmanager
+def request_deadline(deadline: float):
+    """Bound the whole synchronous HTTP exchange, including trickled headers/body.
+
+    urllib's socket timeout is only an inactivity timeout. These Ops commands
+    run on the Linux main thread; an existing timer is never taken over.
+    """
+    if (not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread()
+            or any(signal.getitimer(signal.ITIMER_REAL))):
+        raise spec.Refused("request_deadline_unavailable")
+    remaining = min(30, deadline - time.monotonic())
+    if remaining <= 0:
+        raise TimeoutError
+    previous = signal.getsignal(signal.SIGALRM)
+
+    def expired(signum, frame):
+        raise TimeoutError
+
+    signal.signal(signal.SIGALRM, expired)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, remaining)
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+class Cloud:
     def __init__(self):
-        super().__init__()
+        self.credentials = auth.AccessToken()
         self.calls = 0
         self.cleanup_calls = 0
         self.cleaning = False
+        self.deadline = time.monotonic() + APPLY_SECONDS
+        self.cleanup_deadline = None
 
     def begin_cleanup(self):
+        if self.cleanup_deadline is None:
+            self.cleanup_deadline = time.monotonic() + CLEANUP_SECONDS
+            self.credentials.clear()
         self.cleaning = True
 
-    def call(self, *args, **kwargs):
+    def call(self, *args, timeout=None, **kwargs):
         if self.cleaning:
             self.cleanup_calls += 1
         else:
             self.calls += 1
         if self.calls > 400 and not self.cleaning or self.cleanup_calls > 500:
             raise spec.Refused("cloud_operation_budget")
-        return super().call(*args, **kwargs)
+        started = time.monotonic()
+        remaining = (self.cleanup_deadline if self.cleaning else self.deadline) - started
+        if remaining <= 0:
+            raise spec.Refused("cloud_operation_deadline")
+        if timeout is not None and not 0 < timeout <= 30:
+            raise spec.Refused("cloud_transport_timeout")
+        timeout = min(30, remaining, timeout if timeout is not None else 30)
+        # Lifecycle polling passes its remaining budget to each request.
+        # Never forward auth through a redirect or format a provider body.
+        if (len(args) != 2 or args[0] not in {"run", "us-west1-run", "sqladmin", "cloudtasks", "iam",
+                                            "iamcredentials", "cloudresourcemanager", "secretmanager"}
+                or not isinstance(args[1], str) or not re.fullmatch(r"[A-Za-z0-9_@.:/=?&%-]+", args[1])):
+            raise spec.Refused("cloud_transport_boundary")
+        body = kwargs.get("body")
+        request_ends = started + timeout
+        token = self.credentials.get(request_ends)
+        remaining = request_ends - time.monotonic()
+        if remaining <= 0:
+            raise spec.Refused("cloud_operation_deadline")
+        request = Request(f"https://{args[0]}.googleapis.com/{args[1]}",
+                          data=None if body is None else spec.canonical(body),
+                          method=kwargs.get("method", "GET"),
+                          headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        try:
+            with request_deadline(request_ends):
+                with build_opener(NoRedirect()).open(request, timeout=min(timeout, remaining)) as response:
+                    content = response.read(2 * 1024 * 1024 + 1)
+            if len(content) > 2 * 1024 * 1024:
+                raise spec.Refused("cloud_response_bound")
+            decoded = json.loads(content) if content else {}
+            if not isinstance(decoded, dict):
+                raise ValueError
+            return decoded
+        except HTTPError as exc:
+            if exc.code == 401:
+                # The current operation is never replayed. A later independent
+                # request/reconciliation can obtain a fresh SDK credential.
+                self.credentials.clear()
+            if exc.code == 404 and kwargs.get("missing_ok"):
+                return None
+            raise spec.Refused("cloud_operation_refused") from None
+        except (URLError, TimeoutError, ValueError):
+            raise spec.Refused("cloud_operation_unverified") from None
 
 
 def production_snapshot(cloud) -> tuple[str, tuple[str, ...]]:
@@ -107,7 +186,7 @@ def wait_run(cloud, operation: dict) -> dict:
         name = operation.get("name", "")
         if not name.startswith(spec.PARENT + "/operations/") or time.monotonic() >= deadline:
             raise spec.Refused("resource_operation_unverified")
-        time.sleep(2)
+        time.sleep(4)
         operation = cloud.call("run", "v2/" + name)
     if operation.get("error"):
         raise spec.Refused("resource_operation_failed")
@@ -125,6 +204,7 @@ def require_empty(cloud, manifest: dict) -> None:
     for api, path, _ in resources(manifest):
         if cloud.call(api, path, missing_ok=True) is not None:
             raise spec.Refused("verification_resources_already_exist")
+    instance.require_absent(cloud, manifest)
 
 
 def create_secret(cloud, name: str, value: str, run_id: str) -> str:
@@ -224,11 +304,15 @@ def verify_private_surface(cloud, manifest: dict) -> dict:
         for token, accepted in ((None, False), (tokens[wrong_role], False), (non_invoker_tokens[role], False), (tokens[role], True)):
             headers = {} if token is None else {"X-Serverless-Authorization": "Bearer " + token}
             request = Request(spec.origin(role, manifest["project_number"]) + "/health", headers=headers)
+            remaining = cloud.deadline - time.monotonic()
+            if remaining <= 0:
+                raise spec.Refused("cloud_operation_deadline")
             try:
-                with opener.open(request, timeout=30) as response:
-                    raw = response.read(1025)
-                    if not accepted or len(raw) > 1024 or json.loads(raw) != {"status": "healthy", "synthetic": True}:
-                        raise spec.Refused("effective_private_ingress_unverified")
+                with request_deadline(cloud.deadline):
+                    with opener.open(request, timeout=min(30, remaining)) as response:
+                        raw = response.read(1025)
+                        if not accepted or len(raw) > 1024 or json.loads(raw) != {"status": "healthy", "synthetic": True}:
+                            raise spec.Refused("effective_private_ingress_unverified")
             except HTTPError as error:
                 if accepted or error.code not in {401, 403}:
                     raise spec.Refused("effective_private_ingress_unverified") from None
@@ -241,6 +325,7 @@ def verify_private_surface(cloud, manifest: dict) -> dict:
 class Client:
     def __init__(self, cloud, manifest: dict, key: str):
         self.origin = spec.origin("api", manifest["project_number"])
+        self.deadline = time.monotonic() + 540
         result = cloud.call("iamcredentials", f"v1/projects/-/serviceAccounts/{spec.INVOKER_IDENTITY}:generateIdToken",
                             method="POST", body={"audience": self.origin, "includeEmail": True})
         self.identity, self.key = result.get("token"), key
@@ -259,20 +344,26 @@ class Client:
         if bearer:
             headers["Authorization"] = "Bearer " + bearer
         request = Request(self.origin + path, data=b"{}" if method == "POST" else None, headers=headers, method=method)
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise spec.Refused("delivery_window_exhausted")
         try:
-            with self.opener.open(request, timeout=30) as response:
-                if first_frame:
-                    for _ in range(30):
-                        line = response.readline(4097)
-                        if len(line) > 4096:
-                            raise spec.Refused("response_bound")
-                        if line.startswith(b"data: "):
-                            return json.loads(line[6:])
-                    raise spec.Refused("missing_sse_frame")
-                raw = response.read(32769)
-                if len(raw) > 32768:
-                    raise spec.Refused("response_bound")
-                return json.loads(raw)
+            with request_deadline(self.deadline):
+                with self.opener.open(request, timeout=min(30, remaining)) as response:
+                    if first_frame:
+                        for _ in range(30):
+                            if time.monotonic() >= self.deadline:
+                                raise spec.Refused("delivery_window_exhausted")
+                            line = response.readline(4097)
+                            if len(line) > 4096:
+                                raise spec.Refused("response_bound")
+                            if line.startswith(b"data: "):
+                                return json.loads(line[6:])
+                        raise spec.Refused("missing_sse_frame")
+                    raw = response.read(32769)
+                    if len(raw) > 32768:
+                        raise spec.Refused("response_bound")
+                    return json.loads(raw)
         except (HTTPError, URLError, TimeoutError, ValueError):
             raise spec.Refused("verification_http_failed") from None
 
@@ -315,7 +406,7 @@ def exercise(cloud, manifest: dict, key: str) -> dict:
         client.request(f"/api/summaries/filing/{fid}/generate-stream", method="POST", bearer=token, first_frame=True)
     for queue in manifest["queues"]:
         cloud.call("cloudtasks", "v2/" + queue["name"] + ":resume", method="POST", body={})
-    deadline, next_recovery, mailed = time.monotonic() + 540, time.monotonic() + 60, False
+    deadline, next_recovery, mailed = client.deadline, time.monotonic() + 60, False
     while time.monotonic() < deadline:
         result = client.request("/__summary_verify__/receipt")
         if not mailed and any(r["kind"] == "provider_started" and r["filing_id"] == 45003 for r in result["events"]):
@@ -326,7 +417,7 @@ def exercise(cloud, manifest: dict, key: str) -> dict:
         if time.monotonic() >= next_recovery:
             client.request("/__summary_verify__/recover", method="POST")
             next_recovery += 60
-        time.sleep(6)
+        time.sleep(min(6, max(0, deadline - time.monotonic())))
     else:
         raise spec.Refused("delivery_window_exhausted")
     for fid, token in zip((45003, 45004), tokens, strict=True):
@@ -361,7 +452,7 @@ def pause_owned_queues(cloud, manifest: dict) -> list[str]:
     return failures
 
 
-def cleanup(cloud, manifest: dict, sql=None) -> dict:
+def cleanup(cloud, manifest: dict) -> dict:
     spec.validate_scope(manifest)
     cloud.begin_cleanup()
     failures = []
@@ -406,20 +497,14 @@ def cleanup(cloud, manifest: dict, sql=None) -> dict:
             workers_absent = False
     if not workers_absent:
         return {"state": "UNVERIFIED", "requires_explicit_cleanup": True,
+                "sql_instance": manifest["sql_instance"]["name"], "residual_cost_possible": True,
                 "failed_stages": sorted(set(failures + ["worker_absence"]))}
     try:
-        if sql is None:
-            # Standalone teardown cannot depend on SQL credentials or a working
-            # proxy before removing independently owned cloud resources. Apply
-            # already holds an admin context and passes its existing handle.
-            from ops.summary_delivery.database import admin
-            with admin(cloud, ROOT) as connection:
-                connection.cleanup()
-        else:
-            sql.cleanup()
+        sql_cleanup = instance.delete(cloud, manifest)
     except Exception:
         return {"state": "UNVERIFIED", "requires_explicit_cleanup": True,
-                "failed_stages": sorted(set(failures + ["database_cleanup"]))}
+                "sql_instance": manifest["sql_instance"]["name"], "residual_cost_possible": True,
+                "failed_stages": sorted(set(failures + ["instance_cleanup"]))}
     # Remove only the grant this controller owns; preserve policy etag and all other members.
     project = cloud.call("cloudresourcemanager", f"v1/projects/{spec.PROJECT}:getIamPolicy", method="POST",
                          body={"options": {"requestedPolicyVersion": 3}})
@@ -449,26 +534,35 @@ def cleanup(cloud, manifest: dict, sql=None) -> dict:
             failures.append("final_resource_absence")
     if failures:
         return {"state": "UNVERIFIED", "requires_explicit_cleanup": True, "failed_stages": sorted(set(failures))}
-    return {"state": "removed", "owned_resources_only": True}
+    return {"state": "removed", "owned_resources_only": True, "sql_instance": sql_cleanup}
 
 
 def apply(cloud, document: dict, expected_hash: str, nonce: str, env: dict) -> dict:
     from ops.summary_delivery.database import admin
     manifest = spec.approve(document, expected_hash, nonce, env)
+    permissions = instance.permission_snapshot(cloud)
+    if permissions["missing"] or permissions != manifest["sql_permissions"]:
+        return {"state": "UNVERIFIED", "failed_phase": "sql_permission_preflight", "sql_permissions": permissions,
+                "cleanup": {"state": "not_needed"}, "plan_sha256": expected_hash,
+                "cloud_api_calls": cloud.calls, "cleanup_cloud_api_calls": cloud.cleanup_calls}
     regenerated = spec.plan(ROOT, manifest["image"], manifest["project_number"], manifest["run_id"], manifest["nonce"],
                             now=datetime.fromisoformat(manifest["created_at"]),
-                            production_secret_names=tuple(manifest["production_secret_names"]))
+                            production_secret_names=tuple(manifest["production_secret_names"]),
+                            sql_permissions=manifest["sql_permissions"])
     image, names = production_snapshot(cloud)
-    if regenerated != document or image != manifest["image"] or list(names) != manifest["production_secret_names"]:
+    metadata = instance.metadata(cloud)
+    if (regenerated != document or image != manifest["image"] or list(names) != manifest["production_secret_names"]
+            or metadata["database_version"] != manifest["source_database_version"]):
         raise spec.Refused("reviewed_plan_changed")
     require_empty(cloud, manifest)
-    with admin(cloud, ROOT) as sql:
-        started, result, phase = False, None, "database_preflight"
-        closed = {"state": "not_needed"}
-        try:
+    result, phase, sql = None, "isolated_instance", None
+    closed = {"state": "not_needed"}
+    try:
+        key, password, admin_password = secrets.token_urlsafe(48), secrets.token_hex(32), secrets.token_hex(32)
+        instance.create(cloud, manifest, admin_password)
+        with admin(cloud, ROOT, manifest, admin_password) as sql:
+            phase = "database_preflight"
             sql.preflight()
-            key, password = secrets.token_urlsafe(48), secrets.token_hex(32)
-            started = True
             phase = "isolated_database"
             url = sql.provision(password)
             phase = "identities"
@@ -486,24 +580,26 @@ def apply(cloud, document: dict, expected_hash: str, nonce: str, env: dict) -> d
             result = exercise(cloud, manifest, key)
             result["private_ingress"] = surface
             result["state"] = "completed"
+    except Exception:
+        result = {"state": "UNVERIFIED", "failed_phase": phase,
+                  "database_headroom": getattr(sql, "headroom_snapshot", None)}
+    finally:
+        # CREATE may have been accepted even if its response was lost. Cleanup
+        # reconciles nonce-bound ownership and needs no admin credential/proxy.
+        try:
+            closed = cleanup(cloud, manifest)
         except Exception:
-            result = {"state": "UNVERIFIED", "failed_phase": phase,
-                      "database_headroom": getattr(sql, "headroom_snapshot", None)}
-        finally:
-            if started:
-                try:
-                    closed = cleanup(cloud, manifest, sql)
-                except Exception:
-                    closed = {"state": "UNVERIFIED", "requires_explicit_cleanup": True}
-        if result is None:
-            result = {"state": "UNVERIFIED", "failed_phase": phase}
-        if closed["state"] == "UNVERIFIED":
-            result["state"] = "UNVERIFIED"
-        result["cleanup"] = closed
-        result["cloud_api_calls"] = cloud.calls
-        result["cleanup_cloud_api_calls"] = cloud.cleanup_calls
-        result["plan_sha256"] = expected_hash
-        return result
+            closed = {"state": "UNVERIFIED", "requires_explicit_cleanup": True,
+                      "sql_instance": manifest["sql_instance"]["name"], "residual_cost_possible": True}
+    if result is None:
+        result = {"state": "UNVERIFIED", "failed_phase": phase}
+    if closed["state"] == "UNVERIFIED":
+        result["state"] = "UNVERIFIED"
+    result["cleanup"] = closed
+    result["cloud_api_calls"] = cloud.calls
+    result["cleanup_cloud_api_calls"] = cloud.cleanup_calls
+    result["plan_sha256"] = expected_hash
+    return result
 
 
 def write_private(path: Path, value: dict) -> None:
@@ -528,8 +624,11 @@ def main(argv: list[str] | None = None) -> int:
             cloud = Cloud()
             number = str(cloud.call("cloudresourcemanager", f"v1/projects/{spec.PROJECT}").get("projectNumber", ""))
             image, names = production_snapshot(cloud)
+            permissions = instance.permission_snapshot(cloud)
+            metadata = instance.metadata(cloud)
             result = spec.plan(ROOT, image, number, os.environ.get("GITHUB_RUN_ID", ""), secrets.token_hex(16),
-                               production_secret_names=names)
+                               production_secret_names=names, source_database_version=metadata["database_version"],
+                               sql_permissions=permissions)
         else:
             if args.plan is None or args.plan.stat().st_size > 32768:
                 raise spec.Refused("bounded_plan_required")

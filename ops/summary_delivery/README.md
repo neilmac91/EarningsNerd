@@ -10,9 +10,9 @@ in a separate database; no production business record is read or changed.
 ## Review and execution
 
 Planning reads stable production revision/image metadata and secret **references**
-only. It neither reads secret values nor creates resources. The manifest binds
+and the production PostgreSQL major version. It neither reads secret values nor creates resources. The manifest binds
 the immutable image, current reviewed source fingerprints, runtime fingerprint,
-fixed resource identities, numeric run ID, nonce, limits and two-hour expiry.
+fixed resource identities, numeric run ID, nonce, limits and two-hour approval expiry. Schema2 adds a run-bound temporary SQL instance; schema1 plans cannot authorize this larger resource set, including through cleanup.
 
 ```sh
 python ops/summary_delivery/manage.py plan --output summary-delivery-plan.json
@@ -43,6 +43,27 @@ and OpenID-token creation on both temporary identities for positive/negative
 ingress checks. It never creates a service
 account key. Existing resources with these names are not adopted by apply.
 
+Planning also runs the current Ops identity's project `testIamPermissions` with
+exactly `cloudsql.instances.connect/create/delete/get/list`. The manifest retains
+only these required/granted/missing names, not an IAM policy or principal dump.
+Missing permissions leave a reviewable resource plan; apply requires a fresh,
+matching all-granted result before any mutation. Grant changes require a new plan.
+No permission or broad Cloud SQL Admin role is granted automatically. `list` is a
+conservative compatibility prerequisite because Google's current permission matrix
+and audit reference disagree on whether operations-list needs `get` or `list`.
+Standalone cleanup does not require unrelated create/connect permissions.
+
+The controller obtains a private token and its actual expiry through the SDK's
+`config config-helper --force-auth-refresh` credential projection. It refreshes
+120seconds before expiry, caps a cache interval at one hour, and invalidates the
+cache once on cleanup entry. The bounded refresh subprocess consumes the same
+remaining request/phase deadline as HTTP. An HTTP401 invalidates the cache but
+does not replay the current operation; later independent/reconciliation requests
+may refresh. Credential output never enters plans, receipts, argv or logs. This
+uses the same SDK refresh interface as Google's
+[container registry helper](https://github.com/google/go-containerregistry/blob/main/pkg/v1/google/auth.go),
+without extending token lifetime or changing the shared feedback controller.
+
 ## Fixed resource contract
 
 All resources are in `earnings-nerd/us-west1`:
@@ -53,7 +74,7 @@ All resources are in `earnings-nerd/us-west1`:
 | Cloud Tasks | Two queues named `earningsnerd-summary-verify-{background,summary}-RUN_ID`; concurrency one each, 0.2 dispatches/second, three attempts, 30-second retry interval, one-second retry duration |
 | Service accounts | `en-summary-verify` runtime and `en-summary-verify-invoker`; no keys; runtime gets scoped queue enqueuer, isolated secret access and Cloud SQL client |
 | Secret Manager | `EARNINGSNERD_SUMMARY_VERIFY_DATABASE_URL` and `EARNINGSNERD_SUMMARY_VERIFY_SECRET_KEY`; one new version each, numeric bindings |
-| PostgreSQL | One database and restricted login role named `earningsnerd_summary_verify`, on existing `earningsnerd-db`; connection limit 12; no production object grants |
+| Cloud SQL | One temporary instance `earningsnerd-summary-verify-db-RUN_ID`, PostgreSQL15, Enterprise, zonal, `db-custom-1-3840`,10GBSSD; one restricted database/login role `earningsnerd_summary_verify`, connection limit12 |
 
 Cloud Tasks stops when both attempt and duration conditions are met. The
 one-second duration is below the 30-second retry interval, so it cannot extend the
@@ -78,40 +99,44 @@ and restricted role. This guard is not an OS firewall or native-code sandbox.
 
 ## Database admission and credential boundaries
 
-The approved controller resolves the stable API's existing `DATABASE_URL` secret
-binding, requires an enabled pinned numeric version, reads it privately and
-rechecks revision/binding stability. It never assumes a secret name or creates a
-production secret version. The administrative credential stays in the runner;
-it is not mounted in a rehearsal service. `psql` receives credentials through its
-environment and SQL over stdin, with bounded output and execution. SQL contains
-a SCRAM verifier for the new random password rather than the reusable password.
+The approved controller creates a separate run-named instance. Its reviewed
+manifest fixes PostgreSQL15, one vCPU/3840MB, zonal availability and10GBSSD.
+Storage growth, backups, PITR, final/retained backups and deletion protection are
+disabled. Public IPv4 uses no authorized networks and requires Cloud SQL
+connectors, encrypted transport and the per-instance Google CA. This is connector
+access over public-IP transport, not private-IP networking. Creation must finish
+and its complete configuration must read back before SQL provisioning starts.
+Production engine metadata must confirm PostgreSQL15; another major refuses.
 
-Before any resource creation, admission requires:
+A new administrator password is generated only in runner memory and the instance
+insert request. No production credential or admin secret version is read or
+created. The proxy's target and runtime socket derive from the approved run ID;
+changing both the runtime URL and its environment cannot redirect them to another
+instance. The runtime receives only the newly restricted database password.
+`psql` receives credentials through its environment and SQL over stdin; SQL uses
+a SCRAM verifier rather than the reusable password. The proxy binary is pinned.
+
+Before database/role provisioning, admission on the temporary instance requires:
 
 ```
 active_connections + 12 + 5 <= 70% * usable_max_connections
 usable_max_connections = max_connections - reserved_connections
 ```
 
-The normal runtime accounting is three parent instrumentation pools, at most two
-worker-child pools and one API recovery advisory-lock connection: six connections,
-each ordinary pool configured size one and overflow zero. Twelve is the hard
-rehearsal-role ceiling, retaining startup/overlap allowance; the additional five
-connections and 30% margin protect unrelated operations. This is a point-in-time
-admission check, not a global fleet reservation. The administrative observer is
-included in the measured active count. Failure writes safe measured capacity
-fields and creates nothing. The tool never resizes Cloud SQL or changes production
-pool configuration.
+Three parent instrumentation pools, at most two worker-child pools and one API
+recovery lock connection normally use six connections, with pool size one and
+no overflow. Twelve is the hard role ceiling, including startup overlap. The five
+additional connections and30% margin are unchanged. The administrative observer
+is included in the active count. This is a point-in-time admission check, not a
+fleet reservation. Failure retains safe measured capacity fields and tears down
+the temporary instance; production capacity and pool settings are untouched.
 
-Provisioning audits effective table/view/sequence, SECURITY DEFINER function and
-schema CREATE privileges in the production application database. Existing PUBLIC
-privileges that would grant access cause refusal; the tool does not revoke them
-in production. The role has no superuser, role/database creation, replication,
-bypass-RLS or inherited role privileges. Own-database schema permissions are
-verified with the new credential. Database and role ownership markers must match
-before cleanup. A crash between CREATE DATABASE and its ownership comment leaves
-an unmarked resource requiring explicit manual review; it is never silently
-adopted or dropped.
+The new role has no superuser, role/database creation, replication, bypass-RLS or
+inherited privileges. Provisioning audits effective access in the temporary admin
+database and verifies authentication/schema permissions using the restricted
+credential. Runtime Cloud SQL client IAM remains project-scoped; no instance IAM
+condition is claimed. Its missing production credentials and effective denial of
+the discovered production API secret references are separate boundaries.
 
 ## Observable acceptance and work bounds
 
@@ -142,27 +167,51 @@ child. No live SEC, model or mail call is part of this rehearsal. The recovery
 control invokes the real shared recovery owner, but it is **not evidence of an
 actual Cloud Scheduler invocation or cadence**.
 
-The controller has a 400-call cloud API budget and an independent 500-call
-cleanup budget. Startup permission checks and bounded runtime task/JWKS/metadata
+The controller has a400-call/40-minute cloud API budget and an independent
+500-call/25-minute cleanup budget. Google requests use at most30seconds, reduced
+to the remaining deadline. On the Linux main thread a shared real-time signal
+timer bounds the entire synchronous HTTP exchange, including trickled response
+headers, JSON bodies and SSE lines; a socket inactivity timeout alone is not a
+total deadline. Existing active timers, nested use and unsupported threads refuse
+before sending a request. The prior handler is restored and the timer disarmed on
+success/error. SQL create/delete each use at most600seconds; Cloud
+Run operations240seconds each. The fixture client has a shared540-second window.
+SQL provisioning has a shared120-second query budget, with30seconds proxy
+readiness and10seconds termination. The Ops apply step allows80minutes:
+40minutes control work +9minutes fixture +25minutes cleanup +6minutes local
+bootstrap/shutdown allowance. Standalone cleanup allows30minutes. These bounded
+waits do not claim an OS-hard deadline. Startup permission checks and bounded runtime task/JWKS/metadata
 requests are separate. Resource/work limits are not a billing-account invoice
 cap; failure to complete cleanup can leave resources requiring follow-up.
 
 ## Cleanup and failure handling
 
-Apply always attempts cleanup after creation begins. Apply and standalone cleanup
-share one orchestration: check ownership, independently attempt each queue pause,
-then remove independently owned cloud resources even if one pause or deletion
-fails. SQL and identities remain until every worker is confirmed absent.
-The SQL role is disabled, only its own database sessions are terminated, and
-unrelated sessions prevent deletion. The project Cloud SQL grant is removed
-before deleting its service account, preserving unrelated policy entries and
-etag. Final resource absence is read back. Failure is `UNVERIFIED`, never a
-successful acceptance; the receipt lists closed cleanup stages and requires the
-explicit cleanup operation. Standalone cleanup resolves SQL credentials and starts
-the proxy only after cloud teardown and verified worker absence; SQL unavailability
-retains the database, identities and associated project grant without preventing
-the preceding cloud deletions. Unknown ownership or
-unmarked SQL residue needs manual review rather than broader deletion rights.
+Apply always attempts cleanup after the instance creation attempt, including a
+lost acknowledgement or failed admin/proxy startup. Create is issued once;
+reconciliation requires exact purpose/run/nonce labels and matching asynchronous
+operation identity. Acknowledgement alone is not completion. The same orchestration
+handles standalone cleanup: independently pause queues, then remove owned cloud
+resources despite individual failures. All workers must read absent before any
+SQL instance deletion. SQL Admin teardown needs no database credential, proxy,
+`psql` or SQL-tools installation. It deletes only the exact run-owned instance,
+requests no final backup, waits for its operation and verifies actual absence.
+An early404 after an ambiguous create is insufficient: unresolved creation stays
+`UNVERIFIED`. Foreign ownership or retention/dependency drift is never adopted.
+
+The project Cloud SQL grant is removed before deleting its service account,
+preserving unrelated policy entries and etag. Failure leaves closed failed-stage
+and residual-instance fields with explicit cleanup required. SQL uncertainty
+retains identities; it does not prevent earlier independent cloud deletions.
+Cleanup may use the original approved plan after expiry/source changes. The
+two-hour approval expiry does not delete resources. Runner interruption can leave
+continuing charges, requiring supervised execution and the exact cleanup command;
+there is no recurring janitor or invoice cap in this tool.
+
+The SQL Admin field contract was checked against Google's public
+[v1beta4 discovery](https://sqladmin.googleapis.com/$discovery/rest?version=v1beta4)
+and [instance-delete API](https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1beta4/instances/delete).
+`rootPassword` belongs on DatabaseInstance, connector enforcement on Settings,
+CA/SSL on IP configuration, and final-backup controls on Settings/DELETE.
 
 ## Paused recovery caller
 
@@ -192,8 +241,8 @@ it for recovery. The ordinary hourly scan remains a distinct existing caller.
 ## Local verification
 
 Focused unit tests cover manifest tampering, expired-plan cleanup, protected-job
-guards, isolated credentials, independent cleanup budgets/failures, inherited
-public-ingress refusal, capacity refusal before writes, paused-before-credential
+guards, isolated credentials, independent cleanup budgets/failures, unexpected
+effective invocation grants, temporary-instance capacity refusal before database writes, paused-before-credential
 ordering, SQL boundaries, and the actual summary pipeline with synthetic network
 seams. Local PostgreSQL tests provide separate database privilege/cleanup
 evidence. Fake Cloud API tests and local persistence tests must not be reported as

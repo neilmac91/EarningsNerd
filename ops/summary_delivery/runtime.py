@@ -23,7 +23,6 @@ from urllib.request import Request, urlopen
 PURPOSE = "summary-delivery-verification"
 DATABASE = "earningsnerd_summary_verify"
 PREFIX = "earningsnerd-summary-verify"
-INSTANCE = "earnings-nerd:us-west1:earningsnerd-db"
 RUN_TABLE = "earningsnerd_summary_verify_state"
 EVENT_TABLE = "earningsnerd_summary_verify_events"
 FILINGS = ((45003, "10-Q", "0000872589-26-000034"), (45004, "8-K", "0000872589-26-000032"))
@@ -54,11 +53,14 @@ def validate_environment(env: dict, *, child: bool = False) -> tuple[str, str]:
     expected = PREFIX + ("-api" if role == "api" else "-" + role)
     if env.get("K_SERVICE") != expected or env.get("ENVIRONMENT") != "production":
         raise Refused("runtime_identity")
+    instance = f"earnings-nerd:us-west1:{PREFIX}-db-{run_id}"
+    if env.get("SUMMARY_VERIFY_INSTANCE") != instance:
+        raise Refused("database_boundary")
     try:
         parsed = urlsplit(env["DATABASE_URL"])
         if (parsed.scheme != "postgresql" or parsed.hostname or parsed.port or parsed.username != DATABASE
                 or parsed.path != "/" + DATABASE or not parsed.password
-                or parse_qs(parsed.query) != {"host": ["/cloudsql/" + INSTANCE]}):
+                or parse_qs(parsed.query) != {"host": ["/cloudsql/" + instance]}):
             raise Refused("database_boundary")
     except (KeyError, ValueError):
         raise Refused("database_boundary") from None

@@ -1,7 +1,6 @@
 """Exercise database ownership and privacy boundaries without cloud or SQL calls."""
 from __future__ import annotations
 
-import base64
 import hashlib
 import subprocess
 import sys
@@ -16,7 +15,11 @@ from ops.summary_delivery import database as db  # noqa: E402
 
 PASSWORD = "a" * 64  # Synthetic; never transmitted.
 PRIVATE = "PRIVATE_DATABASE_ERROR_SENTINEL"
-ADMIN_URL = f"postgresql://operator:{PRIVATE}@/earningsnerd?host=/cloudsql/{db.INSTANCE}"
+IMAGE = "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend@sha256:" + "a" * 64
+MANIFEST = db.spec.plan(ROOT, IMAGE, "123456789", "123", "b" * 32)["manifest"]
+CONNECTION = db.spec.connection_name(MANIFEST)
+ADMIN_PASSWORD = "c" * 64
+ADMIN_URL = f"postgresql://postgres:{ADMIN_PASSWORD}@/postgres?host=/cloudsql/{CONNECTION}"
 
 
 class Sql:
@@ -39,7 +42,7 @@ class Sql:
     def __call__(self, argv, **kwargs):
         assert argv == ["psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"]
         assert kwargs["stderr"] == subprocess.DEVNULL
-        assert kwargs["timeout"] == 25 and kwargs["check"] is False
+        assert 0 < kwargs["timeout"] <= 25 and kwargs["check"] is False
         assert PRIVATE not in repr(argv) and PASSWORD not in repr(argv)
         text = kwargs["input"]
         self.calls.append((text, kwargs["env"].copy()))
@@ -94,7 +97,7 @@ def sql(monkeypatch):
 
 
 def administrator():
-    return db.Admin(db.connection_env(ADMIN_URL, isolated=False))
+    return db.Admin(db.connection_env(ADMIN_URL, MANIFEST, isolated=False), MANIFEST)
 
 
 def writes(sql):
@@ -103,7 +106,7 @@ def writes(sql):
 
 def test_provision_restricted_isolated_resources_and_effective_acl_audit(sql, capsys):
     result = administrator().provision(PASSWORD)
-    assert result == db.database_url(PASSWORD)
+    assert result == db.database_url(PASSWORD, MANIFEST)
     assert sql.role and sql.database
     role = next(text for text in writes(sql) if "CREATE ROLE" in text)
     for required in ("NOINHERIT", "NOSUPERUSER", "NOCREATEDB", "NOCREATEROLE", "NOREPLICATION", "NOBYPASSRLS",
@@ -157,7 +160,7 @@ def test_headroom_boundary_reserves_all_twelve_connections_and_operational_margi
 @pytest.mark.parametrize("field", ["objects", "functions", "schemas"])
 def test_effective_production_acl_exposure_refuses_without_rewriting_production(sql, field):
     setattr(sql, field, "1")
-    with pytest.raises(db.Refused, match="database_production_object_access"):
+    with pytest.raises(db.Refused, match="database_admin_object_access"):
         administrator().provision(PASSWORD)
     assert sql.role and sql.database  # Controller must then clean its owned resources.
     assert all("earningsnerd " not in text for text in writes(sql))
@@ -222,23 +225,23 @@ def test_cleanup_handles_only_verified_partial_owned_resources(sql, role, databa
 
 @pytest.mark.parametrize("url", [
     "postgresql://someone:password@remote/earningsnerd_summary_verify",
-    f"postgresql://someone:password@/{db.DATABASE}?host=/cloudsql/{db.INSTANCE}",
-    f"postgresql://{db.DATABASE}:password@/earningsnerd?host=/cloudsql/{db.INSTANCE}",
+    f"postgresql://someone:password@/{db.DATABASE}?host=/cloudsql/{CONNECTION}",
+    f"postgresql://{db.DATABASE}:password@/earningsnerd?host=/cloudsql/{CONNECTION}",
     f"postgresql://{db.DATABASE}:password@/{db.DATABASE}?host=/cloudsql/other",
-    f"postgresql://{db.DATABASE}:password@/{db.DATABASE}?host=/cloudsql/{db.INSTANCE}&sslmode=disable",
-    f"postgresql://{db.DATABASE}:pass%00word@/{db.DATABASE}?host=/cloudsql/{db.INSTANCE}",
+    f"postgresql://{db.DATABASE}:password@/{db.DATABASE}?host=/cloudsql/{CONNECTION}&sslmode=disable",
+    f"postgresql://{db.DATABASE}:pass%00word@/{db.DATABASE}?host=/cloudsql/{CONNECTION}",
     "broken#" + PRIVATE,
 ])
 def test_connection_boundary_rejects_arbitrary_host_database_role_and_options(url):
     with pytest.raises(db.Refused, match="^database_connection_boundary$") as error:
-        db.connection_env(url)
+        db.connection_env(url, MANIFEST)
     assert PRIVATE not in str(error.value)
 
 
 def test_credentials_stay_only_in_child_environment_and_clear_ambient_options(monkeypatch):
     monkeypatch.setenv("PGSERVICE", "attacker")
     monkeypatch.setenv("PGOPTIONS", "attacker")
-    env = db.connection_env(db.database_url(PASSWORD))
+    env = db.connection_env(db.database_url(PASSWORD, MANIFEST), MANIFEST)
     assert env["PGPASSWORD"] == PASSWORD and env["PGUSER"] == db.DATABASE
     assert env["PGHOST"] == "127.0.0.1" and env["PGPORT"] == "15432"
     assert "PGSERVICE" not in env and "attacker" not in repr(env)
@@ -259,27 +262,34 @@ def test_psql_failures_have_closed_errors_without_sql_or_driver_output(monkeypat
     assert capsys.readouterr().out == "" and capsys.readouterr().err == ""
 
 
-class Cloud:
-    def __init__(self, url=ADMIN_URL):
-        self.url = url
-        self.calls = []
-        self.version = "4"
-        self.selector = "existing-production-database"
+def test_all_admin_queries_share_one_budget_and_clamp_last_process_timeout(sql, monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(db.time, "monotonic", lambda: now[0])
+    admin = administrator()
+    observed = []
 
-    def call(self, api, path):
-        self.calls.append((api, path))
-        revision = f"projects/{db.PROJECT}/locations/us-west1/services/earningsnerd-backend/revisions/earningsnerd-backend-test"
-        if api == "run":
-            return {"uri": "https://earningsnerd-backend-test.us-west1.run.app", "latestReadyRevision": revision,
-                    "latestCreatedRevision": revision, "trafficStatuses": [{"revision": revision, "percent": 100}]}
-        if api == "us-west1-run":
-            return {"status": {"imageDigest": f"us-west1-docker.pkg.dev/{db.PROJECT}/earningsnerd/backend@sha256:" + "b" * 64},
-                    "spec": {"containers": [{"env": [{"name": "DATABASE_URL", "valueFrom": {
-                        "secretKeyRef": {"name": self.selector, "key": self.version}}}]}]}}
-        assert api == "secretmanager"
-        if path.endswith(":access"):
-            return {"name": path[3:-7], "payload": {"data": base64.b64encode(self.url.encode()).decode()}}
-        return {"name": path[3:], "state": "ENABLED"}
+    def bounded(*args, **kwargs):
+        observed.append(kwargs["timeout"])
+        return sql(*args, **kwargs)
+
+    monkeypatch.setattr(db.subprocess, "run", bounded)
+    admin.query("SELECT (rolsuper OR (rolcreatedb AND rolcreaterole))::int FROM pg_roles WHERE rolname=current_user;")
+    now[0] = 219.0
+    admin.query("SELECT (rolsuper OR (rolcreatedb AND rolcreaterole))::int FROM pg_roles WHERE rolname=current_user;")
+    assert observed == [25, 1]
+    now[0] = 220.0
+    with pytest.raises(db.Refused, match="database_query_deadline"):
+        admin.query("SELECT '" + PRIVATE + "';")
+    assert len(observed) == 2
+
+
+class Cloud:
+    def __init__(self):
+        self.calls = []
+
+    def call(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        pytest.fail("SQL provisioning must not retrieve any cloud credential")
 
 
 class Proxy:
@@ -330,12 +340,11 @@ def proxy(monkeypatch, tmp_path):
 def test_admin_context_uses_pinned_proxy_and_reaps_without_credential_arguments(proxy, capsys):
     path, process, calls = proxy
     cloud = Cloud()
-    with db.admin(cloud, path) as admin:
-        assert admin.env["PGPASSWORD"] == PRIVATE
-    assert [path for _, path in cloud.calls if path.endswith(":access")] == [
-        f"v1/projects/{db.PROJECT}/secrets/existing-production-database/versions/4:access"]
-    assert len(calls) == 1 and PRIVATE not in repr(calls)
-    assert calls[0][0][-1] == db.INSTANCE and calls[0][1]["stderr"] == subprocess.DEVNULL
+    with db.admin(cloud, path, MANIFEST, ADMIN_PASSWORD) as admin:
+        assert admin.env["PGPASSWORD"] == ADMIN_PASSWORD
+    assert not cloud.calls
+    assert len(calls) == 1 and ADMIN_PASSWORD not in repr(calls)
+    assert calls[0][0][-1] == CONNECTION and calls[0][1]["stderr"] == subprocess.DEVNULL
     assert process.terminated and process.waited
     assert capsys.readouterr().out == ""
 
@@ -344,7 +353,7 @@ def test_admin_context_rejects_unpinned_proxy_before_accessing_secret(proxy):
     path, _, calls = proxy
     (path / "cloud-sql-proxy").write_bytes(b"tampered")
     cloud = Cloud()
-    with pytest.raises(db.Refused, match="database_proxy_not_pinned"), db.admin(cloud, path):
+    with pytest.raises(db.Refused, match="database_proxy_not_pinned"), db.admin(cloud, path, MANIFEST, ADMIN_PASSWORD):
         pytest.fail("not reached")
     assert not cloud.calls and not calls
 
@@ -356,27 +365,54 @@ def test_admin_context_reaps_proxy_when_readiness_fails(proxy, monkeypatch, caps
         raise subprocess.TimeoutExpired("pg_isready", 3, output=PRIVATE, stderr=PRIVATE)
 
     monkeypatch.setattr(db.subprocess, "run", fail)
-    with pytest.raises(db.Refused, match="database_proxy_unavailable"), db.admin(Cloud(), path):
+    with pytest.raises(db.Refused, match="database_proxy_unavailable"), db.admin(Cloud(), path, MANIFEST, ADMIN_PASSWORD):
         pytest.fail("not reached")
     assert process.terminated and process.waited
     assert capsys.readouterr().out == "" and capsys.readouterr().err == ""
 
 
-@pytest.mark.parametrize("field,value", [("version", "latest"), ("version", "0"),
-                                        ("selector", "projects/other/secrets/database")])
-def test_admin_binding_requires_actual_same_project_pinned_api_version(proxy, field, value):
+def test_proxy_probe_timeout_cannot_extend_its_readiness_deadline(proxy, monkeypatch):
+    path, process, _ = proxy
+    samples = [0.0]
+
+    def clock():
+        return samples.pop() if samples else 29.5
+
+    def fail(*args, **kwargs):
+        assert kwargs["timeout"] == 0.5
+        raise subprocess.TimeoutExpired("pg_isready", kwargs["timeout"])
+
+    monkeypatch.setattr(db.time, "monotonic", clock)
+    monkeypatch.setattr(db.subprocess, "run", fail)
+    with pytest.raises(db.Refused, match="database_proxy_unavailable"), db.admin(Cloud(), path, MANIFEST, ADMIN_PASSWORD):
+        pytest.fail("not reached")
+    assert process.terminated and process.waited
+
+
+@pytest.mark.parametrize("password", ["", "short", "g" * 64, PRIVATE])
+def test_admin_password_shape_refuses_without_cloud_or_proxy(proxy, password):
     path, _, calls = proxy
     cloud = Cloud()
-    setattr(cloud, field, value)
-    with pytest.raises(db.Refused, match="database_admin_credential_unverified"), db.admin(cloud, path):
+    with pytest.raises(db.Refused, match="database_admin_password_shape"), db.admin(cloud, path, MANIFEST, password):
         pytest.fail("not reached")
-    assert not calls and not any(route.endswith(":access") for _, route in cloud.calls)
+    assert not calls and not cloud.calls
 
 
-def test_admin_credential_cannot_redirect_proxy_database_or_role(proxy, capsys):
+def test_admin_manifest_cannot_redirect_to_production(proxy):
+    from copy import deepcopy
     path, _, calls = proxy
-    cloud = Cloud(f"postgresql://operator:{PRIVATE}@outside.example/production")
-    with pytest.raises(db.Refused, match="database_connection_boundary"), db.admin(cloud, path):
+    cloud = Cloud()
+    changed = deepcopy(MANIFEST)
+    changed["sql_instance"]["name"] = "earningsnerd-db"
+    with pytest.raises(db.Refused), db.admin(cloud, path, changed, ADMIN_PASSWORD):
         pytest.fail("not reached")
-    assert not calls
-    assert capsys.readouterr().out == "" and capsys.readouterr().err == ""
+    assert not calls and not cloud.calls
+
+
+def test_admin_credential_must_name_postgres_on_temporary_instance():
+    invalid = f"postgresql://operator:{PRIVATE}@/postgres?host=/cloudsql/{CONNECTION}"
+    with pytest.raises(db.Refused, match="database_connection_boundary"):
+        db.connection_env(invalid, MANIFEST, isolated=False)
+    invalid = f"postgresql://postgres:{PRIVATE}@/postgres?host=/cloudsql/earnings-nerd:us-west1:earningsnerd-db"
+    with pytest.raises(db.Refused, match="database_connection_boundary"):
+        db.connection_env(invalid, MANIFEST, isolated=False)
