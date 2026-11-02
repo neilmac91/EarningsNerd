@@ -22,29 +22,35 @@ resolved by reading files only, no subprocess: a linked worktree's ``.git`` is a
 ``gitdir: <path>`` (absolute, or relative to the worktree), and ``<path>/commondir`` names the
 common directory relative to it. No marker anywhere -> exit 0 with no output, whatever the input.
 
-The two names are never written whole in this source or its test: each is built at run time from
-the fragments below, so reading the hook shows no name and no form the hook flags. One directory's
-last path component sits under a dated parent (``<word>-<date>/<component>``); the other is a
-two-word name (``<word>-<word>``). Before matching, every scanned string is normalised: case-fold
-(``str.casefold``), ``\\/`` and ``%2f`` (any case) -> ``/``, and a whole-date token (one short mask
-run, or one bracketed token) that stands where the date would stand is rewritten to the plain date,
-so every cut rule below applies to token masks too. A string is flagged when it then contains either
-name whole; the dated name with its date per-digit masked (the structure kept); or a cut of either
-name that spans a junction (the word/date, date/component or word/word boundary), is at least eight
-normalised characters long, and whose two ends are each clean. Only the token rewrite is tracked back
-for that length, so a whole-date token counts as written (one ``*`` is one character, not the
-ten-character date it stands for), while an escaped slash counts as the one ``/`` it stands for and
-a case fold as what it folds to. An end is clean when it is the name's own end, the text's edge, a
-non-path-character border (path characters: letters, digits, ``.`` ``_`` ``-`` ``/``; an ASCII or
-Unicode ellipsis is not one, so a truncation marker counts as a border), or -- for the left end -- a
-``/`` where the cut begins at one of the name's own path-segment starts, so the name under a
-different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths) is caught
-while a mid-segment look-alike is not. At the date's tolerant digits an ASCII ``...`` run has two
-readings, a truncation marker (a border) and masked digits, and a cut under either reading counts.
-A listing that prints the dated parent directory's name alone is flagged by design: a cut of the
-longer name cannot be told from it. The scan is linear in the text's length (fixed-substring search
-to candidate junctions, a bounded walk around each, at most once per reading; the regular
-expressions have no unbounded repetition and use only bounded slices).
+The two names are never written whole in this source or its test, and no module global holds one:
+``_names()`` joins them from the fragments below on the first scan, into objects whose repr is
+text-free. So reading the hook shows no name and no form the hook flags, and an error while the
+module loads prints none either, even under pytest's ``-l`` (which prints module globals). One
+directory's last path component sits under a dated parent (``<word>-<date>/<component>``); the other
+is a two-word name (``<word>-<word>``). Before matching, every scanned string is normalised:
+case-fold (``str.casefold``), ``\\/`` and ``%2f`` (any case) -> ``/``, and a whole-date token (one
+short mask run, or one bracketed token) that stands where the date would stand is rewritten to the
+plain date, so every cut rule below applies to token masks too.
+
+A string is flagged when it then holds a cut of either name. Around a junction (the word/date,
+date/component or word/word boundary) the scan takes the longest stretch that matches the name,
+where a date digit accepts any character but ``/``, ``-`` or whitespace (a masked digit). A cut is
+any part of that stretch that holds the junction, is at least eight normalised characters long, and
+has two clean ends; the whole name, plain or with its date per-digit masked, is the longest one.
+Only the token rewrite is tracked back for the length, so a whole-date token counts as written (one
+``*`` is one character, not the ten-character date it stands for), while an escaped slash counts as
+the one ``/`` it stands for and a case fold as what it folds to. An end is clean when it is the
+name's own end, the text's edge, a non-path character (path characters: letters, digits, ``.``
+``_`` ``-`` ``/``; an ASCII or Unicode ellipsis is not one) or an ASCII ``...`` run, or -- for the
+left end -- a ``/`` where the cut begins at one of the name's own path-segment starts, so the name
+under a different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` and ``../`` paths)
+is caught while a mid-segment look-alike is not. That border may itself be a character the date's
+tolerance took as a masked digit, so an ASCII ``...`` run or a Unicode ellipsis inside the date both
+reads as masked digits (a dotted year) and ends a cut there (Claude Code's middle-truncation marker,
+an elision), wherever in the date it lands. A listing that prints the dated parent directory's name
+alone is flagged by design: a cut of the longer name cannot be told from it. The scan is linear in
+the text's length (fixed-substring search to candidate junctions and one bounded walk around each;
+the regular expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -87,50 +93,71 @@ Tests: backend/tests/unit/test_excluded_dir_output_guard.py.
 from __future__ import annotations
 
 import bisect
+import functools
 import json
 import os
 import re
 import sys
+from collections.abc import Callable, Iterator
 
 EVENTS = ("PostToolUse", "PostToolUseFailure")
 
-# Fragments of the two names, joined only at run time; see the module docstring. Kept apart so this
-# source holds no joined name and no form the hook flags.
+# Fragments of the two names, joined only inside _names(); see the module docstring. Kept apart so
+# this source holds no joined name and no form the hook flags.
 _F1 = ("tasks/", "readi", "ness", "-", "2026", "-09-", "21", "/", "accep", "tance")
 _F2 = ("tasks/", "rev", "iew", "-", "evi", "dence")
 
-# --- The dated name (N1): <prefix><word>-<date>/<component> ---------------------------------------
-_PREFIX1 = _F1[0]
-_WORD1 = _F1[1] + _F1[2]
-_DATE = _F1[4] + _F1[5] + _F1[6]
-_COMPONENT1 = _F1[8] + _F1[9]
-_C1 = _PREFIX1 + _WORD1 + "-" + _DATE + "/" + _COMPONENT1
-_DASH1 = len(_PREFIX1) + len(_WORD1)          # index of the word/date dash
-_DATE_START = _DASH1 + 1
-_DATE_END = _DATE_START + len(_DATE)          # index of the date/component slash
-# Within the date: which offsets are its internal dashes, which are its digits.
-_N1_DASH_POS = frozenset(_DATE_START + k for k, ch in enumerate(_DATE) if ch == "-")
-_N1_DIGIT_POS = frozenset(_DATE_START + k for k in range(len(_DATE))) - _N1_DASH_POS
-# Junctions of N1: the word/date boundary (its fixed part is the word's last letter and the dash)
-# and the date/component boundary (its fixed part is the slash and the component's first letter).
-_J1_START = _DASH1 - 1
-_J2_START = _DATE_END - 1
 
-# --- The two-word name (N2): <prefix><word>-<word> ------------------------------------------------
-_PREFIX2 = _F2[0]
-_WORD2A = _F2[1] + _F2[2]
-_WORD2B = _F2[4] + _F2[5]
-_C2 = _PREFIX2 + _WORD2A + "-" + _WORD2B
-_J3_START = len(_PREFIX2) + len(_WORD2A) - 1  # the word/word boundary
+class _Name:
+    """One excluded name and what the scan needs to match it: its canonical text, its date and the
+    date's digit and dash offsets (none for the two-word name), its junctions and its path-segment
+    starts. Built by _names(); its repr is text-free, so a frame or container that holds it prints
+    no name."""
+
+    __slots__ = ("canon", "date", "digits", "dashes", "digits_up", "junctions", "seg_starts")
+
+    def __init__(self, canon: str, date_start: int, date: str,
+                 junctions: tuple[tuple[str, int, int], ...]) -> None:
+        self.canon = canon
+        self.date = date
+        self.dashes = frozenset(date_start + k for k, ch in enumerate(date) if ch == "-")
+        self.digits = frozenset(range(date_start, date_start + len(date))) - self.dashes
+        self.digits_up = tuple(sorted(self.digits))
+        # Each junction: the fixed substring to search for, the canonical offset it aligns to, and
+        # the offset from a hit to the junction's start in the text.
+        self.junctions = junctions
+        self.seg_starts = frozenset({0} | {i + 1 for i, ch in enumerate(canon) if ch == "/"})
+
+    def __repr__(self) -> str:
+        return "<an excluded name>"
+
+    def matches(self, ci: int, ch: str) -> bool:
+        """Whether text character `ch` matches the name at offset `ci`: a date digit offset takes any
+        character but '/', '-' or whitespace (a masked digit), a date dash offset a dash."""
+        if ci in self.digits:
+            return ch not in "/-" and not ch.isspace()
+        if ci in self.dashes:
+            return ch == "-"
+        return ch == self.canon[ci]
 
 
-def _segment_starts(canon: str) -> frozenset:
-    """Offsets where a path segment of `canon` starts: offset 0 and each offset just after a '/'."""
-    return frozenset({0} | {i + 1 for i, ch in enumerate(canon) if ch == "/"})
+@functools.cache
+def _names() -> tuple[_Name, _Name]:
+    """The dated name (<prefix><word>-<date>/<component>) and the two-word name
+    (<prefix><word>-<word>), joined from the fragments on first use, never at module scope."""
+    word1, date = _F1[1] + _F1[2], _F1[4] + _F1[5] + _F1[6]
+    canon1 = _F1[0] + word1 + "-" + date + "/" + _F1[8] + _F1[9]
+    dash1 = len(_F1[0]) + len(word1)          # the word/date dash
+    date_end = dash1 + 1 + len(date)          # the date/component slash
+    dated = _Name(canon1, dash1 + 1, date, (
+        (canon1[dash1 - 1:dash1 + 1], dash1 - 1, 0),          # word/date: the word's last letter and the dash
+        (canon1[date_end:date_end + 2], date_end - 1, -1),    # date/component: the slash and the letter after it
+    ))
+    canon2 = _F2[0] + _F2[1] + _F2[2] + "-" + _F2[4] + _F2[5]
+    word_end = len(_F2[0]) + len(_F2[1]) + len(_F2[2]) - 1   # word/word: the first word's last letter
+    two_word = _Name(canon2, 0, "", ((canon2[word_end:word_end + 3], word_end, 0),))
+    return dated, two_word
 
-
-_N1_SEG_STARTS = _segment_starts(_C1)
-_N2_SEG_STARTS = _segment_starts(_C2)
 
 MARKER = "code-red-excluded-dir-guard"
 MAX_META_BYTES = 4096  # a .git pointer file and a commondir file are tiny; never read more
@@ -143,7 +170,7 @@ _TOKEN = r"[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\}"
 # non-mask character (never '-' or another mask char, which would be a per-digit mask the walk
 # already handles). Rewritten to the plain date so the walk's cut rules apply to a token mask as to
 # a per-digit one; the rewrite is tracked, so the eight-character minimum counts the token as
-# written. Built from fragments, so this source holds no joined form.
+# written. It holds no part of either name.
 _DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _TOKEN + r")(?=/|$|\.\.\.|[^0-9a-z._/#*?-])")
 _ESCAPED_SLASH_RE = re.compile(r"\\/|%2f")  # after case-folding, %2F is %2f
 
@@ -164,7 +191,8 @@ def _is_path_char(ch: str) -> bool:
     return ch.isalnum() or ch in "._-/"
 
 
-def _tracked_sub(text: str, regex, replacement) -> tuple[str, list]:
+def _tracked_sub(text: str, regex: re.Pattern[str],
+                 replacement: Callable[[re.Match[str]], str]) -> tuple[str, list]:
     """Replace each match of `regex` in `text` with `replacement(match)`. Returns the new text and the
     rewrites as (new_start, new_len, old_start, old_len) in order, so a position maps back."""
     pieces, records, last, shift = [], [], 0, 0
@@ -192,7 +220,7 @@ def _normalize(text: str) -> tuple[str, list]:
         text = _ESCAPED_SLASH_RE.sub("/", text)
     maps = []
     if "-" in text:
-        text, records = _tracked_sub(text, _DATE_TOKEN_RE, lambda match: "-" + _DATE)
+        text, records = _tracked_sub(text, _DATE_TOKEN_RE, lambda match: "-" + _names()[0].date)
         if records:
             maps.append(([r[0] for r in records], records))
     return text, maps
@@ -212,35 +240,6 @@ def _map_back(position: int, maps: list) -> int:
     return position
 
 
-def _cm1(ci: int, ch: str) -> bool:
-    """Whether text character `ch` matches canonical N1 at offset `ci`, with the date tolerant: any
-    character but a slash, a dash or whitespace at a digit offset; a dash at a date-dash offset."""
-    if ci in _N1_DIGIT_POS:
-        return ch not in "/-" and not ch.isspace()
-    if ci in _N1_DASH_POS:
-        return ch == "-"
-    return ch == _C1[ci]
-
-
-def _cm2(ci: int, ch: str) -> bool:
-    return ch == _C2[ci]
-
-
-# Each junction: the fixed substring to search for, the canonical offset it aligns to, and the
-# offset from a hit to the junction's start in the text.
-_N1_JUNCTIONS = (
-    (_C1[_J1_START:_J1_START + 2], _J1_START, 0),      # the word/date boundary; its tolerant 3rd char is checked
-    (_C1[_DATE_END:_DATE_END + 2], _J2_START, -1),     # the date/component boundary; tolerant 1st char
-)
-_N2_JUNCTIONS = ((_C2[_J3_START:_J3_START + 3], _J3_START, 0),)
-
-
-def _in_ellipsis(text: str, i: int) -> bool:
-    """The '.' at index `i` belongs to an ASCII run of three or more dots (a truncation marker)."""
-    return (text[i:i + 3] == "..." or (i >= 1 and text[i - 1:i + 2] == "...")
-            or (i >= 2 and text[i - 2:i + 1] == "..."))
-
-
 def _border_before(text: str, i: int) -> bool:
     """A clean border ends just before index `i`: the text's start, a non-path character, or an
     ASCII '...' run (the truncation marker error strings carry)."""
@@ -248,62 +247,72 @@ def _border_before(text: str, i: int) -> bool:
 
 
 def _border_after(text: str, j: int) -> bool:
+    """A clean border starts at index `j`: the text's end, a non-path character, or an ASCII '...'
+    run."""
     return j == len(text) or not _is_path_char(text[j]) or text[j:j + 3] == "..."
 
 
-def _cut_at(text: str, maps: list, canon: str, matches, c0: int, t0: int, seg_starts) -> bool:
-    """Whether a cut of `canon` spanning the junction at canonical offset `c0` and text index `t0`
-    qualifies under one reading of the text (`matches`): at least eight characters long, counting
-    normalised characters and a whole-date token as written, with both ends clean. The right end is
-    clean at the name's own end, the text edge, a non-path border, or an ASCII ellipsis. The left end
-    is clean there too, or at a '/' where the cut begins at one of the name's path-segment starts."""
-    n, m = len(text), len(canon)
-    if not (matches(c0, t0) and matches(c0 + 1, t0 + 1) and matches(c0 + 2, t0 + 2)):
+def _clean_start(text: str, name: _Name, lc: int, lt: int) -> bool:
+    """A cut that begins at canonical offset `lc`, text index `lt`, has a clean left end: the name's
+    own start, a clean border, or a '/' before one of the name's path-segment starts."""
+    return lc == 0 or _border_before(text, lt) or (lc in name.seg_starts and text[lt - 1] == "/")
+
+
+def _cut_at(text: str, maps: list, name: _Name, c0: int, t0: int) -> bool:
+    """Whether a qualifying cut of `name` holds the junction at canonical offset `c0` and text index
+    `t0`. The walk takes the longest stretch around the junction that matches the name. The cut's
+    right end is the stretch's own end when that is clean, else the last masked digit after the
+    junction that is itself a clean border; its left end is the first clean start: the stretch's own
+    start, a segment start after a '/', or just after a masked digit before the junction that is a
+    clean border. Inside the stretch only a masked digit can be a border (every other offset holds
+    a path character of the name), so only those offsets are tried. The cut must be at least eight
+    characters long, counting normalised characters and a whole-date token as written."""
+    n, m = len(text), len(name.canon)
+    match = name.matches
+    if not (match(c0, text[t0]) and match(c0 + 1, text[t0 + 1]) and match(c0 + 2, text[t0 + 2])):
         return False
     ci, ti = c0 - 1, t0 - 1
-    while ci >= 0 and ti >= 0 and matches(ci, ti):
+    while ci >= 0 and ti >= 0 and match(ci, text[ti]):
         ci -= 1
         ti -= 1
     left_c, left_t = ci + 1, ti + 1
     ci, ti = c0 + 3, t0 + 3
-    while ci < m and ti < n and matches(ci, ti):
+    while ci < m and ti < n and match(ci, text[ti]):
         ci += 1
         ti += 1
     right_c, right_t = ci, ti
+    right = right_t
     if not (right_c == m or _border_after(text, right_t)):
-        return False
-    right_orig = _map_back(right_t, maps) if maps else right_t
-    # Try the greedy left end and each segment start between it and the junction: a cut that begins
-    # at a segment start preceded by '/' is the name under another parent.
-    candidates = [(left_t, left_c)]
-    candidates += [(left_t + (s - left_c), s) for s in seg_starts if left_c < s <= c0]
-    for lt, lc in candidates:
-        if right_orig - (_map_back(lt, maps) if maps else lt) < 8:
-            continue
-        if lc == 0 or _border_before(text, lt) or (lc in seg_starts and lt > 0 and text[lt - 1] == "/"):
+        right = -1
+        for d in reversed(name.digits_up):  # a letter or digit is never a border: skip it cheaply
+            if c0 + 3 <= d < right_c and not text[t0 + d - c0].isalnum() and _border_after(text, t0 + d - c0):
+                right = t0 + d - c0
+                break
+        if right < 0:
+            return False
+    if maps:
+        right = _map_back(right, maps)
+    if right - (_map_back(left_t, maps) if maps else left_t) < 8:
+        return False  # even the longest cut is short
+    if _clean_start(text, name, left_c, left_t):
+        return True
+    starts = {s for s in name.seg_starts if left_c < s <= c0}
+    starts.update(d + 1 for d in name.digits_up
+                  if left_c <= d < c0 and not text[t0 + d - c0].isalnum())
+    for lc in sorted(starts):
+        lt = t0 + lc - c0
+        if right - (_map_back(lt, maps) if maps else lt) < 8:
+            return False  # a later start is shorter still
+        if _clean_start(text, name, lc, lt):
             return True
     return False
 
 
-def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant) -> bool:
-    """Whether `text` holds a qualifying cut (`_cut_at`) of `canon` spanning one of `junctions`; `cm`
-    is the per-offset match and `tolerant` the offsets that accept any masked character. An ASCII '...'
-    run at tolerant offsets has two readings, a truncation marker (a border: a tolerant offset never
-    takes its dots) and masked digits (it does); a cut under either reading counts. Plain and
-    per-digit-masked whole names are the longest such cuts, so this covers them too. Each hit costs
-    one bounded walk per reading, so the scan stays linear."""
+def _walk(text: str, maps: list, name: _Name) -> bool:
+    """Whether `text` holds a qualifying cut of `name` (`_cut_at`) at any of its junctions. Each hit
+    costs one bounded walk, so the scan stays linear in the text's length."""
     n = len(text)
-
-    def as_digits(ci: int, ti: int) -> bool:
-        return cm(ci, text[ti])
-
-    def as_marker(ci: int, ti: int) -> bool:
-        ch = text[ti]
-        return cm(ci, ch) and not (ch == "." and ci in tolerant and _in_ellipsis(text, ti))
-
-    # Without an ASCII '...' run the two readings agree, so one pass is enough.
-    readings = (as_marker, as_digits) if tolerant and "..." in text else (as_digits,)
-    for find_sub, c0, delta in junctions:
+    for find_sub, c0, delta in name.junctions:
         start = 0
         while True:
             hit = text.find(find_sub, start)
@@ -311,9 +320,7 @@ def _walk(text: str, maps: list, canon: str, cm, junctions, seg_starts, tolerant
                 break
             start = hit + 1
             t0 = hit + delta
-            if t0 < 0 or t0 + 3 > n:
-                continue
-            if any(_cut_at(text, maps, canon, matches, c0, t0, seg_starts) for matches in readings):
+            if 0 <= t0 and t0 + 3 <= n and _cut_at(text, maps, name, c0, t0):
                 return True
     return False
 
@@ -323,12 +330,10 @@ def flagged(text: str) -> bool:
     if not isinstance(text, str) or not text:
         return False
     norm, maps = _normalize(text)
-    if _walk(norm, maps, _C1, _cm1, _N1_JUNCTIONS, _N1_SEG_STARTS, _N1_DIGIT_POS):
-        return True
-    return _walk(norm, maps, _C2, _cm2, _N2_JUNCTIONS, _N2_SEG_STARTS, frozenset())
+    return any(_walk(norm, maps, name) for name in _names())
 
 
-def _iter_strings(roots):
+def _iter_strings(roots: list) -> Iterator[str]:
     """Every string in `roots`, recursively through dict keys and values and through lists/tuples.
     Iterative, so a deeply nested response cannot overflow the stack during extraction."""
     stack = list(roots)
@@ -345,7 +350,7 @@ def _iter_strings(roots):
             stack.extend(cur)
 
 
-def _targets(data: dict, event) -> list:
+def _targets(data: dict, event: str | None) -> list:
     """What to scan for this event: tool_response for PostToolUse; error and tool_response for
     PostToolUseFailure. Never tool_input. An unknown event scans both, never tool_input."""
     if event == "PostToolUse":
@@ -392,7 +397,7 @@ def _common_dir(start: str) -> str | None:
     return None
 
 
-def _opted_in(cwd) -> bool:
+def _opted_in(cwd: object) -> bool:
     """Whether the opt-in marker sits in the common directory of the cwd's repository OR of
     $CLAUDE_PROJECT_DIR's repository (either suffices), both resolved by reading files only."""
     for base in (cwd, os.environ.get("CLAUDE_PROJECT_DIR")):
@@ -418,7 +423,7 @@ def _argv_event(argv: list) -> str | None:
     return None
 
 
-def _emit(message: str, event) -> int:
+def _emit(message: str, event: str | None) -> int:
     """Write the fixed message on exit 0. systemMessage reaches the user on either event; when the
     firing event is known, additionalContext (with its name) reaches Claude. An unknown event gets
     systemMessage alone, so Claude Code does not reject a guessed hookEventName."""

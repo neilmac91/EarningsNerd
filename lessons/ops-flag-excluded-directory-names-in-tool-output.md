@@ -29,9 +29,10 @@ runs and states, factually, when the result carries a form of either excluded di
 plain, per-digit or whole-token date-masked, or a cut or truncated form that spans a name junction,
 is at least eight characters long after normalisation (an escaped slash counts as one character, a
 mask token as its own characters, however long the date it stands for) and has clean ends. A '/' at
-a name segment start and an ASCII or Unicode ellipsis count as clean borders; next to the date's
-masked digits an ASCII `...` run is read both as a truncation marker and as masked digits, and a cut
-under either reading is flagged. It is a detector, not a filter: it leaves the result
+a name segment start, an ASCII `...` run and any non-path character (a Unicode ellipsis included)
+count as clean borders, at the date's masked digits too: a dotted year reads as masked digits while a
+truncation marker or an elision anywhere in the date still ends a cut. It is a detector, not a
+filter: it leaves the result
 unchanged and never echoes the matched text. It acts only when the marker sits in the git common
 directory of the clone that holds the event's `cwd` OR of the clone that `$CLAUDE_PROJECT_DIR` names
 (either suffices). It never scans `tool_input` (the CODE RED git commands carry the names as
