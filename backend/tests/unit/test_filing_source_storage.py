@@ -709,7 +709,7 @@ async def test_cancel_during_spawn_wait_still_reaps_child_before_releasing_permi
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux process ownership contract")
-@pytest.mark.parametrize("phase", ["ready", "pipe_setup"])
+@pytest.mark.parametrize("phase", ["ready", "pipe_setup", "read_pipe_setup"])
 @pytest.mark.parametrize("cancel_before_return", [False, True])
 def test_actual_runner_cancel_all_reaps_native_child_before_loop_closes(
     tmp_path, phase, cancel_before_return,
@@ -744,15 +744,16 @@ def test_actual_runner_cancel_all_reaps_native_child_before_loop_closes(
         "async def main():\n"
         "    global task, native_started\n"
         "    loop = asyncio.get_running_loop(); entered = asyncio.Event()\n"
-        f"    if {phase!r} == 'pipe_setup':\n"
-        "        original_transport = loop._make_write_pipe_transport\n"
+        f"    if {phase!r} != 'ready':\n"
+        f"        method = '_make_read_pipe_transport' if {phase!r} == 'read_pipe_setup' else '_make_write_pipe_transport'\n"
+        "        original_transport = getattr(loop, method)\n"
         "        def pending_pipe(pipe, protocol, waiter=None, extra=None):\n"
         "            transport = original_transport(pipe, protocol, waiter=None, extra=extra)\n"
         "            entered.set(); return transport\n"
-        "        loop._make_write_pipe_transport = pending_pipe\n"
+        "        setattr(loop, method, pending_pipe)\n"
         f"    task = asyncio.create_task(storage.BoundedFilingSourceStorage({BUCKET!r}).put({IDENTITY!r}, {CONTENT!r}, deadline=time.monotonic()+30))\n"
         "    async with asyncio.timeout(5):\n"
-        f"        if {phase!r} == 'pipe_setup': await entered.wait()\n"
+        f"        if {phase!r} != 'ready': await entered.wait()\n"
         f"        marker = pathlib.Path({str(ready if phase == 'ready' else alive)!r})\n"
         "        while not marker.exists(): await asyncio.sleep(0.005)\n"
         "    native_started = owners[0]._native.poll() is None\n"
