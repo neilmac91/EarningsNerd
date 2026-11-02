@@ -265,6 +265,26 @@ def _listed(names: list[str], room: int = 89) -> str:
     return joined(next((shown for shown in range(len(names), 1, -1) if len(joined(shown)) <= room), 1))
 
 
+def render_contact_confirmation(*, name: str | None) -> tuple[str, str]:
+    """Render our acknowledgement without echoing the caller's submitted subject or message."""
+    greeting = _greeting(name)
+    html_body = f"""
+    <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
+    <p style="margin:0 0 16px;"><strong>Thanks for contacting EarningsNerd</strong></p>
+    <p style="margin:0 0 16px;">Thanks for getting in touch. The aim is to reply within 2 business days.</p>
+    <p style="margin:0 0 16px;">If you have anything to add, just reply to this email.</p>
+    <p style="margin:0;">EarningsNerd</p>
+    """
+    text_body = (
+        f"{_greeting_text(name)}\n\n"
+        "Thanks for contacting EarningsNerd\n\n"
+        "Thanks for getting in touch. The aim is to reply within 2 business days.\n\n"
+        "If you have anything to add, just reply to this email.\n\n"
+        "EarningsNerd"
+    )
+    return _wrap_html(html_body, preheader="We received your contact form submission."), _wrap_text(text_body)
+
+
 def render_welcome_email(
     *,
     name: str | None,
@@ -789,7 +809,7 @@ def render_earnings_day_alert(
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">Companies you follow report earnings today:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
-    <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">You can check EarningsNerd for new filings and available summaries.</p>
     """
     def _text_row(it: dict) -> str:
         ticker = str(it.get("ticker", ""))
@@ -804,7 +824,7 @@ def render_earnings_day_alert(
     text_body = (
         f"{_greeting_text(name)}\n\nCompanies you follow report earnings today:\n\n"
         + "\n\n".join(_text_row(it) for it in items)
-        + "\n\nWe'll have the AI summary ready shortly after they file."
+        + "\n\nYou can check EarningsNerd for new filings and available summaries."
     )
     if len(items) == 1:
         # The subject names one company's ticker, so the line names the company in full, and its slot where the

@@ -1181,7 +1181,9 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  legacy_calculation, never on an empty input list) or “calculated figure”. A quiet
                  source count and Notes control replace repeated status labels; the Sources badge's title
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
-                 and names one, only for a marked note.
+                 and names one, only for a marked note. Its name and title say its source in the list's
+                 words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
+                 not print; the analysis PDF prints the same label (gate: test_export_service.py).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -3160,7 +3162,12 @@ The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
-Firefox are unchecked). Use keyboard/touch source controls, not
+Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
+theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
+control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
+"Image matches your theme." from a `hidden` line beside the button, so browse mode does not read it twice, its name
+still the label (ChartControl's `hint`; the expand control takes none; gate: `tests/unit/trend-charts-v2.spec.tsx`).
+Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
