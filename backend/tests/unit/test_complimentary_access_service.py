@@ -459,6 +459,39 @@ def test_a_rerun_changes_nothing_it_already_changed(world):
     assert state.grant.granted_at == first.grant.granted_at and state.actions == [service.AUDIT_GRANTED]
 
 
+def test_a_grant_manifest_with_another_review_date_moves_the_date_and_nothing_else(world):
+    """The founder extends or shortens the beta by applying the cohort's grant manifest with a new review date: each
+    active grant moves to it, with an audit row of its own, while its Pro, its provenance and the cap stay as they are.
+    Before, the apply reported the new date and kept the old one, so the readout counted the grant due on the old."""
+    operator = world.operator()
+    tester = world.tester()
+    _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    first = _committed(tester.id)
+    later = REVIEW_ON + timedelta(days=60)
+    moved = world.manifest("grant", [tester], operator_id=operator.id, reason="Beta extended", review_on=later)
+
+    planned = service.dry_run(world.db, *moved, today=TODAY)
+    assert (planned.outcomes, planned.active_grants_after) == ({"review_date_moves": 1}, 1)
+    assert _committed(tester.id).grant.review_on == REVIEW_ON  # the dry run writes nothing
+
+    applied = _apply(world, moved)
+    assert (applied.outcomes, applied.refusals, applied.active_grants_after) == ({"review_date_moved": 1}, [], 1)
+    state = _committed(tester.id)
+    assert state.grant.review_on == later
+    assert (state.is_pro, state.plan, state.grant.granted_at, state.grant.reason, state.grant.manifest_sha256) == (
+        True, Plan.PRO, first.grant.granted_at, REASON, first.grant.manifest_sha256)
+    assert state.actions == [service.AUDIT_GRANTED, service.AUDIT_REVIEW_MOVED]
+    row = world.db.query(AuditLog).filter(
+        AuditLog.entity_id == str(tester.id), AuditLog.action == service.AUDIT_REVIEW_MOVED).one()
+    assert (row.details["before"]["review_on"], row.details["after"]["review_on"], row.details["reason"]) == (
+        REVIEW_ON.isoformat(), later.isoformat(), "Beta extended")
+    assert service.readout(world.db, today=REVIEW_ON)["due_for_review"] == 0
+    assert service.readout(world.db, today=later)["due_for_review"] == 1
+
+    again = _apply(world, moved)  # the same manifest again changes nothing
+    assert again.outcomes == {"already_granted": 1} and _committed(tester.id).actions == state.actions
+
+
 def test_an_apply_runs_only_the_manifest_its_dry_run_reported(world):
     operator = world.operator()
     tester = world.tester()

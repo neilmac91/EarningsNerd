@@ -2877,6 +2877,7 @@ const AUDITED_UNNAMED: Record<string, string> = {
   summaries_bulk_reset: "an administrator's bulk reset of generated summaries, so they regenerate",
   summaries_refresh_stale: "an administrator's regeneration of stale summaries in place",
   complimentary_access_granted: "an administrator's complimentary Pro grant for an invited private-beta account (PB-02)",
+  complimentary_access_review_moved: "an administrator's move of a complimentary Pro grant's review date (PB-02)",
   complimentary_access_revoked: "an administrator's revoke of a complimentary Pro grant (PB-02)",
 }
 

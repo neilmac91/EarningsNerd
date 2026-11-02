@@ -51,6 +51,12 @@ it. Paid and trial accounts see what they saw before.
 `review_on` is an operational review or end date. **Nothing expires on it.** The readout counts the grants whose date
 has come (`due_for_review`), and the founder revokes them with a revoke manifest. Billing does not show the date.
 
+To move the date, apply the cohort's grant manifest again with the new `review_on`, dry run first, since the digest
+changes. Each active grant of that cohort whose date differs moves to it (`review_date_moves` in the dry run,
+`review_date_moved` in the apply), with an audit row of its own (`complimentary_access_review_moved`, the dates before
+and after and the run's reason); its Pro, its grant time and the cap are untouched. The window still holds: after the
+day of the apply, at most 366 days later.
+
 Automatic expiry is not built. If the founder approves one, the narrowest form is a scheduled revoke of the grants
 past their date through the same service, so the plan still resolves through `entitlements.py` alone. Until then,
 nothing may say that access ends by itself: Settings › Billing and the dashboard's plan card, the two places that name
@@ -77,7 +83,8 @@ The dry run and every apply check each account; a refusal names the reason, and 
 | `grant_without_pro` | The account's grant is active but its Pro was cleared by something else: investigate before anything else. |
 | `cap_reached` | Twenty grants are active (the apply re-checks this under its lock). |
 
-Outcomes that are not refusals: `eligible` (dry run) and `granted`; `already_granted` (a rerun); for a revoke,
+Outcomes that are not refusals: `eligible` (dry run) and `granted`; `already_granted` (a rerun);
+`review_date_moves` (dry run) and `review_date_moved` (a rerun with another review date, "End date"); for a revoke,
 `revocable`/`revoked`, `revocable_billing_owned`/`revoked_billing_untouched` and `not_granted`. A grant that would take
 the active grants past 20, across every cohort, stops the whole manifest (`stopped: cap_exceeded`) before any write.
 
@@ -125,6 +132,9 @@ Before the first grant, the testers' accounts must exist as a grant can see them
   unless the founder decides to widen the rule.
 - **The stored address.** Fingerprint the address the account holds, which is the invite's address for an email-bound
   invite (an Apple sign-in that hides the address holds Apple's relay address instead).
+- **The reverse trial off.** With `REVERSE_TRIAL_ENABLED` on, verifying an address through its emailed link gives a
+  password account a trialing `Subscription` row, and a grant refuses an account with a row of any status, the lapsed
+  trial's included (`subscription_exists`). Keep it off, its default, while testers verify.
 
 1. **Prepare, offline.** On the founder's machine, with no settings and no database:
    `python scripts/complimentary_access.py fingerprint < addresses.txt` prints one fingerprint per address, in order.
@@ -139,7 +149,7 @@ Before the first grant, the testers' accounts must exist as a grant can see them
    --confirm-digest <manifest_sha256> --runner <ops-run:id>`. It runs only the manifest whose digest it is handed.
    Each account is one unit: under the grants' lock and the account's row lock it is checked again, then its ledger
    row, its flag and its audit row commit together, or nothing does. A rerun grants what is newly eligible and changes
-   nothing it already changed.
+   nothing it already changed; with another review date it moves the cohort's active grants to it ("End date").
 5. **Verify.** `python scripts/complimentary_access.py readout` reports the active grants by cohort, the reviews due
    and any drift. A tester's Settings, Billing shows Pro with "Complimentary (private beta)" and no checkout button.
 6. **Revoke.** Write the revoke manifest, dry-run it, and apply it with its own digest. The account returns to Free:
@@ -180,8 +190,11 @@ from a second session, on CI's PostgreSQL.
 
 - **A mistaken grant:** revoke it (above). **A mistaken revoke:** grant again; a re-grant reopens the account's ledger
   row and writes a new audit row.
-- **Code rollback:** the ledger table is additive. A revision without this code still reads `is_pro`, so granted
-  accounts stay Pro under it, and Billing loses only its complimentary line (the flag keeps them out of checkout).
+- **Code rollback:** the ledger table is additive. A backend revision without this code still reads `is_pro`, so
+  granted accounts stay Pro under it; with this frontend, Billing then loses only its complimentary line (it reads a
+  missing `complimentary` as false and sends no Pro outside a trial to checkout). A frontend revision without it shows
+  a complimentary Pro "Upgrade to Pro", whose checkout refuses it (409), and the dashboard's "Manage billing", whose
+  portal fails without a Stripe customer.
   Revoke before rolling back if the grants should end with the code. The stamp's reference stays `ON DELETE SET NULL`
   under an older revision, which only lets an account's deletion through.
 - **Schema:** the migration only creates the table (`CREATE TABLE IF NOT EXISTS`). Dropping it would need a migration

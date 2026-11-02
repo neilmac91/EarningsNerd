@@ -421,8 +421,9 @@ BINDING_MENTIONS = {
     ("backend/app/services/billing_revenue_service.py", "record_payment", "keyword"): 1,
     # {"currency": ..., **group}: a report row, no database write.
     ("backend/app/services/billing_revenue_service.py", "payment_report", "dynamic"): 1,
-    # PB-02's complimentary grant refuses an account a Stripe event can find (_find_user), and its revoke leaves
-    # such an account's is_pro to the webhook: a read of the User mirror, never a write.
+    # PB-02's complimentary grant refuses an account a Stripe event can find (_find_user), and the readout counts
+    # an active grant whose account gained an id; a revoke decides by the Subscription row instead: a read of the
+    # User mirror, never a write.
     ("backend/app/services/complimentary_access_service.py", "holds_stripe_identity", "read"): 1,
     # The GDPR export reads the binding and each payment's copy into the export payload.
     ("backend/app/services/user_data_export_service.py", "build_user_data_export", "read"): 2,
