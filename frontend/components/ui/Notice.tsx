@@ -66,10 +66,11 @@ const WRAP: Record<NoticeVariant, string> = {
 }
 
 /** The variant's tint, its hairline and ground, for a surface of another shape that states the same thing: the
-    Copilot's error bubble keeps the thread's tail in the error tint (E196 (3)), and the dashboard's limit banner and
-    the verification banner keep a banner's shape in the warning tint (E196 (2)). The tint stays the primitive's, so a
-    change to it reaches those surfaces too. Each borrower is listed, with the variant it writes, in
-    tests/unit/statusTintResidue.spec.ts's TINT_BORROWED. */
+    Copilot's error bubble keeps the thread's tail in the error tint (E196 (3)), the dashboard's limit banner and the
+    verification banner keep a banner's shape in the warning tint (E196 (2)), and the settings page's Delete account
+    warning keeps its list in the error tint (E283). The tint stays the primitive's, so a change to it reaches those
+    surfaces too. Each borrower is listed, with the variant it writes, in tests/unit/statusTintResidue.spec.ts's
+    TINT_BORROWED, and words in another ink inside it in tests/unit/noticeTintInk.spec.ts's INKED. */
 export function noticeTint(variant: NoticeVariant): string {
   return WRAP[variant]
 }
