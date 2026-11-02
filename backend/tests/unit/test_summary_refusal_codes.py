@@ -42,6 +42,7 @@ def _run(durable_lease):
 
     return SimpleNamespace(
         filing_id=7, user_id=3, request_evidence=None, admit_generation=None, rebuild_excerpt=False,
+        artifact_requested=False,
         filing_fields={
             "company_name": "Example Co", "company_cik": "1", "company_sic": None,
             "document_url": "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/x.htm",
