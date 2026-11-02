@@ -305,6 +305,8 @@ def boundary_worker(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_real_binary_roundtrip_empty_environment_fixed_argv_and_reaped_children(boundary_worker, monkeypatch):
+    # Even the intentional inheritance mutant can select only this synthetic mapping.
+    monkeypatch.setattr(storage.os, "environ", {"FILING_SOURCE_PRIVATE_TEST": "synthetic-offline-canary"})
     children = []
     create = asyncio.create_subprocess_exec
 
