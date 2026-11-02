@@ -101,6 +101,44 @@ def point_method(point: dict[str, Any]) -> str:
     return "calculated" if point.get("derived") else "unknown"
 
 
+# A source's words are the page's. They come from its source list's label (NarrativePane.tsx's CitationList and
+# calculationWords, coherence.md §2.5's "Narrative and sources" row) and, where no method is recorded, from the clause
+# its source dialog says of a figure and of an input (SourceValue.tsx). test_export_service.py reads them from those
+# files.
+SOURCE_REPORTED = "SEC filing"
+METHOD_NOT_RECORDED = "Source method is not recorded"
+
+
+def calculation_words(provenance: Mapping[str, Any]) -> str:
+    """How a calculated source was made, keyed on its recorded reason: an empty input list alone does not prove a
+    calculation predates kept inputs."""
+    if "legacy_calculation" in (provenance.get("reasons") or []):
+        return "calculated before we kept its inputs"
+    return "calculated from filed figures" if provenance.get("inputs") else "calculated figure"
+
+
+def source_words(provenance: Mapping[str, Any] | None, fallback: str) -> str:
+    """A source's label as the page's source list prints it: how a calculated source was made, "SEC filing" for a
+    reported one, else the fallback, which for a citation is the label stored with it."""
+    method = (provenance or {}).get("method")
+    if method == "calculated":
+        return calculation_words(provenance or {})
+    return SOURCE_REPORTED if method == "reported" else fallback
+
+
+def method_words(point: Mapping[str, Any]) -> str:
+    """A figure's method in Sources & methods: the source list's words, first letter raised like the appendix's other
+    parts. A figure with no provenance reads as the page's dialog reads it: a calculation with no recorded inputs where
+    its legacy derived flag says so, otherwise no recorded method. A gap, a period with no figure and nothing recorded
+    (export_points' stand-in), has no method to name: empty, as the page draws a dash and opens no dialog."""
+    provenance = point.get("provenance")
+    if provenance is None and not point.get("derived") and point.get("value") is None:
+        return ""
+    words = (source_words(provenance, METHOD_NOT_RECORDED) if provenance is not None
+             else calculation_words({}) if point.get("derived") else METHOD_NOT_RECORDED)
+    return words[:1].upper() + words[1:]
+
+
 def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> list[str]:
     """A workbook comment references the canonical note before neutral method details. Every note stays as a comment,
     the workbook's evidence dialog; it names its letter only when the note marks the figure (D-061), as the page does.

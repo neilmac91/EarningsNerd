@@ -150,6 +150,8 @@ EXEMPT = {
 # the emitter modules that mentions `reasons` (a name, an attribute, a keyword or a string) is here or in EXEMPT, and
 # each entry still mentions it and writes no reason the reader finds: held exact, like EXEMPT.
 READS_ONLY = {
+    ("app/services/analysis_export_metadata.py", "calculation_words"):
+        "reads a calculated source's recorded reasons to word it as the page's source list does, in the PDF's sources",
     ("app/services/legal_readiness_service.py", "<module>"):
         "the readiness Capability shape's field (available, reasons), which the two readiness functions in EXEMPT fill",
     ("app/services/analysis_export_metadata.py", "fine_print_summary"):
