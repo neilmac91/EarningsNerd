@@ -149,16 +149,19 @@ cap; failure to complete cleanup can leave resources requiring follow-up.
 
 ## Cleanup and failure handling
 
-Apply always attempts cleanup after creation begins. Cleanup checks ownership,
-pauses the queues, then removes independently owned cloud resources even if one
-deletion fails. SQL and identities remain until every worker is confirmed absent.
+Apply always attempts cleanup after creation begins. Apply and standalone cleanup
+share one orchestration: check ownership, independently attempt each queue pause,
+then remove independently owned cloud resources even if one pause or deletion
+fails. SQL and identities remain until every worker is confirmed absent.
 The SQL role is disabled, only its own database sessions are terminated, and
 unrelated sessions prevent deletion. The project Cloud SQL grant is removed
 before deleting its service account, preserving unrelated policy entries and
 etag. Final resource absence is read back. Failure is `UNVERIFIED`, never a
 successful acceptance; the receipt lists closed cleanup stages and requires the
-explicit cleanup operation. A failed initial SQL credential/proxy resolution can
-still be preceded by queue pause in the cleanup command. Unknown ownership or
+explicit cleanup operation. Standalone cleanup resolves SQL credentials and starts
+the proxy only after cloud teardown and verified worker absence; SQL unavailability
+retains the database, identities and associated project grant without preventing
+the preceding cloud deletions. Unknown ownership or
 unmarked SQL residue needs manual review rather than broader deletion rights.
 
 ## Paused recovery caller

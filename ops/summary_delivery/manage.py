@@ -343,18 +343,25 @@ def exercise(cloud, manifest: dict, key: str) -> dict:
     return result
 
 
-def pause_owned_queues(cloud, manifest: dict) -> None:
+def pause_owned_queues(cloud, manifest: dict) -> list[str]:
     spec.validate_scope(manifest)
     cloud.begin_cleanup()
+    failures = []
     for queue in manifest["queues"]:
-        current = cloud.call("cloudtasks", "v2/" + queue["name"], missing_ok=True)
-        if current:
-            if current.get("name") != queue["name"] or not queue["name"].endswith("-" + manifest["run_id"]):
-                raise spec.Refused("cleanup_queue_ownership")
-            cloud.call("cloudtasks", "v2/" + queue["name"] + ":pause", method="POST", body={})
+        try:
+            current = cloud.call("cloudtasks", "v2/" + queue["name"], missing_ok=True)
+            if current:
+                if current.get("name") != queue["name"] or not queue["name"].endswith("-" + manifest["run_id"]):
+                    raise spec.Refused("cleanup_queue_ownership")
+                cloud.call("cloudtasks", "v2/" + queue["name"] + ":pause", method="POST", body={})
+        except Exception:
+            # Each queue gets its own bounded attempt. An unavailable queue must
+            # not prevent pausing the other queue or removing verified workers.
+            failures.append("queue_pause")
+    return failures
 
 
-def cleanup(cloud, manifest: dict, sql) -> dict:
+def cleanup(cloud, manifest: dict, sql=None) -> dict:
     spec.validate_scope(manifest)
     cloud.begin_cleanup()
     failures = []
@@ -376,14 +383,13 @@ def cleanup(cloud, manifest: dict, sql) -> dict:
                 raise spec.Refused("cleanup_resource_ownership")
         elif kind == "identity" and current.get("description") != spec.PURPOSE + ":" + manifest["run_id"]:
             raise spec.Refused("cleanup_identity_ownership")
+        elif kind == "queue" and current.get("name") != path.removeprefix("v2/"):
+            raise spec.Refused("cleanup_queue_ownership")
         if kind == "identity":
             identities.append((api, path))
             continue
         owned.append((api, path, kind))
-    try:
-        pause_owned_queues(cloud, manifest)
-    except Exception:
-        failures.append("queue_pause")
+    failures.extend(pause_owned_queues(cloud, manifest))
     for api, path, kind in owned:
         try:
             result = cloud.call(api, path, method="DELETE")
@@ -402,7 +408,15 @@ def cleanup(cloud, manifest: dict, sql) -> dict:
         return {"state": "UNVERIFIED", "requires_explicit_cleanup": True,
                 "failed_stages": sorted(set(failures + ["worker_absence"]))}
     try:
-        sql.cleanup()
+        if sql is None:
+            # Standalone teardown cannot depend on SQL credentials or a working
+            # proxy before removing independently owned cloud resources. Apply
+            # already holds an admin context and passes its existing handle.
+            from ops.summary_delivery.database import admin
+            with admin(cloud, ROOT) as connection:
+                connection.cleanup()
+        else:
+            sql.cleanup()
     except Exception:
         return {"state": "UNVERIFIED", "requires_explicit_cleanup": True,
                 "failed_stages": sorted(set(failures + ["database_cleanup"]))}
@@ -526,12 +540,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.operation == "apply":
                 result = apply(cloud, document, args.expected_plan_sha256, args.approval_nonce, dict(os.environ))
             else:
-                from ops.summary_delivery.database import admin
-                # Stop new deliveries even when SQL credentials/proxy cannot be
-                # resolved; exact fixed queue scope and approval still apply.
-                pause_owned_queues(cloud, manifest)
-                with admin(cloud, ROOT) as sql:
-                    result = cleanup(cloud, manifest, sql)
+                result = cleanup(cloud, manifest)
         write_private(args.output, result)
         print(json.dumps({"state": result.get("state", "completed"), "operation": args.operation,
                           "artifact": args.output.name, "plan_sha256": result.get("sha256")}))

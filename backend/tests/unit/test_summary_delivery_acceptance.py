@@ -5,6 +5,7 @@ import asyncio
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import json
 import os
 from pathlib import Path
 import socket
@@ -162,6 +163,72 @@ def test_failed_service_delete_still_removes_independent_resources_and_retains_d
     assert all((api, path) not in cloud.rows for api, path, kind in manage.resources(m) if kind in {"queue", "secret"})
     assert all((api, path) in cloud.rows for api, path, kind in manage.resources(m) if kind == "identity")
     assert "untrusted" not in str(result)
+
+
+@pytest.mark.parametrize("failure", ["first_pause", "sql_unavailable", "worker_unavailable"])
+def test_standalone_cleanup_continues_cloud_teardown_before_lazy_sql(
+    tmp_path, monkeypatch, capsys, failure,
+):
+    from ops.summary_delivery import database
+
+    doc = document()
+    manifest = doc["manifest"]
+    cloud = FakeCloud(manifest)
+    original_call = cloud.call
+    first_pause = "v2/" + manifest["queues"][0]["name"] + ":pause"
+    first_worker = "v2/" + manifest["services"][0]["name"]
+    residual = {"database_exists": True, "sql_entered": False}
+
+    def call(api, path, *, method="GET", body=None, **kwargs):
+        if ((failure == "first_pause" and path == first_pause)
+                or (failure == "worker_unavailable" and path == first_worker and method == "DELETE")):
+            cloud.seen.append((api, path, method, deepcopy(body)))
+            raise RuntimeError("private-provider-failure-must-not-be-emitted")
+        return original_call(api, path, method=method, body=body, **kwargs)
+
+    class SQL:
+        def cleanup(self):
+            residual["database_exists"] = False
+
+    @contextmanager
+    def lazy_admin(*args):
+        residual["sql_entered"] = True
+        # Assert the actual CLI reached SQL only after every owned service,
+        # queue and secret was independently removed and workers read absent.
+        assert all((api, path) not in cloud.rows for api, path, kind in manage.resources(manifest)
+                   if kind in {"service", "queue", "secret"})
+        if failure == "sql_unavailable":
+            raise RuntimeError("private-sql-credential-failure-must-not-be-emitted")
+        yield SQL()
+
+    cloud.call = call
+    monkeypatch.setattr(manage, "Cloud", lambda: cloud)
+    monkeypatch.setattr(database, "admin", lazy_admin)
+    for name, value in ENV.items():
+        monkeypatch.setenv(name, value)
+    plan_file, receipt_file = tmp_path / "plan.json", tmp_path / "receipt.json"
+    plan_file.write_text(json.dumps(doc))
+    assert manage.main(["cleanup", "--plan", str(plan_file), "--output", str(receipt_file),
+                        "--expected-plan-sha256", doc["sha256"], "--approval-nonce", manifest["nonce"]]) == 1
+    receipt = json.loads(receipt_file.read_text())
+    assert "private-" not in receipt_file.read_text() + capsys.readouterr().out
+    assert {path for _, path, method, _ in cloud.seen if method == "POST" and path.endswith(":pause")} == {
+        "v2/" + queue["name"] + ":pause" for queue in manifest["queues"]}
+    for api, path, kind in manage.resources(manifest):
+        if kind in {"service", "queue", "secret"} and not (failure == "worker_unavailable" and path == first_worker):
+            assert (api, path) not in cloud.rows
+            assert any(row[:3] == (api, path, "DELETE") for row in cloud.seen)
+    assert receipt["state"] == "UNVERIFIED" and receipt["requires_explicit_cleanup"]
+    if failure == "first_pause":
+        assert residual == {"database_exists": False, "sql_entered": True}
+        assert "queue_pause" in receipt["failed_stages"]
+        assert not cloud.rows
+    else:
+        assert residual == {"database_exists": True, "sql_entered": failure == "sql_unavailable"}
+        assert all((api, path) in cloud.rows for api, path, kind in manage.resources(manifest) if kind == "identity")
+        assert not any(method == "DELETE" and api == "iam" for api, _, method, _ in cloud.seen)
+        assert not any(path.endswith(":setIamPolicy") for _, path, _, _ in cloud.seen)
+        assert ("database_cleanup" if failure == "sql_unavailable" else "worker_absence") in receipt["failed_stages"]
 
 
 @pytest.mark.parametrize("public", [False, True, "authenticated"])
