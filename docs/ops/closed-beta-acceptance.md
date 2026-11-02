@@ -266,8 +266,9 @@ Before the founder rehearsal the founder supplies, outside this repository where
   kept without the account after deletion while screenshots are deleted, screenshot retention (180 days at most),
   and the support channel;
 - the roster, which stays private, and the cohort labels: one per invitation wave and one for the complimentary
-  grant. Each label names no person, because every complimentary-access report prints the grant's label and the Ops
-  run's log is public;
+  grant. Each label is an opaque code, such as `private-beta-2026-11`, and appears in public reports: every
+  complimentary-access report prints the grant's label, and the Ops run's log is public. No name, address,
+  workplace or private description belongs in a label; the mapping from labels to people stays with the roster;
 - the beta's end and review dates, and what complimentary access becomes at the end;
 - the daily model spend limit, the error and capacity limits of section 6, the mail arrival window of section 3, the
   support answer window and the tolerated loss window of section 5;
