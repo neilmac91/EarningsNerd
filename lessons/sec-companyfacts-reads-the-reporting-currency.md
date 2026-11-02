@@ -54,10 +54,12 @@ that shape, and E198 lifted the gate with every USD shape checked against its CN
 involved the step's by-currency parts find nothing, so its newer-filing protection and convergence
 alone act. Lifting it as it stood would have shown two wrong figures where main showed the right one,
 so two rules hold for every sync. A current feed row (no filing owner) of a filing the payload names is
-never kept by the newer-filing rule: the payload reads that filing otherwise now, so the upsert's own
-Filing-date rule decides it, as on main (R1u; kept by its date alone, PNC's 8-K recast of FY2017
-revenue, the ASC 606 line an older rule read, 15,252M, stayed current over its FY2018 10-K's 16,329M
-total). And the batch's stored row is made current only where it holds the batch's own figure (R2): a
+never kept by the newer-filing rule by its date alone: the payload reads that filing otherwise now, so it
+holds only where the upsert's own Filing-date rule keeps it too, as on main, whether the sync inserts its
+winner or finds it stored (R1u; kept by its date alone, PNC's 8-K recast of FY2017 revenue, the ASC 606
+line an older rule read, 15,252M, stayed current over its FY2018 10-K's 16,329M total, and where the
+winner's row was already stored, for good; a 10-K/A's row behind its original's Filing-dated row is still
+made current, since the original is not the later). And the batch's stored row is made current only where it holds the batch's own figure (R2): a
 stored identity can hold another (the old cross-check's replacement of a filing row with a proxy's
 figure, an older rule's reading), which its repair, not a sync, corrects; such a key is left as found.
 Plant the state earlier syncs stored
@@ -94,21 +96,23 @@ behind its original's row. Promoting only at a key with no current row left the 
 each superseded figure the reviews found current after a fresh sync. So at every key the batch
 presents in an amount or per-share unit, the writer makes the batch's own row there (same unit and
 accession) the one current row and demotes every other there (`_promote_batch_rows`), whichever sync
-or writer left the key so, outside five cases: a key where a protected row of the sync's view sits,
+or writer left the key so, outside six cases: a key where a protected row of the sync's view sits,
 current or not (below), which holds the newest protected row instead; a key where a proxy statement's
 row is current, whatever its date and held or not, left as found as main leaves it, for the proxy step,
 which judges the stored row (no rule keeps a proxy statement's row through an insert, so one still current
 means the batch's identity is stored behind it); a key where a row of a filing filed strictly after the
-batch row's own filing was current, left as found;
-a quarantined row (provenance `unavailable`, any reason), never made current, and a quarter whose
-unlabelled twin in that unit is current (the bulk writer's NULL-period rule), both left as found; and a proven switch, which promotes
-nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the
+batch row's own filing was current, left as found (a feed row of a filing the payload names, only where the
+upsert's own Filing-date rule keeps it too: R1u); a quarantined row (provenance `unavailable`, any reason),
+never made current, and a quarter whose unlabelled twin in that unit is current (the bulk writer's
+NULL-period rule), both left as found; a key whose stored row at the batch's identity holds another figure
+than the batch's own (an old cross-check's replacement, an older rule's reading), left as found for its
+repair (R2); and a proven switch, which promotes nothing. Date every row by its own filing (`_filed`: its Filing row, else its filing's `filed` in the
 payload, else its provenance `filed_at`, which for a calculation is its latest operand's date), so a
 calculation is dated by its latest operand only where neither a Filing row nor the payload dates its
 filing: a free cash flow under K23's accession whose capex was K24's carried K24's date and went current over
 K24's own. Hold the rule where the upsert inserts too: its own rule reads Filing rows only and
-demoted a newer companyfacts row, so the sync passes it such rows to keep (`Guard.later`), ratios
-included (a stale same-day payload's insert left a superseded margin current for good, as no sync
+demoted a newer companyfacts row, so the sync passes it such rows to keep (`Guard.later`; it never passes a
+feed row of a filing the payload names, which the upsert's own Filing-date rule decides: R1u), ratios included (a stale same-day payload's insert left a superseded margin current for good, as no sync
 converges a ratio). Never let the convergence
 override that newer-filing rule: the collector takes a
 period from the first registry tag with data, not from the latest filing, so where a newer filing
@@ -253,7 +257,8 @@ After a sync whose payload names every stored filing, an older figure remains in
 a newer named filing's row is not current at a key whose batch winner is an older filing's under the
 first-tag priority (the per-filing writer's own rule stores it behind an undated companyfacts row,
 where the older filings have no Filing rows), the older figure stays current, as on main. Where a
-quarantined row or a current unlabelled twin leaves a key as found, the row current there stays. And
+quarantined row, a current unlabelled twin, or a stored row at the batch's identity holding another figure
+than the batch's own (R2, left for its repair) leaves a key as found, the row current there stays. And
 ratios do not converge: a margin at a period whose amounts moved to another filing's rows keeps its
 calculation, so in that shape the newer filing's margin sits beside the older filing's revenue; and
 where a newer filing's stored margin was computed from another currency's operands (an earlier

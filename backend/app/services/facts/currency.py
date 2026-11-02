@@ -309,9 +309,9 @@ def protected_rows(db: Session, facts: list[dict[str, Any]], view: PayloadView) 
     period): a newer filing that SEC's companyfacts does not show yet (a delayed response, or the sync a new filing
     triggers before companyfacts includes it). The read takes the fact writers' company lock first, so no writer adds
     a row between it and the upsert, which stores the batch's row behind a protected current one as behind a known
-    newer filing, and behind each current row in its unit of a filing filed strictly after the batch row's own, a
-    proxy statement's again excepted, and a feed row (no filing owner) of a filing the payload names, which the payload
-    reads otherwise there and the upsert's own rule decides, as on main (``Guard.later``). Where those
+    newer filing, and behind each current row in its unit of a filing filed strictly after the batch row's own
+    (``Guard.later``), a proxy statement's again excepted, and a feed row (no filing owner) of a filing the payload
+    names, which it never passes: the upsert's own Filing-date rule decides that row, as on main (R1u). Where those
     rows prove a switch, none is protected: the sync stores nothing and demotes by currency. Otherwise a row keeps
     its protection only in the payload's view (``_in_view``): an amount or per-share row in the series currency under
     a filing whose own currency, as its stored rows vote (``Guard.own``), is not another, a ratio not computed from

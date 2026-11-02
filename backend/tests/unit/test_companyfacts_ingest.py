@@ -3532,15 +3532,15 @@ class TestNativeReportingCurrencySync:
         db.close()
 
 
-    def test_a_named_filings_feed_row_an_older_rule_stored_never_holds_its_key_against_the_payloads_winner(self):
+    def test_a_named_filings_feed_row_an_older_rule_stored_yields_to_the_payloads_winner_without_a_filing_row(self):
         # E198 (R1u), on PNC's companyfacts of 2026-11-01 (tests/fixtures/companyfacts_fi/PNC.json). Synced while its SIC
         # code was blank, the generic tuple read FY2017 revenue from the ASC 606 element, whose latest item is an 8-K's
         # recast (0000713676-20-000117, filed 2020-08-04, 15,252M), and stored it current, a feed row (no filing owner).
         # Under its bank SIC code the deployed rule reads Revenues first, so the payload's winner there is the FY2018
         # 10-K's 16,329M (0000713676-19-000015), a new identity the next sync inserts. The 8-K is a filing the payload
-        # names and now reads otherwise, so the newer-filing rule never keeps its feed row: the upsert's own rule decides
-        # it, as on main, and with no Filing row for the 8-K it yields. Kept by its date alone, the fee line's 15,252M
-        # stayed current over the total.
+        # names and now reads otherwise, so the newer-filing rule keeps its feed row only where the upsert's own
+        # Filing-date rule keeps it too (R1u), as on main, and with no Filing row for the 8-K it yields. Kept by its date
+        # alone, the fee line's 15,252M stayed current over the total.
         from app.database import SessionLocal
         from app.models import FinancialFact
 
@@ -3966,7 +3966,8 @@ def _checked_sync(db, company, payload, *, final=False):
     strictly after the winner's own filing (each by its Filing row's date, else its filing's ``filed`` in the
     payload, else its provenance ``filed_at``), in the winner's unit and under a filing not ``_foreign`` to the
     series, was current before the sync: that row stays current, unless it is a feed row (no filing owner) of a filing
-    the payload names and the sync inserts the winner, where the upsert's own Filing-date rule decides it (R1u). There,
+    the payload names that the upsert's own Filing-date rule would not keep, whether the sync inserts the winner or
+    finds it stored (R1u). There,
     and where the row to make current is quarantined, holds another figure than the batch's (R2), or is a quarter
     whose unlabelled twin in its unit is current, the key is left as found (no row current there that was not current
     before). ``final``, a sync whose payload names every stored filing (checked), also

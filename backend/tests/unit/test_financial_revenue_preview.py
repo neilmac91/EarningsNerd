@@ -325,8 +325,9 @@ def _oracle(rows, payload):
 def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_row(db, factory, tmp_path, capsys, sec,
                                                                                   resync_since_e198):
     # The deployed resync runs as production ran it (before E198), and again as a sync since E198 runs it: E198 changes
-    # no value, tag or identity a writer stores, and its convergence keeps no feed row of a named filing (R1u) nor
-    # promotes another figure (R2), so every set reads the same on both, which shows E264's instants need not move.
+    # no value, tag or identity a writer stores, and its convergence keeps a named filing's feed row by date only where
+    # the upsert's own Filing-date rule keeps it too (R1u), nor promotes another figure (R2), so every set reads the
+    # same on both, which shows E264's instants need not move.
     offline = tmp_path / "companyfacts"
     offline.mkdir()
     payloads = {}
