@@ -909,6 +909,17 @@ class TestASignOrScaleFindingMarksTheFigure:
         assert "first_reported" in _point(dataset, "revenue", "FY2019")
 
 
+_FINDINGS = {
+    "a-negative-own-revenue": lambda: _payload(_items({**_REVENUE, 2018: {**_REVENUE[2018], 2018: -6_710.8e6}})),
+    "a-sign-flip": lambda: _payload(tags=_net_income({2018: -2_444.4e6})),
+    "a-scale-factor": lambda: _payload(assets=_items({
+        2017: {2016: 9_520.2e6, 2017: 11_734.5e6}, 2018: {2017: 11_734.5e6, 2018: 15_163.8e6},
+        2019: {2018: 15_163.8e3, 2019: 17_163.4e6}, 2020: {2019: 17_163.4e6, 2020: 19_994.1e6},
+        2021: {2020: 19_994.1e6, 2021: 25_434.7e6}}, instant=True)),
+    "an-inputs-finding": lambda: _payload(_items({**_REVENUE, 2020: {**_REVENUE[2020], 2018: 6_710.8e3}})),
+}
+
+
 class TestTheCensusCountsTheAnalysissNM:
     """``scripts/restatement_census.py`` counts the comparisons by the producer's own rule (D3's measurement): over
     WP5b's shapes, the reported and the calculated comparisons it reads n/m are the ones the dataset built from the
@@ -935,12 +946,14 @@ class TestTheCensusCountsTheAnalysissNM:
         assert "| **all** | 3 (1) | 2 (1) | 1 (1) | 0 (0) | 1 (1) | 0 (0) |" in table
 
     @pytest.mark.requires_db
-    @pytest.mark.parametrize("shape", [*_shapes(), "a-negative-own-revenue"])
+    @pytest.mark.parametrize("shape", [*_shapes(), *_FINDINGS])
     def test_the_census_counts_the_comparisons_the_dataset_reads_n_m(self, db, shape):
-        # Beside WP5b's shapes, an own value ingest drops (a negative revenue) gives the census no evidence either.
+        # Beside WP5b's shapes: an own value ingest drops (a negative revenue) gives the census no evidence either, and
+        # a sign or scale finding, on a figure or a calculation's input, reads n/m whatever the kind, an opposite-sign
+        # growth's included.
         from scripts import restatement_census
 
-        payload = _shapes().get(shape) or _payload(_items({**_REVENUE, 2018: {**_REVENUE[2018], 2018: -6_710.8e6}}))
+        payload = _shapes().get(shape) or _FINDINGS[shape]()
         cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
         counted = {(c["concept"], f"FY{c['fy']}") for c in [*restatement_census.basis_comparisons(cells),
                                                              *restatement_census.calculated_comparisons(cells)]

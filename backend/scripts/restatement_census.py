@@ -609,16 +609,18 @@ def _kind(now: Optional[dict[str, Any]], before: Optional[dict[str, Any]]) -> st
     return BASIS_KINDS[0] if not before else BASIS_KINDS[1] if not now else BASIS_KINDS[2]
 
 
-def _defined(change: Any) -> bool:
+def _signs(change: Any) -> bool:
+    """Whether a growth is already n/m by opposite signs: it loses no number to the rule, so the table leaves it out,
+    though the analysis still gives it growth as first reported where the rule reads it n/m."""
     from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 
-    return change is not None and change != NOT_MEANINGFUL
+    return change == NOT_MEANINGFUL
 
 
 def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The reported YoY comparisons whose two years' ratios differ past ``BASIS_TOLERANCE``, each with its kind, its
-    basis (module docstring) and whether the analysis reads it n/m (not per-share: a crossing, D3, or a sign or scale
-    finding in either year, item 4), by
+    basis (module docstring), whether its growth is already n/m by opposite signs, and whether the analysis reads it
+    n/m (not per-share: a crossing, D3, or a sign or scale finding in either year, item 4), by
     ``trend_analysis/first_reports.py``'s own rule over the within-tag own values a sync stores."""
     from app.services.trend_analysis.dataset import _growth
     from app.services.trend_analysis.first_reports import BASIS_EXEMPT, _ratio, basis_changed, crossed
@@ -627,7 +629,8 @@ def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
     found = []
     for (ticker, concept, unit, fy), cell in sorted(by_line.items()):
         prior = by_line.get((ticker, concept, unit, fy - 1))
-        if prior is None or not _defined(_growth(cell["winner"]["value"], prior["winner"]["value"])):
+        change = None if prior is None else _growth(cell["winner"]["value"], prior["winner"]["value"])
+        if change is None:
             continue
         now = (cell["winner"]["value"], _evidence(cell))
         before = (prior["winner"]["value"], _evidence(prior))
@@ -638,7 +641,7 @@ def basis_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
         basis = BASES[2] if not given else BASES[0] if any(
             abs(value - shown) <= 0.001 * abs(shown) for value in given) else BASES[1]
         found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": _kind(now[1], before[1]),
-                      "per_share": concept in PER_SHARE, "basis": basis,
+                      "per_share": concept in PER_SHARE, "basis": basis, "signs": _signs(change),
                       "n_m": concept not in BASIS_EXEMPT and (crossed(now, before) or _found(now, before))})
     return found
 
@@ -661,7 +664,8 @@ def calculated_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             values = [_CALCULATED[concept](*(c["winner"]["value"] for c in group)) for group in (now, before)]
             delta = _pp_delta if concept.endswith("_margin") else _growth
-            if None in values or not _defined(delta(*values)):
+            change = None if None in values else delta(*values)
+            if change is None:
                 continue
             pairs = [((n["winner"]["value"], _evidence(n)), (b["winner"]["value"], _evidence(b)))
                      for n, b in zip(now, before)]
@@ -670,7 +674,8 @@ def calculated_comparisons(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             n_m = any(crossed(n, b) or _found(n, b) for n, b in pairs)
             kind = BASIS_KINDS[0] if n_m else moved[0] if len(set(moved)) == 1 else "mixed"
-            found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": kind, "n_m": n_m})
+            found.append({"ticker": ticker, "concept": concept, "fy": fy, "kind": kind, "n_m": n_m,
+                          "signs": _signs(change)})
     return found
 
 
@@ -682,7 +687,9 @@ def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
     from app.services.trend_analysis.first_reports import BASIS_TOLERANCE, EVIDENCE_TOLERANCE
 
     tolerance, evidence = f"{BASIS_TOLERANCE * 100:g}%", f"{EVIDENCE_TOLERANCE * 100:g}%"
-    found, calculated = basis_comparisons(cells), calculated_comparisons(cells)
+    every, every_calculated = basis_comparisons(cells), calculated_comparisons(cells)
+    found = [c for c in every if not c["signs"]]
+    calculated = [c for c in every_calculated if not c["signs"]]
     lines = [
         f"A year carries evidence where its value shown is more than {evidence} from its own report's. The comparisons "
         f"below are the YoYs whose two years' shown-to-first-reported ratios differ by more than {tolerance} (a year "
@@ -698,7 +705,9 @@ def _basis_table(cells: list[dict[str, Any]]) -> list[str]:
         "Basis, for a reported comparison: *like-for-like* where the filing behind the earlier year's value shown "
         "gives the later year the value shown (within 0.1%, under the winning tag), so the growth shown is one "
         "filing's comparison; *mixed* where it gives the later year another value; *unknown* where it gives none. "
-        "Growth that is undefined or already n/m (opposite signs) is left out. Each column: comparisons (companies).",
+        "Growth that is undefined or already n/m (opposite signs) is left out of the tables: "
+        f"{_count([c for c in every if c['signs']])} reported and {_count([c for c in every_calculated if c['signs']])} "
+        "calculated comparisons already n/m. Each column: comparisons (companies).",
         "",
         "| kind | reported, not per-share | like-for-like | mixed | unknown | read n/m | per-share (D3 keeps them out) |",
         "|---|---|---|---|---|---|---|",
