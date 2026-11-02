@@ -98,7 +98,7 @@ const RESIDUE_MAX = { titles: 1, descriptions: 1 }
 
 /** Each route by its directory under app/ ('' is the home page). Private routes stay out of the index. */
 const PRIVATE_ROUTES = [
-  'admin/feedback', 'admin/invites', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
+  'admin/feedback', 'admin/invites', 'auth/complete', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
   'delete-account', 'forgot-password', 'login', 'register', 'reset-password', 'verify-email',
   // Default-off prototypes (lib/featureFlags.ts); each page sets its own robots.
   'labs/filing-redlines', 'labs/financial-refresh-review', 'labs/research-evidence-packs',

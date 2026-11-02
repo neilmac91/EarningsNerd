@@ -60,6 +60,31 @@ export const login = async (email: string, password: string, turnstileToken?: st
   return response.data
 }
 
+/**
+ * The OAuth sign-in's exchange of its one-time code (E29 (5)). A Google or Apple callback's answer is a navigation,
+ * which cannot hold the session cookies' lock, so it sets no session cookie: it hands the landing page
+ * (app/auth/complete/page.tsx) a one-time code in the URL fragment, bound to this browser by a cookie the callback set,
+ * and this post's answer sets the new session's cookies. It posts as the password login does (withoutRefreshBeside, at
+ * LOGIN_REFRESH_WAIT_MS): this tab's refresh in flight answers first, then the refreshes queued for the lock before its
+ * request, in any tab, while a refresh asked for after it, in this tab or another, waits for its answer and goes out
+ * with the new session's cookies. So a refresh another tab sent with the previous account's cookies can no longer set
+ * them over the new session's, as one could over the callback's navigation. What it leaves open is the login's: at the
+ * limit, a refresh another tab has in flight, which cannot be cancelled from here, or one still waiting for the lock;
+ * a refresh that waited past REFRESH_LOCK_WAIT_MS; and, where the browser has no lock manager or refuses the lock, any
+ * other tab's refresh. The route refuses a used, expired, unknown or unbound code with a 400, which its path in
+ * client.ts's NO_REFRESH_PATHS keeps from asking for a refresh under the hold.
+ */
+export const completeOAuthSignIn = async (code: string) => {
+  const generation = getExplicitSessionGeneration()
+  const response = await withoutRefreshBeside(LOGIN_REFRESH_WAIT_MS, () => api.post(
+    '/api/auth/oauth/complete',
+    { code },
+  ))
+  assertExplicitSessionGeneration(generation)
+  markSessionActive()
+  return response.data
+}
+
 /** Shape of GET /api/auth/me. Keep in sync with auth.py get_current_user_info. */
 export interface CurrentUser {
   id: number
@@ -76,16 +101,17 @@ export const IDENTITY_READ_REFRESH_WAIT_MS = 10_000
 
 export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promise<CurrentUser> => {
   const generation = getSessionGeneration()
-  // A refresh another tab sent with the previous session's cookies can answer after an OAuth sign-in's navigation has
-  // set the new session's (E29): read once it has, so this tab shows the account the browser then holds.
+  // A refresh another tab sent with the previous session's cookies sets them again when it answers (E29): read once the
+  // refreshes queued before this read have answered, so this tab shows the account the browser then holds.
   await sessionCookiesSettled(IDENTITY_READ_REFRESH_WAIT_MS, options?.signal)
   const response = await api.get('/api/auth/me', { signal: options?.signal })
   assertSessionGeneration(generation)
   options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
-  // refresh an expired access token. This also covers OAuth redirect logins, where the
-  // JS login()/register() path (which normally sets the marker) never runs. A /me that a refresh replays during a
-  // logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
+  // refresh an expired access token. This also covers a session no login in this tab started (another tab's):
+  // login() and completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a
+  // refresh replays during a logout in this tab marks nothing: the logout is ending that session (session.ts's
+  // beginLogout).
   markSessionConfirmed()
   return response.data
 }
@@ -155,7 +181,7 @@ export const unlinkProvider = async (provider: string) => {
  */
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 // How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout
-// does.
+// does; the OAuth sign-in's code exchange waits as long (E29 (5)).
 export const LOGIN_REFRESH_WAIT_MS = 10_000
 
 /** A logout of every session refused because another login was accepted while it waited (see logoutAllSessions). */

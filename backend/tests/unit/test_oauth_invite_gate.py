@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
+from tests.support.oauth_handoff import HANDOFF_COOKIE, complete_sign_in, handoff_code
 
 from fastapi.testclient import TestClient
 
@@ -210,15 +211,20 @@ def _assert_refused(resp, error_code: str, email: str) -> None:
     assert resp.status_code == 302, resp.text
     assert urlparse(resp.headers["location"]).query == f"error={error_code}", resp.headers["location"]
     assert f"{auth_module.settings.COOKIE_NAME}=" not in resp.headers.get("set-cookie", "")
+    assert f"{HANDOFF_COOKIE}=" not in resp.headers.get("set-cookie", "")
     assert _user(email) is None
     assert _links(email) == 0
 
 
-def _assert_signed_in(resp, email: str) -> None:
-    assert resp.status_code == 302, resp.text
-    assert resp.headers["location"] == auth_module.settings.FRONTEND_URL
-    assert f"{auth_module.settings.COOKIE_NAME}=" in resp.headers.get("set-cookie", "")
+def _assert_signed_in(client: TestClient, resp, email: str) -> None:
+    """The callback hands the landing page its one-time code and sets no session cookie; the landing page's
+    exchange sets the session cookies (E29 (5))."""
+    handoff_code(resp)
+    assert f"{auth_module.settings.COOKIE_NAME}=" not in resp.headers.get("set-cookie", "")
     assert _links(email) == 1
+    exchange = complete_sign_in(client, resp)
+    assert exchange.status_code == 200, exchange.text
+    assert f"{auth_module.settings.COOKIE_NAME}=" in exchange.headers.get("set-cookie", "")
 
 
 # ── invite gate ───────────────────────────────────────────────────────────────
@@ -241,7 +247,7 @@ def test_linking_an_existing_verified_account_still_works_in_invite_only_mode(
     _seed_user(email, verified=True)
     state = _start(client, provider) if provider == "apple" else None
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
-    _assert_signed_in(resp, email)
+    _assert_signed_in(client, resp, email)
     assert _user(email).is_beta is False  # linking consumes no invite
 
 
@@ -262,7 +268,7 @@ def test_invited_social_sign_up_creates_a_beta_account_and_consumes_the_invite(
     if not audited:
         monkeypatch.setattr("app.services.audit_service.create_audit_log", lambda *args, **kwargs: None)
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
-    _assert_signed_in(resp, email)
+    _assert_signed_in(client, resp, email)
     user = _user(email)
     assert user is not None and user.is_beta is True and user.email_verified is True
     invite = _invite(invite_id)
@@ -380,7 +386,7 @@ def test_apple_callback_requires_the_browser_binding_cookie(client, monkeypatch,
 
     client.cookies.set(auth_module._APPLE_STATE_COOKIE, auth_module._apple_state_cookie_value(state))
     resp = _callback(client, monkeypatch, "apple", _claims("apple", email), state=state)
-    _assert_signed_in(resp, email)
+    _assert_signed_in(client, resp, email)
     assert _state_rows(state) == []
 
 

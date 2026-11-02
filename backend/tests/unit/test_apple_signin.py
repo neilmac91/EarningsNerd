@@ -27,6 +27,7 @@ from app.database import SessionLocal
 from app.models import OAuthAccount, OAuthState, User
 from app.routers import auth as auth_module
 from app.services import oauth_verify  # id-token verification moved here (roadmap S3)
+from tests.support.oauth_handoff import complete_sign_in, handoff_code
 
 RAW_NONCE = "raw-nonce-value-123"
 HASHED_NONCE = hashlib.sha256(RAW_NONCE.encode()).hexdigest()
@@ -211,7 +212,8 @@ def test_callback_conflict_when_existing_account_unverified(client):
 
 @pytest.mark.requires_db
 def test_callback_links_verified_account_and_stores_name(client):
-    """Verified local account + Apple-verified email → link, issue session, store first-auth name."""
+    """Verified local account + Apple-verified email → link, store first-auth name, and hand the session to the
+    landing page, whose exchange issues it (E29 (5))."""
     email = f"verified_{uuid.uuid4().hex[:10]}@example.com"
     db = SessionLocal()
     try:
@@ -234,9 +236,12 @@ def test_callback_links_verified_account_and_stores_name(client):
             follow_redirects=False,
         )
 
-    assert resp.status_code == 302
-    # Session cookies are issued on success.
-    assert "earningsnerd_access_token=" in resp.headers.get("set-cookie", "")
+    handoff_code(resp)
+    # No session cookie on the callback's navigation: the landing page's exchange issues it.
+    assert "earningsnerd_access_token=" not in resp.headers.get("set-cookie", "")
+    exchange = complete_sign_in(client, resp)
+    assert exchange.status_code == 200, exchange.text
+    assert "earningsnerd_access_token=" in exchange.headers.get("set-cookie", "")
 
     db = SessionLocal()
     try:

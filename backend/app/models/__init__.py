@@ -9,6 +9,7 @@ from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
 from app.models.refresh_token import RefreshToken
+from app.models.session_handoff import SessionHandoff
 from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.earnings import EarningsEvent, EarningsAlertLog
@@ -372,6 +373,7 @@ __all__ = [
     "OAuthState",
     "SavedSummary",
     "SectionReview",
+    "SessionHandoff",
     "StripeEvent",
     "Subscription",
     "Summary",

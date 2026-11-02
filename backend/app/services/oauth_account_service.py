@@ -3,31 +3,40 @@
 Moved out of ``app.routers.auth`` so the router stays HTTP only
 (``tests/unit/test_router_orm_ceilings_allowlist.py``): the single-use OAuth state rows, the
 new-account gate and creation, resolving a provider identity to a User (existing link, linkable
-verified account, or new account), the refresh-token commit that closes a sign-in, and listing or
-unlinking providers. The router keeps the HTTP side: rate limits, the state cookies and their HMAC,
-the provider token exchange and id-token verification, redirects, mail and audit rows. Refusals
-reach it as the small exceptions below, carrying the ``/login?error=`` code where there is one.
+verified account, or new account), the commit that closes a sign-in with its one-time session handoff
+and that handoff's redemption (E29 (5)), and listing or unlinking providers. The router keeps the HTTP
+side: rate limits, the state, handoff and session cookies and the state cookies' HMAC, the provider
+token exchange and id-token verification, redirects, mail and audit rows. Refusals reach it as the
+small exceptions below, carrying the ``/login?error=`` code where there is one.
 """
 from __future__ import annotations
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import InviteCode, OAuthAccount, OAuthState, User
+from app.models import InviteCode, OAuthAccount, OAuthState, SessionHandoff, User
 from app.services import invite_service, refresh_token_service
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, AgreementRequired, require_current_agreement, stage_account_agreement,
 )
 from app.services.legal_readiness_service import is_collection_available
+from app.utils.datetimes import utcnow
 
 # Lifetime of an OAuth state row; the router gives its state cookies the same max-age.
 OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
+# Lifetime of a sign-in's session handoff (E29 (5)); the router gives the binding cookie the same max-age. The
+# landing page posts its code as it loads, so two minutes covers a slow connection, and a code that leaked (it
+# rides in a URL fragment, which no request log records) is dead soon after.
+SESSION_HANDOFF_TTL_SECONDS = 120
+# The longest code or binder a redemption reads: each is ``secrets.token_urlsafe(32)``, 43 ASCII characters.
+_HANDOFF_SECRET_MAX_LENGTH = 128
 
 
 class OAuthSignInRefused(Exception):
@@ -100,8 +109,8 @@ def oauth_create_account(
 ) -> tuple[Optional[User], Optional[str]]:
     """Create the User for a first social sign-in, or say why not.
 
-    Returns ``(user, None)`` with the row flushed but not committed (``mint_oauth_refresh_token``
-    commits it together with the provider link and the session), or ``(None, error_code)`` when the
+    Returns ``(user, None)`` with the row flushed but not committed (``commit_oauth_sign_in`` commits
+    it together with the provider link and the session handoff), or ``(None, error_code)`` when the
     gate refuses or (after rolling back) the invite's redemption is refused, the invite redeemed or
     revoked since it validated. When invite-only mode requires an invite it is consumed here, inside
     the same transaction, so a refused redemption never leaves an account behind. An insert that
@@ -221,7 +230,7 @@ def resolve_google_user(
     agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Google identity, with the provider
-    link (if new) and ``last_login_at`` staged for ``mint_oauth_refresh_token`` to commit.
+    link (if new) and ``last_login_at`` staged for ``commit_oauth_sign_in`` to commit.
 
     Order: existing link → existing account (linked only when both sides verified the email; else
     ``google_account_conflict``, since a new insert would hit the UNIQUE constraint) → new account
@@ -284,7 +293,7 @@ def resolve_apple_user(
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Apple identity, with the provider
     link (if new), a first-authorization name fill-in and ``last_login_at`` staged for
-    ``mint_oauth_refresh_token`` to commit.
+    ``commit_oauth_sign_in`` to commit.
 
     Order: existing link → existing verified account → new account (``created``, as for Google).
     Without an existing link Apple must supply an email (``apple_missing_claims``); an existing
@@ -342,26 +351,86 @@ def resolve_apple_user(
     return user_obj, linked_existing, created
 
 
-def mint_oauth_refresh_token(
-    db: Session, user: User, *, user_agent: Optional[str], ip: Optional[str]
-) -> str:
-    """Mint and commit the sign-in's refresh token, committing what the resolve staged with it (a
-    new account and redeemed invite, the provider link, ``last_login_at``). Returns the raw token.
+def _hash_handoff_secret(raw: str) -> str:
+    return hashlib.sha256(raw.encode("ascii")).hexdigest()
 
-    A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
-    flush or the commit): the session is rolled back and :class:`OAuthAccountConflictError` raised.
-    No lock serializes two callbacks for one identity, or two sign-ups with one invite: they interleave in
-    their routes' thread-pool units on one instance, as they always could across the API's instances (E121).
-    The unique ``users.email``, the unique ``uq_oauth_provider_account`` and the invite's guarded redemption
-    decide. The loser is refused by the resolve (a new account's lost create race, ``invite_required``) or,
-    for a link to an existing account, loses here, with nothing of its own committed; the PostgreSQL races in
-    ``tests/integration/test_refresh_rotation_transactions.py`` pin each.
+
+def _is_handoff_secret(raw: Optional[str]) -> bool:
+    """Whether ``raw`` could be a code or binder this module minted: ``secrets.token_urlsafe`` writes ASCII. Anything
+    else (missing, empty, oversized, or not ASCII, a lone surrogate among them, whose encode would raise) is refused
+    before its hash, with no query, as refresh_token_service refuses a token of the wrong shape."""
+    return isinstance(raw, str) and 0 < len(raw) <= _HANDOFF_SECRET_MAX_LENGTH and raw.isascii()
+
+
+def commit_oauth_sign_in(db: Session, user: User) -> tuple[str, str]:
+    """Commit what the resolve staged (a new account and redeemed invite, the provider link, ``last_login_at``)
+    together with a one-time session handoff for ``user``, and return its raw ``(code, binder)``: the code the
+    callback puts in its redirect's URL fragment, and the value of the cookie that binds the handoff to the browser
+    the callback answers. Only their SHA-256 hashes are stored (``SessionHandoff``). The callback sets no session
+    cookie: the landing page's post exchanges the code under the session cookies' lock (``redeem_session_handoff``),
+    and that post's answer sets them (E29 (5)). The same commit deletes the handoffs already expired, as a start
+    deletes the expired states (``store_oauth_state``).
+
+    A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the commit's flush): the
+    session is rolled back and :class:`OAuthAccountConflictError` raised. No lock serializes two callbacks for one
+    identity, or two sign-ups with one invite: they interleave in their routes' thread-pool units on one instance, as
+    they always could across the API's instances (E121). The unique ``users.email``, the unique
+    ``uq_oauth_provider_account`` and the invite's guarded redemption decide. The loser is refused by the resolve (a
+    new account's lost create race, ``invite_required``) or, for a link to an existing account, loses here, with
+    nothing of its own committed; the PostgreSQL races in ``tests/integration/test_refresh_rotation_transactions.py``
+    pin each.
     """
+    now = utcnow()
+    code, binder = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+    db.add(SessionHandoff(
+        code_hash=_hash_handoff_secret(code),
+        binder_hash=_hash_handoff_secret(binder),
+        user_id=user.id,
+        expires_at=now + timedelta(seconds=SESSION_HANDOFF_TTL_SECONDS),
+        created_at=now,
+    ))
     try:
-        return refresh_token_service.mint_refresh_token(db, user, user_agent=user_agent, ip=ip)
+        # The sign-in's own rows first, as the refresh token's flush sent them before the handoff (a lost race fails
+        # here, holding nothing else), then the expired handoffs, then the commit.
+        db.flush()
+        db.query(SessionHandoff).filter(SessionHandoff.expires_at < now).delete(synchronize_session=False)
+        db.commit()
     except IntegrityError:
         db.rollback()
         raise OAuthAccountConflictError() from None
+    return code, binder
+
+
+def redeem_session_handoff(db: Session, raw_code: Optional[str], raw_binder: Optional[str]) -> Optional[User]:
+    """Mark the handoff that ``raw_code`` and ``raw_binder`` name used, and return its account, or None: an unknown
+    code, a code with another browser's binder or with none (the binding cookie missing), one already used and one
+    expired are all refused alike, and a code or binder of the wrong shape with no query at all (``_is_handoff_secret``).
+
+    One guarded UPDATE decides (``used_at IS NULL`` and unexpired, for that code and that binder), so of two
+    redemptions of one code only one is handed the account: on PostgreSQL the second waits at the row for the first's
+    commit, then reads it used. Nothing commits here: the caller mints the session's refresh token and commits it with
+    the redemption (the route's ``issue_session``), so a mint that fails leaves the handoff unused, and a refusal writes
+    nothing. ``synchronize_session=False``: the statement is the whole decision, and the ORM's in-Python evaluation of
+    its criteria would compare SQLite's naive datetimes with the aware clock.
+    """
+    if not (_is_handoff_secret(raw_code) and _is_handoff_secret(raw_binder)):
+        return None
+    now = utcnow()
+    redeemed = db.execute(
+        update(SessionHandoff)
+        .where(
+            SessionHandoff.code_hash == _hash_handoff_secret(raw_code),
+            SessionHandoff.binder_hash == _hash_handoff_secret(raw_binder),
+            SessionHandoff.used_at.is_(None),
+            SessionHandoff.expires_at >= now,
+        )
+        .values(used_at=now)
+        .returning(SessionHandoff.user_id)
+        .execution_options(synchronize_session=False)
+    ).first()
+    if redeemed is None:
+        return None
+    return db.get(User, redeemed.user_id)
 
 
 # ─── Connections ───────────────────────────────────────────────────────────────

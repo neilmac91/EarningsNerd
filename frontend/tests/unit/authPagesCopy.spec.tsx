@@ -428,6 +428,18 @@ describe('login: an OAuth account conflict', () => {
   })
 })
 
+describe('login: an OAuth login whose landing page could not exchange its code (E29 (5))', () => {
+  // app/auth/complete/page.tsx sends here a code the exchange refused (used, expired, not bound to this browser) or a
+  // landing with no code at all: the sentence says the login did not finish and what to do, naming no cause it cannot
+  // tell apart.
+  it('says the login did not finish, and to log in again', () => {
+    useSearchParams.mockReturnValue(new URLSearchParams('error=oauth_handoff_failed'))
+    withQueryClient(<LoginPage />)
+    expect(screen.getByText('Your Google or Apple login did not finish. Log in again.')).toBeInTheDocument()
+    expect(screen.queryByText('Login failed. Please try again.')).toBeNull()
+  })
+})
+
 describe('login: the way in for a visitor without an account (D-046, F44)', () => {
   // The link under the form follows the one access decision (features/marketing/lib/access.ts), as RegisterForm's
   // notice and the header do: while registration is by invite, and until the registration payload answers or when

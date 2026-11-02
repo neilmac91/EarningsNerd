@@ -51,6 +51,9 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
     'EarningsNerd is in private beta: creating an account needs an invite. Log in with an existing account, or open your invite link to sign up.',
   email_unverified:
     'Your login provider has not verified that email address. Verify it with the provider, or sign up with an email and password.',
+  // The landing page's exchange of the login's one-time code was refused or never made: the code was used, expired or
+  // missing, or this browser lacks the cookie that binds it (app/auth/complete/page.tsx, E29 (5)).
+  oauth_handoff_failed: 'Your Google or Apple login did not finish. Log in again.',
 }
 
 function LoginContent() {

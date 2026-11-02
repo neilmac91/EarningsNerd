@@ -34,6 +34,7 @@ from app.services import account_mail_service, auth_account_service, invite_serv
 from app.services.account_agreement_service import AcceptedAccountAgreement, AgreementRequired
 from app.services.legal_readiness_service import CollectionUnavailable
 from main import app
+from tests.support.oauth_handoff import complete_sign_in, handoff_code
 
 pytestmark = pytest.mark.requires_db
 
@@ -413,9 +414,9 @@ def test_oauth_stored_assent_creates_one_agreement_and_state_cannot_be_replayed(
         assert stored.agreement_eligibility_version == VERSION
         assert accepted_at is not None
     response = _callback(client, monkeypatch, provider, claims, state)
-    assert response.status_code == 302
-    assert response.headers["location"] == settings.FRONTEND_URL
-    assert settings.COOKIE_NAME in response.cookies
+    handoff_code(response)
+    _assert_no_session(response)  # the landing page's exchange sets it (E29 (5))
+    assert settings.COOKIE_NAME in complete_sign_in(client, response).cookies
     with SessionLocal() as db:
         user = db.query(User).filter_by(email=address).one()
         agreement = db.query(AccountAgreement).filter_by(user_id=user.id).one()
@@ -466,9 +467,9 @@ def test_closed_collection_preserves_legacy_oauth_login_and_verified_linking_wit
     monkeypatch.setattr(settings, "LEGAL_COLLECTION_ENABLED", False)
     state = _start(client, provider, assent=False)
     response = _callback(client, monkeypatch, provider, claims, state)
-    assert response.status_code == 302
-    assert response.headers["location"] == settings.FRONTEND_URL
-    assert settings.COOKIE_NAME in response.cookies
+    handoff_code(response)
+    _assert_no_session(response)  # the landing page's exchange sets it (E29 (5))
+    assert settings.COOKIE_NAME in complete_sign_in(client, response).cookies
     with SessionLocal() as db:
         assert db.query(AccountAgreement).filter_by(user_id=user_id).count() == 0
         assert db.query(OAuthAccount).filter_by(user_id=user_id, provider=provider).count() == 1

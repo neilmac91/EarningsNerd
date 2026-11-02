@@ -231,7 +231,7 @@ frontend/
 | `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; Argon2id hashing (a legacy bcrypt hash's check by its marker) on one thread of its own + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
-| `oauth_account_service.py` | OAuth state, account creation/linking, refresh-token persistence and provider connections; the auth router owns provider exchange, cookies and responses |
+| `oauth_account_service.py` | OAuth state, account creation/linking, the sign-in's one-time session handoff and its redemption (E29 (5)) and provider connections; the auth router owns provider exchange, cookies and responses |
 | `user_account_service.py` | Profile updates and the database commit/rollback for account deletion, its mandatory `user_deleted` audit row in the same transaction; the users router owns third-party erasure and the other audit events |
 | `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
 | `admin_account_service.py` | Refuse direct provisioning of a Free account: the admin route answers 409 and points to an invitation, so only the recipient accepts the account requirements; nothing is created, and the service takes no session |
@@ -402,7 +402,8 @@ Core models in `models/__init__.py`: `User`, `OAuthAccount`/`OAuthState`, `Compa
 `SummaryGenerationProgress`.
 Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
-`notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
+`notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain), `session_handoff.py`
+(`earningsnerd_session_handoffs`: an OAuth sign-in's one-time code, as a hash, that its landing page exchanges for the session),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
 `contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
 `summary_job.py` (durable filing ownership and preparation budgets),

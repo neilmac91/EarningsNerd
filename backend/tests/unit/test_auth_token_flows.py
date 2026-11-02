@@ -23,9 +23,9 @@ first sign-in whose session mint fails are pinned beside them:
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
     login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews,
     after a replay of the same account's token too: the sweep ends only the replayed token's chain (E121, E96)
-  - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
-    the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
-    new-account insert loses a concurrent create for the same email, with the router's warning
+  - the OAuth callbacks when the sign-in's commit loses a race (IntegrityError at its flush):
+    the conflict redirect, no cookie but the state's clear, nothing persisted; likewise when a first
+    sign-in's new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
     and unlinking a provider commits the delete itself before its oauth_unlinked audit row; a logout
     that sends only the refresh cookie logs its row under that token's user, a deliberate change
@@ -35,8 +35,10 @@ first sign-in whose session mint fails are pinned beside them:
     changes nothing; a password change whose mint fails changes nothing (one commit); a login or a
     change whose password changed while it hashed is refused, and a login whose account was
     deactivated meanwhile too; a registration that loses a concurrent create stays opaque
-  - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
-    token) with no audit row committing after it; the connections list; Apple's name fill-in on an
+  - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, its one-time
+    session handoff) with no audit row committing after it, and redirects to the landing page with the
+    code in the fragment and its binding cookie, no session cookie; the landing page's exchange of that
+    code sets the session cookies, in order (E29 (5)); the connections list; Apple's name fill-in on an
     existing link and its first sign-in without an email
   - the audit rows of a sign-up and an OAuth sign-in: /register writes register once, under the
     keyed hash of the address; an OAuth sign-in that creates the account, in public mode or by
@@ -44,7 +46,7 @@ first sign-in whose session mint fails are pinned beside them:
     under the same hash; a returning one oauth_login alone; a link to an existing verified account
     oauth_login and oauth_linked; a refused sign-in, a conflict, a lost create race and a new account
     whose commit loses its link write none and set no session cookie; and a first sign-in whose
-    session mint fails answers 500 and leaves no account, link or audit row
+    commit fails answers 500 and leaves no account, link or audit row
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
@@ -70,6 +72,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
+from tests.support.oauth_handoff import complete_sign_in, handoff_code
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event
@@ -80,7 +83,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from main import app
 from app.config import settings
 from app.database import SessionLocal
-from app.models import AuditLog, LoginAttempt, OAuthAccount, RefreshToken, Subscription, User
+from app.models import AuditLog, LoginAttempt, OAuthAccount, RefreshToken, SessionHandoff, Subscription, User
 from app.routers import auth as auth_module
 from app.services import invite_service, login_lockout, refresh_token_service
 from app.services.posthog_client import EVENT_TRIAL_STARTED
@@ -111,6 +114,9 @@ ACCESS_CLEARED = [
 REFRESH_CLEARED = ['earningsnerd_refresh_token=""; expires=<t>; Max-Age=0; Path=/api/auth; SameSite=lax']
 GOOGLE_STATE_CLEARED = 'oauth_state=""; expires=<t>; Max-Age=0; Path=/; SameSite=lax'
 APPLE_STATE_CLEARED = 'apple_oauth_state=""; expires=<t>; HttpOnly; Max-Age=0; Path=/; SameSite=none; Secure'
+# An OAuth sign-in's binding cookie (E29 (5)): set by a callback that signs in, cleared by the landing page's exchange.
+HANDOFF_SET = "en_oauth_handoff=<v>; HttpOnly; Max-Age=120; Path=/api/auth/oauth; SameSite=lax"
+HANDOFF_CLEARED = 'en_oauth_handoff=""; expires=<t>; Max-Age=0; Path=/api/auth/oauth; SameSite=lax'
 
 _TOKEN_EXPIRIES = ("email_verification_expires", "password_reset_expires")
 _EXPIRES = re.compile(r"expires=[^;]+")
@@ -156,6 +162,22 @@ def fail_the_refresh_token_insert():
         if armed["on"] and any(isinstance(obj, RefreshToken) for obj in session.new):
             armed.update(on=False, fired=True)
             raise RuntimeError("refresh-token store down")
+
+    event.listen(Session, "before_flush", _before_flush)
+    yield armed
+    event.remove(Session, "before_flush", _before_flush)
+
+
+@pytest.fixture
+def fail_the_handoff_insert():
+    """Arm with ``armed["on"] = True``: the next flush that inserts a SessionHandoff raises instead, as a failed
+    sign-in commit would, after the callback's earlier writes (E29 (5))."""
+    armed = {"on": False, "fired": False}
+
+    def _before_flush(session, _flush_context, _instances):
+        if armed["on"] and any(isinstance(obj, SessionHandoff) for obj in session.new):
+            armed.update(on=False, fired=True)
+            raise RuntimeError("handoff store down")
 
     event.listen(Session, "before_flush", _before_flush)
     yield armed
@@ -1472,19 +1494,26 @@ _STATE_CLEARED = {"google": GOOGLE_STATE_CLEARED, "apple": APPLE_STATE_CLEARED}
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, request, provider, audited):
     """Linking a verified account signs it in. The callback commits the sign-in itself (the link,
-    last_login_at and the refresh token) before its audit rows: with the audit writes made no-ops
-    all of it must still persist."""
+    last_login_at and its one-time session handoff) before its audit rows: with the audit writes made
+    no-ops all of it must still persist. Its redirect sets no session cookie, only the handoff's binding
+    cookie; the landing page's exchange sets the session cookies, in order, and clears that one (E29 (5))."""
     email = _email()
     user_id = _seed_verified(email)
     if not audited:
         request.getfixturevalue("no_audit_rows")
     resp = _oauth_callback(client, monkeypatch, provider, f"{provider}_{uuid.uuid4().hex}", email)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     user = _user(email)
     assert user.last_login_at is not None
     with SessionLocal() as db:
         assert db.query(OAuthAccount).filter_by(user_id=user_id, provider=provider).count() == 1
+        assert db.query(SessionHandoff).filter_by(user_id=user_id).count() == 1
+        assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 0
+    exchange = complete_sign_in(client, resp)
+    assert exchange.status_code == 200 and exchange.json() == {"status": "signed_in"}
+    assert _cookies(exchange) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    with SessionLocal() as db:
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 1
     audit_rows = [("user", {"provider": provider})] if audited else []
     assert _audit_actions(user_id, "oauth_login") == audit_rows
@@ -1502,18 +1531,22 @@ def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, req
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_first_sign_in_commits_the_new_account_itself(client, monkeypatch, no_audit_rows, provider):
-    """A first social sign-in's new account, its link, last_login_at and the refresh token are
-    committed by the sign-in, not by the audit row written after it (made a no-op here)."""
+    """A first social sign-in's new account, its link, last_login_at and its session handoff are
+    committed by the sign-in, not by the audit row written after it (made a no-op here); the landing
+    page's exchange of the handoff then mints the session's refresh token (E29 (5))."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
     resp = _oauth_callback(client, monkeypatch, provider, sub, email)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     user = _user(email)
     assert user.hashed_password is None and user.email_verified is True
     assert user.last_login_at is not None
     with SessionLocal() as db:
         assert db.query(OAuthAccount).filter_by(provider=provider, provider_account_id=sub).one().user_id == user.id
+        assert db.query(SessionHandoff).filter_by(user_id=user.id).count() == 1
+    assert _refresh_tokens(user.id) == 0
+    assert complete_sign_in(client, resp).status_code == 200
     assert _refresh_tokens(user.id) == 1
 
 
@@ -1531,8 +1564,8 @@ def test_apple_sign_in_on_an_existing_link_fills_in_only_a_missing_name(client, 
     _seed_link(user_id, "apple", sub, email)
 
     resp = _oauth_callback(client, monkeypatch, "apple", sub, email, apple_user=_APPLE_FIRST_AUTH_USER)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [APPLE_STATE_CLEARED, HANDOFF_SET]
     assert _user(email).full_name == expected
 
 
@@ -1549,8 +1582,8 @@ def test_apple_sign_in_without_an_email_needs_an_existing_link(client, monkeypat
     resp = _oauth_callback(client, monkeypatch, "apple", sub, None)
     assert resp.status_code == 302
     if linked:
-        assert resp.headers["location"] == settings.FRONTEND_URL
-        assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+        handoff_code(resp)
+        assert _cookies(resp) == [APPLE_STATE_CLEARED, HANDOFF_SET]
         return
     assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error=apple_missing_claims"
     assert _cookies(resp) == [APPLE_STATE_CLEARED]
@@ -1601,6 +1634,7 @@ def test_oauth_link_that_loses_the_race_redirects_with_a_conflict(
     assert _cookies(resp) == ([] if provider == "google" else [APPLE_STATE_CLEARED])
     assert _user(email).last_login_at is None  # the whole sign-in rolled back
     with SessionLocal() as db:
+        assert db.query(SessionHandoff).filter_by(user_id=user_id).count() == 0
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 0
         assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 1  # the winner's
     label = "Google" if provider == "google" else "Apple"
@@ -1650,6 +1684,7 @@ def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflic
     with SessionLocal() as db:
         assert [u.id for u in db.query(User).filter(User.email == email)] == [lose_the_create_race["winner_id"]]
         assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
+        assert db.query(SessionHandoff).filter_by(user_id=lose_the_create_race["winner_id"]).count() == 0
         assert db.query(RefreshToken).filter_by(user_id=lose_the_create_race["winner_id"]).count() == 0
     warnings = [r for r in caplog.records if r.getMessage().endswith("OAuth IntegrityError creating account")]
     assert [(r.name, r.levelno, r.getMessage()) for r in warnings] == [
@@ -1713,8 +1748,8 @@ def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_accou
             _seed_link(user_id, provider, sub, email)
 
     resp = _oauth_callback(client, monkeypatch, provider, sub, email, invite=invite)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     account, address = str(_user(email).id), _test_client_address()
     login = ("oauth_login", account, {"provider": provider}, address)
     assert _audit_trail(email) == {
@@ -1797,19 +1832,19 @@ def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", ["google", "apple"])
-def test_an_oauth_first_sign_in_whose_session_mint_fails_leaves_no_account_and_no_register_row(
-    monkeypatch, server_errors, fail_the_refresh_token_insert, provider
+def test_an_oauth_first_sign_in_whose_commit_fails_leaves_no_account_and_no_register_row(
+    monkeypatch, server_errors, fail_the_handoff_insert, provider
 ):
-    """A first sign-in's new account and link commit with its refresh token, and its audit rows follow
-    that commit: when the mint fails, the callback answers 500 with no session and leaves no account,
-    no link and no audit row. A register row written before the mint would commit the account, the link
-    and itself, all kept behind the 500, whether or not the database enforces the refresh token's
-    foreign key (SQLite here does not; PostgreSQL does)."""
+    """A first sign-in's new account and link commit with its session handoff, and its audit rows follow
+    that commit: when the commit fails, the callback answers 500 with no cookie and leaves no account,
+    no link and no audit row. A register row written before the commit would commit the account, the link
+    and itself, all kept behind the 500, whether or not the database enforces the handoff's foreign key
+    (SQLite here does not; PostgreSQL does)."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
-    fail_the_refresh_token_insert["on"] = True
+    fail_the_handoff_insert["on"] = True
     resp = _oauth_callback(server_errors, monkeypatch, provider, sub, email)
-    assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
+    assert fail_the_handoff_insert["fired"], "the commit failure was never injected"
     assert resp.status_code == 500 and _cookies(resp) == []
     with SessionLocal() as db:
         assert db.query(User).filter(User.email == email).count() == 0
