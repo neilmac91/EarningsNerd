@@ -404,8 +404,9 @@ unused since generation became account-required in #619; kept because migrations
   current use the series earlier companyfacts syncs stored for it (rows with no filing owner, source
   `companyfacts` or `derived`). So that series no longer reads a filer that moved to IFRS (Toyota, Itau)
   at its last US-GAAP year in Multi-Period Analysis or the peers endpoint. A filing-owned row stays
-  current: one the per-filing writer stores from a pre-switch US-GAAP report when a reader summarizes it
-  can make that report's year current again (E287).
+  current: one the per-filing writer stores from an earlier pre-switch US-GAAP report when a reader
+  summarizes it can make that report's year current again (E287). A filer that moves back to US GAAP reads
+  its new reports' years as current; the retired years stay behind, a non-USD filer's amounts aside (E287).
 - A filing's own figures (the filing page's annual chart, `facts/filing_scope.py`) are the FY rows
   at its company and accession, current or not, never the rows keyed by `filing_id`. Both writers
   skip a stored identity, so a companyfacts row stored first at the filing's identity (the winner

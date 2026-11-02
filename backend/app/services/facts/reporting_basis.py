@@ -15,11 +15,14 @@ from current use the series earlier companyfacts syncs stored for it (``retire_i
 with no filing owner, reported (``companyfacts``) or calculated from them (``derived``). Nothing is
 deleted, and rows another writer stored under a filing stay as they are: a filing's own figures, which
 each filing keeps readable by accession (the Copilot's ``_scope`` ignores ``is_latest``). That includes
-a row the per-filing writer stores later from one of the filer's US-GAAP reports when a reader summarizes
-it: the key then holds no current row, so that report's own year can read as current again until a
-stored basis lets the writer store it behind (E287). A payload with no ifrs-full data (every domestic
-filer) never reaches the count, so its sync is unchanged. A filer that moves back to US GAAP keeps the
-retired rows non-current; its next reports' own rows become current as they are stored.
+a row the per-filing writer stores later from one of the filer's earlier US-GAAP reports when a reader
+summarizes it (TM's 2019 20-F; the last one's rows are the series' own identities, which it skips): the key
+then holds no current row, so that report's own year can read as current again until a stored basis lets
+the writer store it behind (E287). A payload with no ifrs-full data (every domestic filer) never reaches
+the count, so its sync is unchanged. A filer that moves back to US GAAP reads its new reports' years as
+current, as its next sync stores them. The years the retire left behind stay non-current, since a sync
+skips an identity it holds, except a non-USD filer's amounts: a sync outside USD re-promotes the batch's
+own stored rows (``currency.py``), though not their ratios. Restoring them needs the same stored basis (E287).
 """
 from __future__ import annotations
 

@@ -1,11 +1,12 @@
-"""A filer whose latest annual report is IFRS reads as an IFRS filer (``facts/reporting_basis.py``).
+"""A filer whose latest periodic report is IFRS reads as an IFRS filer (``facts/reporting_basis.py``).
 
 F61, founder decision of 2026-11-01: a filer that moved from US GAAP to IFRS (Toyota from the year ended
 2021-03-31, Itau after 2010) must not read its last US-GAAP year as its latest figures. Its companyfacts
 sync stores nothing, as an IFRS-only filer's does, and retires the series earlier syncs stored from
-current use. Multi-Period Analysis then reads no periods, the coverage route names it an IFRS filer,
-and the peers endpoint serves no figure for it. A payload with no ifrs-full data never reaches the
-count, so every domestic filer's sync is unchanged.
+current use. Where no filing's own row stands in, Multi-Period Analysis then reads no periods and the
+peers endpoint serves no figure for it; on the request whose sync ran, the coverage route names it an IFRS
+filer. A row the per-filing writer stores later from a pre-switch report is E287's. A payload with no
+ifrs-full data never reaches the count, so every domestic filer's sync is unchanged.
 """
 import uuid
 from datetime import date
@@ -301,6 +302,32 @@ class TestTheSyncRetiresTheSeries:
         assert trend_analysis_service.available_periods(db, company.id) == {"annual": [], "quarterly": []}
         after = peers_service.get_peers(db, company.ticker, "revenue")["subject"]
         assert (after["value"], after["period_end"]) == (None, None)
+        db.close()
+
+    def test_a_filer_that_moves_back_to_us_gaap_reads_its_new_reports_year_as_its_latest(self):
+        # IFRS 20-Fs for 2021-23, then a US-GAAP 20-F again in 2025: the sync reads the us-gaap series once more,
+        # and the new report's own years go in current. The years the retire left behind stay non-current in USD
+        # (module docstring; E287), so only the new report's years are asserted.
+        from app.database import SessionLocal
+        from app.services import peers_service, trend_analysis_service
+
+        db = SessionLocal()
+        company = _new_company(db)
+        ifrs = _ifrs_years((("I21", "2021-06-24"), ("I23", "2023-06-20")), unit="USD")
+        _sync(db, company, _payload(_usgaap_years("USD")))
+        assert _sync(db, company, _payload(_usgaap_years("USD"), ifrs))["unsupported_ifrs"] is True
+        back = _usgaap_years("USD")
+        for tag, base in ((REV_TAG, 1000.0), ("NetIncomeLoss", 100.0)):
+            back[tag]["units"]["USD"] += [_item(base + shown, f"{shown}-03-31", start=f"{shown - 1}-04-01", accn="U25",
+                                                filed="2025-06-20", fy=2025) for shown in (2024, 2025)]
+
+        result = _sync(db, company, _payload(back, ifrs))
+        assert result["unsupported_ifrs"] is False and result["inserted"] > 0
+        db.expire_all()
+        subject = peers_service.get_peers(db, company.ticker, "revenue")["subject"]
+        assert (subject["value"], subject["period_end"]) == (3025.0, "2025-03-31")
+        years = {p["fiscal_year"] for p in trend_analysis_service.available_periods(db, company.id)["annual"]}
+        assert {2024, 2025} <= years
         db.close()
 
     def test_the_retire_takes_the_company_row_before_it_updates_a_fact(self, monkeypatch):

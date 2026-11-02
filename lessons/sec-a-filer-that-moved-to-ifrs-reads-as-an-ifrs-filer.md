@@ -29,14 +29,18 @@ Rows are never deleted: a filing's own rows stay current, and every filing's row
 accession. Retire the rows rather than hide the series in a reader: Multi-Period Analysis, the peers
 endpoint and the quarterly repair all read `is_latest`, so they agree, and the repair refuses the
 payload as it refuses an IFRS-only filer's. The retire covers the companyfacts series only. A row the
-per-filing writer stores later from one of the filer's pre-switch US-GAAP reports, when a reader
-summarizes it, finds no current row at its key and goes in current, so that report's year can read as
-the latest again until a stored basis lets the writer store it behind (E287).
+per-filing writer stores later from one of the filer's earlier pre-switch US-GAAP reports, when a reader
+summarizes it, finds no current row at its key and goes in current, so that report's year (TM: the year
+ended 2019-03-31, from its 2019 20-F) can read as the latest again until a stored basis lets the writer
+store it behind (E287). The last US-GAAP report's rows are the series' own identities, which the writer
+skips. A filer that moves back to US GAAP reads its new reports' years as current; the retired years stay
+non-current (a sync skips an identity it holds), except a non-USD filer's amounts, which a sync outside
+USD re-promotes without their ratios. The same stored basis would restore them (E287).
 
 **Evidence**: `backend/app/services/facts/reporting_basis.py`;
 `backend/app/services/facts/companyfacts.py` (`normalize_companyfacts`' first branch);
 `backend/app/services/facts/ingest.py` (`_persist_companyfacts_payload`);
-`backend/tests/unit/test_companyfacts_reporting_basis.py` (22 tests, sixteen mutants killed, the
+`backend/tests/unit/test_companyfacts_reporting_basis.py` (23 tests, sixteen mutants killed, the
 company-lock order pinned by a statement spy); F61 in
 `tasks/todo.md`; the peers endpoint read of 2026-11-01 (TM: JPY revenue for the year ended 2020-03-31;
 ITUB: BRL net interest income for FY2010).
