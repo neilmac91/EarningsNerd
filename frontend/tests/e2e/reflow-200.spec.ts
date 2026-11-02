@@ -2840,6 +2840,75 @@ for (const width of [390, 360, 320]) {
   })
 }
 
+/** PB-03: the feedback composer with three selected screenshots, the most its picker holds, stays inside a phone at
+    the default size and under 200% text, in both themes. The dialog cases above open the text-only composer (shared
+    fixtures report uploads off), and the isolated live verifier captures the composer at 1440px only, so nothing read
+    a phone with previews, their remove buttons and long file names until this case. The capabilities route, added
+    after the shared fixture's, answers first: uploads on, for this case alone. The PNGs are drawn in the page itself,
+    wide, so no image bytes live in the repository. */
+for (const width of [390, 360, 320]) {
+  test.describe(`a ${width}px phone, the feedback composer holding three screenshots`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
+    for (const theme of ['light', 'dark'] as const) {
+      test(`keeps its previews, remove buttons and Send inside the dialog with no sideways scroll at the default size and 200% text, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
+        await page.addInitScript(([chosen]) => {
+          try {
+            localStorage.setItem('theme', chosen)
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            localStorage.setItem('en_session_active', '1')
+          } catch {}
+        }, [theme] as const)
+        await answerApi(page, baseURL!, 'pro')
+        const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+        await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/feedback/capabilities', (route) =>
+          route.fulfill({ status: 200, headers: cors, json: {
+            attachments_enabled: true, max_files: 3, max_file_bytes: 5 * 1024 * 1024, max_total_bytes: 16 * 1024 * 1024,
+            accepted_content_types: ['image/png', 'image/jpeg', 'image/webp'],
+          } }))
+        await page.goto('/pricing')
+        await h1(page, 'Pricing')
+        expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `/pricing in the ${theme} theme`).toBe(theme === 'dark')
+        await page.getByRole('button', { name: 'Feedback', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Send feedback' })
+        await expect(dialog.getByRole('button', { name: 'Add screenshots' })).toBeVisible()
+        const drawn = await page.evaluate(() => {
+          const canvas = document.createElement('canvas')
+          ;[canvas.width, canvas.height] = [1600, 900]
+          const context = canvas.getContext('2d')!
+          context.fillStyle = '#24445b'
+          context.fillRect(0, 0, canvas.width, canvas.height)
+          return canvas.toDataURL('image/png').split(',')[1]
+        })
+        await dialog.getByLabel('Screenshot files').setInputFiles([1, 2, 3].map((n) => ({
+          name: `quarterly-revenue-chart-clipped-at-the-right-edge-${n}.png`, mimeType: 'image/png', buffer: Buffer.from(drawn, 'base64'),
+        })))
+        await expect(dialog.getByRole('list', { name: 'Selected screenshots' }).getByRole('listitem')).toHaveCount(3)
+        await expect(dialog.getByRole('button', { name: 'Add screenshots' })).toHaveAttribute('aria-disabled', 'true')
+        await page.evaluate(() => document.fonts.ready)
+        for (const size of ['default', '200%'] as const) {
+          if (size === '200%') await doubleText(page)
+          const at = `the composer with three screenshots at ${width}px in the ${theme} theme and ${size} text`
+          const fit = await dialog.evaluate((panel) => {
+            const box = panel.getBoundingClientRect()
+            const inner = { left: box.left + panel.clientLeft, right: box.left + panel.clientLeft + panel.clientWidth }
+            const outside = [...panel.querySelectorAll('img, button, li, p, textarea')]
+              .map((node) => ({ node, rect: node.getBoundingClientRect() }))
+              .filter(({ rect }) => rect.width > 0 && (rect.left < inner.left - 0.5 || rect.right > inner.right + 0.5))
+              .map(({ node, rect }) => `${node.tagName.toLowerCase()} "${(node.getAttribute('aria-label') || node.textContent || '').trim().slice(0, 40)}" at ${Math.round(rect.left)}-${Math.round(rect.right)}px`)
+            return { outside, panelScroll: panel.scrollWidth > panel.clientWidth ? `${panel.scrollWidth}px of content in ${panel.clientWidth}px` : null }
+          })
+          expect(fit.outside, `${at}: everything inside the panel`).toEqual([])
+          expect(fit.panelScroll, `${at}: the panel does not scroll sideways`).toBeNull()
+          for (const n of [1, 2, 3]) await expect(dialog.getByRole('button', { name: `Remove screenshot ${n}` }), `${at}: remove ${n}`).toBeVisible()
+          await expect(dialog.getByRole('button', { name: 'Send feedback' }), `${at}: Send`).toBeVisible()
+          const widths = await measure(page)
+          expect(widths.scrollWidth, `/pricing with ${at}: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        }
+      })
+    }
+  })
+}
+
 
 // UX07 / E181: these need a server built with NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true, as CI's e2e build is, since
 // production shows the badge. On a build without it they fail rather than skip, so CI cannot lose them unseen; the
