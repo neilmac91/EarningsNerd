@@ -31,6 +31,11 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * address shows whole, wrapped inside its cell, and the table fits its box (with the cell nowrap it was 1264px in
  * 1214px), while a short address and "Anonymous" keep one line each.
  *
+ * The invites list holds one long address too (chief design on #1965): at 1280px and 1920px, with LONG pending beside
+ * alice's and a link-only invite, the table fits its scroll box and every Revoke ends inside it. With the email cell
+ * nowrap and the bare address the table was 1295px in its 1214px box, Revoke past the right edge; the cell now breaks
+ * the address after its @ (AddressText), and alice's keeps one line.
+ *
  * The resend dialog's share options (features/admin/components/ShareInvite.tsx, opened in ResendShareModal.tsx) fit the
  * dialog at 390, 360 and 320px under the browser's own 200% text setting, in both themes (E240): no element inside the
  * dialog scrolls sideways, the dialog's own scroller included, the share panel and every button and link in the body
@@ -233,6 +238,13 @@ const LINK_ONLY_ANSWERS = {
   },
   '/api/admin/invites/7/resend': {
     id: 8, email: null, invite_link: 'https://earningsnerd.io/register?invite=abc123', expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta', revoked_invite_id: 7,
+  },
+}
+
+/** The invites list with one long address pending (LONG), alice's and a link-only invite. */
+const LONG_INVITE_ANSWERS = {
+  '/api/admin/invites': {
+    invites: [LONG, INVITED, null].map((email, i) => ({ id: 20 + i, email, status: 'pending', cohort: 'beta', expires_at: '2026-11-01T00:00:00Z', used_at: null, user_id: null, created_at: '2026-10-14T00:00:00Z' })),
   },
 }
 
@@ -753,6 +765,38 @@ for (const theme of ['light', 'dark'] as const) {
           expect(d.page.scrollWidth, `${label}: the page scrolls sideways with the dialog open`).toBe(d.page.clientWidth)
         })
       }
+    }
+  })
+
+  test.describe(`the invites list, ${theme} theme`, () => {
+    for (const width of [1280, 1920]) {
+      test(`at ${width}px one long address keeps the table inside its box, every Revoke in it, and a short address on one line (chief design on #1965)`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 })
+        await openAdmin(page, baseURL!, theme, '/admin/invites', LONG_INVITE_ANSWERS)
+        const table = page.getByRole('table')
+        await expect(table.getByText(LONG)).toBeVisible()
+        await expect(table.getByRole('button', { name: /^Revoke / })).toHaveCount(3)
+        await page.evaluate(() => document.fonts.ready)
+        const m = await table.evaluate((table, short) => {
+          const frame = table.parentElement!
+          const cell = [...table.querySelectorAll('td')].find((td) => td.textContent === short)!
+          const range = document.createRange()
+          range.selectNodeContents(cell)
+          return {
+            table: table.scrollWidth,
+            frame: { clientWidth: frame.clientWidth, scrollWidth: frame.scrollWidth, right: frame.getBoundingClientRect().right },
+            revokes: [...table.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Revoke').map((b) => b.getBoundingClientRect().right),
+            shortLines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size,
+          }
+        }, INVITED)
+        const label = `${width}px, ${theme}`
+        expect(m.table, `${label}: the table is wider than its frame`).toBeLessThanOrEqual(m.frame.clientWidth)
+        expect(m.frame.scrollWidth, `${label}: the table's frame scrolls`).toBe(m.frame.clientWidth)
+        expect(m.revokes, `${label}: the Revoke buttons`).toHaveLength(3)
+        for (const right of m.revokes) expect(right, `${label}: a Revoke ends past the frame`).toBeLessThanOrEqual(m.frame.right + 0.5)
+        expect(m.shortLines, `${label}: ${INVITED} wraps, its column squeezed`).toBe(1)
+        await expect(page.getByText('Scroll horizontally to read all columns.')).toHaveCount(0)
+      })
     }
   })
 

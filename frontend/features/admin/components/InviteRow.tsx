@@ -14,6 +14,7 @@ import { resendEmails } from '@/features/admin/lib/inviteDelivery'
 import RevokeConfirmModal from '@/features/admin/components/RevokeConfirmModal'
 import { MissingValue } from '@/components/ui/MissingValue'
 import ResendShareModal from '@/features/admin/components/ResendShareModal'
+import AddressText from '@/features/auth/components/AddressText'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -62,7 +63,7 @@ export default function InviteRow({ invite, linkHold, invitationEmailAvailable }
     onSuccess: (result) => {
       setCooldown(RESEND_COOLDOWN_SECONDS)
       // `emailed` is the provider's acceptance, never delivery: the dialog and the row say what is known.
-      toast.success(result.emailed ? 'New invite link ready · accepted by the email provider' : 'Fresh invite link minted')
+      toast.success(result.emailed ? 'New invite link ready · accepted by the email provider' : 'New invite link ready')
       // Surface the fresh link in a dialog so the admin can copy/share it right away.
       setResendShare({
         link: result.invite_link,
@@ -98,8 +99,13 @@ export default function InviteRow({ invite, linkHold, invitationEmailAvailable }
 
   return (
     <tr className="hover:bg-background-light dark:hover:bg-white/5">
-      <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
-        {invite.email ?? (
+      {/* The address breaks after its @ (AddressText), never nowrap: one 51-character address took the table to 1295px
+          in its 1214px box from 1280px to 1920px, Revoke past its right edge (chief design on #1965). A short address
+          still keeps its line. */}
+      <td className="px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
+        {invite.email ? (
+          <AddressText address={invite.email} />
+        ) : (
           <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Link only</span>
         )}
       </td>

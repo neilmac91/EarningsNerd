@@ -7,7 +7,7 @@ import { PERMISSION_VIA, type InvitePermission, type PermissionVia } from '@/fea
  * tick: each field is required, and one record covers every address in that send.
  */
 
-/** The admin's own calendar day, YYYY-MM-DD: the date field's default and its latest day. */
+/** The admin's own calendar day, YYYY-MM-DD: the date field's latest day (the field starts empty). */
 export function localDay(at: Date = new Date()): string {
   return format(at, 'yyyy-MM-dd')
 }

@@ -32,6 +32,8 @@ import {
 } from '@/features/admin/api/admin-api'
 import { toast } from 'sonner'
 import { READY } from './fixtures/inviteReadiness'
+import { localDay } from '@/features/admin/lib/invitePermission'
+import { subDays } from 'date-fns'
 
 /** A minted invite: emailed, the provider took it; asked to email and not taken, the send failed. */
 const mint = (email: string, emailed: boolean, asked = true): MintResult => ({
@@ -64,6 +66,8 @@ async function sendBatch(addresses: string, { email = false } = {}) {
   if (email) {
     await user.click(box)
     await user.selectOptions(screen.getByLabelText('How they asked'), 'email')
+    // The day starts empty: the admin enters it.
+    fireEvent.change(screen.getByLabelText('When they asked'), { target: { value: localDay(subDays(new Date(), 1)) } })
   }
   const field = screen.getByLabelText('Email addresses')
   fireEvent.change(field, { target: { value: addresses } })

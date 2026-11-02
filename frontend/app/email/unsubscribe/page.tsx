@@ -125,7 +125,18 @@ export default function UnsubscribePage() {
             )}
             {outcome === 'limited' && (
               <div className="mt-4">
-                <Notice variant="error" title="Too many tries for now" description="Wait a while, then try again." />
+                {/* The route allows 20 tries an hour from one connection: the support address is the way on before
+                    then (chief design on #1965). */}
+                <Notice
+                  variant="error"
+                  title="Too many tries for now"
+                  description={
+                    <>
+                      Try again in an hour, or write to <SupportAddress /> and we&apos;ll stop invitation emails to your
+                      address.
+                    </>
+                  }
+                />
               </div>
             )}
             {outcome === 'failed' && (
@@ -133,7 +144,12 @@ export default function UnsubscribePage() {
                 <Notice
                   variant="error"
                   title="We couldn't unsubscribe you just now"
-                  description="Check your connection, then try again."
+                  description={
+                    <>
+                      Try again in a minute, or write to <SupportAddress /> and we&apos;ll stop invitation emails to your
+                      address.
+                    </>
+                  }
                 />
               </div>
             )}

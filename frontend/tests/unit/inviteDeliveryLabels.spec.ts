@@ -9,6 +9,7 @@ import {
 import {
   NOT_EMAILED,
   PERMISSION_VIA_LABELS,
+  SUPPRESSION_FALLBACK,
   SUPPRESSION_NOTES,
   deliveryState,
   permissionLine,
@@ -103,7 +104,7 @@ describe('invitation email states claim no more than the evidence', () => {
 
   it('claims nothing for a status it does not know, an inherited key included', () => {
     for (const status of ['opened', 'constructor', '__proto__']) {
-      expect(stateOf(status), status).toEqual({ label: 'Delivery state not recognised' })
+      expect(stateOf(status), status).toEqual({ label: 'Delivery state not recognized' })
     }
     expect(deliveryState(null)).toBe(NOT_EMAILED)
     expect(deliveryState(undefined)).toEqual({ label: 'Not emailed' })
@@ -126,6 +127,26 @@ describe('a suppressed address is its own note', () => {
     expect(suppressionNote(null)).toBeNull()
     expect(suppressionNote(undefined)).toBeNull()
     expect(suppressionNote('soft_bounce' as never)).toBe('No invitation email goes to this address')
+  })
+
+  it("says what follows, never the state's own words again, when the delivery's state names the cause", () => {
+    const fallback = 'No invitation email goes to this address'
+    expect(SUPPRESSION_FALLBACK).toBe(fallback)
+    expect(suppressionNote('hard_bounce', delivery({ status: 'bounced', bounce_type: 'permanent' }))).toBe(fallback)
+    expect(suppressionNote('complaint', delivery({ status: 'complained' }))).toBe(fallback)
+    // A state that does not name the cause leaves the note's own words.
+    expect(suppressionNote('hard_bounce', delivery({ status: 'bounced', bounce_type: 'temporary' }))).toBe('Bounced permanently')
+    expect(suppressionNote('hard_bounce', delivery({ status: 'delivered' }))).toBe('Bounced permanently')
+    expect(suppressionNote('complaint', delivery({ status: 'bounced', bounce_type: 'permanent' }))).toBe('Reported as spam')
+    expect(suppressionNote('complaint', null)).toBe('Reported as spam')
+    expect(suppressionNote('unsubscribed', delivery({ status: 'complained' }))).toBe('Unsubscribed from invitation emails')
+    // Wherever the fallback stands in, the cell's two lines never match.
+    for (const status of DELIVERY_STATUSES) {
+      for (const bounce of ['permanent', 'temporary', null] as const) {
+        const d = delivery({ status, bounce_type: bounce })
+        for (const reason of EMAIL_SUPPRESSIONS) expect(suppressionNote(reason, d), `${status}/${bounce}/${reason}`).not.toBe(deliveryState(d).label)
+      }
+    }
   })
 })
 

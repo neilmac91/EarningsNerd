@@ -25,6 +25,7 @@ import {
   type InviteRecord,
   type ResendResult,
 } from '@/features/admin/api/admin-api'
+import { toast } from 'sonner'
 import { READY } from './fixtures/inviteReadiness'
 
 // A link never emailed: its Resend makes a new link to share by hand (send_email false).
@@ -223,6 +224,15 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     expect(resendInvite).toHaveBeenCalledWith(1, { sendEmail: false })
   })
 
+  it('says "New invite link ready" when a resend makes a link to share by hand, as the dialog\'s heading does', async () => {
+    vi.mocked(toast.success).mockReset()
+    const user = userEvent.setup()
+    await resendFromRow(user)
+    expect(toast.success).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledWith('New invite link ready')
+    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'New invite link ready' })).toBeInTheDocument()
+  })
+
   it('ignores activation of the focused Resend button during the cooldown', async () => {
     const user = userEvent.setup()
     const { resend } = await resendFromRow(user)
@@ -286,6 +296,26 @@ describe('AdminInvitesPage: the table scrolls inside its card', () => {
     expect(box).not.toHaveAttribute('role')
     expect(box).not.toHaveAttribute('tabindex')
     expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it("breaks an invitee's address after its @, never nowrap, so one long address keeps the table inside its box", async () => {
+    const long = 'maximilian.featherstonehaugh@example-enterprise.com'
+    vi.mocked(listInvites).mockResolvedValue([{ ...invite, id: 4, email: long }, invite, { ...invite, id: 3, email: null }])
+    renderPage()
+    // A nowrap cell holding the bare address took the table to 1295px in its 1214px box from 1280px to 1920px,
+    // Revoke past its right edge (chief design on #1965); tests/e2e/admin-invite-chip-reflow.spec.ts measures it.
+    for (const email of [long, 'alice@example.com']) {
+      const cell = (await screen.findByText(email, { selector: 'td' })) as HTMLTableCellElement
+      expect(cell).not.toHaveClass('whitespace-nowrap')
+      expect(cell).toHaveTextContent(email)
+      // AddressText: the address, then a <wbr> straight after its @, so it reads and copies whole.
+      const wbr = cell.querySelectorAll('wbr')
+      expect(wbr).toHaveLength(1)
+      expect(wbr[0].previousSibling?.textContent).toBe(email.slice(0, email.indexOf('@') + 1))
+      expect(wbr[0].nextSibling?.textContent).toBe(email.slice(email.indexOf('@') + 1))
+    }
+    // "Link only" is as it was.
+    expect(screen.getByText('Link only').closest('td')!.querySelector('wbr')).toBeNull()
   })
 
   it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {

@@ -15,7 +15,7 @@ interface InviteDeliveryStateProps {
  */
 export default function InviteDeliveryState({ delivery, suppression }: InviteDeliveryStateProps) {
   const state = deliveryState(delivery)
-  const note = suppressionNote(suppression)
+  const note = suppressionNote(suppression, delivery)
   return (
     <div className="min-w-48 max-w-64 space-y-0.5">
       <p

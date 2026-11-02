@@ -68,7 +68,7 @@ export function deliveryState(
   const { status } = delivery
   if (status === 'bounced') return { label: own(BOUNCED, delivery.bounce_type) ?? 'Bounced' }
   if (status === 'failed') return { label: 'Not sent', hint: failedHint(delivery.error_kind) }
-  return own<DeliveryState>(STATES, status) ?? { label: 'Delivery state not recognised' }
+  return own<DeliveryState>(STATES, status) ?? { label: 'Delivery state not recognized' }
 }
 
 /** Why an address gets no invitation email, as the row's note says it. */
@@ -79,10 +79,33 @@ export const SUPPRESSION_NOTES: Record<EmailSuppression, string> = {
   provider_suppressed: 'Suppressed by the email provider',
 }
 
-/** The note for a suppressed address; one this page does not know still withholds email. */
-export function suppressionNote(suppression: EmailSuppression | null | undefined): string | null {
+/** The note's words for a suppression this page does not know, or one whose cause the delivery's state already names. */
+export const SUPPRESSION_FALLBACK = 'No invitation email goes to this address'
+
+/** Whether the delivery's state names the suppression's own cause: a permanent bounce for a hard bounce, a spam
+ *  report for a complaint. */
+function stateNamesCause(
+  suppression: EmailSuppression,
+  delivery: Pick<InviteDelivery, 'status' | 'bounce_type'> | null | undefined,
+): boolean {
+  if (!delivery) return false
+  if (suppression === 'hard_bounce') return delivery.status === 'bounced' && delivery.bounce_type === 'permanent'
+  if (suppression === 'complaint') return delivery.status === 'complained'
+  return false
+}
+
+/**
+ * The note for a suppressed address; one this page does not know still withholds email. Where the delivery's state
+ * above it already names the cause, the note says what follows instead, so one cell never reads "Bounced permanently"
+ * or "Reported as spam" twice (chief design on #1965).
+ */
+export function suppressionNote(
+  suppression: EmailSuppression | null | undefined,
+  delivery?: Pick<InviteDelivery, 'status' | 'bounce_type'> | null,
+): string | null {
   if (!suppression) return null
-  return own<string>(SUPPRESSION_NOTES, suppression) ?? 'No invitation email goes to this address'
+  if (stateNamesCause(suppression, delivery)) return SUPPRESSION_FALLBACK
+  return own<string>(SUPPRESSION_NOTES, suppression) ?? SUPPRESSION_FALLBACK
 }
 
 /** How the recipient asked, as the permission form offers it. */

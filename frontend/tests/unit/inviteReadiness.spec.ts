@@ -106,7 +106,7 @@ describe('the banner tells registration held apart from invitation email held', 
     const held = heldCapabilities(COLLECTION_HELD)
     expect(held.map((h) => h.title)).toEqual(['Registration is on hold', 'Invitation email is on hold'])
     expect(held[0].description).toBe(
-      `${COLLECTION_REASONS.collection_disabled} ${COLLECTION_REASONS.operator_unpublished} Until it opens, you can't create invite links or resend one. The list and Revoke still work.`,
+      `${COLLECTION_REASONS.collection_disabled} ${COLLECTION_REASONS.operator_unpublished} Until registration opens, you can't create invite links or resend one. The list and Revoke still work.`,
     )
     expect(held[1].description).toBe(
       `${INVITATION_EMAIL_REASONS.collection_unavailable} ${INVITATION_EMAIL_REASONS.invitation_email_disabled}`,

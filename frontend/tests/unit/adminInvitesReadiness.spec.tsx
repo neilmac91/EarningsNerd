@@ -142,7 +142,7 @@ describe('the readiness banner says what holds what, and the page turns it off',
     const registration = notice('Registration is on hold')
     expect(registration).toHaveTextContent('New registrations are switched off (LEGAL_COLLECTION_ENABLED is off). The operator turns it on in the server settings.')
     expect(registration).toHaveTextContent("The operator details aren't published (LEGAL_OPERATOR_PUBLISHED is off).")
-    expect(registration).toHaveTextContent("Until it opens, you can't create invite links or resend one. The list and Revoke still work.")
+    expect(registration).toHaveTextContent("Until registration opens, you can't create invite links or resend one. The list and Revoke still work.")
     const email = notice('Invitation email is on hold')
     expect(email).toHaveTextContent('It waits for registration to open.')
     expect(email).not.toHaveTextContent('share them yourself')
@@ -168,12 +168,12 @@ describe('the readiness banner says what holds what, and the page turns it off',
     await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith(1))
   })
 
-  it('says something it does not recognise holds a capability, rather than nothing', async () => {
+  it('says something it does not recognize holds a capability, rather than nothing', async () => {
     answer({ collection: { available: true, reasons: [] }, invitation_email: { available: false, reasons: ['a_new_condition'] } })
     renderPage()
     await screen.findByText('Invitation email is on hold')
     expect(notice('Invitation email is on hold')).toHaveTextContent(
-      "Something this page doesn't recognise holds it. The server settings say what.",
+      "Something this page doesn't recognize holds it. The server settings say what.",
     )
   })
 
@@ -231,7 +231,7 @@ describe("an emailed invite records the recipient's request", () => {
     return user
   }
 
-  it('asks how and when they asked, the day defaulting to today, and sends nothing until both are given', async () => {
+  it('asks how and when they asked, both starting empty, and sends nothing until both are given', async () => {
     const user = await openEmailing()
     const group = screen.getByRole('group', { name: 'Their request for an invitation' })
     expect(group).toHaveTextContent(
@@ -242,8 +242,10 @@ describe("an emailed invite records the recipient's request", () => {
     expect(via.value).toBe('')
     expect([...via.options].map((option) => option.text)).toEqual(['Choose one', 'Email', 'Message', 'Call', 'In person', 'Other'])
     expect(on).toHaveAttribute('type', 'date')
-    expect(on.value).toBe(localDay())
+    // Empty, not today: both halves of the record are the admin's deliberate entries (chief design on #1965).
+    expect(on.value).toBe('')
     expect(on).toHaveAttribute('max', localDay())
+    expect(on).toHaveAttribute('min')
     // The recipient's request, never an admin's tick.
     expect(screen.getAllByRole('checkbox')).toEqual([emailBox()])
 
@@ -251,13 +253,21 @@ describe("an emailed invite records the recipient's request", () => {
     await user.click(sendButton())
     expect(createInvite).not.toHaveBeenCalled()
     expect(via).toHaveAttribute('aria-invalid', 'true')
+    expect(on).toHaveAttribute('aria-invalid', 'true')
     expect(via).toHaveFocus()
-    expect(screen.getByRole('alert')).toHaveTextContent('Choose how they asked for an invitation.')
+    expect(screen.getAllByRole('alert').map((alert) => alert.textContent)).toEqual([
+      'Choose how they asked for an invitation.',
+      'Enter the day they asked, within the last year.',
+    ])
 
     await user.selectOptions(via, 'message')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter the day they asked, within the last year.')
+    await user.click(sendButton())
+    expect(createInvite).not.toHaveBeenCalled()
+    expect(on).toHaveFocus()
     const day = localDay(subDays(new Date(), 2))
     fireEvent.change(on, { target: { value: day } })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     await user.click(sendButton())
     await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(2))
     for (const [input] of vi.mocked(createInvite).mock.calls) {
@@ -345,6 +355,29 @@ describe('each row says what is known of its email', () => {
     expect(emailCell('Link only')).toHaveTextContent(/^Not emailed$/)
   })
 
+  it("never says the state's words twice: a note whose cause the state names reads what follows instead", async () => {
+    answer(READY, [
+      pendingInvite({ id: 1, email: 'bounced@example.com', delivery: delivery({ status: 'bounced', bounce_type: 'permanent' }), email_suppression: 'hard_bounce' }),
+      pendingInvite({ id: 2, email: 'spam@example.com', delivery: delivery({ status: 'complained' }), email_suppression: 'complaint' }),
+      // A cause the state does not name keeps its own note.
+      pendingInvite({ id: 3, email: 'later@example.com', delivery: delivery({ status: 'delivered' }), email_suppression: 'hard_bounce' }),
+      pendingInvite({ id: 4, email: 'soft@example.com', delivery: delivery({ status: 'bounced', bounce_type: 'temporary' }), email_suppression: 'hard_bounce' }),
+    ])
+    renderPage()
+    await screen.findByText('bounced@example.com')
+    for (const [email, state, note] of [
+      ['bounced@example.com', 'Bounced permanently', 'No invitation email goes to this address.'],
+      ['spam@example.com', 'Reported as spam', 'No invitation email goes to this address.'],
+      ['later@example.com', "Delivered to the recipient's mail server", 'Bounced permanently.'],
+      ['soft@example.com', 'Bounced temporarily', 'Bounced permanently.'],
+    ] as const) {
+      const cell = emailCell(email)
+      expect(within(cell).getByText(state), email).toBeInTheDocument()
+      expect(within(cell).getByText(note), email).toHaveClass('font-medium')
+      expect(cell.textContent?.split(state.replace(/\.$/, '')).length, `${email} says its state twice`).toBe(2)
+    }
+  })
+
   it('shows a suppressed address as a note of its own, and its Resend emails nothing', async () => {
     answer(READY, [pendingInvite({ delivery: delivery({ status: 'complained' }), email_suppression: 'complaint' })])
     vi.mocked(resendInvite).mockResolvedValue({ ...mint('alice@example.com', false), revoked_invite_id: 1 })
@@ -352,7 +385,9 @@ describe('each row says what is known of its email', () => {
     await screen.findByText('alice@example.com')
     const cell = emailCell('alice@example.com')
     expect(within(cell).getAllByText('Reported as spam')).toHaveLength(1) // the email's own state
-    expect(within(cell).getByText('Reported as spam.')).toHaveClass('font-medium') // the address's note
+    // The state already names the cause, so the note says what follows, never the same words again (chief design on #1965).
+    expect(within(cell).getByText('No invitation email goes to this address.')).toHaveClass('font-medium') // the address's note
+    expect(cell.textContent?.match(/Reported as spam/g)).toHaveLength(1)
     expect(cell).toHaveTextContent('Resend makes a new link without emailing it.')
 
     const resend = screen.getByRole('button', { name: 'Resend invite to alice@example.com' })

@@ -47,11 +47,15 @@ from app.services import (
 from app.services.resend_service import ResendAmbiguousError, ResendPermanentError, ResendRetryableError
 from app.utils.datetimes import utcnow
 from main import app
+from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
 pytestmark = pytest.mark.requires_db
 
 # Built, not written out: a Svix signing secret is base64 after "whsec_" (the signature test pins Svix's own vector).
 WEBHOOK_SECRET = "whsec_" + base64.b64encode(b"pb-01 synthetic webhook signing key").decode()
+# A tester's password for the real registration route, built rather than written out, like the secret above, so
+# the secret scan reads no credential in this file (CI's secret-scan; .gitleaksignore).
+TESTER_PASSWORD = "-".join(("Tester", "Pass", "2026", "Ok"))
 PERMISSION = {"requested_via": "message", "requested_on": utcnow().date().isoformat()}
 UNSUBSCRIBE_LINK = re.compile(r"/email/unsubscribe#token=([A-Za-z0-9_-]+)")
 INVITE_LINK = re.compile(r"/register\?invite=([A-Za-z0-9_-]+)")
@@ -405,15 +409,50 @@ def test_a_second_resend_of_one_invite_makes_no_second_live_link(client, admin, 
     assert transport.await_count == (2 if emailed else 1)
 
 
-def test_a_manual_resend_of_a_bound_invite_sends_nothing(client, admin, mail_ready, transport):
-    first = _mint(client, admin, _address())
+def test_a_manual_resend_of_a_bound_invite_sends_nothing(client, admin, mail_ready, transport, monkeypatch):
+    """A re-send naming `send_email: false` re-issues an address-bound link as a link to share by hand (chief review
+    6589171631 on #1965: within the manual-link scope). The replacement keeps the recipient and the cohort, the former
+    link is revoked in the same transaction, the provider is called zero times, and through the real registration
+    route the new link registers only its recipient while the former one registers no one. On main a re-send had no
+    such selector: it re-issued a bound invite's link only by emailing it, behind email's readiness."""
+    from app.routers import auth as auth_module
+
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+    auth_module.REGISTER_LIMITER._hits.clear()
+    email = _address()
+    first = _mint(client, admin, email)
+    former = INVITE_LINK.search(transport.await_args_list[0].kwargs["html"]).group(1)
+    transport.reset_mock()
 
     resent = _resend(client, admin, first.json()["id"], send_email=False)
 
     assert resent.status_code == 200, resent.text
     assert resent.json()["emailed"] is False and resent.json()["delivery_status"] is None
+    assert resent.json()["revoked_invite_id"] == first.json()["id"]
     assert _delivery(resent.json()["id"]) is None
-    transport.assert_awaited_once()  # the first mint's alone
+    transport.assert_not_awaited()
+    replacement = INVITE_LINK.search(resent.json()["invite_link"]).group(1)
+    old_row, new_row = _bound(email)
+    assert old_row.id == first.json()["id"] and old_row.is_revoked and old_row.used_at is None
+    assert new_row.id == resent.json()["id"] and not new_row.is_revoked and new_row.used_at is None
+    assert (new_row.email, new_row.cohort) == (old_row.email, old_row.cohort)
+
+    def register(address: str, token: str):
+        client.cookies.clear()
+        return client.post("/api/auth/register", json={
+            **ACCOUNT_AGREEMENT, "email": address, "password": TESTER_PASSWORD, "invite_code": token,
+        })
+
+    stranger = _address()
+    assert register(stranger, replacement).status_code == 403  # another address: the replacement is bound
+    assert register(email, former).status_code == 403  # the former link: revoked
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.email.in_([stranger, email])).count() == 0
+    assert register(email, replacement).status_code == 200  # its recipient
+    with SessionLocal() as db:
+        account = db.query(User).filter(User.email == email).one()
+        assert db.get(InviteCode, new_row.id).user_id == account.id
+    client.cookies.clear()
 
 
 def test_an_emailed_resend_to_a_suppressed_address_refuses_before_revoking(client, admin, mail_ready, transport):
@@ -682,6 +721,26 @@ def test_an_invites_expiry_is_bounded(client, admin, collection_ready):
     for hours in (0, -1, 721, 10**12):
         response = client.post("/api/admin/invites", json={"expires_in_hours": hours}, headers=admin["headers"])
         assert response.status_code == 422, (hours, response.text)
+
+
+def test_a_resends_expiry_is_bounded_and_refused_before_revoking(client, admin, collection_ready):
+    email = _address()
+    first = client.post("/api/admin/invites", json={"email": email}, headers=admin["headers"])
+    assert first.status_code == 200, first.text
+    invite_id = first.json()["id"]
+    with SessionLocal() as db:
+        expires_at = db.get(InviteCode, invite_id).expires_at
+
+    for hours in (0, -1, 721, 10**12):
+        response = _resend(client, admin, invite_id, expires_in_hours=hours, send_email=False)
+        assert response.status_code == 422, (hours, response.text)
+
+    # Refused at the boundary: the invite is still live and unrevoked, and no replacement was minted.
+    with SessionLocal() as db:
+        invite = db.get(InviteCode, invite_id)
+        assert invite.is_revoked is False and invite.used_at is None
+        assert invite.expires_at == expires_at
+    assert [row.id for row in _bound(email)] == [invite_id]
 
 
 # --------------------------------------------------------------------------------------------- the boundary

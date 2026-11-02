@@ -122,14 +122,18 @@ describe('a press posts the token once and says the answer', () => {
     expect(alert.parentElement).toHaveFocus()
   })
 
-  it('a 429: asks to try again later, and keeps the button for that', async () => {
+  it('a 429: says when to try again and how to reach support, and keeps the button for that', async () => {
     openAt(`/email/unsubscribe#token=${TOKEN}`)
     mocks.post.mockRejectedValue(new ApiError(429, 'Too many requests. Try again later.'))
     render(<UnsubscribePage />)
     await userEvent.setup().click(unsubscribeButton())
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Too many tries for now')
-    expect(alert).toHaveTextContent('Wait a while, then try again.')
+    // The route allows 20 tries an hour from one connection; support is the route that needs no wait (chief design on #1965).
+    expect(alert).toHaveTextContent(
+      "Try again in an hour, or write to support@earningsnerd.io and we'll stop invitation emails to your address.",
+    )
+    expect(within(alert).getByRole('link', { name: CONTACT_ADDRESSES.support })).toHaveAttribute('href', `mailto:${CONTACT_ADDRESSES.support}`)
     expect(unsubscribeButton()).not.toHaveAttribute('aria-disabled')
   })
 
@@ -145,6 +149,12 @@ describe('a press posts the token once and says the answer', () => {
     await user.click(unsubscribeButton())
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("We couldn't unsubscribe you just now")
+    // A server error is not the reader's connection: the notice names a wait and support, never "Check your connection".
+    expect(alert).toHaveTextContent(
+      "Try again in a minute, or write to support@earningsnerd.io and we'll stop invitation emails to your address.",
+    )
+    expect(alert).not.toHaveTextContent(/connection/i)
+    expect(within(alert).getByRole('link', { name: CONTACT_ADDRESSES.support })).toHaveAttribute('href', `mailto:${CONTACT_ADDRESSES.support}`)
     expect(screen.queryByText("You're unsubscribed")).not.toBeInTheDocument()
     await user.click(unsubscribeButton())
     expect(mocks.post).toHaveBeenCalledTimes(2)

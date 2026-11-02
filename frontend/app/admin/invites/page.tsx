@@ -35,7 +35,6 @@ import InvitePermissionFields from '@/features/admin/components/InvitePermission
 import TableScroll from '@/features/admin/components/TableScroll'
 import { inviteAvailability } from '@/features/admin/lib/inviteReadiness'
 import {
-  localDay,
   permissionDayRange,
   permissionErrors,
   permissionOf,
@@ -103,7 +102,8 @@ export default function AdminInvitesPage() {
   const [sendEmail, setSendEmail] = useState(false)
   // The recipient's request (InvitePermissionFields), one record for every address in a send.
   const [requestedVia, setRequestedVia] = useState<PermissionVia | ''>('')
-  const [requestedOn, setRequestedOn] = useState(() => localDay())
+  // Empty, not today: both halves of the request are the admin's own entries, never a default (chief design on #1965).
+  const [requestedOn, setRequestedOn] = useState('')
   const [permissionProblems, setPermissionProblems] = useState<PermissionErrors>({})
   const viaRef = useRef<HTMLSelectElement>(null)
   const onRef = useRef<HTMLInputElement>(null)

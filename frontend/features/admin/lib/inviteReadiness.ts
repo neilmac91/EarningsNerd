@@ -41,9 +41,9 @@ export const INVITATION_EMAIL_REASONS: Record<string, string> = {
 }
 
 /** A code this page does not know, or a hold that names none: said once, whatever the count. */
-export const UNKNOWN_REASON = "Something this page doesn't recognise holds it. The server settings say what."
+export const UNKNOWN_REASON = "Something this page doesn't recognize holds it. The server settings say what."
 /** The same, after the reasons this page knows. */
-export const UNKNOWN_REASON_TOO = "Something this page doesn't recognise holds it too. The server settings say what."
+export const UNKNOWN_REASON_TOO = "Something this page doesn't recognize holds it too. The server settings say what."
 
 /** The sentences for a capability's reason codes, in the server's order, an unknown code (or none) read once. */
 export function reasonSentences(reasons: readonly string[], known: Record<string, string>): string[] {
@@ -76,7 +76,7 @@ export function heldCapabilities(readiness: InviteReadiness): HeldCapability[] {
       title: 'Registration is on hold',
       description: [
         ...reasonSentences(readiness.collection.reasons, COLLECTION_REASONS),
-        "Until it opens, you can't create invite links or resend one. The list and Revoke still work.",
+        "Until registration opens, you can't create invite links or resend one. The list and Revoke still work.",
       ].join(' '),
     })
   }
