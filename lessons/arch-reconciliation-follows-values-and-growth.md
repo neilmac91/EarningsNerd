@@ -69,8 +69,12 @@ comparison whose two years sit on different bases reads n/m and carries the grow
 prints a number that joins two scopes (REGN's FY2018 revenue, −12.4% shown, +14.3% as filed). Only an exact sign flip
 or factor of 1,000ⁿ, a likely tagging error, adds a note, through the existing `source_conflict` reason so no data
 notes version moves, and only on an own row that passed its checks. Read "own report" by replaying ingest's rule on
-stored rows (`trend_analysis/first_reports.py`), ranking the figure's own filing with the rest, never by trusting a
-row's columns, since a history row, a filing-owned row and a demoted winner hold the cell alike; `test_first_reports.py`
-holds the replay to ingest's pick over sync sequences that leave several candidates in a cell. Hold a producer to the
-page's decoder, not to a copy of it: `test_first_reports_wire.py` pins the datasets the producer builds on four shapes
-over two windows, and `later-filings-producer.spec.ts` runs the page's real decoders over them.
+stored rows (`trend_analysis/first_reports.py`), every clause of it, ranking the figure's own filing with the rest,
+never by trusting a row's columns, since a history row, a filing-owned row and a demoted winner hold the cell alike:
+ingest reads the winning element alone, so a row of another element is another line (a reading since changed, E264's
+fee line; a per-filing row read from another line, E278's gross revenue), and a value the cross-check replaced is no
+filing's own; `test_first_reports.py` holds the replay to ingest's pick over sync sequences that leave several
+candidates in a cell, a change of the winning element among them. Hold a producer to the page's decoder, not to a copy
+of it: `test_first_reports_wire.py` pins the datasets the producer builds on four shapes over two windows,
+`later-filings-producer.spec.ts` runs the page's real decoders over them, and `test_first_reports_exports.py` prints
+them through the PDF and workbook.
