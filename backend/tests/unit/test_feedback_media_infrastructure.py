@@ -481,22 +481,37 @@ def step_permissions(steps):
     return named
 
 
+LABEL = re.compile(r".+ \[[a-z][\w.]*(?:, [a-z][\w.]*)*\]")
+
+
+def label_problems(calls, steps):
+    """Calls whose label names no permission, or that carry the capability label off a capability read (or vice versa)."""
+    problems = []
+    for (api, path, method, _body), label in zip(calls, steps):
+        capability = method == "POST" and path.endswith(":testIamPermissions")
+        if capability != (label == ops.CAPABILITY_READ) or (not capability and not LABEL.fullmatch(label or "")):
+            problems.append((api, path, method, label))
+    return problems
+
+
 def test_provisioning_preflight_names_exactly_the_permissions_its_steps_use():
     """Rule 12 gate: a provisioning step whose permission the preflight does not test could fail mid-apply.
 
     Provision from nothing (every create path) and over existing resources (every update path); every provider
     call must carry a step label, and the labels' project permissions must equal PROVISION_PERMISSIONS.
     """
+    # Planted: the forms the first version of this gate let through, beside the ones it already caught.
+    for call, label in ((("run", "v2/job:run", "POST", {}), "Cleanup execution"),
+                        (("run", "v2/job", "GET", None), ops.CAPABILITY_READ),
+                        (("cloudresourcemanager", "v1/project:testIamPermissions", "POST", {}), ops.METRIC_READ),
+                        (("logging", "v2/metrics", "POST", {}), None)):
+        assert label_problems([call], [label]) == [(*call[:3], label)], (call, label)
+    assert label_problems([("logging", "v2/metric", "GET", None)], [ops.METRIC_READ]) == []
     used = set()
     for absent in (True, False):
         cloud = CloudFixture(absent=absent)
         ops.provision(cloud, cloud.service)
-        for (api, path, method, _body), label in zip(cloud.calls, cloud.steps):
-            # Only the read-only capability check may name no permission; every other call names at least one.
-            if label == ops.CAPABILITY_READ:
-                assert method == "POST" and path.endswith(":testIamPermissions"), (api, path, method)
-            else:
-                assert re.fullmatch(r".+ \[[a-z][\w.]*(?:, [a-z][\w.]*)*\]", label or ""), (api, path, method, label)
+        assert label_problems(cloud.calls, cloud.steps) == []
         used |= step_permissions(cloud.steps)
         if cloud.waits:  # the real wait polls an unfinished operation through this step
             used |= step_permissions([ops.OPERATION_READ])
