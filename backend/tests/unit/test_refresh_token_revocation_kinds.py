@@ -165,7 +165,8 @@ def test_a_password_change_keeps_the_acting_devices_reissued_session(laptop, pho
     _login(laptop, email)
 
     changed = laptop.post(
-        "/api/auth/change-password", json={"current_password": PASSWORD, "new_password": NEW_PASSWORD}
+        "/api/auth/change-password",
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD, "account_id": user_id},
     )
     assert changed.status_code == 200, changed.text
 
