@@ -411,7 +411,8 @@ class TestPanelSheets:
         })
         workbook = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))
         assert "Unreconciled" not in workbook["Metrics"]["F2"].comment.text
-        assert "annual_minus_ytd" in workbook["Metrics"]["F2"].comment.text
+        # A formula the page has no words for reads as the page's fallback (test_export_formula_words.py).
+        assert workbook["Metrics"]["F2"].comment.text.split("\n")[-1] == "annual minus ytd"
         assert workbook["Metrics"]["F4"].value is None
         assert "Use a reported quarterly EPS figure." in workbook["Metrics"]["F4"].comment.text
         source_sheet = workbook["Sources & methods"]

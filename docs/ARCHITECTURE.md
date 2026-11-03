@@ -131,7 +131,9 @@ stream_filing_summary(filing_id, ...)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
                                          no SEC call; starts once (a) has the text; awaited (30 s /
-                                         40 s bound) before the excerpt is built and joined with (b))
+                                         40 s bound) before the excerpt is built and joined with (b));
+                                         the statement-context parse follows the excerpt build inside
+                                         that join's wait on (b)
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -152,7 +154,7 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
 | `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `start_statement_context` (after the excerpt build, awaited by `generate`), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
@@ -250,7 +252,7 @@ frontend/
 | `copilot_service.py` / `copilot_tools.py` | "Ask this Filing" Pro Q&A with verifiable deep-linked citations; numeric tool-use from `financial_fact` |
 | `sitemap_service.py` | Eligible company/filing queries and bounded XML assembly; the sitemap router owns the hourly cache, single-flight lock and HTTP response |
 | `provenance_service.py` | Trace-to-Source: verifies AI excerpts, builds deep-link citations |
-| `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins among report forms: a proxy or information statement's item never competes, and the backfill's cross-check authority skips it too, `facts/fiscal_naming.py::is_proxy_form`, which `facts/currency.py::admitted_items` applies; rows stored before that rule are repaired by the quarterly repair's proxy step, `proxy_fact_repair.py`) |
+| `facts_service.py` | Normalized XBRL metrics (`financial_fact`) + SEC **companyfacts** multi-period ingest (duration-window Q1–Q4 labelling, derived Q4, latest-filed-wins among report forms: a proxy or information statement's item never competes, and the backfill's cross-check authority skips it too, `facts/fiscal_naming.py::is_proxy_form`, which `facts/currency.py::admitted_items` applies; rows stored before that rule are repaired by the quarterly repair's proxy step, `proxy_fact_repair.py`; nor does a quarterly report's nonzero year-long item equal to a quarter, or six or nine months to date, under the same tag, from the same start or in the same filing (a mis-tag), `facts/fiscal_naming.py::without_partial_years`, which the same admission, the cross-check's authority and the per-filing companyfacts fallback all apply, while the restatement census's evidence index reads every tag's items as filed, and the calendar's exclusions judge the collector's winners with every such year competing again (`partial_years`), so a dropped year whose dates are no fiscal year stays on record as rolling, the quarterly repair's evidence; rows stored before it wait on a repair) |
 | `analysis_data_access.py` | Analysis record reads and short-session ingest, metering and reservation-release units; the analysis router runs its request-session work in thread-pool units that release through `filing_list_service.release_request_session`, and keeps HTTP policy, task/stream ownership and call-time collaborator seams |
 | `job_sessions.py` | Runs one job in a session of its own and closes it however the job ends, for work outside a request's `get_db` session: the internal triggers' flag-off background runs and the Resend click record; the callers keep their log lines and pass the job by an attribute resolved at call time |
 | `trend_analysis_service.py` + `trend_analysis/` | Compatibility façade over domain modules: deterministic YoY/QoQ/CAGR datasets and `F#` markers, code-owned observations, validated selection and cached narrative streaming |
@@ -277,7 +279,10 @@ names, so the analysis router continues to resolve them through the same module.
 `fact_provenance` links each fact to its filing row's `document_url` when that is an SEC archive
 URL inside the fact's accession folder, and to the folder otherwise; `trend_analysis/source_documents.py`
 folds each looked-up link back to its folder for the snapshot hash, keeping links with a stored
-`source_sha256` receipt as stored (E149, #1481).
+`source_sha256` receipt as stored (E149, #1481). Its builders always write a provenance's `inputs` list, empty for a
+reported figure, but `provenance_for_fact` serves a stored current-version provenance as stored, so the web admits the
+list where the dataset and the stream's completion enter (`features/analysis/lib/provenanceInputs.ts`, E294): a
+missing list reads as empty, and a malformed one refuses.
 
 Analysis datasets carry versioned `data_notes` from the pure `trend_analysis/data_notes.py`
 builder. The web, chart downloads, PDF and Excel use the same reason groups, letters and counts;

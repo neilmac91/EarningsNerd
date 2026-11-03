@@ -617,7 +617,9 @@ There is almost nothing to key, so there is no key beside every mark:
 - **Notes chips.** The table's chip lists only the visible marked letters and opens the fine print
   at that note. Each chart's chip does the same. A hollow point appears only where a note is
   marked, and the chart's chip explains it ("Notes a · hollow point: figure carries note a"). The
-  PNG footer carries the same line.
+  PNG footer carries the same line. *Superseded (#1657):* the spec renderer draws no hollow point.
+  A chart marks a note in the band under its period axis, and its footnotes, which are the PNG's
+  notes, name only the marked letters (§2.6).
 - **Fine print.** Its summary line names each marked letter with its places and words. Its open
   detail lists every note.
 - **Exports.** The PDF puts the same line under its table, on the same page. The workbook puts it
@@ -630,7 +632,7 @@ There is almost nothing to key, so there is no key beside every mark:
 |---|---|
 | KPI card | The figure and its period line. A letter appears only when the headline figure's own note questions it. No warning words on the card. For REGN today, all four cards are clean ([`quiet-light-kpis.png`](screens/variants/quiet-light-kpis.png)). |
 | Metrics table | The sentence above the table. A compact letter (0.5px gap) on marked values and the comparisons built on them. A gap is "—" with no letter. The Q4 column-header dagger and the period picker's "Q4 2023 †" mark periods, not figures. WP1 decides whether to keep them or turn them into words ("Q4 derived"). Either way, the picker must still show which Q4s are calculated (redesign doc :915–916). |
-| Charts | Hollow point and letter for marked notes only. A gap breaks the line, as now. The letter takes the mark's ink and keeps its panel-colour halo. |
+| Charts | Hollow point and letter for marked notes only. A gap breaks the line, as now. The letter takes the mark's ink and keeps its panel-colour halo. *Superseded by §2.6 (#1657):* no hollow point; the letter sits in the band under the period axis, in the note ink. |
 | Narrative and sources | A citation chip carries a letter only for a marked note. In the source list, "Calculated figure" and "Calculated from recorded inputs" become "calculated from filed figures" and "calculated before we kept its inputs". "Sources identify filed figures or calculated figures (marked †)" becomes "Sources identify filed and calculated figures". Raw precision belongs to the analysis plan (§7). |
 | Data notes | One line of fine print under the table (§3). |
 | PDF | No dagger after each value (`export_service.py:349`). As on the page, the calculated sentence sits above the table and the fine print under it, on the same page. Letters for marked notes only, with the page's reason sentences. |
@@ -829,7 +831,9 @@ enforced it for exactly the case the scheme stops marking: a `legacy_calculation
 - `:761`: its single Data notes heading.
 - `:813`: the count line of the PDF and the workbook's Overview.
 - `test_export_voice.py:188`: the heading order.
-- `frontend/tests/unit/chart-export.spec.ts:67-98`: the PNG's note for a legacy YoY.
+- `frontend/tests/unit/chart-export.spec.ts:67-98`: the PNG's note for a legacy YoY. That case went with
+  Recharts in #1657: the PNG's notes are the card's footnotes, which the chart engine's specs and
+  `trend-charts-v2.spec.tsx` hold to the model.
 
 The workbook already keeps notes in comments (`test_excel_export.py:218`).
 
@@ -1167,8 +1171,22 @@ interior to that plan.
 - 24px (`gap-6`) between content modules on desktop and 16px (`gap-4`) below `sm`.
 - Module insets keep `p-cap-6`.
 - A mark keeps the 0.125rem gap after its figure, and 0.5px in table cells (§2.5).
-- The floating Feedback launcher reserves the KPI strip's area on phones by offsetting above it,
-  the same way the consent inset works (`bottomChromeLadder.spec.ts` gates the ladder).
+- The floating Feedback launcher keeps clear of the KPI strip on phones. As built (WP4a, #1625), it
+  steps aside rather than offsetting, since no offset clears content that scrolls. Over a region
+  marked `data-launcher-keep-clear` (the KPI strip and, since #1675, the results header) it fades
+  and lets taps through while its dialog is closed, and keyboard focus brings it back
+  (`lib/launcherKeepClear.ts`; gates: `feedback-launcher-keep-clear.spec.tsx` and its e2e twin).
+  It never moves, so `bottomChromeLadder.spec.ts` is unchanged.
+
+**As built (WP4b, #1675).** The results header (`ResultsHeader.tsx`) is one line on the ground, 12px
+over the KPI strip, and every clause comes from the dataset on screen: "Regeneron Pharmaceuticals,
+Inc. · REGN · Annual FY2016–FY2025 · data as of October 24, 2026". The company and period form drops
+to the control level, and the modules take the spacing above. The header scrolls with the page, so
+N1 is met in part: a sticky line would break DESIGN.md's one sticky bar. Still open (E206): the date
+order, which is the founder's call (the page prints "October 24, 2026", the PNG "Oct 24, 2026", this
+plan's example "24 Oct 2026"), and three optional follow-ups: a sticky results line, the Free
+teaser's and the landing demo's captions aligned with the header, and the control level for other
+form cards.
 
 ## 5. Exports as files
 
@@ -1191,7 +1209,19 @@ openpyxl and Pillow. The full pass/fail table is in
 
 The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
 
-**As built (WP3-B, 2026-10-27, after WP2's #1659).** Both exports take the page's fine print from one port
+**As built (WP3-A, #1621, and WP3-png-1, #1627).**
+- **WP3-A.** Both files print the page's display name ("Regeneron Pharmaceuticals, Inc.") and every
+  instant as words with its zone ("October 24, 2026, 20:26 UTC"). The PDFs carry a title, author,
+  subject and structure tree, and every mark prints in a vendored face, so nothing falls back to
+  DejaVu. The workbook has its properties and print setup. Its Sources & methods sheet prints four
+  pages wide: chief design keeps that sheet whole as the audit trail (6413834738).
+- **WP3-png-1.** The PNG's header names its period range ("REGN · Margins · FY2016–FY2025"), and the
+  file declares 144 dpi.
+- **WP3-png-2** needed no PR of its own. The PNG's notes are the card's footnotes, which name only
+  the marked letters, in the note ink, with WP2's words (WP1 #1641, E194 #1655, and the spec
+  renderer #1657, §2.6).
+
+**As built (WP3-B, #1720, 2026-10-27, after WP2's #1659).** Both exports take the page's fine print from one port
 (`analysis_export_metadata.fine_print_summary` and `detail_entries`) and mark through `data_notes.marks_figure`:
 - **PDF.** No dagger after a figure; a letter only where its note questions the number, in the note ink, in the
   grid, the appendix, the citations and the narrative. Above the grid: "Figures are rounded for display.", the
@@ -1257,8 +1287,61 @@ sends it, since a dataset without the fields exports byte for byte as before. On
   the builders with their later-filing seams switched off. `test_export_note_marks.py` reads the line's words from
   `DataNotes.tsx`.
 
+**As built (WP3 sources, #1953, 2026-11-02).** The PDF's sources say what the page says (§2.5's "Narrative and sources"
+row, N9), from one port (`analysis_export_metadata.source_words` and `method_words`):
+- **Narrative sources.** A citation's label is the page's source-list label, after a dot as there. The PDF keeps
+  its filing links after the label, where the page sets its link before it. A calculated source reads "calculated
+  before we kept its inputs" where its record says so,
+  "calculated from filed figures" where its inputs are kept, and otherwise "calculated figure". A reported source
+  reads "SEC filing". The stored label ("Calculated · operating_margin", "XBRL · us-gaap:Revenues") prints only
+  where the page prints it: for a citation saved without a method.
+- **Sources & methods.** Each figure's method takes the same words, first letter raised, in place of a bare
+  "Calculated", "Reported" or "Unknown". A figure with no recorded method reads "Source method is not recorded",
+  the clause the page's dialog says of a figure and of an input. A gap names no method: there is no figure whose
+  method could go unrecorded, and the page draws a dash and opens no dialog.
+- A legacy calculation still has no filing link, since none is recorded. Its label now says why.
+- `test_export_service.py` reads the words from `NarrativePane.tsx` and `SourceValue.tsx`, and fails when they
+  differ.
+- **The citation chip (#1969).** Chief design's finding on #1953: its name and title said the stored key
+  ("Calculated · 100 * net_income / revenue"). They now say its source in the list's words (`NarrativePane.tsx`'s
+  `sourceLabel`), so the page's list, its chip and the PDF print one label (gates: `narrative-pane.spec.tsx` for the
+  chip and the list; `test_export_service.py` for the PDF).
+- **Chief design's calls (6582228814).**
+  - **Sources & methods stays whole,** as the workbook's sheet does (6413834738). It stands in for the page's source
+    dialog, which paper cannot open, and a reader who stops before it pays nothing for its length. If its length
+    becomes a problem, measure folding first (each growth line into its figure's entry) before cutting anything.
+  - **One vocabulary for formulas (#1972).** Sources & methods prints a formula in the page's words, for
+    a figure and for each of its inputs, and so do the workbook's Formula column and its comments: "Net income ÷
+    revenue × 100" where they printed "100 * net_income / revenue". One port serves both files,
+    `analysis_export_metadata.formula_text`, whose `FORMULA_WORDS` holds `figureDisplay.ts`'s `FORMULAS` key for key.
+    A formula with no words prints as the page prints it, as stored with each underscore a space.
+    - **The growth words.** The four growth definitions the files kept apart (`_FORMULA_LABELS`, now gone) moved into
+      `FORMULAS` in the page's style, so the dialog's comparison line, which read "Calculation: year over year growth",
+      reads "Calculation: (Current − same period last year) ÷ absolute same period last year". A QoQ reads "(Current
+      quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter", a CAGR "(Last ÷ first) to the power of
+      (1 ÷ years from first to last) − 1" and a percentage-point change "Current percentage − comparison
+      percentage". The CAGR's exponent counts the span, `last_fy - first_fy` in `trend_analysis/dataset.py` (9 for
+      FY2016 to FY2025), so its words say "years from first to last": "fiscal years" invited counting the ten years
+      the table shows (chief design, 5743438508).
+    - **The gate.** `backend/tests/unit/test_export_formula_words.py` reads `FORMULAS` and the fallback from
+      `figureDisplay.ts`, in one form, failing on any other, and fails where the port differs. It then renders the PDF
+      and the workbook with a figure for each formula and one with no words, and holds each formula they print, a
+      figure's and its input's, to the page's words and none to its stored expression.
+    - **The glyph check.** #1621's glyph gate (`test_export_palette_parity.py`) renders the analysis with every
+      formula's words in Sources & methods: the ÷, × and minus sign print in Inter's latin cut, with no fallback face
+      and no .notdef.
+    - **The workbook.** The Formula column keeps its width (50) and wraps a longer formula onto a second line, as it
+      wrapped the stored growth definitions, and a text cell never prints "###". Rendered in LibreOffice, every
+      formula prints whole, the three longest growth words on two lines.
+    - A Q4 calculated from the year less its three quarters ("FY - (Q1 + Q2 + Q3)", `facts/quarterly.py`), which had
+      no words on any surface, reads "Full year − first, second and third quarters", beside "Full year − first nine
+      months": ordinals, since `planLimitsLockstep.spec.ts` keeps typed counts of quarters out of copy.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
+
+**As built (#1959).** The page has no export menu, so the chart's PNG control says it: its
+tooltip ends with, and its accessible description reads, "Image matches your theme."
 
 ## 6. Sequencing by measured overlap
 
@@ -1321,6 +1404,17 @@ unresolved conflict.
 
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
 so it can start today.
+
+**Shipped (2026-11-02).**
+- **Step 1:** WP0 #1614. Its apply waits on the founder (E206).
+- **Step 2:** WP1 #1641.
+- **Step 3:** WP2 #1659. Then WP5: #1682 (WP5b) and WP5a's three PRs, F1 #1776, X #1866 and B #1888.
+- **Step 4:** 4a #1627, with its notes through #1641, #1655 and #1657, and the PNG control's theme
+  line #1959. 4b and 4c: #1621 and #1720, then the PDF's sources #1953, the citation chip's
+  label #1969 and one vocabulary for formulas on the page and in both files #1972.
+- **Step 5:** WP4a #1625 and WP4b #1675.
+
+What WP3 and WP4 leave is in E206.
 
 **Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order. The
 proxy-statement fix went first and merged as #1622; what it left leads the row:
@@ -1430,6 +1524,7 @@ rounds, verbatim, with the images they were given. §3.4 summarises them.
 
 Every check with its evidence is in
 [verification/export-inspection.md](verification/export-inspection.md).
+These are the pre-WP3 files. A re-inspection of REGN's exports after WP3 is open (E206).
 
 ### e. File-overlap matrix
 
