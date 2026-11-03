@@ -95,9 +95,10 @@ the active grants past 20, across every cohort, stops the whole manifest (`stopp
 ## The manifest
 
 A JSON file with the action, the cohort (lower-case letters, digits and hyphens), the reason, the operator's admin
-account id, at most 20 accounts and, for a grant, the review date. Each account is named by its id and the SHA-256 of
-its address as accounts store it (trimmed and lower-cased). Unknown keys and loosely typed values are refused, and a
-fault names its place and kind, never the value. This example is synthetic (reserved `.invalid` addresses):
+account id, a secret salt, at most 20 accounts and, for a grant, the review date. Each account is named by its id and
+the SHA-256 of its address as accounts store it (trimmed and lower-cased). Unknown keys and loosely typed values are
+refused, and a fault names its place and kind, never the value. This example is synthetic (reserved `.invalid`
+addresses):
 
 ```json
 {
@@ -106,6 +107,7 @@ fault names its place and kind, never the value. This example is synthetic (rese
   "reason": "Private beta tester",
   "review_on": "2027-01-31",
   "operator_account_id": 1,
+  "salt": "<draw your own: openssl rand -hex 16>",
   "accounts": [
     {"account_id": 1001, "email_sha256": "bc53630744f19d9b2dd6f1cf057b98e578f0c268be59d6dee4b8470b5729e7ac"},
     {"account_id": 1002, "email_sha256": "11d9c00d37a6b24a9b5e918b9eb4bf4111a9274b76309773065e6cc52955b0f4"}
@@ -113,9 +115,17 @@ fault names its place and kind, never the value. This example is synthetic (rese
 }
 ```
 
-A revoke manifest has `"action": "revoke"`, the same cohort and entries, its own reason, and no `review_on`. The
-manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it. The
-cohort is an opaque public code: every report prints it and the readout counts grants by it, so it appears in the
+A revoke manifest has `"action": "revoke"`, the same cohort and entries, its own reason and salt, and no `review_on`.
+The manifest's digest (`manifest_sha256`) is the SHA-256 of its canonical JSON; any change to any field changes it.
+
+Every report prints the digest, so it is in the public Ops log, and every other field can be guessed: a stock reason,
+the founder's id, sequential account ids, the fingerprint of a candidate address. The salt is what stops anyone from
+matching the digest of a small manifest (a one-account revoke, say) to its tester by trying guesses offline. Draw a
+fresh one for every manifest with `openssl rand -hex 16` (32 to 128 lower-case hex characters), keep it with the
+manifest, and never publish it. The example's placeholder is refused, so a copy of the example cannot run with a
+published salt.
+
+The cohort is an opaque public code: every report prints it and the readout counts grants by it, so it appears in the
 public Ops log. Keep what each code stands for with the private roster; no name, address, workplace or private
 description belongs in it (the example's `private-beta-2026-11` has the shape).
 
@@ -148,7 +158,8 @@ Before the first grant, the testers' accounts must exist as a grant can see them
    in a folder of the private store outside the repository, `$HOME/beta-private` (the Ops procedure's location too;
    the checkout ignores the two names at its root and under `backend/` as a backstop, never as a place to keep them):
    `python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"` prints one fingerprint
-   per address, in order. Write `"$HOME/beta-private/manifest.json"` with each account's id and fingerprint, then
+   per address, in order. Write `"$HOME/beta-private/manifest.json"` with each account's id and fingerprint and a
+   fresh salt (`openssl rand -hex 16`), then
    `python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"` validates it and
    prints its digest.
 2. **Dry run (read-only).** `python scripts/complimentary_access.py dry-run --manifest "$HOME/beta-private/manifest.json"`
@@ -163,7 +174,7 @@ Before the first grant, the testers' accounts must exist as a grant can see them
    nothing it already changed; with another review date it moves the named accounts' active grants to it ("End date").
 5. **Verify.** `python scripts/complimentary_access.py readout` reports the active grants by cohort, the reviews due
    and any drift. A tester's Settings, Billing shows Pro with "Complimentary (private beta)" and no checkout button.
-6. **Revoke.** Write the revoke manifest, dry-run it, and apply it with its own digest. The account returns to Free:
+6. **Revoke.** Write the revoke manifest with a fresh salt, dry-run it, and apply it with its own digest. The account returns to Free:
    five summaries a month (this month's count included), three lifetime Copilot questions (the Pro questions never
    spent them), no exports or Multi-Period Analysis. Its saved summaries, watchlist and alert choices stay; the alert
    caps apply where alerts are sent.

@@ -82,7 +82,7 @@ def _headers(email: str) -> dict:
 
 def _manifest(action: str, operator_id: int, accounts) -> tuple:
     payload = {"action": action, "cohort": "private-beta-2026-11", "reason": "Private beta tester",
-               "operator_account_id": operator_id,
+               "operator_account_id": operator_id, "salt": "5a" * 16,  # synthetic: a real salt is secret randomness
                "accounts": [{"account_id": a.id, "email_sha256": email_fingerprint(a.email)} for a in accounts]}
     if action == "grant":
         payload["review_on"] = (TODAY + timedelta(days=60)).isoformat()

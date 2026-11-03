@@ -33,6 +33,8 @@ _spec.loader.exec_module(command)
 
 NOW = datetime(2030, 5, 1, 12, tzinfo=timezone.utc)
 REASON = "Planted reason 7f3e"
+# A synthetic salt (32 hex digits): a real manifest's is secret randomness the operator draws.
+SALT = "5a" * 16
 # Ids no other row in the suite's database has, so finding one in output can only be a leak.
 PLANTED_ID_BASE = 9_300_000
 
@@ -80,7 +82,7 @@ def accounts():
 def _manifest_file(tmp_path, action, operator, testers, review_days=60) -> Path:
     payload = {
         "action": action, "cohort": "private-beta-2026-11", "reason": REASON, "operator_account_id": operator.id,
-        "accounts": [{"account_id": t.id, "email_sha256": email_fingerprint(t.email)} for t in testers],
+        "salt": SALT, "accounts": [{"account_id": t.id, "email_sha256": email_fingerprint(t.email)} for t in testers],
     }
     if action == "grant":
         payload["review_on"] = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
@@ -219,7 +221,7 @@ def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):
     review_on = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
     manifest.write_text(json.dumps({
         "action": "grant", "cohort": "private-beta-2026-11", "reason": "Private beta tester", "review_on": review_on,
-        "operator_account_id": 1, "accounts": [{"account_id": 2, "email_sha256": fingerprints[0]}],
+        "operator_account_id": 1, "salt": SALT, "accounts": [{"account_id": 2, "email_sha256": fingerprints[0]}],
     }))
     checked = subprocess.run([sys.executable, "-I", str(SCRIPT), "check", "--manifest", str(manifest)],
                              capture_output=True, text=True, env=env, cwd=BACKEND)

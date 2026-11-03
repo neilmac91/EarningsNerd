@@ -3,7 +3,8 @@
 This module imports nothing from the application but pydantic, so the operator can fingerprint addresses and check
 a manifest on their own machine with no settings and no database (``scripts/complimentary_access.py fingerprint``
 and ``check``). The manifest itself never enters the repository: it names real accounts
-(``docs/ops/complimentary-access.md``, "The manifest").
+(``docs/ops/complimentary-access.md``, "The manifest"). Its digest, which every report prints to the public Ops log,
+covers a secret salt the manifest carries, so that copy names no one.
 """
 from __future__ import annotations
 
@@ -23,12 +24,14 @@ MAX_REVIEW_DAYS = 366
 
 _COHORT_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
+# At least 128 bits of secret randomness, in lower-case hex (``openssl rand -hex 16`` draws one).
+_SALT_PATTERN = r"^[0-9a-f]{32,128}$"
 _RUNNER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,79}$"
 # Manifest keys a fault may name; any other key is reported as unexpected without its spelling, since a malformed
 # manifest could carry an address as a key.
 _NAMED_KEYS = frozenset({
-    "action", "cohort", "reason", "review_on", "operator_account_id", "accounts", "account_id", "email_sha256",
-    "grant", "revoke",
+    "action", "cohort", "reason", "review_on", "operator_account_id", "salt", "accounts", "account_id",
+    "email_sha256", "grant", "revoke",
 })
 
 
@@ -55,6 +58,11 @@ class _Manifest(BaseModel):
     cohort: str = Field(pattern=_COHORT_PATTERN)
     reason: str = Field(min_length=3, max_length=200)
     operator_account_id: int = Field(gt=0)
+    # Secret randomness the operator draws for each manifest and keeps with it. Every report prints the digest to the
+    # public Ops log, and every other field can be guessed (a stock reason, the founder's id, sequential account ids,
+    # the fingerprint of a candidate address), so without it the digest of a small manifest names its testers to
+    # anyone who tries their guesses offline.
+    salt: str = Field(pattern=_SALT_PATTERN)
     accounts: list[ManifestAccount] = Field(min_length=1, max_length=MAX_ACTIVE_GRANTS)
 
     @field_validator("reason")
@@ -97,8 +105,9 @@ def email_fingerprint(email: str) -> str:
 
 
 def manifest_digest(manifest: Manifest) -> str:
-    """SHA-256 of the manifest's canonical JSON (sorted keys, accounts in their order): the dry run reports it, and
-    the apply runs only the manifest it names."""
+    """SHA-256 of the manifest's canonical JSON (sorted keys, accounts in their order), its secret salt included: the
+    dry run reports it, and the apply runs only the manifest it names. The salt is what keeps the public log's copy
+    from being matched to guessed accounts and addresses."""
     canonical = json.dumps(manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 

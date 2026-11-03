@@ -16,7 +16,7 @@ Usage:
     #   one fingerprint per address read from stdin, in order; both files stay in the private store, outside the
     #   repository (the runbook's $HOME/beta-private)
     python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"
-    #   validate a manifest and print its digest
+    #   validate a manifest and print its digest (each manifest carries a fresh secret salt: openssl rand -hex 16)
     python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"
 
     # Against the database (DATABASE_URL and the app's settings):

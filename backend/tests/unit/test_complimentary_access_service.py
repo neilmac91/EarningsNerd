@@ -46,6 +46,8 @@ TODAY = date(2030, 6, 1)
 REVIEW_ON = date(2030, 8, 1)
 COHORT = "private-beta-2026-11"
 REASON = "Private beta tester"
+# A synthetic salt (32 hex digits): a real manifest's is secret randomness the operator draws.
+SALT = "5a" * 16
 NOW = datetime(2030, 5, 1, 12, tzinfo=timezone.utc)
 INVITE_COHORT = "pb02-invites"
 
@@ -108,9 +110,9 @@ def _entry(account) -> dict:
 
 
 def _raw(action: str, accounts: list, *, operator_id: int = 1, cohort: str = COHORT, reason: str = REASON,
-         review_on: date = REVIEW_ON) -> bytes:
+         review_on: date = REVIEW_ON, salt: str = SALT) -> bytes:
     payload = {"action": action, "cohort": cohort, "reason": reason, "operator_account_id": operator_id,
-               "accounts": accounts}
+               "salt": salt, "accounts": accounts}
     if action == "grant":
         payload["review_on"] = review_on.isoformat()
     return json.dumps(payload).encode()
@@ -222,7 +224,7 @@ _REPEATED = ["manifest: names a key twice in one object"]
     # Unknown keys, values of the wrong type or format, and this module's own validators.
     (json.dumps({
         "action": "grant", "cohort": "Not A Slug", "reason": "Private beta tester", "review_on": PLANTED_ADDRESS,
-        "operator_account_id": str(PLANTED_ID), PLANTED_ADDRESS: PLANTED_ID,
+        "operator_account_id": str(PLANTED_ID), "salt": SALT, PLANTED_ADDRESS: PLANTED_ID,
         "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS, PLANTED_ADDRESS: 1}],
     }).encode(), [
         "grant.<unexpected key>: is not a manifest key",
@@ -235,6 +237,8 @@ _REPEATED = ["manifest: names a key twice in one object"]
     (_planted(accounts=PLANTED_ADDRESS), ["grant.accounts: must be a list"]),
     (_planted(accounts=[PLANTED_ADDRESS]), ["grant.accounts.0: must be an object"]),
     (_planted(reason=f" {PLANTED_ADDRESS}"), ["grant.reason: must be printable text without surrounding spaces"]),
+    (_planted(salt=PLANTED_ADDRESS), ["grant.salt: does not match its format"]),
+    (_planted(salt=PLANTED_ID), ["grant.salt: must be a string"]),
     (_planted(accounts=[{**_fake_entry(1), "account_id": PLANTED_ID}, {**_fake_entry(2), "account_id": PLANTED_ID}]),
      ["grant: names an account id more than once"]),
 ])
@@ -253,6 +257,10 @@ def test_a_fault_names_its_place_and_kind_never_the_value(raw, problems):
     {"reason": " Padded"},
     {"reason": "Line\nbreak"},
     {"accounts": []},
+    {"salt": "5a" * 15 + "5"},  # 31 hex digits: under 128 bits
+    {"salt": "5A" * 16},  # upper case
+    {"salt": "5g" * 16},  # not hex
+    {"salt": "5a" * 64 + "5"},  # over 128 digits
 ])
 def test_a_manifest_is_strict_json(change):
     payload = json.loads(_raw("grant", [_fake_entry(1)]))
@@ -277,8 +285,25 @@ def test_the_digest_is_canonical_and_moves_with_every_field():
         _raw("grant", list(reversed(accounts))), _raw("grant", accounts[:1]), _raw("revoke", accounts),
         _raw("grant", accounts, operator_id=2), _raw("grant", accounts, cohort="another-cohort"),
         _raw("grant", accounts, reason="Another reason"), _raw("grant", accounts, review_on=REVIEW_ON + timedelta(1)),
+        _raw("grant", accounts, salt="f" * 32),
     ]
     assert len({load_manifest(raw)[1] for raw in variants} | {digest}) == len(variants) + 1
+
+
+def test_the_digest_covers_a_secret_salt_so_its_public_copy_names_no_one():
+    """Every report prints the digest to the public Ops log, and every other field can be guessed (a stock reason, the
+    founder's id, sequential ids, a candidate address's fingerprint): without a salt, the digest of a one-account
+    manifest is matched to its tester by hashing guesses offline. The salt is required and inside the canonical form,
+    so what a guesser rebuilds from the public fields is not the digest."""
+    entry = _fake_entry(1)
+    _, digest = load_manifest(_raw("grant", [entry]))
+    public = {key: value for key, value in json.loads(_raw("grant", [entry])).items() if key != "salt"}
+    rebuilt = hashlib.sha256(json.dumps(public, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert rebuilt != digest
+    assert load_manifest(_raw("grant", [entry], salt="f" * 32))[1] != digest
+    with pytest.raises(ManifestError) as refused:
+        load_manifest(json.dumps(public).encode())
+    assert refused.value.problems == ["grant.salt: is required"]
 
 
 def test_the_review_date_falls_after_today_and_within_a_year():
@@ -296,11 +321,15 @@ def test_the_fingerprint_matches_how_accounts_store_addresses():
     assert email_fingerprint("  Tester.One@Example.COM\n") == hashlib.sha256(b"tester.one@example.com").hexdigest()
 
 
-def test_the_runbooks_example_manifest_is_one_the_command_accepts():
+def test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn():
     runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
     example = re.search(r"```json\n(.*?)```", runbook, re.S)
     assert example, "docs/ops/complimentary-access.md shows a synthetic example manifest in a json block"
-    manifest, digest = load_manifest(example.group(1).encode())
+    # As written, the example is refused: its salt is a placeholder, so no manifest runs with a published salt.
+    with pytest.raises(ManifestError) as refused:
+        load_manifest(example.group(1).encode())
+    assert refused.value.problems == ["grant.salt: does not match its format"]
+    manifest, digest = load_manifest(json.dumps({**json.loads(example.group(1)), "salt": SALT}).encode())
     assert manifest.action == "grant" and len(manifest.accounts) >= 1 and len(digest) == 64
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
     # Synthetic, which the manifest gate below relies on when it allows this one file: each fingerprint is a reserved
@@ -323,7 +352,7 @@ _FINGERPRINT_KEY = re.compile(rb"(?i)email[\s_-]*sha[\s_-]*256")
 # A SHA-256 in hex, in either case, that is not part of a longer run of hex digits.
 _SHA256_HEX = re.compile(rb"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
 # The runbook example's two fingerprints, of reserved .invalid addresses
-# (test_the_runbooks_example_manifest_is_one_the_command_accepts holds the example to them): no person's.
+# (test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn holds the example to them): no person's.
 _SYNTHETIC_FINGERPRINTS = frozenset(email_fingerprint(f"tester-{n}@example.invalid").encode() for n in ("one", "two"))
 
 
@@ -433,7 +462,7 @@ def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_exam
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
     (rule 12), for a draft the command would refuse as much as for one it runs, since both hold the fingerprints. The
     only ones allowed are the runbook example's two, and
-    test_the_runbooks_example_manifest_is_one_the_command_accepts holds them to reserved .invalid addresses, so a real
+    test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn holds them to reserved .invalid addresses, so a real
     manifest in the example's place, or anywhere else, fails. Pasting one into an issue or a pull request stays a
     review check."""
     found = _files_with_fingerprints(REPO)
