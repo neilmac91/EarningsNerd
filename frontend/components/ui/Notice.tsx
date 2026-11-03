@@ -24,6 +24,10 @@
    role="status" for the others. Both themes audited: title = primary ink,
    message = secondary/secondary-dark, icons ≥3:1 inside their tints.
 
+   A Notice that says more than a sentence takes it as its children, after the title (and the description, when there
+   is one) in the description's secondary ink and size: the settings page's delete warning leads into the list of what
+   deleting removes (D-076). A list cannot sit in the description, which is a <p>.
+
    The row wraps. The text column's basis is 9rem (about 20 characters), so
    where it cannot keep that beside the glyph (a card on a phone at 200%
    text) it goes under the glyph at the Notice's whole inner width: the glyph
@@ -67,9 +71,8 @@ const WRAP: Record<NoticeVariant, string> = {
 
 /** The variant's tint, its hairline and ground, for a surface of another shape that states the same thing: the
     Copilot's error bubble keeps the thread's tail in the error tint (E196 (3)), the dashboard's limit banner and the
-    verification banner keep a banner's shape in the warning tint (E196 (2)), and the settings page's Delete account
-    warning keeps its list in the error tint (E283). The tint stays the primitive's, so a change to it reaches those
-    surfaces too. Each borrower is listed, with the variant it writes, in tests/unit/statusTintResidue.spec.ts's
+    verification banner keep a banner's shape in the warning tint (E196 (2)). A list is no reason to borrow: it is a
+    Notice's children (D-076). The tint stays the primitive's, so a change to it reaches those surfaces too. Each borrower is listed, with the variant it writes, in tests/unit/statusTintResidue.spec.ts's
     TINT_BORROWED, and words in another ink inside it in tests/unit/noticeTintInk.spec.ts's INKED. */
 export function noticeTint(variant: NoticeVariant): string {
   return WRAP[variant]
@@ -111,12 +114,15 @@ export interface NoticeProps {
   title: ReactNode
   /** Supporting copy under the title. */
   description?: ReactNode
+  /** More than a sentence, such as a list, after the title and any description, in the description's secondary ink
+      and size. */
+  children?: ReactNode
   /** Usually a small secondary/ghost <Button> ("Try again", "Reset password"). */
   action?: ReactNode
   className?: string
 }
 
-export function Notice({ variant, icon, title, description, action, className }: NoticeProps) {
+export function Notice({ variant, icon, title, description, children, action, className }: NoticeProps) {
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
@@ -133,6 +139,9 @@ export function Notice({ variant, icon, title, description, action, className }:
           <p className="mt-0.5 break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
             {description}
           </p>
+        ) : null}
+        {children ? (
+          <div className="mt-2 break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{children}</div>
         ) : null}
         {action ? <div className="mt-2.5 flex flex-wrap items-center gap-2">{action}</div> : null}
       </div>

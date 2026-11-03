@@ -6,15 +6,26 @@ import resolveConfig from 'tailwindcss/resolveConfig'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { noticeTint, type NoticeVariant } from '@/components/ui'
+import { bindingResolver } from './astBindings'
 
 /**
  * Words inside Notice's tint rest in the ink, and words in another ink there clear 4.5:1 on the panel and on the page,
  * in both themes (E283; CLAUDE.md rule 11). Notice sets its words in the primary and secondary inks and only its glyph
- * in the variant's (a graphic, 3:1), and so do the borrowers of noticeTint() that keep a Notice's words, the settings
- * page's Delete account warning among them (DESIGN_SYSTEM.md §4 › Inline notice). A borrower that sets words in
- * another ink inside the tint is listed in INKED with the inks it writes, and measured: the one today is the Copilot's
- * error bubble, its one sentence in the error ink (4.62:1 in dark). The settings warning set its words in the error ink
- * on the loss tint, 4.32:1 in dark, until E283.
+ * in the variant's (a graphic, 3:1), and so do the borrowers of noticeTint() that keep a Notice's words, the dashboard's
+ * limit banner and the verification banner (DESIGN_SYSTEM.md §4 › Inline notice). A borrower that sets words in another
+ * ink inside the tint is listed in INKED with the inks it writes, and measured: the one today is the Copilot's error
+ * bubble, its one sentence in the error ink (4.62:1 in dark). The settings page's delete warning set its words in the
+ * error ink on the loss tint, 4.32:1 in dark, until E283; since D-076 it is a warning Notice, its list the Notice's
+ * children.
+ *
+ * Every <Notice> is read the same way (D-076): the words a caller writes into it, in its title, its description or its
+ * children (a JSX value of any prop included), and the Notice's own className, rest in the ink, so a status ink on a
+ * list inside a Notice fails. A link (an <a>, a <Link>, a component named for one) may take the accent ink every link
+ * takes (`text-brand-strong`, its hover `text-brand-emphasis`, their dark twins) at full strength; the accent ink on
+ * anything else, or faded, fails. A <Notice> is one imported from components/ui/Notice or the components/ui barrel,
+ * by alias path or relative to the file, under any name, as a namespace member or through a same-file const alias.
+ * Out of reach there: words a component inside the Notice inks itself, and a class held in a variable. A title that
+ * opens on its state's name is noticeTitlesAreOnePhrase.spec.ts's, which reads every piece of a title.
  *
  * What it reads, through the TypeScript AST: every source under app, components, features, hooks and lib but
  * components/ui that names the helper. Each call must sit in the className of the element it tints, its variant
@@ -137,8 +148,10 @@ function tints(sf: ts.SourceFile): { found: { variant: string; element: Tinted }
   return { found, unplaced }
 }
 
-/** The text colours outside the ink family on the tint's element and every element inside it but a glyph. */
-function wordInks(element: Tinted, sf: ts.SourceFile): string[] {
+/** The text colours outside the ink family on the tint's element and every element inside it but a glyph. `allow`
+    passes a colour on one element (a link's accent ink inside a Notice); `root` reads the element's own className even
+    when it holds nothing but glyphs (a Notice written with empty children still has a className to read). */
+function wordInks(element: Tinted, sf: ts.SourceFile, allow?: (cls: string, node: Tinted) => boolean, root = false): string[] {
   const tag = (node: Tinted) => (ts.isJsxElement(node) ? node.openingElement : node).tagName.getText(sf)
   const isIcon = (node: Tinted) => /Icon$/.test(tag(node)) || tag(node) === 'svg'
   // Blank text, an empty expression (a comment) or an icon draw no word; nor does an element of nothing else.
@@ -149,23 +162,23 @@ function wordInks(element: Tinted, sf: ts.SourceFile): string[] {
     if (ts.isJsxElement(node)) return isIcon(node) || node.children.every(glyph)
     return node.children.every(glyph)
   }
-  const tokens: string[] = []
-  const strings = (node: ts.Node): void => {
-    if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) tokens.push(...node.text.split(/\s+/))
-    ts.forEachChild(node, strings)
-  }
+  const tokens: { token: string; node: Tinted }[] = []
   const visit = (node: ts.Node): void => {
-    if ((ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) && !glyph(node)) {
+    if ((ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) && ((root && node === element) || !glyph(node))) {
       const opening = ts.isJsxElement(node) ? node.openingElement : node
+      const strings = (n: ts.Node): void => {
+        if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) tokens.push(...n.text.split(/\s+/).map((token) => ({ token, node })))
+        ts.forEachChild(n, strings)
+      }
       opening.attributes.properties.filter((p) => isClassAttribute(p, sf)).forEach(strings)
     }
     ts.forEachChild(node, visit)
   }
   visit(element)
-  return tokens.filter((token) => {
+  return tokens.filter(({ token, node }) => {
     const colour = textColour(token)
-    return colour !== null && !isInk(colour)
-  })
+    return colour !== null && !isInk(colour) && !(allow?.(token, node) ?? false)
+  }).map(({ token }) => token)
 }
 
 /** Every source under DIRS but the primitives that names the helper, from the frontend root. */
@@ -186,6 +199,102 @@ function borrowers(): string[] {
 }
 
 const read = (file: string) => parse(file, readFileSync(path.join(ROOT, file), 'utf8'))
+
+/** Whether an import specifier in a file names the modules a <Notice> comes from: components/ui/Notice or the
+    components/ui barrel, by alias path or relative to the file. */
+function isNoticeModule(file: string, specifier: string): boolean {
+  let key = specifier
+  if (key.startsWith('@/')) key = key.slice(2)
+  else if (key.startsWith('.')) key = path.posix.normalize(path.posix.join(path.posix.dirname(file), key))
+  else return false
+  key = key.replace(/\/+$/, '').replace(/\.(tsx?|js)$/, '').replace(/\/index$/, '')
+  return key === 'components/ui' || key === 'components/ui/Notice'
+}
+
+/** Each <Notice> in a source, under its import's own name, an alias or a namespace member, unless a local shadows it. */
+function noticeElements(sf: ts.SourceFile): Tinted[] {
+  const names = new Set<string>()
+  const namespaces = new Set<string>()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.importClause) continue
+    if (!isNoticeModule(sf.fileName, st.moduleSpecifier.text)) continue
+    const bindings = st.importClause.namedBindings
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const el of bindings.elements) if ((el.propertyName ?? el.name).text === 'Notice') names.add(el.name.text)
+    } else if (bindings) namespaces.add(bindings.name.text)
+  }
+  // `const N = Notice` (or `= UI.Notice`), followed until no new alias appears.
+  const aliases: Array<[string, ts.Expression]> = []
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) aliases.push([node.name.text, node.initializer])
+    ts.forEachChild(node, collect)
+  }
+  collect(sf)
+  const isNoticeRef = (e: ts.Expression): boolean =>
+    (ts.isIdentifier(e) && names.has(e.text)) ||
+    (ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && namespaces.has(e.expression.text) && e.name.text === 'Notice')
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const [alias, init] of aliases) {
+      if (!names.has(alias) && isNoticeRef(init)) {
+        names.add(alias)
+        grew = true
+      }
+    }
+  }
+  const resolve = bindingResolver(sf)
+  const isAlias = (id: ts.Identifier) => {
+    const binding = resolve(id)
+    return !!binding && ts.isVariableDeclaration(binding.decl) && !!binding.init && isNoticeRef(binding.init)
+  }
+  const out: Tinted[] = []
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = (ts.isJsxElement(node) ? node.openingElement : node).tagName
+      const isNotice = (ts.isIdentifier(tag) && names.has(tag.text) && (!resolve(tag) || isAlias(tag))) ||
+        (ts.isPropertyAccessExpression(tag) && ts.isIdentifier(tag.expression) && namespaces.has(tag.expression.text) && !resolve(tag.expression) && tag.name.text === 'Notice')
+      if (isNotice) out.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
+
+/** A link's ink, the accent's, which a link inside a Notice keeps (DESIGN.md › Links): brand-strong and its hover, at
+    full strength, on a link (an <a>, a <Link> or a component named for one). */
+const isLinkInk = (cls: string) => /^!?text-brand-(strong|emphasis)(-dark)?$/.test(cls.split(/:(?![^[]*\])/).pop()!)
+const isLink = (node: Tinted, sf: ts.SourceFile) => /^(a|Link|[A-Z]\w*Link)$/.test((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText(sf))
+/** Whether an element fades its text: a `text-opacity-` (or `opacity-`) utility below 100 in its className. */
+function fadesText(node: Tinted, sf: ts.SourceFile): boolean {
+  const opening = ts.isJsxElement(node) ? node.openingElement : node
+  const tokens: string[] = []
+  const strings = (n: ts.Node): void => {
+    if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) tokens.push(...n.text.split(/\s+/))
+    ts.forEachChild(n, strings)
+  }
+  opening.attributes.properties.filter((p) => isClassAttribute(p, sf)).forEach(strings)
+  return tokens.some((t) => /^!?(text-)?opacity-(?!100$|\[1\]$|\[100%\]$)/.test(t.split(/:(?![^[]*\])/).pop()!))
+}
+/** The words a caller writes into a Notice in another ink than the ink family, a link's accent ink at full strength
+    aside: the colour with no opacity modifier, on a link that fades nothing. */
+const noticeWords = (element: Tinted, sf: ts.SourceFile) =>
+  wordInks(element, sf, (cls, node) => isLink(node, sf) && isLinkInk(cls) && !fadesText(node, sf), true)
+
+/** Every source under DIRS but the primitives, from the frontend root. */
+function sources(): string[] {
+  const out: string[] = []
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name)
+      const file = path.relative(ROOT, p).split(path.sep).join('/')
+      if (entry.isDirectory()) walk(p)
+      else if (/\.tsx$/.test(entry.name) && !/\.(spec|test)\.tsx$/.test(entry.name) && !file.startsWith(PRIMITIVES)) out.push(file)
+    }
+  }
+  DIRS.forEach((dir) => walk(path.join(ROOT, dir)))
+  return out.sort()
+}
 
 describe("words inside Notice's tint (E283)", () => {
   it.each(INKED)('$file: its $variant words clear 4.5:1 in the tint on the panel and the page, in both themes', ({ file, variant, ink }) => {
@@ -208,8 +317,8 @@ describe("words inside Notice's tint (E283)", () => {
 
   it('every borrower keeps its words in the ink unless INKED lists it, and every tint has an element to read', () => {
     const files = borrowers()
-    // The reader reaches the tree: the warning it keeps in the ink, and each listed borrower.
-    expect(files).toEqual(expect.arrayContaining(['app/dashboard/settings/page.tsx', ...INKED.map((entry) => entry.file)]))
+    // The reader reaches the tree: the limit banner it keeps in the ink, and each listed borrower.
+    expect(files).toEqual(expect.arrayContaining(['app/dashboard/page.tsx', ...INKED.map((entry) => entry.file)]))
     const unplaced: string[] = []
     const unlisted: string[] = []
     for (const file of files) {
@@ -284,5 +393,57 @@ describe("words inside Notice's tint (E283)", () => {
       'planted.tsx:21 noticeTint(…) variant is not one string literal',
       "planted.tsx:22 noticeTint(…) is called outside an element's className",
     ])
+  })
+})
+
+describe('words inside a Notice (D-076)', () => {
+  it('every Notice keeps the words a caller writes into it in the ink, a link in the accent ink', () => {
+    const files = sources()
+    let count = 0
+    const inked: string[] = []
+    for (const file of files) {
+      const sf = read(file)
+      for (const element of noticeElements(sf)) {
+        count += 1
+        const at = `${file}:${sf.getLineAndCharacterOfPosition(element.getStart(sf)).line + 1}`
+        for (const cls of noticeWords(element, sf)) inked.push(`${at} ${cls}`)
+      }
+    }
+    // Not vacuous: the reader reaches the Notices, the settings page's delete warning among them.
+    expect(count).toBeGreaterThanOrEqual(45)
+    expect(noticeElements(read('app/dashboard/settings/page.tsx'))).toHaveLength(1)
+    expect(inked, "a Notice's words rest in the ink, a link in the accent ink, and its glyph alone takes the variant's (DESIGN_SYSTEM.md §4 › Inline notice)").toEqual([])
+  })
+
+  it('fails what it should: a status ink in a title, a description or the children, the accent ink off a link or faded, and a Notice root', () => {
+    const planted = parse(
+      'components/planted.tsx',
+      [
+        "import { Notice as Box } from './ui'",
+        "import * as UI from '@/components/ui/Notice'",
+        "import { Notice as Other } from './Notice'",
+        'const N = UI.Notice',
+        'export const A = () => (',
+        '  <>',
+        '    <Box variant="warning" title="t" description={<span className="text-warning-light">risky <a className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">more</a></span>}>',
+        '      <ul className="list-disc text-text-secondary-light"><li className="dark:text-error-dark">one</li></ul>',
+        '      <p className="text-brand-strong">not a link</p><Link className="text-brand-strong/70">faded</Link>',
+        '      <a className="text-brand-strong/[0.7]">faded</a><Link className="text-brand-strong text-opacity-60">faded</Link><a className="group-hover/link:text-brand-strong">full</a>',
+        '    </Box>',
+        '    <N variant="info" title="t" className="text-info-light"></N>',
+        '    <Other variant="info" title="t" />',
+        '  </>',
+        ')',
+        'export const B = () => { const Box = (p: object) => <div {...p} />; return <Box className="text-error-light" /> }',
+      ].join('\n'),
+    )
+    const found = noticeElements(planted)
+    // './ui' from components/ is the barrel; './Notice' from components/ is no Notice module; the shadowing local is skipped.
+    expect(found.map((e) => planted.getLineAndCharacterOfPosition(e.getStart(planted)).line + 1)).toEqual([7, 12])
+    expect(noticeWords(found[0], planted)).toEqual([
+      'text-warning-light', 'dark:text-error-dark', 'text-brand-strong', 'text-brand-strong/70', 'text-brand-strong/[0.7]', 'text-brand-strong',
+    ])
+    // A Notice written with empty children still has its own className read.
+    expect(noticeWords(found[1], planted)).toEqual(['text-info-light'])
   })
 })
