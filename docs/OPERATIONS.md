@@ -663,6 +663,10 @@ Located in `backend/scripts/`:
 - `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+- `complimentary_access.py` - Grant or revoke complimentary Pro for invited private-beta accounts from a private
+  manifest (PB-02): `fingerprint` and `check` run offline; `dry-run` writes nothing; `apply --confirm-digest`
+  runs only the manifest its dry run reported; `readout` counts grants, reviews due and drift. Every report
+  is safe for a public log. Procedure, manifest and end-date rules: `docs/ops/complimentary-access.md`
 
 ### Review gate (rule 12 for the review-wait lesson)
 

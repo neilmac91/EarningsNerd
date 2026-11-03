@@ -109,7 +109,7 @@ def test_status_without_a_row_serves_the_user_mirror(client):
     assert resp.json() == {
         "is_pro": False, "stripe_customer_id": "cus_mirror", "stripe_subscription_id": "sub_mirror",
         "subscription_status": None, "plan": "free", "status": None, "trial_end": None,
-        "current_period_end": None, "cancel_at_period_end": False,
+        "current_period_end": None, "cancel_at_period_end": False, "complimentary": False,
     }
 
 
@@ -128,7 +128,7 @@ def test_status_serves_the_readers_own_row(client):
     assert body == {
         "is_pro": True, "stripe_customer_id": "cus_row", "stripe_subscription_id": "sub_row",
         "subscription_status": "active", "plan": "pro", "status": "active", "trial_end": None,
-        "cancel_at_period_end": True,
+        "cancel_at_period_end": True, "complimentary": False,
     }
 
 
