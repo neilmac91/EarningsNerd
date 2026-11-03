@@ -5,7 +5,7 @@
     "sp500": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
     "nasdaq100": "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"
   },
-  "generated_on": "2026-10-01",
+  "generated_on": "2026-11-01",
   "count": 518,
   "members": [
     {
@@ -918,13 +918,6 @@
     {
       "ticker": "CTSH",
       "name": "Cognizant",
-      "indices": [
-        "sp500"
-      ]
-    },
-    {
-      "ticker": "CTVA",
-      "name": "Corteva",
       "indices": [
         "sp500"
       ]
@@ -2201,7 +2194,7 @@
     },
     {
       "ticker": "MCK",
-      "name": "McKesson Corporation",
+      "name": "McKesson",
       "indices": [
         "sp500"
       ]
@@ -2326,6 +2319,7 @@
       "ticker": "MRNA",
       "name": "Moderna",
       "indices": [
+        "nasdaq100",
         "sp500"
       ]
     },
@@ -2805,13 +2799,6 @@
       ]
     },
     {
-      "ticker": "PSKY",
-      "name": "Paramount Skydance Corporation",
-      "indices": [
-        "sp500"
-      ]
-    },
-    {
       "ticker": "PSX",
       "name": "Phillips 66",
       "indices": [
@@ -2914,7 +2901,7 @@
     },
     {
       "ticker": "RMD",
-      "name": "ResMed|",
+      "name": "ResMed",
       "indices": [
         "sp500"
       ]
@@ -3009,6 +2996,13 @@
     {
       "ticker": "SJM",
       "name": "J.M. Smucker Company (The)",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
+      "ticker": "SKYD",
+      "name": "Skydance",
       "indices": [
         "sp500"
       ]
@@ -3343,6 +3337,13 @@
       ]
     },
     {
+      "ticker": "TWLO",
+      "name": "Twilio",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
       "ticker": "TXN",
       "name": "Texas Instruments",
       "indices": [
@@ -3534,6 +3535,13 @@
       ]
     },
     {
+      "ticker": "VYLR",
+      "name": "Vylor",
+      "indices": [
+        "sp500"
+      ]
+    },
+    {
       "ticker": "VZ",
       "name": "Verizon",
       "indices": [
@@ -3551,14 +3559,6 @@
       "ticker": "WAT",
       "name": "Waters Corporation",
       "indices": [
-        "sp500"
-      ]
-    },
-    {
-      "ticker": "WBD",
-      "name": "Warner Bros. Discovery",
-      "indices": [
-        "nasdaq100",
         "sp500"
       ]
     },
