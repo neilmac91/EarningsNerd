@@ -286,7 +286,7 @@ def test_the_digest_is_canonical_and_moves_with_every_field():
     assert load_manifest(reordered)[1] == digest
     variants = [
         _raw("grant", list(reversed(accounts))), _raw("grant", accounts[:1]), _raw("revoke", accounts),
-        _raw("grant", accounts, operator_id=2), _raw("grant", accounts, cohort="another-cohort"),
+        _raw("grant", accounts, operator_id=2), _raw("grant", accounts, cohort="private-beta-2026-12"),
         _raw("grant", accounts, reason="Another reason"), _raw("grant", accounts, review_on=REVIEW_ON + timedelta(1)),
         _raw("grant", accounts, salt="f" * 32),
     ]
@@ -307,6 +307,20 @@ def test_the_digest_covers_a_secret_salt_so_its_public_copy_names_no_one():
     with pytest.raises(ManifestError) as refused:
         load_manifest(json.dumps(public).encode())
     assert refused.value.problems == ["grant.salt: is required"]
+
+
+def test_a_cohort_is_an_opaque_code_that_names_no_one():
+    """Every report and the readout print the cohort to the public Ops log, so it is a fixed scheme with no free letter:
+    private-beta-YYYY-MM, with an optional wave. A slug that could hold a name, a workplace or a description is
+    refused."""
+    for cohort in ("private-beta-2026-11", "private-beta-2026-11-w2", "private-beta-2027-01-w12"):
+        assert load_manifest(_raw("grant", [_fake_entry(1)], cohort=cohort))[0].cohort == cohort
+    for cohort in ("jane-doe-acme", "acme-corp-friends", "private-beta-2026-13", "private-beta-2026-1",
+                   "private-beta-2026-11-wave2", "private-beta-2026-11-w0", "Private-Beta-2026-11",
+                   "private-beta-2026-11-jane", "private-beta-2026-11\n"):
+        with pytest.raises(ManifestError) as refused:
+            load_manifest(_raw("grant", [_fake_entry(1)], cohort=cohort))
+        assert refused.value.problems == ["grant.cohort: does not match its format"], cohort
 
 
 def test_the_review_date_falls_after_today_and_within_a_year():
@@ -789,7 +803,7 @@ def test_the_cap_holds_at_twenty_active_grants_across_cohorts(world):
     operator = world.operator()
     testers = [world.tester() for _ in range(MAX_ACTIVE_GRANTS)]
     assert _apply(world, world.manifest("grant", testers[:12], operator_id=operator.id)).outcomes == {"granted": 12}
-    second = world.manifest("grant", testers[12:], operator_id=operator.id, cohort="private-beta-wave-2")
+    second = world.manifest("grant", testers[12:], operator_id=operator.id, cohort="private-beta-2026-11-w2")
     assert _apply(world, second).outcomes == {"granted": 8}
     extra = world.tester()
     over = world.manifest("grant", [extra], operator_id=operator.id)
@@ -942,7 +956,7 @@ def test_a_revoke_refuses_a_grant_of_another_cohort(world):
     tester = world.tester()
     _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
 
-    report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, cohort="another-cohort"))
+    report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, cohort="private-beta-2026-12"))
 
     assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).is_pro is True
@@ -953,7 +967,7 @@ def test_a_grant_refuses_an_account_another_cohort_holds(world):
     tester = world.tester()
     _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
 
-    report = _apply(world, world.manifest("grant", [tester], operator_id=operator.id, cohort="another-cohort"))
+    report = _apply(world, world.manifest("grant", [tester], operator_id=operator.id, cohort="private-beta-2026-12"))
 
     assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).grant.cohort == COHORT
@@ -1101,7 +1115,7 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
     operator = world.operator()
     testers = [world.tester() for _ in range(3)]
     _apply(world, world.manifest("grant", testers[:2], operator_id=operator.id))
-    _apply(world, world.manifest("grant", testers[2:], operator_id=operator.id, cohort="private-beta-wave-2",
+    _apply(world, world.manifest("grant", testers[2:], operator_id=operator.id, cohort="private-beta-2026-11-w2",
                                  review_on=REVIEW_ON + timedelta(days=30)))
     _apply(world, world.manifest("revoke", testers[1:2], operator_id=operator.id))
     # Drift of each kind: a row now decides the first account's plan, something set the revoked account's flag again,
@@ -1116,7 +1130,7 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
 
     assert before_review == {
         "cap": MAX_ACTIVE_GRANTS, "active_grants": 2, "revoked_grants": 1,
-        "active_by_cohort": {COHORT: 1, "private-beta-wave-2": 1}, "due_for_review": 0,
+        "active_by_cohort": {COHORT: 1, "private-beta-2026-11-w2": 1}, "due_for_review": 0,
         "active_without_complimentary_pro": 1, "active_with_stripe_identity": 1, "revoked_still_pro": 1,
     }
     assert on_review["due_for_review"] == 1

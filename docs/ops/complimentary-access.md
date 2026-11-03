@@ -94,7 +94,7 @@ the active grants past 20, across every cohort, stops the whole manifest (`stopp
 
 ## The manifest
 
-A JSON file with the action, the cohort (lower-case letters, digits and hyphens), the reason, the operator's admin
+A JSON file with the action, the cohort (`private-beta-YYYY-MM`, with an optional wave: `-w2`), the reason, the operator's admin
 account id (an active admin with a verified address, whom every audit row names as the actor; the check attributes the
 run and authenticates no one, since the authority to run it is the database credential and, in production, the
 founder's `ops-apply` approval), a secret salt, at most 20 accounts and, for a grant, the review date. Each account is named by its id and
@@ -128,8 +128,8 @@ manifest, and never publish it. The example's placeholder is refused, so a copy 
 published salt.
 
 The cohort is an opaque public code: every report prints it and the readout counts grants by it, so it appears in the
-public Ops log. Keep what each code stands for with the private roster; no name, address, workplace or private
-description belongs in it (the example's `private-beta-2026-11` has the shape).
+public Ops log. Its scheme leaves no letter free, so no name, address, workplace or private description fits in it;
+keep what each code stands for with the private roster.
 
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
 as a workflow input: the repository and its Actions logs are public. A committed one fails

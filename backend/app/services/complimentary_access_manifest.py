@@ -22,7 +22,9 @@ MAX_ACTIVE_GRANTS = 20
 # A grant's review date falls after the day it is applied and at most this many days later.
 MAX_REVIEW_DAYS = 366
 
-_COHORT_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+# The cohort is an opaque public code (every report and the readout print it): private-beta-YYYY-MM, with an optional
+# wave (-w2). No letter is free, so no name, workplace or description fits in it; its meaning stays with the roster.
+_COHORT_PATTERN = r"^private-beta-\d{4}-(?:0[1-9]|1[0-2])(?:-w[1-9]\d?)?$"
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
 # At least 128 bits of secret randomness, in lower-case hex (``openssl rand -hex 16`` draws one).
 _SALT_PATTERN = r"^[0-9a-f]{32,128}$"
