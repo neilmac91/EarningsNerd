@@ -307,7 +307,11 @@ export default function AdminInvitesPage() {
                 htmlFor="cohort"
                 className="mb-2 block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
               >
-                Cohort <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
+                {/* While only the invited-cohort exception opens links, the server refuses a link without its cohort. */}
+                Cohort{' '}
+                <span className="text-text-tertiary-light dark:text-text-tertiary-dark">
+                  {available.cohortOnly ? '(required)' : '(optional)'}
+                </span>
               </label>
               <Input
                 id="cohort"

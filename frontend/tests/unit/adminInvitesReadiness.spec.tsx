@@ -37,7 +37,9 @@ import {
   type MintResult,
 } from '@/features/admin/api/admin-api'
 import { localDay } from '@/features/admin/lib/invitePermission'
-import { COLLECTION_HELD, EMAIL_HELD, READY, delivery, pendingInvite } from './fixtures/inviteReadiness'
+import {
+  COHORT_EXCEPTION_HELD, COHORT_ONLY, COLLECTION_HELD, EMAIL_HELD, READY, delivery, pendingInvite,
+} from './fixtures/inviteReadiness'
 
 const mint = (email: string, emailed: boolean): MintResult => ({
   id: email.length,
@@ -168,8 +170,41 @@ describe('the readiness banner says what holds what, and the page turns it off',
     await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith(1))
   })
 
+  it('with only the invited cohort open, says so, needs the cohort and sends links for it', async () => {
+    answer(COHORT_ONLY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const registration = notice('Registration is open to the invited cohort only')
+    expect(registration).toHaveAttribute('role', 'status')
+    expect(registration).toHaveTextContent('New registrations are switched off (LEGAL_COLLECTION_ENABLED is off).')
+    expect(registration).toHaveTextContent(
+      'Until registration opens, a new invite link must be bound to an address and carry the cohort set in LEGAL_INVITED_COHORT, exactly, and only such a link can be resent.',
+    )
+    expect(screen.queryByText('Registration is on hold')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Cohort (required)')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Cohort (required)'), 'cohort-synthetic-7f3a9c')
+    await stage('ann@example.com')
+    expect(sendButton()).not.toHaveAttribute('aria-disabled')
+    await user.click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0]).toMatchObject({ email: 'ann@example.com', cohort: 'cohort-synthetic-7f3a9c', sendEmail: false })
+  })
+
+  it('keeps the cohort optional while registration is open', async () => {
+    answer(READY)
+    renderPage()
+    await screen.findByText(/No invites yet/)
+    expect(screen.getByLabelText('Cohort (optional)')).toBeInTheDocument()
+  })
+
   it('says something it does not recognize holds a capability, rather than nothing', async () => {
-    answer({ collection: { available: true, reasons: [] }, invitation_email: { available: false, reasons: ['a_new_condition'] } })
+    answer({
+      collection: { available: true, reasons: [] }, invited_cohort: COHORT_EXCEPTION_HELD,
+      invitation_email: { available: false, reasons: ['a_new_condition'] },
+    })
     renderPage()
     await screen.findByText('Invitation email is on hold')
     expect(notice('Invitation email is on hold')).toHaveTextContent(

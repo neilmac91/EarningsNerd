@@ -623,12 +623,14 @@ creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
 `REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
 (`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
 shown once. Asking the mint to email it (`send_email: true`) answers 503 while invitation email
-is held (`legal_readiness_service.is_invitation_email_available()`: collection, the
-`LEGAL_INVITATION_EMAIL_ENABLED` switch, `RESEND_API_KEY` and a usable `RESEND_WEBHOOK_SECRET`),
-and 422 without the recipient's recorded request (`permission`); promotional mail stays closed
-either way (`is_marketing_available()`). The mint and signup both answer 503 while new
-collection is closed (`is_collection_available()`). `docs/LEGAL_READINESS.md` has the steps
-that turn invitation email on.
+is held (`legal_readiness_service.is_invitation_email_available()`: collection or the
+invited-cohort exception, the `LEGAL_INVITATION_EMAIL_ENABLED` switch, `RESEND_API_KEY` and a
+usable `RESEND_WEBHOOK_SECRET`), and 422 without the recipient's recorded request (`permission`);
+promotional mail stays closed either way (`is_marketing_available()`). The mint and signup both
+answer 503 while new collection is closed (`is_collection_available()`), unless the invited-cohort
+exception is open, which admits only an invitation bound to its address and in its cohort (the mint
+answers 422 for any other). `docs/LEGAL_READINESS.md` has the steps that turn invitation email
+and that exception on.
 
 New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
 returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it

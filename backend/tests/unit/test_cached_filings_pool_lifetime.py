@@ -5294,7 +5294,7 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
     sent: list[tuple[str, str]] = []
 
     async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
-                                name: str | None = None) -> str:
+                                cohort: str | None, name: str | None = None) -> str:
         await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
         if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
             raise RuntimeError("the mail provider refused the message")
@@ -5401,7 +5401,7 @@ async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(
     engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
 
     async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
-                                name: str | None = None) -> str:
+                                cohort: str | None, name: str | None = None) -> str:
         checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
         with sessions() as db:
             held.append((to_email, checked_out, db.query(AuditLog).count()))

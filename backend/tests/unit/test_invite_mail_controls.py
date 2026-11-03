@@ -161,6 +161,9 @@ def test_readiness_names_the_conditions_never_their_values(client, admin, monkey
     assert response.status_code == 200, response.text
     assert response.json() == {
         "collection": {"available": False, "reasons": ["collection_disabled", "operator_unpublished"]},
+        # The invited-cohort exception's own conditions (test_invited_cohort_registration.py has its cases).
+        "invited_cohort": {"available": False, "reasons": [
+            "registration_not_invite_only", "invited_cohort_disabled", "invited_cohort_unset"]},
         "invitation_email": {"available": False, "reasons": [
             "collection_unavailable", "invitation_email_disabled", "provider_unconfigured",
             "provider_feedback_unverified"]},
