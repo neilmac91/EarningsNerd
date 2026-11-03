@@ -1,16 +1,23 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high; rounds 2+ review only the fix diff, round 3 needs a reason and round 4 a go from the founder',
   phases: [
     { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
     { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker or should-fix' },
   ],
 }
 
-// args: { prs: [{ number, branch, title, base?, brief?, tier? }], tier? }
+// args: { prs: [{ number, branch, title, base?, brief?, tier?, round?, fixBase?, reason?, founderGo? }], tier? }
 // tier: 'records' | 'routine' | 'high' (AGENTS.md §5 has the file list per tier). The PR's own tier wins;
 // args.tier may set 'routine' or 'high' for the batch; 'records' is accepted only on a PR itself; a PR
 // with no tier is reviewed as 'high'. An unknown tier fails the run before any agent starts.
+// round (AGENTS.md §5; lessons/ops-converge-a-review-in-one-fix-round.md): 1 when unset, the tier's full review over
+// the merge-base diff. From round 2 the PR names fixBase, the commit the previous round reviewed (7 to 40 lowercase hex
+// characters), and every lens and refuter reads only the fix diff from it to the branch head, on the tier's whole team;
+// round 3 or later also needs reason (the blocker, or the regression in the fix, it reviews), and round 4 or later
+// founderGo (the founder's words). A round that is not a whole number from 1, a round without what it needs, a field
+// given before its round, or a round field set on the batch fails the run before any agent starts. The script checks
+// that a reason and a go are stated, not what they say.
 const PRS = args.prs
 const BATCH_TIER = args.tier === 'routine' || args.tier === 'high' ? args.tier : undefined
 if (args.tier && !BATCH_TIER) throw new Error(`args.tier may be routine or high, not "${args.tier}"; set records on the PR itself`)
@@ -27,6 +34,24 @@ const tierOf = (pr) => pr.tier || BATCH_TIER || 'high'
 const isTier = (name) => Object.prototype.hasOwnProperty.call(TIERS, name)
 for (const pr of PRS) {
   if (!isTier(tierOf(pr))) throw new Error(`unknown tier "${pr.tier}" for PR #${pr.number}; use records | routine | high`)
+}
+
+// Review rounds (the header): each field a later round takes, and the first round that takes it.
+const ROUND_FIELDS = { fixBase: 2, reason: 3, founderGo: 4 }
+const roundOf = (pr) => (pr.round === undefined ? 1 : pr.round)
+const stated = (text) => typeof text === 'string' && text.trim() !== ''
+for (const key of ['round', ...Object.keys(ROUND_FIELDS)]) {
+  if (Object.prototype.hasOwnProperty.call(args, key)) throw new Error(`args.${key} is set on the batch; set it on each PR`)
+}
+for (const pr of PRS) {
+  const round = roundOf(pr)
+  if (!Number.isInteger(round) || round < 1) throw new Error(`round must be a whole number from 1 for PR #${pr.number}, not ${JSON.stringify(pr.round)}`)
+  for (const [key, from] of Object.entries(ROUND_FIELDS)) {
+    if (round < from && Object.prototype.hasOwnProperty.call(pr, key)) throw new Error(`PR #${pr.number}: ${key} belongs to round ${from} or later, not round ${round}`)
+  }
+  if (round >= 2 && !(typeof pr.fixBase === 'string' && /^[0-9a-f]{7,40}$/.test(pr.fixBase))) throw new Error(`round ${round} of PR #${pr.number} needs fixBase, the commit the previous round reviewed, as 7 to 40 lowercase hex characters`)
+  if (round >= 3 && !stated(pr.reason)) throw new Error(`round ${round} of PR #${pr.number} needs a reason: the blocker, or the regression in the fix, it reviews`)
+  if (round >= 4 && !stated(pr.founderGo)) throw new Error(`round ${round} of PR #${pr.number} needs founderGo: the founder's words allowing it`)
 }
 
 const FINDINGS_SCHEMA = {
@@ -71,13 +96,23 @@ const VERDICT_SCHEMA = {
 const SEVERITY_RANK = { blocker: 3, 'should-fix': 2, nit: 1 }
 const rankOf = (sev) => (Object.prototype.hasOwnProperty.call(SEVERITY_RANK, sev) ? SEVERITY_RANK[sev] : 0)
 
+// Round 1 reads the merge-base diff, as every review did before rounds; a later round reads only its fix diff.
+const MERGE_BASE_DIFF = (pr, BASE) => `Use the MERGE-BASE (three-dot) diff:
+  git diff ${BASE}...origin/${pr.branch} --stat
+  git diff ${BASE}...origin/${pr.branch} -- <path>
+Do NOT report "this PR deletes files X" when X simply post-dates the branch point on main (check with: git log --oneline ${BASE}..origin/${pr.branch} and git merge-base ${BASE} origin/${pr.branch}); a normal merge keeps them.`
+const FIX_DIFF = (pr) => { const round = roundOf(pr); return `This is review round ${round} (AGENTS.md §5; lessons/ops-converge-a-review-in-one-fix-round.md): round 1 was the tier's full review, and its findings were fixed once. Review ONLY the fix diff, from ${pr.fixBase} (the commit the previous round reviewed) to the branch head:
+  git diff ${pr.fixBase} origin/${pr.branch} --stat
+  git diff ${pr.fixBase} origin/${pr.branch} -- <path>
+If ${pr.fixBase} is not an ancestor of the head (git merge-base --is-ancestor ${pr.fixBase} origin/${pr.branch} exits 1), report one blocker saying so and nothing else: that diff would carry changes from outside the PR.
+Report a finding only in the fix diff, or in code whose behaviour it changes, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.${round >= 3 ? `
+Round 3 or later runs only for a blocker or a regression in the fix. The reason for this one: ${pr.reason}` : ''}${round >= 4 ? `
+A fourth or later round runs only on the founder's go. The founder's go for this one: ${pr.founderGo}` : ''}` }
+
 const COMMON = (pr) => { const BASE = `origin/${pr.base || 'main'}`; return `
 Repo: /home/user/EarningsNerd (branches already fetched; do NOT modify the working tree, do not check out branches, do not create worktrees — read-only review via git plumbing).
 PR #${pr.number} "${pr.title}", branch origin/${pr.branch}, base ${BASE}.
-Use the MERGE-BASE (three-dot) diff:
-  git diff ${BASE}...origin/${pr.branch} --stat
-  git diff ${BASE}...origin/${pr.branch} -- <path>
-Do NOT report "this PR deletes files X" when X simply post-dates the branch point on main (check with: git log --oneline ${BASE}..origin/${pr.branch} and git merge-base ${BASE} origin/${pr.branch}); a normal merge keeps them.
+${roundOf(pr) === 1 ? MERGE_BASE_DIFF(pr, BASE) : FIX_DIFF(pr)}
 Read files on the branch with: git show origin/${pr.branch}:<path>
 Read what this PR is meant to do: ${pr.brief ? `git show ${BASE}:tasks/implementation-briefs-2026-09.md (section ${pr.brief})` : `the PR body (gh api repos/neilmac91/EarningsNerd/pulls/${pr.number} --jq .body)`}.
 Read the repo rules: CLAUDE.md on ${BASE} (git show ${BASE}:CLAUDE.md) — the 12 non-negotiable rules, "Where things live", and "Tests". Lessons index: git show ${BASE}:lessons/README.md (open any lesson relevant to your lens with git show ${BASE}:lessons/<file>).
@@ -107,14 +142,14 @@ You are an independent skeptic #${i + 1}. A reviewer claims this finding about P
   severity claimed: ${f.severity}
   detail: ${f.detail}
   evidence: ${f.evidence}
-Try to REFUTE it by reading the actual code on the branch (git show origin/${pr.branch}:<path>, git grep on the branch, two-dot diff vs ${BASE}). A finding is refuted if the code does not behave as claimed, the "defect" is out of the PR's scope by the brief or PR body, it is already handled elsewhere on the branch, or the evidence is misquoted. If it stands but the severity is wrong, keep refuted=false and set corrected_severity. Default to refuted=true if you cannot confirm it from the code. Give a one-paragraph reason with file:line.` }
+Try to REFUTE it by reading the actual code on the branch (git show origin/${pr.branch}:<path>, git grep on the branch, ${roundOf(pr) === 1 ? `two-dot diff vs ${BASE}` : `the fix diff, git diff ${pr.fixBase} origin/${pr.branch}`}). A finding is refuted if the code does not behave as claimed, the "defect" is out of the PR's scope by the brief or PR body, it is already handled elsewhere on the branch, ${roundOf(pr) === 1 ? '' : 'it is not a blocker and lies outside the fix diff or beyond the done criteria the PR body (or brief) states, '}or the evidence is misquoted. If it stands but the severity is wrong, keep refuted=false and set corrected_severity. Default to refuted=true if you cannot confirm it from the code. Give a one-paragraph reason with file:line.` }
 
 const results = await pipeline(
   PRS,
   async (pr) => {
     const tier = tierOf(pr)
     const T = TIERS[tier]
-    log(`PR #${pr.number}: ${tier} tier — ${T.lenses.length} ${T.lensModel} lens(es)`)
+    log(`PR #${pr.number}: ${tier} tier, round ${roundOf(pr)} — ${T.lenses.length} ${T.lensModel} lens(es)`)
     const per = await parallel(T.lenses.map((key) => () =>
       agent(lensPrompt(pr, key), { label: `review:${pr.number}:${key}`, phase: 'Review', schema: FINDINGS_SCHEMA, model: T.lensModel, ...(T.lensEffort ? { effort: T.lensEffort } : {}) })
         .then((r) => (r ? r.findings.map((f) => ({ ...f, lens: key })) : null))
@@ -160,6 +195,7 @@ const results = await pipeline(
       pr: pr.number,
       branch: pr.branch,
       tier,
+      round: roundOf(pr),
       incomplete,
       mergeable: !incomplete && confirmed.filter((c) => c.severity === 'blocker').length === 0 && unverifiedAll.filter((c) => c.severity === 'blocker').length === 0,
       confirmed,

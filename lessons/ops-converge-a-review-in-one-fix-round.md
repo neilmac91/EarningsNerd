@@ -29,11 +29,17 @@ addressing."
   `tasks/todo.md`, or name it as a limit in the pull request body, unless it is a blocker.
 - Run round 3 only for a blocker, or a regression round 2 found in the fix, and give the reason in the pull request
   body under "Review"; round 3 reviews only its own fix diff. A fourth round needs the founder's go.
+- Give the review workflow (`.claude/workflows/premerge-review.js`) the round: `round` on each pull request, and
+  from round 2 `fixBase` (the commit the previous round reviewed), from round 3 `reason`, from round 4 `founderGo`
+  (the founder's words). It refuses a round without them, or a field before its round, before any agent starts,
+  and shows a later round's lenses and refuters only the fix diff.
 - Codex's review of each head is not a round. Weigh each of its findings by the same test, and answer every thread
   with the fix, or with the row or limit the finding went to.
 - A records pull request's same-context delta checks follow the rule: each covers only its head's fix commit.
 
 **Evidence**: the founder's message of 2026-11-03. The CODE RED closure chain
 (`tasks/code-red-20261004/runtime/control/`) registers gate (d)'s review workflows round by round under its label
-`excluded-dir-output-hook-pr-01`, and gate (c)'s under `gh-literal-path-hook-pr-01`. The rule is review-checked; a
-round input to the review workflow that would gate it waits on the founder (`tasks/todo.md` F72).
+`excluded-dir-output-hook-pr-01`, and gate (c)'s under `gh-literal-path-hook-pr-01`. The founder chose the same day
+to gate the rounds in the same pull request as this lesson: the review workflow's `round` input, each refusal
+proven by `frontend/tests/unit/premergeReviewWorkflow.spec.ts`. Writing the done criteria first, sending a finding
+to a follow-up row and weighing Codex's findings stay review-checked.

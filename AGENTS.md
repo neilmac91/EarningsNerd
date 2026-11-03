@@ -138,6 +138,11 @@ one outside the diff or beyond the criteria becomes a follow-up row in `tasks/to
 the body names, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
 its reason under "Review", and a fourth needs the founder's go. Codex's review of each head is not a
 round, and the records tier's same-context delta checks each cover only their head's fix commit.
+`/premerge-review` holds the rounds: each PR in `args.prs` takes `round` (1 when unset); from
+round 2 it needs `fixBase`, the commit the previous round reviewed, and shows every lens and
+refuter only `git diff <fixBase> origin/<branch>`; round 3 also needs `reason`, and round 4 or
+later `founderGo`, the founder's words. A round without them, a field given before its round, or a
+round field set on the batch fails before any agent starts.
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
