@@ -56,9 +56,9 @@ def by_name(service):
 
 def _trees() -> dict[str, ast.AST]:
     """Every module under ``backend/app`` (by its path there) and every top-level module (``main.py`` and its
-    siblings, by name), parsed."""
+    siblings, as ``../<name>``, so the top level's ``__init__.py`` never takes the app package's key), parsed."""
     paths = {path.relative_to(APP_DIR).as_posix(): path for path in sorted(APP_DIR.rglob("*.py"))}
-    paths.update({path.name: path for path in sorted(BACKEND_DIR.glob("*.py"))})
+    paths.update({f"../{path.name}": path for path in sorted(BACKEND_DIR.glob("*.py"))})
     return {rel: ast.parse(path.read_text(encoding="utf-8")) for rel, path in paths.items()}
 
 
@@ -131,6 +131,9 @@ def test_the_walk_sees_each_form():
     assert _mentions("oauth_new_account_gate", trees=planted) == {"routers/leak.py": ["handler"]}
 
 
-def test_the_walk_reads_the_top_level_modules():
-    # main.py defines public routes of its own (/, /health/detailed): the walk reads it and its siblings by name.
-    assert {"main.py", "task_worker_main.py"} <= set(_trees())
+def test_the_walk_reads_every_module_once():
+    # main.py defines public routes of its own (/, /health/detailed): the walk reads it and its siblings beside every
+    # module of the app package, the package's own __init__.py among them, none taking another's place.
+    trees = _trees()
+    assert {"../main.py", "../task_worker_main.py", "../__init__.py", "__init__.py"} <= set(trees)
+    assert len(trees) == len(list(APP_DIR.rglob("*.py"))) + len(list(BACKEND_DIR.glob("*.py")))

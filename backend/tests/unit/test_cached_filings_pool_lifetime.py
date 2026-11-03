@@ -1968,7 +1968,7 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["google", "apple"])
-async def test_a_refused_invited_sign_up_start_returns_its_connection_before_it_answers(monkeypatch, tmp_path, provider):
+async def test_a_refused_invited_sign_up_start_leaves_its_finalizer_nothing_open(monkeypatch, tmp_path, provider):
     """While collection is held and only the invited-cohort exception admits accounts, a sign-up start whose invitation
     the exception refuses reads that invitation in its thread-pool unit and answers 503 (EN-BETA PB-01). The refusal
     rolls the read back in the unit, so nine such starts on four slots leave no transaction for the finalizer and no
