@@ -14,10 +14,18 @@ import { describe, expect, it } from 'vitest'
  * literal (`{...{ title: '…' }}`). JSX decodes HTML entities in its text and attribute strings, so `&apos;`
  * reads as an apostrophe, not as a semicolon, and `&#59;` reads as one. Not read: a title passed in as a
  * variable, a spread of a variable, and a component reached through another module's re-export.
+ *
+ * No piece of a title opens on its state's name and a colon ("Warning:", "Error:"): the glyph names the state, the
+ * triangle a warning and the circle an error, so the title says what is true (D-076). The same pieces are read, so a
+ * conditional arm or a template's head that opens so fails too, and so does a later piece (stricter than the title's
+ * opening alone); a title split so that no one piece opens on the name is out of reach.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const ROOTS = ['app', 'components', 'features']
+const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 const COMPONENTS = new Set(['Notice', 'GuidanceCard'])
+/** A piece that opens on a state's name and a colon. */
+const STATE_PREFIX = /^(warning|error|success|info|note|caution)\s*:/i
+const pieceText = (title: string) => title.slice(title.indexOf(' ') + 1)
 
 /** A JSX text or attribute string as it renders: numeric entities decoded, the common named ones decoded and
  *  any other named one dropped (none renders a semicolon). A JS string inside braces is not decoded by JSX. */
@@ -152,5 +160,28 @@ describe('A Notice or GuidanceCard title is one phrase', () => {
     expect(titles.map((title) => title.slice(title.indexOf(' ') + 1))).toEqual(
       expect.arrayContaining(['Pro is active', 'Checkout finished', 'You returned from checkout']),
     )
+  })
+
+  it('no title in the app opens on its state’s name and a colon, and the rule reads each piece (D-076)', () => {
+    const files = ROOTS.flatMap((root) => walk(path.join(frontendDir, root)))
+    const titles = files.flatMap((file) =>
+      titleTexts(path.relative(frontendDir, file).split(path.sep).join('/'), readFileSync(file, 'utf8')),
+    )
+    expect(titles.filter((title) => STATE_PREFIX.test(pieceText(title))), "the glyph names the state, so the title says what is true").toEqual([])
+    // Not vacuous: the settings page's delete warning, which opened on "Warning:" until D-076, is read.
+    expect(titles.some((title) => title.startsWith('app/dashboard/settings/page.tsx:') && pieceText(title) === 'This action is permanent')).toBe(true)
+    const fixture = [
+      "import { Notice as Box } from '@/components/ui'",
+      'const a = <Box variant="warning" title="Warning: This action is permanent" />',
+      "const b = <GuidanceCard title={failed ? 'Error: try again' : 'Saved'} />",
+      'const c = <Notice title={`Note: ${n} filings`} />',
+      'const d = <Notice variant="error" title="Error" />',
+      'const e = <Notice title="Warnings cleared" />',
+    ].join('\n')
+    expect(titleTexts('fixture.tsx', fixture).filter((title) => STATE_PREFIX.test(pieceText(title)))).toEqual([
+      'fixture.tsx:2 Warning: This action is permanent',
+      'fixture.tsx:3 Error: try again',
+      'fixture.tsx:4 Note:',
+    ])
   })
 })
