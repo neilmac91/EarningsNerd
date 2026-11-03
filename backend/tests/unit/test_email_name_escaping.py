@@ -46,7 +46,7 @@ SENDERS = [
     (send_referral_success_email, dict(new_position=2, referral_link="https://e.test/r/abc")),
     (send_verification_email, dict(verification_link="https://e.test/v/t")),
     (send_invite_email, dict(magic_link="https://e.test/i/t", unsubscribe_link="https://e.test/u#token=t",
-                             delivery_ref="0" * 32)),
+                             delivery_ref="0" * 32, cohort=None)),
     (send_password_reset_email, dict(reset_link="https://e.test/p/t")),
     (send_oauth_linked_email, dict(provider="Google")),
     (send_account_exists_email, dict(login_link="https://e.test/login", reset_link="https://e.test/forgot")),
@@ -108,6 +108,7 @@ def sent(monkeypatch):
     # Render dormant promotional and invitation templates too; the readiness suite proves they cannot dispatch.
     monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
     monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available_for", lambda cohort, email: True)
     return mails
 
 

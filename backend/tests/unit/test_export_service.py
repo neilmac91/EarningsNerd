@@ -13,10 +13,11 @@ risk filtering matches the on-page UI.
 
 import csv
 import io
+import json
 import re
 import xml.etree.ElementTree as ET
 import zlib
-from datetime import date
+from datetime import date, datetime
 from html import escape, unescape
 from pathlib import Path
 from types import SimpleNamespace
@@ -24,7 +25,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.analysis_export_metadata import period_label
-from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
+from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService, summary_export_filename
 from app.services.trend_analysis.data_notes import REASONS
 from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
@@ -381,6 +382,39 @@ class TestPdfHtml:
         }
         assert "+14.4 ppts" in lines and "$9.89B" in lines, lines
         assert {text: count for text, count in lines.items() if count != 1} == {}
+
+
+# The summary's download name (E305): the one table the page's buildFilename (frontend/tests/unit/
+# summaryExportFilename.spec.ts) and summary_export_filename both run, so the name the export routes send is the
+# name the page gives the download.
+FILENAME_TABLE = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures" / "summary_export_filenames.json").read_text(encoding="utf-8")
+)
+
+
+class TestSummaryExportFilename:
+    @pytest.mark.parametrize(
+        "case", FILENAME_TABLE["cases"],
+        ids=lambda case: f"{case['ticker']!r}-{case['filing_type']}-{case['filing_date']}-{case['kind']}",
+    )
+    def test_names_the_download_as_the_page_does(self, case):
+        filed = case["filing_date"]
+        filing = SimpleNamespace(
+            company=None if case["ticker"] is None else SimpleNamespace(ticker=case["ticker"]),
+            filing_type=case["filing_type"],
+            filing_date=datetime.fromisoformat(filed) if filed else None,
+        )
+        assert summary_export_filename(filing, case["kind"]) == case["name"]
+
+    def test_the_table_reaches_each_part_of_the_name(self):
+        """A narrowed table would pass the cases above vacuously: it keeps a filing without a company, one with an
+        empty ticker, one without a date and one without a form, both kinds, and a form and a ticker to sanitize."""
+        cases = FILENAME_TABLE["cases"]
+        assert any(case["ticker"] is None for case in cases) and any(case["ticker"] == "" for case in cases)
+        assert any(case["filing_date"] is None for case in cases) and any(case["filing_type"] is None for case in cases)
+        assert {case["kind"] for case in cases} == {"pdf", "csv"}
+        assert any("/" in (case["filing_type"] or "") for case in cases)
+        assert any(re.search(r'[./"]', case["ticker"] or "") and case["ticker"] not in case["name"] for case in cases)
 
 
 class TestCsv:
