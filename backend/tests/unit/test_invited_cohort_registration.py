@@ -580,6 +580,24 @@ def test_the_callback_gate_refuses_an_invitation_outside_the_cohort_before_any_i
     assert (_invite(invite_id).used_at is not None) is (error is None)
 
 
+def test_the_callback_gate_refuses_an_unbound_invitation_before_any_insert(client, cohort_open, collection_ready,
+                                                                          monkeypatch):
+    # A start made while collection was open checks no cohort, so its state can carry an unbound invitation in the
+    # cohort. Once collection closes with the exception open, the gate refuses that invitation before the account's
+    # insert, as it refuses one in another cohort.
+    email = _address()
+    invite_id, raw = _mint(None, COHORT)
+    state = _state(_start(client, "google", raw))
+    monkeypatch.setattr(settings, "LEGAL_COLLECTION_ENABLED", False)
+    assert legal_readiness_service.invited_cohort() == COHORT
+
+    with _user_inserts() as inserts:
+        resp = _callback(client, monkeypatch, "google", _claims("google", email), state)
+
+    assert _error_of(resp) == "invite_required"
+    assert inserts == [] and _user(email) is None and _invite(invite_id).used_at is None
+
+
 def test_the_social_redemption_decides_on_the_row_too(cohort_open, monkeypatch):
     # The callback's gate refuses such an invitation first; with the gate answering as if it had admitted it, the
     # redemption's guard alone refuses it, and the new account rolls back.
@@ -658,6 +676,25 @@ def test_a_resend_outside_the_exception_is_refused_before_anything_is_revoked(cl
     resp = client.post(f"/api/admin/invites/{invite_id}/resend", json={"send_email": False}, headers=admin)
 
     assert (resp.status_code, resp.json()) == (422, {"detail": admin_module.INVITED_COHORT_ONLY_DETAIL})
+    assert _invite(invite_id).is_revoked is False and _invite_count() == before
+
+
+def test_a_resend_whose_exception_closes_in_its_unit_meets_the_closure(client, admin, cohort_open, monkeypatch):
+    # The route's own check passes; the exception closes before the re-issue reads the invitation, so its refusal
+    # answers as the closure does (503), not as an invitation outside the cohort, and nothing is revoked.
+    invite_id, _raw = _mint(_address())
+    prepare = invite_delivery_service.prepare_reissue
+
+    def close_then_prepare(*args, **kwargs):
+        monkeypatch.setattr(settings, "LEGAL_INVITED_COHORT_ENABLED", False)
+        return prepare(*args, **kwargs)
+
+    monkeypatch.setattr(invite_delivery_service, "prepare_reissue", close_then_prepare)
+    before = _invite_count()
+
+    resp = client.post(f"/api/admin/invites/{invite_id}/resend", json={"send_email": False}, headers=admin)
+
+    assert (resp.status_code, resp.json()) == (503, CLOSED)
     assert _invite(invite_id).is_revoked is False and _invite_count() == before
 
 

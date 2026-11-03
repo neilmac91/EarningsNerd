@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
 import { getInvitedCohortAvailable } from '@/features/auth/api/auth-api'
+import { useInvitedCohort } from '@/features/auth/hooks/useInvitedCohort'
 import { legalReady } from './fixtures/legalReady'
 
 /**
@@ -100,6 +101,46 @@ describe('the reader fails closed', () => {
   ])('reads %s as closed', async (_name, body) => {
     mocks.get.mockResolvedValue({ data: body })
     await expect(getInvitedCohortAvailable()).resolves.toBe(false)
+  })
+})
+
+describe('the fresh read', () => {
+  const deferred = <T,>() => {
+    let resolve!: (value: T) => void
+    const promise = new Promise<T>((yes) => { resolve = yes })
+    return { promise, resolve }
+  }
+
+  it('lets no superseded read open the exception, and none that answers after an unmount', async () => {
+    const mounted = deferred<{ data: unknown }>()
+    mocks.get.mockImplementationOnce(() => mounted.promise)
+    const { result, unmount } = renderHook(() => useInvitedCohort(true))
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+
+    // A recheck supersedes the mount's read and answers closed; the mount's read answering open later opens nothing.
+    mocks.get.mockResolvedValueOnce({ data: closedAnswer })
+    let fresh: boolean | undefined
+    await act(async () => { fresh = await result.current.recheck() })
+    expect(fresh).toBe(false)
+    await act(async () => { mounted.resolve({ data: open }) })
+    expect(result.current.available).toBe(false)
+
+    // A read still out at an unmount answers closed, whatever the server says.
+    const late = deferred<{ data: unknown }>()
+    mocks.get.mockImplementationOnce(() => late.promise)
+    let pending: Promise<boolean> | undefined
+    act(() => { pending = result.current.recheck() })
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(3))
+    unmount()
+    late.resolve({ data: open })
+    await expect(pending).resolves.toBe(false)
+  })
+
+  it('reads nothing for a visitor without an invitation', async () => {
+    const { result } = renderHook(() => useInvitedCohort(false))
+    await expect(result.current.recheck()).resolves.toBe(false)
+    expect(result.current).toMatchObject({ available: false, loading: false })
+    expect(mocks.get).not.toHaveBeenCalled()
   })
 })
 

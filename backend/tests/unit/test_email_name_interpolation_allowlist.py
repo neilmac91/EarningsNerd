@@ -156,8 +156,7 @@ _IMPORTS: dict[tuple[str, str | None], frozenset[str]] = {
     # Readiness booleans (invitation email's for one invitation's cohort and address, EN-BETA PB-01) and the invitation
     # hold's refusal sentence only: they return no recipient data, template access or other module attributes.
     ("app.services", "legal_readiness_service"): frozenset({
-        "is_marketing_available", "is_invitation_email_available", "is_invitation_email_available_for",
-        "INVITATION_EMAIL_UNAVAILABLE_MESSAGE",
+        "is_marketing_available", "is_invitation_email_available_for", "INVITATION_EMAIL_UNAVAILABLE_MESSAGE",
     }),
     (TRANSPORT_MODULE, TRANSPORT): frozenset(),  # the transport, to which a mail's text part goes: only called
 }

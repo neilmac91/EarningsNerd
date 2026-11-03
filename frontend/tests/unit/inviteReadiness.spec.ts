@@ -169,6 +169,12 @@ describe('the banner tells registration held apart from invitation email held', 
     )
   })
 
+  it('keeps the banner as it was for an answer from before the exception (held, with no reasons)', () => {
+    const older = heldCapabilities({ ...COLLECTION_HELD, invited_cohort: { available: false, reasons: [] } })
+    expect(older).toEqual(heldCapabilities(COLLECTION_HELD))
+    expect(older[0].description).not.toMatch(/invited-cohort|recognize/)
+  })
+
   it('names an exception switched on but held, and stays quiet about one switched off', () => {
     const misset = heldCapabilities({ ...COLLECTION_HELD, invited_cohort: { available: false, reasons: ['invited_cohort_unset'] } })
     expect(misset[0].title).toBe('Registration is on hold')
