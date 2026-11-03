@@ -31,11 +31,17 @@ is at least eight characters long after normalisation (an escaped slash counts a
 mask token as its own characters, however long the date it stands for) and has clean ends. A '/' at
 a name segment start, an ASCII `...` run and any non-path character (a Unicode ellipsis included)
 count as clean borders, at the date's masked digits too: a dotted year reads as masked digits while a
-truncation marker or an elision anywhere in the date still ends a cut, and an ellipsis that stands
-for the whole date reads as the date and ends a cut after it. So the dated parent with a dotted or
-elided date is flagged even in a sibling path, by design. It is a detector, not a filter: it leaves
-the result unchanged and never echoes the matched text. It acts only when the marker sits in the git common
-directory of the clone that holds the event's `cwd` OR of the clone that `$CLAUDE_PROJECT_DIR` names
+truncation marker or an elision inside the date still ends a cut. A lone ellipsis (Unicode, or three
+to ten dots) standing for the whole date is a whole-date token like `*`, so a cut may run across it,
+and a cut may also end where it ends; right before the component's slash such dots are also read
+as the date's last digits, so a cut through that junction may start inside them. So the dated parent
+before a sibling file is flagged, by design, when its date is elided whole by one ellipsis or a
+masked digit after its first is a clean border (a dotted year, every digit dotted, an elided month
+or day), and stays silent with a plain date, a mask token such as `*` for the whole date, a two-dot
+month or day, a dotted last digit or a year elided by one ellipsis. It is a detector, not a filter:
+it leaves the result unchanged and never echoes the matched text. It acts only when the marker sits
+in the git common directory of the clone that holds the event's `cwd` OR of the clone that
+`$CLAUDE_PROJECT_DIR` names
 (either suffices). It never scans `tool_input` (the CODE RED git commands carry the names as
 exclusion pathspecs). Its flag, and its "could not check" notice for an input it cannot parse, reach
 Claude as `additionalContext` and the user as `systemMessage` on both events: the registration

@@ -39,13 +39,14 @@ report:
 test_a_broken_copy_prints_no_scanned_text pins this on copies with the registrations removed (every
 case, every shown frame's locals printed in full), with a hook that ignores the opt-in and echoes the
 match (frame hiding on, then off), with a hook that sleeps past its registered timeout (frame hiding
-off), with an error raised inside a name's construction right after its join (pytest's default flags,
-then every local printed) and at the end of the hook's `_names()` (every local printed, then frame
-hiding off), and with an error appended to the end of the test module's and of the hook's source, so
-it runs after every module-level statement.
+off), with an error raised after the last statement of a name's construction (pytest's default flags,
+then every local printed, then on the two-word name's alone) and at the end of the hook's `_names()`
+(every local printed, then frame hiding off), and with an error appended to the end of the test
+module's and of the hook's source, so it runs after every module-level statement.
 """
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -449,14 +450,14 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "N1 cut after its year and dash, then an ellipsis, a slash and the component": lambda p: f"{p.head1}{p.date[:5]}{ELLIPSIS}/{p.component1}",
     "N1 word, dash, the date's first digit, an ellipsis, its last digit, a slash and the component": lambda p: f"{p.word1}-{p.date[:1]}{ELLIPSIS}{p.date[-1:]}/{p.component1}",
     "N1 cut two digits into its date as a JSON key": lambda p: f'{{"{p.head1}{p.date[:2]}":1}}',
-    # A sibling path under the dated parent whose year, or every date digit, is dotted: the dots also
-    # read as a truncation marker inside the date, so the parent is flagged (over-flagging this rare
-    # shape is the safe side, by design).
+    # A sibling path under the dated parent whose year, or every date digit, is dotted: a '...' run
+    # after the date's first digit also reads as a truncation marker inside the date, so the parent is
+    # flagged (over-flagging this rare shape is the safe side, by design).
     "the dated parent with its year as four dots, then a sibling file": lambda p: f"{p.head1}....{p.date[4:]}/plan.md",
     "the dated parent with every date digit a dot, then a sibling file": lambda p: f"{p.head1}{p.dotted}/plan.md",
-    # The whole date elided by one ellipsis, Unicode or three ASCII dots: a whole-date token that still
-    # borders a cut, so the name, with or without its prefix, and the parent before a sibling file
-    # are flagged.
+    # The whole date elided by one ellipsis, Unicode or three ASCII dots: a whole-date token whose end
+    # is also a clean border, so the name, with or without its prefix, and the parent before a sibling
+    # file are flagged.
     "N1 with its date elided by a Unicode ellipsis, before a space": lambda p: f"see {p.head1}{ELLIPSIS}/{p.component1} now",
     "N1 with its date elided by a Unicode ellipsis, at a line's end": lambda p: f"{p.head1}{ELLIPSIS}/{p.component1}\n",
     "N1 with its date elided by three dots, before a space": lambda p: f"see {p.head1}.../{p.component1} now",
@@ -467,6 +468,23 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "N1 without its prefix, its date elided by three dots, at a line's end": lambda p: f"{p.word1}-.../{p.component1}\n",
     "the dated parent with its date elided by a Unicode ellipsis, then a sibling file": lambda p: f"{p.head1}{ELLIPSIS}/plan.md",
     "the dated parent with its date elided by three dots, then a sibling file": lambda p: f"{p.head1}.../plan.md",
+    # A cut across an elided date into the component counts the ellipsis as written, as for any token:
+    # from the dash after a space, and from the word's last two letters.
+    "a space, the dash, a Unicode ellipsis, a slash and the component": lambda p: f"see -{ELLIPSIS}/{p.component1} now",
+    "a space, the dash, three dots, a slash and the component": lambda p: f"see -.../{p.component1} now",
+    "the word's last two letters, the dash, an ellipsis, a slash and four component letters at a line's end":
+        lambda p: f"{p.word1[-2:]}-{ELLIPSIS}/{p.component1[:4]}\n",
+    # An ellipsis followed by another is no whole-date token: per digit, two masked digits make this an
+    # eight-character cut.
+    "the word's last five letters, the dash and two Unicode ellipses": lambda p: f"{p.word1[-5:]}-{ELLIPSIS}{ELLIPSIS}",
+    # A mask token after an elided word or the truncation marker still stands for the whole date.
+    "a Unicode ellipsis, the dash, a star, a slash and the component": lambda p: f"{ELLIPSIS}-*/{p.component1}",
+    "a Unicode ellipsis, the dash, a bracketed token, a slash and the component": lambda p: f"{ELLIPSIS}-<date>/{p.component1}",
+    "the truncation marker, the dash, a star, a slash and the component": lambda p: f"{TRUNC}-*/{p.component1}",
+    # A dot-run token is also the date's last digits dotted at the component's slash after it: with the
+    # name's own start not clean, a cut through that junction starts inside the run, after three dots.
+    "a letter, the word, the dash, four dots, a slash and six component letters": lambda p: f"x{p.word1}-..../{p.component1[:6]}",
+    "a letter, the word, the dash, five dots, a slash and the component": lambda p: f"x{p.word1}-...../{p.component1}",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -513,10 +531,14 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "a seven-character J2 cut whose slash is backslash-slash": lambda p: f"see {p.date[-2:]}{BACKSLASH}/{p.component1[:4]} now",
     "a six-character J2 cut whose slash is %2F": lambda p: f"see {p.date[-2:]}%2F{p.component1[:3]} now",
     "a six-character J2 cut whose slash is %2f": lambda p: f"see {p.date[-2:]}%2f{p.component1[:3]} now",
-    # Two dots in date position are a parent-directory step, never an elided date; a bracketed token
-    # is a label, not an elision, so the parent before a sibling file stays a sibling path.
+    # Two dots in date position are a parent-directory step, never an elided date, even before the
+    # whole component; a bracketed token is a label, not an elision, so the parent before a sibling
+    # file stays a sibling path.
     "two dots in date position, then a look-alike of the component": lambda p: f"see {p.head1}../{p.component1[:4]}x now",
+    "two dots in date position, then the component": lambda p: f"see {p.head1}../{p.component1} now",
     "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
+    # Eleven or more dots are no whole-date token: per digit, this cut is seven characters.
+    "the word's last two letters, the dash and eleven dots, before a space": lambda p: f"see {p.word1[-2:]}-{'.' * 11} now",
 }
 NOT_FLAGGED.update({f"N1 short form: a one-character token after the word's last {j} letters":
                     (lambda p, j=j: f"run {p.word1[-j:]}-* now") for j in range(1, 6)})
@@ -721,10 +743,14 @@ _ECHOING_UNCHECKED_BRANCH = ("        if data is None:  # opted in but the input
                              "            sys.stderr.write(_names()[0].canon)\n            return _emit(UNCHECKED, event)\n")
 _MAIN = "def main() -> int:\n"
 _SLEEPING_MAIN = "def main() -> int:\n    import time\n    time.sleep(3)\n"
-# A raise inside a name's construction right after its fragments are joined, and one at the end of
-# _names() once both names exist.
-_JOIN = '        self.canon = "".join(fragments)\n'
-_JOIN_RAISING = _JOIN + '        raise RuntimeError("a planted error after the join")\n'
+# A raise after the last statement of a name's construction (_apply checks with ast that this line
+# still ends _Name.__init__), so every local the constructor binds is set: on the first construction,
+# the dated name's, and on the two-word name's alone. And one at the end of _names() once both names
+# exist.
+_INIT_END = '        self.seg_starts = frozenset({0} | {i + 1 for i, ch in enumerate(self.canon) if ch == "/"})\n'
+_INIT_END_RAISING = _INIT_END + "        raise RuntimeError(\"a planted error at the end of a name's construction\")\n"
+_TWO_WORD_INIT_END_RAISING = (_INIT_END + "        if date is None:\n"
+                              "            raise RuntimeError(\"a planted error at the end of the two-word name's construction\")\n")
 _NAMES_RETURN = "    return _Name(_F1, (4, 7)), _Name(_F2, None)\n"
 _NAMES_RAISING = ("    names = _Name(_F1, (4, 7)), _Name(_F2, None)\n"
                   "    raise RuntimeError(\"a planted error at the end of the names' construction\")\n")
@@ -778,14 +804,18 @@ _COPIES: dict[str, dict] = {
     # prints every frame's locals, so `_run`'s own arguments and locals must hold no scanned text.
     "a hook that sleeps past its timeout": _variant(
         ["-vv", "--full-trace", "-l"], _first_case, edits=((_MAIN, _SLEEPING_MAIN),), timeout=1),
-    # A raise inside a name's construction right after the join. The hook run reports that it could
-    # not check, and the case's failure message builds the run's shape, which scans in-process and so
-    # raises there too: pytest's default report prints the innermost frame's arguments (CI's flags),
-    # and -l every shown frame's locals, so neither may hold a joined name.
-    "a raise inside a name's construction, at the default flags": _variant(
-        [], _first_case, edits=((_JOIN, _JOIN_RAISING),)),
-    "a raise inside a name's construction, every local printed": _variant(
-        ["-vv", "--tb=long", "-l"], _first_case, edits=((_JOIN, _JOIN_RAISING),)),
+    # A raise after the last statement of a name's construction, the dated name's (built first). The
+    # hook run reports that it could not check, and the case's failure message builds the run's shape,
+    # which scans in-process and so raises there too: pytest's default report prints the innermost
+    # frame's arguments (CI's flags), and -l every shown frame's locals, all bound by then, so neither
+    # may hold a joined name.
+    "a raise at the end of a name's construction, at the default flags": _variant(
+        [], _first_case, edits=((_INIT_END, _INIT_END_RAISING),)),
+    "a raise at the end of a name's construction, every local printed": _variant(
+        ["-vv", "--tb=long", "-l"], _first_case, edits=((_INIT_END, _INIT_END_RAISING),)),
+    # The same raise on the two-word name's construction alone, whose branch the first never takes.
+    "a raise at the end of the two-word name's construction, every local printed": _variant(
+        ["-vv", "--tb=long", "-l"], _first_case, edits=((_INIT_END, _TWO_WORD_INIT_END_RAISING),)),
     # A raise at the end of _names(), once both names exist: its locals, and with frame hiding off
     # every frame's arguments and locals, must hold no joined name.
     "a raise at the end of the names' construction, every local printed": _variant(
@@ -811,8 +841,19 @@ def _guard_entries(settings: dict, event: str) -> list[dict]:
 def _apply(source: str, edits: tuple, variant: str) -> str:
     for old, new in edits:
         assert source.count(old) == 1, f"{variant}: the source this pin edits changed; update the pin"
+        if old == _INIT_END:
+            assert _ends_name_init(source, old), f"{variant}: _Name.__init__ no longer ends at the plant; update the pin"
         source = source.replace(old, new)
     return source
+
+
+def _ends_name_init(source: str, line: str) -> bool:
+    """Whether `line` is the last statement of the hook's _Name.__init__, so a raise planted after it
+    runs with every local the constructor binds."""
+    tree = ast.parse(source)
+    [name_class] = [node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Name"]
+    [init] = [node for node in name_class.body if isinstance(node, ast.FunctionDef) and node.name == "__init__"]
+    return ast.get_source_segment(source, init.body[-1]) == line.strip()
 
 
 def _nested_outcomes(junit: Path) -> dict[str, str]:
