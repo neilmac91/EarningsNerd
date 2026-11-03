@@ -7182,8 +7182,8 @@ Full local and hosted verification plus independent exact-head review precede re
   every deploy step and one running at the stamp. Production read live after each of the five deploys:
   describe-service passing and logs-probe reading logging permitted each time. No CODE RED spend; no
   ledger event. One chief defect (41: the checkpoint's line 10 has left gate (a)'s #1815 out since record
-  72); no hook refusal; the lapses counted from the chief's notes and its own commands. Gate (d) in its
-  sixth round; gate (c) critiqued twice, its third design being written. New founder item 28: founder
+  72); no hook refusal; the lapses counted from the chief's notes and its own commands. Gate (d) after
+  its fifth round; gate (c) critiqued twice, its third design being written. New founder item 28: founder
   council transcripts in the repository.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
