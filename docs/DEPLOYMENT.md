@@ -458,7 +458,7 @@ callback path that sets the session cookies on its redirect home. An older front
 ignores the ask, so the Vercel frontend and the Cloud Run backend each roll back alone, in either order, and their
 releases need not be atomic. A start made before a rollback whose callback lands after it takes the path the serving
 API knows (a state row from before the `oauth_states.session_handoff` column reads as no ask). The follow-up that
-retires the cookie-setting path (E297 in `tasks/todo.md`) ends this: from then on every sign-in hands off, so the
+retires the cookie-setting path (E303 in `tasks/todo.md`) ends this: from then on every sign-in hands off, so the
 frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first and never rolls back past it
 while that backend serves.
 
