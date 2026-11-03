@@ -34,7 +34,11 @@ vi.mock('@vercel/analytics/next', () => ({ Analytics: () => <span data-testid="v
 const TOKEN = 'synthetic-auth-value-never-a-real-token'
 const JWT = ['eyJhbGciOiJub25lIn0', 'eyJzdWIiOiJmaXh0dXJlIn0', 'c3ludGhldGlj'].join('.')
 const tokenUrl = `https://example.test/reset-password?token=${TOKEN}`
-const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/check-email?email=synthetic%40example.test']
+// The OAuth login's landing carries its one-time code in the fragment (app/auth/complete/page.tsx, E29 (5)).
+const AUTH_ROUTES = [
+  '/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/check-email?email=synthetic%40example.test',
+  `/auth/complete#code=${TOKEN}`,
+]
 let removeNavigationGuard: (() => void) | undefined
 let client: PostHog | undefined
 

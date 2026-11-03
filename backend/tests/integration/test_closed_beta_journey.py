@@ -24,6 +24,7 @@ import asyncio
 import hashlib
 import importlib
 import json
+import secrets
 import uuid
 from dataclasses import fields
 from datetime import timedelta, timezone
@@ -50,6 +51,8 @@ from app.models.feedback import FeedbackAttachment
 from app.routers import auth as auth_module
 from app.routers import feedback as feedback_router
 from app.routers import summaries as summaries_router
+from app.services import complimentary_access_service
+from app.services.complimentary_access_manifest import email_fingerprint, load_manifest
 from app.services.entitlements import _FREE, _PRO, Entitlements
 from app.services.feedback_image_service import NormalizedFeedbackImage
 from app.services.feedback_media_cleanup_service import run_feedback_media_cleanup
@@ -297,42 +300,66 @@ def test_every_unusable_invitation_is_refused_and_creates_nothing(browsers, outb
 
 # How an account can hold Pro without paying, as entitlements.get_plan resolves it: the ``is_pro`` mirror of an
 # account with no Subscription row, or a granting row kept in lockstep with the mirror, as subscription_sync writes
-# them. The complimentary grant is not built yet; whichever shape it takes, the matrix below already runs on it.
+# them. PB-02's complimentary grant sets the mirror (``_grant_pro``); the matrix below runs on every holder.
 PRO_HOLDERS = ("mirror", "active-row", "future-trial-row")
 
 
 def _grant_pro(email: str, holder: str = "mirror") -> None:
     """The one seam that makes a beta account Pro, so the matrix and the isolation check never depend on how.
 
-    No operation grants Pro without payment yet, and checkout is closed in code. When the complimentary grant
-    lands, this body (and ``_revoke_pro``'s) calls it, and every test here must pass unchanged.
+    ``mirror`` is PB-02's complimentary grant, run as the operator runs it. The two row holders are a subscriber's
+    Pro, which the grant cannot express (it refuses an account with a Subscription row of any status and never
+    writes one), so they keep the rows subscription_sync would write.
     """
+    if holder == "mirror":
+        report = _complimentary_access("grant", email)
+        assert report["outcomes"] == {"granted": 1} and not report["refusals"], report
+        return
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == email).one()
         user.is_pro = True
-        if holder != "mirror":
-            trial_end = utcnow() + timedelta(days=7) if holder == "future-trial-row" else None
-            db.add(Subscription(user_id=user.id, plan="pro", status="trialing" if trial_end else "active",
-                                trial_end=trial_end))
+        trial_end = utcnow() + timedelta(days=7) if holder == "future-trial-row" else None
+        db.add(Subscription(user_id=user.id, plan="pro", status="trialing" if trial_end else "active",
+                            trial_end=trial_end))
         db.commit()
 
 
 def _revoke_pro(email: str) -> None:
+    """Revokes a ``mirror`` holder's grant as the operator does. No test here revokes a row holder's Pro."""
+    report = _complimentary_access("revoke", email)
+    assert report["outcomes"] == {"revoked": 1} and not report["refusals"], report
+
+
+def _complimentary_access(action: str, email: str) -> dict:
+    """PB-02's operator procedure (docs/ops/complimentary-access.md) for one account: a manifest naming it by id and
+    address fingerprint, under an opaque cohort code and a salt drawn fresh for it, and naming as its operator an
+    active, verified administrator; the dry run; then the apply of the digest that dry run reported, on the app's own
+    sessions."""
+    operator, account = _account(_seed_admin()), _account(email)
+    today = utcnow().date()
+    payload = {"action": action, "cohort": "private-beta-2026-11", "reason": "PB-05 closed-beta acceptance",
+               "operator_account_id": operator.id, "salt": secrets.token_hex(16),
+               "accounts": [{"account_id": account.id, "email_sha256": email_fingerprint(account.email)}]}
+    if action == "grant":
+        payload["review_on"] = (today + timedelta(days=90)).isoformat()
+    manifest, digest = load_manifest(json.dumps(payload).encode())
     with SessionLocal() as db:
-        user = db.query(User).filter(User.email == email).one()
-        user.is_pro = False
-        db.query(Subscription).filter(Subscription.user_id == user.id).update({"status": "canceled"})
-        db.commit()
+        planned = complimentary_access_service.dry_run(db, manifest, digest, today=today)
+        assert planned.stopped is None and not planned.refusals, planned.as_dict()
+        return complimentary_access_service.apply(db, manifest, digest, confirm_digest=planned.manifest_sha256,
+                                                  today=today, runner="local").as_dict()
 
 
 def _account_state(email: str) -> tuple:
-    """What a grant or a billing event could change on an account: its plan inputs and its other flags."""
+    """What a grant or a billing event could change on an account: its plan inputs, its grant and its other flags."""
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == email).one()
         row = db.query(Subscription).filter(Subscription.user_id == user.id).one_or_none()
+        grant = user.complimentary_access_grant
         return (user.is_pro, user.is_beta, user.is_admin, user.is_active, user.email_verified,
                 user.stripe_customer_id, user.copilot_free_taste_used,
-                None if row is None else (row.plan, row.status, row.stripe_customer_id, row.stripe_subscription_id))
+                None if row is None else (row.plan, row.status, row.stripe_customer_id, row.stripe_subscription_id),
+                None if grant is None else (grant.cohort, grant.revoked_at is None))
 
 
 def _plan_views(browser: TestClient) -> tuple[bool, bool]:
@@ -938,12 +965,23 @@ class _FakeGoogleExchange:
 
 
 def _google_round_trip(browser: TestClient, monkeypatch, claims: dict, invite: str | None = None):
-    started = browser.post("/api/auth/google/start", json={**ACCOUNT_AGREEMENT, "invite": invite})
+    # The start asks for the session handoff, as the sign-up page's buttons do (`"handoff": true`, E29 (5)); a start
+    # without it keeps main's cookie-setting callback, which #1963's own tests hold.
+    started = browser.post("/api/auth/google/start", json={**ACCOUNT_AGREEMENT, "invite": invite, "handoff": True})
     assert started.status_code == 200, started.text
     state = parse_qs(urlparse(started.json()["url"]).query)["state"][0]
     monkeypatch.setattr(auth_module, "httpx", SimpleNamespace(AsyncClient=_FakeGoogleExchange))
     monkeypatch.setattr(auth_module, "_verify_google_id_token", AsyncMock(return_value=claims))
-    return browser.get("/api/auth/google/callback", params={"code": "code", "state": state}, follow_redirects=False)
+    landed = browser.get("/api/auth/google/callback", params={"code": "code", "state": state}, follow_redirects=False)
+    # The callback sets no session (E29 (5)): it sends the browser to the landing page with a one-time code in the URL
+    # fragment and a cookie binding the code to this browser. The page posts the code from this browser, whose jar
+    # carries that cookie, and the exchange's answer sets the session cookies.
+    location = urlparse(landed.headers.get("location", ""))
+    assert landed.status_code == 302 and location.path == "/auth/complete", landed.headers.get("location")
+    assert f"{settings.COOKIE_NAME}=" not in landed.headers.get("set-cookie", "")
+    exchanged = browser.post("/api/auth/oauth/complete", json={"code": parse_qs(location.fragment)["code"][0]})
+    assert exchanged.status_code == 200, exchanged.text
+    return landed
 
 
 def test_an_invited_tester_signs_up_with_google_and_signs_back_in(browsers, outbox, monkeypatch):

@@ -162,12 +162,20 @@ def test_closed_readiness_preserves_invitation_list_and_revoke(client, admin_hea
     delivery.assert_not_awaited()
 
 
+SENDER_INPUTS = dict(
+    unsubscribe_link="https://example.com/email/unsubscribe#token=synthetic", delivery_ref="0" * 32,
+)
+
+
 @pytest.mark.asyncio
-async def test_invitation_sender_independently_refuses_while_marketing_closed(delivery):
+async def test_invitation_sender_independently_refuses_while_invitation_email_closed(delivery):
     assert legal_readiness_service.is_marketing_available() is False
+    assert legal_readiness_service.is_invitation_email_available() is False
 
     with pytest.raises(email_service.PromotionalMailUnavailable, match="email delivery"):
-        await email_service.send_invite_email(to_email="invitee@example.com", magic_link="https://example.com/invite")
+        await email_service.send_invite_email(
+            to_email="invitee@example.com", magic_link="https://example.com/invite", **SENDER_INPUTS,
+        )
 
     delivery.assert_not_awaited()
 
@@ -175,10 +183,10 @@ async def test_invitation_sender_independently_refuses_while_marketing_closed(de
 @pytest.mark.asyncio
 async def test_dormant_invitation_copy_promises_account_access_without_pro(delivery, monkeypatch):
     # Inspect the dormant template without making delivery available in production.
-    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: True)
     link = "https://example.com/invite"
 
-    await email_service.send_invite_email(to_email="invitee@example.com", magic_link=link)
+    await email_service.send_invite_email(to_email="invitee@example.com", magic_link=link, **SENDER_INPUTS)
 
     delivery.assert_awaited_once()
     # The patterns frontend/tests/unit/shareInvite.spec.ts holds the admin's default invite message to: no Pro, no "on us"

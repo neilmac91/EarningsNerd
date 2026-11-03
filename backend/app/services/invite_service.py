@@ -49,8 +49,12 @@ def mint_invite(
     email: Optional[str] = None,
     expires_in_hours: Optional[int] = None,
     cohort: Optional[str] = None,
+    commit: bool = True,
 ) -> tuple[InviteCode, str, str]:
-    """Create an invite and return (row, raw_token, magic_link). The raw token is shown once."""
+    """Create an invite and return (row, raw_token, magic_link). The raw token is shown once.
+
+    ``commit=False`` flushes the row into the caller's open transaction instead, so an emailed invitation commits its
+    link and its delivery record together (invite_delivery_service), or neither."""
     raw = secrets.token_urlsafe(32)
     hours = expires_in_hours or settings.INVITE_EXPIRY_HOURS
     invite = InviteCode(
@@ -61,8 +65,11 @@ def mint_invite(
         created_by=created_by,
     )
     db.add(invite)
-    db.commit()
-    db.refresh(invite)
+    if commit:
+        db.commit()
+        db.refresh(invite)
+    else:
+        db.flush()
     return invite, raw, build_invite_link(raw)
 
 
@@ -105,17 +112,29 @@ def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> O
 
 def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
     """Atomically mark a single-use invite redeemed for ``user``. Returns False if a concurrent
-    registration already consumed it or an admin revoked it since it validated (guarded
-    ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false``; E201). On PostgreSQL a
-    redemption that waits behind a revoke's or re-issue's row lock re-checks the row when that
-    transaction commits, so it is refused too.
+    registration already consumed it, an admin revoked it since it validated, or it expired since it
+    validated (guarded ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false AND expires_at >= now``;
+    E201). The password registration validates the invite before its breached-password check and its
+    hash, seconds that an invite can expire in, so the expiry is part of the guard rather than a check
+    made only at validation (EN-BETA PB-01). On PostgreSQL a redemption that waits behind a revoke's or
+    re-issue's row lock re-checks the row when that transaction commits, so it is refused too.
 
     ``commit=False`` leaves the UPDATE in the caller's open transaction, so a registration commits
     (or rolls back) the new account and the redemption together."""
+    now = _now()
     result = db.execute(
         update(InviteCode)
-        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None), InviteCode.is_revoked.is_(False))
-        .values(used_at=_now(), user_id=user.id)
+        .where(
+            InviteCode.id == invite.id,
+            InviteCode.used_at.is_(None),
+            InviteCode.is_revoked.is_(False),
+            InviteCode.expires_at >= now,  # validate_invite's test, inverted: _is_expired is exp < now
+        )
+        .values(used_at=now, user_id=user.id)
+        # Not evaluated in Python against the session's copy: SQLite hands back a naive expires_at, which no aware
+        # instant compares with. The callers read nothing of the invite before the commit or rollback that ends the
+        # transaction, and either expires the session's copy, so nothing reads it stale.
+        .execution_options(synchronize_session=False)
     )
     if commit:
         db.commit()
@@ -178,6 +197,28 @@ def _unused_invite_locked(db: Session, invite_id: int) -> InviteCode:
     return invite
 
 
+def lock_unused_invite(db: Session, invite_id: int) -> InviteCode:
+    """The unused invite ``invite_id`` under its row lock until the caller's commit (see ``_unused_invite_locked``)."""
+    return _unused_invite_locked(db, invite_id)
+
+
+def pending_invite_for_address(db: Session, email: str, *, exclude_invite_id: Optional[int] = None) -> Optional[int]:
+    """The id of a live invite (unused, unrevoked, unexpired) bound to ``email``, other than ``exclude_invite_id``.
+
+    An emailed invitation and a re-issue of a bound one refuse to make a second live link for an address while one is
+    live (invite_delivery_service), so a repeated submit or a retry cannot mail two different links."""
+    query = db.query(InviteCode.id).filter(
+        InviteCode.email == (email or "").strip().lower(),
+        InviteCode.used_at.is_(None),
+        InviteCode.is_revoked.is_(False),
+        InviteCode.expires_at >= _now(),
+    )
+    if exclude_invite_id is not None:
+        query = query.filter(InviteCode.id != exclude_invite_id)
+    row = query.order_by(InviteCode.id).first()
+    return row.id if row is not None else None
+
+
 def revoke_invite(db: Session, invite_id: int) -> InviteCode:
     """Revoke an unused invite so its link can no longer be redeemed, and commit."""
     invite = _unused_invite_locked(db, invite_id)
@@ -192,9 +233,10 @@ def reissue_invite(
     *,
     created_by: Optional[int],
     expires_in_hours: Optional[int],
+    commit: bool = True,
 ) -> tuple[InviteCode, str, str]:
     """Revoke an unused invite and mint its replacement (same email + cohort); returns ``mint_invite``'s
-    (row, raw_token, magic_link)."""
+    (row, raw_token, magic_link). ``commit=False`` leaves both in the caller's transaction, as ``mint_invite``'s."""
     old = _unused_invite_locked(db, invite_id)
 
     # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
@@ -207,6 +249,7 @@ def reissue_invite(
         email=old.email,
         expires_in_hours=expires_in_hours,
         cohort=old.cohort,
+        commit=commit,
     )
 
 

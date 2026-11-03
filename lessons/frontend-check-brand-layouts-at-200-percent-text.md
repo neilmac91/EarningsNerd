@@ -13,7 +13,10 @@ The founder's review of PR #1226 measured both on the production build.
 - Two unbreakable figures that share a line sit in a wrapping row whose items take their own
   content as basis (`flex flex-wrap` with `flex-auto` items), so they stack when the whole values
   do not fit, in any column; not in equal tracks, and not behind a viewport breakpoint. As a last
-  resort a value wider than its card breaks inside (`break-words`) rather than overflowing.
+  resort a value wider than its card breaks inside (`break-words`) rather than overflowing. One accepted
+  exception: Settings › Billing's "Complimentary (private beta)" keeps the word "Complimentary" whole at 320px under
+  200% text, a few pixels past the card's border with no sideways scroll, since the chief's design review on #1955
+  judged a break inside that word worse; `reflow-200.spec.ts` holds the residue to that one word and 4 px.
 - An element positioned against another (a margin twin, a badge on a line) is anchored at the
   measured midpoint of what it follows and centred with `translateY(-50%)`; never subtract an
   assumed height.

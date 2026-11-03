@@ -154,6 +154,14 @@ const ROUTES: Route[] = [
   { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
   { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
   { name: 'terms', path: '/terms', open: answerGuest, ready: (p) => h1(p, 'Terms of Service'), ...siteHeader },
+  // Without the email's token: its notice carries the support address, the widest run on the page.
+  {
+    name: 'unsubscribe',
+    path: '/email/unsubscribe',
+    open: answerGuest,
+    ready: (p) => expect(p.getByText('This page needs the link from your email')).toBeVisible(),
+    ...siteHeader,
+  },
   {
     name: 'filing',
     path: '/filing/3',
@@ -864,6 +872,86 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
           const busy = await check('busy')
           expect(busy.footprint, `${at}: the press resizes nothing in the card and moves nothing in it`).toEqual(rest.footprint)
         })
+      })
+    }
+  }
+})
+
+/** Settings › Billing's rows at both text sizes (features/settings/components/BillingPanel.tsx). Each row is a label and
+    its value, and a value that cannot share the line with its label goes under it: the row wraps. No row could, so a
+    value too long for its line ran past the card. Under 200% text a complimentary grant's "Complimentary (private
+    beta)" (PB-02) ended 89px past its row at 390px, and the page scrolled 33px sideways; at 320px every Pro's usage
+    line, "7 · Unlimited", ran past it too, and the page scrolled 59px for a paid account, 99px for a complimentary one
+    (the chief's design review on #1955, measured on f838af9's build). Each case, for a paid and a complimentary Pro:
+    the page does not scroll sideways, and every box and text run in the card lies inside its border. One width keeps
+    a residue: at 320px under 200% text the single word "Complimentary" is wider than the row, so it reaches a few
+    pixels past the border without moving the page, and a break inside the word would read worse. Light theme only, as
+    above: a theme changes no geometry here. */
+const PRO_USAGE = { summaries_used: 7, summaries_limit: null, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 100, copilot_free_taste_used: 0, copilot_free_taste_total: 3, analysis_used: 0, analysis_limit: 20 }
+const PRO_BILLING = {
+  complimentary: { is_pro: true, complimentary: true, stripe_customer_id: null, stripe_subscription_id: null, subscription_status: null, plan: 'pro', status: null, trial_end: null, current_period_end: null, cancel_at_period_end: false },
+  paid: { is_pro: true, complimentary: false, stripe_customer_id: 'cus_e2e', stripe_subscription_id: 'sub_e2e', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: '2026-12-02T00:00:00Z', cancel_at_period_end: false },
+} as const
+/** Each box and text run in the card that crosses its border, and by how many pixels. */
+const crossingCard = (card: Locator) =>
+  card.evaluate((el) => {
+    const c = el.getBoundingClientRect()
+    const over = (r: DOMRect) => Math.max(c.left - r.left, r.right - c.right, c.top - r.top, r.bottom - c.bottom)
+    const said = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)
+    const found: { what: string; by: number }[] = []
+    for (const box of el.querySelectorAll('*')) {
+      const r = box.getBoundingClientRect()
+      if (box.checkVisibility() && r.width > 1 && over(r) > 0.5) found.push({ what: `${box.tagName.toLowerCase()} "${said(box.textContent)}"`, by: Math.round(over(r)) })
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const line of range.getClientRects()) {
+        if (line.width > 0 && over(line) > 0.5) found.push({ what: `text "${said(node.textContent)}"`, by: Math.round(over(line)) })
+      }
+    }
+    return found
+  })
+
+test.describe("Settings › Billing's rows stay inside the card", () => {
+  for (const account of ['paid', 'complimentary'] as const) {
+    for (const width of [320, 390]) {
+      test.describe(`a ${width}px phone`, () => {
+        test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+        for (const enlarged of [false, true]) {
+          test(`a ${account} Pro's Billing card at ${width}px and ${enlarged ? '200%' : 'the default'} text`, async ({ page, baseURL }) => {
+            await page.addInitScript(() => {
+              try {
+                localStorage.setItem('theme', 'light')
+                localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+              } catch {}
+            })
+            await answerSite(page, baseURL!, true, { path: '/api/subscriptions/subscription', status: 200, body: PRO_BILLING[account] })
+            const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+            await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/subscriptions/usage', (route) =>
+              route.fulfill({ status: 200, headers: cors, json: PRO_USAGE }))
+            await page.goto('/dashboard/settings')
+            await page.evaluate(() => document.fonts.ready)
+            if (enlarged) await doubleText(page)
+            const card = page.getByRole('heading', { name: 'Billing', level: 2 }).locator('xpath=../..')
+            await expect(card.getByText('7 · Unlimited')).toBeVisible()
+            await expect(card.getByText(account === 'paid' ? 'Renews on' : 'Complimentary (private beta)')).toBeVisible()
+            await settle(page)
+
+            const at = `a ${account} Pro's Billing card at ${width}px and ${enlarged ? '200%' : 'default'} text`
+            const m = await measure(page)
+            expect(m.scrollWidth, `${at}: the page scrolls sideways; ${why(m)}`).toBeLessThanOrEqual(m.clientWidth)
+            const past = await crossingCard(card)
+            if (account === 'complimentary' && width === 320 && enlarged) {
+              // The value's box and its text run, each by the word's overhang.
+              expect(past.every(({ what, by }) => /^(span|text) "Complimentary \(private beta\)"$/.test(what) && by <= 4), `${at}: only the one word reaches past the border, by a few pixels: ${JSON.stringify(past)}`).toBe(true)
+            } else {
+              expect(past, `${at}: every box and text run lies inside the card`).toEqual([])
+            }
+          })
+        }
       })
     }
   }

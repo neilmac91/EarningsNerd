@@ -5,14 +5,18 @@ import { LinkIcon, PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader, cx } from '@/components/ui'
 import CopyLinkButton from '@/features/admin/components/CopyLinkButton'
 import ShareInvite from '@/features/admin/components/ShareInvite'
+import type { DeliveryStatus } from '@/features/admin/api/admin-api'
+import { deliveryState } from '@/features/admin/lib/inviteDelivery'
 
 interface ResendShareModalProps {
   /** The freshly-minted invite link. */
   link: string
   /** The email the new invite is bound to (null for a link-only invite). */
   email: string | null
-  /** The API's `emailed` flag: the backend emails a bound invite best-effort, and never a link-only one. */
+  /** The API's `emailed` flag: the email provider accepted the email with the new link. Never delivery. */
   emailed: boolean
+  /** The new link's invitation email state, or null when none was asked for (a link to share by hand). */
+  deliveryStatus?: DeliveryStatus | null
   onClose: () => void
 }
 
@@ -31,13 +35,17 @@ interface ResendShareModalProps {
  * words and its margin with it, and the centred dialog shrank and grew back for a frame, the pressed button with it
  * (chief design on #1793). A share that ends with nothing to say empties it for good (null), room and all.
  */
-export default function ResendShareModal({ link, email, emailed, onClose }: ResendShareModalProps) {
+export default function ResendShareModal({ link, email, emailed, deliveryStatus = null, onClose }: ResendShareModalProps) {
   const [status, setStatus] = useState<string | null>(null)
   // The words the line last said, kept as a render-time update of state (React's "storing information from previous
   // renders"), so they are there in the render that empties the line, and dropped with it for good.
   const [held, setHeld] = useState('')
   if (status && status !== held) setHeld(status)
   if (status === null && held) setHeld('')
+  // The email's state as the row will show it: the provider's acceptance is never a send that arrived. An older answer
+  // with no state but `emailed` was that acceptance.
+  const mail = deliveryStatus ?? (emailed ? 'accepted' : null)
+  const mailState = mail ? deliveryState({ status: mail, error_kind: null, bounce_type: null }) : null
   return (
     <Modal open onClose={onClose} labelledBy="resend-share-modal-title" size="md">
       <ModalHeader
@@ -46,7 +54,7 @@ export default function ResendShareModal({ link, email, emailed, onClose }: Rese
         icon={emailed ? <PaperPlaneTiltIcon className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
         tone="success"
       >
-        {emailed ? 'Invite re-sent' : 'New invite link ready'}
+        New invite link ready
       </ModalHeader>
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
@@ -57,12 +65,17 @@ export default function ResendShareModal({ link, email, emailed, onClose }: Rese
                 {email}
               </span>{' '}
               is ready. The previous link no longer works.
-              {emailed && <> We emailed it to {email}.</>}
             </>
           ) : (
             <>A fresh single-use link is ready. The previous link no longer works.</>
           )}
         </p>
+        {mailState && (
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+            <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Invitation email:</span>{' '}
+            {mailState.label}.{mailState.hint && <> {mailState.hint}</>}
+          </p>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <CopyLinkButton link={link} onStatus={setStatus} />

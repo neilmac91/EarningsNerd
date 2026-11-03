@@ -2,6 +2,12 @@
 
 Configuration supplies an operator-approved public notice; it cannot certify compliance. Sales
 and promotion deliberately have no enabling switch until their consent/lifecycle controls exist.
+Requested beta-invitation email is a capability of its own (``invitation_email_readiness``): its
+permission record, send-time suppression, unsubscribe and authenticated bounce/complaint updates
+exist in code, so it has an operator switch, effective only while each of its conditions holds.
+
+The readiness reasons name conditions, never values: an unpublished operator's draft fields, the
+provider key and the webhook secret stay out of every response.
 """
 from __future__ import annotations
 
@@ -10,10 +16,23 @@ from typing import TypedDict
 from pydantic import EmailStr, TypeAdapter, ValidationError
 
 from app.config import settings
+from app.services import resend_service
+from app.services.resend_webhook_service import signing_key
 
 TERMS_VERSION = "2026-10-24"
 ELIGIBILITY_VERSION = "2026-10-24"
 COLLECTION_UNAVAILABLE_MESSAGE = "New registrations and submissions are temporarily unavailable."
+INVITATION_EMAIL_UNAVAILABLE_MESSAGE = "Invitation email delivery is currently unavailable."
+
+# Why new collection is held, in the order an operator clears them (docs/LEGAL_READINESS.md).
+COLLECTION_DISABLED = "collection_disabled"          # LEGAL_COLLECTION_ENABLED is false
+OPERATOR_UNPUBLISHED = "operator_unpublished"        # LEGAL_OPERATOR_PUBLISHED is false
+OPERATOR_INCOMPLETE = "operator_incomplete"          # published, but a field is missing or invalid
+# Why requested invitation email is held, as above.
+COLLECTION_UNAVAILABLE = "collection_unavailable"    # no invitation can be redeemed, so none is mailed
+INVITATION_EMAIL_DISABLED = "invitation_email_disabled"  # LEGAL_INVITATION_EMAIL_ENABLED is false
+PROVIDER_UNCONFIGURED = "provider_unconfigured"      # RESEND_API_KEY is empty
+PROVIDER_FEEDBACK_UNVERIFIED = "provider_feedback_unverified"  # no usable Svix RESEND_WEBHOOK_SECRET
 
 _EMAIL = TypeAdapter(EmailStr)
 _PLACEHOLDERS = frozenset({"tbd", "todo", "unknown", "placeholder", "not published", "n/a"})
@@ -21,6 +40,11 @@ _PLACEHOLDERS = frozenset({"tbd", "todo", "unknown", "placeholder", "not publish
 
 class CollectionUnavailable(Exception):
     """The caller must not collect new prospect/account information."""
+
+
+class Capability(TypedDict):
+    available: bool
+    reasons: list[str]
 
 
 class PublicOperator(TypedDict):
@@ -64,6 +88,42 @@ def is_collection_available() -> bool:
     return settings.LEGAL_COLLECTION_ENABLED and public_operator() is not None
 
 
+def collection_readiness() -> Capability:
+    """``is_collection_available`` with the conditions that hold it, for the admin's banner (never the values)."""
+    reasons: list[str] = []
+    if not settings.LEGAL_COLLECTION_ENABLED:
+        reasons.append(COLLECTION_DISABLED)
+    if not settings.LEGAL_OPERATOR_PUBLISHED:
+        reasons.append(OPERATOR_UNPUBLISHED)
+    elif public_operator() is None:
+        reasons.append(OPERATOR_INCOMPLETE)
+    return Capability(available=not reasons, reasons=reasons)
+
+
+def invitation_email_readiness() -> Capability:
+    """Whether a requested beta invitation may be emailed now, and what holds it.
+
+    Each condition is one the controls need: collection, since the link must be redeemable; the operator's switch,
+    which stands for the founder's permission policy and the approved canary; the provider key; and a webhook secret
+    the signature check can use, without which bounces and complaints cannot be authenticated, so they could not
+    suppress later sends. The admin router and the sender both check it; neither trusts the browser's copy.
+    """
+    reasons: list[str] = []
+    if not is_collection_available():
+        reasons.append(COLLECTION_UNAVAILABLE)
+    if not settings.LEGAL_INVITATION_EMAIL_ENABLED:
+        reasons.append(INVITATION_EMAIL_DISABLED)
+    if not resend_service.is_configured():
+        reasons.append(PROVIDER_UNCONFIGURED)
+    if signing_key(settings.RESEND_WEBHOOK_SECRET) is None:
+        reasons.append(PROVIDER_FEEDBACK_UNVERIFIED)
+    return Capability(available=not reasons, reasons=reasons)
+
+
+def is_invitation_email_available() -> bool:
+    return invitation_email_readiness()["available"]
+
+
 def require_collection_available() -> None:
     if not is_collection_available():
         raise CollectionUnavailable(COLLECTION_UNAVAILABLE_MESSAGE)
@@ -75,5 +135,6 @@ def is_checkout_available() -> bool:
 
 
 def is_marketing_available() -> bool:
-    """Promotion remains closed until permission, unsubscribe and suppression are implemented."""
+    """General promotion (the waitlist's referral update, any campaign) remains closed: the beta's requested
+    invitations are their own capability (``invitation_email_readiness``), and their controls cover them alone."""
     return False

@@ -26,6 +26,11 @@
    false wherever the column is: the file applies as a no-op, the ledger records it, and the column
    stays. Any other guard form fails closed, even a sound one (`pg_attribute`, one IF for two drops).
 
+   A swapped reference (the old constraint dropped, the new one added NOT VALID) is validated in a statement of its
+   own, outside any BEGIN/COMMIT block, and a file that drops a constraint or adds a foreign key to users first sets
+   a lock_timeout of at most 5 s (lessons/arch-swap-a-reference-then-validate-it-alone.md): a DO block holds every
+   lock it takes until it ends, and dropping a foreign key takes ACCESS EXCLUSIVE on the table it references.
+
    Also pinned here (WS-1, audit 2026-09): the retry in `apply_with_retry` keys on the lock-contention
    SQLSTATEs (55P03/57014/40P01) in psql's stderr rather than on any error; the blocker dump shows
    every backend and joins `pg_locks` to `pg_class`; the script ends every run by failing on any
@@ -309,6 +314,73 @@ def _unguarded_index_targets(sql: str) -> list[str]:
     return _unguarded_targets(sql, _CREATE_INDEX, lambda m: None if m.group(1) else _norm(m.group(3)))
 
 
+# lessons/arch-swap-a-reference-then-validate-it-alone.md: a swapped reference (the old one dropped, the new one added
+# NOT VALID) is validated in a statement of its own, and a file that changes a reference to users first sets a short
+# lock_timeout.
+_VALIDATE = re.compile(r"\bVALIDATE\s+CONSTRAINT\b", re.I)
+_CONSTRAINT_CHANGE = re.compile(r"\b(?:DROP\s+CONSTRAINT|ADD\s+CONSTRAINT|ADD\s+FOREIGN\s+KEY)\b", re.I)
+# A dropped constraint counts as a reference to users, since the file alone cannot say what it referenced.
+_USERS_REFERENCE_CHANGE = re.compile(
+    r"\bDROP\s+CONSTRAINT\b|\bADD\s+(?:CONSTRAINT\s+\S+\s+)?FOREIGN\s+KEY\b[^;]*?\bREFERENCES\s+"
+    r'(?:"?public"?\.)?"?users"?(?![\w"])',
+    re.I,
+)
+_SET_LOCK_TIMEOUT = re.compile(
+    r"\bSET\s+(?:SESSION\s+|LOCAL\s+)?lock_timeout\s*(?:=|\bTO\b)\s*'?\s*(\d+)\s*(ms|s)?\s*'?", re.I)
+# "A few seconds": the session's own 10 s would hold every signed-in request queued behind each try.
+_USERS_LOCK_TIMEOUT_MS = 5_000
+
+
+def _lock_units(sql: str) -> list[str]:
+    """The file's statements as PostgreSQL holds their locks: a DO block is one statement whatever it runs, and the
+    statements between BEGIN and COMMIT (or ROLLBACK) hold theirs until the transaction ends, so they are one unit."""
+    sql = _strip_comments(sql)
+    blocks: list[str] = []
+
+    def hold(match: re.Match[str]) -> str:
+        blocks.append(match.group(0))
+        return f" \0{len(blocks) - 1}\0 "
+
+    top = _DO_BLOCK.sub(hold, sql)
+    units: list[str] = []
+    transaction: list[str] | None = None
+    for chunk in top.split(";"):
+        text = re.sub(r"\0(\d+)\0", lambda m: blocks[int(m.group(1))], chunk)
+        if _TXN_OPEN.match(chunk):
+            transaction = [text]
+        elif transaction is not None:
+            transaction.append(text)
+            if _TXN_CLOSE.match(chunk):
+                units.append(";".join(transaction))
+                transaction = None
+        elif text.strip():
+            units.append(text)
+    if transaction is not None:
+        units.append(";".join(transaction))
+    return units
+
+
+def _validations_sharing_their_swap(sql: str) -> list[str]:
+    """Each lock unit that validates a constraint and also drops or adds one: its locks, ACCESS EXCLUSIVE on both
+    tables when the dropped constraint is a foreign key, then last through the validation's scan."""
+    return [f"statement {n}" for n, unit in enumerate(_lock_units(sql), 1)
+            if _VALIDATE.search(unit) and _CONSTRAINT_CHANGE.search(unit)]
+
+
+def _users_reference_change_without_a_short_lock_timeout(sql: str) -> list[str]:
+    """``["users"]`` when the file drops a constraint or adds a foreign key to users before it sets a lock_timeout of at
+    most five seconds. Creating a table that references users is not a change of an existing reference."""
+    text = _strip_comments(sql)
+    change = _USERS_REFERENCE_CHANGE.search(text)
+    if not change:
+        return []
+    for setting in _SET_LOCK_TIMEOUT.finditer(text[: change.start()]):
+        value, unit = setting.groups()
+        if int(value) * (1000 if (unit or "ms").lower() == "s" else 1) <= _USERS_LOCK_TIMEOUT_MS:
+            return []
+    return ["users"]
+
+
 def test_unguarded_alter_detector_semantics():
     guarded = """DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns
@@ -432,6 +504,44 @@ def test_drop_guard_detector_semantics():
         "DO $$ BEGIN IF go THEN ALTER TABLE t DROP CONSTRAINT k; ALTER TABLE t ALTER COLUMN c DROP NOT NULL; END IF; END $$;"
     ) == []
     assert _drops_outside_their_own_guard("-- DO $$ BEGIN ALTER TABLE t DROP COLUMN c; END $$;\nSELECT 1;") == []
+
+
+def test_reference_swap_detector_semantics():
+    swap = ("ALTER TABLE t DROP CONSTRAINT old_fkey;\n"
+            "ALTER TABLE t ADD CONSTRAINT new_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL NOT VALID;")
+    validate = "ALTER TABLE t VALIDATE CONSTRAINT new_fkey;"
+    guarded = "DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'old_fkey') THEN {} END IF; END $$;"
+    # fef3056's shape: the drop, the add and the validation in one DO block, so one statement holds every lock.
+    assert _validations_sharing_their_swap(guarded.format(f"{swap}\n{validate}")) == ["statement 1"]
+    # Statements of their own inside one transaction block hold their locks until it commits.
+    assert _validations_sharing_their_swap(f"BEGIN;\n{guarded.format(swap)}\n{validate}\nCOMMIT;") == ["statement 1"]
+    # One ALTER TABLE that adds and validates.
+    assert _validations_sharing_their_swap(
+        "ALTER TABLE t ADD CONSTRAINT c FOREIGN KEY (u) REFERENCES users(id) NOT VALID, VALIDATE CONSTRAINT c;") == [
+        "statement 1"]
+    # The sanctioned shape: the swap, then the validation in a statement of its own; a comment naming it is not one.
+    assert _validations_sharing_their_swap(
+        f"{guarded.format(swap)}\n-- then VALIDATE CONSTRAINT, alone\n{guarded.format(validate)}") == []
+    assert _validations_sharing_their_swap(f"BEGIN;\n{guarded.format(swap)}\nCOMMIT;\n{validate}") == []
+
+    two_seconds = "SET lock_timeout = '2s';\n"
+    assert _users_reference_change_without_a_short_lock_timeout(guarded.format(swap)) == ["users"]
+    assert _users_reference_change_without_a_short_lock_timeout("ALTER TABLE t DROP CONSTRAINT old_fkey;") == ["users"]
+    assert _users_reference_change_without_a_short_lock_timeout(two_seconds + guarded.format(swap)) == []
+    assert _users_reference_change_without_a_short_lock_timeout("SET lock_timeout TO 3000;\n" + swap) == []
+    assert _users_reference_change_without_a_short_lock_timeout("SET lock_timeout = '10s';\n" + swap) == ["users"]
+    assert _users_reference_change_without_a_short_lock_timeout(swap + "\n" + two_seconds) == ["users"]
+    assert _users_reference_change_without_a_short_lock_timeout("-- SET lock_timeout = '2s';\n" + swap) == ["users"]
+    # An added foreign key to users, under any spelling of the table, with no drop; another table's is not.
+    added = "ALTER TABLE t ADD FOREIGN KEY (u) REFERENCES {}(id) NOT VALID;"
+    for users in ("users", "public.users", '"users"', '"public"."users"'):
+        assert _users_reference_change_without_a_short_lock_timeout(added.format(users)) == ["users"], users
+    for other in ("companies", "users_archive", '"users_archive"'):
+        assert _users_reference_change_without_a_short_lock_timeout(added.format(other)) == [], other
+    # A new table's reference to users changes no existing one.
+    assert _users_reference_change_without_a_short_lock_timeout(
+        "CREATE TABLE IF NOT EXISTS t (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE);"
+    ) == []
 
 
 def test_deploy_job_has_a_bounded_timeout():
@@ -959,6 +1069,7 @@ def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
         ("Run quarterly fact repair script", 120_000),
         ("Run filing lineage backfill script", 120_000),
         ("Run financial revenue preview (read-only)", 120_000),
+        ("Run complimentary access script", 120_000),
     ):
         opts = (_step(job, step_name).get("env") or {}).get("PGOPTIONS", "")
         assert (setting_ms(opts, "lock_timeout"), setting_ms(opts, "statement_timeout")) == (10_000, statement_ms), (
@@ -1076,6 +1187,27 @@ def test_new_migrations_guard_create_index_with_a_do_block():
         "  DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = '<name>') THEN\n"
         "    CREATE INDEX <name> ON <table> (...); END IF; END $$;\n"
         "or, for a large table, `CREATE INDEX CONCURRENTLY IF NOT EXISTS` OUTSIDE any BEGIN/COMMIT block.",
+    )
+
+
+def test_a_swapped_reference_is_validated_in_a_statement_of_its_own():
+    found = _scan_migrations(_validations_sharing_their_swap)
+    assert not found, (
+        "A statement that drops or adds a constraint and also validates one holds every lock it took until it ends: "
+        "for a foreign key, ACCESS EXCLUSIVE on both tables through the validation's scan. A DO block is one "
+        "statement, and BEGIN...COMMIT holds its statements' locks to the end. Swap the reference (drop, add NOT VALID) "
+        "in one statement and VALIDATE it in another, outside any transaction block "
+        f"(lessons/arch-swap-a-reference-then-validate-it-alone.md). offending: {found}"
+    )
+
+
+def test_a_change_to_a_reference_to_users_waits_at_most_a_few_seconds_for_its_lock():
+    found = _scan_migrations(_users_reference_change_without_a_short_lock_timeout)
+    assert not found, (
+        "Dropping a constraint or adding a foreign key to users locks users itself, and every signed-in request "
+        "queues behind each try for the lock. Set a lock_timeout of at most 5 s before the change "
+        "(SET lock_timeout = '2s'; ... RESET lock_timeout;), since the session's own is 10 s "
+        f"(lessons/arch-swap-a-reference-then-validate-it-alone.md). offending: {found}"
     )
 
 

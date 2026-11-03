@@ -7,6 +7,7 @@ import type { SavedSummary } from '@/features/summaries/api/summaries-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import DashboardPage from '@/app/dashboard/page'
 import { queryKeys } from '@/lib/queryKeys'
+import { COMPLIMENTARY_END_CLAIM, endClaimTexts, spacedText } from './complimentaryAccess'
 
 /**
  * The dashboard's Retry buttons (the account card, the plan strip, Your companies) and the saved-summary
@@ -784,9 +785,30 @@ describe('Retry announcements', () => {
 })
 
 describe('Manage billing', () => {
+  it.each([
+    ['a complimentary private-beta grant', { complimentary: true }, 'Complimentary access (private beta)'],
+    ['a Pro with no Stripe customer', {}, null],
+  ] as const)('is not offered to %s, whose portal would only answer an error', async (_, fields, line) => {
+    healthyApi()
+    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', ...fields })
+    renderDashboard()
+
+    expect(await screen.findByText('Unlimited summaries')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Manage billing' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /upgrade|subscribe/i })).not.toBeInTheDocument()
+    if (line) {
+      // The whole plan card, its heading row's badge included, says nothing of an end: nothing expires on a grant's
+      // review date (PB-02).
+      expect(screen.getByText(line)).toBeInTheDocument()
+      const card = screen.getByRole('heading', { name: 'Plan and usage' }).parentElement?.parentElement
+      expect(card && spacedText(card)).toMatch(/Plan and usage Pro .*Complimentary access/)
+      for (const text of card ? endClaimTexts(card) : ['']) expect(text).not.toMatch(COMPLIMENTARY_END_CLAIM)
+    } else expect(screen.queryByText(/complimentary/i)).not.toBeInTheDocument()
+  })
+
   it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {
     healthyApi()
-    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active' })
+    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active', stripe_customer_id: 'cus_1' })
     api.createPortalSession.mockResolvedValue({ url: 'https://billing.stripe.com/p/session_1' })
     // jsdom cannot navigate; a plain object records the assignment instead.
     const realLocation = window.location
@@ -816,7 +838,7 @@ describe('Manage billing', () => {
 
   it('a portal response with no URL says so and leaves the button live and focused', async () => {
     healthyApi()
-    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active' })
+    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active', stripe_customer_id: 'cus_1' })
     api.createPortalSession.mockResolvedValue({ url: '' })
     renderDashboard()
 

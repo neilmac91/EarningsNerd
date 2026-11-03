@@ -53,7 +53,7 @@ delivery, configuration or capacity; sections 3 to 5 carry those.
 | `test_a_tester_signs_out_resets_their_password_and_signs_back_in` | Sign-out of one browser, reset mail, no other browser can refresh its session (an access token already issued lives out its 30 minutes), the new password, a single-use link |
 | `test_one_testers_session_never_reaches_anothers_records` | Watchlist, saved summaries, feedback receipts and export stay with their owner |
 | `test_pausing_invitations_keeps_existing_testers_signed_in_and_their_rights` | Revoking a cohort's pending invitations leaves admitted testers' sessions, Pro and export |
-| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 with a message that the draft has been kept; text feedback, reading an existing screenshot and cleanup still work. A form that sends a screenshot after the switch then holds the draft unsendable until a reload, which discards its note and screenshot (section 7) |
+| `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` | Screenshots off: uploads answer 503 with a message that the draft has been kept; text feedback, reading an existing screenshot and cleanup still work. How an open form handles that 503 is pinned by the frontend specs, not here (section 7) |
 | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers` | Collection closed: minting, re-sending and registering answer 503, the waiting invitation is neither spent nor revoked, admitted testers keep sign-in, Pro and export |
 | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` | New summaries paused: a fresh one is refused with no model call, a stored one still serves, feedback and sign-in work |
 | `test_account_work_answers_while_summaries_generate_on_a_production_sized_pool` | With the most generations a process admits held at the model call, on a four-connection pool with no overflow, sign-in, usage, feedback and a reset request all answer and a connection stays free |
@@ -66,10 +66,10 @@ environment map, no CI deploy resets the founder's switches. A console edit and 
 
 `_grant_pro` and `_revoke_pro` are the only places the tests grant or revoke a tester's complimentary Pro (the pool
 check seeds its generating accounts as Pro, and the Stripe test's paying account becomes Pro through its own
-checkout event). When the complimentary-access operation lands, its grant and revoke replace the `mirror` holder's
-body and `_revoke_pro`'s, run as the operator runs them: the dry run, then the apply of the digest that dry run
-reported. The two row holders stand for a subscriber's Pro, which a grant never writes, so they keep their rows.
-Every test must then pass unchanged. That is its integration acceptance.
+checkout event). The `mirror` holder's grant and `_revoke_pro` run the complimentary-access operation
+([its runbook](complimentary-access.md)) as the operator runs it: the dry run, then the apply of the digest that dry
+run reported. The two row holders stand for a subscriber's Pro, which a grant never writes, so they keep their rows.
+Every test passed unchanged when the seam moved onto the real operation, which was its integration acceptance.
 
 ## 3. Live acceptance checklist
 
@@ -256,18 +256,21 @@ so an incident rollback does not wait.
 | Switch invitation email off | `LEGAL_INVITATION_EMAIL_ENABLED=false` on the API service; `/admin/invites` then shows invitation email on hold | Invitation email, at once: an emailed mint or re-send answers 503 and writes nothing, and the sender refuses on its own | Every link already issued, valid until it expires or is revoked; links to share by hand (a mint with "Email invites" cleared, and Resend); unsubscribe, and the webhook's updates to the delivery record and the suppression list | `tests/unit/test_invite_mail_controls.py` (#1965): `test_each_condition_holds_invitation_email_alone`, `test_held_invitation_email_writes_nothing_even_for_a_complete_request`, `test_a_manual_resend_adds_no_address_to_the_suppression_list` (Resend by hand while held) |
 | Close all new accounts | `LEGAL_COLLECTION_ENABLED=false` on the API service | Every mint, re-send and registration answers 503, and so do the contact form and waitlist joins | Existing accounts, sessions, sign-in, linking, Pro, export and deletion; waiting invitations stay usable for a reopening until they expire (seven days after minting by default) | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers`; `tests/unit/test_account_agreement.py` (closed collection keeps password and social sign-in) |
 | Pause new summaries | `SUMMARY_NEW_JOBS_PAUSED=true` on the API service, the task worker and the pregenerate job | New summary generation | Stored summaries, sign-in, feedback. It does not stop Ask this Filing or Multi-Period Analysis: `COPILOT_MONTHLY_QUESTION_CAP=0` on the API service refuses every Pro question as a fair-use refusal, and `NEXT_PUBLIC_ENABLE_ANALYSIS=false` on Vercel, then a redeploy, hides the analysis page while its API still answers | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` |
-| Revoke one tester's Pro | The complimentary-access revoke (its dry run, then its apply), once that code is deployed and its Ops operations exist; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
-| Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup` |
+| Revoke one tester's Pro | The complimentary-access revoke (a revoke manifest with its own fresh salt, section 8; its dry run, then its apply), once that code is deployed and its Ops operations exist; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
+| Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup`; for an open draft, `frontend/tests/unit/feedback-media-disabled-recovery.spec.tsx` (#1973, at Send) and `busyControls.forms.spec.tsx`'s switch-off case (#1960, before Send) |
 | Hide the feedback launcher | `NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET=false` on Vercel, then a redeploy | The whole launcher, text feedback included | Everything else | — |
 | Suspend one tester | No route exists; a direct database write of `users.is_active=false` | That account's sign-in | Its data | — |
 | Roll back the API | Ops `rollback-traffic`, then a revert, after the account-mail queue drains ([account mail](../OPERATIONS.md#account-mail-f60)) | The current revision | The database | — |
 
-Switching screenshots off while a tester has a screenshot draft open leaves that draft unable to send once they
-press Send: the form keeps re-sending the screenshot, cannot remove it, and a reload discards both the note and the
-screenshot. The open form does not re-read the switch when the tester returns to the tab; reopening the dialog a
-minute or more after its last read does, and then, before Send, it says screenshot uploads are unavailable and lets
-the tester remove the screenshots and send the note. Until the feedback form also recovers after a Send, tell
-first-wave testers to copy their note before reloading and to send it again as text.
+Switching screenshots off while a tester has a screenshot draft open no longer strands the note (#1973). At Send
+the upload answers 503; the form then re-reads the switch, and when uploads are confirmed off it returns the draft to
+editing: the note stays, Send waits while the screenshots show as unavailable, and once the tester removes them the
+note sends as text. If that re-read fails or still reports uploads on, the form keeps its receipt check and holds the
+draft unsendable as before, and a reload discards both the note and the screenshots. The open form does not re-read
+the switch when the tester returns to the tab; reopening the dialog a minute or more after its last read does, and
+then, before Send, it says screenshot uploads are unavailable and lets the tester remove the screenshots and send the
+note. Tell first-wave testers that if the form still will not send after a switch-off, they copy their note before
+reloading and send it again as text.
 
 A traffic rollback moves only the API service, and an environment switch belongs to a revision: moving traffic to
 an older revision restores that revision's own `LEGAL_*`, `FEEDBACK_MEDIA_*` and `SUMMARY_NEW_JOBS_PAUSED` values,
@@ -301,6 +304,11 @@ Before the founder rehearsal the founder supplies, outside this repository where
   grant. Each label is an opaque code, such as `private-beta-2026-11`, and appears in public reports: every
   complimentary-access report prints the grant's label, and the Ops run's log is public. No name, address,
   workplace or private description belongs in a label; the mapping from labels to people stays with the roster;
+- each grant's and each revoke's manifest, kept with the roster: the accounts' ids, their address fingerprints and a
+  secret salt drawn fresh for that manifest (`openssl rand -hex 16`), never reused and never published. Every
+  complimentary-access report prints the manifest's digest in the public Ops log, and the salt is what stops anyone
+  matching that digest to a tester; the command refuses a manifest without one (PB-02's runbook,
+  `docs/ops/complimentary-access.md`, "The manifest");
 - the beta's end and review dates, and what complimentary access becomes at the end;
 - the daily model spend limit, the error and capacity limits of section 6, the mail arrival window of section 3, the
   support answer window and the tolerated loss window of section 5;

@@ -20,6 +20,7 @@ The service explicitly excludes inactivity-based account deletion, waitlist/refe
 | --- | --- |
 | Failed-login state | `updated_at` older than seven days, with no current lock or an expired lock |
 | OAuth state | Past `expires_at` |
+| OAuth session handoffs (`earningsnerd_session_handoffs`, E29 (5)) | Past `expires_at` (two minutes after the callback). The rows hold only SHA-256 hashes of the one-time code and of its binding value; expired rows are deleted on this schedule and by the next handoff sign-in's commit, and every row is deleted with its account (`ON DELETE CASCADE`) |
 | Refresh tokens | Expired or revoked more than thirty days ago |
 
 These are cleanup criteria. They do not define every authentication token's lifetime or imply that all expired token rows are immediately erased.

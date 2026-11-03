@@ -395,7 +395,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `ANALYSIS_MONTHLY_CAP` (the backend's `entitlements.py` constants, D-050), read by the /pricing FAQ and the filing
   page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
-  billing", and the route error boundary is in sentence case with a generic line that names no route
+  billing" (for an account with a Stripe customer; a complimentary private-beta grant's Pro reads
+  "Complimentary access (private beta)" there instead, PB-02), and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face. A watched
   company's card shows a missing filed date as the missing-value element read as "filing date
   unavailable" (its line has no label of its own) and a missing period end as "Period end:" with the
