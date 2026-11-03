@@ -457,12 +457,16 @@ bcrypt hashes remain readable by the compatible reader and do not need conversio
 callback path that sets the session cookies on its redirect home. An older API ignores the ask, so an **API rollback**
 is safe at any time: a callback it serves sets the session cookies on its redirect home (a code already handed to the
 landing page within its two minutes finds no exchange route there, and that reader logs in again). A **frontend
-rollback** past this PR is safe for the starts made after it, which the older frontend makes without the ask. It
-strands the sign-ins started in the ten minutes before it, the life of a state row: those starts asked for the
-handoff, so their callback still sends the browser to `/auth/complete`, which the older frontend does not serve, and
-the reader logs in again (the code lapses in two minutes). The drain is bounded: either roll back to a build that
-keeps `/auth/complete`, or roll back and accept that those readers log in again; no start can land there more than
-ten minutes after the rollback. A state row from before the `oauth_states.session_handoff` column reads as no ask.
+rollback** past this PR is safe for the pages the older frontend serves after it, whose starts do not ask. It
+strands two kinds of sign-in, each of which still lands on `/auth/complete`, which the older frontend does not
+serve, so the reader logs in again (the code lapses in two minutes): those started in the ten minutes before the
+rollback (the life of a state row), and those started later from a page of the newer frontend that loaded before
+the rollback and is still open (a tab left open, a page the browser restores from its back-forward cache), until
+that page reloads. The second kind has no time bound, but each such page loses at most one sign-in: the reader's
+next login page comes from the older frontend. For a clean cut, roll back to a build that keeps `/auth/complete`,
+or roll the API back with the frontend (an older API ignores the ask, so every start takes the callback path that
+sets the cookies); otherwise accept that those readers log in again. A state row from before the
+`oauth_states.session_handoff` column reads as no ask.
 The follow-up that retires the cookie-setting path (E301 in `tasks/todo.md`) changes this: from then on every
 sign-in hands off, so the frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first
 and never rolls back past it while that backend serves.

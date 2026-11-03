@@ -195,7 +195,8 @@ class OAuthStartRequest(BaseModel):
     # The OAuth session handoff (E29 (5)), asked for only by a frontend with the /auth/complete landing page: JSON
     # true alone turns it on (a string is refused). Omitted, the callback sets the session cookies on its redirect,
     # main's path, so a frontend and an API of either age work together (rollback: docs/DEPLOYMENT.md, "OAuth session
-    # handoff": an API rollback is safe at any time, a frontend rollback strands the starts that asked before it).
+    # handoff": an API rollback is safe at any time; a frontend rollback strands the starts that asked, those made in
+    # the ten minutes before it and those made later from a page of the newer frontend still open).
     handoff: Optional[StrictBool] = None
 
     @model_validator(mode="after")

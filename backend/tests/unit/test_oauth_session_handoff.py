@@ -8,8 +8,8 @@ handoff, the callbacks set no session cookie. They commit the sign-in with a one
 to the browser they answer. The landing page posts the code to ``POST /api/auth/oauth/complete`` holding the lock,
 and that answer sets the session cookies. Only a start that asks for it hands off (``handoff=1`` on a GET start,
 ``"handoff": true`` on a POST start: a frontend with the landing page asks); any other takes main's path, the session
-cookies on the redirect home, so an API rollback is safe at any time and a frontend rollback for every start made
-after it (docs/DEPLOYMENT.md). Pinned here:
+cookies on the redirect home, so an API rollback is safe at any time, and a frontend rollback for every start a page
+of the older frontend makes (docs/DEPLOYMENT.md). Pinned here:
 
 - the compatibility gate: each start that asks hands off, each that does not (no parameter or key, ``handoff=true``,
   ``handoff=0``, a state row from before the column) takes main's path, and a JSON string is refused 422;
