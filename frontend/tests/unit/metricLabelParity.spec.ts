@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { FEATURED } from '@/features/fundamentals/lib/featuredMetrics'
 import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
+import { CONCEPT_NAMES } from '@/features/analysis/lib/figureDisplay'
 
 /**
  * A metric that more than one surface names carries one name (E249; CLAUDE.md rule 12). /analysis names each concept
@@ -103,5 +104,38 @@ describe('one name per metric across the picker, What changed, its landing sampl
     expect(() => whatChangedLabels('DELTA = []\n')).toThrow('no _DELTA_METRICS list')
     expect(() => whatChangedLabels('_DELTA_METRICS = [\n    ("revenue", "Revenue"),\n    ("net_income", "Net income"),  # planted\n]\n'))
       .toThrow('2 entry lines and the reader reads 1')
+  })
+})
+
+/** Each `file:line` that spells a concept's name from its key, `input.concept.replaceAll('_', ' ')`. A name comes from
+ *  conceptName (features/analysis/lib/figureDisplay.ts), /analysis's own: the key re-spelled gave the source dialog
+ *  "Operating Cash Flow" under a Method line reading "Operating cash flow", and "eps diluted" (E309). */
+const KEY_AS_NAME = /\.concept\??\.replace(?:All)?\(/
+function keyNames(files: string[], read: (file: string) => string): string[] {
+  return files.flatMap((file) => read(file).split('\n').flatMap((line, index) => KEY_AS_NAME.test(line) ? [`${file}:${index + 1}`] : []))
+}
+
+const SOURCE_ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
+const sources = SOURCE_ROOTS.flatMap((root) => readdirSync(path.resolve(frontendDir, root), { recursive: true, encoding: 'utf8' })
+  .filter((file) => /\.tsx?$/.test(file))
+  .map((file) => path.join(root, file)))
+
+describe('one name per concept in the source dialog and the narrative\'s citations (E309)', () => {
+  it("names every concept as /analysis does, each of its concepts and no other", () => {
+    expect(CONCEPT_NAMES).toEqual(analysis)
+  })
+
+  it('leaves no source spelling a concept\'s name from its key', () => {
+    expect(sources).toContain(path.join('features', 'analysis', 'components', 'SourceValue.tsx'))
+    expect(keyNames(sources, (file) => readFileSync(path.resolve(frontendDir, file), 'utf8'))).toEqual([])
+  })
+
+  it("fails a name spelled from the key, the dialog's and the citation link's (planted)", () => {
+    const planted: Record<string, string> = {
+      'dialog.tsx': "<p className=\"font-medium capitalize\">{input.concept.replaceAll('_', ' ')}</p>",
+      'citation.tsx': "aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}`}",
+      'named.tsx': '<p className="font-medium">{conceptName(input.concept)}</p>',
+    }
+    expect(keyNames(Object.keys(planted), (file) => planted[file])).toEqual(['dialog.tsx:1', 'citation.tsx:1'])
   })
 })

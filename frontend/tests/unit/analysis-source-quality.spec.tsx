@@ -340,6 +340,32 @@ describe('Financial origin and source checks', () => {
     expect(within(dialog).getAllByRole('link')).toHaveLength(3)
     expect(dialog).toHaveTextContent('It excludes finance lease principal payments')
     expect(dialog).not.toHaveTextContent('USD')
+    // Each operand reads as /analysis names its row, in the sentence case of the Method line above it, and no CSS
+    // recases it: the names were the key title-cased, "Operating Cash Flow" (E309).
+    expect(within(dialog).getByText('Operating cash flow − absolute cash capital expenditures')).toBeInTheDocument()
+    const names = within(dialog).getAllByText(/^(?:Operating cash flow|Capital expenditures)$/)
+    expect(names.map((name) => name.textContent)).toEqual(['Operating cash flow', 'Operating cash flow', 'Operating cash flow', 'Capital expenditures'])
+    for (const name of names) expect(name.closest('.capitalize, .uppercase, .lowercase')).toBeNull()
+    expect(within(dialog).getAllByRole('link').map((link) => link.getAttribute('aria-label')?.replace(/, filing .*/, ''))).toEqual([
+      'Open original SEC filing for operating cash flow, 2023-01-01 to 2023-12-31',
+      'Open original SEC filing for operating cash flow, 2023-01-01 to 2023-12-31',
+      'Open original SEC filing for capital expenditures, 2023-01-01 to 2023-12-31',
+    ])
+  })
+
+  it("names a comparison's operands as /analysis names the row, not as their key reads (E309)", async () => {
+    const reported: FactProvenance = { ...calculated, method: 'reported', formula: null, inputs: [] }
+    const eps = (value: number, year: number) => ({ ...calculated.inputs[0], concept: 'eps_diluted', unit: 'USD/shares', value, period_start: `${year}-01-01`, period_end: `${year}-12-31`, provenance: reported })
+    const growth: FactProvenance = { ...calculated, formula: 'year_over_year_growth', inputs: [eps(1.5, 2022), eps(1.65, 2023)] }
+    render(<SourceValue point={{ period: 'FY2023', value: 1.65, unit: 'USD/shares', provenance: reported }} label="EPS (diluted)" concept="eps_diluted" comparison={{ label: 'YoY', display: '+10.0%', provenance: growth }}>$1.65</SourceValue>)
+    await userEvent.click(screen.getByRole('button', { name: /View source/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getAllByText('EPS (diluted)')).toHaveLength(2)
+    expect(dialog).not.toHaveTextContent(/eps diluted/i)
+    expect(within(dialog).getAllByRole('link').map((link) => link.getAttribute('aria-label'))).toEqual([
+      'Open original SEC filing for EPS (diluted), 2022-01-01 to 2022-12-31, filing 0001326801-24-000012 (opens in a new tab)',
+      'Open original SEC filing for EPS (diluted), 2023-01-01 to 2023-12-31, filing 0001326801-24-000012 (opens in a new tab)',
+    ])
   })
 
   it('shows unavailable EPS with its reason and no invented figure', async () => {

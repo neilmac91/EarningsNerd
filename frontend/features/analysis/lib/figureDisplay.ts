@@ -53,6 +53,46 @@ const FORMULAS: Record<string, string> = {
 
 export const formulaWords = (formula: string) => FORMULAS[formula] ?? formula.replaceAll('_', ' ')
 
+// Each concept's name as /analysis's table writes it (trend_analysis/periods.py _CONCEPT_LABELS), so a source dialog's
+// operand reads as its own row does and as the Method line writes it, in sentence case: "Operating cash flow", never
+// its key title-cased by CSS (E309). tests/unit/metricLabelParity.spec.ts holds this map equal to the Python's, and
+// fails any source that names a concept by its key.
+export const CONCEPT_NAMES: Record<string, string> = {
+  revenue: 'Revenue',
+  net_interest_income: 'Net interest income',
+  noninterest_income: 'Noninterest income',
+  premiums_earned: 'Premiums earned',
+  net_investment_income: 'Net investment income',
+  gross_profit: 'Gross profit',
+  gross_margin: 'Gross margin',
+  operating_income: 'Operating income',
+  operating_margin: 'Operating margin',
+  net_income: 'Net income',
+  net_margin: 'Net margin',
+  earnings_per_share: 'EPS (basic)',
+  eps_diluted: 'EPS (diluted)',
+  operating_cash_flow: 'Operating cash flow',
+  capital_expenditures: 'Capital expenditures',
+  free_cash_flow: 'Free cash flow',
+  investing_cash_flow: 'Investing cash flow',
+  financing_cash_flow: 'Financing cash flow',
+  total_assets: 'Total assets',
+  cash_and_equivalents: 'Cash & equivalents',
+  current_assets: 'Current assets',
+  current_liabilities: 'Current liabilities',
+  working_capital: 'Working capital',
+  current_ratio: 'Current ratio',
+  long_term_debt: 'Long-term debt',
+  shareholders_equity: "Shareholders' equity",
+}
+
+/** A concept's name, to start a line; inside a sentence, pass it through inSentence (lib/format.ts). A concept
+ *  /analysis does not name reads as its key in sentence case. */
+export function conceptName(concept: string): string {
+  const words = concept.replaceAll('_', ' ')
+  return CONCEPT_NAMES[concept] ?? words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 /** Substitute only formula shapes whose operand identities are known. Input list order differs
  * between ratios and quarter subtraction; guessing from a slash can reverse the arithmetic. */
 export function substitutedFormula(provenance?: FactProvenance | null): string | null {
