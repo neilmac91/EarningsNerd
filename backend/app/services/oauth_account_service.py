@@ -221,15 +221,17 @@ def live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
 def _signup_start_invite_hash(
     db: Session, invite: Optional[str], agreement: AcceptedAccountAgreement | None,
 ) -> Optional[str]:
-    """The live invite's hash for a start's state row (``live_invite_hash``), after the start's admission check.
+    """The live invite's hash for a start's state row (``live_invite_hash``), after the invited-cohort exception's check.
 
-    A sign-up start (one with assent) while collection is held is refused with ``CollectionUnavailable`` unless the
-    invited-cohort exception admits its invite: live, bound to an address and in the cohort (``admits_invite``). The
-    callback decides again, on the address the provider verifies (``oauth_new_account_gate``). A login start, and a
-    start while collection is available, are unchanged."""
-    if agreement is None or is_collection_available():
+    While collection is held, a sign-up start (one with assent) that carries an invitation is the exception's to admit:
+    it is refused with ``CollectionUnavailable``, before anything is written, unless the exception is open and the
+    invitation live, bound to an address and in its cohort (``admits_invite``). A sign-up start with no invitation then
+    is the route's to refuse, as before the exception (``routers/auth.py::_require_new_collection``); stored, its state
+    could open no account. The callback decides again, on the address the provider verifies (``oauth_new_account_gate``).
+    A login start, and any start while collection is available, are unchanged."""
+    if agreement is None or not invite or is_collection_available():
         return live_invite_hash(db, invite)
-    if not invite or not is_invited_cohort_available():
+    if not is_invited_cohort_available():
         raise CollectionUnavailable(COLLECTION_UNAVAILABLE_MESSAGE)
     code_hash = invite_service.hash_invite_token(invite)
     found = invite_service.live_invite(db, code_hash)
