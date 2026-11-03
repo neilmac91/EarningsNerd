@@ -62,8 +62,8 @@ async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
     backoff in ``sec_rate_limiter``. Returns ``None`` on any failure, including a malformed CIK.
     """
     import httpx
+    from app.services.request_work import run_owned_sync
     from app.services.sec_request_gate import sec_request_options
-
     from app.config import settings
     from app.services.sec_rate_limiter import sec_rate_limiter
     from app.utils.sec_urls import companyfacts_url
@@ -77,7 +77,7 @@ async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
             async with httpx.AsyncClient(timeout=20.0, **sec_request_options()) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
-                return response.json()
+                return await run_owned_sync(response.json)  # a multi-MB decode, in the thread pool (E301)
 
         data = await sec_rate_limiter.execute_with_backoff(_get)
         return data if isinstance(data, dict) else None

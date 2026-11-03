@@ -75,7 +75,13 @@ unit now runs on the sync's own threads (`lessons/ops-auth-lookups-must-let-requ
 says why not the default executor); the leader claims the sync before its read, so a request arriving
 meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
 and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
-with its sessions off the loop (2026-10-19, E129).
+with its sessions off the loop (2026-10-19, E129). The analysis stream's narrative opens its own sessions
+once the request's is gone, and it worked them on the loop: its assembly (the company, the dataset build
+and its fingerprint, the cached row: 42 to 156 ms for the build alone over AAPL's, JPM's and WMT's ten
+years or twelve quarters, locally) and a generated run's cache write. Each is now a unit in the thread
+pool; its own case streams the real narrative to eight Pro readers on four slots twice, a regeneration
+burst and a cached one, with every checkout and statement off the loop. The companyfacts fetch decodes
+SEC's body in the thread pool too (2026-11-03, E301).
 The contact form handed its session to `persist_contact_submission` on the loop, and the feedback
 submit committed and refreshed its row in its own body, so each held a connection through its mails:
 eight contact messages on four slots, each mail taking 0.3 s, answered 4x201 then 4x500, and eight

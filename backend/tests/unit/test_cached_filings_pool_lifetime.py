@@ -3722,6 +3722,76 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_the_analysis_narrative_works_its_sessions_off_the_loop(monkeypatch, tmp_path):
+    """E301: the narrative the analysis stream runs opens its own sessions once the request's is gone, and it
+    worked them on the loop: its assembly (the company, the dataset build, the cached row) and a generated run's
+    cache write, each blocking every other request on the one-vCPU API. Eight Pro readers on four slots stream the
+    real narrative twice, with only the model faked. The saved row predates the presentation, so the first burst
+    regenerates and each run writes the row back; the second re-serves it from the cache. Every checkout and
+    statement of both bursts runs in the thread pool, none on the loop, and no connection is out at the end."""
+    import json
+
+    from app.models import TrendAnalysis
+    from app.routers import analysis, auth
+    from app.services import openai_service as oa
+    from app.services.trend_analysis.observations import ANALYSIS_SECTIONS
+    from app.services.trend_analysis.presentation import presentation_is_current
+
+    engine, sessions = _analysis_fixture(tmp_path, "analysis-narrative.db", pro=True)
+    selection = json.dumps({key: [] for key, _ in ANALYSIS_SECTIONS}, separators=(",", ":"))
+    selecting: list[int] = []
+    all_assembled = asyncio.Event()
+
+    async def stream_chat(_messages: Any, **kwargs: Any):
+        # Every run of the burst assembles before any writes the row back, so all eight regenerate and their
+        # eight cache writes race for the four slots.
+        selecting.append(1)
+        if len(selecting) == 8:
+            all_assembled.set()
+        await asyncio.wait_for(all_assembled.wait(), timeout=10.0)  # a hang guard; a passing run never waits for it
+        kwargs["usage_sink"].update({"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+        yield selection
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(analysis, "STREAM_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(analysis, "_emit_analysis_cost_best_effort", lambda *_a, **_k: None)
+    monkeypatch.setattr(oa.openai_service, "stream_chat", stream_chat)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def stream(i: int) -> tuple:
+        token = auth.create_access_token({"sub": f"analysis-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post("/api/analysis/CACHED/stream", json=_ANALYSIS_RANGE)
+        frames = [json.loads(frame[len("data: "):]) for frame in response.text.split("\n\n") if frame.startswith("data: ")]
+        last = frames[-1]
+        return response.status_code, last["type"], last.get("kind"), last.get("cached"), last.get("analysis_id")
+
+    try:
+        assert await asyncio.gather(*[stream(i) for i in range(8)]) == [(200, "complete", "analysis", False, 1)] * 8
+        def saved_is_current() -> bool:
+            with sessions() as db:
+                return presentation_is_current(db.get(TrendAnalysis, 1).dataset_json)
+
+        assert await asyncio.to_thread(saved_is_current)  # the burst wrote it back (read off the loop, as counted)
+        assert await asyncio.gather(*[stream(i) for i in range(8)]) == [(200, "complete", "analysis", True, 1)] * 8
+        assert engine.pool.checkedout() == 0
+        # Every checkout and every statement ran in the thread pool, none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("export", ["xlsx", "pdf"])
 async def test_analysis_exports_hold_no_connection_while_they_render(monkeypatch, tmp_path, export):
     """The exports finish their reads and checks, release the session, and only then render: no

@@ -13,17 +13,19 @@ Event contract (the Copilot shapes, so frontend consumers share plumbing):
 Cache-first (D4): if a row matches (company, mode, period_key) with the same prompt_version
 AND dataset_fingerprint and current presentation, it is re-served with no model call or meter (the
 router meters only non-cached "analysis" completions). ``force`` always regenerates.
-Opens its own sessions: the request's session is gone by the time this generator runs.
+Opens its own sessions, each in a thread-pool unit off the event loop (E301): the request's session is gone by the
+time this generator runs, and the reads, the dataset build and the cache write would hold the one-vCPU loop.
 """
 from __future__ import annotations
 
 import json
-from contextlib import closing
+from contextlib import aclosing
 from typing import Any, Optional
 
 from app.config import settings
 from app.models import Company
 from app.services.ai.copilot_chat import merge_chat_usage
+from app.services.request_work import run_owned_sync
 from app.services.trend_analysis.cache import (
     logger, PROMPT_VERSION, _load_cached_analysis, _persist_analysis,
 )
@@ -74,19 +76,20 @@ class _NarrativeRun:
         self.assembled = False
 
 
-def _assemble(run: _NarrativeRun, SessionLocal: Any):
+def _assemble(run: _NarrativeRun, SessionLocal: Any) -> Optional[dict[str, Any]]:
+    """The run's reads as one unit for the thread pool: the dataset, its fingerprint and the cached row, the
+    session closed before it returns. Returns the run's last event (an error, or a cached re-serve built from the
+    row while its session is open), or None once the run is assembled for a generation."""
     db = SessionLocal()
     try:
         company = db.get(Company, run.company_id)
         if company is None:
-            yield {"type": "error", "message": "Company not found."}
-            return
+            return {"type": "error", "message": "Company not found."}
         run.ticker = company.ticker
         try:
             run.dataset = build_dataset(db, company, run.mode, run.start_period, run.end_period)
         except ValueError as exc:
-            yield {"type": "error", "message": str(exc)}
-            return
+            return {"type": "error", "message": str(exc)}
         run.fingerprint = dataset_fingerprint(run.dataset)
         run.key = run.dataset["period_key"]
         cached = _load_cached_analysis(db, run.company_id, run.mode, run.key)
@@ -98,8 +101,7 @@ def _assemble(run: _NarrativeRun, SessionLocal: Any):
             and cached.dataset_fingerprint == run.fingerprint
             and presentation_is_current(cached.dataset_json or {})
         ):
-            yield cached_analysis_completion(run.dataset, cached)
-            return
+            return cached_analysis_completion(run.dataset, cached)
         # A saved row no longer matches (prompt, presentation or facts): this regeneration
         # is system-triggered, not user-triggered — the router exempts it from the fair-use meter.
         # A `force` refresh is user-initiated and stays metered.
@@ -109,6 +111,7 @@ def _assemble(run: _NarrativeRun, SessionLocal: Any):
         db.close()
 
     run.assembled = True
+    return None
 
 
 def _selection_messages(run: _NarrativeRun, get_named_prompt: Any, openai_service: Any) -> None:
@@ -162,7 +165,7 @@ def _append_retry(messages: list[dict[str, Any]]) -> None:
     )
 
 
-def _publish(run: _NarrativeRun):
+async def _publish(run: _NarrativeRun):
     narrative, citations, grounded, unverified, presentation = render_narrative_presentation(
         run.dataset, run.catalogue, run.selection, run.index,
     )
@@ -179,7 +182,8 @@ def _publish(run: _NarrativeRun):
     run.dataset = {**run.dataset, "narrative_presentation": presentation}
     # The sole token payload is emitted only after strict selection validation and code rendering.
     yield {"type": "token", "text": narrative}
-    analysis_id = _persist_analysis(
+    analysis_id = await run_owned_sync(  # its own session, in the thread pool
+        _persist_analysis,
         company_id=run.company_id,
         mode=run.mode,
         key=run.key,
@@ -215,9 +219,9 @@ async def stream_trend_narrative(
 
     run = _NarrativeRun(company_id, mode, start_period, end_period, force, user_id)
     yield {"type": "progress", "stage": "assembling", "message": "Assembling the numbers…", "percent": 10}
-    with closing(_assemble(run, SessionLocal)) as events:
-        for event in events:
-            yield event
+    last = await run_owned_sync(_assemble, run, SessionLocal)
+    if last is not None:
+        yield last
     if not run.assembled:
         return
     yield {"type": "progress", "stage": "writing", "message": "Writing the analysis…", "percent": 30}
@@ -270,6 +274,6 @@ async def stream_trend_narrative(
         yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
         return
 
-    with closing(_publish(run)) as events:
-        for event in events:
+    async with aclosing(_publish(run)) as events:
+        async for event in events:
             yield event
