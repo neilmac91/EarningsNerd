@@ -22,5 +22,5 @@ inside the canonical form; `backend/tests/unit/test_complimentary_access_service
 fails if it leaves the digest, and `::test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn` if the runbook's
 example would run as written. Another digest of private data in a public output is review-checked.
 
-**Evidence**: the final review of `037dc992` on #1955 (privacy lens); the salt landed with mutation proofs in the
+**Evidence**: the final review of `037dc992` on #1955 (privacy lens, a blocker both refuters upheld); the salt landed with mutation proofs in the
 PR body; `lessons/ops-never-echo-environment-values.md` for values themselves.

@@ -134,8 +134,10 @@ description belongs in it (the example's `private-beta-2026-11` has the shape).
 Keep every real manifest in the private store. Never commit one, paste one into an issue or pull request, or pass one
 as a workflow input: the repository and its Actions logs are public. A committed one fails
 `test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example`, and so does a draft the command
-would refuse, or a roster, that holds a fingerprint other than the example's two; a committed address list fails
-`test_no_file_in_the_repository_is_the_operators_address_list`. The rest is review-checked.
+would refuse, or a roster, that holds a fingerprint other than the example's two; a committed address list (a file
+named for one, an editor's backup of one, or any small file of bare addresses one per line) fails
+`test_no_file_in_the_repository_is_the_operators_address_list`. The rest, a roster of names and addresses among them,
+is review-checked.
 
 ## Procedure
 
