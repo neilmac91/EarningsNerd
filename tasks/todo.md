@@ -1,8 +1,6 @@
 # Open items — EarningsNerd
 
-One line per open item, newest first, with owner, disposition and next step; full evidence belongs in the
-reconciliation PR. Holds stay pointers; delete an engineering line in the PR that closes it. The
-[historical ledger](archive/todo-ledger-through-2026-10-07.md) is evidence, not a queue. Format: `AGENTS.md` §7. Founder rows stay until the founder closes them.
+One line per open item, newest first, with owner, disposition and next step; full evidence belongs in the reconciliation PR. Holds stay pointers; delete an engineering line in the PR that closes it. The [historical ledger](archive/todo-ledger-through-2026-10-07.md) is evidence, not a queue. Format: `AGENTS.md` §7. Founder rows stay until the founder closes them.
 
 ## Where things stand — 2026-11-03, CODE RED chief (refreshing record 73's 2026-11-02 block)
 
