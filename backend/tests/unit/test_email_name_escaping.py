@@ -22,6 +22,7 @@ from app.services import email_service, legal_readiness_service
 from app.services.email_service import (
     _greeting,
     _greeting_text,
+    render_contact_confirmation,
     render_referral_success_email,
     render_welcome_email,
     send_account_exists_email,
@@ -131,10 +132,11 @@ def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent)
 @pytest.mark.parametrize(
     "render, kwargs",
     [
+        (render_contact_confirmation, {}),
         (render_welcome_email, dict(position=1, referral_link="https://e.test/r")),
         (render_referral_success_email, dict(new_position=1, referral_link="https://e.test/r")),
     ],
-    ids=["welcome", "referral_success"],
+    ids=["contact_confirmation", "welcome", "referral_success"],
 )
 def test_render_functions_keep_the_name_on_one_line_escaped_in_the_page_and_as_typed_in_the_text(render, kwargs):
     html_doc, text = render(name="Eve\r\n<b>Bcc</b>:\u2029x", **kwargs)

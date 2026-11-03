@@ -16,6 +16,8 @@ what that mock cannot:
 - A Stripe failure in checkout or the billing portal answers the route's fixed 400 detail and logs its
   error's class and Stripe's request id alone: Stripe's message, which can quote the key's last four
   characters or name a customer, reaches neither the answer nor a log (E18).
+- Checkout's success and cancel URLs and the billing portal's return URL are built on ``FRONTEND_URL`` as
+  Settings loads it, whatever order the CORS allowlist lists its origins in (E32).
 
 The reader is loaded through the request's own ``get_db`` session, as ``get_current_user`` does, so
 checkout's first unit reads it, and the row its plan loads, on that session and releases the session
@@ -31,7 +33,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Callable
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import httpx
 import pytest
@@ -41,7 +43,7 @@ from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.config import Settings, settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.models import Subscription, User
 from app.routers.auth import get_current_user
@@ -440,8 +442,7 @@ def test_a_past_due_or_unpaid_account_is_sent_to_the_billing_portal_not_a_second
     assert resp.status_code == 200, resp.text
     assert resp.json() == {"url": "https://billing.stripe.test/portal"}
     create_portal.assert_called_once()
-    assert create_portal.call_args.kwargs["customer"] == "cus_owing"
-    assert create_portal.call_args.kwargs["return_url"].endswith("/dashboard")
+    assert create_portal.call_args == call(customer="cus_owing", return_url=f"{settings.FRONTEND_URL}/dashboard")
     create_customer.assert_not_called()
     create_session.assert_not_called()
 
@@ -488,3 +489,63 @@ def test_a_past_due_row_without_a_stored_customer_checks_out_as_before(client, m
     create_portal.assert_not_called()
     create_customer.assert_called_once()
     create_session.assert_called_once()
+
+
+# The production bootstrap lists the apex first (docs/DEPLOYMENT.md), the default lists localhost first, and an
+# empty allowlist once fell back to localhost: none of them may move a return URL (E32).
+_CORS_ORDERS = [
+    "https://earningsnerd.io,https://www.earningsnerd.io",
+    "http://localhost:3000,http://127.0.0.1:3000,https://earningsnerd.io,https://www.earningsnerd.io",
+    "https://www.earningsnerd.io,https://earningsnerd.io",
+    "",
+]
+
+
+def _canonical_frontend(monkeypatch, cors: str) -> None:
+    """``FRONTEND_URL`` configured with a trailing slash and loaded through Settings, which removes it (E111),
+    beside a CORS allowlist in ``cors``'s order."""
+    loaded = Settings(FRONTEND_URL="https://www.earningsnerd.io/", _env_file=None).FRONTEND_URL
+    monkeypatch.setattr(settings, "FRONTEND_URL", loaded)
+    monkeypatch.setattr(settings, "CORS_ORIGINS_STR", cors)
+
+
+@pytest.mark.parametrize("cors", _CORS_ORDERS)
+def test_checkout_returns_to_the_canonical_frontend_whatever_the_cors_order(client, monkeypatch, cors):
+    """The whole session is pinned, on a plain checkout (the canceled row spent the trial) of the stored customer:
+    success and cancel return to /dashboard?success=true and /pricing?canceled=true on FRONTEND_URL, with one
+    slash before the path."""
+    _canonical_frontend(monkeypatch, cors)
+    email = _new_user(stripe_customer_id="cus_return")
+    _add_subscription(email, plan="free", status="canceled")
+    with SessionLocal() as db:
+        user_id = db.query(User.id).filter(User.email == email).scalar()
+    _sign_in(email)
+
+    resp, create_customer, create_session = _checkout(client, monkeypatch)
+
+    assert resp.status_code == 200, resp.text
+    create_customer.assert_not_called()
+    assert create_session.call_args == call(
+        customer="cus_return",
+        allowed_payment_method_types=["card"],
+        line_items=[{"price": "price_monthly_test", "quantity": 1}],
+        mode="subscription",
+        payment_method_collection="if_required",
+        success_url="https://www.earningsnerd.io/dashboard?success=true",
+        cancel_url="https://www.earningsnerd.io/pricing?canceled=true",
+        metadata={"user_id": str(user_id), "plan": "pro", "price_id": "price_monthly_test",
+                  "billing_cycle": "monthly"},
+    )
+
+
+@pytest.mark.parametrize("cors", _CORS_ORDERS)
+def test_the_billing_portal_returns_to_the_canonical_dashboard_whatever_the_cors_order(client, monkeypatch, cors):
+    _canonical_frontend(monkeypatch, cors)
+    _sign_in(_new_user(stripe_customer_id="cus_portal"))
+
+    with patch.object(stripe.billing_portal.Session, "create",
+                      return_value=MagicMock(url="https://billing.stripe.test/portal")) as create_portal:
+        resp = client.post("/api/subscriptions/create-portal-session")
+
+    assert (resp.status_code, resp.json()) == (200, {"url": "https://billing.stripe.test/portal"})
+    assert create_portal.call_args == call(customer="cus_portal", return_url="https://www.earningsnerd.io/dashboard")

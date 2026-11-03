@@ -129,7 +129,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `FEEDBACK_MEDIA_BUCKET` | `""` | Private GCS bucket for screenshot objects; use separate production and preview buckets with their corresponding isolated database/runtime. Empty disables storage access. |
 | `FEEDBACK_MEDIA_RETENTION_DAYS` | `180` | Screenshot lifetime from creation, recorded on each manifest; account deletion revokes access immediately and queues earlier removal. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
-| `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 308 to www): sent mail keeps the whole address. Settings removes the whitespace around it and any trailing slashes at load, so every link appends its path to one canonical origin, and refuses a value left empty. |
+| `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects, Checkout's and the billing portal's return URLs, and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 308 to www): sent mail keeps the whole address. Settings removes the whitespace around it and any trailing slashes at load, so every link appends its path to one canonical origin, and refuses a value left empty. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |
 | `SECRET_KEY` | `required` | Required in every environment; at least 32 characters, known placeholders rejected. Prefer 64+ random characters. |
 | `IP_HASH_SALT` | `""` | IP-hash pepper; call sites fall back to SECRET_KEY when empty. |
@@ -325,7 +325,7 @@ REVERSE_TRIAL_DAYS=7
 RESEND_API_KEY=...
 RESEND_FROM_EMAIL=...             # Must be on a Resend-verified domain (else emails silently drop)
 RESEND_WEBHOOK_SECRET=...         # Svix signing secret for the Resend webhook
-FRONTEND_URL=https://www.earningsnerd.io  # Mail links, sign-in redirects, the mail header's tile
+FRONTEND_URL=https://www.earningsnerd.io  # Mail links, sign-in redirects, billing return URLs, the mail header's tile
 
 # Analytics & Monitoring
 POSTHOG_API_KEY=...
