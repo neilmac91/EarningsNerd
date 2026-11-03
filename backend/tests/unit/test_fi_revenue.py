@@ -440,8 +440,8 @@ def test_a_banks_investment_banking_line_is_no_total():
     ({NII: 400e6, NONII: 300e6}, 700e6, True),  # the bank's sum: the total
 ])
 def test_each_element_of_2_meets_each_check_where_it_alone_decides(element, parts, value, admitted):
-    # Each element the rule reads only where it is the filer's total meets the same test (2), so each check is
-    # pinned for each element by a case only that check decides (lessons/test-pin-each-guard-where-it-alone-decides.md)
+    # With no total held, each case is decided by one check alone, for every element (lessons/test-pin-each-guard-
+    # where-it-alone-decides.md); each test of a check beside a held total below runs for every element too
     years = range(2023, 2026)
     payload = _years({element: {y: value for y in years}, **{p: {y: v for y in years} for p, v in parts.items()}})
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ((element,) if admitted else ())
@@ -458,13 +458,15 @@ def test_investment_banking_revenue_follows_the_fee_tag_only_where_it_matches(fe
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == expected
 
 
-@pytest.mark.parametrize("fee,tags", [(450e6, ()), (484.5e6, ()), (500e6, (FEE,)), (510e6, (FEE,))])
-def test_with_no_total_a_banks_fee_tag_short_of_its_sum_is_no_total(fee, tags):
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+@pytest.mark.parametrize("fee,admitted", [(450e6, False), (484.5e6, False), (500e6, True), (510e6, True)])
+def test_with_no_total_a_banks_fee_tag_short_of_its_sum_is_no_total(element, fee, admitted):
     # A trust bank's fees, as large as its noninterest income and above its net interest income, sit above every part
     # beside them; the bank's total is the sum of the two (510M), so only a fee tag that reads the sum is the total.
     years = range(2023, 2026)
-    payload = _years({FEE: {y: fee for y in years}, NII: {y: 60e6 for y in years}, NONII: {y: 450e6 for y in years}})
-    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+    payload = _years({element: {y: fee for y in years}, NII: {y: 60e6 for y in years},
+                      NONII: {y: 450e6 for y in years}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ((element,) if admitted else ())
 
 
 def _quarters(tag_vals):
@@ -475,13 +477,15 @@ def _quarters(tag_vals):
         for end, v in sorted(vals.items())]}} for tag, vals in tag_vals.items()}}}
 
 
-@pytest.mark.parametrize("fee,tags", [(112e6, ()), (127e6, (FEE,))])
-def test_with_no_year_a_banks_fee_tag_is_held_to_a_quarters_sum(fee, tags):
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+@pytest.mark.parametrize("fee,admitted", [(112e6, False), (127e6, True)])
+def test_with_no_year_a_banks_fee_tag_is_held_to_a_quarters_sum(element, fee, admitted):
     # The trust bank above as a 10-Q's own facts (E278's path) or a payload with no 10-K yet: no filing reports a year
     # beside both lines, so each quarter's sum (127M) is the floor (E286's review: years alone let the fee subset in).
     ends = ("2025-03-31", "2025-06-30")
-    payload = _quarters({FEE: {e: fee for e in ends}, NII: {e: 15e6 for e in ends}, NONII: {e: 112e6 for e in ends}})
-    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+    payload = _quarters({element: {e: fee for e in ends}, NII: {e: 15e6 for e in ends},
+                         NONII: {e: 112e6 for e in ends}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ((element,) if admitted else ())
 
 
 def test_a_quarters_sum_never_leaves_a_total_out():
@@ -491,22 +495,24 @@ def test_a_quarters_sum_never_leaves_a_total_out():
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV,)
 
 
-def test_a_years_sum_decides_before_a_quarters():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_years_sum_decides_before_a_quarters(element):
     # A fee tag that reads the bank's sum in every year beside both lines is the total, whatever one quarter reads
     # (here 83% of its sum, above each line alone): quarters stand in only where no filing reports a year.
     years = range(2023, 2026)
-    usgaap = _years({FEE: {y: 510e6 for y in years}, NII: {y: 60e6 for y in years},
+    usgaap = _years({element: {y: 510e6 for y in years}, NII: {y: 60e6 for y in years},
                      NONII: {y: 450e6 for y in years}})["facts"]["us-gaap"]
-    quarter = _quarters({FEE: {"2026-03-31": 100e6}, NII: {"2026-03-31": 60e6}, NONII: {"2026-03-31": 60e6}})
+    quarter = _quarters({element: {"2026-03-31": 100e6}, NII: {"2026-03-31": 60e6}, NONII: {"2026-03-31": 60e6}})
     for tag, node in quarter["facts"]["us-gaap"].items():
         usgaap[tag]["units"]["USD"] += node["units"]["USD"]
-    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (FEE,)
+    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (element,)
 
 
-def test_a_fee_tag_four_percent_below_the_total_is_not_the_total():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_fee_tag_four_percent_below_the_total_is_not_the_total(element):
     # Outside CROSS_CHECK_TOLERANCE (1%), which the backfill's cross-check shares: retuning it moves this rule too.
-    years, facts = _fy(_years({REV: {2023: 10.0e9, 2024: 10.0e9}, FEE: {2023: 9.6e9, 2024: 9.6e9, 2025: 9.9e9}}))
-    assert 2025 not in years and _fee_rows(facts) == []
+    years, facts = _fy(_years({REV: {2023: 10.0e9, 2024: 10.0e9}, element: {2023: 9.6e9, 2024: 9.6e9, 2025: 9.9e9}}))
+    assert 2025 not in years and _sole_rows(facts) == []
 
 
 def test_a_total_within_one_percent_below_the_fee_tag_is_no_partial_line():
@@ -530,35 +536,38 @@ def test_a_crisis_year_keeps_the_reported_total():
     assert years[2022] == (0.04, RNOIE)
 
 
-def test_a_depressed_latest_year_never_admits_the_fee_tag():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_depressed_latest_year_never_admits_the_fee_tag(element):
     payload = _years({REV: {2022: 1.2e9, 2023: 1.1e9, 2024: 1.4e9, 2025: 0.3e9},
-                      FEE: {2022: 0.6e9, 2023: 0.62e9, 2024: 0.65e9, 2025: 0.7e9}})
-    payload["facts"]["us-gaap"][FEE]["units"]["USD"].append(
+                      element: {2022: 0.6e9, 2023: 0.62e9, 2024: 0.65e9, 2025: 0.7e9}})
+    payload["facts"]["us-gaap"][element]["units"]["USD"].append(
         _item(0.2e9, "2026-03-31", "2026-01-01", "Q126", form="10-Q", filed="2026-05-01", fp="Q1"))
     years, facts = _fy(payload)
-    assert years[2025] == (0.3, REV) and _fee_rows(facts) == []
+    assert years[2025] == (0.3, REV) and _sole_rows(facts) == []
 
 
-def test_the_fee_tag_is_judged_on_the_value_it_would_give():
-    payload = _years({REV: {y: 7.0e9 for y in range(2018, 2023)}, FEE: {y: 0.5e9 for y in range(2018, 2026)}})
-    payload["facts"]["us-gaap"][FEE]["units"]["USD"].insert(
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_the_fee_tag_is_judged_on_the_value_it_would_give(element):
+    payload = _years({REV: {y: 7.0e9 for y in range(2018, 2023)}, element: {y: 0.5e9 for y in range(2018, 2026)}})
+    payload["facts"]["us-gaap"][element]["units"]["USD"].insert(
         0, _item(7.0e9, "2022-12-31", "2022-01-01", "K2022A", filed="2023-01-15"))  # first filed, then corrected
     years, facts = _fy(payload)
-    assert max(years) == 2022 and _fee_rows(facts) == []
+    assert max(years) == 2022 and _sole_rows(facts) == []
 
 
-def test_the_fee_tag_is_judged_at_the_latest_year_it_shares():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_the_fee_tag_is_judged_at_the_latest_year_it_shares(element):
     years, facts = _fy(_years({REV: {y: 10.0e9 for y in range(2020, 2025)},
-                               FEE: {2020: 10.0e9, **{y: 1.0e9 for y in range(2021, 2026)}}}))
-    assert 2025 not in years and _fee_rows(facts) == []
+                               element: {2020: 10.0e9, **{y: 1.0e9 for y in range(2021, 2026)}}}))
+    assert 2025 not in years and _sole_rows(facts) == []
 
 
-def _quarter_shape(fee_q1_2017, beside=None, part=1.0e9):
+def _quarter_shape(fee_q1_2017, beside=None, part=1.0e9, element=FEE):
     """AXP's shape as SEC served it from its Q1 2018 10-Q until its FY2018 10-K: the net total's FY2017 and Q1 2017
     (from the 10-K), and the fee tag's Q1 2017 and Q1 2018 (from the 10-Qs), so the two share a quarter but no year."""
     usgaap = {RNOIE: {"units": {"USD": [_item(33.5e9, "2017-12-31", "2017-01-01", "K17", filed="2018-02-15"),
                                         _item(7.9e9, "2017-03-31", "2017-01-01", "K17", filed="2018-02-15")]}},
-              FEE: {"units": {"USD": [_item(fee_q1_2017, "2017-03-31", "2017-01-01", "Q117", form="10-Q",
+              element: {"units": {"USD": [_item(fee_q1_2017, "2017-03-31", "2017-01-01", "Q117", form="10-Q",
                                             filed="2017-04-25", fp="Q1"),
                                       _item(6.6e9, "2018-03-31", "2018-01-01", "Q118", form="10-Q", filed="2018-04-25",
                                             fp="Q1")]}}}
@@ -568,61 +577,87 @@ def _quarter_shape(fee_q1_2017, beside=None, part=1.0e9):
     return {"facts": {"us-gaap": usgaap}}
 
 
-def test_a_shared_quarter_refuses_a_fee_tag_below_the_total():
-    payload = _quarter_shape(6.0e9)  # 6.0 against the total's 7.9
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_shared_quarter_refuses_a_fee_tag_below_the_total(element):
+    payload = _quarter_shape(6.0e9, element=element)  # 6.0 against the total's 7.9
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
-    assert _fee_rows(_facts(payload)) == []
+    assert _sole_rows(_facts(payload)) == []
 
 
-@pytest.mark.parametrize("beside,part,tags", [
-    (None, 0, (RNOIE, FEE)), (NII, 7.0e9, (RNOIE,)), (NII, 1.0e9, (RNOIE, FEE))])
-def test_a_shared_quarter_never_admits_the_fee_tag_on_its_own(beside, part, tags):
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+@pytest.mark.parametrize("beside,part,admitted", [(None, 0, True), (NII, 7.0e9, False), (NII, 1.0e9, True)])
+def test_a_shared_quarter_never_admits_the_fee_tag_on_its_own(element, beside, part, admitted):
     # The fee tag matches the total at the one quarter they share; whether it fills Q1 2018 is the part test's: a part
     # above its 6.6B there refuses it, one below does not (E286; E264 refused any part beside it).
-    payload = _quarter_shape(7.9e9, beside, part)
-    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+    payload = _quarter_shape(7.9e9, beside, part, element)
+    expected = (RNOIE, element) if admitted else (RNOIE,)
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == expected
 
 
-def test_a_shared_year_decides_before_a_later_shared_quarter():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_shared_quarter_never_admits_the_fee_tag_past_the_banks_sum(element):
+    # It matches the total at the one quarter they share, but its own Q1 2018 reads 88% of that 10-Q's bank's sum
+    # (7.5B), above each line alone: a shared quarter never admits it, so the sum's floor still refuses it
+    usgaap = _quarter_shape(7.9e9, element=element)["facts"]["us-gaap"]
+    for line, value in ((NII, 1.0e9), (NONII, 6.5e9)):
+        usgaap[line] = {"units": {"USD": [_item(value, "2018-03-31", "2018-01-01", "Q118", form="10-Q",
+                                                filed="2018-04-25", fp="Q1")]}}
+    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (RNOIE,)
+
+
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_shared_year_decides_before_a_later_shared_quarter(element):
     # EQIX's and O's shape: the fee tag is the REIT's whole total, its Q4 sits beside the year, and lease income is
     # tagged beside it. The shared year admits the fee tag, so it fills the quarter no total reports yet.
-    payload = _years({REV: {2024: 8.75e9, 2025: 9.22e9}, FEE: {2024: 8.75e9, 2025: 9.22e9},
+    payload = _years({REV: {2024: 8.75e9, 2025: 9.22e9}, element: {2024: 8.75e9, 2025: 9.22e9},
                       "OperatingLeaseLeaseIncome": {2025: 1.0e9}})
     usgaap = payload["facts"]["us-gaap"]
     usgaap[REV]["units"]["USD"].append(_item(2.4e9, "2025-12-31", "2025-10-01", "K2025"))
-    usgaap[FEE]["units"]["USD"] += [_item(2.4e9, "2025-12-31", "2025-10-01", "K2025"),
-                                    _item(2.5e9, "2026-03-31", "2026-01-01", "Q126", form="10-Q", filed="2026-05-01",
-                                          fp="Q1")]
-    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (REV, FEE)
+    usgaap[element]["units"]["USD"] += [_item(2.4e9, "2025-12-31", "2025-10-01", "K2025"),
+                                        _item(2.5e9, "2026-03-31", "2026-01-01", "Q126", form="10-Q",
+                                              filed="2026-05-01", fp="Q1")]
+    assert fi_revenue.financial_revenue_tags(usgaap, "USD") == (REV, element)
     first_quarter = [f for f in _facts(payload) if f["concept"] == "revenue" and f["period_end"] == date(2026, 3, 31)]
-    assert [(round(f["value"] / 1e9, 2), f["raw_tag"]) for f in first_quarter] == [(2.5, f"us-gaap:{FEE}")]
+    assert [(round(f["value"] / 1e9, 2), f["raw_tag"]) for f in first_quarter] == [(2.5, f"us-gaap:{element}")]
 
 
-@pytest.mark.parametrize("fee_2022,tags", [(19.9e9, (REV, FEE)), (3.1e9, (REV,)), (12.95e9, (REV, FEE))])
-def test_a_fee_tag_a_year_admits_fills_no_period_below_a_part_beside_it(fee_2022, tags):
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+@pytest.mark.parametrize("fee_2022,admitted", [(19.9e9, True), (3.1e9, False), (12.95e9, True)])
+def test_a_fee_tag_a_year_admits_fills_no_period_below_a_part_beside_it(element, fee_2022, admitted):
     # PNC's shape: the fee tag carries the total at FY2021, the last year a total reports. At FY2022 it reads the total
     # again, only the fee subset, or a total that is all net interest income, rounded below the 13.0B of it beside it.
     # A total is never below one of its parts, within the cross-check's tolerance.
-    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, FEE: {2021: 19.2e9, 2022: fee_2022},
+    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, element: {2021: 19.2e9, 2022: fee_2022},
                       "InterestIncomeExpenseNet": {2021: 12.0e9, 2022: 13.0e9}})
-    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+    expected = (REV, element) if admitted else (REV,)
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == expected
     years, _ = _fy(payload)
     authority = {end.year for (concept, end), _v in extract_authoritative_values(payload, financial=True).items()
                  if concept == "revenue"}
-    filled = ((round(fee_2022 / 1e9, 3), FEE), True) if FEE in tags else (None, False)
+    filled = ((round(fee_2022 / 1e9, 3), element), True) if admitted else (None, False)
     assert (years.get(2022), 2022 in authority) == filled
 
 
-def test_a_part_beside_the_fee_tag_is_read_as_the_collector_reads_it():
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_part_counts_only_at_periods_the_fee_tag_fills(element):
+    # Behind a total it matches at 2020, it reads below a part only at 2020, which the total holds, and above it at
+    # 2018, the one year it fills: admitted (docstring (2): no period it fills reads it below a part)
+    payload = _years({REV: {2019: 1.0e9, 2020: 1.0e9}, element: {2018: 0.9e9, 2019: 1.0e9, 2020: 1.0e9},
+                      NII: {2018: 0.2e9, 2020: 1.05e9}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV, element)
+
+
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+def test_a_part_beside_the_fee_tag_is_read_as_the_collector_reads_it(element):
     # The FY2023 10-K restates FY2022's total (the fee tag's) and its net interest income lower. As read, the total is
     # above its part, so the fee tag still fills FY2022, though the part as first filed was above the restated total.
-    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, FEE: {2021: 19.2e9, 2022: 13.5e9},
+    payload = _years({REV: {2020: 16.9e9, 2021: 19.2e9}, element: {2021: 19.2e9, 2022: 13.5e9},
                       "InterestIncomeExpenseNet": {2022: 13.0e9}})
     usgaap = payload["facts"]["us-gaap"]
-    for tag, value in ((FEE, 12.5e9), ("InterestIncomeExpenseNet", 12.0e9)):
+    for tag, value in ((element, 12.5e9), ("InterestIncomeExpenseNet", 12.0e9)):
         usgaap[tag]["units"]["USD"].append(_item(value, "2022-12-31", "2022-01-01", "K2023", filed="2024-02-15"))
     years, _ = _fy(payload)
-    assert years[2022] == (12.5, FEE)
+    assert years[2022] == (12.5, element)
 
 
 @pytest.mark.parametrize("ticker", TICKERS)

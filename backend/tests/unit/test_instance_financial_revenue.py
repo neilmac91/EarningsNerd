@@ -463,6 +463,7 @@ def test_every_fixture_filings_own_items_give_e264s_choice():
     ("WBHC", "0001193125-26-082893", ()),  # FY2025 10-K: its gross Revenues is above its bank's sum
     ("WBHC", "0000950170-25-067712", (REV,)),  # Q1 2025 10-Q: a quarter's sum leaves no total out (E290 (5))
     ("PNC", "0000713676-26-000020", (REV,)),  # FY2025 10-K: its investment banking fees are a part (E290 (2))
+    ("PNC", "0000713676-26-000038", (REV,)),  # Q1 2026 10-Q: they share only quarters, and a shared one refuses them
     ("MC", "0001564590-20-006910", (IBR,)),  # FY2019 10-K: its total, above the interest line beside it (E290 (2))
     ("MC", "0001193125-26-076747", (IBR,)),  # FY2025 10-K: its total, beside no total element (E290 (2))
     ("MC", "0001193125-26-192462", (IBR,)),  # Q1 2026 10-Q, the same
