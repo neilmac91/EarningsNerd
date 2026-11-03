@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     LEGAL_OPERATOR_POSTAL_ADDRESS: str = ""
     LEGAL_OPERATOR_COUNTRY: str = ""
     LEGAL_OPERATOR_EMAIL: str = ""
+    # Requested beta-invitation email, a capability of its own (docs/LEGAL_READINESS.md, "Invitation email"): only
+    # with collection ready, a configured provider and a verifiable Resend webhook secret, and only to an address
+    # whose owner asked for an invitation, as the admin records with each send. Promotional mail stays closed in code
+    # (legal_readiness_service.is_marketing_available) whatever this says.
+    LEGAL_INVITATION_EMAIL_ENABLED: bool = False
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.

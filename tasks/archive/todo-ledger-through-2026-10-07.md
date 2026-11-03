@@ -7185,6 +7185,17 @@ Full local and hosted verification plus independent exact-head review precede re
   72); no hook refusal; the lapses counted from the chief's notes and its own commands. Gate (d) after
   its fifth round; gate (c) critiqued twice, its third design being written. New founder item 28: founder
   council transcripts in the repository.
+- 2026-11-03 (record 75, `runtime/control/DECISIONS-75.md`): PR #1976 (record 74) merged `86479c66` by
+  the chief's own squash (seventieth deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, one delta commit and a clean delta check. Closure 226
+  registers record 74's reviewer, gate (c)'s third design, gate (d)'s round-5 to round-7 reviews, gate
+  (c)'s round-1 review and its implementation context, and pre-registers record 76's reviewer. No survey or
+  fact-check workflow for this record. Eleven main merges, three deploy jobs each healthy by its own health
+  step, eight push runs skipping every deploy step. Production read live after the last of the three
+  deploys: describe-service passing and logs-probe reading logging permitted; none after the first two. No
+  CODE RED spend; no ledger event. No new chief defect; no hook refusal; the lapses counted from the
+  chief's notes and its own commands. Two container restarts. Gate (d) in its ninth round; gate (c) in
+  its third.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

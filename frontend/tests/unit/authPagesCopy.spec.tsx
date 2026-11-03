@@ -257,6 +257,8 @@ const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
   ['app/services/oauth_account_service.py::resolve_apple_user', 'the same for Apple'],
   ['app/services/account_mail_service.py::_issue_link', 'sends no verification link to a verified address, after the response; resend-verification answers the same either way'],
   ['app/routers/auth.py::get_current_user_info', 'reports the state (/me), which shows or hides the banner'],
+  ['app/services/complimentary_access_service.py::_grant_outcome', "an operator's eligibility check, not an in-app gate: a complimentary beta grant (PB-02) skips an unverified tester, whom the operator's dry run reports, and a later run grants once they verify"],
+  ['app/services/complimentary_access_service.py::_operator_label', "the operator command's authorization: the admin account that runs a grant or revoke must be verified; no account holder meets it"],
 ]
 
 function emailVerifiedReads(): string[] {
@@ -425,6 +427,20 @@ describe('login: an OAuth account conflict', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/password instead/i)).toBeNull()
     expect(screen.queryByText(/will link/i)).toBeNull()
+  })
+})
+
+describe('login: an OAuth login whose landing page could not exchange its code (E29 (5))', () => {
+  // app/auth/complete/page.tsx sends here a code the exchange refused (used, expired, not bound to this browser) or a
+  // landing with no code at all: the sentence says the login did not finish and what to do, naming no cause it cannot
+  // tell apart. This build leaves Sign in with Apple off (CI's), so it names Google alone, as the buttons do; a build
+  // with Apple names both (oauthHandoffFailedWithApple.spec.tsx).
+  it('says the login did not finish, and to log in again', () => {
+    useSearchParams.mockReturnValue(new URLSearchParams('error=oauth_handoff_failed'))
+    withQueryClient(<LoginPage />)
+    expect(screen.getByText('Your Google login did not finish. Log in again.')).toBeInTheDocument()
+    expect(screen.queryByText(/Apple/)).toBeNull()
+    expect(screen.queryByText('Login failed. Please try again.')).toBeNull()
   })
 })
 

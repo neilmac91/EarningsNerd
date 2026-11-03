@@ -148,10 +148,15 @@ ALLOWED_MENTIONS = {
     # link (test_retention_purge.py pins the order).
     ("backend/app/services/retention_service.py", "_purge", "delete"): 1,
     # Modules that import refresh_token_service are in scope (it could hand them a token row to delete);
-    # these deletes remove OAuth rows: expired OAuthState rows, a consumed OAuthState, an OAuthAccount.
+    # these deletes remove OAuth rows: expired OAuthState rows, a consumed OAuthState, an OAuthAccount, and
+    # expired SessionHandoff rows (E29 (5)).
     ("backend/app/services/oauth_account_service.py", "store_oauth_state", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "consume_oauth_state", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "unlink_oauth_provider", "delete"): 1,
+    ("backend/app/services/oauth_account_service.py", "commit_oauth_sign_in", "delete"): 1,
+    # An account-wide revocation (logout-all, a password change or reset) deletes the account's SessionHandoff rows,
+    # the OAuth sign-ins whose landing page has not yet exchanged its code (E29 (5)); it removes no refresh token.
+    ("backend/app/services/refresh_token_service.py", "revoke_all_for_user", "delete"): 1,
     # The table's migration defines the column, with that ON DELETE SET NULL.
     ("backend/migrations/20260613_create_refresh_tokens.sql", "<file>", "text"): 1,
 }

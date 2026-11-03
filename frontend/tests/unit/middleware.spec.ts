@@ -83,6 +83,10 @@ describe('waitlist gate (WAITLIST_MODE=true, the rollback state)', () => {
     expect(middleware(reqFor(path)).headers.get('location')).toBeNull()
   })
 
+  it("lets an OAuth login's landing page through, so its code exchange completes the login (E29 (5))", () => {
+    expect(middleware(reqFor('/auth/complete')).headers.get('location')).toBeNull()
+  })
+
   it('still sends the gated homepage to /waitlist (the allowlist is not a blanket pass)', () => {
     expect(middleware(reqFor('/')).headers.get('location')).toContain('/waitlist')
     expect(middleware(reqFor('/og-image.png.html')).headers.get('location')).toContain('/waitlist')
@@ -104,6 +108,19 @@ describe('the waitlist referral link passes the waitlist gate in both modes', ()
   it.each(['false', 'true'])('WAITLIST_MODE=%s serves /waitlist?ref=abc12345 with its query', (mode) => {
     process.env.WAITLIST_MODE = mode
     const res = middleware(reqFor('/waitlist?ref=abc12345'))
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+})
+
+// The opt-out link every invitation email carries ({FRONTEND_URL}/email/unsubscribe#token=…,
+// invite_delivery_service.build_unsubscribe_link) opens its page in both modes: with WAITLIST_MODE on it is in
+// ALLOWED_PATHS, and it is no protected route, so a reader with no session reaches it. A redirect would leave the
+// reader on /waitlist with no way to stop the email.
+describe('the unsubscribe page passes every gate', () => {
+  it.each(['false', 'true'])('WAITLIST_MODE=%s serves /email/unsubscribe to a reader with no session', (mode) => {
+    process.env.WAITLIST_MODE = mode
+    const res = middleware(reqFor('/email/unsubscribe'))
     expect(res.headers.get('location')).toBeNull()
     expect(res.headers.get('x-middleware-rewrite')).toBeNull()
   })

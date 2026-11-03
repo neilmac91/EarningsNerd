@@ -53,9 +53,9 @@ def _persist_companyfacts_payload(
     db: Session, company: Company, payload: dict[str, Any]
 ) -> dict[str, Any]:
     """Normalize and persist one fetched payload in the caller's short transaction, deleting nothing: the upsert,
-    then the currency step (``demote_convenience_rows``), both main's for a sync in USD alone; else a newer filing's
-    row holds its key on both (``protected_rows``), a proven switch writes nothing, and an IFRS filer's sync retires
-    its series (``reporting_basis``)."""
+    then the currency step (``demote_convenience_rows``), which every sync runs, one in USD alone too (E198); a newer
+    filing's row holds its key on both (``protected_rows``), a proven switch writes nothing, and an IFRS filer's sync
+    retires its series (``reporting_basis``)."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
     facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
     guard = protected_rows(db, facts, view := payload_view(payload))  # the view is pure; this takes the row lock

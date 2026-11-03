@@ -36,11 +36,15 @@ and metadata only. The backend side is in place: `POST /api/webhooks/resend` ver
    in full.
 2. **Create or open the webhook in Resend.** On the Webhooks page (`https://resend.com/webhooks`), open
    the webhook for `https://api.earningsnerd.io/api/webhooks/resend` if one exists, or choose **Add
-   Webhook** and enter that URL. Two webhooks for one URL deliver every event twice. Select the seven
+   Webhook** and enter that URL. Two webhooks for one URL deliver every event twice. Select the nine
    events the backend handles: `email.sent`, `email.delivered`, `email.delivery_delayed`,
-   `email.bounced`, `email.complained`, `email.opened`, `email.clicked`. Resend offers four more
-   (`email.failed`, `email.received`, `email.scheduled`, `email.suppressed`); the backend answers them
-   200 and logs "Unhandled Resend webhook event type", so leave them off unless you want those log lines.
+   `email.bounced`, `email.complained`, `email.failed`, `email.suppressed`, `email.opened`,
+   `email.clicked`. All but the last two also update the invitation delivery record and the
+   suppression list once a delivery's signature verifies ([LEGAL_READINESS.md](../LEGAL_READINESS.md#invitation-email));
+   a delivery whose write fails is answered 503, so Resend sends it again, and applying one twice
+   changes nothing (retries keep their `svix-id`). Resend offers two more (`email.received`,
+   `email.scheduled`); the backend answers them 200 and logs "Unhandled Resend webhook event type", so
+   leave them off unless you want those log lines.
 3. **Store and bind the signing secret.** Resend shows it on the webhook details page. Either paste it
    into a new secret or a new version in the Secret Manager console, or use a terminal command that
    neither echoes it nor writes it to your shell history:
@@ -137,15 +141,18 @@ https://api.earningsnerd.io/api/webhooks/resend
 **Events to Subscribe**: Select the events you want to track:
 
 - ✅ `email.sent` - Email was accepted by Resend
-- ✅ `email.delivered` - Email was delivered to recipient
+- ✅ `email.delivered` - Email was delivered to the recipient's mail server
 - ✅ `email.delivery_delayed` - Delivery was delayed
-- ✅ `email.bounced` - Email bounced (hard or soft)
+- ✅ `email.bounced` - Email bounced (`data.bounce.type`: Permanent or Temporary)
 - ✅ `email.complained` - Recipient marked as spam
+- ✅ `email.failed` - Resend failed the email after accepting it (`data.failed.reason`)
+- ✅ `email.suppressed` - Resend suppressed the address and did not send
 - ✅ `email.opened` - Recipient opened the email (requires tracking)
 - ✅ `email.clicked` - Recipient clicked a link (requires tracking)
 
-These are the seven events the backend handles; the activation checklist above says why to leave
-Resend's other four off.
+These are the nine events the backend handles, as Step 2 of the activation checklist above lists them;
+it says why to leave Resend's other two (`email.received`, `email.scheduled`) off. The first seven also
+move the invitation delivery record and can suppress the address once a delivery's signature verifies.
 
 ### 2.4 Save and Get Signing Secret
 
@@ -285,15 +292,15 @@ Triggered when an email bounces.
   "type": "email.bounced",
   "data": {
     "email_id": "re_...",
-    "to": "user@example.com",
-    "bounce_type": "hard"  // or "soft"
+    "to": ["user@example.com"],
+    "bounce": {"type": "Permanent", "subType": "General", "message": "..."}
   }
 }
 ```
 
-**Bounce Types**:
-- **Hard Bounce**: Permanent failure (invalid email address)
-- **Soft Bounce**: Temporary failure (mailbox full, server down)
+**Bounce Types** (`data.bounce.type`; the handler reads this, never a top-level `bounce_type`):
+- **Permanent**: the address cannot receive mail; it suppresses the address for invitation email
+- **Temporary**: a transient failure (mailbox full, server down); it records the bounce and suppresses nothing
 
 ### email.complained
 Triggered when a recipient marks your email as spam.
@@ -344,8 +351,9 @@ Signed content: "msg_abc123.1674321000.{"type":"email.sent","data":{...}}"
 
 A delivery whose `svix-timestamp` is more than five minutes from the server's clock is refused, as
 Svix's own libraries refuse it, so a captured delivery cannot be replayed after that. Within the window
-a repeat is accepted, as Svix's libraries accept it: the handlers only log, and the click handler stamps a
-batch's first click once. A retry carries
+a repeat is accepted, as Svix's libraries accept it: the invitation delivery record moves only up its
+evidence order and keeps the last event's `svix-id`, so a repeat changes nothing; a suppression is set once;
+the other handlers only log, and the click handler stamps a batch's first click once. A retry carries
 its own attempt's timestamp and a signature over it ("Every time an attempt is retried the timestamp
 of the attempt is updated", in the Standard Webhooks specification Svix follows), so retries pass.
 
@@ -428,7 +436,7 @@ CREATE TABLE email_events (
 async def handle_email_bounced(data: Dict[str, Any]):
     email_id = data.get("email_id")
     to = data.get("to")
-    bounce_type = data.get("bounce_type")
+    bounce_type = (data.get("bounce") or {}).get("type")  # "Permanent" or "Temporary"
 
     # Store in database
     db_event = EmailEvent(

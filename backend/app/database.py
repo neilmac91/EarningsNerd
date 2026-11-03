@@ -137,6 +137,7 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("oauth_states", "agreement_terms_version", "VARCHAR(32)"),
     ("oauth_states", "agreement_eligibility_version", "VARCHAR(32)"),
     ("oauth_states", "agreement_accepted_at", "TIMESTAMP WITH TIME ZONE"),
+    ("oauth_states", "session_handoff", "BOOLEAN"),
     # A delivery batch's frozen plain-text part (E110); NULL on a batch frozen before it, which replays as frozen.
     ("earningsnerd_delivery_batches", "body_text", "TEXT"),
     # No default/backfill: legacy envelopes must keep omitting Reply-To under their existing keys.

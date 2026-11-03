@@ -8,4 +8,10 @@ Date: 2026-06-30   Area: arch
 
 **Gate** (partly gated, 2026-10-22): `backend/tests/unit/test_summary_delete_sites_allowlist.py` lists every delete of `summaries` rows its scan can see in the code, scripts, migrations, ops and task SQL, shell scripts and workflows, and pins that nothing deletes them by cascade, so a new delete it sees fails until a review has checked it is FK-safe and listed it. Whether a listed site is FK-safe is review-checked, and so is a delete the scan cannot see (named in its docstring: a model or table chosen at run time, SQL assembled with `%`, `.format` or `join`, a row handed to a helper in a module that never names the model). A test that needs PostgreSQL's FK behaviour on SQLite turns on `PRAGMA foreign_keys=ON` (`test_precompute_service.py` does).
 
+**Account deletion** (2026-11-02, #1955): `trend_analysis.created_by_user_id → users.id` had no `ondelete` in its
+model or its migration, so on PostgreSQL deleting an account that had generated an analysis failed while SQLite passed.
+`backend/tests/unit/test_foreign_keys_to_users_let_an_account_go.py` holds every reference to `users`, in a model or a
+migration, to acting on delete, or to being the column a cascading `User` relationship deletes through, and drives the
+real deletion path on a SQLite database that enforces foreign keys.
+
 **Evidence**: `saved_summaries.summary_id → summaries.id` with no `ondelete`; Postgres NO ACTION raises on `DELETE FROM summaries`; SQLite doesn't enforce FKs by default.

@@ -16,9 +16,12 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   createInvite,
+  getInviteReadiness,
   listInvites,
+  type InvitePermission,
   type InviteRecord,
   type InviteStatus,
+  type PermissionVia,
 } from '@/features/admin/api/admin-api'
 import EmailChipsInput, {
   type EmailChipsBreakdown,
@@ -27,7 +30,16 @@ import BulkResultSummary, {
   type BulkInviteOutcome,
 } from '@/features/admin/components/BulkResultSummary'
 import InviteRow from '@/features/admin/components/InviteRow'
+import InviteReadinessBanner from '@/features/admin/components/InviteReadinessBanner'
+import InvitePermissionFields from '@/features/admin/components/InvitePermissionFields'
 import TableScroll from '@/features/admin/components/TableScroll'
+import { inviteAvailability } from '@/features/admin/lib/inviteReadiness'
+import {
+  permissionDayRange,
+  permissionErrors,
+  permissionOf,
+  type PermissionErrors,
+} from '@/features/admin/lib/invitePermission'
 
 const MAX_CONCURRENCY = 4
 const LIST_LIMIT = 200
@@ -42,6 +54,20 @@ const EXPIRY_OPTIONS = [
 ] as const
 
 const EMPTY_BREAKDOWN: EmailChipsBreakdown = { toInvite: [], invalid: [], alreadyInvited: [] }
+
+/** Why new invite links are off, for Send's and each Resend's description, by what the readiness read says. */
+const LINKS_HELD = {
+  checking: 'New invite links wait for the availability check above.',
+  failed: 'New invite links are off until the availability check above answers.',
+  held: 'New invite links are off while registration is on hold (see above).',
+} as const
+/** Why "Email invites" is off, the same way; held, it says whether links can still go out by hand. */
+const EMAIL_HELD = {
+  checking: 'Invitation email waits for the availability check above.',
+  failed: 'Invitation email is off until the availability check above answers.',
+  held: 'Invitation email is on hold (see above), so these invites are links you share yourself.',
+  heldWithRegistration: 'Invitation email is on hold while registration is (see above).',
+} as const
 
 /**
  * Run `task` over `items` with at most `limit` promises in flight at once. Resolves with the
@@ -72,11 +98,19 @@ export default function AdminInvitesPage() {
   const [breakdown, setBreakdown] = useState<EmailChipsBreakdown>(EMPTY_BREAKDOWN)
   const [cohort, setCohort] = useState('')
   const [expiryHours, setExpiryHours] = useState<number>(168)
-  const [sendEmail, setSendEmail] = useState(true)
+  // Off by default: an invitation is emailed only on purpose, under the recipient's recorded request.
+  const [sendEmail, setSendEmail] = useState(false)
+  // The recipient's request (InvitePermissionFields), one record for every address in a send.
+  const [requestedVia, setRequestedVia] = useState<PermissionVia | ''>('')
+  // Empty, not today: both halves of the request are the admin's own entries, never a default (chief design on #1965).
+  const [requestedOn, setRequestedOn] = useState('')
+  const [permissionProblems, setPermissionProblems] = useState<PermissionErrors>({})
+  const viaRef = useRef<HTMLSelectElement>(null)
+  const onRef = useRef<HTMLInputElement>(null)
   const [sending, setSending] = useState(false)
   const [outcomes, setOutcomes] = useState<BulkInviteOutcome[]>([])
   // Whether "Email invites" was on for the run the summary shows (the box can change after it).
-  const [emailRequested, setEmailRequested] = useState(true)
+  const [emailRequested, setEmailRequested] = useState(false)
   const [skipped, setSkipped] = useState<string[]>([])
 
   // Zone B state
@@ -93,6 +127,29 @@ export default function AdminInvitesPage() {
   // Holds the error card, and its focused Retry, through the refetch a Retry starts.
   const invitesFailure = useRetainedFailure(invitesQuery, queryKeys.adminInvites())
   const invitesHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  // What holds new links and invitation email. Read fresh on each visit (staleTime 0), and again with the list after
+  // every invite action (its key shares the list's prefix). Loading or failed, both stay off (fail closed); the list
+  // and Revoke never wait on it.
+  const readinessQuery = useQuery({
+    queryKey: queryKeys.adminInviteReadiness(),
+    queryFn: ({ signal }) => getInviteReadiness(signal),
+    retry: false,
+    staleTime: 0,
+  })
+  const readinessFailure = useRetainedFailure(readinessQuery, queryKeys.adminInviteReadiness())
+  const readiness = readinessQuery.status === 'success' ? readinessQuery.data : undefined
+  const available = inviteAvailability(readiness)
+  const holdState = readinessFailure.failed ? 'failed' : readiness ? 'held' : 'checking'
+  const linkHold = available.links ? null : LINKS_HELD[holdState]
+  const emailHold = available.email
+    ? null
+    : EMAIL_HELD[holdState === 'held' && !available.links ? 'heldWithRegistration' : holdState]
+  // The box shows what a send would do: never on while invitation email is held. A hold that starts after the box was
+  // ticked clears it (a render-time update of state), so a later answer never ticks it again unseen.
+  if (sendEmail && !available.email) setSendEmail(false)
+  const emailOn = sendEmail && available.email
+  const inviteHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Emails (lowercased) that already have a PENDING invite, so the chips input can flag them.
   const pendingEmails = useMemo(
@@ -126,14 +183,27 @@ export default function AdminInvitesPage() {
   const nothingToSend = toInviteCount === 0
 
   const handleSend = async () => {
-    if (nothingToSend || sending) return
+    if (nothingToSend || sending || linkHold !== null) return
     if (overBatchLimit) {
       toast.error(`Too many at once. Send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
       return
     }
+    // An emailed invite carries the recipient's request: every field of it, or no request is sent at all.
+    const emailing = emailOn
+    let permission: InvitePermission | undefined
+    if (emailing) {
+      const problems = permissionErrors(requestedVia, requestedOn, permissionDayRange())
+      setPermissionProblems(problems)
+      if (problems.via || problems.on) {
+        const firstInvalid = problems.via ? viaRef.current : onRef.current
+        firstInvalid?.focus()
+        return
+      }
+      permission = permissionOf(requestedVia as PermissionVia, requestedOn)
+    }
     setSending(true)
     setOutcomes([])
-    setEmailRequested(sendEmail)
+    setEmailRequested(emailing)
     setSkipped([...breakdown.invalid, ...breakdown.alreadyInvited])
 
     const cohortValue = cohort.trim() || undefined
@@ -147,9 +217,16 @@ export default function AdminInvitesPage() {
             email,
             cohort: cohortValue,
             expiresInHours: expiryHours,
-            sendEmail,
+            sendEmail: emailing,
+            permission,
           })
-          return { email, ok: true, link: result.invite_link, emailed: result.emailed }
+          return {
+            email,
+            ok: true,
+            link: result.invite_link,
+            emailed: result.emailed,
+            deliveryStatus: result.delivery_status ?? null,
+          }
         } catch (err: unknown) {
           return {
             email,
@@ -166,21 +243,22 @@ export default function AdminInvitesPage() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     setSending(false)
 
-    // Say what happened: an invite is created, and emailed only when the box was on and the
-    // backend's best-effort send went through (the API's `emailed`), never "sent" for a link.
+    // Say what happened: an invite is created, and its email accepted by the provider only when the box was on and
+    // the provider took it (the API's `emailed`). An acceptance is never a delivery, so no line says "sent" or
+    // "delivered": the list shows each email's state as it is learned.
     const created = results.filter((r) => r.ok)
-    const emailedCount = created.filter((r) => r.emailed).length
+    const acceptedCount = created.filter((r) => r.emailed).length
     const failedCount = results.length - created.length
     const skippedCount = breakdown.invalid.length + breakdown.alreadyInvited.length
     const createdLabel = `${created.length} invite${created.length === 1 ? '' : 's'} created`
     if (failedCount > 0) {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
-    } else if (sendEmail && emailedCount < created.length) {
-      toast.warning(`${createdLabel} · ${emailedCount} emailed. Copy the rest from the list below.`)
+    } else if (emailing && acceptedCount < created.length) {
+      toast.warning(`${createdLabel} · ${acceptedCount} accepted by the email provider. Copy the rest from the list below.`)
     } else if (skippedCount === 0) {
       toast.success(
-        sendEmail
-          ? `${createdLabel} · ${emailedCount} emailed`
+        emailing
+          ? `${createdLabel} · ${acceptedCount} accepted by the email provider`
           : `${created.length} invite link${created.length === 1 ? '' : 's'} created`,
       )
     }
@@ -196,9 +274,22 @@ export default function AdminInvitesPage() {
       />
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
+        {/* What holds new links and invitation email, before anything that acts on them. */}
+        <InviteReadinessBanner
+          readiness={readiness}
+          checking={readinessQuery.isPending}
+          failure={readinessFailure}
+          focusTarget={inviteHeadingRef}
+        />
+
         {/* ── Zone A: Invite people ───────────────────────────────────────────── */}
         <section className="rounded-2xl border border-border-light bg-panel-light p-cap-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
-          <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {/* tabIndex -1: where focus goes if the availability check's Try again unmounts while it holds focus. */}
+          <h2
+            ref={inviteHeadingRef}
+            tabIndex={-1}
+            className="mb-4 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             Invite people
           </h2>
 
@@ -250,18 +341,58 @@ export default function AdminInvitesPage() {
             </div>
           </div>
 
-          <label className="mt-4 inline-flex items-center gap-2.5 text-sm text-text-primary-light dark:text-text-primary-dark">
+          {/* Unavailable while invitation email is held: aria-disabled with an early return (focus stays, the box
+              stays unchecked) and the reason beside it, never native `disabled`, which stays for a send in flight
+              (the pinned 'sending' site). */}
+          <label
+            className={
+              emailHold === null
+                ? 'mt-4 inline-flex items-center gap-2.5 text-sm text-text-primary-light dark:text-text-primary-dark'
+                : 'mt-4 inline-flex cursor-not-allowed items-center gap-2.5 text-sm text-text-secondary-light dark:text-text-secondary-dark'
+            }
+          >
             <Checkbox
               size="sm"
-              checked={sendEmail}
-              onChange={(e) => setSendEmail(e.target.checked)}
+              checked={emailOn}
+              onChange={(e) => {
+                if (emailHold !== null) return
+                setSendEmail(e.target.checked)
+                setPermissionProblems({})
+              }}
               disabled={sending}
+              aria-disabled={emailHold !== null || undefined}
+              aria-describedby={emailHold !== null ? 'email-invites-hold' : undefined}
             />
             <span className="inline-flex items-center gap-1.5">
               <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
               Email invites
             </span>
           </label>
+          {emailHold !== null && (
+            <p id="email-invites-hold" className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              {emailHold}
+            </p>
+          )}
+
+          {emailOn && (
+            <InvitePermissionFields
+              requestedVia={requestedVia}
+              requestedOn={requestedOn}
+              onRequestedViaChange={(via) => {
+                setRequestedVia(via)
+                setPermissionProblems((problems) => ({ ...problems, via: undefined }))
+              }}
+              onRequestedOnChange={(day) => {
+                setRequestedOn(day)
+                setPermissionProblems((problems) => ({ ...problems, on: undefined }))
+              }}
+              range={permissionDayRange()}
+              errors={permissionProblems}
+              unavailable={sending}
+              viaRef={viaRef}
+              onRef={onRef}
+            />
+          )}
 
           <p
             aria-live="polite"
@@ -287,19 +418,27 @@ export default function AdminInvitesPage() {
             {/* Busy and nothing-to-send are aria-disabled (handleSend returns early), not native
                 `disabled`: Chromium blurs a focused button that turns disabled, and an all-success
                 send refetches the list, turning the sent chips "already invited" (nothing to send)
-                while Send still holds focus. Over the batch cap is set only by the chips field,
-                never by Send itself, so it stays natively disabled. */}
+                while Send still holds focus. A hold on new links (registration on hold, or its check not
+                answered) is aria-disabled too, its reason under the button: a check that answers while Send
+                holds focus must not blur it. Over the batch cap is set only by the chips field, never by Send
+                itself, so it stays natively disabled. */}
             <Button
               onClick={handleSend}
               loading={sending}
               loadingText="Sending…"
               leftIcon={<PaperPlaneTiltIcon className="h-4 w-4" />}
               disabled={overBatchLimit}
-              aria-disabled={sending || nothingToSend || undefined}
-              className={nothingToSend && !sending ? primaryUnavailableClass : undefined}
+              aria-disabled={sending || nothingToSend || linkHold !== null || undefined}
+              aria-describedby={linkHold !== null ? 'send-invites-hold' : undefined}
+              className={(nothingToSend || linkHold !== null) && !sending ? primaryUnavailableClass : undefined}
             >
               Send invites
             </Button>
+            {linkHold !== null && (
+              <p id="send-invites-hold" className="mt-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {linkHold}
+              </p>
+            )}
           </div>
 
           <BulkResultSummary outcomes={outcomes} skipped={skipped} emailRequested={emailRequested} />
@@ -417,6 +556,12 @@ export default function AdminInvitesPage() {
                       scope="col"
                       className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
                     >
+                      Invitation email
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark"
+                    >
                       Created
                     </th>
                     <th
@@ -435,7 +580,12 @@ export default function AdminInvitesPage() {
                 </thead>
                 <tbody className="divide-y divide-border-light bg-panel-light dark:divide-white/10 dark:bg-panel-dark">
                   {filteredInvites.map((invite: InviteRecord) => (
-                    <InviteRow key={invite.id} invite={invite} />
+                    <InviteRow
+                      key={invite.id}
+                      invite={invite}
+                      linkHold={linkHold}
+                      invitationEmailAvailable={available.email}
+                    />
                   ))}
                 </tbody>
               </table>
