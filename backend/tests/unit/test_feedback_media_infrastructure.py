@@ -1019,13 +1019,17 @@ def test_only_a_404_reads_as_absent(monkeypatch, code):
     ("job-policy-public", "Resource policy includes a public principal"),
     ("bucket-drift", "production bucket differs from approved private retention settings"),
     ("role-disabled", "Feedback object role stage is DISABLED"),
+    ("bucket-drift-granted", "production bucket differs from approved private retention settings"),
+    ("role-disabled-granted", "Feedback object role stage is DISABLED"),
     ("job-etag-moved", None),
 ])
 def test_each_write_step_rechecks_what_it_writes_after_the_plan(monkeypatch, change, refusal):
     """The plan's reads can be stale when a step writes. Each step re-reads what it writes, refuses it if it is no
     longer this feature's, and writes under the etag it reads then: the write-time ownership and etag checks."""
     monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
-    # The bucket and role checks guard the bucket grants, so those cases start where the grants are still to be made.
+    # The bucket and role checks guard the bucket grants. Each runs where the grants are still to be made, so a check
+    # moved after its grant fails, and where they already exist (-granted), so a check made only before a grant fails.
+    kind = change.removesuffix("-granted")
     cloud = unbound() if change in ("bucket-drift", "role-disabled") else CloudFixture()
     production, tested = ops.BUCKETS["production"], []
     original = cloud.call
@@ -1034,15 +1038,15 @@ def test_each_write_step_rechecks_what_it_writes_after_the_plan(monkeypatch, cha
         if api == "cloudresourcemanager" and path.endswith(":testIamPermissions"):
             tested.append(path)
             if len(tested) == 2:  # the plan is complete; the state changes before the first write
-                if change == "job-relabelled":
+                if kind == "job-relabelled":
                     cloud.job["labels"]["purpose"] = "sql-backups"
-                elif change == "schedule-foreign":
+                elif kind == "schedule-foreign":
                     cloud.schedule["description"] = "Another team's hourly job"
-                elif change == "job-policy-public":
+                elif kind == "job-policy-public":
                     cloud.job_policy["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
-                elif change == "bucket-drift":
+                elif kind == "bucket-drift":
                     cloud.buckets[production]["versioning"]["enabled"] = True
-                elif change == "role-disabled":
+                elif kind == "role-disabled":
                     cloud.role["stage"] = "DISABLED"
                 else:
                     cloud.job["etag"] = "job-version-2"
@@ -1055,10 +1059,13 @@ def test_each_write_step_rechecks_what_it_writes_after_the_plan(monkeypatch, cha
         return
     with pytest.raises(ops.OperationError, match="^" + re.escape(refusal)):
         ops.provision(cloud, cloud.service)
+    if change.endswith("-granted"):  # every bucket grant already made: nothing is written before the refusal
+        assert cloud.writes == []
+        return
     written = {(api, method) for api, _path, method, _body in cloud.writes}
     assert {"job-relabelled": ("run", "PATCH"), "schedule-foreign": ("cloudscheduler", "PATCH"),
             "job-policy-public": ("run", "POST"), "bucket-drift": ("storage", "PUT"),
-            "role-disabled": ("storage", "PUT")}[change] not in written
+            "role-disabled": ("storage", "PUT")}[kind] not in written
 
 
 def test_inspection_reports_each_operations_capability_without_writing(capsys):

@@ -71,7 +71,8 @@ switch's enable or disable, fails at its one write with nothing partial):
   `test_bind_writes_exactly_when_the_planners_bound_test_is_false` pin the planning's reads and writes: a
   denial at each planning read, and malformed policies and resources. `test_only_a_404_reads_as_absent` pins
   the transport rule they rest on, and `test_each_write_step_rechecks_what_it_writes_after_the_plan` pins the
-  write-time ownership and etag checks against a state that changes after the plan.
+  write-time ownership, shape and etag checks against a state that changes after the plan, the bucket and role
+  checks both where the bucket grants are still to make and where they already exist.
 - `test_provision_from_nothing_tests_its_capability_before_its_first_write`,
   `test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission` and
   `test_provision_refuses_a_state_it_would_not_repair_before_any_write` pin the order, and
@@ -97,8 +98,12 @@ labelled media-prerequisite reads, its operation poll and its revision read to i
 `test_verify_apply_plans_exactly_the_writes_each_state_needs` (a first run, a re-run, partial bootstraps and
 refusals, each against the writes read off its write paths) pin its bootstrap planning; its fixture answers 404
 where Google does. `test_a_denied_verifier_planning_read_refuses_before_any_write_is_tested` pins a denial at each
-of its planning reads, and `test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan` its write-time
-ownership and etag checks.
+of its planning reads, in a state that reaches it, and `test_the_denial_table_holds_every_read_bootstrap_gaps_makes`
+fails on a read added to its first-run, bootstrap or re-run paths without one.
+`test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan` pins its write-time ownership, shape and etag
+checks: each identity and bucket check both where the write it guards is still to be made and where every grant
+exists, so a check moved after its write or made only on the way to one fails, and the bucket-policy check as a
+read-back after the bucket grant.
 
 Review-checked: whether a label names the exact permission its call needs (the gate checks only that it fits
 the call's method); the verifier's other calls, which are unlabelled today and print the API name with the
