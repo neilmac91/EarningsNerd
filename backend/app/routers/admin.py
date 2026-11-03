@@ -147,6 +147,22 @@ async def send_test_email(
 
 MAX_INVITE_HOURS = 24 * 30  # a link lives a month at most; an unbounded value overflowed to a 500
 PERMISSION_REQUIRED_DETAIL = "Record how and when the recipient asked for an invitation before emailing it."
+INVITED_COHORT_ONLY_DETAIL = (
+    "Registration is open to the invited cohort only, so an invitation needs its recipient's address and exactly "
+    "that cohort."
+)
+
+
+def _require_invite_admitted(cohort: Optional[str], email: Optional[str]) -> None:
+    """Refuse, before anything is written, an invitation no account could be opened with now: 503 while neither
+    collection nor the invited-cohort exception admits accounts (as before the exception), 422 for one outside the
+    exception's cohort or bound to no address. ``cohort`` and ``email`` are what the invitation stores (a mint strips
+    the cohort and lower-cases the address); the cohort is never echoed."""
+    if legal_readiness_service.admits_invite(cohort, email):
+        return
+    if not legal_readiness_service.is_invited_cohort_available():
+        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=INVITED_COHORT_ONLY_DETAIL)
 
 
 class InvitePermission(BaseModel):
@@ -239,6 +255,11 @@ def _mail_refusal(exc: Exception) -> HTTPException:
         )
     if isinstance(exc, invite_delivery_service.PermissionRequired):
         return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=PERMISSION_REQUIRED_DETAIL)
+    if isinstance(exc, invite_delivery_service.InviteNotAdmitted):
+        # The invited-cohort exception closed since the route's check, or the invite is outside it: as the route's.
+        if not legal_readiness_service.is_invited_cohort_available():
+            return HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
+        return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=INVITED_COHORT_ONLY_DETAIL)
     if isinstance(exc, invite_service.InviteNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
     if isinstance(exc, invite_service.InviteAlreadyRedeemedError):
@@ -251,6 +272,7 @@ _MAIL_REFUSALS = (
     invite_delivery_service.InvitePendingForAddress,
     invite_delivery_service.InviteNotBound,
     invite_delivery_service.PermissionRequired,
+    invite_delivery_service.InviteNotAdmitted,
     invite_service.InviteNotFoundError,
     invite_service.InviteAlreadyRedeemedError,
 )
@@ -273,14 +295,16 @@ def _record_outcome(db: Session, delivery_id: int, outcome: invite_delivery_serv
 
 @router.get("/invites/readiness")
 async def invite_readiness(current_user: User = Depends(get_current_user)):
-    """Admin-only: what holds new collection and requested invitation email, as conditions, never values.
+    """Admin-only: what holds new collection, the invited-cohort exception and requested invitation email, as
+    conditions, never values.
 
     The admin page reads it for its banner and to turn off what is unavailable; every invite route checks again, so a
-    stale page cannot act on an old answer. An unpublished operator's draft fields, the provider key and the webhook
-    secret stay out of it."""
+    stale page cannot act on an old answer. An unpublished operator's draft fields, the provider key, the webhook
+    secret and the configured cohort stay out of it."""
     _require_admin(current_user)
     return {
         "collection": legal_readiness_service.collection_readiness(),
+        "invited_cohort": legal_readiness_service.invited_cohort_readiness(),
         "invitation_email": legal_readiness_service.invitation_email_readiness(),
     }
 
@@ -296,11 +320,14 @@ async def mint_invite(
     The raw token is embedded in ``invite_link`` and never persisted (only its hash is stored).
     ``send_email`` also emails the link to ``email``: only while requested invitation email is available, with the
     recipient's recorded request (``permission``), never to a suppressed address, and never while another link for
-    the address is live. ``emailed`` is true when the provider accepted it, which is not delivery.
+    the address is live. ``emailed`` is true when the provider accepted it, which is not delivery. While only the
+    invited-cohort exception admits accounts, the invitation must be bound to an address and carry its cohort.
     """
     _require_admin(current_user)
-    if not legal_readiness_service.is_collection_available():
-        raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
+    # What the invite will store: a mint strips the cohort (invite_service.mint_invite) and lower-cases the address.
+    _require_invite_admitted(
+        (payload.cohort or "").strip() or None, str(payload.email).strip().lower() if payload.email else None,
+    )
     if payload.send_email:
         if not legal_readiness_service.is_invitation_email_available():
             raise HTTPException(status_code=503, detail=legal_readiness_service.INVITATION_EMAIL_UNAVAILABLE_MESSAGE)
@@ -462,7 +489,8 @@ async def resend_invite(
     the audit log.
     """
     _require_admin(current_user)
-    if not legal_readiness_service.is_collection_available():
+    # The invite's own cohort and address are checked in the unit, before anything is revoked (prepare_reissue).
+    if not (legal_readiness_service.is_collection_available() or legal_readiness_service.is_invited_cohort_available()):
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE)
     expires_in_hours = payload.expires_in_hours if payload else None
     requested = payload.send_email if payload else None
