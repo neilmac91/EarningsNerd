@@ -6,8 +6,8 @@ known: today ``subscription_sync``'s three (the Stripe webhook's mirror, its del
 trial) and the grant's two units. A new writer, such as an admin "make Pro" route, a repair script or a migration, could
 set the flag on an account that also holds a grant, and a revoke would then clear a right the grant never gave; or it
 could clear a grant's flag, which the readout reports as drift. So this gate walks the whole repository but the
-browser app, the test homes and anything that is not ours (as the binding inventory walks it,
-``test_subscription_identity.py``: ``.claude/``, ``.github/`` and any new folder included) and finds, in every Python
+browser app, the backend's test homes and anything that is not ours (``.claude/``, ``.github/``, any new folder and a
+folder named ``tests`` outside the test homes included) and finds, in every Python
 file, each write-shaped mention:
 
 * ``assign``: an assignment to an ``is_pro`` attribute (plain, augmented or annotated, one target of a tuple, or the
@@ -36,12 +36,12 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-# What is not ours or never reaches the database, as the binding inventory skips it (test_subscription_identity.py):
-# the browser app, the test homes, git and tool caches (an installed package's own is_pro would otherwise read as a
-# writer), and a nested checkout or worktree, a folder with its own .git, which is another tree.
-SKIPPED_ROOTS = {"frontend"}
-SKIPPED_NAMES = {"tests", ".git", "node_modules", "__pycache__", "venv", ".venv", ".mypy_cache", ".pytest_cache",
-                 ".ruff_cache"}
+# What is not ours or never reaches the database: the browser app and the backend's test homes, by their paths (a
+# folder named tests anywhere else, tasks/fable-e8-repin-2026-09-22/tests/ for one, is no test home and is read), git
+# and tool caches by name (an installed package's own is_pro would otherwise read as a writer), and a nested checkout
+# or worktree, a folder with its own .git, which is another tree.
+SKIPPED_PATHS = {"frontend", "backend/tests"}
+SKIPPED_NAMES = {".git", "node_modules", "__pycache__", "venv", ".venv", ".mypy_cache", ".pytest_cache", ".ruff_cache"}
 TEXT_SUFFIXES = (".sql", ".sh", ".yml", ".yaml")
 _NAME = re.compile(r"\bis_pro\b", re.IGNORECASE)
 _SETATTR = {"setattr", "set_attribute", "__setattr__"}
@@ -277,7 +277,7 @@ def _scanned_files(root: Path = ROOT) -> list[Path]:
     for folder, subfolders, names in os.walk(root):
         here = Path(folder)
         subfolders[:] = [name for name in subfolders if name not in SKIPPED_NAMES
-                         and not (here == root and name in SKIPPED_ROOTS)
+                         and (here / name).relative_to(root).as_posix() not in SKIPPED_PATHS
                          and not (here / name / ".git").exists()]
         files += [here / name for name in names
                   if Path(name).suffix in (".py", *TEXT_SUFFIXES) and (here / name).is_file()]
@@ -317,7 +317,7 @@ def test_the_scan_finds_every_planted_write_form_and_names_its_gaps():
 
 def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_other_trees(tmp_path):
     """Planted writers where the gate's first form never looked (a new top-level folder, .claude/, Python under
-    .github/), beside places it must skip."""
+    .github/) and in a folder named tests that is no test home, beside the places it must skip."""
     writes = "def repair(user):\n    user.is_pro = True\n"
     for rel, text in {
         "infra/repair_pro.py": writes,
@@ -325,7 +325,7 @@ def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_othe
         ".claude/repair_pro.sh": 'psql -c "UPDATE users SET is_pro = true WHERE id = 1"\n',
         "frontend/scripts/fixture.py": writes,
         "backend/tests/unit/test_fixture.py": writes,
-        "ops/tool/tests/test_fixture.py": writes,
+        "ops/tool/tests/repair_pro.py": writes,
         "vendor/checkout/repair_pro.py": writes,
         "vendor/checkout/.git/HEAD": "ref: refs/heads/main\n",
         "backend/node_modules/pkg/setup.py": writes,
@@ -336,4 +336,5 @@ def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_othe
         ("infra/repair_pro.py", "repair", "assign"): 1,
         (".github/scripts/repair_pro.py", "repair", "assign"): 1,
         (".claude/repair_pro.sh", "<file>", "text"): 1,
+        ("ops/tool/tests/repair_pro.py", "repair", "assign"): 1,
     })

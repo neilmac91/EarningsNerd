@@ -39,11 +39,12 @@ MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 # applied migration is never edited (CLAUDE.md rule 3), so the old file stays; its replacement must stay too.
 SUPERSEDED = {"20260707_create_trend_analysis.sql": "20261102_trend_analysis_creator_set_null.sql"}
 _REFERENCE = re.compile(
-    r'(?P<column>[^,;(]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
+    r'(?P<column>[^,;]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
     re.IGNORECASE)
 _ACTION = re.compile(r"\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL)\b", re.IGNORECASE)
 _SET_NULL = re.compile(r"\bON\s+DELETE\s+SET\s+NULL\b", re.IGNORECASE)
-_NOT_NULL = re.compile(r"\bNOT\s+NULL\b", re.IGNORECASE)
+# A column's NOT NULL, not a guard's "IS NOT NULL".
+_NOT_NULL = re.compile(r"(?<!IS )\bNOT\s+NULL\b", re.IGNORECASE)
 
 
 def _blocking_references(user_mapper=None, tables=None) -> list[str]:
@@ -51,10 +52,11 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
         import_every_model()
         user_mapper, tables = User.__mapper__, Base.metadata.tables.values()
     # The ORM deletes the rows a cascading User relationship reaches through its own columns, so only those columns
-    # are exempt: another reference to users on the same table still stops the DELETE.
+    # are exempt: another reference to users on the same table still stops the DELETE. With passive_deletes the ORM
+    # leaves rows it has not loaded to the database's ON DELETE, so such a relationship exempts nothing.
     cascaded = {
         (column.table.name, column.name)
-        for rel in user_mapper.relationships if rel.cascade.delete
+        for rel in user_mapper.relationships if rel.cascade.delete and not rel.passive_deletes
         for column in rel.remote_side
     }
     def acts(fk) -> bool:
@@ -72,14 +74,19 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
 
 def _migrations_without_an_action(texts) -> list[str]:
     """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
-    column it declares NOT NULL, once per reference."""
+    column it declares NOT NULL (before the reference, on its line or an earlier one, or after it), once per reference.
+    A column definition is read back to the comma or semicolon before it, and a guard's "IS NOT NULL" is not a column's,
+    so these are out of reach, and the models' check covers them while model and migration agree: a NOT NULL before a
+    CHECK holding a comma of its own, a table constraint's reference from a column declared NOT NULL elsewhere, and a
+    later ALTER ... SET NOT NULL."""
     found = []
     for name, text in texts:
-        sql = re.sub(r"--[^\n]*", "", text)
+        sql = re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
         found += [
             name for match in _REFERENCE.finditer(sql)
             if not _ACTION.search(match.group("rest"))
-            or (_SET_NULL.search(match.group("rest")) and _NOT_NULL.search(match.group("column")))
+            or (_SET_NULL.search(match.group("rest"))
+                and (_NOT_NULL.search(match.group("column")) or _NOT_NULL.search(match.group("rest"))))
         ]
     return found
 
@@ -104,6 +111,8 @@ def test_the_relationship_exemption_covers_only_the_column_it_deletes_through():
         __tablename__ = "users"
         id = Column(Integer, primary_key=True)
         invites = relationship("Invite", foreign_keys="Invite.user_id", cascade="all, delete-orphan")
+        # passive_deletes: the ORM leaves the rows it has not loaded to the database, which has no ON DELETE here.
+        items = relationship("Item", cascade="all, delete-orphan", passive_deletes=True)
 
     class Invite(Planted):
         __tablename__ = "invites"
@@ -114,8 +123,13 @@ def test_the_relationship_exemption_covers_only_the_column_it_deletes_through():
         reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
         cleared_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    class Item(Planted):
+        __tablename__ = "items"
+        id = Column(Integer, primary_key=True)
+        user_id = Column(Integer, ForeignKey("users.id"))
+
     assert _blocking_references(Owner.__mapper__, Planted.metadata.tables.values()) == [
-        "invites.created_by", "invites.reviewed_by"]
+        "invites.created_by", "invites.reviewed_by", "items.user_id"]
 
 
 def test_every_migration_reference_to_users_acts_on_delete():
@@ -137,7 +151,16 @@ def test_every_migration_reference_to_users_acts_on_delete():
         ("other table", "x INTEGER REFERENCES users_archive (id),"),
         ("set null where no null may go", "CREATE TABLE t (owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL);"),
         ("cascade beside not null", "user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,"),
-    ]) == ["bare", "set null where no null may go"]
+        ("not null after it", "owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL NOT NULL,"),
+        ("not null before a check", "owner_id INTEGER NOT NULL CHECK (owner_id > 0) REFERENCES users(id) ON DELETE SET NULL,"),
+        ("block comment", "/* owner_id INTEGER REFERENCES users(id) */ SELECT 1;"),
+        ("a guard's is not null", "IF to_regclass('t') IS NOT NULL THEN\n ALTER TABLE t ADD CONSTRAINT k FOREIGN KEY (a) "
+                                  "REFERENCES users (id) ON DELETE SET NULL NOT VALID;"),
+        ("a guard on the same line", "IF x IS NOT NULL THEN ALTER TABLE t ADD CONSTRAINT k FOREIGN KEY (a) REFERENCES "
+                                     "users (id) ON DELETE SET NULL;"),
+        ("not null on the line before", "owner_id INTEGER NOT NULL\n    REFERENCES users(id) ON DELETE SET NULL,"),
+    ]) == ["bare", "set null where no null may go", "not null after it", "not null before a check",
+           "not null on the line before"]
 
 
 @pytest.fixture
