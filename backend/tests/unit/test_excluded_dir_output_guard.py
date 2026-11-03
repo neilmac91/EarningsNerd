@@ -21,7 +21,7 @@ builders, and `_Parts` joins the names when a case runs, so this source holds no
 hook flags (proven by test_neither_source_is_flagged), and no module global holds one either (an error
 while a module loads makes pytest print module globals under `-l`; the hook builds its names lazily
 too, each joined straight onto its object, so no argument or local of the hook's frames holds one --
-test_no_hook_frame_holds_a_joined_name_while_the_names_are_built reads every frame of a traced build
+test_no_frame_holds_a_joined_name_while_the_names_are_built reads every frame of a traced build
 at each event --, and this file scans in-process through `_shape` and the pin). No scanned text
 reaches a failure report:
 - the parametrize id is the case id, never the scanned value;
@@ -34,8 +34,8 @@ reaches a failure report:
 - the helpers whose arguments hold scanned text or a run's streams hide their frames from pytest's
   traceback: `_run`, `_cpu_run`, `_text`, the input builders (`_post_event`, `_failure_event`,
   `_event_stdin`, `_tool_input_only_stdin`, `_unknown_event_stdin`, `_path_listing`,
-  `_token_listing`), the checks (`_flagged`, `_unchecked`, `_silent`, `_expect`) and the stream
-  readers (`_json`, `_shape`);
+  `_token_listing`, `_costliest_listing`), the checks (`_flagged`, `_unchecked`, `_silent`,
+  `_expect`) and the stream readers (`_json`, `_shape`);
 - a failed check reports only a run's shape (exit status, JSON keys, stream lengths, whether a stream
   carries a form), never stream text.
 test_a_broken_copy_prints_no_scanned_text pins this on copies with the registrations removed (every
@@ -52,6 +52,7 @@ import ast
 import importlib.util
 import json
 import os
+import re
 import resource
 import signal
 import subprocess
@@ -66,6 +67,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = ROOT / ".claude" / "settings.json"
 HOOK = ROOT / ".claude" / "hooks" / "excluded_dir_output_guard.py"
+LESSON = ROOT / "lessons" / "ops-flag-excluded-directory-names-in-tool-output.md"
 EVENTS = ("PostToolUse", "PostToolUseFailure")
 # -I -S: no PYTHON* variables, user site or site-packages reach the hook; --event names the event.
 COMMANDS = {event: f'python3 -I -S "$CLAUDE_PROJECT_DIR/.claude/hooks/excluded_dir_output_guard.py" --event {event} || exit 1'
@@ -266,21 +268,58 @@ def _path_listing() -> str:
     return "".join(lines)
 
 
-def _token_listing() -> str:
-    """About two megabytes in which every line holds a whole-date token: four dots before the
+def _token_listing(with_form: bool) -> str:
+    """About two megabytes in which every line holds an ellipsis token: four dots before the
     component's first three letters (the per-digit walk at a token's date/component junction), then
     lines alternating an ellipsis after the dated word's last letter before a sibling file (the
-    elision-border check) and four dots before a sibling file, none of them a cut; and last, one form
-    only the per-digit walk after an ellipsis token finds (five dots, a closing bracket, the slash and
-    the component), so the hook must scan the whole text to flag it. The component lines come first,
-    so no token on the lines after them has a date/component junction until the last line, and a
-    search that ran to the next junction instead of a few characters would cross the rest of the text
-    at every one."""
+    elision-border check) and four dots before a sibling file, none of them a cut; and, `with_form`,
+    last one form only the per-digit walk after an ellipsis token finds (five dots, a closing bracket,
+    the slash and the component). The component lines come first, so no token on the lines after them
+    has a date/component junction within its window. Without the form, a window search that ran past
+    its limit would cross the rest of the text at every one of those tokens; with it, such a search
+    would stop at the last line's junction and end the scan there, so the silent listing pins the
+    limit and the other proves the hook reads to the end."""
     __tracebackhide__ = True
     parts = _Parts()
     component_lines = f"q-..../{parts.component1[:3]}\n" * 60_000
     sibling_lines = f"q{parts.word1[-1]}-{ELLIPSIS}/plan.md\nq-..../plan\n" * 60_000
-    return component_lines + sibling_lines + f"-.....]/{parts.component1}\n"
+    return component_lines + sibling_lines + (f"-.....]/{parts.component1}\n" if with_form else "")
+
+
+# The costliest-class case's blocks: block A of 0.9 MB (units of four, then of ten characters), the
+# size its CPU per MB is checked over, and block B's lines of 101 characters (about 0.4 MB).
+COSTLIEST_A1_UNITS = 187_500
+COSTLIEST_A2_UNITS = 15_000
+COSTLIEST_BLOCK_MB = 0.9
+COSTLIEST_B_LINES = 4_000
+
+
+def _costliest_listing() -> str:
+    """About 1.3 MB with no cut, built so the walk six or nine characters back and the walk at a
+    token's own dash run at every token of block A. First the dated word's last letter, a dash, an x
+    and a closing parenthesis, repeated: at every token the walk nine characters back finds its
+    junction and the walk at the token's own dash passes its junction check, and both stop at their
+    pre-checks (read per digit, no cut there reaches eight characters). Then a letter, the word's
+    last letter, a dash, a letter and the word's last three letters, a dash, a star and a closing
+    parenthesis, repeated: at every token both walks pass their pre-checks and walk (no cut there has
+    a clean start). Block B last: lines of a letter, a dash, an x and a closing parenthesis, whose
+    tokens fail every junction check, with no junction anywhere after them, so a junction check that
+    searched on from its index would cross the rest of the text at every token."""
+    __tracebackhide__ = True
+    parts = _Parts()
+    last, year = parts.word1[-1], "a" + parts.word1[-3:]
+    block_a = f"{last}-x)" * COSTLIEST_A1_UNITS + f"q{last}-{year}-*)" * COSTLIEST_A2_UNITS
+    return block_a + ("q-x)" * 25 + "\n") * COSTLIEST_B_LINES
+
+
+def _stated_size_mb() -> float:
+    """The size the hook's Limits paragraph and the lesson state for the costliest class: a result
+    that holds more than that many MB of it may reach the registered timeout."""
+    pattern = re.compile(r"more than about (\d+(?:\.\d+)?) MB of it may reach that timeout")
+    hook_sizes = pattern.findall(" ".join((_hook.__doc__ or "").split()))
+    lesson_sizes = pattern.findall(" ".join(LESSON.read_text(encoding="utf-8").split()))
+    assert len(hook_sizes) == 1 and hook_sizes == lesson_sizes, "the hook and the lesson must state one size, the same"
+    return float(hook_sizes[0])
 
 
 def _json(stdout: str) -> object:
@@ -574,6 +613,27 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
         lambda p: f"{p.word1[-3:]}-<d>)",
     "the word's last five letters, the dash, an x and a closing square bracket, in prose":
         lambda p: f"see {p.word1[-5:]}-x] now",
+    # A token's own characters are the date's last digits before the component's slash, per digit,
+    # when the token has two or more characters or a mark follows it; and the slash after a token of
+    # two or more characters is where a word/date cut through the token's masked digits ends.
+    "after the truncation marker: a letter-masked month, xx for the day, the slash and the component":
+        lambda p: f"start{TRUNC}MM-xx/{p.component1}",
+    "after the truncation marker: a letter-masked year and month, two stars for the day, the component":
+        lambda p: f"start{TRUNC}YYYY-MM-**/{p.component1}",
+    "a Unicode ellipsis, a letter-masked month, two question marks for the day and the component":
+        lambda p: f"{ELLIPSIS}MM-??/{p.component1}",
+    "a Unicode ellipsis, a letter-masked month, nn for the day, the slash and the component":
+        lambda p: f"{ELLIPSIS}MM-nn/{p.component1}",
+    "a letter-masked year and month, xx for the day, the slash and the component, in prose":
+        lambda p: f"see YYYY-MM-xx/{p.component1} now",
+    "the real year, a letter-masked month, xx for the day, the slash and the component, in prose":
+        lambda p: f"see {p.date[:5]}MM-xx/{p.component1} now",
+    "a letter-masked month, two stars for the day, the slash and the component":
+        lambda p: f"MM-**/{p.component1}",
+    "a letter, the dash, a star, a closing parenthesis, the slash and the component":
+        lambda p: f"q-*)/{p.component1}",
+    "the word, the dash and two stars, then a sibling file": lambda p: f"{p.word1}-**/plan.md",
+    "the dated parent with two stars for its date, then a sibling file": lambda p: f"{p.head1}**/plan.md",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -628,6 +688,10 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
     # Eleven or more dots are no whole-date token: per digit, this cut is seven characters.
     "the word's last two letters, the dash and eleven dots, before a space": lambda p: f"see {p.word1[-2:]}-{'.' * 11} now",
+    # The hook's documented reading (its header and _ELLIPSIS_TOKEN): a dot run followed by a Unicode
+    # ellipsis is no whole-date token; per digit, this cut stays under eight characters.
+    "the word's last four letters, the dash, five dots and a Unicode ellipsis":
+        lambda p: f"{p.word1[-4:]}-.....{ELLIPSIS}",
 }
 NOT_FLAGGED.update({f"N1 short form: a one-character token after the word's last {j} letters":
                     (lambda p, j=j: f"run {p.word1[-j:]}-* now") for j in range(1, 6)})
@@ -747,7 +811,8 @@ def test_a_several_megabyte_hit_dense_output_is_silent_and_in_time(event: str, o
                                                                    plain_kit: Path) -> None:
     # ~5.5 MB with about 420,000 junction hits, none of them a cut, dashes throughout and one ASCII
     # '...': the per-hit walk must stay within the registered timeout. No whole-date token follows any
-    # of its dashes, so the token paths are pinned by the token-dense case below, on CPU time.
+    # of its dashes, so this case runs no token path; the token-dense and costliest-class cases below
+    # time those, on CPU time.
     _silent(_run(lambda: _event_stdin(_path_listing(), opted_repo, event), project_dir=plain_kit, event=event),
             f"5MB hit-dense listing: {event}")
 
@@ -757,18 +822,43 @@ def test_a_several_megabyte_hit_dense_output_is_silent_and_in_time(event: str, o
 TOKEN_HANG_STOP = 60
 
 
-def test_a_token_dense_output_is_flagged_within_its_registered_timeout(opted_repo: Path, plain_kit: Path) -> None:
-    # ~2 MB whose every line holds a whole-date token, ending with one form only the per-digit walk
-    # after a token finds (_token_listing), so the hook scans the whole text: the token rewrite, the
-    # elision-border check and every per-digit walk run. The bound is the registration's own timeout,
-    # read from settings.json: a run needing more CPU than that is cancelled in use and fails open, on
-    # any machine. The assertion bounds CPU time, which a loaded runner hardly inflates, not wall time
-    # (test_wall_clock_bounds.py).
-    run, cpu_seconds = _cpu_run(lambda: _post_event(_token_listing(), opted_repo), project_dir=plain_kit,
+@pytest.mark.parametrize("with_form", [False, True], ids=["silent", "ending with a form"])
+def test_a_token_dense_output_is_checked_within_its_registered_timeout(with_form: bool, opted_repo: Path,
+                                                                        plain_kit: Path) -> None:
+    # ~2 MB whose every line holds an ellipsis token (_token_listing): the token rewrite, the
+    # elision-border check and the date/component window after each token run there, while the walks
+    # six or nine characters back and at a token's own dash never get past their junction checks (the
+    # costliest-class case below times those). Silent, the window searches must keep to their limits;
+    # ending with a form, the hook must read to the last line. The bound is the registration's own
+    # timeout, read from settings.json: a run needing more CPU than that is cancelled in use and fails
+    # open, on any machine. The assertion bounds CPU time, which a loaded runner hardly inflates, not
+    # wall time (test_wall_clock_bounds.py).
+    run, cpu_seconds = _cpu_run(lambda: _post_event(_token_listing(with_form), opted_repo), project_dir=plain_kit,
                                 hang_stop=TOKEN_HANG_STOP)
-    _flagged(run, "2MB token-dense listing ending with a form", "PostToolUse")
+    if with_form:
+        _flagged(run, "2MB token-dense listing ending with a form", "PostToolUse")
+    else:
+        _silent(run, "2MB token-dense listing")
     timeout = _registered_hook("PostToolUse")["timeout"]
     assert cpu_seconds < timeout, f"the hook used {cpu_seconds:.1f} s of CPU, over its registered {timeout} s timeout"
+
+
+def test_the_costliest_token_classes_stay_within_the_size_the_docs_state(opted_repo: Path, plain_kit: Path) -> None:
+    # The walks next to a token six or nine characters back and at its own dash, at every token of
+    # block A (_costliest_listing), then block B, whose tokens fail every junction check with no
+    # junction after them. Two bounds, both from the registration's own timeout read from
+    # settings.json: the run's CPU (the hook uses at most about a quarter of it), and block A's
+    # CPU per MB times the size the hook and the lesson state for the costliest class (the hook keeps
+    # 1.5x headroom with every CPU busy). The assertions bound CPU time, which a loaded runner hardly
+    # inflates, not wall time (test_wall_clock_bounds.py).
+    run, cpu_seconds = _cpu_run(lambda: _post_event(_costliest_listing(), opted_repo), project_dir=plain_kit,
+                                hang_stop=TOKEN_HANG_STOP)
+    _silent(run, "costliest-class listing")
+    timeout = _registered_hook("PostToolUse")["timeout"]
+    assert cpu_seconds < timeout, f"the hook used {cpu_seconds:.1f} s of CPU, over its registered {timeout} s timeout"
+    per_mb, stated = cpu_seconds / COSTLIEST_BLOCK_MB, _stated_size_mb()
+    assert per_mb * stated < timeout, (f"at {per_mb:.2f} s of CPU per MB, the {stated} MB the docs state for the "
+                                       f"costliest class would take over the registered {timeout} s timeout")
 
 
 def test_a_several_megabyte_output_with_a_name_is_flagged_and_in_time(opted_repo: Path, plain_kit: Path) -> None:
@@ -829,7 +919,7 @@ def test_no_case_id_is_longer_than_pytest_names_by_value() -> None:
     assert longest <= 100, f"the longest case id is {longest} characters; pytest names ids over 100 by index"
 
 
-def test_no_hook_frame_holds_a_joined_name_while_the_names_are_built() -> None:
+def test_no_frame_holds_a_joined_name_while_the_names_are_built() -> None:
     # A fresh copy of the hook builds its names under sys.settrace, and the matcher reads the repr of
     # every argument and local of every frame the build creates -- the hook's own, and any library
     # frame it calls into -- at each call, line and return event, so a helper's arguments and a local
@@ -852,7 +942,7 @@ def test_no_hook_frame_holds_a_joined_name_while_the_names_are_built() -> None:
         fresh._names()
     finally:
         sys.settrace(previous)
-    assert not held, f"hook frames held a joined name while the names were built: {sorted(held)}"
+    assert not held, f"frames held a joined name while the names were built: {sorted(held)}"
 
 
 def test_the_fixed_messages_are_distinct_and_say_what_they_mean() -> None:
@@ -907,7 +997,7 @@ _REGISTRATION_TEST = "test_the_hook_is_registered_on_both_events"
 # The tests that never run the hook through its registration, so they pass in the copy with the
 # registrations removed.
 _UNREGISTERED_TESTS = (_MESSAGES_TEST, "test_no_case_id_is_longer_than_pytest_names_by_value",
-                       "test_no_hook_frame_holds_a_joined_name_while_the_names_are_built")
+                       "test_no_frame_holds_a_joined_name_while_the_names_are_built")
 _FIRST_CASE = "test_a_named_result_is_flagged_on_post_tool_use[N1 alone]"
 _FULL_TRACE_ECHO_CASES = (_FIRST_CASE, "test_opt_in_off_is_silent_even_for_a_named_result[PostToolUse]",
                           "test_unreadable_stdin_is_reported_unchecked_to_claude_when_opted_in[empty-PostToolUse]")
