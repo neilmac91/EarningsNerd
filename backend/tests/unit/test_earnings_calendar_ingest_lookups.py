@@ -4,6 +4,7 @@ A daily calendar CSV carries ~6k rows, and the per-row lookup cost one round tri
 (~1.5 ms, about 9 s of the job's DB phase). The first test fails if the lookups go back to one per
 row. The others pin what the prefetch and the loop around the lookup must keep doing:
 - a ticker's other stored periods, which the prefetch also loads, are never the row a CSV row updates;
+- stored rows under each of the file's periods are all found;
 - with the index filter on, a stored member row is updated and a non-member row is left alone;
 - rows given as a one-shot iterator are all ingested, though the prefetch walks them first;
 - an in-file duplicate updates the row it just inserted;
@@ -15,7 +16,7 @@ from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, select
 
 from app.database import SessionLocal, engine
 from app.models import Base, EarningsEvent
@@ -102,7 +103,8 @@ def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
         db.commit()
         reads = selects()
 
-    # Literal counts: a smaller chunk (down to one ticker per query) must fail here too.
+    # Literal counts, not ones derived from the chunk constant: a chunk under 400 tickers (down to
+    # one ticker per query) changes the 1,200-row count and fails here.
     assert reads == {10: 1, 1200: 3}[n_rows]
     assert upserted == n_rows - 1  # the confirmed row is only marked seen
     with SessionLocal() as db:
@@ -196,6 +198,36 @@ def test_a_tickers_other_stored_period_is_never_the_row_its_csv_row_updates():
 
 
 @pytest.mark.requires_db
+def test_stored_rows_under_each_of_the_files_periods_are_all_found():
+    """A real AV file spans several fiscal periods. The prefetch's one IN list of periods must hold
+    every row's period: a stored row under a period missing from it is left out of the map, and the
+    pass inserts it a second time."""
+    with SessionLocal() as db:
+        db.add_all([
+            _store(f"{PREFIX}0001", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)),
+            _store(f"{PREFIX}0002", FPE_PREV, STATUS_ESTIMATED, TODAY + timedelta(days=10)),
+            _store(f"{PREFIX}0003", FPE_NEXT, STATUS_ESTIMATED, TODAY + timedelta(days=10)),
+        ])
+        db.commit()
+    rows = [
+        _row(1, TODAY + timedelta(days=12)),
+        _row(2, TODAY + timedelta(days=12), fpe=FPE_PREV),
+        _row(3, TODAY + timedelta(days=12), fpe=FPE_NEXT),
+    ]
+
+    with SessionLocal() as db, _event_selects() as selects:
+        assert svc.ingest_alpha_vantage(db, rows, today=TODAY) == 3
+        db.commit()
+        assert selects() == 1  # one chunk of tickers, every period in its one IN list
+
+    after = _snapshot()
+    for key in ((f"{PREFIX}0001", FPE), (f"{PREFIX}0002", FPE_PREV), (f"{PREFIX}0003", FPE_NEXT)):
+        status, event_date, prior, _, _ = after[key]
+        assert (status, event_date, prior) == (STATUS_ESTIMATED, TODAY + timedelta(days=12), TODAY + timedelta(days=10))
+    assert len(after) == 3
+
+
+@pytest.mark.requires_db
 def test_with_the_index_filter_on_a_stored_member_row_is_updated_and_a_non_member_is_left_alone(monkeypatch):
     """The worker runs the refresh with the filter on. The prefetch reads rows through the same
     _ingest_key as the pass, so a stored member row is in the map: if it were not, the pass would
@@ -239,16 +271,29 @@ def test_an_in_file_duplicate_updates_the_row_it_just_inserted():
 
 @pytest.mark.requires_db
 def test_a_row_that_cannot_be_read_stops_the_pass_there_with_earlier_inserts_flushed():
-    """The bad row raises at the same point as before (comparing its date), after the row before it
-    was inserted and flushed, and before the row after it is read."""
-    rows = [_row(1, TODAY + timedelta(days=5)), _row(2, "2026-07-09"), _row(3, TODAY + timedelta(days=6))]
+    """The bad row raises at the same point as before (comparing its date): after LKP0000's stored row
+    was updated and LKP0001 inserted, the insert's flush writing both, and before the row after it is
+    read. LKP0000 is stored, so a prefetch that gave up at the bad row would leave it out of the map
+    and the pass would fail earlier, inserting it a second time."""
+    with SessionLocal() as db:
+        db.add(_store(f"{PREFIX}0000", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)))
+        db.commit()
+    rows = [
+        _row(0, TODAY + timedelta(days=4)),
+        _row(1, TODAY + timedelta(days=5)),
+        _row(2, "2026-07-09"),
+        _row(3, TODAY + timedelta(days=6)),
+    ]
     db = SessionLocal()
     try:
         with pytest.raises(TypeError):
             svc.ingest_alpha_vantage(db, rows, today=TODAY)
-        # autoflush is off: this query sees only what the ingest flushed.
-        flushed = {e.ticker for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.like(f"{PREFIX}%"))}
-        assert flushed == {f"{PREFIX}0001"}
+        # autoflush is off, and a column select bypasses the identity map: this reads only what the
+        # ingest flushed.
+        flushed = dict(db.execute(
+            select(EarningsEvent.ticker, EarningsEvent.event_date).where(EarningsEvent.ticker.like(f"{PREFIX}%"))
+        ).all())
+        assert flushed == {f"{PREFIX}0000": TODAY + timedelta(days=4), f"{PREFIX}0001": TODAY + timedelta(days=5)}
         assert not db.new
     finally:
         db.rollback()
