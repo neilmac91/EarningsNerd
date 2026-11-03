@@ -12,7 +12,9 @@ and ``test_the_grants_lock_is_a_transaction_scoped_advisory_lock_on_postgresql``
 (lessons/test-pin-a-row-lock-with-a-statement-spy.md). The re-read cases show what SQLite can: a unit refuses what
 changed after its dry run.
 """
+import ast
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -28,7 +30,7 @@ from sqlalchemy.orm import Query
 
 from app.database import SessionLocal
 from app.models import AccountAgreement, AuditLog, ComplimentaryAccessGrant, InviteCode, Subscription, User
-from app.services import admin_filing_service, complimentary_access_service as service, waitlist_service
+from app.services import complimentary_access_service as service
 from app.services.complimentary_access_manifest import (
     MAX_ACTIVE_GRANTS,
     ManifestError,
@@ -246,7 +248,8 @@ def test_a_fault_names_its_place_and_kind_never_the_value(raw, problems):
     with pytest.raises(ManifestError) as refused:
         load_manifest(raw)
     assert sorted(refused.value.problems) == sorted(problems)
-    for planted in (PLANTED_ADDRESS, "planted.tester", str(PLANTED_ID), "Not A Slug"):
+    for planted in (PLANTED_ADDRESS, "planted.tester", str(PLANTED_ID), "Not A Slug", _fake_entry(1)["email_sha256"],
+                    _fake_entry(2)["email_sha256"], SALT):
         assert planted not in str(refused.value)
 
 
@@ -344,8 +347,11 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
 
 
 # The operator's raw address list, by any name that says so in a plain-text form: addresses.txt, email_addresses.csv,
-# beta-addresses (no suffix).
+# beta-addresses (no suffix), and an editor's or a copy's leftovers of one (addresses.txt~, .addresses.txt.swp).
 _ADDRESS_LIST_SUFFIXES = {"", ".txt", ".csv", ".tsv", ".lst", ".list"}
+_BACKUP_SUFFIXES = ("~", ".bak", ".orig", ".old", ".tmp", ".swp", ".save")
+# One address alone on its line, as the list holds them; a line of prose that mentions one is not.
+_ADDRESS_LINE = re.compile(r"[^\s@<>\"',;:()]+@[^\s@<>\"',;:()]+\.[A-Za-z]{2,}")
 # The key that names an address's fingerprint, however a draft spells it: email_sha256, emailSha256, EMAIL-SHA256,
 # "email sha256".
 _FINGERPRINT_KEY = re.compile(rb"(?i)email[\s_-]*sha[\s_-]*256")
@@ -387,9 +393,32 @@ def _files_with_fingerprints(root: Path) -> list[str]:
     return sorted(found)
 
 
+def _without_backup_suffixes(name: str) -> str:
+    while any(name.lower().endswith(suffix) and len(name) > len(suffix) for suffix in _BACKUP_SUFFIXES):
+        name = next(name[: -len(suffix)] for suffix in _BACKUP_SUFFIXES if name.lower().endswith(suffix))
+    return name
+
+
+def _is_address_list(path: Path) -> bool:
+    """A file named as the list (or a backup of one), or, whatever its name, a small text file whose every non-blank
+    line is one address, a byte-order mark and CRLF line ends allowed."""
+    name = _without_backup_suffixes(path.name)
+    if "addresses" in name.lower() and Path(name).suffix.lower() in _ADDRESS_LIST_SUFFIXES:
+        return True
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return False
+    if len(raw) > 65_536 or b"@" not in raw or b"\0" in raw:
+        return False
+    # A byte-order mark is no whitespace, so the first line keeps it and still reads as an address.
+    lines = [line.strip() for line in raw.decode("utf-8", "replace").splitlines()]
+    lines = [line for line in lines if line]
+    return bool(lines) and all(_ADDRESS_LINE.fullmatch(line) for line in lines)
+
+
 def _address_lists(root: Path) -> list[str]:
-    return sorted(path.relative_to(root).as_posix() for path in _tree(root)
-                  if "addresses" in path.name.lower() and path.suffix.lower() in _ADDRESS_LIST_SUFFIXES)
+    return sorted(path.relative_to(root).as_posix() for path in _tree(root) if _is_address_list(path))
 
 
 def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
@@ -439,9 +468,15 @@ def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and
         "frontend/node_modules/pkg/fixture.json": manifest,
         ".claude/worktrees/agent/docs/runbook.md": runbook.replace(example, manifest),
         ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
-        # The address list, by the names that say so.
+        # The address list, by the names that say so, an editor's backups of one, and by its content alone.
         "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "x\n",
         "tasks/email_addresses.csv": "x\n", "tasks/tester-addresses": "x\n", "tasks/ip_addresses.py": "x = 1\n",
+        "backend/addresses.txt~": "x\n", "backend/addresses.txt.bak": "x\n", "backend/.addresses.txt.swp": "x\n",
+        "tasks/addresses.txt.orig.bak": "x\n", "tasks/testers.txt": "\ufeffSomeone@Example.com\r\n\r\nanother@example.com\r\n",
+        "tasks/list": "someone@example.com\n",
+        "tasks/contacts.md": "Write to someone@example.com\nor to another@example.com.\n",
+        "backend/app/public_email_addresses.json": json.dumps({"support": "support@example.com"}),
+        "frontend/node_modules/pkg/emails.txt": "someone@example.com\n",
         ".claude/worktrees/agent/addresses.txt": "x\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -453,8 +488,10 @@ def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and
         "backend/scripts/draft-names.json", "backend/scripts/draft-21.json", "backend/scripts/draft-comma.json",
         "backend/scripts/draft-upper.json", "backend/scripts/draft-camel.json", "backend/scripts/draft-elsewhere.json",
         "tasks/draft.json5", "tasks/roster.csv"])
-    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt",
-                                        "tasks/email_addresses.csv", "tasks/tester-addresses"]
+    assert _address_lists(tmp_path) == sorted([
+        "tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt", "tasks/email_addresses.csv", "tasks/tester-addresses",
+        "backend/addresses.txt~", "backend/addresses.txt.bak", "backend/.addresses.txt.swp",
+        "tasks/addresses.txt.orig.bak", "tasks/testers.txt", "tasks/list"])
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
@@ -503,8 +540,9 @@ def test_a_dry_run_counts_outcomes_and_names_each_refusal_by_place_without_writi
         state = _committed(account.id)
         assert (state.is_pro, state.grant, state.actions) == (False, None, [])
     published = json.dumps(report)
-    assert "account_id" not in published and REASON not in published
-    assert not any(account.email in published for account in (eligible, unverified, uninvited))
+    assert "account_id" not in published and REASON not in published and SALT not in published
+    for account in (eligible, unverified, uninvited):
+        assert account.email not in published and email_fingerprint(account.email) not in published
 
 
 def _subscription(user_id: int, status: str) -> Subscription:
@@ -987,8 +1025,31 @@ def test_the_grants_lock_is_a_transaction_scoped_advisory_lock_on_postgresql():
     sql = str(executed[0].compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
     assert sql == f"SELECT pg_advisory_xact_lock({service.GRANT_LOCK_KEY}) AS pg_advisory_xact_lock_1"
     assert service.GRANT_LOCK_KEY == int.from_bytes(b"COMPGRNT", "big")
-    assert service.GRANT_LOCK_KEY not in {waitlist_service.WAITLIST_PLACE_LOCK_KEY,
-                                          admin_filing_service.MAINTENANCE_LOCK_KEY}
+
+
+def test_every_advisory_lock_in_the_backend_takes_a_named_key_of_its_own():
+    """Two advisory locks with one key serialize each other: a grant would queue behind a filing insert or a whole
+    recovery pass. Every advisory-lock call under app/ passes a module-level ``*_LOCK_KEY`` constant, and the constants
+    are pairwise distinct, so a lock added later is checked against the grants' without this test changing."""
+    app = REPO / "backend" / "app"
+    keys, calls = {}, []
+    for path in sorted(app.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        module = ".".join(path.relative_to(REPO / "backend").with_suffix("").parts)
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id.endswith("LOCK_KEY") for target in node.targets):
+                for target in node.targets:
+                    keys[f"{module}.{target.id}"] = getattr(importlib.import_module(module), target.id)
+        calls += [(path.relative_to(REPO).as_posix(), ast.unparse(node)) for node in ast.walk(tree)
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and "advisory" in node.func.attr and not (
+                      len(node.args) == 1 and isinstance(node.args[0], ast.Name) and node.args[0].id.endswith("LOCK_KEY"))]
+    assert calls == [], f"an advisory lock whose key is not a module-level *_LOCK_KEY constant: {calls}"
+    assert keys["app.services.complimentary_access_service.GRANT_LOCK_KEY"] == service.GRANT_LOCK_KEY
+    assert len(keys) >= 5, keys
+    shared = {key: [name for name, value in keys.items() if value == key] for key in set(keys.values())}
+    assert all(len(names) == 1 for names in shared.values()), {k: v for k, v in shared.items() if len(v) > 1}
 
 
 # --------------------------------------------------------------------------- deletion, readout, Billing

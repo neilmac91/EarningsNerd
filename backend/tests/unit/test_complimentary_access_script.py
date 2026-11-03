@@ -105,7 +105,9 @@ def _assert_nothing_planted(texts, operator, testers):
     for account in [operator, *testers]:
         assert account.email not in published
         assert str(account.id) not in published
-    assert REASON not in published
+        # A fingerprint is matched to its address by anyone holding a list of candidates.
+        assert email_fingerprint(account.email) not in published
+    assert REASON not in published and SALT not in published
 
 
 def test_every_report_and_log_line_carries_no_planted_id_or_address(accounts, tmp_path, capsys, caplog, monkeypatch):
