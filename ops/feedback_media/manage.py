@@ -4,13 +4,15 @@ Only fixed resources in earnings-nerd/us-west1 are addressable. API errors print
 status, never response bodies, access tokens, service configuration or user data. Every mutation
 is an explicit -apply operation, protected by ops.yml's owner approval and first-attempt gate.
 Each provider call names its step and the IAM permission it needs. Before its first write, provisioning
-tests every permission its steps use and reads every existing resource it would refuse rather than repair,
-so a run that cannot finish changes nothing.
+tests its reads, reads every existing resource, refuses one it would not repair, and then tests only the
+writes that state needs, so a run that cannot finish changes nothing and a founder-made resource or grant in
+the approved shape needs no create or set-policy permission.
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import functools
 import json
 import re
 import subprocess
@@ -39,6 +41,8 @@ HEARTBEAT_METRIC = "earningsnerd_feedback_cleanup_success"
 HEARTBEAT_MESSAGE = "Feedback media scheduled cleanup succeeded"
 METRIC_PATH = f"v2/projects/{PROJECT}/metrics/{HEARTBEAT_METRIC}"
 SCHEDULE_DESCRIPTION = "EarningsNerd private feedback media cleanup"
+# Cloud Scheduler's job states; a refusal names only these.
+SCHEDULE_STATES = ("ENABLED", "PAUSED", "DISABLED", "UPDATE_FAILED", "STATE_UNSPECIFIED")
 MONITORING_OWNER = {"component": "feedback-media"}
 POLICY_DRIFT = "Existing feedback monitoring policy differs from the approved owned definition"
 OPERATIONS = (
@@ -62,7 +66,7 @@ def step(name: str, *permissions: str) -> str:
 
 
 SERVICE_READ = step("API service read", "run.services.get")
-SERVICE_UPDATE = step("API service update", "run.services.update", ACT_AS)
+SERVICE_UPDATE = step("API service update", "run.services.update", ACT_AS, IMAGE_READ)
 ROLE_READ = step("Object role read", "iam.roles.get")
 ROLE_CREATE = step("Object role create", "iam.roles.create")
 BUCKET_READ = step("Bucket read", "storage.buckets.get")
@@ -88,17 +92,25 @@ SCHEDULE_READ = step("Cleanup schedule read", "cloudscheduler.jobs.get")
 SCHEDULE_CREATE = step("Cleanup schedule create", "cloudscheduler.jobs.create", ACT_AS)
 SCHEDULE_UPDATE = step("Cleanup schedule update", "cloudscheduler.jobs.update", ACT_AS)
 CAPABILITY_READ = "Capability preflight (needs no permission)"
-# Every project permission a provisioning step names; actAs is tested on the runtime identity itself, where a
-# service-account-level grant is visible. A test holds this set equal to the steps provisioning performs.
-PROVISION_PERMISSIONS = frozenset({
-    "run.services.get", "monitoring.notificationChannels.get", "logging.logMetrics.get", "logging.logMetrics.create",
-    "monitoring.alertPolicies.list", "monitoring.alertPolicies.create", "monitoring.timeSeries.list",
-    "iam.roles.get", "iam.roles.create", "storage.buckets.get", "storage.buckets.create",
-    "storage.buckets.getIamPolicy", "storage.buckets.setIamPolicy", "run.jobs.get", "run.jobs.create",
-    "run.jobs.update", "run.jobs.getIamPolicy", "run.jobs.setIamPolicy", "run.jobs.run", "run.jobs.runWithOverrides",
-    "run.executions.list", "run.operations.get", "cloudscheduler.jobs.get", "cloudscheduler.jobs.create",
-    "cloudscheduler.jobs.update",
+# The reads every provisioning run makes before or between its writes, and the writes every run makes. The other
+# writes create what is absent, add a missing grant, or update what exists, so a run tests each only when the state
+# it read needs it (provision_writes): a founder-made role, bucket or grant in the approved shape needs no create or
+# setIamPolicy permission.
+PROVISION_READS = frozenset({
+    "run.services.get", "monitoring.notificationChannels.get", "logging.logMetrics.get", "monitoring.alertPolicies.list",
+    "monitoring.timeSeries.list", "iam.roles.get", "storage.buckets.get", "storage.buckets.getIamPolicy", "run.jobs.get",
+    "run.jobs.getIamPolicy", "run.executions.list", "run.operations.get", "cloudscheduler.jobs.get",
 })
+EVERY_RUN_WRITES = frozenset({"run.jobs.run", "run.jobs.runWithOverrides"})
+CONDITIONAL_WRITES = frozenset({
+    "logging.logMetrics.create", "monitoring.alertPolicies.create", "iam.roles.create", "storage.buckets.create",
+    "storage.buckets.setIamPolicy", "run.jobs.create", "run.jobs.update", "run.jobs.setIamPolicy",
+    "cloudscheduler.jobs.create", "cloudscheduler.jobs.update",
+})
+# Every project permission a provisioning step names. actAs and image read are tested on their own resources (the
+# runtime identity, the image repository), where those grants are visible. A test holds this set equal to the
+# steps provisioning performs.
+PROVISION_PERMISSIONS = PROVISION_READS | EVERY_RUN_WRITES | CONDITIONAL_WRITES
 # Google's error envelope: only these closed values are ever printed, with a denied permission in the shape below.
 # Messages, resources and principals in the body are withheld.
 GRPC_STATUSES = ("OK", "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND", "ALREADY_EXISTS",
@@ -198,6 +210,29 @@ class Cloud:
         return operation.get("response", {})
 
 
+# What reading a provider answer of another shape raises: no answer of the documented shape raises these.
+SHAPE_ERRORS = (AttributeError, TypeError, KeyError, IndexError)
+
+
+def closed_shape(resource: str):
+    """A check reads a provider answer by its documented shape; an answer of another shape is refused, closed.
+
+    The check's own comparisons refuse drift; this refuses what they cannot compare (an object where a list
+    belongs, a list where an object belongs, a missing index), so a malformed answer is never read as approved or
+    absent, nor ends in a traceback.
+    """
+    def wrap(check):
+        @functools.wraps(check)
+        def checked(*args, **kwargs):
+            try:
+                return check(*args, **kwargs)
+            except SHAPE_ERRORS:
+                raise OperationError(f"{resource} answer is malformed") from None
+        return checked
+    return wrap
+
+
+@closed_shape("Bucket")
 def check_bucket(bucket: dict, environment: str) -> None:
     labels = bucket.get("labels", {})
     iam = bucket.get("iamConfiguration", {})
@@ -214,9 +249,24 @@ def check_bucket(bucket: dict, environment: str) -> None:
         raise OperationError(f"{environment} bucket differs from approved private retention settings")
 
 
+def policy_bindings(policy: dict) -> list[dict]:
+    """An IAM policy's bindings, refused unless each is a role, a list of member strings and an optional condition.
+
+    A member list read as a string would match by substring, so a malformed policy could read as granted or private.
+    """
+    bindings = policy.get("bindings", []) if isinstance(policy, dict) else None
+    if not isinstance(bindings, list) or not all(
+            isinstance(binding, dict) and isinstance(binding.get("role"), str)
+            and isinstance(binding.get("members", []), list)
+            and all(isinstance(member, str) for member in binding.get("members", []))
+            and isinstance(binding.get("condition", {}), dict) for binding in bindings):
+        raise OperationError("Resource policy is malformed")
+    return bindings
+
+
 def check_private_policy(policy: dict) -> None:
     if any(member in ("allUsers", "allAuthenticatedUsers")
-           for binding in policy.get("bindings", []) for member in binding.get("members", [])):
+           for binding in policy_bindings(policy) for member in binding.get("members", [])):
         raise OperationError("Resource policy includes a public principal")
 
 
@@ -224,19 +274,48 @@ def check_runtime_bucket_policy(policy: dict, runtime: str, *, granted: bool = T
     """Refuse a public principal, and any runtime grant but the unconditional object role (required unless not `granted` yet)."""
     check_private_policy(policy)
     member = "serviceAccount:" + runtime
-    grants = [binding for binding in policy.get("bindings", []) if member in binding.get("members", [])]
+    grants = [binding for binding in policy_bindings(policy) if member in binding.get("members", [])]
     if (granted and not grants) or any(binding.get("role") != ROLE or binding.get("condition") for binding in grants):
         raise OperationError("Runtime bucket grants differ from the approved unconditional object role")
 
 
+def bound(policy: dict, role: str, member: str) -> bool:
+    """Whether the policy already holds this member in an unconditional binding of the role.
+
+    bind() writes exactly when this is false, so a planner that reads it as true never meets an untested write.
+    """
+    return any(binding.get("role") == role and not binding.get("condition") and member in binding.get("members", [])
+               for binding in policy_bindings(policy))
+
+
+def policy_etag(policy: dict) -> str:
+    """A read policy's etag. Its write-back is conditional on it, so a policy without one is refused, never written."""
+    etag = policy.get("etag") if isinstance(policy, dict) else None
+    if not isinstance(etag, str) or not etag:
+        raise OperationError("Resource policy has no etag")
+    return etag
+
+
+@closed_shape("Cleanup job")
 def check_owned_job(job: dict) -> None:
     if job.get("labels", {}).get("purpose") != "feedback-media":
         raise OperationError("Existing cleanup job is not owned by this feature")
 
 
+@closed_shape("Cleanup schedule")
 def check_owned_schedule(schedule: dict) -> None:
+    """Refuse a schedule this feature does not own, or an owned one in a state provisioning's update cannot leave.
+
+    An update cannot resume a schedule (only :resume leaves PAUSED, and the system sets DISABLED), so a paused,
+    disabled or unknown one would be written and then never read as ready. Retrying an update is Google's documented
+    recovery from UPDATE_FAILED, so that state converges. Only a state from the fixed list is named.
+    """
     if schedule.get("description") != SCHEDULE_DESCRIPTION:
         raise OperationError("Existing cleanup schedule is not owned by this feature")
+    state = schedule.get("state")
+    if state not in ("ENABLED", "UPDATE_FAILED"):
+        shown = state if isinstance(state, str) and state in SCHEDULE_STATES else "in an unrecognized state"
+        raise OperationError(f"Existing cleanup schedule is {shown}; provisioning does not resume it")
 
 
 def policy_path(path: str, *, storage: bool = False) -> str:
@@ -248,6 +327,7 @@ def policy_path(path: str, *, storage: bool = False) -> str:
 STORAGE_PERMISSION = re.compile(r"storage\.(?:buckets|objects|managedFolders|multipartUploads)\.[A-Za-z]{1,40}")
 
 
+@closed_shape("Object role")
 def check_role(role: dict | None) -> None:
     """Refuse anything but the active create/get/delete role, naming which state it is in.
 
@@ -276,14 +356,15 @@ def bind(cloud: Cloud, api: str, path: str, role: str, member: str, *, storage: 
          read_step: str | None = None, write_step: str | None = None) -> None:
     policy = cloud.call(api, policy_path(path, storage=storage), step=read_step)
     check_private_policy(policy)
+    policy_etag(policy)  # the write-back carries it, so a concurrent change fails the write rather than being lost
+    if bound(policy, role, member):
+        return
     bindings = policy.setdefault("bindings", [])
     binding = next((b for b in bindings if b.get("role") == role and not b.get("condition")), None)
     if binding is None:
         binding = {"role": role, "members": []}
         bindings.append(binding)
-    if member in binding["members"]:
-        return
-    binding["members"].append(member)
+    binding.setdefault("members", []).append(member)
     cloud.call(api, path + ("/iam" if storage else ":setIamPolicy"),
                method="PUT" if storage else "POST", body=policy if storage else {"policy": policy}, step=write_step)
 
@@ -351,6 +432,7 @@ def policy_specs() -> list[dict]:
     ]
 
 
+@closed_shape("Alert channel")
 def check_channel(cloud: Cloud) -> None:
     channel = cloud.call("monitoring", "v3/" + CHANNEL, step=CHANNEL_READ)
     # Monitoring omits the protobuf default for channels that need no verification or
@@ -363,6 +445,7 @@ def check_channel(cloud: Cloud) -> None:
     # Channel labels contain its recipient. Neither labels nor any provider payload is printed.
 
 
+@closed_shape("Heartbeat metric")
 def check_heartbeat_metric(metric: dict | None) -> None:
     expected = heartbeat_spec()
     if (metric is None or metric.get("name") != HEARTBEAT_METRIC or metric.get("disabled", False)
@@ -393,6 +476,7 @@ def policy_matches(policy: dict, expected: dict) -> bool:
     return condition == expected_condition
 
 
+@closed_shape("Alert policy")
 def monitoring_policies(cloud: Cloud) -> list[dict]:
     policies, page_token = [], None
     for _ in range(10):
@@ -405,6 +489,7 @@ def monitoring_policies(cloud: Cloud) -> list[dict]:
     raise OperationError("Monitoring policy inventory exceeds the bounded inspection size")
 
 
+@closed_shape("Alert policy")
 def missing_policies(policies: list[dict], drift: str) -> list[dict]:
     """The owned alert policies not yet created; one present in any other form, or more than once, is refused."""
     missing = []
@@ -504,18 +589,25 @@ def capability_gaps(cloud: Cloud, permissions: frozenset[str], runtime: str | No
     the API image's repository (both operations deploy that image). Only names from the fixed lists are returned;
     the provider's answer is used for membership alone.
     """
-    def held(api: str, path: str, wanted: list[str]) -> set[str]:
-        answer = cloud.call(api, path, method="POST", body={"permissions": wanted}, step=CAPABILITY_READ)
-        granted = answer.get("permissions", []) if isinstance(answer, dict) else []
-        return {name for name in granted if isinstance(name, str)} if isinstance(granted, list) else set()
-    missing = sorted(permissions - held("cloudresourcemanager", f"v1/projects/{PROJECT}:testIamPermissions",
-                                        sorted(permissions)))
-    if runtime is not None and ACT_AS not in held("iam", f"v1/projects/-/serviceAccounts/{runtime}:testIamPermissions",
-                                                  [ACT_AS]):
+    missing = sorted(permissions - held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}", sorted(permissions)))
+    if runtime is not None and ACT_AS not in held(cloud, "iam", f"v1/projects/-/serviceAccounts/{runtime}", [ACT_AS]):
         missing.append(ACT_AS + " on the API runtime identity")
-    if IMAGE_READ not in held("artifactregistry", f"v1/{IMAGE_REPOSITORY}:testIamPermissions", [IMAGE_READ]):
+    if IMAGE_READ not in held(cloud, "artifactregistry", "v1/" + IMAGE_REPOSITORY, [IMAGE_READ]):
         missing.append(IMAGE_READ + " on the API image repository")
     return missing
+
+
+def held(cloud: Cloud, api: str, resource: str, wanted: list[str]) -> set[str]:
+    """The fixed names the acting identity holds on one resource, inherited grants included; membership use only.
+
+    A malformed answer grants nothing.
+    """
+    if not wanted:
+        return set()
+    answer = cloud.call(api, resource + ":testIamPermissions", method="POST", body={"permissions": wanted},
+                        step=CAPABILITY_READ)
+    granted = answer.get("permissions", []) if isinstance(answer, dict) else []
+    return {name for name in granted if isinstance(name, str)} if isinstance(granted, list) else set()
 
 
 def require_approved_image(service: dict) -> None:
@@ -535,43 +627,78 @@ def require_execution_success(execution: dict, label: str) -> None:
         raise OperationError(f"{label} did not succeed; inspect its counts-only job ledger before a fresh approved run")
 
 
-def refuse_unrepairable_state(cloud: Cloud, runtime: str) -> None:
-    """Refuse, read-only and before provisioning's first write, every existing resource a step would refuse.
+def provision_writes(cloud: Cloud, runtime: str) -> frozenset[str]:
+    """Refuse, read-only and before provisioning's first write, every existing resource a step would refuse, and
+    return the write permissions this run's steps will use on the state it read.
 
     Provisioning creates what is absent and converges what it owns; these states it refuses instead. Each step
-    still checks what it reaches, so this only moves the refusals ahead of the writes.
+    still checks what it reaches, so this only moves the refusals ahead of the writes. Only a read that finds a
+    resource absent (404) plans its create; a denied read stops here with its label, and a malformed answer or
+    drift is refused, so neither is planned as absent or as already approved; a policy without an etag is refused
+    too, because its write-back would not be conditional. A resource or grant the founder made by hand in the
+    approved shape needs no create or setIamPolicy permission.
     """
+    writes, member = set(EVERY_RUN_WRITES), "serviceAccount:" + runtime
     check_channel(cloud)
     metric = cloud.call("logging", METRIC_PATH, missing_ok=True, step=METRIC_READ)
-    if metric is not None:
+    if metric is None:
+        writes.add("logging.logMetrics.create")
+    else:
         check_heartbeat_metric(metric)
-    missing_policies(monitoring_policies(cloud), POLICY_DRIFT)
+    if missing_policies(monitoring_policies(cloud), POLICY_DRIFT):
+        writes.add("monitoring.alertPolicies.create")
     role = cloud.call("iam", "v1/" + ROLE, missing_ok=True, step=ROLE_READ)
-    if role is not None:
+    if role is None:
+        writes.add("iam.roles.create")
+    else:
         check_role(role)
     for environment, name in BUCKETS.items():
         bucket = cloud.call("storage", "storage/v1/b/" + name, missing_ok=True, step=BUCKET_READ)
-        if bucket is not None:
-            check_bucket(bucket, environment)
-            check_runtime_bucket_policy(cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True),
-                                                   step=BUCKET_POLICY_READ), runtime, granted=False)
+        if bucket is None:
+            writes |= {"storage.buckets.create", "storage.buckets.setIamPolicy"}
+            continue
+        check_bucket(bucket, environment)
+        policy = cloud.call("storage", policy_path("storage/v1/b/" + name, storage=True), step=BUCKET_POLICY_READ)
+        check_runtime_bucket_policy(policy, runtime, granted=False)
+        policy_etag(policy)
+        if not bound(policy, ROLE, member):
+            writes.add("storage.buckets.setIamPolicy")
     job = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
-    if job is not None:
+    if job is None:
+        writes |= {"run.jobs.create", "run.jobs.setIamPolicy"}
+    else:
         check_owned_job(job)
-        check_private_policy(cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ))
+        policy = cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ)
+        check_private_policy(policy)
+        policy_etag(policy)
+        writes.add("run.jobs.update")  # the job's specification is always converged
+        if not bound(policy, "roles/run.invoker", member):
+            writes.add("run.jobs.setIamPolicy")
     schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True, step=SCHEDULE_READ)
-    if schedule is not None:
+    if schedule is None:
+        writes.add("cloudscheduler.jobs.create")
+    else:
         check_owned_schedule(schedule)
+        writes.add("cloudscheduler.jobs.update")
+    return frozenset(writes)
+
+
+def provision_gaps(cloud: Cloud, runtime: str) -> list[str]:
+    """The permissions this run lacks: its reads, actAs and image read first, then only the writes its state needs."""
+    missing = capability_gaps(cloud, PROVISION_READS, runtime)
+    if missing:
+        return missing
+    writes = provision_writes(cloud, runtime)
+    return sorted(writes - held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}", sorted(writes)))
 
 
 def provision(cloud: Cloud, service: dict) -> None:
     spec = job_spec(service)  # validate required identity/secret references before any mutation
     require_approved_image(service)
     runtime = spec["template"]["template"]["serviceAccount"]
-    missing = capability_gaps(cloud, PROVISION_PERMISSIONS, runtime)
+    missing = provision_gaps(cloud, runtime)
     if missing:
         raise OperationError("Provisioning identity lacks required permissions; nothing was changed: " + ", ".join(missing))
-    refuse_unrepairable_state(cloud, runtime)
     ensure_monitoring(cloud)  # create the success metric before the first genuine cleanup heartbeat
     ensure_buckets(cloud, runtime)
     current = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
@@ -700,6 +827,9 @@ def inspect(cloud: Cloud) -> bool:
         except OperationError as exc:
             print(f"{name}: refused ({exc})")
             refused.append(name)
+        except SHAPE_ERRORS:  # an answer of another shape than the checks read
+            print(f"{name}: refused (answer is malformed)")
+            refused.append(name)
     if refused:
         raise OperationError("Feedback media prerequisites refused: " + ", ".join(refused)
                              + (f" (also unverified: {', '.join(unverified)})" if unverified else ""))
@@ -722,8 +852,7 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
         raise OperationError("Cleanup job differs from the approved runtime, image or bounded configuration")
     job_policy = cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ)
     check_private_policy(job_policy)
-    if not any(b.get("role") == "roles/run.invoker" and not b.get("condition")
-               and "serviceAccount:" + runtime in b.get("members", []) for b in job_policy.get("bindings", [])):
+    if not bound(job_policy, "roles/run.invoker", "serviceAccount:" + runtime):  # the test the planner and bind() use
         raise OperationError("Cleanup scheduler's job invocation grant is missing")
     # API sorts creation time descending. Keep the latest attempt for each mode, including failures;
     # an older success must not hide a failed current attempt. Fifty bounds a noisy retry history.
@@ -756,7 +885,8 @@ def inspect_schedule(cloud: Cloud, runtime: str) -> bool:
              and schedule.get("httpTarget", {}).get("httpMethod") == "POST"
              and schedule.get("httpTarget", {}).get("body") == "e30="
              and schedule.get("httpTarget", {}).get("oauthToken", {}).get("serviceAccountEmail") == runtime)
-    print("Cleanup hourly schedule: " + ("verified" if ready else "unverified"))
+    pending = " (state UPDATE_FAILED)" if schedule.get("state") == "UPDATE_FAILED" else ""
+    print("Cleanup hourly schedule: " + ("verified" if ready else "unverified" + pending))
     return ready
 
 
@@ -783,21 +913,22 @@ def verification_permissions() -> frozenset[str]:
 def report_capabilities(cloud: Cloud, service: dict) -> None:
     """Print, read-only, the fixed permissions each provisioning operation's identity would lack.
 
-    This is the check provision-apply runs before its first write, and verify-apply's own preflight set (enable
-    and disable each make one write and run none). It reports, never refuses: the inspection's own verdict
-    stays the resource state below it.
+    This is the check provision-apply runs before its first write, on the state it reads now, and the set
+    verify-apply tests on every run (feedback-media-verify-inspect prints the writes its state still needs; enable
+    and disable each make one write and run none). It reports, never refuses: the inspection's own verdict stays
+    the resource state below it.
     """
     runtime = service.get("template", {}).get("serviceAccount") or None
-    for label, permissions, identity in (
-            ("feedback-media-provision-apply", PROVISION_PERMISSIONS, runtime),
-            ("feedback-media-verify-apply", verification_permissions(), None)):
+    for label, gaps in (
+            ("feedback-media-provision-apply", lambda: provision_gaps(cloud, runtime)),
+            ("feedback-media-verify-apply (every run)", lambda: capability_gaps(cloud, verification_permissions(), None))):
         if label == "feedback-media-provision-apply" and runtime is None:
             print(f"Capability for {label}: UNVERIFIED (API runtime identity unavailable, so actAs cannot be tested)")
             continue
         try:
             if label == "feedback-media-provision-apply":
                 require_approved_image(service)
-            missing = capability_gaps(cloud, permissions, identity)
+            missing = gaps()
         except OperationError as exc:
             print(f"Capability for {label}: UNVERIFIED ({exc})")
             continue

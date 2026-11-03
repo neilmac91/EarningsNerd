@@ -72,9 +72,10 @@ class CloudFixture:
         self.job["etag"] = "job-version"
         self.role = {"includedPermissions": ops.PERMISSIONS.copy(), "stage": "GA"}
         self.buckets = {name: bucket(environment) for environment, name in ops.BUCKETS.items()}
-        self.bucket_policy = {"version": 3, "etag": "bucket-version", "bindings": [
+        # One policy per bucket, as GCS keeps them.
+        self.bucket_policies = {name: {"version": 3, "etag": "bucket-version", "bindings": [
             {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]},
-        ]}
+        ]} for name in self.buckets}
         self.job_policy = {"version": 3, "etag": "job-policy-version", "bindings": [
             {"role": "roles/run.invoker", "members": ["serviceAccount:runtime@example.invalid"]},
         ]}
@@ -100,8 +101,17 @@ class CloudFixture:
             # A project no provisioning has reached: the state every recorded feedback-media run left.
             self.role, self.job, self.schedule, self.metric = None, None, None, None
             self.buckets, self.policies, self.executions = {}, [], []
-            self.bucket_policy = {"version": 3, "etag": "bucket-version", "bindings": []}
+            self.bucket_policies = {}
             self.job_policy = {"version": 3, "etag": "job-policy-version", "bindings": []}
+
+    def policy_of(self, name):
+        # A bucket created without a policy of its own starts with no bindings.
+        return self.bucket_policies.setdefault(name, {"version": 3, "etag": "bucket-version", "bindings": []})
+
+    @property
+    def bucket_policy(self):
+        """The production bucket's policy, which the drift cases edit."""
+        return self.policy_of(ops.BUCKETS["production"])
 
     def policy_readback(self, policy):
         result = copy.deepcopy(policy)
@@ -159,9 +169,11 @@ class CloudFixture:
                 environment = body["labels"]["environment"]
                 assert body["name"] not in self.buckets and body["name"] == ops.BUCKETS[environment]
                 self.buckets[body["name"]] = bucket(environment)
+                self.bucket_policies[body["name"]] = {"version": 3, "etag": "bucket-version", "bindings": []}
                 return copy.deepcopy(self.buckets[body["name"]])
             if api == "storage" and method == "PUT":
-                self.bucket_policy = copy.deepcopy(body)
+                assert path.endswith("/iam")
+                self.bucket_policies[path.split("/b/", 1)[1].split("/", 1)[0]] = copy.deepcopy(body)
                 return copy.deepcopy(body)
             if api == "run" and path.endswith(":setIamPolicy"):
                 self.job_policy = copy.deepcopy(body["policy"])
@@ -176,6 +188,8 @@ class CloudFixture:
                 return copy.deepcopy(self.schedule)
             if api == "cloudscheduler" and method == "PATCH":
                 self.schedule.update({field: copy.deepcopy(body[field]) for field in path.split("updateMask=", 1)[1].split(",")})
+                if self.schedule.get("state") == "UPDATE_FAILED":  # Google's recovery: retry the update until it succeeds
+                    self.schedule["state"] = "ENABLED"
                 return copy.deepcopy(self.schedule)
             if api == "logging" and method == "POST":
                 self.metric = copy.deepcopy(body)
@@ -212,9 +226,11 @@ class CloudFixture:
         if api == "iam":
             return self.role
         if api == "storage":
-            if "/iam?" in path:
-                return self.bucket_policy
-            return self.buckets.get(path.rsplit("/", 1)[-1])
+            # An absent bucket's policy read is a 404 too, like the bucket's own.
+            name = path.split("/b/", 1)[1].split("/", 1)[0].split("?", 1)[0]
+            if name not in self.buckets:
+                return None
+            return self.policy_of(name) if "/iam?" in path else self.buckets[name]
         if api == "cloudscheduler":
             return self.schedule
         if api == "logging":
@@ -231,10 +247,11 @@ class CloudFixture:
             return self.service
         if path == "v2/" + ops.JOB:
             return self.job
+        # An absent job's policy and execution list read as 404, like the job's own.
         if ":getIamPolicy?" in path:
-            return self.job_policy
+            return self.job_policy if self.job is not None else None
         if "/executions?" in path:
-            return {"executions": self.executions}
+            return {"executions": self.executions} if self.job is not None else None
         if path in self.operations:
             return self.operations[path]
         raise AssertionError((api, path))
@@ -276,7 +293,7 @@ def test_inspection_is_read_only_and_requires_both_current_successful_execution_
 
 @pytest.mark.parametrize("defect", ["wrong-owner", "public", "soft-delete", "versioning", "retention",
                                   "broader-role", "disabled-role", "extra-runtime-grant", "conditional-runtime-grant",
-                                  "missing-invoker", "schedule-overrides", "foreign-schedule"])
+                                  "missing-invoker", "schedule-overrides", "foreign-schedule", "paused-schedule"])
 def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
     cloud = CloudFixture()
     actual = cloud.buckets[ops.BUCKETS["production"]]
@@ -302,6 +319,8 @@ def test_upload_enable_refuses_drift_without_repairing_or_weakening_it(defect):
         cloud.job_policy["bindings"] = []
     elif defect == "foreign-schedule":
         cloud.schedule["description"] = "Another team's hourly job"
+    elif defect == "paused-schedule":
+        cloud.schedule["state"] = "PAUSED"
     else:
         cloud.schedule["httpTarget"]["body"] = "overridden-command"
     with pytest.raises(ops.OperationError):
@@ -573,12 +592,259 @@ def test_provisioning_preflight_names_exactly_the_permissions_its_steps_use(monk
         sorted(used - resource_scoped - ops.PROVISION_PERMISSIONS), sorted(ops.PROVISION_PERMISSIONS - used))
 
 
+def founder_bootstrapped():
+    """The state the founder's one-time owner commands leave: the object role, both buckets and their runtime grants."""
+    cloud = CloudFixture(absent=True)
+    cloud.role = {"includedPermissions": ops.PERMISSIONS.copy(), "stage": "GA"}
+    cloud.buckets = {name: bucket(environment) for environment, name in ops.BUCKETS.items()}
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = [{"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}]
+    return cloud
+
+
+def unbound():
+    """Existing buckets and job whose runtime grants are still missing: the grant steps run, the creates do not."""
+    cloud = CloudFixture()
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = []
+    cloud.job_policy["bindings"] = []
+    return cloud
+
+
+def split_bindings():
+    """Grants held through a later binding of the same role: present, so neither planned nor written."""
+    cloud = CloudFixture()
+    other, runtime = "serviceAccount:other@example.invalid", "serviceAccount:runtime@example.invalid"
+    for name in cloud.buckets:
+        cloud.policy_of(name)["bindings"] = [{"role": ops.ROLE, "members": [other]}, {"role": ops.ROLE, "members": [runtime]}]
+    cloud.job_policy["bindings"] = [{"role": "roles/run.invoker", "members": [other]},
+                                    {"role": "roles/run.invoker", "members": [runtime]}]
+    return cloud
+
+
+MIXED = ("preview-unbound", "preview-absent", "job-invoker-conditional", "job-runtime-other-role", "one-alert-policy-absent")
+
+
+def mixed(kind):
+    """States whose buckets, job grant or alert policies differ from one another, as an interrupted run leaves them."""
+    cloud = CloudFixture()
+    preview, runtime = ops.BUCKETS["preview"], "serviceAccount:runtime@example.invalid"
+    if kind == "preview-unbound":
+        cloud.policy_of(preview)["bindings"] = []
+    elif kind == "preview-absent":
+        del cloud.buckets[preview]
+        cloud.bucket_policies.pop(preview)
+    elif kind == "job-invoker-conditional":
+        cloud.job_policy["bindings"] = [{"role": "roles/run.invoker", "members": [runtime],
+                                         "condition": {"title": "fixture", "expression": "true"}}]
+    elif kind == "job-runtime-other-role":
+        cloud.job_policy["bindings"] = [{"role": "roles/run.viewer", "members": [runtime]}]
+    else:
+        cloud.policies = cloud.policies[:1]
+    return cloud
+
+
+@pytest.mark.parametrize("state", ["absent", "existing", "bootstrapped", "unbound", "split-bindings", *MIXED])
+def test_provision_tests_exactly_the_writes_its_state_needs(monkeypatch, state):
+    """Rule 12 gate: the write set a run tests equals the write permissions its write labels name, for each state."""
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    states = {"absent": lambda: CloudFixture(absent=True), "existing": CloudFixture, "bootstrapped": founder_bootstrapped,
+              "unbound": unbound, "split-bindings": split_bindings, **{kind: (lambda kind=kind: mixed(kind)) for kind in MIXED}}
+    cloud = states[state]()
+    ops.provision(cloud, cloud.service)
+    project_tests = [body["permissions"] for api, path, _method, body in cloud.calls
+                     if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+    assert len(project_tests) == 2 and set(project_tests[0]) == ops.PROVISION_READS
+    written = step_permissions(label for (_api, _path, method, _body), label in zip(cloud.calls, cloud.steps)
+                               if method != "GET" and label != ops.CAPABILITY_READ) - {ops.ACT_AS, ops.IMAGE_READ}
+    assert set(project_tests[1]) == written
+    if state == "bootstrapped":
+        assert not written & {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    if state in ("existing", "split-bindings"):
+        assert written == {"run.jobs.update", "cloudscheduler.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
+    if state == "unbound":
+        assert {"storage.buckets.setIamPolicy", "run.jobs.setIamPolicy"} <= written
+        assert not written & {"iam.roles.create", "storage.buckets.create", "run.jobs.create"}
+    if state in MIXED:
+        expected = {"preview-unbound": {"storage.buckets.setIamPolicy"},
+                    "preview-absent": {"storage.buckets.create", "storage.buckets.setIamPolicy"},
+                    "job-invoker-conditional": {"run.jobs.setIamPolicy"}, "job-runtime-other-role": {"run.jobs.setIamPolicy"},
+                    "one-alert-policy-absent": {"monitoring.alertPolicies.create"}}[state]
+        assert written == expected | {"run.jobs.update", "cloudscheduler.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
+
+
+def test_a_founder_bootstrap_provisions_without_role_bucket_or_bucket_grant_permissions(monkeypatch):
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    cloud = founder_bootstrapped()
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    ops.provision(cloud, cloud.service)
+    assert not any(api in ("iam", "storage") and method != "GET" for api, _path, method, _body in cloud.writes)
+    # The same grants refuse a project the founder has not bootstrapped, before any write.
+    cloud = CloudFixture(absent=True)
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"iam.roles.create", "storage.buckets.create", "storage.buckets.setIamPolicy"}
+    with pytest.raises(ops.OperationError, match="nothing was changed: iam.roles.create, storage.buckets.create, "
+                                                 "storage.buckets.setIamPolicy$"):
+        ops.provision(cloud, cloud.service)
+    assert cloud.writes == []
+
+
+DENIED_READS = {
+    "channel-denied": "v3/" + ops.CHANNEL, "metric-denied": ops.METRIC_PATH,
+    "alert-list-denied": f"v3/projects/{ops.PROJECT}/alertPolicies?pageSize=100",
+    "bucket-denied": "storage/v1/b/" + ops.BUCKETS["production"], "job-denied": "v2/" + ops.JOB,
+    "job-policy-denied": ops.policy_path("v2/" + ops.JOB), "schedule-denied": "v1/" + ops.SCHEDULE,
+}
+
+
+@pytest.mark.parametrize("read, refusal", [
+    ("bucket-policy-members-string", "Resource policy is malformed"),
+    ("bucket-policy-bindings-object", "Resource policy is malformed"),
+    ("job-policy-condition-string", "Resource policy is malformed"),
+    ("bucket-labels-list", "Bucket answer is malformed"),
+    ("metric-descriptor-list", "Heartbeat metric answer is malformed"),
+    ("job-labels-string", "Cleanup job answer is malformed"),
+    ("alert-policy-not-object", "Alert policy answer is malformed"),
+    ("bucket-policy-denied", "Bucket policy read [storage.buckets.getIamPolicy] failed (HTTP 403)"),
+    ("role-denied", "Object role read [iam.roles.get] failed (HTTP 403)"),
+    ("bucket-policy-no-etag", "Resource policy has no etag"),
+    ("alert-page-not-list", "Alert policy answer is malformed"),
+    ("alert-conditions-number", "Alert policy answer is malformed"),
+    ("alert-conditions-object", "Alert policy answer is malformed"),
+    ("channel-denied", "Alert channel read [monitoring.notificationChannels.get] failed (HTTP 403)"),
+    ("metric-denied", "Heartbeat metric read [logging.logMetrics.get] failed (HTTP 403)"),
+    ("alert-list-denied", "Alert policy list [monitoring.alertPolicies.list] failed (HTTP 403)"),
+    ("bucket-denied", "Bucket read [storage.buckets.get] failed (HTTP 403)"),
+    ("job-denied", "Cleanup job read [run.jobs.get] failed (HTTP 403)"),
+    ("job-policy-denied", "Cleanup job policy read [run.jobs.getIamPolicy] failed (HTTP 403)"),
+    ("schedule-denied", "Cleanup schedule read [cloudscheduler.jobs.get] failed (HTTP 403)"),
+])
+def test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_planning_it(read, refusal):
+    """A denied read is never planned as absent, and a malformed answer never as approved: both refuse first."""
+    cloud = founder_bootstrapped() if read.startswith("bucket-") else CloudFixture()
+    production = ops.BUCKETS["production"]
+    if read == "bucket-policy-members-string":
+        # A string would match the runtime by substring and plan no grant.
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE, "members": "serviceAccount:runtime@example.invalid"}]
+    elif read == "bucket-policy-bindings-object":
+        cloud.policy_of(production)["bindings"] = {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}
+    elif read == "job-policy-condition-string":
+        cloud.job_policy["bindings"][0]["condition"] = "true"
+    elif read == "bucket-labels-list":
+        cloud.buckets[production]["labels"] = ["purpose", "feedback-media"]
+    elif read == "metric-descriptor-list":
+        cloud.metric["metricDescriptor"] = []
+    elif read == "job-labels-string":
+        cloud.job["labels"] = "purpose=feedback-media"
+    elif read == "alert-policy-not-object":
+        cloud.policies.append("PRIVATE_POLICY_SENTINEL")
+    elif read == "bucket-policy-no-etag":
+        del cloud.policy_of(production)["etag"]  # its write-back would not be conditional
+    elif read == "alert-page-not-list":
+        cloud.policies = 7
+    elif read == "alert-conditions-number":
+        cloud.policies[0]["conditions"] = 5
+    elif read == "alert-conditions-object":
+        cloud.policies[0]["conditions"] = {"name": "PRIVATE_POLICY_SENTINEL"}
+    elif read in DENIED_READS:
+        cloud.fail_paths[DENIED_READS[read]] = 403
+    elif read == "bucket-policy-denied":
+        cloud.fail_paths[ops.policy_path("storage/v1/b/" + production, storage=True)] = 403
+    else:
+        cloud.fail_paths["v1/" + ops.ROLE] = 403
+    with pytest.raises(ops.OperationError) as refused:
+        ops.provision(cloud, cloud.service)
+    assert str(refused.value).startswith(refusal) and "SENTINEL" not in str(refused.value)
+    assert cloud.writes == []
+    # Planning stopped at the read: the write permissions were never tested.
+    assert len([call for call in cloud.calls if call[0] == "cloudresourcemanager"]) == 1
+
+
+@pytest.mark.parametrize("bindings", [
+    "allUsers",
+    "",
+    {},
+    {"role": "roles/storage.objectViewer", "members": ["allUsers"]},
+    [["roles/storage.objectViewer", "allUsers"]],
+    [{"role": "roles/storage.objectViewer", "members": "allUsers"}],
+    [{"role": ["roles/storage.objectViewer"], "members": ["allUsers"]}],
+    [{"role": "roles/storage.objectViewer", "members": [{"member": "allUsers"}]}],
+    [{"role": "roles/storage.objectViewer", "members": ["allUsers"], "condition": "true"}],
+], ids=["string", "empty-string", "empty-object", "object", "binding-not-object", "members-string", "role-list",
+        "member-object", "condition-string"])
+def test_a_malformed_policy_never_reads_as_private_or_granted(bindings):
+    policy = {"version": 3, "etag": "v", "bindings": bindings}
+    for check in (ops.check_private_policy, lambda p: ops.bound(p, "roles/storage.objectViewer", "allUsers"),
+                  lambda p: ops.check_runtime_bucket_policy(p, "runtime@example.invalid", granted=False)):
+        with pytest.raises(ops.OperationError, match="^Resource policy is malformed$"):
+            check(policy)
+
+
+@pytest.mark.parametrize("case", ["second-binding", "no-members", "no-etag"])
+def test_bind_writes_exactly_when_the_planners_bound_test_is_false(case):
+    """A member already in any unconditional binding of the role is not re-granted, so a plan that read the grant as
+    present never meets an untested setIamPolicy; a binding without members still takes one; an etag-less policy is
+    refused before any write, since its write-back would not be conditional."""
+    cloud = CloudFixture()
+    production, member = ops.BUCKETS["production"], "serviceAccount:runtime@example.invalid"
+    if case == "second-binding":
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE, "members": ["serviceAccount:other@example.invalid"]},
+                                                   {"role": ops.ROLE, "members": [member]}]
+    elif case == "no-members":
+        cloud.policy_of(production)["bindings"] = [{"role": ops.ROLE}]
+    else:  # a grant to add, on a policy whose write-back could not be conditional
+        cloud.policy_of(production)["bindings"] = []
+        del cloud.policy_of(production)["etag"]
+    assert ops.bound(cloud.policy_of(production), ops.ROLE, member) is (case == "second-binding")
+    if case == "no-etag":
+        with pytest.raises(ops.OperationError, match="^Resource policy has no etag$"):
+            ops.bind(cloud, "storage", "storage/v1/b/" + production, ops.ROLE, member, storage=True)
+        assert cloud.writes == []
+        return
+    ops.bind(cloud, "storage", "storage/v1/b/" + production, ops.ROLE, member, storage=True)
+    assert (len(cloud.writes) == 1) is (case == "no-members")
+    assert ops.bound(cloud.policy_of(production), ops.ROLE, member)
+    if case == "no-members":
+        assert cloud.writes[0][3]["etag"] == "bucket-version"  # the write-back is conditional on the read
+
+
+def test_provision_reads_are_exactly_the_reads_its_runs_make(monkeypatch):
+    """The first stage tests PROVISION_READS on every run, so it must hold reads only, and every read the runs make."""
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
+    read_verbs = METHOD_VERBS["GET"]
+    assert all(name.rsplit(".", 1)[-1] in read_verbs for name in ops.PROVISION_READS)
+    assert not any(name.rsplit(".", 1)[-1] in read_verbs for name in ops.EVERY_RUN_WRITES | ops.CONDITIONAL_WRITES)
+    read = set()
+    for make in (lambda: CloudFixture(absent=True), CloudFixture, founder_bootstrapped, unbound):
+        cloud = make()
+        cloud.pending = True
+        cloud.wait = types.MethodType(ops.Cloud.wait, cloud)
+        ops.provision(cloud, cloud.service)
+        read |= step_permissions(label for (_api, _path, method, _body), label in zip(cloud.calls, cloud.steps)
+                                 if method == "GET")
+    assert read == ops.PROVISION_READS
+
+
+@pytest.mark.parametrize("shape", ["template-list", "containers-object"])
+def test_inspection_refuses_a_malformed_component_without_a_traceback(capsys, shape):
+    cloud = CloudFixture()
+    if shape == "template-list":
+        cloud.job["template"] = ["not", "an", "object"]
+    else:  # one entry, but not a list: reading its first container is a missing index
+        cloud.job["template"]["template"]["containers"] = {"name": "cleanup"}
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup job") + "$"):
+        ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup job: refused (answer is malformed)" in output and "Cleanup hourly schedule: verified" in output
+    assert cloud.writes == []
+
+
 def test_provision_from_nothing_tests_its_capability_before_its_first_write(capsys):
     cloud = CloudFixture(absent=True)
     ops.provision(cloud, cloud.service)
     first_write = cloud.calls.index(cloud.writes[0])
     capability = [i for i, call in enumerate(cloud.calls) if call[1].endswith(":testIamPermissions")]
-    assert len(capability) == 3 and max(capability) < first_write
+    # Reads, actAs and image read, then the writes this state needs: all before the first write.
+    assert len(capability) == 4 and max(capability) < first_write
     assert ("artifactregistry", f"v1/{ops.IMAGE_REPOSITORY}:testIamPermissions") in {call[:2] for call in cloud.calls}
     assert cloud.role["includedPermissions"] == ops.PERMISSIONS and cloud.job["labels"] == {"purpose": "feedback-media"}
     assert set(cloud.buckets) == set(ops.BUCKETS.values()) and cloud.schedule["state"] == "ENABLED"
@@ -588,10 +854,11 @@ def test_provision_from_nothing_tests_its_capability_before_its_first_write(caps
 
 
 @pytest.mark.parametrize("missing", ["logging.logMetrics.create", "iam.roles.create", "run.jobs.runWithOverrides",
-                                     "act-as", "image-read", "nothing-granted", "string-answer", "non-string-entries", "no-list"])
+                                     "storage.buckets.getIamPolicy", "act-as", "image-read", "nothing-granted",
+                                     "string-answer", "non-string-entries", "no-list"])
 def test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission(missing):
     cloud = CloudFixture(absent=True)
-    expected = sorted(ops.PROVISION_PERMISSIONS)  # an answer that grants nothing, or cannot be read, lacks everything
+    expected = sorted(ops.PROVISION_READS)  # an answer that grants nothing, or cannot be read, stops at the reads
     if missing == "act-as":
         cloud.act_as = False
         expected = ["iam.serviceAccounts.actAs on the API runtime identity"]
@@ -663,12 +930,23 @@ def test_inspection_of_an_unprovisioned_project_reports_absence_not_refusal(caps
     assert cloud.writes == []
 
 
+class CutShortBody(io.RawIOBase):
+    """An error body that is cut short while it is read."""
+
+    def readable(self):
+        return True
+
+    def read(self, _size=-1):
+        raise http.client.IncompleteRead(b"PRINCIPAL_SENTINEL")
+
+
 def provider(body, code=403):
     cloud = object.__new__(ops.Cloud)
     cloud.token = "synthetic-token"
 
     def refuse(request, timeout):
-        raise HTTPError(request.full_url, code, "refused", {}, io.BytesIO(body if isinstance(body, bytes) else json.dumps(body).encode()))
+        fp = body() if callable(body) else io.BytesIO(body if isinstance(body, bytes) else json.dumps(body).encode())
+        raise HTTPError(request.full_url, code, "refused", {}, fp)
     return cloud, refuse
 
 
@@ -692,8 +970,9 @@ def provider(body, code=403):
      "; PERMISSION_DENIED; IAM_PERMISSION_DENIED; denied an unlisted permission"),
     (b'{"error": ' + b"[" * 100000 + b"]" * 100000 + b"}", ""),
     ({"error": "PRINCIPAL_SENTINEL"}, ""),
+    (CutShortBody, ""),
 ], ids=["iam-denial", "api-disabled", "unknown-values", "not-json", "unhashable-values", "unlisted-permission",
-        "nested-beyond-recursion", "non-object-error"])
+        "nested-beyond-recursion", "non-object-error", "body-cut-short"])
 def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload(monkeypatch, body, detail):
     cloud, refuse = provider(body)
     monkeypatch.setattr(ops, "urlopen", refuse)
@@ -707,15 +986,87 @@ def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its
     assert cloud.call("iam", "v1/" + ops.ROLE, missing_ok=True, step=ops.ROLE_READ) is None
 
 
-def test_inspection_reports_each_operations_capability_without_writing(capsys):
+def test_every_permission_a_step_label_names_can_be_named_in_a_refusal():
+    """A refusal names its denied permission only from KNOWN_PERMISSIONS, so that set must hold every label's."""
+    named = step_permissions(value for name, value in vars(ops).items() if name.isupper() and isinstance(value, str))
+    assert {ops.ACT_AS, ops.IMAGE_READ, "run.services.update"} <= named
+    assert named <= ops.KNOWN_PERMISSIONS, sorted(named - ops.KNOWN_PERMISSIONS)
+
+
+@pytest.mark.parametrize("code", [400, 403, 409, 429, 500])
+def test_only_a_404_reads_as_absent(monkeypatch, code):
+    """A read that may find its resource absent takes only a 404 as absent: any other refusal stops it, labelled, so a
+    denied read is never planned as a create."""
+    cloud, refuse = provider({"error": {"code": code, "status": "PERMISSION_DENIED"}}, code=code)
+    monkeypatch.setattr(ops, "urlopen", refuse)
+    with pytest.raises(ops.ProviderError, match="^" + re.escape(f"Object role read [iam.roles.get] failed (HTTP {code}; ")):
+        cloud.call("iam", "v1/" + ops.ROLE, missing_ok=True, step=ops.ROLE_READ)
+
+
+@pytest.mark.parametrize("change, refusal", [
+    ("job-relabelled", "Existing cleanup job is not owned by this feature"),
+    ("schedule-foreign", "Existing cleanup schedule is not owned by this feature"),
+    ("job-policy-public", "Resource policy includes a public principal"),
+    ("bucket-drift", "production bucket differs from approved private retention settings"),
+    ("role-disabled", "Feedback object role stage is DISABLED"),
+    ("job-etag-moved", None),
+])
+def test_each_write_step_rechecks_what_it_writes_after_the_plan(monkeypatch, change, refusal):
+    """The plan's reads can be stale when a step writes. Each step re-reads what it writes, refuses it if it is no
+    longer this feature's, and writes under the etag it reads then: the write-time ownership and etag checks."""
+    monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
     cloud = CloudFixture()
+    production, tested = ops.BUCKETS["production"], []
+    original = cloud.call
+
+    def call(api, path, **kwargs):
+        if api == "cloudresourcemanager" and path.endswith(":testIamPermissions"):
+            tested.append(path)
+            if len(tested) == 2:  # the plan is complete; the state changes before the first write
+                if change == "job-relabelled":
+                    cloud.job["labels"]["purpose"] = "sql-backups"
+                elif change == "schedule-foreign":
+                    cloud.schedule["description"] = "Another team's hourly job"
+                elif change == "job-policy-public":
+                    cloud.job_policy["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
+                elif change == "bucket-drift":
+                    cloud.buckets[production]["versioning"]["enabled"] = True
+                elif change == "role-disabled":
+                    cloud.role["stage"] = "DISABLED"
+                else:
+                    cloud.job["etag"] = "job-version-2"
+        return original(api, path, **kwargs)
+    cloud.call = call
+    if refusal is None:
+        ops.provision(cloud, cloud.service)
+        patches = [body for api, path, method, body in cloud.writes if api == "run" and method == "PATCH"]
+        assert len(patches) == 1 and patches[0]["etag"] == "job-version-2"  # read at write time, not at the plan
+        return
+    with pytest.raises(ops.OperationError, match="^" + re.escape(refusal)):
+        ops.provision(cloud, cloud.service)
+    written = {(api, method) for api, _path, method, _body in cloud.writes}
+    assert {"job-relabelled": ("run", "PATCH"), "schedule-foreign": ("cloudscheduler", "PATCH"),
+            "job-policy-public": ("run", "POST"), "bucket-drift": ("storage", "PUT"),
+            "role-disabled": ("storage", "PUT")}[change] not in written
+
+
+def test_inspection_reports_each_operations_capability_without_writing(capsys):
+    cloud = CloudFixture(absent=True)
     cloud.granted = ops.PROVISION_PERMISSIONS - {"logging.logMetrics.create", "monitoring.alertPolicies.create"}
     ops.report_capabilities(cloud, cloud.service)
     output = capsys.readouterr().out
     assert ("Capability for feedback-media-provision-apply: missing logging.logMetrics.create, "
             "monitoring.alertPolicies.create") in output
-    assert "Capability for feedback-media-verify-apply: missing " in output and "resourcemanager.projects.setIamPolicy" in output
+    # The owner-equivalent grant is never a standing requirement: verify-inspect reports it only while it is needed.
+    assert "Capability for feedback-media-verify-apply (every run): missing " in output
+    assert "resourcemanager.projects.setIamPolicy" not in output
     assert cloud.writes == [] and "runtime@example.invalid" not in output
+    # On the existing state those creates are not needed, so the same grants suffice.
+    cloud = CloudFixture()
+    cloud.granted = ops.PROVISION_PERMISSIONS - {"logging.logMetrics.create", "monitoring.alertPolicies.create"}
+    ops.report_capabilities(cloud, cloud.service)
+    assert "Capability for feedback-media-provision-apply: all required permissions present" in capsys.readouterr().out
+    cloud = CloudFixture()
 
     def unreadable(api, path, **kwargs):
         raise ops.ProviderError(kwargs["step"] + " failed (HTTP 403)")
@@ -841,6 +1192,9 @@ def test_a_failed_read_never_stops_another_resources_drift_check(capsys, unreada
     ("foreign-job", "Existing cleanup job is not owned by this feature"),
     ("job-public", "Resource policy includes a public principal"),
     ("foreign-schedule", "Existing cleanup schedule is not owned by this feature"),
+    ("schedule-paused", "Existing cleanup schedule is PAUSED; provisioning does not resume it"),
+    ("schedule-disabled", "Existing cleanup schedule is DISABLED; provisioning does not resume it"),
+    ("schedule-unrecognized", "Existing cleanup schedule is in an unrecognized state; provisioning does not resume it"),
     ("metric-drift", "Feedback cleanup heartbeat metric is missing, disabled or differs"),
     ("second-policy-drift", "Existing feedback monitoring policy differs from the approved owned definition"),
 ])
@@ -868,13 +1222,32 @@ def test_provision_refuses_a_state_it_would_not_repair_before_any_write(state, r
         cloud.job_policy["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
     elif state == "foreign-schedule":
         cloud.schedule = {"description": "Another team's hourly job"}
+    elif state.startswith("schedule-"):
+        known = {"schedule-paused": "PAUSED", "schedule-disabled": "DISABLED"}
+        cloud.schedule = {"description": ops.SCHEDULE_DESCRIPTION, "state": known.get(state, "PRIVATE_STATE_SENTINEL")}
     elif state == "metric-drift":
         cloud.metric = {**ops.heartbeat_spec(), "filter": 'resource.type="cloud_run_job"'}
     else:  # the first policy is absent; the second exists in another form
         cloud.policies = [cloud.policy_readback(ops.policy_specs()[1])]
         cloud.policies[0]["enabled"] = False
-    with pytest.raises(ops.OperationError, match=re.escape(refusal)):
+    with pytest.raises(ops.OperationError, match=re.escape(refusal)) as refused:
         ops.provision(cloud, cloud.service)
+    assert cloud.writes == []
+    assert "PRIVATE_STATE_SENTINEL" not in str(refused.value)
+
+
+def test_inspection_names_the_state_of_an_owned_schedule_provisioning_will_not_resume(capsys):
+    """A paused owned schedule reads as refused, naming its state; one left UPDATE_FAILED, which provisioning's update
+    recovers, reads as unverified and names that state."""
+    cloud = CloudFixture()
+    cloud.schedule["state"] = "PAUSED"
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup schedule") + "$"):
+        ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup schedule: refused (Existing cleanup schedule is PAUSED; provisioning does not resume it)" in output
+    cloud.schedule["state"] = "UPDATE_FAILED"
+    assert ops.inspect(cloud) is False
+    assert "Cleanup hourly schedule: unverified (state UPDATE_FAILED)" in capsys.readouterr().out
     assert cloud.writes == []
 
 
@@ -883,9 +1256,15 @@ def test_provision_still_converges_drift_in_resources_this_feature_owns(monkeypa
     cloud = CloudFixture()
     cloud.job["template"]["template"]["containers"][0]["image"] = API_IMAGE + ":retired"
     cloud.schedule["httpTarget"]["body"] = "overridden-command"
+    cloud.schedule["state"] = "UPDATE_FAILED"
+    # An interrupted provision (or a hand-made bucket) leaves a bucket in the approved shape without its runtime grant.
+    preview = ops.BUCKETS["preview"]
+    cloud.bucket_policies[preview]["bindings"] = []
     ops.provision(cloud, cloud.service)
     assert cloud.job["template"]["template"]["containers"][0]["image"] == API_IMAGE + ":verified"
-    assert cloud.schedule["httpTarget"]["body"] == "e30="
+    assert cloud.schedule["httpTarget"]["body"] == "e30=" and cloud.schedule["state"] == "ENABLED"
+    assert cloud.bucket_policies[preview]["bindings"] == [
+        {"role": ops.ROLE, "members": ["serviceAccount:runtime@example.invalid"]}]
 
 
 class Dropped:
@@ -961,5 +1340,5 @@ def test_inspection_reports_a_missing_image_read_for_both_operations(capsys):
     assert ("Capability for feedback-media-provision-apply: missing "
             "artifactregistry.repositories.downloadArtifacts on the API image repository") in output
     assert "artifactregistry.repositories.downloadArtifacts on the API image repository" in output.split(
-        "Capability for feedback-media-verify-apply: ", 1)[1]
+        "Capability for feedback-media-verify-apply (every run): ", 1)[1]
     assert cloud.writes == []

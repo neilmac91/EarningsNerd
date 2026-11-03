@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import hmac
 import importlib.util
 import json
 import base64
+import re
 import struct
 import sys
 import types
@@ -503,7 +505,7 @@ def test_live_verification_refuses_before_any_write_without_completed_media_prov
     assert all(method == "GET" and step for _api, method, step in calls)
 
 
-@pytest.mark.parametrize("refusal", [None, "prerequisites", "admission"])
+@pytest.mark.parametrize("refusal", [None, "prerequisites", "bootstrap", "admission"])
 def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_first_write(monkeypatch, refusal):
     events = []
     monkeypatch.setenv("GITHUB_RUN_ID", RUN_ID.split("-")[0])
@@ -517,6 +519,8 @@ def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_fi
         if refusal == "prerequisites":
             raise verify.media.OperationError("Live verification refused before any write")
     monkeypatch.setattr(verify, "require_media_prerequisites", prerequisites)
+    monkeypatch.setattr(verify, "bootstrap_gaps", lambda _cloud, _deployer: events.append("bootstrap") or (
+        ["resourcemanager.projects.setIamPolicy"] if refusal == "bootstrap" else []))
     class Sql:
         def preflight(self):
             events.append("sql preflight")
@@ -539,11 +543,14 @@ def test_verify_apply_checks_media_prerequisites_and_sql_admission_before_its_fi
         def call(self, api, path, *, method="GET", **_):
             assert method == "GET" and path == "v2/" + verify.media.SERVICE
             return {"template": {"containers": [{"image": IMAGE}]}}
-    with pytest.raises(verify.media.OperationError):
+    with pytest.raises(verify.media.OperationError) as refused:
         verify.provision(Cloud())
-    expected = ["permissions", "media prerequisites", "sql admin", "sql preflight", "sql admission", "first write"]
-    stop = {None: len(expected), "prerequisites": 2, "admission": 5}[refusal]
+    expected = ["permissions", "media prerequisites", "bootstrap", "sql admin", "sql preflight", "sql admission", "first write"]
+    stop = {None: len(expected), "prerequisites": 2, "bootstrap": 3, "admission": 6}[refusal]
     assert events == expected[:stop]
+    if refusal == "bootstrap":
+        assert str(refused.value) == ("Verification provisioning lacks required IAM permissions for this state; nothing "
+                                      "was changed: resourcemanager.projects.setIamPolicy")
 
 
 def test_the_verification_preflight_tests_every_permission_its_reads_before_writing_name():
@@ -563,3 +570,321 @@ def test_the_verification_preflight_tests_every_permission_its_reads_before_writ
     # is unlabelled) also run before or between writes.
     polled = verify.media.OPERATION_READ.split(" [", 1)[1].rstrip("]").split(", ")
     assert named | set(polled) | {"run.revisions.get"} <= verify.PROJECT_PERMISSIONS
+
+
+DEPLOYER = "github-ops-fixture@earnings-nerd.iam.gserviceaccount.com"
+
+
+class BootstrapCloud:
+    """The verifier's identity, grants and secrets as the founder's one-time owner commands leave them (or absent)."""
+
+    def __init__(self, bootstrapped=True):
+        runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
+        self.calls, self.granted, self.denied, self.latest_version = [], None, set(), None
+        self.project_granted = None  # the project's testIamPermissions answer; None answers as the resources do
+        self.secret_policies, self.latest_versions = {}, {}  # per-secret answers in place of the shared ones
+        self.run, self.run_policies, self.schedule = {}, {}, None  # the Cloud Run job and service, and the schedule
+        self.identity = {"description": verify.PURPOSE} if bootstrapped else None
+        # Google returns every IAM policy with an etag; its write-back is conditional on it.
+        self.sa_policy = {"etag": "BwYsa", "bindings": [{"role": role, "members": [runner]} for role in verify.SA_ROLES]
+                          if bootstrapped else []}
+        self.project = {"etag": "BwYproject", "bindings": [{"role": "roles/cloudsql.client", "members": [member]}]
+                        if bootstrapped else []}
+        self.secrets = {name: {"labels": {"purpose": verify.PURPOSE}} for name in (verify.DB_SECRET, verify.KEY_SECRET)} if bootstrapped else {}
+        self.secret_policy = {"etag": "BwYsecret", "bindings": [{"role": verify.ACCESSOR, "members": [runner, member]},
+                                                               {"role": verify.VERSION_ADDER, "members": [runner]}]}
+        self.bucket_policy = {"etag": "CAE=", "bindings": [{"role": verify.media.ROLE, "members": ["serviceAccount:runtime@example.invalid"]
+                                                           + ([member] if bootstrapped else [])}]}
+
+    def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        self.calls.append((api, path, method, body))
+        if any(part in path for part in self.denied):
+            raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 403)")
+        if path.endswith(":testIamPermissions"):
+            granted = self.project_granted if api == "cloudresourcemanager" and self.project_granted is not None else self.granted
+            return {"permissions": [name for name in body["permissions"] if granted is None or name in granted]}
+        assert method == "GET" or path.endswith(":getIamPolicy") or ":getIamPolicy?" in path, (api, path, method)
+        answer = self.answer(api, path)
+        if answer is None and not missing_ok:
+            # Google answers an absent resource with 404, which Cloud.call returns as None only when the caller allows it.
+            raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 404; NOT_FOUND)")
+        return answer
+
+    def answer(self, api, path):
+        if api == "iam":
+            return self.sa_policy if ":getIamPolicy" in path else self.identity
+        if api == "cloudresourcemanager":
+            return self.project
+        if api == "secretmanager":
+            name = path.split("/secrets/", 1)[1].split("/", 1)[0].split(":", 1)[0]
+            if ":getIamPolicy" in path:
+                return self.secret_policies.get(name, self.secret_policy)
+            if path.endswith("/versions/latest"):
+                # None: the founder adds no value, and the run adds the first version itself
+                return self.latest_versions.get(name, self.latest_version)
+            return self.secrets.get(name)
+        if api == "storage":
+            return self.bucket_policy
+        if api == "run":
+            if ":getIamPolicy" in path:
+                return self.run_policies.get(path.split(":getIamPolicy", 1)[0])
+            return self.run.get(path)
+        if api == "cloudscheduler":
+            return self.schedule
+        raise AssertionError((api, path))
+
+
+def test_a_founder_bootstrap_removes_every_owner_equivalent_and_identity_write_from_verify_apply():
+    cloud = BootstrapCloud()
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == []
+    project = [set(body["permissions"]) for api, path, _method, body in cloud.calls
+               if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+    assert project == [{"run.jobs.create", "run.jobs.setIamPolicy", "run.services.create", "run.services.setIamPolicy",
+                        "cloudscheduler.jobs.create"}]
+    resource = {(api, path.rsplit("/", 1)[-1]) for api, path, _method, _body in cloud.calls
+                if api != "cloudresourcemanager" and path.endswith(":testIamPermissions")}
+    assert resource == {("iam", verify.IDENTITY + ":testIamPermissions"), ("secretmanager", verify.DB_SECRET + ":testIamPermissions"),
+                        ("secretmanager", verify.KEY_SECRET + ":testIamPermissions")}
+    assert not (verify.PROJECT_PERMISSIONS & {"resourcemanager.projects.setIamPolicy", "iam.serviceAccounts.setIamPolicy",
+                                              "iam.serviceAccounts.create", "secretmanager.secrets.setIamPolicy"})
+    assert verify.CONDITIONAL_PERMISSIONS.isdisjoint(verify.PROJECT_PERMISSIONS)
+
+
+def test_without_a_bootstrap_verify_apply_still_names_every_grant_it_would_make():
+    cloud = BootstrapCloud(bootstrapped=False)
+    cloud.granted = set()
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == sorted(verify.CONDITIONAL_PERMISSIONS - {
+        "run.jobs.update", "run.services.update", "cloudscheduler.jobs.update"})
+
+
+@pytest.mark.parametrize("defect, refusal", [
+    ("identity-foreign", "not the active feature-owned identity"),
+    ("identity-extra-member", "identity grants differ from the approved bootstrap"),
+    ("identity-token-creator", "identity grants differ from the approved bootstrap"),
+    ("identity-members-string", "Resource policy is malformed"),
+    ("project-conditional", "unexpected direct project privileges"),
+    ("project-editor", "unexpected direct project privileges"),
+    ("project-bindings-object", "Resource policy is malformed"),
+    ("secret-foreign", "secret is not feature-owned"),
+    ("secret-labels-string", "secret is not feature-owned"),
+    ("secret-admin", "secret grants differ from the approved bootstrap"),
+    ("secret-public", "public principal"),
+    ("bucket-admin", "Runtime bucket grants differ"),
+    ("identity-policy-denied", "iam operation failed (HTTP 403)"),
+    ("secret-denied", "secretmanager operation failed (HTTP 403)"),
+    ("secret-policy-no-etag", "Resource policy has no etag"),
+    ("project-policy-no-etag", "Resource policy has no etag"),
+    ("secret-version-disabled", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+])
+def test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write(defect, refusal):
+    """A denied read is never planned as absent, and a malformed or differing one never as approved."""
+    cloud = BootstrapCloud()
+    member = "serviceAccount:" + verify.IDENTITY
+    if defect == "identity-foreign":
+        cloud.identity = {"description": "someone else's"}
+    elif defect == "identity-extra-member":
+        cloud.sa_policy["bindings"][0]["members"].append("user:someone@example.invalid")
+    elif defect == "identity-token-creator":
+        cloud.sa_policy["bindings"].append({"role": "roles/iam.serviceAccountTokenCreator", "members": ["serviceAccount:" + DEPLOYER]})
+    elif defect == "identity-members-string":
+        # A string would match the deployer by substring and plan no grant.
+        cloud.sa_policy["bindings"] = [{"role": role, "members": "serviceAccount:" + DEPLOYER} for role in verify.SA_ROLES]
+    elif defect == "project-conditional":
+        cloud.project["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    elif defect == "project-editor":
+        cloud.project["bindings"].append({"role": "roles/editor", "members": [member]})
+    elif defect == "project-bindings-object":
+        cloud.project["bindings"] = {"role": "roles/cloudsql.client", "members": [member]}
+    elif defect == "secret-foreign":
+        cloud.secrets[verify.KEY_SECRET] = {"labels": {}}
+    elif defect == "secret-labels-string":
+        cloud.secrets[verify.KEY_SECRET] = {"labels": "purpose=" + verify.PURPOSE}
+    elif defect == "secret-admin":
+        cloud.secret_policy["bindings"].append({"role": "roles/secretmanager.admin", "members": ["serviceAccount:" + DEPLOYER]})
+    elif defect == "secret-public":
+        cloud.secret_policy["bindings"][0]["members"].append("allUsers")
+    elif defect == "identity-policy-denied":
+        cloud.denied = {":getIamPolicy?options.requestedPolicyVersion=3"}
+    elif defect == "secret-denied":
+        cloud.denied = {"/secrets/" + verify.DB_SECRET}
+    elif defect == "secret-policy-no-etag":
+        del cloud.secret_policy["etag"]
+    elif defect == "project-policy-no-etag":
+        del cloud.project["etag"]
+    elif defect == "secret-version-disabled":
+        # The run reads the latest value and never rotates one: a disabled latest version would stop it mid-apply.
+        cloud.latest_version = {"name": "projects/p/secrets/s/versions/3", "state": "DISABLED"}
+    else:
+        cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectAdmin", "members": [member]})
+    with pytest.raises(verify.media.OperationError, match=re.escape(refusal)):
+        verify.bootstrap_gaps(cloud, DEPLOYER)
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+    # Planning stopped at the read: no write permission was tested.
+    assert not [call for call in cloud.calls if call[0] == "cloudresourcemanager" and call[1].endswith(":testIamPermissions")]
+
+
+def test_a_bootstrapped_identity_the_deployer_cannot_yet_act_as_is_named_not_assumed():
+    cloud = BootstrapCloud()
+    # The founder's resource-scoped grants have not propagated yet: the run names them rather than failing mid-apply.
+    cloud.granted = verify.PROJECT_PERMISSIONS | verify.CONDITIONAL_PERMISSIONS - {"secretmanager.versions.add"}
+    assert verify.bootstrap_gaps(cloud, DEPLOYER) == [
+        "actAs and getOpenIdToken on the verification identity",
+        f"secretmanager.versions.add on {verify.DB_SECRET}", f"secretmanager.versions.add on {verify.KEY_SECRET}"]
+
+
+@pytest.mark.parametrize("case", ["bootstrapped", "not-bootstrapped", "no-image-read", "no-deployer", "denied"])
+def test_verify_inspect_reports_what_verify_apply_would_lack_without_writing(monkeypatch, capsys, case):
+    cloud = BootstrapCloud(bootstrapped=case != "not-bootstrapped")
+    if case == "not-bootstrapped":
+        cloud.granted = verify.PROJECT_PERMISSIONS | {verify.media.IMAGE_READ}
+    if case == "no-image-read":
+        # Exactly the preflight verify-apply runs first, so the line never reads complete while the apply would refuse.
+        cloud.granted = verify.PROJECT_PERMISSIONS | verify.CONDITIONAL_PERMISSIONS
+    if case == "denied":
+        cloud.denied = {"/secrets/" + verify.KEY_SECRET}
+    if case != "no-deployer":
+        monkeypatch.setenv("FEEDBACK_VERIFY_DEPLOYER", DEPLOYER)
+    else:
+        monkeypatch.delenv("FEEDBACK_VERIFY_DEPLOYER", raising=False)
+    verify.report_capability(cloud)
+    line = capsys.readouterr().out.strip()
+    assert line == {
+        "bootstrapped": "Capability for feedback-media-verify-apply: all required permissions present",
+        "not-bootstrapped": "Capability for feedback-media-verify-apply: missing " + ", ".join(sorted(
+            verify.CONDITIONAL_PERMISSIONS - {"run.jobs.update", "run.services.update", "cloudscheduler.jobs.update"})),
+        "no-image-read": ("Capability for feedback-media-verify-apply: missing artifactregistry.repositories.downloadArtifacts"
+                          " on the API image repository"),
+        "no-deployer": "Capability for feedback-media-verify-apply: UNVERIFIED (the configured project deployer is unavailable)",
+        "denied": "Capability for feedback-media-verify-apply: UNVERIFIED (secretmanager operation failed (HTTP 403))",
+    }[case]
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+
+class IdentityCloud(BootstrapCloud):
+    """BootstrapCloud with the object role and preview bucket readable, recording writes, for ensure_identity."""
+
+    def __init__(self):
+        super().__init__()
+        self.writes = []
+
+    def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        if method != "GET" and not path.endswith(":getIamPolicy") and ":getIamPolicy?" not in path:
+            self.calls.append((api, path, method, body))
+            self.writes.append((api, path, body))
+            return {}
+        if api == "iam" and path == "v1/" + verify.media.ROLE:
+            self.calls.append((api, path, method, body))
+            return {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"}
+        if api == "storage" and path == "storage/v1/b/" + verify.BUCKET:
+            self.calls.append((api, path, method, body))
+            return {"name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+                    "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
+                    "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+        return super().call(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
+
+
+@pytest.mark.parametrize("case", ["second-binding", "missing-role"])
+def test_ensure_identity_writes_the_identity_policy_exactly_when_bootstrap_planning_does(case):
+    """The identity-policy write happens exactly when bootstrap_gaps planned its setIamPolicy, so it is never untested."""
+    cloud = IdentityCloud()
+    runner = "serviceAccount:" + DEPLOYER
+    if case == "second-binding":
+        # The deployer holds each role; the second through a later binding of the same role.
+        cloud.sa_policy["bindings"] = [{"role": verify.SA_ROLES[0], "members": [runner]},
+                                       {"role": verify.SA_ROLES[1], "members": []},
+                                       {"role": verify.SA_ROLES[1], "members": [runner]}]
+    else:
+        cloud.sa_policy["bindings"] = [{"role": verify.SA_ROLES[0], "members": [runner]}]
+    planned = "iam.serviceAccounts.setIamPolicy" in verify.bootstrap_gaps(cloud_copy(cloud), DEPLOYER)
+    verify.ensure_identity(cloud, DEPLOYER)
+    identity_writes = [body for api, path, body in cloud.writes if api == "iam" and path.endswith(":setIamPolicy")]
+    assert planned is (case == "missing-role")
+    assert len(identity_writes) == (1 if case == "missing-role" else 0)
+    assert cloud.writes == [] if case == "second-binding" else all(api == "iam" for api, _path, _body in cloud.writes)
+    if identity_writes:
+        assert identity_writes[0]["policy"]["etag"] == "BwYsa"  # conditional on the read
+        assert verify.media.bound(identity_writes[0]["policy"], verify.SA_ROLES[1], runner)
+
+
+def cloud_copy(cloud):
+    """A planning view of the same state that grants nothing, so every write the state needs is named."""
+    planning = BootstrapCloud()
+    planning.sa_policy = copy.deepcopy(cloud.sa_policy)
+    planning.granted = set()
+    return planning
+
+
+def rerun_cloud():
+    """A bootstrapped project on a later run: its job, service and schedule exist, and both secrets hold a value."""
+    cloud = BootstrapCloud()
+    member = "serviceAccount:" + verify.IDENTITY
+    for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+        cloud.run[path] = {"labels": {"purpose": verify.PURPOSE}, "etag": "run-version"}
+        cloud.run_policies[path] = {"etag": "BwYrun", "bindings": [{"role": "roles/run.invoker", "members": [member]}]}
+    cloud.schedule = {"description": verify.PURPOSE}
+    cloud.latest_version = {"name": "projects/p/secrets/s/versions/1", "state": "ENABLED"}
+    return cloud
+
+
+RERUN = ["cloudscheduler.jobs.update", "run.jobs.update", "run.services.update"]
+
+
+@pytest.mark.parametrize("state, expected", [
+    ("first-run", ["cloudscheduler.jobs.create", "run.jobs.create", "run.jobs.setIamPolicy", "run.services.create",
+                   "run.services.setIamPolicy", f"secretmanager.versions.add on {verify.DB_SECRET}",
+                   f"secretmanager.versions.add on {verify.KEY_SECRET}"]),
+    ("rerun", RERUN),
+    ("rerun-job-invoker-missing", sorted(RERUN + ["run.jobs.setIamPolicy"])),
+    ("rerun-service-invoker-missing", sorted(RERUN + ["run.services.setIamPolicy"])),
+    ("rerun-schedule-absent", ["cloudscheduler.jobs.create", "run.jobs.update", "run.services.update"]),
+    ("rerun-identity-without-grants", sorted(RERUN + ["iam.serviceAccounts.setIamPolicy"])),
+    ("rerun-project-grant-missing", sorted(RERUN + ["resourcemanager.projects.setIamPolicy"])),
+    ("rerun-key-accessor-deployer-only", sorted(RERUN + ["secretmanager.secrets.setIamPolicy"])),
+    ("rerun-key-accessor-identity-only", sorted(RERUN + ["secretmanager.secrets.setIamPolicy"])),
+    ("rerun-bucket-grant-missing", sorted(RERUN + ["storage.buckets.setIamPolicy"])),
+    ("rerun-job-foreign", "Existing verification cleanup job is not feature-owned"),
+    ("rerun-service-public", "Resource policy includes a public principal"),
+    ("rerun-schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
+    ("rerun-identity-disabled", "Existing verification identity is not the active feature-owned identity"),
+    ("rerun-secret-grant-conditional", "Existing verification secret grants differ from the approved bootstrap"),
+])
+def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected):
+    """The verifier's planning table, read against secret(), ensure_identity, ensure_job and the service deploy: a
+    state's every write is named and no other, and a re-run tests only the updates. The resource-held prerequisites are
+    granted on the identity, and versions.add is not, since only a secret with no value needs it."""
+    cloud = BootstrapCloud() if state == "first-run" else rerun_cloud()
+    cloud.project_granted = set()  # every project write the state needs is named
+    cloud.granted = {verify.media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"}
+    member, runner = "serviceAccount:" + verify.IDENTITY, "serviceAccount:" + DEPLOYER
+    job, service = "v2/" + verify.JOB, "v2/" + verify.SERVICE
+    if state == "rerun-job-invoker-missing":
+        cloud.run_policies[job]["bindings"] = []
+    elif state == "rerun-service-invoker-missing":
+        cloud.run_policies[service]["bindings"] = []
+    elif state == "rerun-schedule-absent":
+        cloud.schedule = None
+    elif state == "rerun-identity-without-grants":
+        cloud.sa_policy["bindings"] = []
+    elif state == "rerun-project-grant-missing":
+        cloud.project["bindings"] = []
+    elif state == "rerun-key-accessor-deployer-only":
+        cloud.secret_policies[verify.KEY_SECRET] = {"etag": "BwYkey", "bindings": [{"role": verify.ACCESSOR, "members": [runner]}]}
+    elif state == "rerun-key-accessor-identity-only":
+        cloud.secret_policies[verify.KEY_SECRET] = {"etag": "BwYkey", "bindings": [{"role": verify.ACCESSOR, "members": [member]}]}
+    elif state == "rerun-bucket-grant-missing":
+        cloud.bucket_policy["bindings"][0]["members"].remove(member)
+    elif state == "rerun-job-foreign":
+        cloud.run[job]["labels"]["purpose"] = "sql-backups"
+    elif state == "rerun-service-public":
+        cloud.run_policies[service]["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
+    elif state == "rerun-schedule-foreign":
+        cloud.schedule = {"description": "Another team's hourly job"}
+    elif state == "rerun-identity-disabled":
+        cloud.identity = {"description": verify.PURPOSE, "disabled": True}
+    elif state == "rerun-secret-grant-conditional":
+        cloud.secret_policy["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    if isinstance(expected, str):
+        with pytest.raises(verify.media.OperationError, match="^" + re.escape(expected)):
+            verify.bootstrap_gaps(cloud, DEPLOYER)
+    else:
+        assert verify.bootstrap_gaps(cloud, DEPLOYER) == expected
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)

@@ -843,9 +843,9 @@ create/read the custom role, set bucket IAM, create/update and run the cleanup j
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.
 
-Provisioning tests those permissions before its first write (`PROVISION_PERMISSIONS` in
-`ops/feedback_media/manage.py`, through Resource Manager `testIamPermissions`, plus `actAs` tested on the
-runtime identity itself) and refuses with the missing names and nothing changed. The deploying caller also
+Provisioning tests its reads before its first write (`PROVISION_READS` in `ops/feedback_media/manage.py`,
+through Resource Manager `testIamPermissions`, plus `actAs` tested on the runtime identity itself) and
+refuses with the missing names and nothing changed. The deploying caller also
 needs to read the image it deploys to the cleanup job: Artifact Registry Reader's
 `artifactregistry.repositories.downloadArtifacts` on the image's repository, which Google lists separately
 from the Cloud Run service agent's access. Provisioning tests it on the repository itself, and refuses
@@ -853,8 +853,16 @@ before any call an API image outside `us-west1-docker.pkg.dev/earnings-nerd/earn
 tests it the same way before its first write. It then reads every
 existing resource a later step would refuse rather than repair, and refuses that too before any write: a
 deleted, `DISABLED` or differing object role; a bucket with other settings, a public principal or another
-runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; a
-differing heartbeat metric or alert policy. Absent resources are still created and owned ones converged.
+runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; an
+owned schedule that is paused, disabled or in an unknown state, which an update cannot resume (an update is
+Google's recovery from `UPDATE_FAILED`); a differing heartbeat metric or alert policy. A denied read stops
+with its label and a malformed answer is refused, so neither is taken as absent or as already approved. Only
+then does it test the writes that state needs: a create for each absent resource, `setIamPolicy` for each
+missing runtime or invoker grant, an update for the existing job and schedule, and both executions. A role,
+bucket or grant the founder made by hand in the approved shape therefore needs no `iam.roles.create`,
+`storage.buckets.create` or `storage.buckets.setIamPolicy`. Absent resources are still created and owned ones
+converged, and each write step keeps its own ownership and etag checks: a policy read without an etag is
+refused, and a grant step writes exactly when the plan found the grant missing.
 `feedback-media-inspect` prints the same capability check for both provisioning operations, then each
 resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
 alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed
@@ -993,6 +1001,15 @@ connection at :41 to the job budget above.
 
 Before creating resources, the provisioner checks actual project IAM capabilities and SQL
 `CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.
+Its identity, grant and secret writes, and its Cloud Run and Scheduler creates and updates, are tested only
+while this run would make that write (`bootstrap_gaps` in `ops/feedback_media/verify_manage.py`). Once the
+founder has made the verification identity, its one unconditional `roles/cloudsql.client` project grant, the
+deployer's service-account user and OpenID-token creator grants on it, the two labelled secrets with their
+accessor grants and the deployer's version-adder grant on each, and its preview-bucket grant, the run needs no
+`resourcemanager.projects.setIamPolicy`, `iam.serviceAccounts.*` write or `secretmanager.secrets.*` write. A
+pre-existing identity, grant or secret in any other shape, a malformed policy, or a denied read is refused
+before the first write. `feedback-media-verify-inspect` prints what a verify-apply would lack on the current
+state.
 It verifies that the test role has no privileges on production application tables, sequences or
 security-definer functions. PostgreSQL's inherited PUBLIC CONNECT cannot be denied to one role
 without editing production ACLs, so this is an object-access check, not a claim that the role cannot
