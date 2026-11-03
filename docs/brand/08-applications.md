@@ -455,12 +455,15 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
   `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
-  summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
-  "{company} · Multi-Period Analysis", the feature keeping its name). The analysis PDF and workbook print
-  the company as the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's
-  capitals) through `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`; the
-  filing summary's PDF and CSV keep EDGAR's form until E210, since the eval's blinding reads that PDF's
-  date. The middot and sentence case hold for the PDF's source line
+  summaries of SEC filings". Titles take the middot and sentence case ("Biogen Inc. · 10-K summary",
+  "{company} · Multi-Period Analysis", the feature keeping its name). Every export prints the company as
+  the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's capitals) through
+  `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`, and its days and
+  instants in one form: a day unpadded ("October 5, 2026") and an instant with its zone named
+  ("November 3, 2026, 06:45 UTC", `analysis_export_metadata.py`'s `display_date` and `display_instant`),
+  each of a PDF meta line's clauses whole on its line. The filing summary's PDF and CSV joined them in
+  E210, with the eval's blinding of that PDF's generation date (`backend/evals/acceptance_readiness.py`).
+  The middot and sentence case hold for the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
   document, with the address that link opens) and the CSV, which now carries that source row under its
   generated date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution

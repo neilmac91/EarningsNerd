@@ -53,10 +53,17 @@ _EXECUTION_KEY_TEXT = re.compile(
 # from versions with different lines would tell a reviewer the arm by it, so every export in a packet set that
 # carries a line carries the same one, read up to the address's tag (build_blinded_packets). The builder
 # compares this line only: exports that differ elsewhere (the closing note's markup changed on 2026-10-20)
-# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py.
+# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py (E210's
+# title and date forms among them).
+# The generation date before that line, as each version writes it: a zero-padded day until E210 ("Generated
+# September 21, 2026"), and since E210 the instant the analysis exports print, "Generated November 3, 2026, 06:45
+# UTC", with each of the meta line's clauses in a span that keeps it whole. The blinding strips either form and
+# then refuses an export that still carries a generation date of either form.
 _EXPORT_SOURCE = "(?:" + "|".join(map(re.escape, ("<br>Original on SEC.gov", "<br>Source: SEC EDGAR"))) + ")"
+_GENERATED_DATE = r"Generated [A-Z][a-z]+ [0-9]{1,2}, [0-9]{4}"
 _EXPORT_GENERATED = re.compile(
-    r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=" + _EXPORT_SOURCE + ")"
+    r'((?:<span class="clause">)?Period End: [^<]+?(?:</span>)?) · (?:<span class="clause">)?' + _GENERATED_DATE
+    + r"(?:, [0-9]{2}:[0-9]{2} UTC)?(?:</span>)?(?=" + _EXPORT_SOURCE + ")"
 )
 _EXPORT_SOURCE_LINE = re.compile(_EXPORT_SOURCE + "[^<]*")
 
@@ -622,7 +629,7 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
         # This exact header comes from ExportService.generate_pdf_html. Retain the filing
         # dates and all substantive content; the original export remains custodian-side.
         text = _EXPORT_GENERATED.sub(r"\1", text, count=1)
-        if re.search(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}", text):
+        if re.search(_GENERATED_DATE, text):
             raise ValueError("unrecognized export generation-date metadata")
         data = text.encode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
