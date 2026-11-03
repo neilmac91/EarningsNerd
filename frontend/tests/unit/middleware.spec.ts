@@ -83,6 +83,10 @@ describe('waitlist gate (WAITLIST_MODE=true, the rollback state)', () => {
     expect(middleware(reqFor(path)).headers.get('location')).toBeNull()
   })
 
+  it("lets an OAuth login's landing page through, so its code exchange completes the login (E29 (5))", () => {
+    expect(middleware(reqFor('/auth/complete')).headers.get('location')).toBeNull()
+  })
+
   it('still sends the gated homepage to /waitlist (the allowlist is not a blanket pass)', () => {
     expect(middleware(reqFor('/')).headers.get('location')).toContain('/waitlist')
     expect(middleware(reqFor('/og-image.png.html')).headers.get('location')).toContain('/waitlist')

@@ -356,7 +356,11 @@ clears the error in the render that starts the stream, so the card leaves with t
 and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
 (`isNonRetryableStreamError`: Pro's fair-use pause, a sign-in or a permission error keeps its sentence and no
 Retry), so a press that starts no run (signed out) keeps the card without it, and the target falls back to the
-card's own heading. A failure built by hand like this is pinned, with its
+card's own heading. So is the OAuth login landing's Try again (app/auth/complete/page.tsx, E29 (5)), which
+posts the page's kept one-time code once more, a post and not a query: `{ failed: true, error, busy, retry }`,
+busy while that post is out, so the notice stays with its Retry focused and busy through the press; a press that
+ends where the browser cannot hold the session cookies' lock takes the Retry away, and RetryButton hands focus to
+the notice, which took focus when it replaced the wait. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
@@ -2776,7 +2780,7 @@ Each page frame owns one `main` landmark. The root layout's `div#main` is only t
 target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
 settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
 An error boundary or account-load failure replaces the page and owns its main too. Gates:
-tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all seven auth
 routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
 TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
 presentation remains with the loading-state work; a landmark does not change its visual design.
@@ -2786,7 +2790,7 @@ titles, so a page whose content ends at h1 (the 404, /analysis, /search) does no
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
-/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+/login, /register, /forgot-password, /check-email, /verify-email, /reset-password and /auth/complete (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
 /privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
 the calendar reads its own fixtures with the clock pinned to one week, the search is answered and

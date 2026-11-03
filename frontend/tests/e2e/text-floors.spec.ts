@@ -226,7 +226,8 @@ const ROUTES: Route[] = [
  * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). With ROUTES, this list
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
  * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
- * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
+ * /register, /check-email, /verify-email, /forgot-password, /reset-password and /auth/complete, an OAuth login's
+ * landing, read while its code exchange is held open), and the census cases below
  * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar
  * and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
  * one week (fixtures/calendarWeek.ts), and the search is answered here and run (fixtures/searchApi.ts), so each is
@@ -245,6 +246,23 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'verify email (no token)', path: '/verify-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Verification failed' })).toBeVisible() },
   { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'reset password (no token)', path: '/reset-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible() },
+  {
+    // An OAuth login's landing (E29 (5)): its callback hands it a one-time code in the URL fragment, which a script
+    // plants here before the page's own runs, and its exchange is held open, so the census reads the page while it
+    // waits (without a code it would leave for /login at once).
+    name: 'OAuth login landing (code exchange in flight)',
+    path: '/auth/complete',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/auth/oauth/complete', () => new Promise<void>(() => {}))
+      await p.addInitScript(() => {
+        if (window.location.pathname === '/auth/complete' && !window.location.hash) {
+          window.history.replaceState(null, '', '/auth/complete#code=e2e-census-code')
+        }
+      })
+    },
+    ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Logging you in…' })).toBeVisible(),
+  },
   { name: 'contact', path: '/contact', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'privacy', path: '/privacy', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible() },
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },

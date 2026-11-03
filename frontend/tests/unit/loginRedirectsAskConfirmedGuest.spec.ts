@@ -55,6 +55,14 @@ const EXEMPT: { file: string; at: string; why: string }[] = [
   },
   { file: 'app/dashboard/error.tsx', at: 'onClick', why: "the error boundary's Log in button: the reader's own press" },
   {
+    file: 'app/auth/complete/page.tsx', at: 'useEffect#1',
+    why: "an OAuth login's landing with no code in its fragment: nothing to exchange, so the login page says it did not finish (E29 (5))",
+  },
+  {
+    file: 'app/auth/complete/page.tsx', at: 'useCallback#1',
+    why: "an OAuth login's landing whose code the exchange refused (used, expired, not this browser's), on its first post or a Try again: the login page says why",
+  },
+  {
     file: 'middleware.ts', at: 'function middleware',
     why: 'the edge guard: it reads the session presence cookie before any page renders, not the current-user read',
   },

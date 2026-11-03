@@ -27,6 +27,7 @@ from app.database import SessionLocal
 from app.models import OAuthAccount, OAuthState, User
 from app.routers import auth as auth_module
 from app.services import oauth_verify  # id-token verification moved here (roadmap S3)
+from tests.support.oauth_handoff import complete_sign_in, handoff_code
 
 RAW_NONCE = "raw-nonce-value-123"
 HASHED_NONCE = hashlib.sha256(RAW_NONCE.encode()).hexdigest()
@@ -39,9 +40,12 @@ def client():
         yield test_client
 
 
-def _seed_state(client: TestClient, nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
+def _seed_state(
+    client: TestClient, nonce: str = RAW_NONCE, ttl_minutes: int = 5, session_handoff: bool | None = None,
+) -> str:
     """Insert a fresh OAuthState row, bind it to ``client`` (the HMAC cookie /apple sets, which the
-    callback requires alongside the row), and return its state token."""
+    callback requires alongside the row), and return its state token. ``session_handoff`` is the
+    start's ask for the session handoff (E29 (5)); None, as a row from before the column, asks nothing."""
     state = f"state_{uuid.uuid4().hex}"
     db = SessionLocal()
     try:
@@ -50,6 +54,7 @@ def _seed_state(client: TestClient, nonce: str = RAW_NONCE, ttl_minutes: int = 5
             nonce=nonce,
             # Naive UTC to match the OAuthState model + the oauth_account_service comparison.
             expires_at=datetime.utcnow() + timedelta(minutes=ttl_minutes),
+            session_handoff=session_handoff,
         ))
         db.commit()
     finally:
@@ -210,8 +215,10 @@ def test_callback_conflict_when_existing_account_unverified(client):
 
 
 @pytest.mark.requires_db
-def test_callback_links_verified_account_and_stores_name(client):
-    """Verified local account + Apple-verified email → link, issue session, store first-auth name."""
+@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+def test_callback_links_verified_account_and_stores_name(client, handoff):
+    """Verified local account + Apple-verified email → link, issue session, store first-auth name. For a start
+    that asked for the session handoff, the session goes to the landing page, whose exchange issues it (E29 (5))."""
     email = f"verified_{uuid.uuid4().hex[:10]}@example.com"
     db = SessionLocal()
     try:
@@ -220,7 +227,7 @@ def test_callback_links_verified_account_and_stores_name(client):
     finally:
         db.close()
 
-    state = _seed_state(client)
+    state = _seed_state(client, session_handoff=handoff)
     apple_sub = f"apple_{uuid.uuid4().hex}"
     claims = {"sub": apple_sub, "email": email, "email_verified": "true", "nonce": HASHED_NONCE}
     with patch.object(auth_module, "_verify_apple_id_token", AsyncMock(return_value=claims)):
@@ -234,9 +241,17 @@ def test_callback_links_verified_account_and_stores_name(client):
             follow_redirects=False,
         )
 
-    assert resp.status_code == 302
-    # Session cookies are issued on success.
-    assert "earningsnerd_access_token=" in resp.headers.get("set-cookie", "")
+    if handoff:
+        handoff_code(resp)
+        # No session cookie on the callback's navigation: the landing page's exchange issues it.
+        assert "earningsnerd_access_token=" not in resp.headers.get("set-cookie", "")
+        exchange = complete_sign_in(client, resp)
+        assert exchange.status_code == 200, exchange.text
+        assert "earningsnerd_access_token=" in exchange.headers.get("set-cookie", "")
+    else:
+        assert resp.status_code == 302
+        # Session cookies are issued on success.
+        assert "earningsnerd_access_token=" in resp.headers.get("set-cookie", "")
 
     db = SessionLocal()
     try:

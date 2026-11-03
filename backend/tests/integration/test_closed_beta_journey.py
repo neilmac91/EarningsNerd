@@ -938,12 +938,23 @@ class _FakeGoogleExchange:
 
 
 def _google_round_trip(browser: TestClient, monkeypatch, claims: dict, invite: str | None = None):
-    started = browser.post("/api/auth/google/start", json={**ACCOUNT_AGREEMENT, "invite": invite})
+    # The start asks for the session handoff, as the sign-up page's buttons do (`"handoff": true`, E29 (5)); a start
+    # without it keeps main's cookie-setting callback, which #1963's own tests hold.
+    started = browser.post("/api/auth/google/start", json={**ACCOUNT_AGREEMENT, "invite": invite, "handoff": True})
     assert started.status_code == 200, started.text
     state = parse_qs(urlparse(started.json()["url"]).query)["state"][0]
     monkeypatch.setattr(auth_module, "httpx", SimpleNamespace(AsyncClient=_FakeGoogleExchange))
     monkeypatch.setattr(auth_module, "_verify_google_id_token", AsyncMock(return_value=claims))
-    return browser.get("/api/auth/google/callback", params={"code": "code", "state": state}, follow_redirects=False)
+    landed = browser.get("/api/auth/google/callback", params={"code": "code", "state": state}, follow_redirects=False)
+    # The callback sets no session (E29 (5)): it sends the browser to the landing page with a one-time code in the URL
+    # fragment and a cookie binding the code to this browser. The page posts the code from this browser, whose jar
+    # carries that cookie, and the exchange's answer sets the session cookies.
+    location = urlparse(landed.headers.get("location", ""))
+    assert landed.status_code == 302 and location.path == "/auth/complete", landed.headers.get("location")
+    assert f"{settings.COOKIE_NAME}=" not in landed.headers.get("set-cookie", "")
+    exchanged = browser.post("/api/auth/oauth/complete", json={"code": parse_qs(location.fragment)["code"][0]})
+    assert exchanged.status_code == 200, exchanged.text
+    return landed
 
 
 def test_an_invited_tester_signs_up_with_google_and_signs_back_in(browsers, outbox, monkeypatch):

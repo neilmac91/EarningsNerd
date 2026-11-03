@@ -451,6 +451,26 @@ compatible image. Preserve that reader and its dependencies when reverting the o
 `main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
 bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
+**OAuth session handoff (E29 (5), #1963): rollback.** The API hands an OAuth sign-in to the frontend's
+`/auth/complete` landing page only when the start asked for it (`handoff=1` on the login page's
+`GET /api/auth/{google,apple}` link, `"handoff": true` in the sign-up page's POST start); any other start takes the
+callback path that sets the session cookies on its redirect home. An older API ignores the ask, so an **API rollback**
+is safe at any time: a callback it serves sets the session cookies on its redirect home (a code already handed to the
+landing page within its two minutes finds no exchange route there, and that reader logs in again). A **frontend
+rollback** past this PR is safe for the pages the older frontend serves after it, whose starts do not ask. It
+strands two kinds of sign-in, each of which still lands on `/auth/complete`, which the older frontend does not
+serve, so the reader logs in again (the code lapses in two minutes): those started in the ten minutes before the
+rollback (the life of a state row), and those started later from a page of the newer frontend that loaded before
+the rollback and is still open (a tab left open, a page the browser restores from its back-forward cache), until
+that page reloads. The second kind has no time bound, but each such page loses at most one sign-in: the reader's
+next login page comes from the older frontend. For a clean cut, roll back to a build that keeps `/auth/complete`,
+or roll the API back with the frontend (an older API ignores the ask, so every start takes the callback path that
+sets the cookies); otherwise accept that those readers log in again. A state row from before the
+`oauth_states.session_handoff` column reads as no ask.
+The follow-up that retires the cookie-setting path (`tasks/todo.md` E29 (5)) changes this: from then on every
+sign-in hands off, so the frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first
+and never rolls back past it while that backend serves.
+
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
 gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --limit=5
