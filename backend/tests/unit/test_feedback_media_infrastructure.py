@@ -622,7 +622,8 @@ def split_bindings():
     return cloud
 
 
-MIXED = ("preview-unbound", "preview-absent", "job-invoker-conditional", "job-runtime-other-role", "one-alert-policy-absent")
+MIXED = ("preview-unbound", "preview-absent", "production-absent", "job-invoker-conditional", "job-runtime-other-role",
+         "one-alert-policy-absent")
 
 
 def mixed(kind):
@@ -634,6 +635,10 @@ def mixed(kind):
     elif kind == "preview-absent":
         del cloud.buckets[preview]
         cloud.bucket_policies.pop(preview)
+    elif kind == "production-absent":
+        production = ops.BUCKETS["production"]
+        del cloud.buckets[production]
+        cloud.bucket_policies.pop(production)
     elif kind == "job-invoker-conditional":
         cloud.job_policy["bindings"] = [{"role": "roles/run.invoker", "members": [runtime],
                                          "condition": {"title": "fixture", "expression": "true"}}]
@@ -668,6 +673,7 @@ def test_provision_tests_exactly_the_writes_its_state_needs(monkeypatch, state):
     if state in MIXED:
         expected = {"preview-unbound": {"storage.buckets.setIamPolicy"},
                     "preview-absent": {"storage.buckets.create", "storage.buckets.setIamPolicy"},
+                    "production-absent": {"storage.buckets.create", "storage.buckets.setIamPolicy"},
                     "job-invoker-conditional": {"run.jobs.setIamPolicy"}, "job-runtime-other-role": {"run.jobs.setIamPolicy"},
                     "one-alert-policy-absent": {"monitoring.alertPolicies.create"}}[state]
         assert written == expected | {"run.jobs.update", "cloudscheduler.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
@@ -707,6 +713,7 @@ DENIED_READS = {
     ("bucket-policy-denied", "Bucket policy read [storage.buckets.getIamPolicy] failed (HTTP 403)"),
     ("role-denied", "Object role read [iam.roles.get] failed (HTTP 403)"),
     ("bucket-policy-no-etag", "Resource policy has no etag"),
+    ("job-policy-no-etag", "Resource policy has no etag"),
     ("alert-page-not-list", "Alert policy answer is malformed"),
     ("alert-conditions-number", "Alert policy answer is malformed"),
     ("alert-conditions-object", "Alert policy answer is malformed"),
@@ -739,6 +746,9 @@ def test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_pla
         cloud.policies.append("PRIVATE_POLICY_SENTINEL")
     elif read == "bucket-policy-no-etag":
         del cloud.policy_of(production)["etag"]  # its write-back would not be conditional
+    elif read == "job-policy-no-etag":
+        cloud.job_policy["bindings"] = []  # a grant to add, on a policy whose write-back could not be conditional
+        del cloud.job_policy["etag"]
     elif read == "alert-page-not-list":
         cloud.policies = 7
     elif read == "alert-conditions-number":
@@ -1015,7 +1025,8 @@ def test_each_write_step_rechecks_what_it_writes_after_the_plan(monkeypatch, cha
     """The plan's reads can be stale when a step writes. Each step re-reads what it writes, refuses it if it is no
     longer this feature's, and writes under the etag it reads then: the write-time ownership and etag checks."""
     monkeypatch.setattr(ops.time, "sleep", lambda _seconds: None)
-    cloud = CloudFixture()
+    # The bucket and role checks guard the bucket grants, so those cases start where the grants are still to be made.
+    cloud = unbound() if change in ("bucket-drift", "role-disabled") else CloudFixture()
     production, tested = ops.BUCKETS["production"], []
     original = cloud.call
 
@@ -1192,6 +1203,7 @@ def test_a_failed_read_never_stops_another_resources_drift_check(capsys, unreada
     ("foreign-job", "Existing cleanup job is not owned by this feature"),
     ("job-public", "Resource policy includes a public principal"),
     ("foreign-schedule", "Existing cleanup schedule is not owned by this feature"),
+    ("preview-settings-production-absent", "preview bucket differs from approved private retention settings"),
     ("schedule-paused", "Existing cleanup schedule is PAUSED; provisioning does not resume it"),
     ("schedule-disabled", "Existing cleanup schedule is DISABLED; provisioning does not resume it"),
     ("schedule-unrecognized", "Existing cleanup schedule is in an unrecognized state; provisioning does not resume it"),
@@ -1222,6 +1234,10 @@ def test_provision_refuses_a_state_it_would_not_repair_before_any_write(state, r
         cloud.job_policy["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
     elif state == "foreign-schedule":
         cloud.schedule = {"description": "Another team's hourly job"}
+    elif state == "preview-settings-production-absent":  # an absent bucket must not end the planner's bucket checks
+        preview = ops.BUCKETS["preview"]
+        cloud.buckets[preview] = bucket("preview")
+        cloud.buckets[preview]["versioning"]["enabled"] = True
     elif state.startswith("schedule-"):
         known = {"schedule-paused": "PAUSED", "schedule-disabled": "DISABLED"}
         cloud.schedule = {"description": ops.SCHEDULE_DESCRIPTION, "state": known.get(state, "PRIVATE_STATE_SENTINEL")}

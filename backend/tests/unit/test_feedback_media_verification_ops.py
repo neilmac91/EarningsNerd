@@ -581,6 +581,7 @@ class BootstrapCloud:
     def __init__(self, bootstrapped=True):
         runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
         self.calls, self.granted, self.denied, self.latest_version = [], None, set(), None
+        self.denied_paths = set()  # exact paths answered 403
         self.project_granted = None  # the project's testIamPermissions answer; None answers as the resources do
         self.secret_policies, self.latest_versions = {}, {}  # per-secret answers in place of the shared ones
         self.run, self.run_policies, self.schedule = {}, {}, None  # the Cloud Run job and service, and the schedule
@@ -598,7 +599,7 @@ class BootstrapCloud:
 
     def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
         self.calls.append((api, path, method, body))
-        if any(part in path for part in self.denied):
+        if path in self.denied_paths or any(part in path for part in self.denied):
             raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 403)")
         if path.endswith(":testIamPermissions"):
             granted = self.project_granted if api == "cloudresourcemanager" and self.project_granted is not None else self.granted
@@ -617,8 +618,8 @@ class BootstrapCloud:
             return self.project
         if api == "secretmanager":
             name = path.split("/secrets/", 1)[1].split("/", 1)[0].split(":", 1)[0]
-            if ":getIamPolicy" in path:
-                return self.secret_policies.get(name, self.secret_policy)
+            if ":getIamPolicy" in path:  # one policy per secret, each its own copy of the shared default
+                return self.secret_policies.setdefault(name, copy.deepcopy(self.secret_policy))
             if path.endswith("/versions/latest"):
                 # None: the founder adds no value, and the run adds the first version itself
                 return self.latest_versions.get(name, self.latest_version)
@@ -781,6 +782,9 @@ class IdentityCloud(BootstrapCloud):
                     "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
         return super().call(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
 
+    def wait(self, operation, step=None):
+        return {}
+
 
 @pytest.mark.parametrize("case", ["second-binding", "missing-role"])
 def test_ensure_identity_writes_the_identity_policy_exactly_when_bootstrap_planning_does(case):
@@ -846,6 +850,12 @@ RERUN = ["cloudscheduler.jobs.update", "run.jobs.update", "run.services.update"]
     ("rerun-schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
     ("rerun-identity-disabled", "Existing verification identity is not the active feature-owned identity"),
     ("rerun-secret-grant-conditional", "Existing verification secret grants differ from the approved bootstrap"),
+    ("rerun-version-destroyed", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-version-no-state", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-version-state-list", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-bucket-policy-no-etag", "Resource policy has no etag"),
+    ("rerun-job-policy-no-etag", "Resource policy has no etag"),
+    ("rerun-service-policy-no-etag", "Resource policy has no etag"),
 ])
 def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected):
     """The verifier's planning table, read against secret(), ensure_identity, ensure_job and the service deploy: a
@@ -882,9 +892,104 @@ def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected)
         cloud.identity = {"description": verify.PURPOSE, "disabled": True}
     elif state == "rerun-secret-grant-conditional":
         cloud.secret_policy["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    elif state.startswith("rerun-version-"):
+        # The run reads the latest value and never rotates one: only an ENABLED latest version is usable.
+        cloud.latest_version = {"rerun-version-destroyed": {"name": "projects/p/secrets/s/versions/1", "state": "DESTROYED"},
+                                "rerun-version-no-state": {"name": "projects/p/secrets/s/versions/1"},
+                                "rerun-version-state-list": {"state": ["ENABLED"]}}[state]
+    elif state == "rerun-bucket-policy-no-etag":
+        del cloud.bucket_policy["etag"]
+    elif state in ("rerun-job-policy-no-etag", "rerun-service-policy-no-etag"):
+        del cloud.run_policies[job if "job" in state else service]["etag"]
     if isinstance(expected, str):
         with pytest.raises(verify.media.OperationError, match="^" + re.escape(expected)):
             verify.bootstrap_gaps(cloud, DEPLOYER)
     else:
         assert verify.bootstrap_gaps(cloud, DEPLOYER) == expected
     assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+
+
+VERIFIER_READS = {
+    "identity": "v1/" + verify.SA_PATH,
+    "identity-policy": "v1/" + verify.SA_PATH + ":getIamPolicy?options.requestedPolicyVersion=3",
+    "project-policy": f"v1/projects/{verify.PROJECT}:getIamPolicy",
+    "secret": f"v1/projects/{verify.PROJECT}/secrets/{verify.KEY_SECRET}",
+    "secret-policy": verify.media.policy_path(f"v1/projects/{verify.PROJECT}/secrets/{verify.KEY_SECRET}"),
+    "latest-version": f"v1/projects/{verify.PROJECT}/secrets/{verify.KEY_SECRET}/versions/latest",
+    "bucket-policy": verify.media.policy_path("storage/v1/b/" + verify.BUCKET, storage=True),
+    "job": "v2/" + verify.JOB, "job-policy": verify.media.policy_path("v2/" + verify.JOB),
+    "service": "v2/" + verify.SERVICE, "service-policy": verify.media.policy_path("v2/" + verify.SERVICE),
+    "schedule": "v1/" + verify.SCHEDULE,
+}
+
+
+@pytest.mark.parametrize("read", sorted(VERIFIER_READS))
+def test_a_denied_verifier_planning_read_refuses_before_any_write_is_tested(read):
+    """Each read bootstrap_gaps makes stops on a denial: none is planned as absent, so no write is tested for it."""
+    cloud = rerun_cloud()
+    cloud.denied_paths = {VERIFIER_READS[read]}
+    with pytest.raises(verify.media.ProviderError, match=r"^[a-z]+ operation failed \(HTTP 403\)$"):
+        verify.bootstrap_gaps(cloud, DEPLOYER)
+    assert not [path for api, path, _m, _b in cloud.calls if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+
+
+def rerun_identity_cloud():
+    """IdentityCloud in a re-run's state: the job, service and schedule exist, owned, with their invoker grants."""
+    cloud, member = IdentityCloud(), "serviceAccount:" + verify.IDENTITY
+    for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+        cloud.run[path] = {"labels": {"purpose": verify.PURPOSE}, "etag": "run-version"}
+        cloud.run_policies[path] = {"etag": "BwYrun", "bindings": [{"role": "roles/run.invoker", "members": [member]}]}
+    cloud.schedule = {"description": verify.PURPOSE}
+    return cloud
+
+
+@pytest.mark.parametrize("change, refusal", [
+    ("job-foreign", "Existing verification cleanup job is not feature-owned"),
+    ("schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
+    ("service-foreign", "Existing verification service is not feature-owned"),
+    ("identity-foreign", "Existing verification identity is not the active feature-owned identity"),
+    ("project-editor", "Verification identity has unexpected direct project privileges"),
+    ("project-no-etag", "Resource policy has no etag"),
+    ("job-etag-moved", None),
+    ("service-etag-moved", None),
+])
+def test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan(change, refusal):
+    """The verifier's write steps re-read what they write: a state that changed after bootstrap_gaps planned is refused
+    before that write, and a PATCH carries the etag read at the write, not the plan's."""
+    cloud, member = rerun_identity_cloud(), "serviceAccount:" + verify.IDENTITY
+    job, service = "v2/" + verify.JOB, "v2/" + verify.SERVICE
+    if change == "job-foreign":
+        cloud.run[job]["labels"]["purpose"] = "sql-backups"
+    elif change == "schedule-foreign":
+        cloud.schedule = {"description": "Another team's hourly job"}
+    elif change == "service-foreign":
+        cloud.run[service]["labels"]["purpose"] = "another-service"
+    elif change == "identity-foreign":
+        cloud.identity = {"description": "someone else's"}
+    elif change == "project-editor":
+        cloud.project["bindings"].append({"role": "roles/editor", "members": [member]})
+    elif change == "project-no-etag":  # a grant to add, on a policy whose write-back could not be conditional
+        cloud.project["bindings"] = []
+        del cloud.project["etag"]
+    elif change == "job-etag-moved":
+        cloud.run[job]["etag"] = "run-version-2"
+    else:
+        cloud.run[service]["etag"] = "run-version-2"
+    step = (verify.ensure_identity if change.startswith(("identity", "project")) else
+            verify.ensure_service if change.startswith("service") else verify.ensure_job)
+    args = (cloud, DEPLOYER) if step is verify.ensure_identity else (cloud, {"labels": {"purpose": verify.PURPOSE}})
+    if refusal is None:
+        step(*args)
+        patches = [body for api, path, body in cloud.writes if api == "run" and path.split("?", 1)[0] in (job, service)]
+        assert len(patches) == 1 and patches[0]["etag"] == "run-version-2"  # read at the write, not at the plan
+        return
+    with pytest.raises(verify.media.OperationError, match="^" + re.escape(refusal)):
+        step(*args)
+    # The guarded write never happened: the job or service update, the schedule, any write, or the project grant.
+    guarded = {"job-foreign": lambda api, path: path.split("?", 1)[0] == job,
+               "schedule-foreign": lambda api, path: api == "cloudscheduler",
+               "service-foreign": lambda api, path: path.split("?", 1)[0] == service,
+               "identity-foreign": lambda api, path: True,
+               "project-editor": lambda api, path: api == "cloudresourcemanager",
+               "project-no-etag": lambda api, path: api == "cloudresourcemanager"}[change]
+    assert not [path for api, path, _body in cloud.writes if guarded(api, path)]

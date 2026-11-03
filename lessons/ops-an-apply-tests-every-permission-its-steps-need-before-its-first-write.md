@@ -96,7 +96,9 @@ labelled media-prerequisite reads, its operation poll and its revision read to i
 `test_verify_inspect_reports_what_verify_apply_would_lack_without_writing` and
 `test_verify_apply_plans_exactly_the_writes_each_state_needs` (a first run, a re-run, partial bootstraps and
 refusals, each against the writes read off its write paths) pin its bootstrap planning; its fixture answers 404
-where Google does.
+where Google does. `test_a_denied_verifier_planning_read_refuses_before_any_write_is_tested` pins a denial at each
+of its planning reads, and `test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan` its write-time
+ownership and etag checks.
 
 Review-checked: whether a label names the exact permission its call needs (the gate checks only that it fits
 the call's method); the verifier's other calls, which are unlabelled today and print the API name with the
