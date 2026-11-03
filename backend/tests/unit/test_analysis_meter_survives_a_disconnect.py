@@ -22,7 +22,7 @@ import asyncio
 import json
 import threading
 from datetime import date
-from typing import Any
+from typing import Any, Callable
 
 import anyio
 import pytest
@@ -102,16 +102,22 @@ async def test_a_sent_analysis_is_counted_whenever_its_client_leaves(monkeypatch
         while held:
             limiter.release_on_behalf_of(held.pop())
 
-    async def leave_while_the_write_waits() -> None:  # on the loop, beside the stream
-        deadline = loop.time() + 5.0  # a hang guard only
+    async def wait_until(condition: Callable[[], Any], failure: str) -> None:
+        async def poll() -> None:
+            while not condition():
+                await asyncio.sleep(0)
+
         try:
-            while not (limiter.statistics().tasks_waiting and read_the_narrative.is_set()):
-                assert loop.time() < deadline, "the write never waited for a thread after the token"
-                await asyncio.sleep(0)
+            await asyncio.wait_for(poll(), 5.0)  # a hang guard; a passing run waits a few loop turns
+        except TimeoutError as exc:
+            raise AssertionError(failure) from exc
+
+    async def leave_while_the_write_waits() -> None:  # on the loop, beside the stream
+        try:
+            await wait_until(lambda: limiter.statistics().tasks_waiting and read_the_narrative.is_set(),
+                             "the write never waited for a thread after the token")
             leave.set()
-            while not stream_cancelled.is_set():
-                assert loop.time() < deadline + 5.0, "the route never took the disconnect"
-                await asyncio.sleep(0)
+            await wait_until(stream_cancelled.is_set, "the route never took the disconnect")
             write_saw["the write waited for a thread"] = True
         finally:
             release_the_threads()  # always, or a shielded write would wait for a thread forever
