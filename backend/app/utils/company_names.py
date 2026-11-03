@@ -63,6 +63,10 @@ KEEP_UPPER: frozenset[str] = frozenset({
     "AMC", "NVIDIA", "NIKE", "RTX", "DTE", "PPG", "PNC", "AFLAC", "CBRE", "CDW", "CME", "CSC", "DXC",
     "EQT", "FMC", "ITT", "MGM", "MSCI", "NRG", "NXP", "ONEOK", "PVH", "SBA", "SVB", "TD", "UBS", "VF",
     "WEC", "WPP",
+    # E304: the initialisms a sweep of the served names found the rule title-casing. "ON" (ON Semiconductor)
+    # stays out: KEEP_UPPER is read first, and mid-name "on" is a connective.
+    "APA", "ASML", "BNY", "BRT", "BXP", "CF", "CMS", "CRH", "EOG", "FIGS", "HSBC", "IDEX", "IQVIA", "KLA",
+    "NIO", "NVR", "PDD", "PPL", "PTC", "SAP", "TE", "TKO", "UDR",
     # roman numerals
     "II", "III", "IV",
 })
