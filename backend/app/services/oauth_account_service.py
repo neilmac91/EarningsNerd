@@ -371,8 +371,9 @@ def mint_oauth_refresh_token(
 ) -> str:
     """Mint and commit the sign-in's refresh token, committing what the resolve staged with it (a
     new account and redeemed invite, the provider link, ``last_login_at``). Returns the raw token.
-    The callback path of a start that did not ask for the session handoff (E29 (5)): the callback sets
-    the session cookies on its redirect; ``commit_oauth_sign_in`` is the other path's commit.
+    Main's path, kept until E301 retires it: the commit of a callback whose start did not ask for the
+    session handoff (E29 (5)), which then sets the session cookies on its redirect home;
+    ``commit_oauth_sign_in`` is the commit of a start that asked.
 
     A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
     flush or the commit): the session is rolled back and :class:`OAuthAccountConflictError` raised.
@@ -381,7 +382,8 @@ def mint_oauth_refresh_token(
     The unique ``users.email``, the unique ``uq_oauth_provider_account`` and the invite's guarded redemption
     decide. The loser is refused by the resolve (a new account's lost create race, ``invite_required``) or,
     for a link to an existing account, loses here, with nothing of its own committed; the PostgreSQL races in
-    ``tests/integration/test_refresh_rotation_transactions.py`` pin each.
+    ``tests/integration/test_refresh_rotation_transactions.py`` pin each, for this commit and for
+    ``commit_oauth_sign_in``'s (their ``commit`` parameter).
     """
     try:
         return refresh_token_service.mint_refresh_token(db, user, user_agent=user_agent, ip=ip)

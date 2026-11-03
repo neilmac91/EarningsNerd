@@ -109,7 +109,9 @@ _OAUTH_STATE_MAX_AGE = oauth_account_service.OAUTH_STATE_TTL_SECONDS  # 10 minut
 # frontend's landing page, the one-time code in its URL fragment (never a query string: request logs record those),
 # and set this cookie, which binds the code to the browser they answer. The landing page (frontend/app/auth/complete/page.tsx) posts the code to
 # ``/api/auth/oauth/complete`` under the session cookies' lock, and that answer sets the session cookies. The cookie is
-# sent only to that path, and lives as long as the handoff row.
+# sent only to that path and lives as long as the handoff row. No exchange's answer touches it, a refusal or a success:
+# one browser's later sign-in may have set its own binder while this one's exchange was in flight, and it binds only
+# its own code, lapsing with it.
 _OAUTH_LANDING = "/auth/complete"
 _OAUTH_HANDOFF_COOKIE = "en_oauth_handoff"
 _OAUTH_HANDOFF_COOKIE_PATH = "/api/auth/oauth"
@@ -192,7 +194,8 @@ class OAuthStartRequest(BaseModel):
     eligibility_version: StrictStr | None = None
     # The OAuth session handoff (E29 (5)), asked for only by a frontend with the /auth/complete landing page: JSON
     # true alone turns it on (a string is refused). Omitted, the callback sets the session cookies on its redirect,
-    # main's path, so a frontend and an API of either age work together and each rolls back alone.
+    # main's path, so a frontend and an API of either age work together (rollback: docs/DEPLOYMENT.md, "OAuth session
+    # handoff": an API rollback is safe at any time, a frontend rollback strands the starts that asked before it).
     handoff: Optional[StrictBool] = None
 
     @model_validator(mode="after")
@@ -406,14 +409,6 @@ def _set_handoff_cookie(response: Response, binder: str) -> None:
     )
 
 
-def _clear_handoff_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=_OAUTH_HANDOFF_COOKIE,
-        domain=settings.COOKIE_DOMAIN,
-        path=_OAUTH_HANDOFF_COOKIE_PATH,
-    )
-
-
 def _client_ip(request: Request) -> Optional[str]:
     return request.client.host if request.client else None
 
@@ -445,12 +440,14 @@ def issue_session(
     The single session-issue point for the login paths. By default a NEW refresh token is minted and
     committed through ``refresh_token_service.mint_refresh_token``, after the access token has read the
     address: the password change, and the OAuth sign-in's exchange of its one-time code, whose redemption
-    commits with it (E29 (5)); an ``IntegrityError`` there propagates. Pass ``refresh_token=`` with
-    ``commit=False`` when the caller already minted or rotated and committed one: the password login, whose
-    ``auth_account_service.record_password_login`` mints under the account's lock, and the ``/refresh``
-    endpoint. Returns the raw access token (body responses echo it). A caller that passes
-    ``refresh_token=`` has committed, which expired ``user``, so it must pass ``email=`` too, the address it
-    read before that commit (the password login and ``/refresh`` do): the access token then reads nothing
+    commits with it, for a start that asked for the session handoff (E29 (5)); an ``IntegrityError`` there
+    propagates. Pass ``refresh_token=`` with ``commit=False`` when the caller already minted or rotated and
+    committed one: the password login, whose ``auth_account_service.record_password_login`` mints under the
+    account's lock, the ``/refresh`` endpoint, and an OAuth callback on main's path, a start that did not ask
+    for the handoff (``_commit_oauth_sign_in``, whose ``oauth_account_service.mint_oauth_refresh_token``
+    commits the sign-in with its token, until E301). Returns the raw access token (body responses echo it). A
+    caller that passes ``refresh_token=`` has committed, which expired ``user``, so it must pass ``email=`` too,
+    the address it read before that commit (all three do): the access token then reads nothing
     after the commit, so no failure there can turn a committed sign-in into an error (E121). Without it this
     raises ``TypeError``, which every route test of such a caller then fails on.
     """
@@ -690,7 +687,9 @@ def _commit_oauth_sign_in(
     browser. With ``session_redirect`` (a start that did not ask for the handoff: an older frontend, a bookmark, the
     runbook's direct URL) the commit mints the refresh token and the session cookies go on that redirect, main's path.
     Without it the commit writes the one-time handoff, whose code and binder the route puts on its redirect to the
-    landing page. Runs in the callback's thread-pool unit, whose ``finally`` releases the session (E121)."""
+    landing page. Runs in the callback's thread-pool unit, whose ``finally`` releases the session (E121). The audit
+    rows, like ``last_login_at``, are written here on both paths, before the session reaches the browser: a handoff
+    whose exchange never happens leaves them in place."""
     # Read before the commit expires the user: nothing after that commit reads it.
     user_id, address, name = user.id, user.email, user.full_name
     code = binder = None
@@ -1034,8 +1033,9 @@ async def refresh(
 
     # A refusal sets no cookie, on purpose (E121). It cannot tell whether the cookies it refused are still the
     # browser's: the request carries the cookies of the moment it was sent, and a login in another tab, an OAuth
-    # sign-in's code exchange or another tab's refresh can have replaced them before this answer lands, so a deletion here
-    # could end that newer session. With nothing newer set, the browser keeps the refused cookies, en_session included,
+    # sign-in (its callback's redirect on main's path, a start without the handoff, or its code exchange: E29 (5)) or
+    # another tab's refresh can have replaced them before this answer lands, so a deletion here could end that newer
+    # session. With nothing newer set, the browser keeps the refused cookies, en_session included,
     # so the edge guard (frontend/middleware.ts) still lets it reach a protected page, whose /me read then finds no
     # session. The refusing tab ends the session it knew and clears the session marker every tab reads
     # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
@@ -1421,7 +1421,9 @@ async def google_callback(
     code in the URL fragment and sets the cookie that binds that code to this browser; the landing page's exchange
     (``complete_oauth_sign_in``) sets the session cookies under the lock. Any other start (an older frontend, a
     bookmark) takes main's path: the session cookies on the redirect home. Everything else is shared
-    (``_commit_oauth_sign_in``)."""
+    (``_commit_oauth_sign_in``). On either path ``last_login_at``, a new account's registration row and the
+    ``oauth_login`` audit row are written here, at the callback, before the session reaches the browser, so a
+    handoff whose exchange never happens leaves them in place."""
     frontend_url = settings.FRONTEND_URL
 
     if error:
@@ -1601,7 +1603,9 @@ async def apple_callback(
     """Handle Apple's form_post callback: verify id_token, upsert user, issue the session, by the start's path as
     ``google_callback`` does (E29 (5)): for a start that asked for the handoff, its redirect sets no session cookie,
     only the cookie that binds the one-time code in its URL fragment to this browser; otherwise the session cookies
-    go on the redirect home."""
+    go on the redirect home. As for Google, ``last_login_at``, a new account's registration row and the
+    ``oauth_login`` audit row are written at this callback, before the session reaches the browser, so a handoff
+    whose exchange never happens leaves them in place."""
     frontend_url = settings.FRONTEND_URL
 
     if error:
@@ -1704,9 +1708,10 @@ async def complete_oauth_sign_in(
     (``oauth_account_service.redeem_session_handoff``), then the session's refresh token, minted and committed with it
     (``issue_session``, which takes the address before that commit), so a failed mint leaves the code unused and sets
     no cookie. Every refusal (an unknown, used, expired or unbound code, another browser's, one an account-wide
-    sign-out has ended since, or an inactive account's) answers one 400 on a response of its own, with no cookie: the binding cookie the browser holds may be a later sign-in's in the same
-    browser, whose own exchange needs it, and it binds only its own code, lapsing with it. A success clears it. Neither
-    the code nor the binding value is logged."""
+    sign-out has ended since, or an inactive account's) answers one 400 on a response of its own, with no cookie. No
+    answer touches the binding cookie, a refusal or a success: the one the browser holds may be a later sign-in's in
+    the same browser, set while this exchange was in flight, whose own exchange needs it, and it binds only its own
+    code, lapsing with it in two minutes. Neither the code nor the binding value is logged."""
     enforce_rate_limit(
         request, OAUTH_START_LIMITER, "oauth-complete",
         error_detail="Too many login attempts. Try again shortly.",
@@ -1725,7 +1730,6 @@ async def complete_oauth_sign_in(
 
     if not await run_in_threadpool(complete):
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": _HANDOFF_REFUSED})
-    _clear_handoff_cookie(response)
     return {"status": "signed_in"}
 
 

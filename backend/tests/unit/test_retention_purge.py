@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
-from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, User, UserSearch
+from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, SessionHandoff, User, UserSearch
 from app.services import refresh_token_service
 from app.services import retention_service as retention
 from app.services.job_run_service import JOB_CADENCES
@@ -47,6 +47,19 @@ def _seed(db: Session) -> dict:
         ),
         "state_expired": OAuthState(state="s1", nonce="n", expires_at=NAIVE_NOW - timedelta(minutes=1)),
         "state_live": OAuthState(state="s2", nonce="n", expires_at=NAIVE_NOW + timedelta(minutes=1)),
+        # An OAuth sign-in's session handoff (E29 (5)): its stamps are timezone-aware, unlike the state's.
+        "handoff_expired": SessionHandoff(
+            code_hash="h1", binder_hash="b1", user_id=user.id, expires_at=NOW - timedelta(seconds=1),
+            created_at=NOW - timedelta(seconds=121),
+        ),
+        "handoff_used_expired": SessionHandoff(
+            code_hash="h2", binder_hash="b2", user_id=user.id, expires_at=NOW - timedelta(minutes=5),
+            used_at=NOW - timedelta(minutes=6), created_at=NOW - timedelta(minutes=7),
+        ),
+        "handoff_live": SessionHandoff(
+            code_hash="h3", binder_hash="b3", user_id=user.id, expires_at=NOW + timedelta(seconds=60),
+            created_at=NOW - timedelta(seconds=60),
+        ),
         "token_long_expired": RefreshToken(user_id=user.id, token_hash="t1", expires_at=NAIVE_NOW - timedelta(days=31)),
         "token_recently_expired": RefreshToken(user_id=user.id, token_hash="t2", expires_at=NAIVE_NOW - timedelta(days=29)),
         "token_long_revoked": RefreshToken(
@@ -67,6 +80,7 @@ def _remaining(db: Session) -> dict:
         "searches": {r.query for r in db.execute(select(UserSearch)).scalars()},
         "attempts": {r.email_hash[0] for r in db.execute(select(LoginAttempt)).scalars()},
         "states": {r.state for r in db.execute(select(OAuthState)).scalars()},
+        "handoffs": {r.code_hash for r in db.execute(select(SessionHandoff)).scalars()},
         "tokens": {r.token_hash for r in db.execute(select(RefreshToken)).scalars()},
         "contacts": {r.created_at.day for r in db.execute(select(ContactSubmission)).scalars()},
     }
@@ -74,7 +88,7 @@ def _remaining(db: Session) -> dict:
 
 EXPECTED_STATS = {
     "dry_run": False, "search_history_purged": 1, "login_attempts_purged": 1, "oauth_states_purged": 1,
-    "refresh_tokens_purged": 2, "contact_submissions_purged": 1,
+    "session_handoffs_purged": 2, "refresh_tokens_purged": 2, "contact_submissions_purged": 1,
 }
 
 
@@ -85,6 +99,7 @@ def test_purges_exactly_the_policy_rows_and_keeps_everything_inside_the_window(d
         "searches": {"new"},
         "attempts": {"b", "c"},  # the locked row survives its stale timestamp
         "states": {"s2"},
+        "handoffs": {"h3"},  # an expired handoff goes, used or not; one inside its two minutes stays
         "tokens": {"t2", "t4"},  # recently expired keeps its 30-day grace; live stays
         "contacts": {(NOW - timedelta(days=364)).day},
     }

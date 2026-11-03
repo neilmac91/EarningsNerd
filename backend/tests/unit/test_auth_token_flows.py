@@ -116,9 +116,9 @@ ACCESS_CLEARED = [
 REFRESH_CLEARED = ['earningsnerd_refresh_token=""; expires=<t>; Max-Age=0; Path=/api/auth; SameSite=lax']
 GOOGLE_STATE_CLEARED = 'oauth_state=""; expires=<t>; Max-Age=0; Path=/; SameSite=lax'
 APPLE_STATE_CLEARED = 'apple_oauth_state=""; expires=<t>; HttpOnly; Max-Age=0; Path=/; SameSite=none; Secure'
-# An OAuth sign-in's binding cookie (E29 (5)): set by a callback that signs in, cleared by the landing page's exchange.
+# An OAuth sign-in's binding cookie (E29 (5)): set by a callback that hands off; no exchange's answer touches it, and it
+# lapses with its code.
 HANDOFF_SET = "en_oauth_handoff=<v>; HttpOnly; Max-Age=120; Path=/api/auth/oauth; SameSite=lax"
-HANDOFF_CLEARED = 'en_oauth_handoff=""; expires=<t>; Max-Age=0; Path=/api/auth/oauth; SameSite=lax'
 
 _TOKEN_EXPIRIES = ("email_verification_expires", "password_reset_expires")
 _EXPIRES = re.compile(r"expires=[^;]+")
@@ -1503,7 +1503,7 @@ def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, req
     last_login_at and the refresh token) before its audit rows: with the audit writes made no-ops
     all of it must still persist. For a start that asked for the session handoff it commits its
     one-time handoff instead, and its redirect sets no session cookie, only the handoff's binding
-    cookie; the landing page's exchange sets the session cookies, in order, and clears that one (E29 (5))."""
+    cookie; the landing page's exchange sets the session cookies, in order, and leaves that one alone (E29 (5))."""
     email = _email()
     user_id = _seed_verified(email)
     if not audited:
@@ -1524,7 +1524,7 @@ def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, req
     if handoff:
         exchange = complete_sign_in(client, resp)
         assert exchange.status_code == 200 and exchange.json() == {"status": "signed_in"}
-        assert _cookies(exchange) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+        assert _cookies(exchange) == SESSION_ISSUED
     with SessionLocal() as db:
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 1
     audit_rows = [("user", {"provider": provider})] if audited else []
