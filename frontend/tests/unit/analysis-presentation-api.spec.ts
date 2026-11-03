@@ -11,6 +11,8 @@ import {
   decodeNarrativePresentation, structuredNarrativeParts,
   type NarrativePresentation,
 } from '@/features/analysis/lib/narrativePresentation'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { ProvenanceInputsRejection } from '@/features/analysis/lib/provenanceInputs'
 
 const quality = {
   version: 1 as const, method: 'calculated' as const, validation: 'needs_review' as const,
@@ -252,5 +254,83 @@ describe('analysis presentation API admission', () => {
     expect(handlers.onError).not.toHaveBeenCalled()
     expect(handlers.onComplete).toHaveBeenCalledOnce()
     expect(handlers.onComplete.mock.calls[0][0]).not.toHaveProperty('narrative_presentation')
+  })
+})
+
+// E294: the page reads a provenance's inputs list without a guard, so both entry points admit it
+// (features/analysis/lib/provenanceInputs.ts; provenanceInputs.spec.ts pins the admission itself).
+describe('analysis provenance inputs at the entry points', () => {
+  // A reported figure as a stored provenance can reach the page: everything the builders write but the list.
+  const unlisted = () => ({ version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null }) as unknown as FactProvenance
+  const operand = (provenance: FactProvenance) => ({ concept: 'net_income', value: 18.3e9, period_end: '2026-06-30', provenance })
+  // An older dataset, without data_notes, so the case reads the admission alone.
+  const older = (): AnalysisDataset => {
+    const sent = structuredClone(dataset)
+    delete sent.data_notes
+    return sent
+  }
+
+  it("reads a dataset's missing lists as the builders' empty ones, in each slot and at depth", async () => {
+    const sent = older()
+    const point = sent.series[0].points[0]
+    point.provenance = { ...quality, inputs: [operand(unlisted())] }
+    point.yoy_provenance = unlisted()
+    point.qoq_provenance = unlisted()
+    sent.series[0].cagr_provenance = unlisted()
+    sent.series[0].window_pp_provenance = unlisted()
+    vi.spyOn(api, 'post').mockResolvedValue({ data: sent })
+    const [series] = (await getAnalysisDataset('META', range)).series
+    expect(series.points[0].provenance!.inputs[0].provenance!.inputs).toEqual([])
+    for (const slot of ['yoy_provenance', 'qoq_provenance'] as const) expect(series.points[0][slot]!.inputs, slot).toEqual([])
+    for (const slot of ['cagr_provenance', 'window_pp_provenance'] as const) expect(series[slot]!.inputs, slot).toEqual([])
+  })
+
+  it('refuses a dataset whose list is present and not a list, naming where it sits', async () => {
+    const sent = older()
+    sent.series[0].points[0].provenance = { ...quality, inputs: [operand({ ...unlisted(), inputs: null } as unknown as FactProvenance)] }
+    vi.spyOn(api, 'post').mockResolvedValue({ data: sent })
+    await expect(getAnalysisDataset('META', range)).rejects
+      .toThrow(new ProvenanceInputsRejection('series[0].points[0].provenance.inputs[0].provenance.inputs is present and not a list'))
+  })
+
+  it("reads a citation's missing lists as the builders' empty ones, at the top and at depth", async () => {
+    const reader = serve({ type: 'complete', ...completion, citations: [
+      { ...citation, provenance: unlisted() },
+      { ...citation, n: 2, provenance: { ...quality, inputs: [operand(unlisted())] } },
+    ], grounded: 2 })
+    const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+    await streamAnalysis('META', range, handlers)
+    expect(handlers.onError).not.toHaveBeenCalled()
+    const result = handlers.onComplete.mock.calls[0][0] as AnalysisCompletion
+    expect(result.citations[0].provenance!.inputs).toEqual([])
+    expect(result.citations[1].provenance!.inputs[0].provenance!.inputs).toEqual([])
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives the reader the one recovery sentence for a citation whose list is not a list, and logs the refusal', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reader = serve({ type: 'complete', ...completion, citations: [{ ...citation, provenance: { ...quality, inputs: 'operands' } }] })
+    const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+    await streamAnalysis('META', range, handlers, undefined, dataset)
+    expect(handlers.onComplete).not.toHaveBeenCalled()
+    expect(handlers.onError.mock.calls).toEqual([['The analysis evidence could not be read consistently. Run analysis again to reload the report.']])
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][0]).toBe('[analysis] citation provenance not admitted:')
+    expect(log.mock.calls[0][1]).toBeInstanceOf(ProvenanceInputsRejection)
+    expect((log.mock.calls[0][1] as Error).message)
+      .toBe('Analysis provenance could not be read: citations[0].provenance.inputs is present and not a list')
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('completes a bound run whose citation was stored without its list, as the same run with the list completes', async () => {
+    // The admission runs before the presentation's decoder, which binds the presentation to these citations: the run
+    // completes with the admitted citation and the presentation decoded as sent.
+    serve({ type: 'complete', ...completion, citations: [{ ...citation, provenance: { ...quality, inputs: undefined } }], narrative_presentation: presentation })
+    const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
+    await streamAnalysis('META', range, handlers, undefined, dataset)
+    expect(handlers.onError).not.toHaveBeenCalled()
+    const result = handlers.onComplete.mock.calls[0][0] as AnalysisCompletion
+    expect(result.citations).toEqual([citation])
+    expect(result.narrative_presentation).toEqual(presentation)
   })
 })
