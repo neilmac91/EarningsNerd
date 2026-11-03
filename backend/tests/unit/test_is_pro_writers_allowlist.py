@@ -19,8 +19,8 @@ file, each write-shaped mention:
 * ``string``: any other string literal outside a docstring that names ``is_pro`` (raw SQL), except the name a
   ``getattr``/``hasattr`` or a ``.get`` reads;
 
-and in every SQL, shell and workflow file, each line naming ``is_pro`` outside a comment (``text``; planted in
-``PLANTED_TEXT``). It holds the counts,
+and in every file with a ``.sql``, ``.sh``, ``.yml`` or ``.yaml`` suffix, or with none and a shell shebang (a git
+hook), each line naming ``is_pro`` outside a comment (``text``; planted in ``PLANTED_TEXT``). It holds the counts,
 per (path, enclosing function or class, kind), equal to ``REVIEWED``, whose comments say why each is or is not a write
 of the flag. A new one fails until it is reviewed and listed; the reviewer confirms that a new writer of the flag never
 touches an account a complimentary grant holds (or revokes the grant with it) and lists it.
@@ -28,6 +28,8 @@ touches an account a complimentary grant holds (or revokes the grant with it) an
 Out of reach, said so nothing is overclaimed (each planted in ``OUT_OF_REACH``): a name built at run time
 (``setattr(user, "is_" + "pro", True)``), a mapping that is not a literal handed on (``User(**fields)``,
 ``update(values)``), raw SQL assembled from pieces that are not literals, and a helper that is handed the attribute name.
+Not read at all: a script in another language (JavaScript under ``ops/`` or ``tasks/``, whose one mention of the flag
+today is a UI harness's mocked responses).
 """
 import ast
 import os
@@ -280,8 +282,21 @@ def _scanned_files(root: Path = ROOT) -> list[Path]:
                          and (here / name).relative_to(root).as_posix() not in SKIPPED_PATHS
                          and not (here / name / ".git").exists()]
         files += [here / name for name in names
-                  if Path(name).suffix in (".py", *TEXT_SUFFIXES) and (here / name).is_file()]
+                  if (Path(name).suffix in (".py", *TEXT_SUFFIXES) or _shell_script(here / name))
+                  and (here / name).is_file()]
     return sorted(files)
+
+
+def _shell_script(path: Path) -> bool:
+    """A file with no suffix whose first line runs a shell (``#!/bin/sh``, ``#!/usr/bin/env bash``)."""
+    if path.suffix or not path.is_file():
+        return False
+    try:
+        with path.open("rb") as handle:
+            first = handle.readline(200)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and re.search(rb"\b(?:ba|z|da|k)?sh\b", first) is not None
 
 
 def scan_repository(root: Path = ROOT) -> Counter:
@@ -323,6 +338,8 @@ def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_othe
         "infra/repair_pro.py": writes,
         ".github/scripts/repair_pro.py": writes,
         ".claude/repair_pro.sh": 'psql -c "UPDATE users SET is_pro = true WHERE id = 1"\n',
+        ".claude/hooks/git/post-merge": '#!/usr/bin/env bash\npsql -c "UPDATE users SET is_pro = false"\n',
+        "ops/NOTES": "is_pro, noted in a file that is no script\n",
         "frontend/scripts/fixture.py": writes,
         "backend/tests/unit/test_fixture.py": writes,
         "ops/tool/tests/repair_pro.py": writes,
@@ -336,5 +353,6 @@ def test_the_walk_reads_every_folder_but_the_browser_app_the_test_homes_and_othe
         ("infra/repair_pro.py", "repair", "assign"): 1,
         (".github/scripts/repair_pro.py", "repair", "assign"): 1,
         (".claude/repair_pro.sh", "<file>", "text"): 1,
+        (".claude/hooks/git/post-merge", "<file>", "text"): 1,
         ("ops/tool/tests/repair_pro.py", "repair", "assign"): 1,
     })

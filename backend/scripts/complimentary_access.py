@@ -16,7 +16,7 @@ Usage:
     #   one fingerprint per address read from stdin, in order; both files stay in the private store, outside the
     #   repository (the runbook's $HOME/beta-private)
     python scripts/complimentary_access.py fingerprint < "$HOME/beta-private/addresses.txt"
-    #   validate a manifest and print its digest
+    #   validate a manifest and print its digest (each manifest carries a fresh secret salt: openssl rand -hex 16)
     python scripts/complimentary_access.py check --manifest "$HOME/beta-private/manifest.json"
 
     # Against the database (DATABASE_URL and the app's settings):
@@ -27,8 +27,8 @@ Usage:
 
 Exit status: 0 when the command ran (a report may still list refusals), 1 when it refused to run (a manifest it cannot
 read, a manifest fault, an operator who is not an active verified admin, a digest that is not the manifest's, a grant
-past the cap), 2 when the database failed or an account's unit failed unexpectedly (units committed before a failing
-unit stay; a rerun skips them).
+past the cap), 2 when the settings failed to load, the database failed or an account's unit failed unexpectedly (units
+committed before a failing unit stay; a rerun skips them).
 
 Gate: tests/unit/test_complimentary_access_script.py (the report and every log line carry no planted id or address)
 and tests/unit/test_complimentary_access_service.py. Retire: with the Ops operations that run it, once the beta's
@@ -76,8 +76,11 @@ def _today():
 
 def cmd_fingerprint(_args: argparse.Namespace) -> int:
     for line in sys.stdin:
-        if line.strip():
-            print(email_fingerprint(line))
+        # A list saved by Notepad, or as Excel's "CSV UTF-8", starts with a byte-order mark, which str.strip() keeps
+        # and no stored address holds: hashed in, the first tester's fingerprint would match nothing.
+        address = line.replace("\ufeff", "").strip()
+        if address:
+            print(email_fingerprint(address))
     return 0
 
 
@@ -100,12 +103,8 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def _database_command(args: argparse.Namespace) -> int:
-    # Imported here so fingerprint and check run with no settings and no database.
-    from app.database import SessionLocal
-    from app.services import complimentary_access_service as service
-
-    # The manifest is read before the database: a file it cannot read is a refusal, so exit 2 means the database or
-    # an account's unit failed.
+    # The manifest is read before the database: a file it cannot read is a refusal, so exit 2 means the settings, the
+    # database or an account's unit failed.
     if args.command != "readout":
         try:
             manifest, digest = _read_manifest(args.manifest)
@@ -116,8 +115,14 @@ def _database_command(args: argparse.Namespace) -> int:
     # The report is the only output: an application log record can carry an exception's text or an address, and
     # the Ops log is public (financial_revenue_preview.py does the same).
     logging.disable(logging.CRITICAL)
-    db = SessionLocal()
+    db = None
     try:
+        # Imported here, so fingerprint and check run with no settings and no database, and inside the try, so settings
+        # that fail to load (an unparseable DATABASE_URL) are a failure, exit 2, by their class alone.
+        from app.database import SessionLocal
+        from app.services import complimentary_access_service as service
+
+        db = SessionLocal()
         if args.command == "readout":
             _print(service.readout(db, today=_today()))
             return 0
@@ -136,11 +141,12 @@ def _database_command(args: argparse.Namespace) -> int:
             return _refuse("digest_mismatch", manifest_sha256=digest)
         _print(report.as_dict())
         return REFUSED if report.stopped else 0
-    except Exception as exc:  # the database or an account's unit failed: the class alone, never a message with values
+    except Exception as exc:  # the settings, the database or a unit failed: the class alone, never a message's values
         _print({"failed": type(exc).__name__})
         return FAILED
     finally:
-        db.close()
+        if db is not None:
+            db.close()
         logging.disable(logging.NOTSET)
 
 

@@ -37,7 +37,8 @@ ACTS_ON_DELETE = {"CASCADE", "SET NULL"}
 MIGRATIONS = Path(__file__).resolve().parents[2] / "migrations"
 # A migration that declared a reference to users with no ON DELETE action, and the later one that replaced it. An
 # applied migration is never edited (CLAUDE.md rule 3), so the old file stays; its replacement must stay too.
-SUPERSEDED = {"20260707_create_trend_analysis.sql": "20261102_trend_analysis_creator_set_null.sql"}
+# A legacy file whose reference to users had no action, and the file and column that replace it.
+SUPERSEDED = {"20260707_create_trend_analysis.sql": ("20261102_trend_analysis_creator_set_null.sql", "created_by_user_id")}
 _REFERENCE = re.compile(
     r'(?P<column>[^,;]*)REFERENCES\s+(?:"?public"?\s*\.\s*)?"?users"?(?!\w)(?:\s*\(\s*"?id"?\s*\))?(?P<rest>[^,;]*)',
     re.IGNORECASE)
@@ -72,6 +73,16 @@ def _blocking_references(user_mapper=None, tables=None) -> list[str]:
     )
 
 
+def _uncommented(text: str) -> str:
+    return re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
+
+
+def _replaces_with_an_action(text: str, column: str) -> bool:
+    """Whether the file, its comments aside, declares a reference to users from ``column`` that acts on delete."""
+    return any(re.search(rf"\b{re.escape(column)}\b", match.group("column")) and _ACTION.search(match.group("rest"))
+               for match in _REFERENCE.finditer(_uncommented(text)))
+
+
 def _migrations_without_an_action(texts) -> list[str]:
     """Each migration that declares a reference to users without ON DELETE CASCADE or SET NULL, or with SET NULL on a
     column it declares NOT NULL (before the reference, on its line or an earlier one, or after it), once per reference.
@@ -81,7 +92,7 @@ def _migrations_without_an_action(texts) -> list[str]:
     later ALTER ... SET NOT NULL."""
     found = []
     for name, text in texts:
-        sql = re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.S))
+        sql = _uncommented(text)
         found += [
             name for match in _REFERENCE.finditer(sql)
             if not _ACTION.search(match.group("rest"))
@@ -138,8 +149,18 @@ def test_every_migration_reference_to_users_acts_on_delete():
         "a migration's REFERENCES users must say ON DELETE CASCADE or SET NULL: production's constraint is the one the "
         "migration built, and CI's create_all seed would hide its absence"
     )
-    for legacy, replacement in SUPERSEDED.items():
-        assert _ACTION.search((MIGRATIONS / replacement).read_text(encoding="utf-8")), (legacy, replacement)
+    for legacy, (replacement, column) in SUPERSEDED.items():
+        assert _replaces_with_an_action((MIGRATIONS / replacement).read_text(encoding="utf-8"), column), (
+            legacy, replacement)
+    # The replacement must declare the reference itself: a comment that names the action, or the action on another
+    # column, replaces nothing.
+    stamp = ("ALTER TABLE t ADD CONSTRAINT k\n    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL "
+             "NOT VALID;")
+    assert _replaces_with_an_action(stamp, "created_by_user_id")
+    assert not _replaces_with_an_action(
+        "-- ADD FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL;\n", "created_by_user_id")
+    assert not _replaces_with_an_action(stamp.replace("(created_by_user_id)", "(reviewed_by)"), "created_by_user_id")
+    assert not _replaces_with_an_action(stamp.replace("ON DELETE SET NULL ", ""), "created_by_user_id")
     # The reader, on the forms the files use: a column's reference, a table constraint, a line break before the action,
     # and a comment, which declares nothing.
     assert _migrations_without_an_action([
