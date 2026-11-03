@@ -19,8 +19,10 @@ parses the JSON and compares it to the exact expected payload, and checks that s
 The two names are never written whole here: the module holds only their fragments, case ids and
 builders, and `_Parts` joins the names when a case runs, so this source holds no name and no form the
 hook flags (proven by test_neither_source_is_flagged), and no module global holds one either (an error
-while a module loads makes pytest print module globals under `-l`; the hook joins its names lazily
-too). No scanned text reaches a failure report:
+while a module loads makes pytest print module globals under `-l`; the hook builds its names lazily
+too, each joined straight onto its object, so no argument or local of the hook's frames holds one,
+and this file scans in-process through `_shape` and the pin). No scanned text reaches a failure
+report:
 - the parametrize id is the case id, never the scanned value;
 - `_Parts` and `_Run` (a finished run: exit status and streams) have text-free reprs, so no frame that
   holds one prints a name or a stream, even with frame hiding off (`--full-trace`);
@@ -37,7 +39,10 @@ too). No scanned text reaches a failure report:
 test_a_broken_copy_prints_no_scanned_text pins this on copies with the registrations removed (every
 case, every shown frame's locals printed in full), with a hook that ignores the opt-in and echoes the
 match (frame hiding on, then off), with a hook that sleeps past its registered timeout (frame hiding
-off), and with an error planted at the end of the test module's and of the hook module's body.
+off), with an error raised inside a name's construction right after its join (pytest's default flags,
+then every local printed) and at the end of the hook's `_names()` (every local printed, then frame
+hiding off), and with an error appended to the end of the test module's and of the hook's source, so
+it runs after every module-level statement.
 """
 from __future__ import annotations
 
@@ -77,8 +82,8 @@ _F2 = ("tasks/", "rev", "iew", "-", "evi", "dence")
 _DATE_LEN = sum(len(fragment) for fragment in _F1[4:7])
 
 BACKSLASH = chr(92)
-SHARP_S = "ß"                      # case-folds to the two letters "ss"
-ELLIPSIS = "…"                     # a Unicode ellipsis, one character
+SHARP_S = "\N{LATIN SMALL LETTER SHARP S}"  # case-folds to the two letters "ss"
+ELLIPSIS = "\N{HORIZONTAL ELLIPSIS}"         # a Unicode ellipsis, one character
 TRUNC = "... [42 characters truncated] ..."  # the middle-truncation marker of an error string
 TRUNC4 = "...." + TRUNC[3:-3] + "...."       # the same marker drawn with four dots
 
@@ -183,13 +188,11 @@ def _post_event(tool_response: object, cwd: Path) -> str:
 
 def _failure_event(error: object, cwd: Path, tool_response: object = None) -> str:
     __tracebackhide__ = True
-    payload = {
+    return json.dumps({
         "session_id": "s", "cwd": str(cwd), "hook_event_name": "PostToolUseFailure", "tool_name": "Bash",
         "tool_input": {"command": "ls"}, "error": error, "is_interrupt": False, "duration_ms": 1,
-    }
-    if tool_response is not None:
-        payload["tool_response"] = tool_response
-    return json.dumps(payload)
+        **({} if tool_response is None else {"tool_response": tool_response}),
+    })
 
 
 def _event_stdin(form: object, cwd: Path, event: str) -> str:
@@ -198,31 +201,27 @@ def _event_stdin(form: object, cwd: Path, event: str) -> str:
 
 
 def _tool_input_only_stdin(event: str, cwd: Path) -> str:
-    """Both names only in tool_input, as a CODE RED git command's exclusion pathspecs carry them."""
+    """Both names only in tool_input, as a CODE RED git command's exclusion pathspecs carry them. No
+    local holds a name: the input is built in the one expression that serialises it."""
     __tracebackhide__ = True
-    parts = _Parts()
-    payload = {
+    rest = ({"tool_response": {"stdout": "nothing to commit", "stderr": ""}} if event == "PostToolUse"
+            else {"error": "exit status 1", "tool_response": {"stdout": "", "stderr": "nothing to commit"}})
+    return json.dumps({
         "session_id": "s", "cwd": str(cwd), "hook_event_name": event, "tool_name": "Bash",
-        "tool_input": {"command": f"git status -- . ':!{parts.n1}/' ':!{parts.n2}/'"}, "tool_use_id": "t",
-    }
-    if event == "PostToolUse":
-        payload["tool_response"] = {"stdout": "nothing to commit", "stderr": ""}
-    else:
-        payload["error"] = "exit status 1"
-        payload["tool_response"] = {"stdout": "", "stderr": "nothing to commit"}
-    return json.dumps(payload)
+        "tool_input": {"command": f"git status -- . ':!{_Parts().n1}/' ':!{_Parts().n2}/'"}, "tool_use_id": "t",
+        **rest,
+    })
 
 
 def _unknown_event_stdin(field: str | None, cwd: Path) -> str:
-    """A readable object with no hook_event_name, N1 under `field` (None: only in tool_input)."""
+    """A readable object with no hook_event_name, N1 under `field` (None: only in tool_input). No local
+    holds the name: the input is built in the one expression that serialises it."""
     __tracebackhide__ = True
-    n1 = _Parts().n1
-    payload = {"session_id": "s", "cwd": str(cwd), "tool_name": "Bash", "tool_input": {"command": "ls"}}
+    base = {"session_id": "s", "cwd": str(cwd), "tool_name": "Bash"}
     if field is None:
-        payload["tool_input"] = {"command": f"ls {n1}"}
-    else:
-        payload[field] = {"stdout": n1} if field == "tool_response" else n1
-    return json.dumps(payload)
+        return json.dumps({**base, "tool_input": {"command": f"ls {_Parts().n1}"}})
+    return json.dumps({**base, "tool_input": {"command": "ls"},
+                       field: {"stdout": _Parts().n1} if field == "tool_response" else _Parts().n1})
 
 
 def _path_listing() -> str:
@@ -450,6 +449,24 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "N1 cut after its year and dash, then an ellipsis, a slash and the component": lambda p: f"{p.head1}{p.date[:5]}{ELLIPSIS}/{p.component1}",
     "N1 word, dash, the date's first digit, an ellipsis, its last digit, a slash and the component": lambda p: f"{p.word1}-{p.date[:1]}{ELLIPSIS}{p.date[-1:]}/{p.component1}",
     "N1 cut two digits into its date as a JSON key": lambda p: f'{{"{p.head1}{p.date[:2]}":1}}',
+    # A sibling path under the dated parent whose year, or every date digit, is dotted: the dots also
+    # read as a truncation marker inside the date, so the parent is flagged (over-flagging this rare
+    # shape is the safe side, by design).
+    "the dated parent with its year as four dots, then a sibling file": lambda p: f"{p.head1}....{p.date[4:]}/plan.md",
+    "the dated parent with every date digit a dot, then a sibling file": lambda p: f"{p.head1}{p.dotted}/plan.md",
+    # The whole date elided by one ellipsis, Unicode or three ASCII dots: a whole-date token that still
+    # borders a cut, so the name, with or without its prefix, and the parent before a sibling file
+    # are flagged.
+    "N1 with its date elided by a Unicode ellipsis, before a space": lambda p: f"see {p.head1}{ELLIPSIS}/{p.component1} now",
+    "N1 with its date elided by a Unicode ellipsis, at a line's end": lambda p: f"{p.head1}{ELLIPSIS}/{p.component1}\n",
+    "N1 with its date elided by three dots, before a space": lambda p: f"see {p.head1}.../{p.component1} now",
+    "N1 with its date elided by three dots, at a line's end": lambda p: f"{p.head1}.../{p.component1}\n",
+    "N1 without its prefix, its date elided by a Unicode ellipsis, before a space": lambda p: f"see {p.word1}-{ELLIPSIS}/{p.component1} now",
+    "N1 without its prefix, its date elided by a Unicode ellipsis, at a line's end": lambda p: f"{p.word1}-{ELLIPSIS}/{p.component1}\n",
+    "N1 without its prefix, its date elided by three dots, before a space": lambda p: f"see {p.word1}-.../{p.component1} now",
+    "N1 without its prefix, its date elided by three dots, at a line's end": lambda p: f"{p.word1}-.../{p.component1}\n",
+    "the dated parent with its date elided by a Unicode ellipsis, then a sibling file": lambda p: f"{p.head1}{ELLIPSIS}/plan.md",
+    "the dated parent with its date elided by three dots, then a sibling file": lambda p: f"{p.head1}.../plan.md",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -496,6 +513,10 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "a seven-character J2 cut whose slash is backslash-slash": lambda p: f"see {p.date[-2:]}{BACKSLASH}/{p.component1[:4]} now",
     "a six-character J2 cut whose slash is %2F": lambda p: f"see {p.date[-2:]}%2F{p.component1[:3]} now",
     "a six-character J2 cut whose slash is %2f": lambda p: f"see {p.date[-2:]}%2f{p.component1[:3]} now",
+    # Two dots in date position are a parent-directory step, never an elided date; a bracketed token
+    # is a label, not an elision, so the parent before a sibling file stays a sibling path.
+    "two dots in date position, then a look-alike of the component": lambda p: f"see {p.head1}../{p.component1[:4]}x now",
+    "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
 }
 NOT_FLAGGED.update({f"N1 short form: a one-character token after the word's last {j} letters":
                     (lambda p, j=j: f"run {p.word1[-j:]}-* now") for j in range(1, 6)})
@@ -700,63 +721,85 @@ _ECHOING_UNCHECKED_BRANCH = ("        if data is None:  # opted in but the input
                              "            sys.stderr.write(_names()[0].canon)\n            return _emit(UNCHECKED, event)\n")
 _MAIN = "def main() -> int:\n"
 _SLEEPING_MAIN = "def main() -> int:\n    import time\n    time.sleep(3)\n"
-_HOOK_END = '\n\nif __name__ == "__main__":\n'
-_HOOK_END_RAISING = '\n\nraise RuntimeError("a planted module-level error")\n\n\nif __name__ == "__main__":\n'
-_TEST_END = '    assert "disableAllHooks" not in json.loads(SETTINGS.read_text(encoding="utf-8"))\n'
-_TEST_END_RAISING = _TEST_END + '\n\nraise RuntimeError("a planted module-level error")\n'
+# A raise inside a name's construction right after its fragments are joined, and one at the end of
+# _names() once both names exist.
+_JOIN = '        self.canon = "".join(fragments)\n'
+_JOIN_RAISING = _JOIN + '        raise RuntimeError("a planted error after the join")\n'
+_NAMES_RETURN = "    return _Name(_F1, (4, 7)), _Name(_F2, None)\n"
+_NAMES_RAISING = ("    names = _Name(_F1, (4, 7)), _Name(_F2, None)\n"
+                  "    raise RuntimeError(\"a planted error at the end of the names' construction\")\n")
+# A raise appended to the end of a module's source: on import it runs after every module-level
+# statement (an import skips the hook's main block), so no module-level code can come after it.
+_MODULE_RAISE = '\n\nraise RuntimeError("a planted module-level error")\n'
 _ECHOING = ((_FLAG_BRANCH, _ECHOING_FLAG_BRANCH), (_OPT_IN_CHECK, _OPT_IN_IGNORED),
             (_UNCHECKED_BRANCH, _ECHOING_UNCHECKED_BRANCH))
 _PIN = "test_a_broken_copy_prints_no_scanned_text"
 _MESSAGES_TEST = "test_the_fixed_messages_are_distinct_and_say_what_they_mean"
 _REGISTRATION_TEST = "test_the_hook_is_registered_on_both_events"
-_FULL_TRACE_ECHO_CASES = ("test_a_named_result_is_flagged_on_post_tool_use[N1 alone]",
-                          "test_opt_in_off_is_silent_even_for_a_named_result[PostToolUse]",
+_FIRST_CASE = "test_a_named_result_is_flagged_on_post_tool_use[N1 alone]"
+_FULL_TRACE_ECHO_CASES = (_FIRST_CASE, "test_opt_in_off_is_silent_even_for_a_named_result[PostToolUse]",
                           "test_unreadable_stdin_is_reported_unchecked_to_claude_when_opted_in[empty-PostToolUse]")
 
-# Each broken copy: the hook and test edits it plants, the events whose guard registration it
-# removes, the timeout it gives the PostToolUse registration, what it runs, and its pytest flags. -l
-# runs at -vv, so pytest prints every local whole, not cut to 240 characters.
+
+def _variant(flags: list[str], select: Callable[[Path], list[str]], *, edits: tuple = (), drop: tuple = (),
+             timeout: int | None = None, hook_tail: str = "", test_tail: str = "") -> dict:
+    """One broken copy: its pytest flags and what it runs, the hook edits it plants, the events whose
+    guard registration it removes, the timeout it gives the PostToolUse registration, and what it
+    appends to the end of the copied hook's and test's source."""
+    return {"flags": flags, "select": select, "edits": edits, "drop": drop, "timeout": timeout,
+            "hook_tail": hook_tail, "test_tail": test_tail}
+
+
+def _first_case(test: Path) -> list[str]:
+    return [f"{test}::{_FIRST_CASE}"]
+
+
+# The broken copies. -l runs at -vv, so pytest prints every local whole, not cut to 240 characters.
 _COPIES: dict[str, dict] = {
     # Every case that runs the hook fails on the missing registration, before any input exists, and
     # -l prints the locals of every frame shown, so no test function may bind scanned text to a name.
-    "the registrations removed": {
-        "edits": (), "test_edits": (), "drop": EVENTS, "timeout": None, "flags": ["-vv", "--tb=long", "-l"],
-        "select": lambda test: [str(test), "-k", f"not {_PIN}"],
-    },
+    "the registrations removed": _variant(
+        ["-vv", "--tb=long", "-l"], lambda test: [str(test), "-k", f"not {_PIN}"], drop=EVENTS),
     # A hook that ignores the opt-in and echoes what it matched (and a name on an unchecked input):
     # the flag, silent and unchecked checks fail, and their frames hide the runs.
-    "an echoing hook that ignores the opt-in": {
-        "edits": _ECHOING, "test_edits": (), "drop": (), "timeout": None, "flags": ["-vv", "--tb=long", "-l"],
-        "select": lambda test: [f"{test}::test_a_named_result_is_flagged_on_post_tool_use",
-                                f"{test}::test_opt_in_off_is_silent_even_for_a_named_result",
-                                f"{test}::test_unreadable_stdin_is_reported_unchecked_to_claude_when_opted_in"],
-    },
+    "an echoing hook that ignores the opt-in": _variant(
+        ["-vv", "--tb=long", "-l"],
+        lambda test: [f"{test}::test_a_named_result_is_flagged_on_post_tool_use",
+                      f"{test}::test_opt_in_off_is_silent_even_for_a_named_result",
+                      f"{test}::test_unreadable_stdin_is_reported_unchecked_to_claude_when_opted_in"],
+        edits=_ECHOING),
     # The same hook with frame hiding off: every check's frame shows its arguments and locals, so the
     # run it holds must print as its shape.
-    "an echoing hook that ignores the opt-in, every frame shown": {
-        "edits": _ECHOING, "test_edits": (), "drop": (), "timeout": None, "flags": ["-vv", "--full-trace", "-l"],
-        "select": lambda test: [f"{test}::{case}" for case in _FULL_TRACE_ECHO_CASES],
-    },
+    "an echoing hook that ignores the opt-in, every frame shown": _variant(
+        ["-vv", "--full-trace", "-l"], lambda test: [f"{test}::{case}" for case in _FULL_TRACE_ECHO_CASES],
+        edits=_ECHOING),
     # A hook that sleeps past a one-second registered timeout: the standard library's frames, which
     # hold the input, must never reach the report. --full-trace turns pytest's frame hiding off and -l
     # prints every frame's locals, so `_run`'s own arguments and locals must hold no scanned text.
-    "a hook that sleeps past its timeout": {
-        "edits": ((_MAIN, _SLEEPING_MAIN),), "test_edits": (), "drop": (), "timeout": 1,
-        "flags": ["-vv", "--full-trace", "-l"],
-        "select": lambda test: [f"{test}::test_a_named_result_is_flagged_on_post_tool_use[N1 alone]"],
-    },
-    # An error at the end of the test module's body: collection fails, and -l prints the module
-    # frame's locals, which are all of the test module's globals.
-    "a module-level error at the end of the test": {
-        "edits": (), "test_edits": ((_TEST_END, _TEST_END_RAISING),), "drop": (), "timeout": None,
-        "flags": ["-vv", "--tb=long", "-l"], "select": lambda test: [str(test)],
-    },
-    # An error at the end of the hook module's body, raised while the test module imports it: -l
-    # prints the hook's globals and the test module's so far.
-    "a module-level error at the end of the hook": {
-        "edits": ((_HOOK_END, _HOOK_END_RAISING),), "test_edits": (), "drop": (), "timeout": None,
-        "flags": ["-vv", "--tb=long", "-l"], "select": lambda test: [str(test)],
-    },
+    "a hook that sleeps past its timeout": _variant(
+        ["-vv", "--full-trace", "-l"], _first_case, edits=((_MAIN, _SLEEPING_MAIN),), timeout=1),
+    # A raise inside a name's construction right after the join. The hook run reports that it could
+    # not check, and the case's failure message builds the run's shape, which scans in-process and so
+    # raises there too: pytest's default report prints the innermost frame's arguments (CI's flags),
+    # and -l every shown frame's locals, so neither may hold a joined name.
+    "a raise inside a name's construction, at the default flags": _variant(
+        [], _first_case, edits=((_JOIN, _JOIN_RAISING),)),
+    "a raise inside a name's construction, every local printed": _variant(
+        ["-vv", "--tb=long", "-l"], _first_case, edits=((_JOIN, _JOIN_RAISING),)),
+    # A raise at the end of _names(), once both names exist: its locals, and with frame hiding off
+    # every frame's arguments and locals, must hold no joined name.
+    "a raise at the end of the names' construction, every local printed": _variant(
+        ["-vv", "--tb=long", "-l"], _first_case, edits=((_NAMES_RETURN, _NAMES_RAISING),)),
+    "a raise at the end of the names' construction, every frame shown": _variant(
+        ["-vv", "--full-trace", "-l"], _first_case, edits=((_NAMES_RETURN, _NAMES_RAISING),)),
+    # An error appended to the end of the test module's source: collection fails after every
+    # module-level statement, and -l prints the module frame's locals, all of the module's globals.
+    "a module-level error at the end of the test": _variant(
+        ["-vv", "--tb=long", "-l"], lambda test: [str(test)], test_tail=_MODULE_RAISE),
+    # An error appended to the end of the hook's source, raised while the test module imports it: -l
+    # prints all of the hook's globals and the test module's so far.
+    "a module-level error at the end of the hook": _variant(
+        ["-vv", "--tb=long", "-l"], lambda test: [str(test)], hook_tail=_MODULE_RAISE),
 }
 
 
@@ -775,8 +818,9 @@ def _apply(source: str, edits: tuple, variant: str) -> str:
 def _nested_outcomes(junit: Path) -> dict[str, str]:
     """Each copied test's outcome from the copied run's JUnit XML, as one word: "passed", or its
     problem's kind -- "collection" (the module failed to load), "unpack" (the missing registration),
-    "form" (a check whose report says a stream carries a form), "timeout" (_run's timeout), else
-    "other" -- never the problem's text. The file holds the whole report, so it is deleted once read."""
+    "form" (a check whose report says a stream carries a form), "timeout" (_run's timeout), "planted"
+    (an error a copy planted in the names' construction), else "other" -- never the problem's text.
+    The file holds the whole report, so it is deleted once read."""
     __tracebackhide__ = True
     try:
         root = ElementTree.parse(junit).getroot()
@@ -798,6 +842,8 @@ def _nested_outcomes(junit: Path) -> dict[str, str]:
             kind = "form"
         elif "did not finish within its registered" in message:
             kind = "timeout"
+        elif "a planted error" in message:
+            kind = "planted"
         else:
             kind = "other"
         outcomes[case.get("name")] = kind
@@ -818,7 +864,9 @@ def _failed_as_intended(variant: str, outcomes: dict[str, str]) -> bool:
     if variant == "an echoing hook that ignores the opt-in, every frame shown":
         return outcomes == {case: "form" for case in _FULL_TRACE_ECHO_CASES}
     if variant == "a hook that sleeps past its timeout":
-        return outcomes == {"test_a_named_result_is_flagged_on_post_tool_use[N1 alone]": "timeout"}
+        return outcomes == {_FIRST_CASE: "timeout"}
+    if variant.startswith("a raise "):
+        return outcomes == {_FIRST_CASE: "planted"}
     return list(outcomes.values()) == ["collection"]  # the two module-level errors
 
 
@@ -832,7 +880,7 @@ def test_a_broken_copy_prints_no_scanned_text(variant: str, tmp_path: Path) -> N
     (root / ".claude" / "hooks").mkdir(parents=True)
     (root / "backend" / "tests" / "unit").mkdir(parents=True)
     (root / ".claude" / "hooks" / HOOK.name).write_text(
-        _apply(HOOK.read_text(encoding="utf-8"), copy["edits"], variant), encoding="utf-8")
+        _apply(HOOK.read_text(encoding="utf-8"), copy["edits"], variant) + copy["hook_tail"], encoding="utf-8")
     settings = json.loads(SETTINGS.read_text(encoding="utf-8"))
     for event in copy["drop"]:
         settings["hooks"][event] = [entry for entry in settings["hooks"][event]
@@ -842,8 +890,7 @@ def test_a_broken_copy_prints_no_scanned_text(variant: str, tmp_path: Path) -> N
         entry["hooks"][0]["timeout"] = copy["timeout"]
     (root / ".claude" / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
     test_copy = root / "backend" / "tests" / "unit" / Path(__file__).name
-    test_copy.write_text(_apply(Path(__file__).read_text(encoding="utf-8"), copy["test_edits"], variant),
-                         encoding="utf-8")
+    test_copy.write_text(Path(__file__).read_text(encoding="utf-8") + copy["test_tail"], encoding="utf-8")
     (root / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", *copy["select"](test_copy), "-p", "no:cacheprovider",
