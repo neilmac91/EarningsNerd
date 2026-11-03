@@ -24,8 +24,10 @@ until the offer/assent and checkout/deletion coordination work is implemented an
 does general promotional mail, which has no permission record of its own. Requested beta-invitation
 email is a capability of its own, behind its own switch: its permission record, send-time
 suppression, unsubscribe and authenticated bounce/complaint updates are implemented
-([Invitation email](#invitation-email)). There is no temporary configuration bypass for a missing
-control. Requested account messages and existing billing management continue to work. The waitlist's confirmation email contains only the requested confirmation; the
+([Invitation email](#invitation-email)). Invited-cohort registration is an admission exception of
+its own, behind its own switch, for invitations alone; it opens no collection
+([Invited-cohort registration](#invited-cohort-registration)). There is no temporary configuration
+bypass for a missing control. Requested account messages and existing billing management continue to work. The waitlist's confirmation email contains only the requested confirmation; the
 referral update a member would get when someone joins through their link is promotional mail, and
 is not sent while promotional mail is held.
 
@@ -79,7 +81,8 @@ the Terms date aligned with the version accepted by the API.
 New collection is closed by default, invited registration included, and new checkout is closed in
 code. Opening collection and publishing the operator notice are operator actions:
 `LEGAL_COLLECTION_ENABLED` and `LEGAL_OPERATOR_PUBLISHED` default to false, and no deploy or
-workflow turns either on.
+workflow turns either on. So does the invited-cohort exception's switch,
+`LEGAL_INVITED_COHORT_ENABLED`.
 
 Before enabling collection, verify the public legal notice, privacy processing inventory, current
 agreement text, required regional disclosures, provider arrangements and maintained rights
@@ -107,7 +110,8 @@ A requested beta invitation can be emailed only while every condition holds
 (`legal_readiness_service.invitation_email_readiness`; the admin page's banner names each one that
 does not):
 
-- collection is available (above), since the link must be redeemable;
+- collection is available (above), or the invited-cohort exception is and the link is in its cohort
+  ([Invited-cohort registration](#invited-cohort-registration)), since the link must be redeemable;
 - `LEGAL_INVITATION_EMAIL_ENABLED` is true: the operator's switch, set only after the founder
   approves the permission policy below and an approved test send has passed;
 - `RESEND_API_KEY` is set; and
@@ -171,8 +175,9 @@ Operator steps, in order, each after the one before has passed. No deploy or wor
 them.
 
 1. Founder: approve the permission policy above, and the suppression list's retention and notice.
-2. Confirm collection is ready (`GET /api/legal/readiness`) and that `REGISTRATION_MODE` is the
-   intended mode (`invite_only` for the beta).
+2. Confirm collection is ready (`GET /api/legal/readiness`), or, for the invited cohort alone, that
+   the admin banner reads "Registration is open to the invited cohort only", and that
+   `REGISTRATION_MODE` is the intended mode (`invite_only` for the beta).
 3. Resend: subscribe the webhook to `email.sent`, `email.delivered`, `email.delivery_delayed`,
    `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`, and bind
    `RESEND_WEBHOOK_SECRET` ([resend-webhooks.md](integrations/resend-webhooks.md)); the admin banner
@@ -186,6 +191,83 @@ them.
 6. Rollback: set `LEGAL_INVITATION_EMAIL_ENABLED=false`. Sends stop at once (the route and the sender
    both check); links already issued stay valid until they expire or are revoked; the delivery record
    and the suppression list stay.
+
+## Invited-cohort registration
+
+An admission exception that lets a known group of invited testers open accounts while collection
+stays held. It opens no collection: `GET /api/legal/readiness` still reports collection, checkout
+and promotion unavailable and returns no operator notice, and general registration, the waitlist
+and the contact form stay closed.
+
+It is in effect only while every condition holds
+(`legal_readiness_service.invited_cohort_readiness`; the admin page's banner names each one that
+does not):
+
+- `REGISTRATION_MODE` is `invite_only`;
+- `LEGAL_INVITED_COHORT_ENABLED` is true (the default is false); and
+- `LEGAL_INVITED_COHORT` holds an opaque cohort label that an invitation can carry: not empty, no
+  space at either end, no control character, at most 64 characters (a synthetic example:
+  `cohort-synthetic-7f3a9c`). The label is an identifier, not a secret: no public response carries
+  it, but the admin page lists each invitation's cohort, the audit log records it, and the server's
+  private logs and error reports can carry it, as they can an account's address. Choose one that
+  names no one and says nothing about the notice.
+
+While it is in effect and collection is held, an invitation admits an account only when it is bound
+to its recipient's address and its stored cohort equals the configured label exactly. Each path
+checks this itself, when it acts, and trusts no earlier answer:
+
+- minting an invitation (`POST /api/admin/invites`) and re-issuing one
+  (`POST /api/admin/invites/{id}/resend`), before anything is written or revoked: 422 for an
+  invitation outside the cohort or bound to no address, and 503, as before, while neither collection
+  nor the exception is open;
+- emailing an invitation: the admin route and the sender (`email_service.send_invite_email`) each
+  check its cohort again, and the permission, one-link and suppression rules above still apply;
+- password registration (`POST /api/auth/register`): the request's invitation must validate (its
+  bound address, unexpired, unrevoked, unused) and be in the cohort, and the account service
+  (`auth_account_service.create_password_account`) decides admission again. Its redemption is one
+  guarded update that requires the invitation's row to be unused, unrevoked, unexpired, in the
+  cohort and bound to the new account's address, so neither the copy of the invitation the route
+  read earlier nor the browser decides it;
+- Google and Apple sign-up: the start (`POST /api/auth/{google,apple}/start`) refuses a sign-up whose
+  invitation is not live and in the cohort, and the callback decides again on the address the
+  provider verified, with the same guarded redemption, so an exception closed during a sign-in
+  admits nothing.
+
+A sign-up without an invitation meets the closure it always met (503), and an invitation the
+exception refuses gets the answer any invalid invitation gets (403 at `/api/auth/register`,
+`invite_required` after a social sign-in). A password registration whose admitted invitation is
+bound to the address of an existing account creates nothing and spends no invitation; as with open
+registration, it answers as a new account does, and the account's owner gets the account-exists
+notice. Existing sign-in, linking, sessions and account rights are unchanged, and a new account
+still needs both of its holder's own statements.
+
+`GET /api/auth/registration` carries `invited_cohort_available`, a boolean and never the label, with
+`Cache-Control: no-store`. The register page reads it afresh for a visitor holding an invitation
+while collection is held, opens the form only on an exact `true`, treats a failed or malformed read
+as closed, and reads it again before each sign-up. It decides only what the page offers.
+
+**What the code does not establish.** The exception is for a cohort that receives the operator's
+notice privately before any public notice is published. The code enforces cohort eligibility only;
+it cannot see whether, when or how that notice reached anyone. The notice's version and its
+delivery to each invitee are the operator's own record, kept outside this repository, linked by
+cohort label and invitation ID, and made before addresses are imported or any invitation is
+emailed. Whether a privately delivered notice is a sufficient basis for this collection wherever a
+tester lives is the founder's decision; nothing here claims it is.
+
+**Operating it.** Operator steps; no deploy or workflow does any of them.
+
+1. Founder: decide the cohort, its private notice and that notice's delivery record (above).
+2. On `earningsnerd-backend`, with `REGISTRATION_MODE=invite_only`, set `LEGAL_INVITED_COHORT` to
+   the cohort's label and `LEGAL_INVITED_COHORT_ENABLED=true`. The admin banner then reads
+   "Registration is open to the invited cohort only".
+3. Mint each invitation bound to its recipient's address, with that label in its Cohort field.
+4. To close it, set `LEGAL_INVITED_COHORT_ENABLED=false`. Every mint, re-send, send, registration
+   and sign-up checks it at once. While it is off and collection is held, links already issued
+   admit no account, and they work again if it reopens before they expire. Accounts it admitted
+   keep their access.
+
+The cases are in `backend/tests/unit/test_invited_cohort_registration.py` and, for the register
+page, `frontend/tests/unit/registerInvitedCohort.spec.tsx`.
 
 Nothing here certifies the existing deletion endpoint's provider cleanup, changes retention
 periods, registers a copyright agent, or resolves historical billing records. Those remain separate

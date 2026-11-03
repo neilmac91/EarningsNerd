@@ -15,7 +15,8 @@ mocked, mirroring test_apple_signin.py):
 
 Structural gate (CLAUDE.md rule 12): every ``User(`` construction anywhere in app/ sits in a
 function that calls the gate helper, or is services/auth_account_service.py::create_password_account,
-which also requires collection readiness and current assent. Registration retains REGISTRATION_MODE;
+which also requires account admission (collection readiness, or the invited-cohort exception for an invited account)
+and current assent. Registration retains REGISTRATION_MODE;
 admin provisioning is retired. The closed caller chains prevent a new creation bypass.
 """
 import ast
