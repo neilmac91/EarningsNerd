@@ -15,12 +15,13 @@ import { describe, expect, it } from 'vitest'
  * reads as an apostrophe, not as a semicolon, and `&#59;` reads as one. Not read: a title passed in as a
  * variable, a spread of a variable, and a component reached through another module's re-export.
  *
- * A title never opens on its state's name and a colon ("Warning:", "Error:"): the glyph names the state, the triangle
- * a warning and the circle an error, so the title says what is true (D-076). The same pieces are read, so a conditional
- * arm or a template's head that opens so fails too.
+ * No piece of a title opens on its state's name and a colon ("Warning:", "Error:"): the glyph names the state, the
+ * triangle a warning and the circle an error, so the title says what is true (D-076). The same pieces are read, so a
+ * conditional arm or a template's head that opens so fails too, and so does a later piece (stricter than the title's
+ * opening alone); a title split so that no one piece opens on the name is out of reach.
  */
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const ROOTS = ['app', 'components', 'features']
+const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 const COMPONENTS = new Set(['Notice', 'GuidanceCard'])
 /** A piece that opens on a state's name and a colon. */
 const STATE_PREFIX = /^(warning|error|success|info|note|caution)\s*:/i

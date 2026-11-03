@@ -1684,9 +1684,10 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  removes (D-076). The words a caller writes into a Notice (its title, description and children)
                  rest in the ink, a link in the accent ink at full strength (gate:
                  tests/unit/noticeTintInk.spec.ts, every <Notice> under any alias; out of its reach, words a
-                 component inside the Notice inks itself), and a title never opens on its state's name and a
-                 colon (gate: tests/unit/noticeTitlesAreOnePhrase.spec.ts, every piece of a Notice's or a
-                 GuidanceCard's title). Guidance is no state (a sign-in that would show a company's
+                 component inside the Notice inks itself and a class held in a variable), and no piece of a
+                 title opens on its state's name and a colon (gate: tests/unit/noticeTitlesAreOnePhrase.spec.ts,
+                 every piece of a Notice's or a GuidanceCard's title it can read; out of its reach, a title held
+                 in a variable or a spread of one, and a component reached through another module's re-export). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's

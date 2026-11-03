@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import * as uiBarrel from '@/components/ui'
 import * as cardModule from '@/components/ui/Card'
 import { bindingResolver } from './astBindings'
-import { FRONTEND_ROOT, MARKER, competing, declCache, loadDeclarations, parseClass, stylesOthers } from './tailwindCompeting'
+import { FRONTEND_ROOT, MARKER, competing, declCache, loadDeclarations, longhands, parseClass, stylesOthers } from './tailwindCompeting'
 
 /**
  * Rule-12 gate for components/ui/Card.tsx (E283's follow-up, D-076): a class written on a <Card>, <CardHeader>,
@@ -151,9 +151,15 @@ function scanSource(file: string, text: string): Scan {
   const forwarderOf = (module: string, name: string) => FORWARDERS.find((f) => f.module === module && f.name === name)
   /** What a tag or a reference names: one of the five, a forwarder, or nothing of this gate's. */
   const lazyAlias = FORWARDERS.find((f) => f.file === file)?.lazy
+  /** A local whose declaration is initialised through `lazy(…)` (`const [Card] = useState(() => lazy(loadCard))`). */
+  const isLazyBinding = (id: ts.Identifier): boolean => {
+    let decl: ts.Node | undefined = resolve(id)?.decl
+    while (decl && !ts.isVariableDeclaration(decl) && !ts.isSourceFile(decl)) decl = decl.parent
+    return !!decl && ts.isVariableDeclaration(decl) && !!decl.initializer && /\blazy\(/.test(decl.initializer.getText(sf))
+  }
   const named = (node: ts.Expression): { component: ComponentName; forwarder?: Forwarder } | undefined => {
     if (ts.isIdentifier(node)) {
-      if (lazyAlias && node.text === lazyAlias.tag && resolve(node)) {
+      if (lazyAlias && node.text === lazyAlias.tag && isLazyBinding(node)) {
         const forwarder = FORWARDERS.find((f) => f.module === lazyAlias.module && f.name === 'default')
         return forwarder ? { component: 'Card', forwarder } : undefined
       }
@@ -357,12 +363,12 @@ function placeable(own: string[], added: string[]): string[] {
 }
 
 const literalCache = new Map<string, string[]>()
-/** The classes a forwarder writes on its Card beside its caller's, read off the one <Card> in its `card` file. */
+/** The classes a forwarder writes on its Card beside its caller's, read off the <Card>s in its `card` file: every
+    branch's together, since a caller's class competes with each; none for a Card that takes its caller's alone. */
 function forwarderLiterals(forwarder: Forwarder): string[] {
   if (!literalCache.has(forwarder.card)) {
     const sites = scanSource(forwarder.card, readFileSync(path.join(FRONTEND_ROOT, forwarder.card), 'utf8')).sites.filter((s) => s.label === 'Card')
-    if (sites.length !== 1) throw new Error(`${forwarder.card}: ${sites.length} <Card> sites, where a forwarder renders one`)
-    literalCache.set(forwarder.card, sites[0].added)
+    literalCache.set(forwarder.card, [...new Set(sites.flatMap((s) => s.added))])
   }
   return literalCache.get(forwarder.card)!
 }
@@ -655,5 +661,24 @@ export const S = (x: { Card: number }) => <><ui.Card className="mt-2">a</ui.Card
     expect(await findingsOf(`${IMPORTS}export const S = () => <CardBody className="[padding-left:min(1rem,_5vw)]">x</CardBody>`)).toEqual([
       '<CardBody> [padding-left:min(1rem,_5vw)] vs px-cap-5 [padding-left] (same chain)',
     ])
+    // The shorthand side: `padding: min(1.25rem, 5vw)` is one value, each side's, so it equals px-cap-5's sides and
+    // competes with py-4's alone; p-cap-6 (ChartErrorBoundary's) is the shorthand `padding: min(1.5rem, 6vw)`.
+    expect(await findingsOf(`${IMPORTS}export const S = () => <CardBody className="[padding:min(1.25rem,_5vw)]">x</CardBody>`)).toEqual([
+      '<CardBody> [padding:min(1.25rem,_5vw)] vs py-4 [padding-top,padding-bottom] (same chain)',
+    ])
+    const beside = `import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
+export const P = () => <ChartErrorBoundary className="[padding-left:min(1.5rem,_6vw)]">x</ChartErrorBoundary>`
+    expect(await findingsOf(beside, 'app/fixture/page.tsx')).toEqual([])
+  })
+
+  it('maps the logical properties, the logical sizes and the scroll shorthands onto their physical longhands', () => {
+    const props = (prop: string, value = '1rem') => longhands([{ prop, value }]).map((d) => `${d.prop}=${d.value}`)
+    expect(props('scroll-margin')).toEqual(['scroll-margin-top=1rem', 'scroll-margin-right=1rem', 'scroll-margin-bottom=1rem', 'scroll-margin-left=1rem'])
+    expect(props('scroll-padding-inline-start')).toEqual(['scroll-padding-left=1rem'])
+    expect(props('inline-size', '10px')).toEqual(['width=10px'])
+    expect(props('max-block-size', '10px')).toEqual(['max-height=10px'])
+    expect(props('border-inline-end-color', 'red')).toEqual(['border-right-color=red'])
+    expect(props('padding', 'min(1rem, 2vw)')).toEqual(['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].map((p) => `${p}=min(1rem, 2vw)`))
+    expect(props('padding', '1rem 2rem')).toEqual(['padding-top', 'padding-right', 'padding-bottom', 'padding-left'].map((p) => `${p}=padding(1rem 2rem)`))
   })
 })

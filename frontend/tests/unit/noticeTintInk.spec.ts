@@ -263,10 +263,23 @@ function noticeElements(sf: ts.SourceFile): Tinted[] {
 
 /** A link's ink, the accent's, which a link inside a Notice keeps (DESIGN.md › Links): brand-strong and its hover, at
     full strength, on a link (an <a>, a <Link> or a component named for one). */
-const isLinkInk = (cls: string) => /^brand-(strong|emphasis)(-dark)?$/.test(textColour(cls) ?? '') && !/\/[^\]]*$/.test(cls)
+const isLinkInk = (cls: string) => /^!?text-brand-(strong|emphasis)(-dark)?$/.test(cls.split(/:(?![^[]*\])/).pop()!)
 const isLink = (node: Tinted, sf: ts.SourceFile) => /^(a|Link|[A-Z]\w*Link)$/.test((ts.isJsxElement(node) ? node.openingElement : node).tagName.getText(sf))
-/** The words a caller writes into a Notice in another ink than the ink family, a link's accent ink aside. */
-const noticeWords = (element: Tinted, sf: ts.SourceFile) => wordInks(element, sf, (cls, node) => isLink(node, sf) && isLinkInk(cls), true)
+/** Whether an element fades its text: a `text-opacity-` (or `opacity-`) utility below 100 in its className. */
+function fadesText(node: Tinted, sf: ts.SourceFile): boolean {
+  const opening = ts.isJsxElement(node) ? node.openingElement : node
+  const tokens: string[] = []
+  const strings = (n: ts.Node): void => {
+    if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) tokens.push(...n.text.split(/\s+/))
+    ts.forEachChild(n, strings)
+  }
+  opening.attributes.properties.filter((p) => isClassAttribute(p, sf)).forEach(strings)
+  return tokens.some((t) => /^!?(text-)?opacity-(?!100$|\[1\]$|\[100%\]$)/.test(t.split(/:(?![^[]*\])/).pop()!))
+}
+/** The words a caller writes into a Notice in another ink than the ink family, a link's accent ink at full strength
+    aside: the colour with no opacity modifier, on a link that fades nothing. */
+const noticeWords = (element: Tinted, sf: ts.SourceFile) =>
+  wordInks(element, sf, (cls, node) => isLink(node, sf) && isLinkInk(cls) && !fadesText(node, sf), true)
 
 /** Every source under DIRS but the primitives, from the frontend root. */
 function sources(): string[] {
@@ -415,6 +428,7 @@ describe('words inside a Notice (D-076)', () => {
         '    <Box variant="warning" title="t" description={<span className="text-warning-light">risky <a className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">more</a></span>}>',
         '      <ul className="list-disc text-text-secondary-light"><li className="dark:text-error-dark">one</li></ul>',
         '      <p className="text-brand-strong">not a link</p><Link className="text-brand-strong/70">faded</Link>',
+        '      <a className="text-brand-strong/[0.7]">faded</a><Link className="text-brand-strong text-opacity-60">faded</Link><a className="group-hover/link:text-brand-strong">full</a>',
         '    </Box>',
         '    <N variant="info" title="t" className="text-info-light"></N>',
         '    <Other variant="info" title="t" />',
@@ -425,8 +439,10 @@ describe('words inside a Notice (D-076)', () => {
     )
     const found = noticeElements(planted)
     // './ui' from components/ is the barrel; './Notice' from components/ is no Notice module; the shadowing local is skipped.
-    expect(found.map((e) => planted.getLineAndCharacterOfPosition(e.getStart(planted)).line + 1)).toEqual([7, 11])
-    expect(noticeWords(found[0], planted)).toEqual(['text-warning-light', 'dark:text-error-dark', 'text-brand-strong', 'text-brand-strong/70'])
+    expect(found.map((e) => planted.getLineAndCharacterOfPosition(e.getStart(planted)).line + 1)).toEqual([7, 12])
+    expect(noticeWords(found[0], planted)).toEqual([
+      'text-warning-light', 'dark:text-error-dark', 'text-brand-strong', 'text-brand-strong/70', 'text-brand-strong/[0.7]', 'text-brand-strong',
+    ])
     // A Notice written with empty children still has its own className read.
     expect(noticeWords(found[1], planted)).toEqual(['text-info-light'])
   })
