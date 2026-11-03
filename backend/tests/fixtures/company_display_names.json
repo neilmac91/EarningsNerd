@@ -16,6 +16,24 @@
       ]
     },
     {
+      "rule": "keeps an issuer's own initialism",
+      "why": "E304: a sweep of the names the app serves (the S&P 500 and Nasdaq-100 members, the acceptance manifest and the golden sets) found 24 initialisms the rule title-cased, \"SAP SE\" reading \"Sap SE\". All but ON are in KEEP_UPPER. KEEP_UPPER is read first and mid-name \"on\" is a connective, so ON Semiconductor keeps reading \"On\".",
+      "cases": [
+        ["SAP SE", "SAP SE"],
+        ["HSBC HOLDINGS PLC", "HSBC Holdings PLC"],
+        ["HSBC Holdings plc", "HSBC Holdings PLC"],
+        ["NIO Inc.", "NIO Inc."],
+        ["ASML HOLDING NV", "ASML Holding NV"],
+        ["KLA CORP", "KLA Corp"],
+        ["IQVIA HOLDINGS INC.", "IQVIA Holdings Inc."],
+        ["EOG RESOURCES INC", "EOG Resources Inc"],
+        ["PDD HOLDINGS INC.", "PDD Holdings Inc."],
+        ["TE CONNECTIVITY PLC", "TE Connectivity PLC"],
+        ["CF INDUSTRIES HOLDINGS, INC.", "CF Industries Holdings, Inc."],
+        ["ON SEMICONDUCTOR CORP", "On Semiconductor Corp"]
+      ]
+    },
+    {
       "rule": "cases the body when only the legal suffix is cased",
       "why": "Live sec.gov company_tickers.json: ~1,300-1,600 of 10,412 titles are ALL CAPS except the legal suffix. A cased suffix must not exempt the shouting body in front of it.",
       "cases": [
