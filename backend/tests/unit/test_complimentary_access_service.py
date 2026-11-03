@@ -303,6 +303,10 @@ def test_the_runbooks_example_manifest_is_one_the_command_accepts():
     manifest, digest = load_manifest(example.group(1).encode())
     assert manifest.action == "grant" and len(manifest.accounts) >= 1 and len(digest) == 64
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
+    # Synthetic, which the manifest gate below relies on when it allows this one file: each fingerprint is a reserved
+    # .invalid address's, never a person's.
+    assert [account.email_sha256 for account in manifest.accounts] == [
+        email_fingerprint(f"tester-{n}@example.invalid") for n in ("one", "two")]
 
 
 # Where nothing of the repository's own is kept: dependencies, build output, test reports and caches.
@@ -310,53 +314,135 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
                        "__pycache__", ".pytest_cache", ".ruff_cache"}
 
 
-def _manifest_shaped(root: Path):
-    """Each JSON file under ``root``, and each fenced json block of its Markdown, that names ``email_sha256``: every
-    manifest the command runs carries the key, so the rest cannot be one (a key spelled with escapes is not looked for:
-    the gate stops a manifest saved or pasted by mistake, not one disguised)."""
+# The operator's raw address list, by any name that says so in a plain-text form: addresses.txt, email_addresses.csv,
+# beta-addresses (no suffix).
+_ADDRESS_LIST_SUFFIXES = {"", ".txt", ".csv", ".tsv", ".lst", ".list"}
+_DECODER = json.JSONDecoder()
+
+
+def _tree(root: Path):
     for folder, subfolders, files in os.walk(root):
         # A folder with its own .git (an agent's worktree under .claude/worktrees/, a nested checkout) is another tree:
         # its copy of the runbook is not this repository's.
         subfolders[:] = [name for name in subfolders
                          if name not in _NOT_THE_REPOSITORY and not (Path(folder) / name / ".git").exists()]
         for name in files:
-            path = Path(folder) / name
-            if name.endswith(".json") and b"email_sha256" in (raw := path.read_bytes()):
-                yield path, raw
-            elif name.endswith(".md") and b"email_sha256" in (raw := path.read_bytes()):
-                for block in re.findall(r"```json\n(.*?)```", raw.decode("utf-8", "replace"), re.S):
-                    yield path, block.encode()
+            yield Path(folder) / name
 
 
-def test_the_manifest_walk_reads_json_and_markdown_and_skips_what_is_not_this_tree(tmp_path):
+def _objects(document):
+    """Every JSON object in a parsed document, the document itself included."""
+    if isinstance(document, dict):
+        yield document
+        for value in document.values():
+            yield from _objects(value)
+    elif isinstance(document, list):
+        for value in document:
+            yield from _objects(value)
+
+
+def _manifest_shaped(root: Path):
+    """Each JSON object written out in a file under ``root`` that names ``email_sha256``, whatever the file and however
+    the object is held: a .json file, a fenced block of any kind, a shell heredoc, a string in Python or YAML, a wrapper
+    under a key. The reader tries a JSON value at every "{" and yields each object in it, so no form or fence is
+    named. Every manifest the command runs carries the key, so a file without it cannot hold one. A key spelled with
+    escapes, or JSON split by its holder (a string concatenated in pieces), is not looked for: the gate stops a
+    manifest saved or pasted by mistake, not one disguised."""
+    for path in _tree(root):
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        if b"email_sha256" not in raw:
+            continue
+        text = raw.decode("utf-8", "replace")
+        at = text.find("{")
+        while at != -1:
+            try:
+                document, end = _DECODER.raw_decode(text, at)
+            except (ValueError, RecursionError):
+                at = text.find("{", at + 1)
+                continue
+            # A manifest names both keys, so only such objects are worth the strict parse.
+            for found in _objects(document):
+                if "action" in found and "accounts" in found:
+                    yield path, json.dumps(found).encode()
+            at = text.find("{", end)
+
+
+def _committed_manifests(root: Path) -> list[tuple[str, str]]:
+    """Each manifest the command would run, by its file and its digest: one entry per distinct manifest in a file, so
+    a second manifest beside an allowed one is seen."""
+    accepted = set()
+    for path, raw in _manifest_shaped(root):
+        try:
+            _, digest = load_manifest(raw)
+        except ManifestError:
+            continue
+        accepted.add((path.relative_to(root).as_posix(), digest))
+    return sorted(accepted)
+
+
+def _address_lists(root: Path) -> list[str]:
+    return sorted(path.relative_to(root).as_posix() for path in _tree(root)
+                  if "addresses" in path.name.lower() and path.suffix.lower() in _ADDRESS_LIST_SUFFIXES)
+
+
+def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
     example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
     manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
+    other = json.dumps({**json.loads(manifest), "cohort": "private-beta-wave-2"})
     for rel, text in {
-        "ops/saved.json": manifest, "docs/pasted.md": example, "docs/other.md": "no manifest here",
-        "frontend/node_modules/pkg/fixture.json": manifest, ".claude/worktrees/agent/docs/runbook.md": example,
-        ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "ops/saved.json": manifest, "docs/pasted.md": example,
+        "docs/bare-fence.md": f"Notes\n```\n{manifest}```\n", "docs/text-fence.md": f"```text\n{manifest}```\n",
+        "docs/tilde.md": f"~~~json\n{manifest}~~~\n", "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
+        "docs/inline-fence.md": f"Paste it between ``` fences:\n\n```json\n{manifest}```\n",
+        "docs/two.md": f"```json\n{manifest}```\n\nWave 2:\n\n```json\n{other}\n```\n",
+        "ops/grant.sh": f"cat <<'JSON' | python scripts/complimentary_access.py check --manifest /dev/stdin\n{manifest}JSON\n",
+        "tasks/notes.py": f"MANIFEST = \'\'\'{manifest}\'\'\'\n",
+        "tasks/notes.yml": "manifest: |\n" + "".join(f"  {line}\n" for line in manifest.splitlines()),
+        "tasks/manifest.txt": manifest, "tasks/manifest.json.bak": manifest,
+        "tasks/wrapped.json": json.dumps({"wave": {"manifest": json.loads(manifest)}}),
+        "docs/other.md": "email_sha256 is a key, and {not json} here", "frontend/node_modules/pkg/fixture.json": manifest,
+        ".claude/worktrees/agent/docs/runbook.md": example, ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "x\n",
+        "tasks/email_addresses.csv": "x\n", "tasks/tester-addresses": "x\n", "tasks/ip_addresses.py": "x = 1\n",
+        ".claude/worktrees/agent/addresses.txt": "x\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / rel).write_text(text)
-    assert sorted(path.relative_to(tmp_path).as_posix() for path, _ in _manifest_shaped(tmp_path)) == [
-        "docs/pasted.md", "ops/saved.json"]
+        (tmp_path / rel).write_bytes(text.encode())
+    found = _committed_manifests(tmp_path)
+    assert sorted({path for path, _ in found}) == sorted([
+        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md",
+        "docs/inline-fence.md", "docs/two.md", "ops/grant.sh", "tasks/notes.py", "tasks/notes.yml",
+        "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json"])
+    assert [digest for path, digest in found if path == "docs/two.md"] != [] and len(
+        [path for path, _ in found if path == "docs/two.md"]) == 2  # a second manifest in one file is its own entry
+    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt",
+                                        "tasks/email_addresses.csv", "tasks/tester-addresses"]
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
     """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
-    (rule 12). Pasting one into an issue or a pull request stays a review check."""
-    accepted = []
-    for path, raw in _manifest_shaped(REPO):
-        try:
-            load_manifest(raw)
-        except ManifestError:
-            continue
-        accepted.append(path.relative_to(REPO).as_posix())
-    assert accepted == ["docs/ops/complimentary-access.md"], (
+    (rule 12). The one manifest allowed is the runbook's example, by its digest, and
+    test_the_runbooks_example_manifest_is_one_the_command_accepts holds that example to reserved .invalid addresses,
+    so a second manifest in the runbook, or a real one in the example's place, fails. Pasting one into an issue or a
+    pull request stays a review check."""
+    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
+    _, example = load_manifest(re.search(r"```json\n(.*?)```", runbook, re.S).group(1).encode())
+    accepted = _committed_manifests(REPO)
+    assert accepted == [("docs/ops/complimentary-access.md", example)], (
         "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
         f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
     )
+
+
+def test_no_file_in_the_repository_is_the_operators_address_list():
+    """The raw addresses the founder fingerprints stay in the private store with the manifest (the runbook's
+    procedure): a file named as that list fails here, wherever it is saved. The ignore rules at the root and under
+    backend/ are a backstop for its usual places, not the gate."""
+    assert _address_lists(REPO) == [], "keep the address list in the founder's private store, outside the repository"
 
 
 # --------------------------------------------------------------------------- dry run and refusals
@@ -526,18 +612,19 @@ def test_a_grant_manifest_with_another_review_date_moves_the_date_and_nothing_el
     active grant moves to it, with an audit row of its own, while its Pro, its provenance and the cap stay as they are.
     Before, the apply reported the new date and kept the old one, so the readout counted the grant due on the old."""
     operator = world.operator()
-    tester = world.tester()
-    _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    tester, unnamed = world.tester(), world.tester()
+    _apply(world, world.manifest("grant", [tester, unnamed], operator_id=operator.id))
     first = _committed(tester.id)
     later = REVIEW_ON + timedelta(days=60)
+    # The move covers the accounts the manifest names: the cohort's other grant keeps its date.
     moved = world.manifest("grant", [tester], operator_id=operator.id, reason="Beta extended", review_on=later)
 
     planned = service.dry_run(world.db, *moved, today=TODAY)
-    assert (planned.outcomes, planned.active_grants_after) == ({"review_date_moves": 1}, 1)
+    assert (planned.outcomes, planned.active_grants_after) == ({"review_date_moves": 1}, 2)
     assert _committed(tester.id).grant.review_on == REVIEW_ON  # the dry run writes nothing
 
     applied = _apply(world, moved)
-    assert (applied.outcomes, applied.refusals, applied.active_grants_after) == ({"review_date_moved": 1}, [], 1)
+    assert (applied.outcomes, applied.refusals, applied.active_grants_after) == ({"review_date_moved": 1}, [], 2)
     state = _committed(tester.id)
     assert state.grant.review_on == later
     assert (state.is_pro, state.plan, state.grant.granted_at, state.grant.reason, state.grant.manifest_sha256) == (
@@ -547,8 +634,9 @@ def test_a_grant_manifest_with_another_review_date_moves_the_date_and_nothing_el
         AuditLog.entity_id == str(tester.id), AuditLog.action == service.AUDIT_REVIEW_MOVED).one()
     assert (row.details["before"]["review_on"], row.details["after"]["review_on"], row.details["reason"]) == (
         REVIEW_ON.isoformat(), later.isoformat(), "Beta extended")
-    assert service.readout(world.db, today=REVIEW_ON)["due_for_review"] == 0
-    assert service.readout(world.db, today=later)["due_for_review"] == 1
+    assert _committed(unnamed.id).grant.review_on == REVIEW_ON
+    assert service.readout(world.db, today=REVIEW_ON)["due_for_review"] == 1  # the unnamed grant alone
+    assert service.readout(world.db, today=later)["due_for_review"] == 2
 
     again = _apply(world, moved)  # the same manifest again changes nothing
     assert again.outcomes == {"already_granted": 1} and _committed(tester.id).actions == state.actions
