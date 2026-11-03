@@ -101,6 +101,9 @@ def _fresh(client, monkeypatch):
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
     yield
     client.cookies.clear()
+    # The limiter is the process's: the rate-limit case leaves the exchange's bucket full, and another file's next
+    # exchange on this worker (test_apple_signin.py's, which resets no limiter) would answer 429 within the minute.
+    auth_module.OAUTH_START_LIMITER._hits.clear()
 
 
 @pytest.fixture
@@ -115,6 +118,14 @@ def server_errors():
 @pytest.fixture
 def other_device():
     """A second browser, the account owner's on another device (no lifespan of its own, as ``server_errors``)."""
+    device = TestClient(app, base_url="https://testserver")
+    yield device
+    device.close()
+
+
+@pytest.fixture
+def bystander():
+    """A third browser, another account's, its own sign-in in flight (no lifespan of its own, as ``server_errors``)."""
     device = TestClient(app, base_url="https://testserver")
     yield device
     device.close()
@@ -270,20 +281,22 @@ def test_the_binding_cookie_is_scoped_as_the_session_cookies_are(client, monkeyp
     the exchange's answer sets those three cookies alone and leaves the binding cookie to lapse."""
     monkeypatch.setattr(settings, "COOKIE_DOMAIN", ".earningsnerd.io")
     monkeypatch.setattr(settings, "COOKIE_SECURE", True)
+    # Not the default, so a binder whose SameSite were written out rather than read from the setting fails here.
+    monkeypatch.setattr(settings, "COOKIE_SAMESITE", "strict")
     resp = _callback(client, monkeypatch, "google", _email())
     code = handoff_code(resp)
     (issued,) = [h for h in resp.headers.get_list("set-cookie") if h.startswith(f"{HANDOFF_COOKIE}=")]
     binder = issued.split(";", 1)[0].split("=", 1)[1]
     assert issued == (
         f"{HANDOFF_COOKIE}={binder}; Domain=.earningsnerd.io; HttpOnly; Max-Age=120; Path=/api/auth/oauth; "
-        "SameSite=lax; Secure"
+        "SameSite=strict; Secure"
     )
     # The jar keeps no cookie for another domain, so the landing page's post carries the binder by hand.
     exchange = client.post(COMPLETE_PATH, json={"code": code}, headers={"cookie": f"{HANDOFF_COOKIE}={binder}"})
     assert exchange.status_code == 200, exchange.text
     access, presence, refresh = exchange.headers.get_list("set-cookie")
     for header in (access, presence, refresh):
-        assert "Domain=.earningsnerd.io" in header and "Secure" in header and "SameSite=lax" in header, header
+        assert "Domain=.earningsnerd.io" in header and "Secure" in header and "SameSite=strict" in header, header
         assert not header.startswith(f"{HANDOFF_COOKIE}="), header
 
 
@@ -585,17 +598,22 @@ def _reset_token(client: TestClient, monkeypatch, email: str) -> str:
 @pytest.mark.requires_db
 @pytest.mark.parametrize("revocation", ["logout_all", "change_password", "reset"])
 def test_an_account_wide_sign_out_ends_a_handoff_not_yet_exchanged(
-    client, monkeypatch, other_device, postgres_shaped_reset_expiry, revocation,
+    client, monkeypatch, other_device, bystander, postgres_shaped_reset_expiry, revocation,
 ):
     """A Google sign-in committed its handoff; before its landing page exchanges the code, the account's owner signs out
     everywhere, changes the password or resets it on another device. The revocation deletes the account's handoffs
     with its tokens (``revoke_all_for_user``), so the exchange is refused, sets no cookie and mints nothing: no session
-    from before the sign-out reaches a browser after it."""
+    from before the sign-out reaches a browser after it. Another account's sign-in in flight at that moment is not the
+    revocation's: its handoff stays, and its exchange signs that browser in."""
     email = _email()
     user_id = _verified_account(email, PASSWORD)
     resp = _callback(client, monkeypatch, "google", email)
     handoff_code(resp)
     assert len(_account(email)[1]) == 1
+    bystander_email = _email()
+    _verified_account(bystander_email)
+    bystander_resp = _callback(bystander, monkeypatch, "google", bystander_email)
+    handoff_code(bystander_resp)
     if revocation == "reset":
         signed_out = other_device.post(
             "/api/auth/reset-password", json={"token": _reset_token(other_device, monkeypatch, email), "new_password": NEW_PASSWORD},
@@ -622,6 +640,33 @@ def test_an_account_wide_sign_out_ends_a_handoff_not_yet_exchanged(
         live = db.query(RefreshToken).filter_by(user_id=user_id, revoked_at=None).count()
     assert live == (1 if revocation == "change_password" else 0)  # the changer's new session alone
     assert client.get("/api/auth/me").status_code == 401
+
+    assert len(_account(bystander_email)[1]) == 1
+    exchanged = complete_sign_in(bystander, bystander_resp)
+    assert exchanged.status_code == 200 and _cookies(exchanged) == SESSION_ISSUED
+    assert bystander.get("/api/auth/me").json()["email"] == bystander_email
+
+
+@pytest.mark.requires_db
+def test_a_handoff_sign_in_deletes_the_expired_handoffs_and_keeps_the_live_ones(client, monkeypatch, other_device):
+    """The handoff commit (``commit_oauth_sign_in``) deletes every expired handoff, whosever it is, as the scheduled
+    purge does (``retention_service``): another account's lapsed handoff goes, and another's live one stays."""
+    lapsed_email, live_email, email = _email(), _email(), _email()
+    for address in (lapsed_email, live_email, email):
+        _verified_account(address)
+    lapsed_id = _account(lapsed_email)[0]
+    handoff_code(_callback(other_device, monkeypatch, "google", lapsed_email))
+    handoff_code(_callback(other_device, monkeypatch, "google", live_email))
+    with SessionLocal() as db:
+        updated = db.query(SessionHandoff).filter_by(user_id=lapsed_id).update(
+            {SessionHandoff.expires_at: utcnow() - timedelta(seconds=1)},
+        )
+        db.commit()
+    assert updated == 1
+    handoff_code(_callback(client, monkeypatch, "google", email))
+    assert _account(lapsed_email)[1] == []
+    assert len(_account(live_email)[1]) == 1
+    assert len(_account(email)[1]) == 1
 
 
 @pytest.mark.requires_db
