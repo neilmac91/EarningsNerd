@@ -7172,6 +7172,19 @@ Full local and hosted verification plus independent exact-head review precede re
   no ledger event. One chief defect (40: record 72's checkpoint line 11 left #1815 out); one hook refusal;
   the lapses counted from the chief's notes and its own commands. F57 and gate (d) built and reviewed
   locally; gate (c)'s design panel lost to the limit.
+- 2026-11-03 (record 74, `runtime/control/DECISIONS-74.md`): PR #1967 (record 73) merged `6bf8f40d` by
+  the chief's own squash (sixty-ninth deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, two delta commits and a final delta check with no blocker.
+  F57's row closed: PR #1970 merged `01fffa80` by the chief and deployed healthy. Closure 225 registers
+  record 73's reviewer, F57's round-3 review, gate (d)'s round-3 and round-4 reviews and gate (c)'s two
+  design critiques, and pre-registers record 75's reviewer. No survey or fact-check workflow for this
+  record. Nine main merges, five deploy jobs each healthy by its own health step, four push runs skipping
+  every deploy step and one running at the stamp. Production read live after each of the five deploys:
+  describe-service passing and logs-probe reading logging permitted each time. No CODE RED spend; no
+  ledger event. One chief defect (41: the checkpoint's line 10 has left gate (a)'s #1815 out since record
+  72); no hook refusal; the lapses counted from the chief's notes and its own commands. Gate (d) in its
+  sixth round; gate (c) critiqued twice, its third design being written. New founder item 28: founder
+  council transcripts in the repository.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
