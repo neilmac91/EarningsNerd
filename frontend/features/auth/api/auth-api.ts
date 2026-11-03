@@ -313,15 +313,15 @@ function postPasswordChange(currentPassword: string | null, newPassword: string,
  * in client.ts's NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read,
  * whose own 401 refreshes and confirms a lost session as any read's does, and the post goes out once more through the
  * hold. Neither post goes out once a login or a logout has been accepted in this tab since the change was asked for.
- * What this leaves open (a refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing, client.ts's
- * RefreshLockTimeout): where the browser has no lock manager or refuses the lock, any other tab's refresh, and this
- * tab's own asked for while the post is out, can answer after it; a Log out pressed in this tab while the post is out
- * posts beside it, as on main, and their answers can land in either order; the post can wait behind a refresh queued
- * after another tab's login, then post with that login's cookies, as a logout can (withSessionCookiesForPost); and it
- * changes the password of the account the browser holds, which the renewal's read does not compare with the account the
- * tab shows, so a tab left stale by another tab's sign-in changes that account's (E29 (6)). And the refusal's cost: a
- * refresh that never answers (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change
- * refusing, for as long as it hangs, where a login or a logout posts at its limit.
+ * What this leaves open (a refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing: RefreshLockTimeout): where
+ * the browser has no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the
+ * post is out, can answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main,
+ * and their answers can land in either order; the post can wait behind a refresh queued after another tab's login, then
+ * post with that login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the
+ * account the browser holds, which the renewal's read does not compare with the account the tab shows, so a tab left
+ * stale by another tab's sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers
+ * (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it
+ * hangs, where a login or a logout posts at its limit.
  */
 export const changePassword = async (currentPassword: string | null, newPassword: string) => {
   const generation = getExplicitSessionGeneration()
