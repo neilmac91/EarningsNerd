@@ -136,7 +136,11 @@ export interface RevokeResult {
  */
 export const getInviteReadiness = async (signal?: AbortSignal): Promise<InviteReadiness> => {
   const response = await api.get('/api/admin/invites/readiness', { signal })
-  const data = response.data as { collection?: unknown; invited_cohort?: unknown; invitation_email?: unknown } | null
+  const raw: unknown = response.data
+  // Not an object (no body, a string, a number): every field is missing, and the read fails below.
+  const data = raw && typeof raw === 'object'
+    ? (raw as { collection?: unknown; invited_cohort?: unknown; invitation_email?: unknown })
+    : null
   const collection = capabilityOf(data?.collection)
   const invitedCohort = data && 'invited_cohort' in data ? capabilityOf(data.invited_cohort) : COHORT_EXCEPTION_ABSENT
   const invitationEmail = capabilityOf(data?.invitation_email)

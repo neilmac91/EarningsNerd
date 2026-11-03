@@ -62,6 +62,7 @@ describe('the readiness read', () => {
 
   it.each([
     ['no body', null],
+    ['a string body', 'collection invited_cohort invitation_email'],
     ['no invitation_email', { collection: READY.collection, invited_cohort: READY.invited_cohort }],
     ['a string flag', { ...READY, collection: { available: 'true', reasons: [] } }],
     ['no reasons', { ...READY, invitation_email: { available: false } }],
