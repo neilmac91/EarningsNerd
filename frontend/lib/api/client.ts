@@ -194,14 +194,14 @@ let loginInFlight: Promise<void> | null = null
 // startOAuthWithInvite's `handoff: true`, which this app's starts send) sets no session cookie on it: it hands the
 // landing page (app/auth/complete/page.tsx) a one-time code, and that page's post under the lock sets the new session's
 // cookies (E29 (5)), where a refresh another tab sent with the previous session's cookies could answer after the
-// callback and set those over the new session's. A start that does not ask still takes main's path until E301 retires
-// it: its callback sets the session cookies on its navigation, outside the lock, and such a refresh can still answer
-// after it. The identity read (getCurrentUser in auth-api.ts) waits for the refreshes queued before it too
-// (sessionCookiesSettled), so it reads the account the browser holds once they have answered. A browser with no lock
-// manager (an older browser, a non-secure context; jsdom) runs each tab alone, as before, but for the OAuth sign-in's
-// exchange, which posts only under the lock and so posts nothing there (withSessionCookiesForPost's 'strict'). Locks
-// are per origin: tabs of two origins under the cookie domain (the apex and www) share the cookies but no lock, as they
-// share no session marker either.
+// callback and set those over the new session's. A start that does not ask still takes main's path until E29 (5)'s
+// follow-up retires it: its callback sets the session cookies on its navigation, outside the lock, and such a refresh
+// can still answer after it. The identity read (getCurrentUser in auth-api.ts) waits for the refreshes queued before
+// it too (sessionCookiesSettled), so it reads the account the browser holds once they have answered. A browser with no
+// lock manager (an older browser, a non-secure context; jsdom) runs each tab alone, as before, but for the OAuth
+// sign-in's exchange, which posts only under the lock and so posts nothing there (withSessionCookiesForPost's
+// 'strict'). Locks are per origin: tabs of two origins under the cookie domain (the apex and www) share the cookies
+// but no lock, as they share no session marker either.
 const SESSION_COOKIES_LOCK = 'earningsnerd-session-cookies'
 const sessionCookieLocks = (): LockManager | undefined =>
   (typeof navigator === 'undefined' ? undefined : navigator.locks)
@@ -482,10 +482,11 @@ export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>,
  * once. The identity read waits on it (getCurrentUser in features/auth/api/auth-api.ts), so it reads the cookies the
  * last of those answers set: a tab that read its identity while a refresh another tab sent with the previous session's
  * cookies was still out would show an account the browser no longer holds once that refresh answered (E29). An OAuth
- * sign-in whose start does not ask for the handoff (main's path, until E301 retires it) still sets its new session's
- * cookies as a navigation, which cannot hold the lock, and for it this wait is all that stands between the read and
- * such a refresh; one whose start asks (E29 (5), as this app's starts do) has its landing page's exchange post under
- * the lock instead (withoutRefreshBeside), so that refresh answers before the new session's cookies are set.
+ * sign-in whose start does not ask for the handoff (main's path, until E29 (5)'s follow-up retires it) still sets its
+ * new session's cookies as a navigation, which cannot hold the lock, and for it this wait is all that stands between
+ * the read and such a refresh; one whose start asks (E29 (5), as this app's starts do) has its landing page's exchange
+ * post under the lock instead (withoutRefreshBeside), so that refresh answers before the new session's cookies are
+ * set.
  * Shared, it waits for no post, unless a refresh is queued between them, and nothing waits on it. It settles at
  * `limitMs`, or once `signal` aborts, without the lock, and at once where the browser has no lock manager or refuses
  * the lock. What it leaves open: a refresh still unanswered at the limit and, with no lock manager or a refused lock,

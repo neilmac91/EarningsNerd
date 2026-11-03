@@ -467,7 +467,7 @@ next login page comes from the older frontend. For a clean cut, roll back to a b
 or roll the API back with the frontend (an older API ignores the ask, so every start takes the callback path that
 sets the cookies); otherwise accept that those readers log in again. A state row from before the
 `oauth_states.session_handoff` column reads as no ask.
-The follow-up that retires the cookie-setting path (E301 in `tasks/todo.md`) changes this: from then on every
+The follow-up that retires the cookie-setting path (`tasks/todo.md` E29 (5)) changes this: from then on every
 sign-in hands off, so the frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first
 and never rolls back past it while that backend serves.
 

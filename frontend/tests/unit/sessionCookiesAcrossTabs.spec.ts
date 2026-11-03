@@ -25,9 +25,9 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * The exchange posts only inside a granted lock: at its limit it posts nothing and refuses (SessionStillRenewing),
  * cancelling no refresh, and with no lock manager or a lock the browser refuses it posts nothing
  * (SessionLockUnavailable), so its landing page can post the same code again. A start that does not ask still takes
- * main's path until E301 retires it: its callback sets the session cookies on its navigation. That path stays here as
- * the control the exchange is measured against (signInByNavigation), with the identity read's wait for the refreshes
- * queued before it.
+ * main's path until E29 (5)'s follow-up retires it: its callback sets the session cookies on its navigation. That path
+ * stays here as the control the exchange is measured against (signInByNavigation), with the identity read's wait for
+ * the refreshes queued before it.
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
  * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
@@ -198,9 +198,9 @@ const unauthorized = (config: InternalAxiosRequestConfig, detail: string) => Obj
 })
 const withoutLocks = () => { delete (navigator as { locks?: unknown }).locks }
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-/** An OAuth sign-in as Y whose start did not ask for the handoff (main's path, until E301 retires it): its callback's
- * answer is a navigation that sets Y's cookies outside the lock. A start that asks sets none there (signInByHandoff);
- * kept as the control the exchange under the lock is measured against. */
+/** An OAuth sign-in as Y whose start did not ask for the handoff (main's path, until E29 (5)'s follow-up retires it):
+ * its callback's answer is a navigation that sets Y's cookies outside the lock. A start that asks sets none there
+ * (signInByHandoff); kept as the control the exchange under the lock is measured against. */
 function signInByNavigation(): void {
   const tip = browser.server.Y.tip + 1
   browser.server.Y = { tip, revoked: false, swept: false }
@@ -1276,7 +1276,7 @@ describe("an OAuth sign-in's code exchange where it cannot hold the lock: it pos
   })
 })
 
-describe("the control: a callback that sets the session cookies on its navigation (a start without the handoff, main's path until E301), which no lock can hold, and another tab's silent refresh", () => {
+describe("the control: a callback that sets the session cookies on its navigation (a start without the handoff, main's path until E29 (5)'s follow-up), which no lock can hold, and another tab's silent refresh", () => {
   it("ends on the previous account when a refresh another tab sent before the navigation answers after it, the loss E29 (5) closes", async () => {
     const answer = hold()
     tabA.refreshAnswers.push(answer.promise)

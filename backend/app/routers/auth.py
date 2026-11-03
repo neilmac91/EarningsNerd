@@ -446,8 +446,9 @@ def issue_session(
     committed one: the password login, whose ``auth_account_service.record_password_login`` mints under the
     account's lock, the ``/refresh`` endpoint, and an OAuth callback on main's path, a start that did not ask
     for the handoff (``_commit_oauth_sign_in``, whose ``oauth_account_service.mint_oauth_refresh_token``
-    commits the sign-in with its token, until E301). Returns the raw access token (body responses echo it). A
-    caller that passes ``refresh_token=`` has committed, which expired ``user``, so it must pass ``email=`` too,
+    commits the sign-in with its token, until E29 (5)'s follow-up). Returns the raw access token (body
+    responses echo it). A caller that passes ``refresh_token=`` has committed, which expired ``user``, so it
+    must pass ``email=`` too,
     the address it read before that commit (all three do): the access token then reads nothing
     after the commit, so no failure there can turn a committed sign-in into an error (E121). Without it this
     raises ``TypeError``, which every route test of such a caller then fails on.

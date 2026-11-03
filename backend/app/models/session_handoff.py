@@ -8,7 +8,7 @@ frontend's ``/auth/complete`` with the one-time code in the URL fragment, which 
 posts the code to ``POST /api/auth/oauth/complete`` under the lock, and that post's answer sets the session cookies
 (``oauth_account_service.commit_oauth_sign_in`` and ``redeem_session_handoff``). A start that did not ask takes main's
 path, which writes no row here: its callback commits the sign-in with its refresh token and sets the session cookies
-on its redirect home (``mint_oauth_refresh_token``), until E301 retires it.
+on its redirect home (``mint_oauth_refresh_token``), until E29 (5)'s follow-up retires it.
 
 Only SHA-256 hashes are stored: of the code, and of the browser-binding value the callback sets as a cookie on the
 browser it answers (``binder_hash``), so a code minted in one browser is refused from another, which lacks that cookie

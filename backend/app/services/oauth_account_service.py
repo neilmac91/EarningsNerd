@@ -371,8 +371,8 @@ def mint_oauth_refresh_token(
 ) -> str:
     """Mint and commit the sign-in's refresh token, committing what the resolve staged with it (a
     new account and redeemed invite, the provider link, ``last_login_at``). Returns the raw token.
-    Main's path, kept until E301 retires it: the commit of a callback whose start did not ask for the
-    session handoff (E29 (5)), which then sets the session cookies on its redirect home;
+    Main's path, kept until E29 (5)'s follow-up retires it: the commit of a callback whose start did not
+    ask for the session handoff, which then sets the session cookies on its redirect home;
     ``commit_oauth_sign_in`` is the commit of a start that asked.
 
     A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
