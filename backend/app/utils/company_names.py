@@ -12,7 +12,8 @@ The rule is the TypeScript module's, line for line (its docstring states it in f
 2. Otherwise each token is title-cased, except: a token with a digit or an ampersand stays as served; a
    token with a slash cases the word before the first slash and keeps each marker after it ("INC/DE" ->
    "Inc/DE"); OVERRIDES take their brand casing; KEEP_UPPER stays upper; LOWER_MIDWORD is lowercased
-   unless it leads. Lookups ignore punctuation glued to a token.
+   unless it leads; a name's first token in LEADING_INITIALISMS stays upper before its partner token
+   ("ON SEMICONDUCTOR CORP" -> "ON Semiconductor Corp"). Lookups ignore punctuation glued to a token.
 3. A trailing group of tickers in parentheses ("BOEING CO (BA, BA-PA)") stays as served.
 4. Punctuation is never added or removed; joined segments are cased one by one, with a trailing "'S" -> "'s".
 5. A letter is any script's, with its accents: a word is lowercased whole (a Greek final sigma keeps its
@@ -23,7 +24,7 @@ The port keeps JavaScript's semantics where Python's differ: whitespace is the s
 ``islower`` also counts Other_Lowercase, such as "ª"), and an anchor at the end is ``\\Z`` (Python's ``$``
 also matches before a final newline). ``backend/tests/fixtures/company_display_names.json`` is the one case
 table both copies run (``tests/unit/test_company_names.py`` and ``formatCompanyName.spec.ts``), and the
-Python test holds the four word lists below equal to the TypeScript module's.
+Python test holds the five word lists below equal to the TypeScript module's.
 """
 from __future__ import annotations
 
@@ -51,6 +52,30 @@ OVERRIDES: dict[str, str] = {
     "MCKESSON": "McKesson",
     "MCCORMICK": "McCormick",
     "IPHONE": "iPhone",
+    # E307: brands that case their own name inside a word, as their own filings write it (a 10-K or 20-F
+    # certification, the XBRL cover, or the EDGAR name), for issuers EDGAR files, or once filed, in capitals. A brand EDGAR has
+    # only ever filed in its own casing needs none ("AbbVie Inc." is served as written).
+    "AUTOZONE": "AutoZone",
+    "BLACKROCK": "BlackRock",
+    "CENTERPOINT": "CenterPoint",
+    "COSTAR": "CoStar",
+    "DAVITA": "DaVita",
+    "FACTSET": "FactSet",
+    "FEDEX": "FedEx",
+    "FIRSTENERGY": "FirstEnergy",
+    "FREEPORT-MCMORAN": "Freeport-McMoRan",
+    "KEYCORP": "KeyCorp",
+    "L3HARRIS": "L3Harris",
+    "MCLENNAN": "McLennan",
+    "MERCADOLIBRE": "MercadoLibre",
+    "METLIFE": "MetLife",
+    "MICROSTRATEGY": "MicroStrategy",
+    "NEXTERA": "NextEra",
+    "NISOURCE": "NiSource",
+    "PULTEGROUP": "PulteGroup",
+    "RESMED": "ResMed",
+    "UNITEDHEALTH": "UnitedHealth",
+    "XPENG": "XPeng",
 }
 
 # Tokens that stay upper-case: legal-form initialisms, brand initialisms, roman numerals.
@@ -63,8 +88,8 @@ KEEP_UPPER: frozenset[str] = frozenset({
     "AMC", "NVIDIA", "NIKE", "RTX", "DTE", "PPG", "PNC", "AFLAC", "CBRE", "CDW", "CME", "CSC", "DXC",
     "EQT", "FMC", "ITT", "MGM", "MSCI", "NRG", "NXP", "ONEOK", "PVH", "SBA", "SVB", "TD", "UBS", "VF",
     "WEC", "WPP",
-    # E304: the initialisms a sweep of the served names found the rule title-casing. "ON" (ON Semiconductor)
-    # stays out: KEEP_UPPER is read first, and mid-name "on" is a connective.
+    # E304: the initialisms a sweep of the served names found the rule title-casing. "ON" stays out: mid-name
+    # "on" is a connective, and LEADING_INITIALISMS keeps ON Semiconductor's.
     "APA", "ASML", "BNY", "BRT", "BXP", "CF", "CMS", "CRH", "EOG", "FIGS", "HSBC", "IDEX", "IQVIA", "KLA",
     "NIO", "NVR", "PDD", "PPL", "PTC", "SAP", "TE", "TKO", "UDR",
     # roman numerals
@@ -83,6 +108,14 @@ LOWER_MIDWORD: frozenset[str] = frozenset({
     "of", "the", "and", "for", "in", "on", "at", "by", "to",
     "de", "del", "la", "da", "di", "du", "van", "von", "y", "et",
 })
+
+# Initialisms that are also words, kept upper only as a name's first token and only before their partner token:
+# "ON SEMICONDUCTOR CORP" -> "ON Semiconductor Corp". Mid-name "on" is a connective, and 36 other names EDGAR lists in
+# capitals lead with it, most as the word ("ON TRACK INNOVATIONS LTD" -> "On Track Innovations Ltd"). Keys and partners
+# are upper-cased tokens, punctuation stripped.
+LEADING_INITIALISMS: dict[str, str] = {
+    "ON": "SEMICONDUCTOR",
+}
 
 # JavaScript's WhiteSpace and LineTerminator, the set its \s, split(/\s+/) and trim() read, written as
 # escapes for re to read: a raw U+2028 in the source would split this line for str.splitlines().
@@ -192,4 +225,10 @@ def display_company_name(name: str | None) -> str:
         body_end -= 1
     if _has_lowercase(" ".join(tokens[:body_end])):
         return " ".join(tokens)
-    return " ".join(_case_token(token, index == 0) for index, token in enumerate(tokens))
+    cased = [_case_token(token, index == 0) for index, token in enumerate(tokens)]
+    # A leading initialism that is also a word stays upper only before its partner (LEADING_INITIALISMS).
+    if len(tokens) > 1:
+        lead, core, trail = _split_punctuation(tokens[0])
+        if LEADING_INITIALISMS.get(core.upper()) == _split_punctuation(tokens[1])[1].upper():
+            cased[0] = lead + core.upper() + trail
+    return " ".join(cased)
