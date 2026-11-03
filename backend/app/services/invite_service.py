@@ -143,8 +143,9 @@ def redeem_invite(
         InviteCode.expires_at >= now,  # validate_invite's test, inverted: _is_expired is exp < now
     ]
     if cohort is not None:
-        # Both stored lower-cased and stripped: a mint normalizes the address, a registration's schema the account's.
-        conditions += [InviteCode.cohort == cohort, InviteCode.email == (user.email or "").strip().lower()]
+        # Each address is normalized where it enters: a mint lower-cases and strips the invitation's, and the request
+        # schemas and the OAuth callbacks the account's.
+        conditions += [InviteCode.cohort == cohort, InviteCode.email == user.email]
     result = db.execute(
         update(InviteCode)
         .where(*conditions)

@@ -3,7 +3,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { DELIVERY_STATUSES, EMAIL_SUPPRESSIONS, PERMISSION_VIA } from '@/features/admin/api/admin-api'
-import { COLLECTION_REASONS, INVITATION_EMAIL_REASONS } from '@/features/admin/lib/inviteReadiness'
+import {
+  COLLECTION_REASONS,
+  INVITATION_EMAIL_REASONS,
+  INVITED_COHORT_REASONS,
+  INVITED_COHORT_SWITCHED_OFF,
+} from '@/features/admin/lib/inviteReadiness'
 
 /**
  * The admin invites page restates the backend's invitation vocabularies: the delivery states, the suppression reasons
@@ -78,5 +83,12 @@ describe("the admin invites page knows every code the backend sends (backend sou
     expect(sorted(Object.keys(INVITATION_EMAIL_REASONS))).toEqual(
       sorted(codesUnder(readiness, '# Why requested invitation email is held')),
     )
+  })
+
+  it('the page has words for every reason the invited-cohort exception is held, and no others', () => {
+    const codes = codesUnder(readiness, '# Why the invited-cohort exception is held')
+    expect(sorted(Object.keys(INVITED_COHORT_REASONS))).toEqual(sorted(codes))
+    // The banner stays quiet about an exception switched off by this one code's name.
+    expect(codes).toContain(INVITED_COHORT_SWITCHED_OFF)
   })
 })

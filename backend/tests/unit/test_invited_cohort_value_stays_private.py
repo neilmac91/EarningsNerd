@@ -5,11 +5,13 @@ The label is an opaque value that links invitations to a notice delivered privat
 
 - the setting ``LEGAL_INVITED_COHORT`` is read in ``legal_readiness_service._configured_cohort`` alone;
 - ``invited_cohort()``, which returns the label, is called only inside that service;
-- ``require_account_admission()``, which hands the label on, is called only by the two account services, which pass it
-  to ``invite_service.redeem_invite`` as a condition of its guarded UPDATE.
+- ``require_account_admission()``, which hands the label on, is called only by the two account services:
+  ``create_password_account`` passes it to ``invite_service.redeem_invite`` as a condition of its guarded UPDATE, and
+  ``oauth_new_account_gate`` returns it to its one caller, ``oauth_create_account``, which passes it there too.
 
 A new reader of the setting, by attribute or by its name as a string (``getattr(settings, "...")``), or a new caller of
-either function fails here, so no route or service starts returning the label without this list changing in review. Out
+any of those functions or of the gate helper fails here, so no route or service starts returning the label without this
+list changing in review. Out
 of reach: a read of every setting at once (``settings.model_dump()``, ``vars(settings)``), which no app code makes for a
 response. The responses that exist are asserted free of the label in ``test_invited_cohort_registration.py`` and
 ``test_registration_config.py``.
@@ -37,6 +39,11 @@ class Route:
         def inner():
             return invited_cohort()
         return inner()
+
+
+def handler(db, email):
+    _error, _invite, cohort = oauth_new_account_gate(db, email=email, email_verified=True, invite_code_hash="x")
+    return {"cohort": cohort}
 '''
 
 
@@ -94,6 +101,8 @@ def test_the_label_leaves_the_service_only_for_the_redemptions_guard():
         "services/auth_account_service.py": ["<module>", "create_password_account"],
         "services/oauth_account_service.py": ["<module>", "oauth_new_account_gate"],
     }
+    # The gate helper returns the label with its verdict, so its callers are held as well.
+    assert _mentions("oauth_new_account_gate") == {"services/oauth_account_service.py": ["oauth_create_account"]}
 
 
 def test_the_walk_sees_each_form():
@@ -103,3 +112,4 @@ def test_the_walk_sees_each_form():
     assert _mentions(SETTING, strings=True, trees=planted) == {"routers/leak.py": ["leak", "leak"]}
     assert _mentions(SETTING, trees=planted) == {"routers/leak.py": ["leak"]}
     assert _mentions("invited_cohort", trees=planted) == {"routers/leak.py": ["<module>", "get.inner"]}
+    assert _mentions("oauth_new_account_gate", trees=planted) == {"routers/leak.py": ["handler"]}

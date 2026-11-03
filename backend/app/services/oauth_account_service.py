@@ -240,14 +240,28 @@ def _signup_start_invite_hash(
     return code_hash
 
 
+def _refused_start_rolls_back(
+    db: Session, invite: Optional[str], agreement: AcceptedAccountAgreement | None,
+) -> Optional[str]:
+    """``_signup_start_invite_hash``, with a refusal's read rolled back before it raises: the route answers 503 with
+    no commit of its own, so the invitation's read would otherwise hold its pooled connection until the request's
+    finalizer, after the answer (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    try:
+        return _signup_start_invite_hash(db, invite, agreement)
+    except CollectionUnavailable:
+        db.rollback()  # nothing was written
+        raise
+
+
 def save_google_state(
     db: Session, state: str, invite: Optional[str], agreement: AcceptedAccountAgreement | None = None,
     session_handoff: bool = False,
 ) -> None:
     """Commit one-time state for Google login/signup, with any live invite and explicit assent, and whether
     the start asked for the session handoff. A sign-up start the invited-cohort exception does not admit while
-    collection is held raises ``CollectionUnavailable`` before anything is written (``_signup_start_invite_hash``)."""
-    invite_code_hash = _signup_start_invite_hash(db, invite, agreement)
+    collection is held raises ``CollectionUnavailable`` before anything is written (``_signup_start_invite_hash``),
+    its invitation's read rolled back first (``_refused_start_rolls_back``)."""
+    invite_code_hash = _refused_start_rolls_back(db, invite, agreement)
     # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
     store_oauth_state(
         db, state, secrets.token_urlsafe(32), invite_code_hash, agreement, session_handoff=session_handoff,
@@ -260,9 +274,9 @@ def save_apple_state(
     agreement: AcceptedAccountAgreement | None = None, session_handoff: bool = False,
 ) -> None:
     """Commit Apple's state row: the raw nonce its callback checks, plus the invite's hash when live, and
-    whether the start asked for the session handoff. Refused as Google's is (``_signup_start_invite_hash``)."""
+    whether the start asked for the session handoff. Refused as Google's is (``_refused_start_rolls_back``)."""
     store_oauth_state(
-        db, state, raw_nonce, _signup_start_invite_hash(db, invite, agreement), agreement,
+        db, state, raw_nonce, _refused_start_rolls_back(db, invite, agreement), agreement,
         session_handoff=session_handoff,
     )
     db.commit()

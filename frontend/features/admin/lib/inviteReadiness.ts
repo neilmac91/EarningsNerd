@@ -35,6 +35,9 @@ export const COLLECTION_REASONS: Record<string, string> = {
     'A published operator detail is missing or invalid. The operator completes the LEGAL_OPERATOR settings: name, postal address, country and email.',
 }
 
+/** The reason that says the operator left the exception switched off: the banner says nothing more about it then. */
+export const INVITED_COHORT_SWITCHED_OFF = 'invited_cohort_disabled'
+
 export const INVITED_COHORT_REASONS: Record<string, string> = {
   registration_not_invite_only: 'Registration is not invite-only (REGISTRATION_MODE is public).',
   invited_cohort_disabled: 'The exception is switched off (LEGAL_INVITED_COHORT_ENABLED is off).',
@@ -86,7 +89,7 @@ export function heldCapabilities(readiness: InviteReadiness): HeldCapability[] {
   const { links, email, cohortOnly } = inviteAvailability(readiness)
   const cohortReasons = readiness.invited_cohort.reasons
   const cohortSwitchedOn = !readiness.invited_cohort.available && cohortReasons.length > 0 &&
-    !cohortReasons.includes('invited_cohort_disabled')
+    !cohortReasons.includes(INVITED_COHORT_SWITCHED_OFF)
   if (cohortOnly) {
     held.push({
       key: 'collection',
@@ -110,7 +113,7 @@ export function heldCapabilities(readiness: InviteReadiness): HeldCapability[] {
     })
   }
   if (!email) {
-    // Collection held holds invitation email too, whatever its own reasons say.
+    // Links held hold invitation email too, whatever its own reasons say.
     const reasons = links ? readiness.invitation_email.reasons : ['collection_unavailable', ...readiness.invitation_email.reasons]
     held.push({
       key: 'invitation_email',
