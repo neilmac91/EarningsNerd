@@ -1,7 +1,7 @@
 """Normalize SEC companyfacts into reported and derived fiscal-period rows."""
 from __future__ import annotations
 
-import math
+import sys
 from datetime import date
 from typing import Any, Callable
 
@@ -43,20 +43,17 @@ from app.services.facts.transport import logger
 
 def _collect_companyfacts_values(
     usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool, foreign: frozenset = frozenset(),
-    partial: list | None = None,
+    unruled: dict | None = None,
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Winning item per (period_end, klass) for one concept, across its candidate tags.
 
     klass is "FY"/"Q" for durations, "I" for instants. Only ``admitted_items`` compete, never a proxy or
-    information statement's. Within a tag the LATEST-`filed` item wins a period (restatement-aware; `filed`
-    is ISO so lexical compare is safe, and a later list item wins ties — companyfacts lists in filing
-    order). Across tags, the FIRST tag with data wins a period (priority order), so tag migrations merge
-    into one continuous history without a stale tag shadowing a newer one. Each winner also carries the
-    EARLIEST-filed item's `fp`/`fy` — the one case where those fields are trustworthy (the original filing
-    that reported the period as its own current period), used only as the in-progress-year quarter fallback.
-    A ``foreign`` accession's item (``filing_currencies``) is never read: neither a winner nor a candidate.
-    ``partial``, when given, gathers each tag's partial years (``fiscal_naming.partial_years``) that admission's
-    other checks would keep, in a candidate's shape: no winner, candidate or vote, only the calendar's exclusions.
+    information statement's; ``_tag_winners`` picks each tag's. Across tags, the FIRST tag with data wins a period
+    (priority order), so tag migrations merge into one continuous history without a stale tag shadowing a newer one.
+    ``unruled``, when given, gathers the winners the same tags give with each quarterly report's partial year
+    (``fiscal_naming.partial_years``) competing again in its list place, for the calendar's exclusions alone (E292).
+    No check reads a partial year first, so only SEC's shapes compete there: a string accession, a string ``fp`` or
+    none, and a value a float holds, which a NaN, an infinity or a huge integer fails without raising.
     """
     claimed: dict[tuple[date, str], dict[str, Any]] = {}
     for tag in tags:
@@ -65,53 +62,73 @@ def _collect_companyfacts_values(
         items = units.get(unit_key) if isinstance(units, dict) else None
         if not isinstance(items, list):
             continue
-        tag_best: dict[tuple[date, str], dict[str, Any]] = {}
-        tag_candidates: dict[tuple[date, str], list[dict]] = {}
-        for (end, klass), start, value, item in admitted_items(items, instant=instant):
-            if item.get("accn") in foreign:
-                continue  # its own filing reports in another currency: this is a convenience translation
-            filed = str(item.get("filed") or "")
-            record = {
-                "value": float(value),
-                "unit": unit_key,
-                "period_start": start,
-                "period_end": end,
-                "accession": item.get("accn"),
-                "form": item.get("form"),
-                "filed": filed,
-                "raw_tag": f"us-gaap:{tag}",
-                "fp": item.get("fp"),
-                "fy": item.get("fy"),
-            }
-            key = (end, klass)
-            tag_candidates.setdefault(key, []).append(dict(record))
-            best = tag_best.get(key)
-            if best is None:
-                record["first_fp"] = record["fp"]
-                record["first_fy"] = record["fy"]
-                record["first_filed"] = filed
-                tag_best[key] = record
-                continue
-            # Track the earliest filer's fp/fy on whatever record ends up winning.
-            if filed < best["first_filed"]:
-                first_fp, first_fy, first_filed = record["fp"], record["fy"], filed
-            else:
-                first_fp, first_fy, first_filed = (
-                    best["first_fp"], best["first_fy"], best["first_filed"]
-                )
-            winner = record if filed >= best["filed"] else best
-            winner.update(first_fp=first_fp, first_fy=first_fy, first_filed=first_filed)
-            tag_best[key] = winner
-        for key, record in tag_best.items():
-            record["candidates"] = tag_candidates[key]
+        admitted = list(admitted_items(items, instant=instant))
+        winners = _tag_winners(admitted, tag, unit_key, foreign)
+        for key, record in winners.items():
             claimed.setdefault(key, record)
-        for item in partial_years(items) if partial is not None else ():
-            if item.get("accn") not in foreign and math.isfinite(item["val"]):
-                partial.append({"value": float(item["val"]), "unit": unit_key, "period_start": _parse_date(item["start"]),
-                                "period_end": _parse_date(item["end"]), "accession": item.get("accn"),
-                                "filed": str(item.get("filed") or ""), "raw_tag": f"us-gaap:{tag}",
-                                "first_fp": item.get("fp")})
+        if unruled is None:
+            continue
+        dropped = [((_parse_date(item["end"]), "FY"), _parse_date(item["start"]), item["val"], item)
+                   for item in partial_years(items) if isinstance(item.get("accn"), str)
+                   and isinstance(item.get("fp"), str | None) and abs(item["val"]) <= sys.float_info.max]
+        if dropped:  # each in its list place, as before the rule, so a tie goes by list order
+            place = {id(item): position for position, item in enumerate(items)}
+            entries = sorted(admitted + dropped, key=lambda entry: place[id(entry[3])])
+            winners = _tag_winners(entries, tag, unit_key, foreign)
+        for key, record in winners.items():
+            unruled.setdefault(key, record)
     return claimed
+
+
+def _tag_winners(entries: list, tag: str, unit_key: str, foreign: frozenset) -> dict[tuple[date, str], dict[str, Any]]:
+    """One tag's winning record per (period_end, klass) among its admitted ``entries``, each with its candidates.
+
+    The LATEST-`filed` item wins a period (restatement-aware; `filed` is ISO so lexical compare is safe, and a later
+    list item wins ties — companyfacts lists in filing order). Each winner also carries the EARLIEST-filed item's
+    `fp`/`fy` — the one case where those fields are trustworthy (the original filing that reported the period as its
+    own current period), used only as the in-progress-year quarter fallback. A ``foreign`` accession's item
+    (``filing_currencies``) is never read: neither a winner nor a candidate.
+    """
+    tag_best: dict[tuple[date, str], dict[str, Any]] = {}
+    tag_candidates: dict[tuple[date, str], list[dict]] = {}
+    for (end, klass), start, value, item in entries:
+        if item.get("accn") in foreign:
+            continue  # its own filing reports in another currency: this is a convenience translation
+        filed = str(item.get("filed") or "")
+        record = {
+            "value": float(value),
+            "unit": unit_key,
+            "period_start": start,
+            "period_end": end,
+            "accession": item.get("accn"),
+            "form": item.get("form"),
+            "filed": filed,
+            "raw_tag": f"us-gaap:{tag}",
+            "fp": item.get("fp"),
+            "fy": item.get("fy"),
+        }
+        key = (end, klass)
+        tag_candidates.setdefault(key, []).append(dict(record))
+        best = tag_best.get(key)
+        if best is None:
+            record["first_fp"] = record["fp"]
+            record["first_fy"] = record["fy"]
+            record["first_filed"] = filed
+            tag_best[key] = record
+            continue
+        # Track the earliest filer's fp/fy on whatever record ends up winning.
+        if filed < best["first_filed"]:
+            first_fp, first_fy, first_filed = record["fp"], record["fy"], filed
+        else:
+            first_fp, first_fy, first_filed = (
+                best["first_fp"], best["first_fy"], best["first_filed"]
+            )
+        winner = record if filed >= best["filed"] else best
+        winner.update(first_fp=first_fp, first_fy=first_fy, first_filed=first_filed)
+        tag_best[key] = winner
+    for key, record in tag_best.items():
+        record["candidates"] = tag_candidates[key]
+    return tag_best
 
 
 def normalize_companyfacts(
@@ -135,11 +152,11 @@ def normalize_companyfacts(
         meta["unsupported_ifrs"] = ifrs  # an IFRS filer, or no us-gaap data: the sync stores nothing
         return [], meta
 
-    partial: dict[str, list] = {}  # each concept's partial years, which the calendar's exclusions alone read
-    duration_values, instant_values = _collect_companyfacts_concepts(usgaap, financial_sic, partial)
+    unruled: dict[str, dict] = {}  # the winners with every partial year competing, the calendar's exclusions alone
+    duration_values, instant_values = _collect_companyfacts_concepts(usgaap, financial_sic, unruled)
 
     fy_windows = _fiscal_year_windows(duration_values)
-    duration_values = fiscal_duration_values(duration_values, fy_windows, meta, partial)
+    duration_values = fiscal_duration_values(duration_values, fy_windows, meta, unruled)
     fy_labels = fiscal_year_labels(duration_values, fy_windows)
     fy_ends = {end for _start, end in fy_windows}
     quarter_labels = _label_quarters(duration_values, fy_windows, fy_labels)
@@ -195,11 +212,11 @@ def normalize_companyfacts(
     return kept, meta
 
 
-def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool, partial: dict | None = None) -> tuple[
+def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool, unruled: dict | None = None) -> tuple[
     dict[str, dict[tuple[date, str], dict[str, Any]]], dict[str, dict[tuple[date, str], dict[str, Any]]],
 ]:
     """Collect each concept in the series currency from the filings in it; durations first, registry order.
-    ``partial`` gathers each duration concept's partial years (``_collect_companyfacts_values``)."""
+    ``unruled`` takes the duration winners with partial years competing (``_collect_companyfacts_values``)."""
     currency, foreign = companyfacts_currencies(usgaap)  # the pick the sync's demotion reads too
     duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
     for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
@@ -207,7 +224,7 @@ def _collect_companyfacts_concepts(usgaap: dict, financial_sic: bool, partial: d
         if financial_sic and concept in _FI_SKIPPED_CONCEPTS:  # its total, never the fee line (facts/fi_revenue.py)
             tags = financial_revenue_tags(usgaap, unit_key, foreign)
         values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False, foreign=foreign,
-                                              partial=None if partial is None else partial.setdefault(concept, []))
+                                              unruled=None if unruled is None else unruled.setdefault(concept, {}))
         if values:
             duration_values[concept] = values
 

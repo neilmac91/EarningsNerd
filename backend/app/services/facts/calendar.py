@@ -62,10 +62,10 @@ def _fiscal_year_windows(duration_values: dict) -> list[tuple[date, date]]:
 
 
 def fiscal_duration_values(duration_values: dict, windows: list[tuple[date, date]], metadata: dict,
-                           partial: dict | None = None) -> dict:
-    """Keep annual-duration rows only when their dates match a completed fiscal year. ``partial`` holds each
-    concept's years the collector drops as part of one (``fiscal_naming.partial_years``): they count for the
-    exclusions alone, so a rolling one stays on record as before that rule, the repair's only evidence (E292)."""
+                           unruled: dict | None = None) -> dict:
+    """Keep annual-duration rows only when their dates match a completed fiscal year. The exclusions judge the
+    collector's ``unruled`` winners when given, which the partial-year rule leaves whole (E292), so a rolling year
+    stays on record as the calendar kept it before that rule: the quarterly repair's only evidence."""
     def fiscal(key: tuple[date, str], record: dict) -> bool:  # no year, or one whose dates are a fiscal year
         return key[1] != "FY" or any(
             key[0] == end and abs((record["period_start"] - start).days) <= 1 for start, end in windows)
@@ -73,25 +73,23 @@ def fiscal_duration_values(duration_values: dict, windows: list[tuple[date, date
     filtered = {concept: {key: record for key, record in values.items() if fiscal(key, record)}
                 for concept, values in duration_values.items()}
     exclusions = []
-    years = [(concept, key, record) for concept, values in duration_values.items() for key, record in values.items()]
-    years += [(concept, (record["period_end"], "FY"), record)
-              for concept, records in (partial or {}).items() for record in records]
-    for concept, key, record in years:
-        end = key[0]
-        next_label = _next_year_label(end, record, windows)
-        known_interim = any(start <= end < finish for start, finish in windows) or (
-            next_label is not None and next_label[0] != "Q4"
-        )
-        if fiscal(key, record) or not known_interim:
-            continue  # Absence of annual evidence alone cannot quarantine historical rows.
-        for candidate in record.get("candidates") or [record]:
-            exclusions.append({
-                "reason": "rolling_duration_not_fiscal_year", "concept": concept,
-                "unit": candidate["unit"], "value": candidate["value"],
-                "period_start": candidate["period_start"].isoformat(), "period_end": end.isoformat(),
-                "accession": candidate.get("accession"), "raw_tag": candidate.get("raw_tag"),
-                "filed_at": candidate.get("filed"), "fiscal_period": "FY", "fiscal_year": end.year,
-            })
+    for concept, values in (duration_values if unruled is None else unruled).items():
+        for key, record in values.items():
+            end = key[0]
+            next_label = _next_year_label(end, record, windows)
+            known_interim = any(start <= end < finish for start, finish in windows) or (
+                next_label is not None and next_label[0] != "Q4"
+            )
+            if fiscal(key, record) or not known_interim:
+                continue  # Absence of annual evidence alone cannot quarantine historical rows.
+            for candidate in record.get("candidates") or [record]:
+                exclusions.append({
+                    "reason": "rolling_duration_not_fiscal_year", "concept": concept,
+                    "unit": candidate["unit"], "value": candidate["value"],
+                    "period_start": candidate["period_start"].isoformat(), "period_end": end.isoformat(),
+                    "accession": candidate.get("accession"), "raw_tag": candidate.get("raw_tag"),
+                    "filed_at": candidate.get("filed"), "fiscal_period": "FY", "fiscal_year": end.year,
+                })
     if exclusions:
         metadata["calendar_exclusions"] = exclusions
     return filtered

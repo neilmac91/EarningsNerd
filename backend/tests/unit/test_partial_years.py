@@ -325,10 +325,10 @@ def test_the_instance_paths_choice_ties_one_filings_facts(monkeypatch):
 
 # --- the calendar's record (E292) -------------------------------------------------------------------------------------
 #
-# A year the rule drops whose dates are no fiscal year still reaches the calendar (``calendar.fiscal_duration_values``),
-# which records it as any rolling year: the only evidence ``quarterly_fact_repair._calendar_relabels`` quarantines a
-# stored row by. Over 696 cached payloads the record is the one the calendar kept before E291; no row, candidate or
-# vote reads a partial year.
+# The calendar's exclusions (``calendar.fiscal_duration_values``) judge the collector's winners with every partial year
+# competing again in its list place, so a rolling year stays on record as before E291: the only evidence
+# ``quarterly_fact_repair._calendar_relabels`` quarantines a stored row by. No row, candidate or vote reads a partial
+# year; over 696 cached payloads the record is the one the calendar kept with the rule off, entry for entry.
 
 ARTW_Q1_2023, LMB_Q1_2015 = "0001437749-23-010158", "0001144204-15-028842"
 
@@ -364,7 +364,8 @@ def test_the_quarterly_repair_quarantines_a_stored_row_by_that_record(payloads):
               "fiscal_period": "FY", "value": -406489.0, "form": "10-Q", "accession": ARTW_Q1_2023,
               "source": "companyfacts", "reconciled": True, "is_latest": True, "provenance": None}
     updates, _inserts = quarterly_fact_repair._calendar_relabels({1: stored}, facts, meta)
-    assert (updates[1]["is_latest"], updates[1]["provenance"]["reasons"]) == (False, ["rolling_duration_not_fiscal_year"])
+    assert (updates[1]["is_latest"], updates[1]["provenance"]["reasons"]) == (
+        False, ["rolling_duration_not_fiscal_year"])
 
 
 def _filing(accn, filed, *spans, form="10-Q", fp="Q1"):
@@ -384,8 +385,8 @@ def _record(*usd, units=None, tags=None) -> set:
 
 
 def test_a_partial_rolling_year_is_on_record_only_where_the_calendar_knows_it_interim():
-    # Inside a completed fiscal year, or in the year in progress by its own filing's quarter; before every completed
-    # year nothing marks it interim, and absence of annual evidence quarantines nothing.
+    # Inside a completed fiscal year, or in the year in progress by its earliest filing's quarter; before every
+    # completed year nothing marks it interim, and absence of annual evidence quarantines nothing.
     inside = _filing("q-2025", "2025-05-08", ("2025-01-01", "2025-03-31", 7), ("2024-04-01", "2025-03-31", 7))
     ahead = _filing("q-2026", "2026-05-07", ("2026-01-01", "2026-03-31", 9), ("2025-04-01", "2026-03-31", 9))
     before = _filing("q-2023", "2023-05-09", ("2023-01-01", "2023-03-31", 5), ("2022-04-01", "2023-03-31", 5))
@@ -403,11 +404,97 @@ def test_a_filing_whose_own_currency_is_another_leaves_no_record():
     assert _record(*usd, units={"EUR": eur}, tags=revenue) == set()
 
 
-def test_a_year_whose_value_is_no_finite_number_leaves_no_record():
-    # admission's own check: such a value is read nowhere, the calendar's record included
-    inf = float("inf")
-    assert _record(*_filing("q-2025", "2025-05-08", ("2025-01-01", "2025-03-31", inf), ("2024-04-01", "2025-03-31", inf))
-                   ) == set()
+# Another filing's quarter, and a 10-Q's rolling year equal to it from its start (E291's shape)
+PART = _filing("q-2024", "2024-08-08", ("2024-04-01", "2024-06-30", 7), fp="Q2")[0]
+ROLLING = _filing("q-2025", "2025-05-08", ("2024-04-01", "2025-03-31", 7))[0]
+
+
+@pytest.mark.parametrize("fp", ["Q1", None])
+def test_a_rolling_year_equal_to_another_filings_part_is_on_record(fp):
+    assert _record(PART, {**ROLLING, "fp": fp}) == {
+        ("net_income", "us-gaap:NetIncomeLoss", "2024-04-01", "2025-03-31", "q-2025", "USD", 7.0)}
+
+
+@pytest.mark.parametrize("field, value", [
+    ("accn", ["q-2025"]), ("accn", {"accn": "q-2025"}), ("accn", None), ("accn", 2025), ("fp", ["Q1"]),
+    ("fp", {"fp": "Q1"}), ("fp", 1), pytest.param("val", 10**400, id="val-past-float"),
+    pytest.param("val", -10**400, id="val-past-float-negative"), ("val", float("inf")), ("val", float("nan"))])
+def test_a_partial_year_in_a_shape_sec_never_sends_leaves_no_record_and_breaks_no_read(field, value):
+    # No check reads a partial year before the collector puts it back for the calendar, which takes only a string
+    # accession, a string fp or none, and a value a float holds: the payload reads as it does without the year. A
+    # value rides its part, here a proxy's quarter, which admission skips unread too.
+    part = {**PART, "val": value, "form": "DEF 14A"} if field == "val" else PART
+
+    def payload(*usd):
+        return {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [*YEARS, *usd]}}}}}
+
+    year = {**ROLLING, field: value}
+    assert normalize_companyfacts(7, payload(part, year)) == normalize_companyfacts(7, payload(part))
+
+
+# The year in progress (2026): its Q1 10-Q's copy of a rolling year is partial (its own quarter); a later filing's
+# copy competes, is partial too (its own six months), or ties the first on its filing date, listed after it
+FIRST = _filing("q1-2026", "2026-05-07", ("2026-01-01", "2026-03-31", 9), ("2025-04-01", "2026-03-31", 9))
+LATER = {"admitted": _filing("q2-2026", "2026-08-06", ("2025-04-01", "2026-03-31", 9), fp="Q2"),
+         "partial": _filing("q2-2026", "2026-08-06", ("2025-04-01", "2026-03-31", 9), ("2026-01-01", "2026-06-30", 9),
+                            fp="Q2"),
+         "filed the same day": _filing("qa-2026", "2026-05-07", ("2025-04-01", "2026-03-31", 9), form="10-Q/A",
+                                       fp="Q2")}
+# A rolling year whose only copy under NetIncomeLoss, the first tag, is partial (its own filing's quarter), beside a
+# copy under ProfitLoss that competes
+FIRST_TAG = _filing("q-2025", "2025-05-08", ("2025-01-01", "2025-03-31", 7), ("2024-04-01", "2025-03-31", 7))
+PROFIT = {"ProfitLoss": {"units": {"USD": _filing("p-2025", "2025-05-09", ("2024-04-01", "2025-03-31", 8))}}}
+
+
+@pytest.mark.parametrize("later", sorted(LATER))
+def test_a_rolling_year_two_10qs_carry_stays_on_record_as_one_year(later):
+    # Before the rule both copies competed as one year, interim by its earliest filing's quarter (a tie on the date
+    # going by list order), so both are on record, and the repair quarantines the latest-filed one, the winner: the
+    # row a sync before 2026-10-10 stored.
+    from app.services import quarterly_fact_repair
+
+    payload = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [*YEARS, *FIRST, *LATER[later]]}}}}}
+    facts, meta = normalize_companyfacts(7, payload)
+    winner = LATER[later][0]["accn"]
+    assert _rolling(meta) == {("net_income", "us-gaap:NetIncomeLoss", "2025-04-01", "2026-03-31", accession, "USD", 9.0)
+                              for accession in ("q1-2026", winner)}
+    stored = {"company_id": 7, "filing_id": None, "concept": "net_income", "raw_tag": "us-gaap:NetIncomeLoss",
+              "unit": "USD", "period_start": "2025-04-01", "period_end": "2026-03-31", "fiscal_year": 2026,
+              "fiscal_period": "FY", "value": 9.0, "form": "10-Q", "accession": winner,
+              "source": "companyfacts", "reconciled": True, "is_latest": True, "provenance": None}
+    updates, _inserts = quarterly_fact_repair._calendar_relabels({1: stored}, facts, meta)
+    assert updates[1]["is_latest"] is False
+
+
+def test_the_first_tag_with_a_copy_holds_the_year_on_record_as_before_the_rule():
+    # ProfitLoss's copy wins the year's row-less key now, but before the rule NetIncomeLoss held it: only its copy is
+    # the record, as only its copy was a row a sync could store
+    assert _record(*FIRST_TAG, tags=PROFIT) == {
+        ("net_income", "us-gaap:NetIncomeLoss", "2024-04-01", "2025-03-31", "q-2025", "USD", 7.0)}
+
+
+def test_the_calendars_record_is_the_one_the_rule_never_touched(payloads, monkeypatch):
+    # every cached payload and every shape above: the exclusions, entry for entry and in order, are those the
+    # calendar keeps with the partial-year rule off
+    from app.services.facts import companyfacts, currency
+
+    def net_income(*usd, tags=None):
+        return {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [*YEARS, *usd]}}, **(tags or {})}}}
+
+    shapes = {**payloads, "another filing's part": net_income(PART, ROLLING),
+              "the first tag's year": net_income(*FIRST_TAG, tags=PROFIT),
+              **{f"two 10-Qs, the later {later}": net_income(*FIRST, *LATER[later]) for later in LATER},
+              "the interim edges": net_income(
+                  *_filing("q-2025", "2025-05-08", ("2025-01-01", "2025-03-31", 7), ("2024-04-01", "2025-03-31", 7)),
+                  *_filing("q-2023", "2023-05-09", ("2023-01-01", "2023-03-31", 5), ("2022-04-01", "2023-03-31", 5)))}
+    def record():
+        return {name: normalize_companyfacts(9, payload)[1].get("calendar_exclusions")
+                for name, payload in shapes.items()}
+
+    ruled = record()
+    monkeypatch.setattr(currency, "without_partial_years", lambda items: list(items))
+    monkeypatch.setattr(companyfacts, "partial_years", lambda items: [])
+    assert record() == ruled and all(ruled[name] for name in ("ARTW", "LMB", "another filing's part"))
 
 
 def test_the_calendars_record_moves_no_row(payloads, monkeypatch):
@@ -660,20 +747,67 @@ def test_every_companyfacts_reader_is_pinned_with_its_shape():
                       f"in READERS ((found, pinned) per scope): {drift}"
 
 
+DROPPED = {"partial_years", "_partial"}  # the helper listing the years the rule drops, and the predicate it wraps
+
+
+def _dropped_year_readers(root: Path) -> set[tuple[str, str, str]]:
+    """(path, scope, name) for each name of DROPPED, or an alias of one, in ``root``'s app and scripts: imported
+    ("<import>"), named in a scope as READERS names it (a call, a reference handed on, module-level code), or written
+    as a string ("<string>")."""
+    found = set()
+    for path in sorted((root / "app").rglob("*.py")) + sorted((root / "scripts").rglob("*.py")):
+        tree, where = ast.parse(path.read_text()), path.relative_to(root).as_posix()
+        imports = (node for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)))
+        aliases = {alias.asname or alias.name for node in imports for alias in node.names
+                   if alias.name.rpartition(".")[2] in DROPPED}
+        found |= {(where, "<import>", alias) for alias in aliases}
+        found |= {(where, scope, name) for name, scopes in _Reads(tree, set()).refs.items() if name in DROPPED | aliases
+                  for scope in scopes}
+        found |= {(where, "<string>", node.value) for node in ast.walk(tree)
+                  if isinstance(node, ast.Constant) and node.value in DROPPED}
+    return found
+
+
 def test_only_the_collector_reads_the_years_the_rule_drops():
-    """``partial_years`` feeds the calendar's record alone, through the collector's sink: a second caller, or a second
-    importer, would be a reader of the years every other reader is kept from."""
-    callers, importers = set(), set()
-    for path in sorted((BACKEND / "app").rglob("*.py")) + sorted((BACKEND / "scripts").rglob("*.py")):
-        tree, where = ast.parse(path.read_text()), path.relative_to(BACKEND).as_posix()
-        importers |= {(where, alias.asname or alias.name) for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-                      for alias in node.names if alias.name == "partial_years"}
-        callers |= {(where, scope.name) for scope in ast.walk(tree) if isinstance(scope, FUNCTIONS) and any(
-            isinstance(node, ast.Call) and "partial_years" in (getattr(node.func, "id", None),
-                                                                getattr(node.func, "attr", None))
-            for node in ast.walk(scope))}
-    assert importers == {("app/services/facts/companyfacts.py", "partial_years")}
-    assert callers == {("app/services/facts/companyfacts.py", "_collect_companyfacts_values")}
+    """``partial_years`` feeds the calendar's record alone, through the collector: any other scope naming it, or
+    ``_partial``, which it and ``without_partial_years`` wrap, would read the years every other reader is kept from.
+    Named blind spots: a name built at run time, a copy of the predicate under another name, and the complement of
+    ``without_partial_years`` (a list less the items it keeps)."""
+    assert _dropped_year_readers(BACKEND) == {
+        ("app/services/facts/fiscal_naming.py", "without_partial_years", "_partial"),
+        ("app/services/facts/fiscal_naming.py", "partial_years", "_partial"),
+        ("app/services/facts/companyfacts.py", "<import>", "partial_years"),
+        ("app/services/facts/companyfacts.py", "_collect_companyfacts_values", "partial_years")}
+
+
+DROPPED_READERS = """
+from app.services.facts import fiscal_naming
+from app.services.facts.fiscal_naming import _partial, partial_years as years
+
+EVERY = fiscal_naming.partial_years([])
+
+
+def handed_on(lists):
+    return map(years, lists)
+
+
+def predicate(items):
+    return _partial(items)
+
+
+def by_string():
+    return getattr(fiscal_naming, "partial_years")
+"""
+
+
+def test_the_dropped_year_gate_reads_each_planted_reader(tmp_path):
+    for name in ("app", "scripts"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "scripts" / "planted.py").write_text(DROPPED_READERS)
+    assert _dropped_year_readers(tmp_path) == {
+        ("scripts/planted.py", "<import>", "_partial"), ("scripts/planted.py", "<import>", "years"),
+        ("scripts/planted.py", "<module>", "partial_years"), ("scripts/planted.py", "handed_on", "years"),
+        ("scripts/planted.py", "predicate", "_partial"), ("scripts/planted.py", "<string>", "partial_years")}
 
 
 PLANTED = """

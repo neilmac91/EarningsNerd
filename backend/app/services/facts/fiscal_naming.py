@@ -66,9 +66,10 @@ def without_partial_years(items: list) -> list:
 def partial_years(items: list) -> list:
     """The items ``without_partial_years`` drops, in order: each a quarterly report's numeric item spanning a year.
 
-    No reader takes a value or a winner from one. The companyfacts collector hands them to the calendar alone, which
-    records one whose dates are no fiscal year as any rolling year (ARTW's March-February years, AMZN's trailing twelve
-    months, LMB's year from its inception): the quarterly repair quarantines a stored row only by that record
+    No reader takes a value or a winner from one. The companyfacts collector puts them back in their list places for
+    the calendar's exclusions alone, which judge the winners as they stood before the rule, so one whose dates are no
+    fiscal year stays on record as any rolling year (ARTW's March-February years, AMZN's trailing twelve months, LMB's
+    year from its inception): the quarterly repair quarantines a stored row only by that record
     (``calendar.fiscal_duration_values``).
     """
     return [item for item, partial in zip(items, _partial(items)) if partial]
