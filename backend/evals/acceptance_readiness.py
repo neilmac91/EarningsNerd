@@ -55,9 +55,11 @@ _EXECUTION_KEY_TEXT = re.compile(
 # The generation date before that line, as each version writes it: a zero-padded day until E210 ("Generated
 # September 21, 2026"), and since E210 the instant the analysis exports print, "Generated November 3, 2026, 06:45
 # UTC", with each of the meta line's clauses in a span that keeps it whole. The blinding strips either form and
-# then refuses an export that still carries a generation date of either form. Arms that wrote the two forms
-# would tell the arm by them too, so every export in a packet set that carries the date writes it in one form,
-# read by the generation clause's span and its time (build_blinded_packets).
+# then refuses an export that still carries a generation date of either form. Arms that wrote two forms would
+# tell the arm by them too. Arms on either side of E210 cannot run, since E210 changed this file and the executor
+# pins it across arms (MEASUREMENT_FILES), but a later version that drops the span or the time would not need to
+# change it, as the blinding reads both as optional. So every export in a packet set that carries the date writes
+# it in one form, read by its clause's span and its time (build_blinded_packets).
 # The builder compares these two only: exports that differ elsewhere (the closing note's markup changed on
 # 2026-10-20) are the custodian's to catch, by generating both arms from one version of each file that writes the
 # export: export_service.py and pdf_branding.py, and since E210 analysis_export_metadata.py (the meta line's days
