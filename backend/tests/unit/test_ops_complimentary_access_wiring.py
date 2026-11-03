@@ -26,7 +26,7 @@ from Cloud Run and the Ops proxy, so three Ops operations run it: `complimentary
 
 Out of reach, said so nothing is overclaimed: how GitHub masks the secret in the log (the runner registers each line
 of a multi-line secret as a mask; docs/DEPLOYMENT.md says to store the manifest on one line); what the script prints,
-which test_complimentary_access_script.py holds free of ids, addresses and the reason; and the step shell's own
+which test_complimentary_access_script.py holds free of ids, addresses, the reason and salt; and the step shell's own
 initial environment: `unset` keeps the value out of every child's environment, but the shell's /proc/<pid>/environ
 still holds it for the step's life, readable by a process of the same user on that runner, as with any env-delivered
 secret.
@@ -63,6 +63,7 @@ SECRET = "COMPLIMENTARY_ACCESS_MANIFEST"
 SCRIPT = "scripts/complimentary_access.py"
 RUN_ID = "39360634523"  # github.run_id: the apply records ops-run:<it> as its runner
 DIGEST = hashlib.sha256(b"a synthetic complimentary access manifest").hexdigest()
+SALT = "c3" * 16  # a synthetic salt (32 hex digits); a real manifest's is secret randomness the founder draws
 GUARDS = "-c lock_timeout=10s -c statement_timeout=120s"
 STEP_ENV = {  # the script step's env, whole: a name added here changes what the run reads or writes
     "PGOPTIONS": GUARDS, "SEC_RATE_LIMIT_PER_SECOND": "1", "EDGAR_RATE_LIMIT_PER_SEC": "1", "SKIP_REDIS_INIT": "true",
@@ -103,6 +104,7 @@ def _manifest_text() -> str:
         "reason": "Private beta: the founder's 100% \"$(id)\" `id` \\ %s",
         "review_on": (utcnow().date() + timedelta(days=30)).isoformat(),
         "operator_account_id": 1,
+        "salt": SALT,
         "accounts": [{"account_id": 1000 + n, "email_sha256": email_fingerprint(f"tester-{n}@example.invalid")}
                      for n in (1, 2)],
     }, indent=2) + "\n"
@@ -272,11 +274,11 @@ def _run_script_step(tmp_path, op, *, manifest, digest=DIGEST, readback=None, ps
 
 def _assert_the_log_holds_no_manifest(log: str, manifest: str) -> None:
     """The step's own output, which GitHub writes to the public log, holds no part of the manifest: not its reason,
-    an account id or a fingerprint. The runner masks only the secret's exact text, and a printed shell variable
-    (`set`) re-quotes the reason's apostrophe, so no mask would hide that copy. The stand-ins print only the readback,
-    so every word checked here would come from the step itself."""
+    an account id, a fingerprint or its salt. The runner masks only the secret's exact text, and a printed shell
+    variable (`set`) re-quotes the reason's apostrophe, so no mask would hide that copy. The stand-ins print only the
+    readback, so every word checked here would come from the step itself."""
     parsed = json.loads(manifest)
-    planted = [parsed["reason"].split("'")[0], "account_id", "email_sha256",
+    planted = [parsed["reason"].split("'")[0], "account_id", "email_sha256", parsed["salt"],
                *(entry["email_sha256"] for entry in parsed["accounts"])]
     assert [text for text in planted if text in log] == [], "the step printed part of the manifest"
 
