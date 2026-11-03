@@ -2,11 +2,13 @@
 
 A daily calendar CSV carries ~6k rows, and the per-row lookup cost one round trip to Cloud SQL each
 (~1.5 ms, about 9 s of the job's DB phase). The first test fails if the lookups go back to one per
-row. The others pin what the loop around the lookup must keep doing: an in-file duplicate updates the
-row it just inserted, each insert is flushed at once, and a row that cannot be read stops the pass at
-that row, with the rows before it applied.
+row. The others pin what the prefetch and the loop around the lookup must keep doing:
+- a ticker's other stored periods, which the prefetch also loads, are never the row a CSV row updates;
+- with the index filter on, a stored member row is updated and a non-member row is left alone;
+- an in-file duplicate updates the row it just inserted;
+- each insert is flushed at once, and a row that cannot be read stops the pass at that row, with the
+  rows before it applied.
 """
-import math
 from contextlib import contextmanager
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -17,15 +19,21 @@ from sqlalchemy import event
 from app.database import SessionLocal, engine
 from app.models import Base, EarningsEvent
 from app.models.earnings import (
+    CONFIDENCE_HIGH,
     CONFIDENCE_MEDIUM,
     SOURCE_ALPHA_VANTAGE,
+    SOURCE_EDGAR_8K,
+    SOURCE_PATTERN,
     STATUS_CONFIRMED,
     STATUS_ESTIMATED,
+    STATUS_REPORTED,
 )
 from app.services import earnings_calendar_service as svc
 
 TODAY = date(2026, 7, 1)
 FPE = date(2026, 6, 30)
+FPE_PREV = date(2026, 3, 31)
+FPE_NEXT = date(2026, 9, 30)
 PREFIX = "LKP"
 
 
@@ -91,7 +99,8 @@ def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
         db.commit()
         reads = selects()
 
-    assert reads == math.ceil(n_rows / svc._EVENT_LOOKUP_CHUNK)
+    # Literal counts: a smaller chunk (down to one ticker per query) must fail here too.
+    assert reads == {10: 1, 1200: 3}[n_rows]
     assert upserted == n_rows - 1  # the confirmed row is only marked seen
     with SessionLocal() as db:
         stored = {e.ticker: e for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.like(f"{PREFIX}%"))}
@@ -103,6 +112,94 @@ def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
     inserted = stored[f"{PREFIX}0001"]
     assert (inserted.status, inserted.event_date, inserted.prior_event_date) == (
         STATUS_ESTIMATED, TODAY + timedelta(days=12), None)
+
+
+def _store(ticker, fpe, status, event_date, source=SOURCE_ALPHA_VANTAGE):
+    return EarningsEvent(
+        ticker=ticker, fiscal_period_end=fpe, event_date=event_date, status=status,
+        confidence=CONFIDENCE_HIGH if status == STATUS_REPORTED else CONFIDENCE_MEDIUM, source=source,
+    )
+
+
+def _snapshot():
+    with SessionLocal() as db:
+        return {
+            (e.ticker, e.fiscal_period_end): (e.status, e.event_date, e.prior_event_date, e.source, e.last_seen_at)
+            for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.like(f"{PREFIX}%"))
+        }
+
+
+@pytest.mark.requires_db
+def test_a_tickers_other_stored_period_is_never_the_row_its_csv_row_updates():
+    """The IN pair loads a ticker's events for every period in the file, so LKP0001's reported Q1 row
+    and LKP0003's pattern Q3 row are loaded beside the Q2 rows their CSV rows update (LKP0002's and
+    LKP0004's rows put Q1 and Q3 in the file). Only the map's two-part key keeps them out of the
+    lookups. LKP0001 stores its other row first and LKP0003 second, so a map keyed on the ticker alone
+    fails one of them whichever of a ticker's rows it keeps: a Q2 update lands on the Q3 row, or is
+    skipped against the reported Q1 row."""
+    with SessionLocal() as db:
+        db.add_all([
+            _store(f"{PREFIX}0001", FPE_PREV, STATUS_REPORTED, TODAY - timedelta(days=60), SOURCE_EDGAR_8K),
+            _store(f"{PREFIX}0001", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)),
+        ])
+        db.commit()
+        db.add_all([
+            _store(f"{PREFIX}0003", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)),
+            _store(f"{PREFIX}0003", FPE_NEXT, STATUS_ESTIMATED, TODAY + timedelta(days=90), SOURCE_PATTERN),
+        ])
+        db.commit()
+    before = _snapshot()
+    rows = [
+        _row(1, TODAY + timedelta(days=12)),
+        _row(3, TODAY + timedelta(days=12)),
+        _row(2, TODAY + timedelta(days=5), fpe=FPE_PREV),
+        _row(4, TODAY + timedelta(days=70), fpe=FPE_NEXT),
+    ]
+
+    with SessionLocal() as db:
+        assert svc.ingest_alpha_vantage(db, rows, today=TODAY) == 4
+        db.commit()
+
+    after = _snapshot()
+    for ticker in (f"{PREFIX}0001", f"{PREFIX}0003"):
+        status, event_date, prior, _, _ = after[(ticker, FPE)]
+        assert (status, event_date, prior) == (STATUS_ESTIMATED, TODAY + timedelta(days=12), TODAY + timedelta(days=10))
+    # The other periods' rows are exactly as stored: not moved, not re-sourced, not even marked seen.
+    for key in ((f"{PREFIX}0001", FPE_PREV), (f"{PREFIX}0003", FPE_NEXT)):
+        assert after[key] == before[key]
+    assert after[(f"{PREFIX}0002", FPE_PREV)][1] == TODAY + timedelta(days=5)
+    assert after[(f"{PREFIX}0004", FPE_NEXT)][1] == TODAY + timedelta(days=70)
+
+
+@pytest.mark.requires_db
+def test_with_the_index_filter_on_a_stored_member_row_is_updated_and_a_non_member_is_left_alone(monkeypatch):
+    """The worker runs the refresh with the filter on. The prefetch reads rows through the same
+    _ingest_key as the pass, so a stored member row is in the map: if it were not, the pass would
+    insert a second row for its key and the flush would fail on uq_earnings_events_ticker_period."""
+    from app.config import settings
+    from app.services import index_membership_service as idx
+
+    members = {f"{PREFIX}0001", f"{PREFIX}0003"}
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset(members))
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+    with SessionLocal() as db:
+        db.add_all([_store(f"{PREFIX}{i:04d}", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)) for i in (1, 2, 3)])
+        db.commit()
+    before = _snapshot()
+    rows = [_row(i, TODAY + timedelta(days=12)) for i in (1, 2, 3, 4)]
+
+    stats = svc.RefreshStats()
+    with SessionLocal() as db:
+        assert svc.ingest_alpha_vantage(db, rows, today=TODAY, stats=stats) == 2
+        db.commit()
+
+    assert stats.skipped_non_member == 2
+    after = _snapshot()
+    for i in (1, 3):
+        status, event_date, prior, _, _ = after[(f"{PREFIX}{i:04d}", FPE)]
+        assert (status, event_date, prior) == (STATUS_ESTIMATED, TODAY + timedelta(days=12), TODAY + timedelta(days=10))
+    assert after[(f"{PREFIX}0002", FPE)] == before[(f"{PREFIX}0002", FPE)]
+    assert (f"{PREFIX}0004", FPE) not in after
 
 
 @pytest.mark.requires_db

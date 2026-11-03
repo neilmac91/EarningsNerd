@@ -199,36 +199,52 @@ def _watch_counts(db: Session) -> dict[str, int]:
 
 _EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit
 
+_SKIP_NON_MEMBER = "non_member"
+
+
+def _ingest_key(
+    row, *, members: Optional[frozenset[str]], today: date,
+) -> tuple[Optional[tuple[str, date, date]], Optional[str]]:
+    """``((ticker, fiscal_period_end, report_date), None)`` for an AV row ``ingest_alpha_vantage``
+    upserts, or ``(None, reason)`` for one it skips. The pass and its prefetch both read rows
+    through this one function, so the prefetch loads exactly the keys the pass looks up: a narrower
+    prefetch would make the pass insert a second row for a stored key and fail the run's commit.
+    """
+    ticker = (getattr(row, "symbol", "") or "").upper()
+    fpe = getattr(row, "fiscal_period_end", None)
+    if not ticker or fpe is None:
+        return None, "unkeyed"  # need a fiscal period to key on (uniqueness invariant)
+    if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+        return None, _SKIP_NON_MEMBER  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
+    new_date = getattr(row, "report_date", None)
+    if new_date is None or new_date < today:
+        return None, "past"
+    return (ticker, fpe, new_date), None
+
 
 def _events_by_key(
     db: Session, rows: list, *, members: Optional[frozenset[str]], today: date,
 ) -> dict[tuple[str, date], EarningsEvent]:
     """The stored events ``ingest_alpha_vantage`` can key on, by ``(ticker, fiscal_period_end)``.
 
-    Collects the keys of the rows the loop will look up (the same filters as the loop) and
-    reads their events in a few ``ticker IN (...) AND fiscal_period_end IN (...)`` queries; the IN
-    pair can return extra rows, which no key reaches. A row the filters cannot read is skipped
-    here: the loop meets it and raises there, at the same row as before. A key's event is the row
-    the per-row ``WHERE ticker = ? AND fiscal_period_end = ?`` SELECT returned (one at most, by
+    Collects the keys of the rows the pass will look up (``_ingest_key``, as the pass does) and
+    reads their events in a few ``ticker IN (...) AND fiscal_period_end IN (...)`` queries. The IN
+    pair also returns rows no key reaches (a key's ticker with another key's period); the map's
+    two-part key keeps them out of every lookup. A row ``_ingest_key`` cannot read is skipped here:
+    the pass meets it and raises there, at the same row as before. A key's event is the row the
+    per-row ``WHERE ticker = ? AND fiscal_period_end = ?`` SELECT returned (one at most, by
     ``uq_earnings_events_ticker_period``), and the session's identity map makes it the same object.
     """
     tickers: set[str] = set()
     periods: set = set()
     for row in rows:
         try:
-            ticker = (getattr(row, "symbol", "") or "").upper()
-            fpe = getattr(row, "fiscal_period_end", None)
-            if not ticker or fpe is None:
-                continue
-            if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
-                continue
-            new_date = getattr(row, "report_date", None)
-            if new_date is None or new_date < today:
-                continue
-        except Exception:  # noqa: BLE001 — the loop raises on this row; the lookup only skips it
+            keyed, _ = _ingest_key(row, members=members, today=today)
+        except Exception:  # noqa: BLE001 — the pass raises on this row; the prefetch only skips it
             continue
-        tickers.add(ticker)
-        periods.add(fpe)
+        if keyed is not None:
+            tickers.add(keyed[0])
+            periods.add(keyed[1])
     by_key: dict[tuple[str, date], EarningsEvent] = {}
     if not tickers:
         return by_key
@@ -264,21 +280,18 @@ def ingest_alpha_vantage(
     members = index_membership_service.active_member_filter()
     rows = list(rows)
     # One chunked read of every existing event a row can key on, instead of one SELECT per row
-    # (~6k a day). The loop below is unchanged otherwise: each insert still flushes at once, so what
-    # the EDGAR pass and the later steps can see, and where an error stops the pass, stay as before.
+    # (~6k a day), keyed by the same _ingest_key the loop reads rows through. The loop is unchanged
+    # otherwise: each insert still flushes at once, so what the EDGAR pass and the later steps can
+    # see, and where an error stops the pass, stay as before.
     by_key = _events_by_key(db, rows, members=members, today=today)
     upserted = 0
     for row in rows:
-        ticker = (getattr(row, "symbol", "") or "").upper()
-        fpe = getattr(row, "fiscal_period_end", None)
-        if not ticker or fpe is None:
-            continue  # need a fiscal period to key on (uniqueness invariant)
-        if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+        keyed, skipped = _ingest_key(row, members=members, today=today)
+        if skipped == _SKIP_NON_MEMBER:
             stats.skipped_non_member += 1
-            continue  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
-        new_date = getattr(row, "report_date", None)
-        if new_date is None or new_date < today:
+        if keyed is None:
             continue
+        ticker, fpe, new_date = keyed
         existing = by_key.get((ticker, fpe))
         # Precedence: a provider estimate must never overwrite ground truth (reported) OR a
         # confirmed row (a source with a real confirmation flag outranks an AV estimate).
