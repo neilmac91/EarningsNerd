@@ -616,6 +616,22 @@ def _check_output_records(
     return checked
 
 
+def _checkout_markers(config: dict[str, Any]) -> set[str]:
+    """The arm's checkout in each form an artifact can carry it (E303): as the config spells it, without a trailing
+    slash; resolved, where it exists here, since frozen_checkout runs the worker in the resolved path and
+    pdf_branding resolves its own (a symlink or a relative spelling); and each of those as a file:// address, which
+    percent-encodes a space."""
+    raw = config.get("checkout_path")
+    if not raw:
+        return set()
+    spelled = str(raw).rstrip("/") or str(raw)
+    forms = {spelled}
+    if Path(spelled).exists():
+        forms.add(str(Path(spelled).resolve()))
+    forms |= {Path(form).as_uri() for form in list(forms) if Path(form).is_absolute()}
+    return {form for form in forms if len(form) > 1}
+
+
 def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
                        config: dict[str, Any], holdout_id: str) -> bytes:
     """Project known DB columns, then reject remaining execution identity markers.
@@ -652,7 +668,7 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
         data = text.encode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
                str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
-               str(config.get("checkout_path") or ""), f"{holdout_id}-{row['arm']}-{row['draw']}"}
+               *_checkout_markers(config), f"{holdout_id}-{row['arm']}-{row['draw']}"}
     if _EXECUTION_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
         raise ValueError(f"reviewer artifact exposes execution identity: {key}")
     return data

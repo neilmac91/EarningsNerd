@@ -699,7 +699,9 @@ def test_two_checkouts_render_exports_that_blind_to_the_same_bytes(
         projected.append(_reviewer_artifact(export, "export", row, config, "H01"))
     assert written[0] != written[1]
     assert projected[0] == projected[1]
+    # Neither arm's checkout, nor the checkout running this test, whose other export modules both renders share.
     assert b"file://" not in projected[0] and str(tmp_path).encode() not in projected[0]
+    assert str(Path(__file__).resolve().parents[3]).encode() not in projected[0]
     assert b"src: url('fonts/Inter-Variable-latin.woff2') format('woff2');" in projected[0]
     assert b"we operate in a very competitive and rapidly changing environment" in projected[0]
 
@@ -727,6 +729,29 @@ def test_blinding_refuses_an_artifact_still_naming_its_checkout(tmp_path: Path, 
     expected = "exposes execution identity" if leak == "the checkout path" else "names a local file"
     with pytest.raises(ValueError, match=expected):
         _reviewer_artifact(artifact, key, row, config, "H01")
+
+
+@pytest.mark.parametrize("spelling", ["through a symlink", "with a trailing slash", "with a space, as an address"])
+def test_the_checkout_marker_reads_the_path_as_the_arm_writes_it(tmp_path: Path, spelling: str) -> None:
+    """frozen_checkout runs the worker in the resolved checkout, so an artifact carries that path, or its file://
+    address, whatever the config spells. The marker reads each form (E303): a config naming the checkout through a
+    symlink or with a trailing slash still stops a rendered summary that names the resolved path, and one whose path
+    holds a space stops a summary that names its percent-encoded address."""
+    real = tmp_path / ("check out" if "space" in spelling else "checkout")
+    real.mkdir()
+    if spelling == "through a symlink":
+        (tmp_path / "link").symlink_to(real)
+    configured = {"through a symlink": str(tmp_path / "link"), "with a trailing slash": f"{real}/",
+                  "with a space, as an address": str(real)}[spelling]
+    written = real.resolve().as_uri() if "address" in spelling else str(real.resolve())
+    assert configured not in written  # the config's spelling alone would miss it
+    artifact = tmp_path / "rendered.md"
+    artifact.write_text(f"Revenue rose. Rendered under {written}.", encoding="utf-8")
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1", "checkout_path": configured}
+    with pytest.raises(ValueError, match="exposes execution identity"):
+        _reviewer_artifact(artifact, "rendered", row, config, "H01")
 
 
 # The meta line before E210, which an export retained from an earlier run still carries, and since: unpadded days, the

@@ -29,7 +29,10 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
 
 The visual contract is pinned by tests/unit/test_export_service.py (shell assertions + a real
 WeasyPrint render checking page orientation), the mark by tests/unit/test_pdf_mark_geometry.py
-and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py.
+and every colour, its token and its contrast by tests/unit/test_export_palette_parity.py. The acceptance eval reads
+the fonts' file:// addresses too (``_EXPORT_FONT_ADDRESS`` in backend/evals/acceptance_readiness.py keeps each
+to its file name, E303), and tests/unit/test_acceptance_readiness.py pins the shell's five addresses under
+app/assets/fonts/, so a face added or moved changes that test as well.
 """
 from html import escape
 from pathlib import Path
