@@ -130,6 +130,15 @@ wins, so one refuter's raise to blocker blocks the merge and a lowering needs ev
 and a finding with a vote missing stays unverified at its claimed severity. Missing review output is
 never clearance. Record the tier and the review in the PR body under "Review".
 
+Review rounds converge in one fix round (`lessons/ops-converge-a-review-in-one-fix-round.md`).
+Write the done criteria in the PR body before round 1, the tier's full review, and fix its findings
+once. Round 2 reviews only that fix's diff, from round 1's head to the fix's head, with the tier's
+whole team. A round-2 finding in that diff and inside the criteria is fixed without another round;
+one outside the diff or beyond the criteria becomes a follow-up row in `tasks/todo.md`, or a limit
+the body names, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
+its reason under "Review", and a fourth needs the founder's go. Codex's review of each head is not a
+round, and the records tier's same-context delta checks each cover only their head's fix commit.
+
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
 the moment the PR is marked ready, before Codex reviews, unless the title, body or a commit message puts a
