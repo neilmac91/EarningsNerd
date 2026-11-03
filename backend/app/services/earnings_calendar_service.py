@@ -21,7 +21,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_
@@ -203,7 +203,7 @@ _SKIP_NON_MEMBER = "non_member"
 
 
 def _ingest_key(
-    row, *, members: Optional[frozenset[str]], today: date,
+    row: Any, *, members: Optional[frozenset[str]], today: date,
 ) -> tuple[Optional[tuple[str, date, date]], Optional[str]]:
     """``((ticker, fiscal_period_end, report_date), None)`` for an AV row ``ingest_alpha_vantage``
     upserts, or ``(None, reason)`` for one it skips. The pass and its prefetch both read rows
@@ -223,7 +223,7 @@ def _ingest_key(
 
 
 def _events_by_key(
-    db: Session, rows: list, *, members: Optional[frozenset[str]], today: date,
+    db: Session, rows: list[Any], *, members: Optional[frozenset[str]], today: date,
 ) -> dict[tuple[str, date], EarningsEvent]:
     """The stored events ``ingest_alpha_vantage`` can key on, by ``(ticker, fiscal_period_end)``.
 
@@ -236,7 +236,7 @@ def _events_by_key(
     ``uq_earnings_events_ticker_period``), and the session's identity map makes it the same object.
     """
     tickers: set[str] = set()
-    periods: set = set()
+    periods: set[date] = set()
     for row in rows:
         try:
             keyed, _ = _ingest_key(row, members=members, today=today)
@@ -316,10 +316,10 @@ def ingest_alpha_vantage(
             # A repeated (ticker, fpe) later in this run updates this row, as the per-row SELECT
             # found it once flushed.
             by_key[(ticker, fpe)] = created
-            # Flush so this row is visible to later existence checks in the SAME transaction —
-            # SessionLocal is autoflush=False, so without this the EDGAR pass wouldn't see it and
-            # would INSERT a duplicate, making the final commit raise on the unique constraint and
-            # lose the whole day's ingest.
+            # Flush so the later steps' queries in the SAME transaction see this row (SessionLocal
+            # is autoflush=False). The EDGAR pass's attach query would otherwise find no prior row
+            # for a 2.02 hit on it and skip the flip (it never inserts), and each flush also writes
+            # the updates pending before it, which the stale downgrade then reads (E306).
             db.flush()
         else:
             if existing.event_date != new_date:

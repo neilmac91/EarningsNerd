@@ -5,6 +5,7 @@ A daily calendar CSV carries ~6k rows, and the per-row lookup cost one round tri
 row. The others pin what the prefetch and the loop around the lookup must keep doing:
 - a ticker's other stored periods, which the prefetch also loads, are never the row a CSV row updates;
 - with the index filter on, a stored member row is updated and a non-member row is left alone;
+- rows given as a one-shot iterator are all ingested, though the prefetch walks them first;
 - an in-file duplicate updates the row it just inserted;
 - each insert is flushed at once, and a row that cannot be read stops the pass at that row, with the
   rows before it applied.
@@ -82,10 +83,12 @@ def _event_selects():
 @pytest.mark.requires_db
 @pytest.mark.parametrize("n_rows", [10, 1200])
 def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
-    """Half the rows update a stored estimate, half insert, one is confirmed (touched, not moved):
-    the reads stay at one query per chunk of tickers, and every row lands as before."""
+    """Most rows update a stored estimate, one in ten inserts, one is confirmed (touched, not moved):
+    the reads stay at one query per chunk of tickers, and every row lands as before. Every chunk's
+    first and last ticker (LKP0000, 0499, 0500, 0999, 1000, 1199) is stored, so a chunk that drops
+    an edge ticker leaves a stored key out of the map, and the pass's second insert for it fails."""
     with SessionLocal() as db:
-        for i in range(0, n_rows, 2):
+        for i in (i for i in range(n_rows) if i % 10 != 3):
             db.add(EarningsEvent(
                 ticker=f"{PREFIX}{i:04d}", fiscal_period_end=FPE, event_date=TODAY + timedelta(days=10),
                 status=STATUS_CONFIRMED if i == 0 else STATUS_ESTIMATED, confidence=CONFIDENCE_MEDIUM,
@@ -109,9 +112,30 @@ def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
     assert (confirmed.status, confirmed.event_date) == (STATUS_CONFIRMED, TODAY + timedelta(days=10))
     moved = stored[f"{PREFIX}0002"]
     assert (moved.event_date, moved.prior_event_date) == (TODAY + timedelta(days=12), TODAY + timedelta(days=10))
-    inserted = stored[f"{PREFIX}0001"]
+    inserted = stored[f"{PREFIX}0003"]
     assert (inserted.status, inserted.event_date, inserted.prior_event_date) == (
         STATUS_ESTIMATED, TODAY + timedelta(days=12), None)
+
+
+@pytest.mark.requires_db
+def test_rows_given_as_a_one_shot_iterator_are_all_ingested():
+    """The prefetch and the pass each walk the rows, so the ingest takes its own list of them first;
+    a generator read by the prefetch alone would leave the pass nothing to upsert."""
+    with SessionLocal() as db:
+        db.add(EarningsEvent(
+            ticker=f"{PREFIX}0001", fiscal_period_end=FPE, event_date=TODAY + timedelta(days=10),
+            status=STATUS_ESTIMATED, confidence=CONFIDENCE_MEDIUM, source=SOURCE_ALPHA_VANTAGE,
+        ))
+        db.commit()
+    rows = (_row(i, TODAY + timedelta(days=12)) for i in (1, 2))
+
+    with SessionLocal() as db:
+        assert svc.ingest_alpha_vantage(db, rows, today=TODAY) == 2
+        db.commit()
+
+    after = _snapshot()
+    assert after[(f"{PREFIX}0001", FPE)][1:3] == (TODAY + timedelta(days=12), TODAY + timedelta(days=10))
+    assert after[(f"{PREFIX}0002", FPE)][1] == TODAY + timedelta(days=12)
 
 
 def _store(ticker, fpe, status, event_date, source=SOURCE_ALPHA_VANTAGE):
