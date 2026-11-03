@@ -4,6 +4,7 @@ import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
 import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
 import { decodeLaterFilings } from '@/features/analysis/lib/laterFilings'
+import { admitCitationInputs, admitDatasetInputs } from '@/features/analysis/lib/provenanceInputs'
 import {
   decodeNarrativePresentation,
   EVIDENCE_RECOVERY,
@@ -243,9 +244,10 @@ export const getAnalysisDataset = async (
   signal?: AbortSignal,
 ): Promise<AnalysisDataset> => {
   const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range, { signal })
-  // The later-filing evidence is checked where it enters and the dataset returned as sent: a point without it is
-  // untouched (lib/laterFilings.ts).
-  const dataset = decodeLaterFilings(response.data as AnalysisDataset)
+  // Every provenance's inputs list is admitted where it enters, a missing one read as the builders' empty list
+  // (lib/provenanceInputs.ts, E294). The later-filing evidence is then checked and the dataset returned as sent: a point
+  // without it is untouched (lib/laterFilings.ts).
+  const dataset = decodeLaterFilings(admitDatasetInputs(response.data as AnalysisDataset))
   return Object.hasOwn(dataset, 'data_notes')
     ? { ...dataset, data_notes: decodeDataNotes(dataset.data_notes, dataset) }
     : dataset
@@ -478,6 +480,16 @@ export const streamAnalysis = async (
               mismatched: typeof data.mismatched === 'number' ? data.mismatched : null,
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
+            }
+            try {
+              // Each citation's inputs list is admitted as the dataset's is (lib/provenanceInputs.ts, E294).
+              admitCitationInputs(completion.citations)
+            } catch (error) {
+              // The refusal names the field for diagnostics (a defect inside the admission logs as itself), and the
+              // reader gets the one recovery sentence, as for the narrative presentation below, never the engine's text.
+              console.error('[analysis] citation provenance not admitted:', error)
+              fail(EVIDENCE_RECOVERY)
+              return
             }
             if (Object.hasOwn(data, 'narrative_presentation')) {
               try {
