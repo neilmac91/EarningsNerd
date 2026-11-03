@@ -182,6 +182,15 @@ const badRequest = (config: InternalAxiosRequestConfig, detail: string) => Objec
 const unauthorized = (config: InternalAxiosRequestConfig, detail: string) => Object.assign(new Error('Request failed with status code 401'), {
   config, isAxiosError: true, response: { status: 401, statusText: 'Unauthorized', data: { detail }, headers: {}, config },
 })
+const conflict = (config: InternalAxiosRequestConfig, detail: string) => Object.assign(new Error('Request failed with status code 409'), {
+  config, isAxiosError: true, response: { status: 409, statusText: 'Conflict', data: { detail }, headers: {}, config },
+})
+const unprocessable = (config: InternalAxiosRequestConfig) => Object.assign(new Error('Request failed with status code 422'), {
+  config, isAxiosError: true,
+  response: { status: 422, statusText: 'Unprocessable Content', data: { detail: [{ type: 'missing', loc: ['body', 'account_id'] }] }, headers: {}, config },
+})
+/** The id the API gives each account, which a password change names for the account its tab shows (E29 (6)). */
+const ACCOUNT_IDS: Record<Account, number> = { X: 1, Y: 2 }
 const withoutLocks = () => { delete (navigator as { locks?: unknown }).locks }
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 /** An OAuth sign-in as Y: its callback's answer is a navigation, which sets Y's cookies outside the lock. */
@@ -250,6 +259,18 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
         if (!session || !shared.cookies.fresh) {
           shared.events.push(`${name}'s ${url} refused: its access token has expired`)
           throw unauthorized(config, 'You are not logged in.')
+        }
+        // The route requires the account the tab shows (StrictInt): a change without it, or with null, is refused with
+        // 422 before the route runs. One that names another account than the browser's is refused with 409, before its
+        // current password is read and before anything is revoked or minted (E29 (6)).
+        const named = (JSON.parse(typeof config.data === 'string' ? config.data : '{}') as { account_id?: unknown }).account_id
+        if (typeof named !== 'number' || !Number.isInteger(named)) {
+          shared.events.push(`${name}'s ${url} refused: it names no account`)
+          throw unprocessable(config)
+        }
+        if (named !== ACCOUNT_IDS[session]) {
+          shared.events.push(`${name}'s ${url} refused: it names another account than ${session}`)
+          throw conflict(config, 'This browser is logged in to a different account from the one this page shows, so the password was not changed.')
         }
         if (shared.wrongPassword) {
           shared.events.push(`${name}'s ${url} refused: its current password is wrong`)
@@ -780,7 +801,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     await settle()
     const changeAnswer = hold<Outcome>('took')
     tabB.postAnswers.push(changeAnswer.promise)
-    const changing = tabB.auth.changePassword('old-password', 'new-password')
+    const changing = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X)
     await settle()
     expect(browser.events).toEqual(["A's refresh sent with X"])
 
@@ -808,7 +829,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
 
   it("renews a lapsed access token after its hold, through the identity read's own refresh, and posts once more through the hold", async () => {
     // X's access token has expired: the change's first post answers 401, which asks for no refresh under the hold.
-    expect(await tabB.auth.changePassword('old-password', 'new-password')).toEqual({ message: 'Password updated.' })
+    expect(await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X)).toEqual({ message: 'Password updated.' })
     expect(browser.events).toEqual([
       'B posts /api/auth/change-password as X', "B's /api/auth/change-password refused: its access token has expired",
       'B reads /api/auth/me as X', "B's refresh sent with X", "B's refresh answered for X", 'B reads /api/auth/me as X',
@@ -825,7 +846,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     tabA.refreshAnswers.push(answer.promise)
     const refreshing = tabA.client.ensureRefreshed()
     await settle()
-    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    const outcome = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error)
     await settle()
     // A login completes in tab B and is accepted while the change waits: the tab now holds another account's session.
     tabB.session.markSessionActive()
@@ -841,7 +862,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
   it('posts nothing more for a login accepted in its tab while the identity read renewed it: the read is not replayed', async () => {
     const renewal = hold()
     tabB.refreshAnswers.push(renewal.promise)
-    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    const outcome = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error)
     await settle()
     expect(browser.events.at(-1)).toBe("B's refresh sent with X")
     tabB.session.markSessionActive()
@@ -862,7 +883,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
       tabB.session.markSessionActive()
       tabB.session.advanceSessionGeneration('explicit')
     }
-    expect(await tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error))
+    expect(await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error))
       .toMatchObject({ name: 'AbortError', message: 'Your session changed before your password was saved, so it was not changed.' })
     expect(reads).toBe(2)
     expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
@@ -875,7 +896,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     // lock when the second post asks for it.
     const renewal = hold()
     tabB.refreshAnswers.push(renewal.promise)
-    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    const outcome = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error)
     await settle()
     expect(browser.events.at(-1)).toBe("B's refresh sent with X")
     const aAnswer = hold()
@@ -903,7 +924,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     const refreshing = tabB.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
     let settled = false
-    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error).finally(() => { settled = true })
+    const changing = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error).finally(() => { settled = true })
     await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
     expect(settled).toBe(true)
     expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
@@ -925,7 +946,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     tabA.refreshAnswers.push(answer.promise)
     const refreshing = tabA.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
-    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    const changing = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error)
     await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
     expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
 
@@ -940,17 +961,59 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
   it('posts at once without the lock when the browser refuses it, as the other posts do', async () => {
     browser.cookies.fresh = true
     browser.locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
-    expect(await tabB.auth.changePassword('old-password', 'new-password')).toEqual({ message: 'Password updated.' })
+    expect(await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X)).toEqual({ message: 'Password updated.' })
     expect(browser.events).toEqual(['B posts /api/auth/change-password as X', "B's /api/auth/change-password answered"])
   })
 
   it('posts once for a wrong current password and renews nothing: only a 401 is renewed', async () => {
     browser.cookies.fresh = true
     browser.wrongPassword = true
-    expect(await tabB.auth.changePassword('wrong-password', 'new-password').catch((error: unknown) => error)).toMatchObject({ status: 400 })
+    expect(await tabB.auth.changePassword('wrong-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error)).toMatchObject({ status: 400 })
     expect(browser.events).toEqual(['B posts /api/auth/change-password as X', "B's /api/auth/change-password refused: its current password is wrong"])
     expect(browser.server.X.cut).toBeUndefined()
     expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("names the account its tab shows, so a tab left showing X by another tab's login changes nothing of Y's, the account the browser holds now (E29 (6))", async () => {
+    // Tab A logs the browser in to Y. Tab B learns of it only through /me, so it still shows X, and its change posts
+    // with Y's cookies: for an account with no password, the API asks for no current one.
+    await tabA.auth.login(EMAIL, PASSWORD)
+    expect(browser.cookies.session).toBe('Y')
+    const before = { ...browser.server.Y }
+    expect(await tabB.auth.changePassword(null, 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error))
+      .toMatchObject({ status: 409 })
+    expect(browser.events.slice(-2)).toEqual([
+      'B posts /api/auth/change-password as Y', "B's /api/auth/change-password refused: it names another account than Y",
+    ])
+    // Nothing of Y's changed: its live token is neither revoked nor replaced, and the browser keeps it.
+    expect(browser.server.Y).toEqual(before)
+    expect(browser.cookies).toMatchObject({ session: 'Y', token: before.tip })
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("keeps naming the tab's account after the renewal's identity read names the browser's, so the second post is refused too (E29 (6))", async () => {
+    // An OAuth sign-in in another tab makes the browser Y's, whose access token then lapses: tab B, still showing X,
+    // posts, is answered 401, and renews through /me, which reads Y.
+    signInByNavigation()
+    browser.cookies.fresh = false
+    expect(await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error))
+      .toMatchObject({ status: 409 })
+    expect(browser.events).toEqual([
+      'an OAuth callback signs the browser in as Y',
+      'B posts /api/auth/change-password as Y', "B's /api/auth/change-password refused: its access token has expired",
+      'B reads /api/auth/me as Y', "B's refresh sent with Y", "B's refresh answered for Y", 'B reads /api/auth/me as Y',
+      'B posts /api/auth/change-password as Y', "B's /api/auth/change-password refused: it names another account than Y",
+    ])
+    expect(browser.server.Y.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('always sends the account it names, and changes that account\'s password when the browser holds it', async () => {
+    browser.cookies.fresh = true
+    expect(await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X)).toEqual({ message: 'Password updated.' })
+    // The fake route refuses a change that names no account (422), as the API does, so every case here proves it is sent.
+    expect(browser.events).toEqual(['B posts /api/auth/change-password as X', "B's /api/auth/change-password answered"])
+    expect(browser.server.X).toMatchObject({ cut: [1], tip: 2 })
   })
 })
 
@@ -1088,7 +1151,7 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     tabA.refreshAnswers.push(stalled.promise)
     const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
     await settle()
-    await tabB.auth.changePassword('old-password', 'new-password')
+    await tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X)
     stalled.resolve()
     await unanswered
     expect(browser.events).toEqual([
@@ -1109,7 +1172,7 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     const refreshing = tabB.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
     let settled = false
-    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error).finally(() => { settled = true })
+    const changing = tabB.auth.changePassword('old-password', 'new-password', ACCOUNT_IDS.X).catch((error: unknown) => error).finally(() => { settled = true })
     await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
     expect(settled).toBe(true)
     expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)

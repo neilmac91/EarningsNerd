@@ -3,8 +3,11 @@
 import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { CheckCircleIcon } from '@/lib/icons'
-import { changePassword, getConnections } from '@/features/auth/api/auth-api'
+import { changePassword, getConnections, type CurrentUser } from '@/features/auth/api/auth-api'
+import { STEP_TOAST_DURATION_MS } from '@/features/auth/lib/accountQueryState'
+import { ApiError } from '@/lib/api/client'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { cx } from '@/components/ui/cx'
@@ -13,6 +16,19 @@ import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PASSWORD_MIN_LENGTH } from '@/lib/passwordRules'
 
+/** What the form tells the reader when the route refused the change for another account (E29 (6)): another tab logged
+ * this browser in to that account, so changing its password is not what this tab asked for, and nothing changed. The
+ * tab then reads /me and shows that account, whose form replaces this one, so a toast says it, as the logout of every
+ * session's refusal does (LOGGED_IN_AS_ANOTHER_MESSAGE, E157 (2)). */
+export const PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE =
+  "This browser is now logged in to another account, so we didn't change your password. Log in to the account you meant, then try again."
+
+/** What the form says when it cannot name the account its tab shows (the identity read holds none, as when it failed):
+ * the route requires the account (E29 (6)), so it posts nothing and asks for a reload. */
+export const ACCOUNT_UNCONFIRMED_MESSAGE = "We couldn't confirm which account this page shows. Reload the page, then try again."
+
+/** The settings page keys it by the account it shows, so a read of /me that moves the tab to another account remounts
+ * it with empty fields: nothing typed for one account is posted under another (E29 (6)). */
 export default function ChangePasswordForm() {
   const queryClient = useQueryClient()
   // Shares the cache with ConnectedAccounts (same key) — one fetch, and invalidating it after a
@@ -29,16 +45,33 @@ export default function ChangePasswordForm() {
   const [confirm, setConfirm] = useState('')
   const [clientError, setClientError] = useState('')
 
+  const clearFields = () => {
+    setCurrent('')
+    setNext('')
+    setConfirm('')
+    setClientError('')
+  }
+
   const mutation = useMutation({
-    mutationFn: () => changePassword(hasPassword ? current : null, next),
+    // It names the account this tab shows as the change is asked for, and the route refuses another's (E29 (6)); submit
+    // posts nothing while there is no account to name.
+    mutationFn: (accountId: number) => changePassword(hasPassword ? current : null, next, accountId),
     onSuccess: () => {
-      setCurrent('')
-      setNext('')
-      setConfirm('')
-      setClientError('')
+      clearFields()
       queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
+    onError: (err: unknown) => {
+      if (!(err instanceof ApiError && err.status === 409)) return
+      // The browser's session is another account's: what was typed here was meant for the account this tab showed, so
+      // none of it stays to be posted for the one a read of /me moves this tab to.
+      clearFields()
+      toast.error(PASSWORD_NOT_CHANGED_OTHER_ACCOUNT_MESSAGE, { duration: STEP_TOAST_DURATION_MS })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
+    },
   })
+  // The 409's toast gave the reader its step; an error line would say it again under the other account's form.
+  const refusedForAnotherAccount = mutation.error instanceof ApiError && mutation.error.status === 409
 
   const submit = () => {
     setClientError('')
@@ -50,7 +83,12 @@ export default function ChangePasswordForm() {
       setClientError('New password and confirmation do not match.')
       return
     }
-    mutation.mutate()
+    const accountId = queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id
+    if (accountId === undefined) {
+      setClientError(ACCOUNT_UNCONFIRMED_MESSAGE)
+      return
+    }
+    mutation.mutate(accountId)
   }
 
   const incomplete = !next || !confirm || (hasPassword && !current)
@@ -159,7 +197,7 @@ export default function ChangePasswordForm() {
           )}
         </div>
 
-        {(clientError || mutation.isError) && (
+        {(clientError || (mutation.isError && !refusedForAnotherAccount)) && (
           <p className="text-sm text-error-light dark:text-error-dark">
             {clientError ||
               (isApiError(mutation.error) ? getErrorMessage(mutation.error) : 'Could not update your password.')}
