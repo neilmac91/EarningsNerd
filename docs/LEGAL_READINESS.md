@@ -207,7 +207,10 @@ does not):
 - `LEGAL_INVITED_COHORT_ENABLED` is true (the default is false); and
 - `LEGAL_INVITED_COHORT` holds an opaque cohort label that an invitation can carry: not empty, no
   space at either end, no control character, at most 64 characters (a synthetic example:
-  `cohort-synthetic-7f3a9c`).
+  `cohort-synthetic-7f3a9c`). The label is an identifier, not a secret: no public response carries
+  it, but the admin page lists each invitation's cohort, the audit log records it, and the server's
+  private logs and error reports can carry it, as they can an account's address. Choose one that
+  names no one and says nothing about the notice.
 
 While it is in effect and collection is held, an invitation admits an account only when it is bound
 to its recipient's address and its stored cohort equals the configured label exactly. Each path
@@ -232,8 +235,11 @@ checks this itself, when it acts, and trusts no earlier answer:
 
 A sign-up without an invitation meets the closure it always met (503), and an invitation the
 exception refuses gets the answer any invalid invitation gets (403 at `/api/auth/register`,
-`invite_required` after a social sign-in). Existing sign-in, linking, sessions and account rights
-are unchanged, and a new account still needs both of its holder's own statements.
+`invite_required` after a social sign-in). A password registration whose admitted invitation is
+bound to the address of an existing account creates nothing and spends no invitation; as with open
+registration, it answers as a new account does, and the account's owner gets the account-exists
+notice. Existing sign-in, linking, sessions and account rights are unchanged, and a new account
+still needs both of its holder's own statements.
 
 `GET /api/auth/registration` carries `invited_cohort_available`, a boolean and never the label, with
 `Cache-Control: no-store`. The register page reads it afresh for a visitor holding an invitation
