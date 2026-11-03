@@ -13,6 +13,8 @@ from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
+from app.api_errors import CodedHTTPException
+from app.error_codes import ErrorCode
 from starlette.concurrency import run_in_threadpool
 from app.services import billing_account_service, filing_list_service, legal_readiness_service
 from app.services.billing_serving_prices import serving_pro_prices
@@ -261,8 +263,9 @@ async def create_checkout_session(
             detail="New subscriptions are not available yet. You can still manage existing billing in Settings.",
         )
     if not account.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        # The 403 and its words as before, plus the code the client opens its verification prompt on (E31).
+        raise CodedHTTPException(
+            ErrorCode.EMAIL_VERIFICATION_REQUIRED,
             detail="Verify your email address before you subscribe.",
         )
     if account.entitled:
@@ -324,8 +327,9 @@ async def create_checkout_session(
         else:
             customer = await run_on_stripe_threads(stripe.Customer.retrieve, account.stripe_customer_id)
 
-        # Create checkout session
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
+        # Create checkout session. Its return URLs are built on FRONTEND_URL, the one canonical origin
+        # Settings loads (E111), never on whichever origin the CORS allowlist lists first (E32).
+        frontend_url = settings.FRONTEND_URL
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         session_kwargs = {
             "customer": customer.id,
@@ -400,11 +404,10 @@ async def _billing_portal_url(customer_id: str) -> str:
     failure answers the portal's fixed 400 detail (E18). Checkout's recovery path (E98) and the portal
     route share it."""
     try:
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
         portal_session = await run_on_stripe_threads(
             stripe.billing_portal.Session.create,
             customer=customer_id,
-            return_url=f"{frontend_url}/dashboard",
+            return_url=f"{settings.FRONTEND_URL}/dashboard",  # as checkout's return URLs (E32)
         )
         return portal_session.url
     except stripe.error.StripeError as e:

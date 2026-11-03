@@ -1073,6 +1073,13 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  apart from a compatible-input calculation; neither claims an audit. Missing figures read
                  “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
                  source links name their figure and period.
+                 A recorded formula reads in words (figureDisplay.ts FORMULAS: “Operating income ÷
+                 revenue × 100”), in the Method section, under each input, and after “Calculation:” for
+                 a comparison (“(Current − same period last year) ÷ absolute same period last year”);
+                 a formula with no words reads as stored, each underscore a space. The PDF's and the
+                 workbook's Sources & methods print the same words through one port
+                 (analysis_export_metadata.FORMULA_WORDS; gate: backend
+                 tests/unit/test_export_formula_words.py, which reads them from figureDisplay.ts).
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -1183,7 +1190,8 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
                  and names one, only for a marked note. Its name and title say its source in the list's
                  words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
-                 not print; the analysis PDF prints the same label (gate: test_export_service.py).
+                 not print; the analysis PDF prints the same label (gates: narrative-pane.spec.tsx for the
+                 chip and the list; test_export_service.py for the PDF).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -3171,8 +3179,9 @@ plot needs it stops with an error toast rather than paint a fallback (gate, in C
 Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
 theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
 control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
-"Image matches your theme." from a `hidden` line beside the button, so browse mode does not read it twice, its name
-still the label (ChartControl's `hint`; the expand control takes none; gate: `tests/unit/trend-charts-v2.spec.tsx`).
+"Image matches your theme.", which a `hidden` line beside the button carries, so browse mode does not read it twice.
+Its name stays the label (ChartControl's `hint`; the expand control takes none; gate:
+`tests/unit/trend-charts-v2.spec.tsx`).
 Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the

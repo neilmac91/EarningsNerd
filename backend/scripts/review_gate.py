@@ -10,8 +10,9 @@ ready mark's own running/completed cycle; a draft-era completion cannot pass the
 manual review may supersede a completed ready cycle on a different head, including fixes to its
 findings. On the same head the ready cycle must itself be clean. The newest human review request
 must be covered, even before the bot publishes Running. Missing history, malformed state and API errors
-never pass. The bot exposes no run id, so the history is replayed: a completion pairs with the open start of
-its head and trigger, never with one begun while another of them was open, and any start still open blocks
+never pass: GitHub's 5xx and network errors are retried with a capped backoff inside the gate's wait (F57), and
+a 4xx fails at once. The bot exposes no run id, so the history is replayed: a completion pairs with the open
+start of its head and trigger, never with one begun while another of them was open, and any start still open blocks
 the pass until it completes or is an hour old, when it counts as abandoned (F58 call 1). This script polls
 that comment for the head under test and
 publishes its verdict through the ``review-gate`` job of ``.github/workflows/review-gate.yml``.
@@ -96,11 +97,13 @@ from __future__ import annotations
 import ast
 import base64
 import html
+import http.client
 import json
 import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -984,6 +987,42 @@ def repository_resolver(repo: str, token: str) -> Resolver:
     return resolve
 
 
+# F57: the longest sleep between polls while GitHub keeps failing transiently, or the poll interval when that is
+# longer.
+TRANSIENT_BACKOFF_CAP = 120.0
+
+
+def is_transient(exc: BaseException) -> bool:
+    """Whether ``exc``, raised while the gate read GitHub, is a transient error, after which a later poll reads
+    afresh (F57). An ``HTTPError`` is a ``URLError``, so it is checked first.
+
+    - ``urllib.error.HTTPError`` with a 5xx status: GitHub answered with a failure of its own (500 internal error,
+      502 bad gateway, 503 unavailable, 504 gateway timeout). Any other status is not transient: a 4xx (400, 401,
+      403, 404, 409, 422 and 429 among them: a bad request or token, a missing permission or resource, a rate
+      limit) fails the gate at once.
+    - Any other ``urllib.error.URLError``: urllib's wrapper for an error met before a response began (a DNS
+      failure, a refused or reset connection, a TLS failure, a connection timeout).
+    - ``TimeoutError`` (``socket.timeout``) and ``ConnectionError`` (a reset, aborted or refused connection, a
+      broken pipe), which urllib leaves unwrapped once the request is sent: the socket failed while the response
+      was read.
+    - ``http.client.IncompleteRead``, ``RemoteDisconnected`` and ``BadStatusLine``: the response broke off before
+      its end, or the connection closed before a readable status line arrived.
+
+    Nothing else is. The gate's own errors are its verdicts (a ``SnapshotChanged`` already makes a poll a wait),
+    and any other exception, a body that is not JSON or an ``ssl`` error raised mid-response among them, fails
+    the gate at once."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return 500 <= exc.code <= 599
+    return isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError, http.client.IncompleteRead,
+                            http.client.RemoteDisconnected, http.client.BadStatusLine))
+
+
+def _error_name(exc: BaseException) -> str:
+    """An error's class, with an HTTPError's status: never its message, which can hold a URL or a response body."""
+    name = type(exc).__name__
+    return f"{name} {exc.code}" if isinstance(exc, urllib.error.HTTPError) else name
+
+
 def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State]] = None,
          resolve: Optional[Resolver] = None,
          sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
@@ -1016,21 +1055,28 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
         reason = f"{type(exc).__name__}: {exc}".encode("unicode_escape").decode("ascii")
         print(f"review-gate: the base branch's models are unreadable ({reason}); a pull request whose migrations drop a "
               "column fails closed", flush=True)
+    cap = max(TRANSIENT_BACKOFF_CAP, poll)
+    backoff = 0.0  # after a transient error, the next sleep: poll, doubled at each in a row to the cap (F57)
     started = clock()
     while True:
         try:
             state = State(*fetch())
         except SnapshotChanged as exc:
-            verdict, message = "wait", f"review-gate: {exc}"
+            backoff, verdict, message = 0.0, "wait", f"review-gate: {exc}"
         except EvidenceError as exc:
             # The gate's own words, which name what it could not read (a migration's name among them, escaped).
             reason = str(exc).encode("unicode_escape").decode("ascii")
             print(f"review-gate: failed to read trusted GitHub evidence: {reason}; failing closed", flush=True)
             return 1
-        except Exception as exc:  # noqa: BLE001 - API failures never publish success; retries are F57, not F58
-            print(f"review-gate: failed to read trusted GitHub evidence: {type(exc).__name__}", flush=True)
-            return 1
+        except Exception as exc:  # noqa: BLE001 - no API failure publishes success; a transient one waits (F57)
+            if not is_transient(exc):
+                print(f"review-gate: failed to read trusted GitHub evidence: {_error_name(exc)}", flush=True)
+                return 1
+            backoff = min(2 * backoff, cap) if backoff else poll
+            verdict, message = "wait", (f"review-gate: GitHub could not be read ({_error_name(exc)}), a transient "
+                                        "error; the gate retries within its wait")
         else:
+            backoff = 0.0
             verdict, message = decide(head, state.comments, state.body, state.commits, resolve, pr_draft=state.draft,
                                       pr_title=state.title, pr_commit_messages=state.commit_messages,
                                       pr_files=state.files, pr_files_complete=state.files_complete, open_rows=rows,
@@ -1041,7 +1087,8 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
             return 0
         if verdict == "fail":
             return 1
-        if clock() - started >= timeout:
+        elapsed = clock() - started
+        if elapsed >= timeout:
             print(f"review-gate: timed out after {timeout / 60:g} minutes waiting for trusted, clean review evidence "
                   f"for {head[:7]}. Read the preceding reason. Let pending reviews settle (a review open an hour counts as "
                   "abandoned), then re-run this job. "
@@ -1051,7 +1098,7 @@ def main(argv: Optional[List[str]] = None, *, fetch: Optional[Callable[[], State
                   "stay ready. If the review service is unavailable, record the substitute review in a "
                   "`Review override: <reason>` line under the repository's override rule.", flush=True)
             return 1
-        sleep(poll)
+        sleep(min(backoff, timeout - elapsed) if backoff else poll)
 
 
 if __name__ == "__main__":
