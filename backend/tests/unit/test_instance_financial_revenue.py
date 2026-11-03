@@ -462,7 +462,8 @@ def test_every_fixture_filings_own_items_give_e264s_choice():
     ("PNC", "0000713676-21-000025", (REV, FEE)),  # the fee element matches the total, so it may fill
     ("WBHC", "0001193125-26-082893", ()),  # FY2025 10-K: its gross Revenues is above its bank's sum
     ("WBHC", "0000950170-25-067712", (REV,)),  # Q1 2025 10-Q: a quarter's sum leaves no total out (E290 (5))
-    ("MC", "0001193125-26-076747", (IBR,)),  # FY2025 10-K: its total is its only revenue element (E290 (2))
+    ("PNC", "0000713676-26-000020", (REV,)),  # FY2025 10-K: its investment banking fees are a part (E290 (2))
+    ("MC", "0001193125-26-076747", (IBR,)),  # FY2025 10-K: its total, beside no total element (E290 (2))
     ("MC", "0001193125-26-192462", (IBR,)),  # Q1 2026 10-Q, the same
 ])
 def test_named_filings_choose_their_reported_total(ticker, accession, tags):

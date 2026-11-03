@@ -6,15 +6,15 @@ after the filer's first kept year, with the fields start, end, val, accn, fy, fp
 (RevenuesNetOfInterestExpense, Revenues, the ASC 606 tag, ProfitLoss), BLK from 2015 (Revenues, ASC 606), ICE from 2011
 (Revenues, ASC 606), WFC from 2015 (RevenuesNetOfInterestExpense, Revenues), AMT from 2014 (Revenues, SalesRevenueNet,
 ASC 606, OperatingLeaseLeaseIncome), TROW from 2007 (RevenuesNetOfInterestExpense, Revenues, ASC 606), KKR from 2016
-(Revenues, ASC 606), AXP from 2015 (RevenuesNetOfInterestExpense, both ASC 606 tags), PNC from 2017 (Revenues, ASC 606)
-and MET from 2020 (Revenues, ASC 606). E286's, fetched 2026-11-02 the same way and trimmed to the rule's tags
-(``fi_revenue.RULE_TAGS``) and the generic list's: CBOE from 2015, ARE from 2014, CLSK from 2017, AJG from 2013, TRC
-from 2016, WBHC from 2021, HUT from 2021, and BXSL, a business development company with no SIC code, from 2020. E290's,
-fetched 2026-11-02 the same way: MC (Moelis) from 2021, whose total is its only revenue element,
-InvestmentBankingRevenue. Each gives the same tag choice and the same revenue rows, after its first kept year, as the
-full payload. The lender
-without a total (fee 50 beside net interest income 400) stays pinned by ``test_companyfacts_ingest.py``'s financial
-cases.
+(Revenues, ASC 606), AXP from 2015 (RevenuesNetOfInterestExpense, both ASC 606 tags), PNC from 2017 (Revenues, ASC 606
+and, since E290, InvestmentBankingRevenue, a part beside its total) and MET from 2020 (Revenues, ASC 606). E286's,
+fetched 2026-11-02 the same way and trimmed to the rule's tags (``fi_revenue.RULE_TAGS``) and the generic list's: CBOE
+from 2015, ARE from 2014, CLSK from 2017, AJG from 2013, TRC from 2016, WBHC from 2021, HUT from 2021, and BXSL, a
+business development company with no SIC code, from 2020. E290's, fetched 2026-11-02 the same way: MC (Moelis) from
+2021, whose total is InvestmentBankingRevenue beside no total element (from 2021 it tags no other element the rule or
+the generic list reads). Each gives the same tag choice and the same revenue rows, after its first kept year, as the
+full payload. The lender without a total (fee 50 beside net interest income 400) stays pinned by
+``test_companyfacts_ingest.py``'s financial cases.
 """
 import ast
 import copy
@@ -399,6 +399,15 @@ def test_investment_banking_revenue_beside_a_net_total_is_a_part():
     # GS, MS and JPM tag their investment banking fees beside their net totals (GS FY2025: 9,348M of 58,283M)
     payload = _years({RNOIE: {y: 58.283e9 for y in range(2022, 2026)}, IBR: {y: 9.348e9 for y in range(2022, 2026)}})
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
+
+
+def test_a_banks_investment_banking_fees_beside_its_total_are_never_read():
+    # PNC's own payload: its investment banking fees (FY2025: 1,548M) beside its total Revenues (23,099M) are a part,
+    # so the rule meets them and no revenue row reads them (its choice stays Revenues, then the fee tag)
+    payload = _load("PNC")
+    assert payload["facts"]["us-gaap"][IBR]["units"]["USD"]  # the fixture keeps them, so the rule meets them
+    assert [f for f in _facts(payload) if f["concept"] == "revenue"
+            and any(tag == f"us-gaap:{IBR}" for tag, *_ in _operands(f))] == []
 
 
 def test_a_banks_investment_banking_line_is_no_total():

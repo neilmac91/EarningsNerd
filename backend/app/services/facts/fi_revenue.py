@@ -1,4 +1,4 @@
-"""A financial filer's revenue in companyfacts: its reported total, never its ASC 606 fee line (E264, E286).
+"""A financial filer's revenue in companyfacts: its reported total, never its ASC 606 fee line (E264, E286, E290).
 
 For SIC 6000-6799 the generic registry fails both ways: its first tag, the ASC 606 element, is a fee subset beside a
 bank's, insurer's or REIT's total (IBKR, MET, AMT, AXP, COF), and it never reads the bank total element.
