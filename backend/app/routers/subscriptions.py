@@ -13,6 +13,8 @@ from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
+from app.api_errors import CodedHTTPException
+from app.error_codes import ErrorCode
 from starlette.concurrency import run_in_threadpool
 from app.services import billing_account_service, filing_list_service, legal_readiness_service
 from app.services.billing_serving_prices import serving_pro_prices
@@ -261,8 +263,9 @@ async def create_checkout_session(
             detail="New subscriptions are not available yet. You can still manage existing billing in Settings.",
         )
     if not account.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+        # The 403 and its words as before, plus the code the client opens its verification prompt on (E31).
+        raise CodedHTTPException(
+            ErrorCode.EMAIL_VERIFICATION_REQUIRED,
             detail="Verify your email address before you subscribe.",
         )
     if account.entitled:
