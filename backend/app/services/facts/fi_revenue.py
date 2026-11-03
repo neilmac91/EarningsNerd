@@ -6,7 +6,7 @@ bank's, insurer's or REIT's total (IBKR, MET, AMT, AXP, COF), and it never reads
 per-period merge (the first tag with data wins a period). A later tag fills periods the earlier ones lack only on
 evidence that it measures the same thing: its value at the latest period it shares with them matches a value they
 reported there (WFC, MS, JPM; never IBKR's gross Revenues beside its net total). A total element sharing none does
-not fill; an ASC 606 element sharing no year has its own test (2). Periods are years where two tags share any, else
+not fill; an element of (2) sharing no year has its own test there. Periods are years where two tags share any, else
 quarters. A bank's sum is its net interest income plus its noninterest income as one filing reports them for a year
 (a quarter, only in (2)); its net total is that sum, or less a provision (HDB).
 

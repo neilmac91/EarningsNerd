@@ -11,10 +11,10 @@ and, since E290, InvestmentBankingRevenue, a part beside its total) and MET from
 fetched 2026-11-02 the same way and trimmed to the rule's tags (``fi_revenue.RULE_TAGS``) and the generic list's: CBOE
 from 2015, ARE from 2014, CLSK from 2017, AJG from 2013, TRC from 2016, WBHC from 2021, HUT from 2021, and BXSL, a
 business development company with no SIC code, from 2020. E290's, fetched 2026-11-02 the same way: MC (Moelis) from
-2021, whose total is InvestmentBankingRevenue beside no total element (from 2021 it tags no other element the rule or
-the generic list reads). Each gives the same tag choice and the same revenue rows, after its first kept year, as the
-full payload. The lender without a total (fee 50 beside net interest income 400) stays pinned by
-``test_companyfacts_ingest.py``'s financial cases.
+2016, whose total is InvestmentBankingRevenue beside no total element; the one other element of the rule's or the
+generic list's it tags is a small interest line (to 2020) below it. Each gives the same tag choice and the same
+revenue rows, after its first kept year, as the full payload. The lender without a total (fee 50 beside net
+interest income 400) stays pinned by ``test_companyfacts_ingest.py``'s financial cases.
 """
 import ast
 import copy
@@ -104,6 +104,13 @@ def _operands(fact):
 
 def _fee_rows(facts):
     return [f for f in facts if f["concept"] == "revenue" and any(t in FEE_TAGS for t, *_ in _operands(f))]
+
+
+SOLE_ELEMENTS = {f"us-gaap:{tag}" for tag in fi_revenue.SOLE_TAGS}  # each element of (2), as a row's raw_tag
+
+
+def _sole_rows(facts):
+    return [f for f in facts if f["concept"] == "revenue" and any(t in SOLE_ELEMENTS for t, *_ in _operands(f))]
 
 
 @pytest.mark.parametrize("ticker,tags", [
@@ -389,10 +396,13 @@ def test_with_no_total_a_fee_tag_above_the_part_beside_it_is_the_total():
 
 def test_an_advisers_investment_banking_revenue_is_its_total():
     # E290: Moelis tags its whole revenue as InvestmentBankingRevenue and no total element (FY2025 10-K
-    # 0001193125-26-076747: 1,516.8M), so it read no revenue at all before.
+    # 0001193125-26-076747: 1,516.8M), so it read no revenue at all before. Its interest line to FY2020 (0.3-1.0M)
+    # is a part beside it that it reads above.
     assert _millions(_load("MC")) == {
-        "2021-12-31": (1540.61, IBR), "2022-12-31": (985.3, IBR), "2023-12-31": (854.75, IBR),
-        "2024-12-31": (1194.55, IBR), "2025-12-31": (1516.8, IBR)}
+        "2016-12-31": (613.37, IBR), "2017-12-31": (684.62, IBR), "2018-12-31": (885.84, IBR),
+        "2019-12-31": (746.53, IBR), "2020-12-31": (943.28, IBR), "2021-12-31": (1540.61, IBR),
+        "2022-12-31": (985.3, IBR), "2023-12-31": (854.75, IBR), "2024-12-31": (1194.55, IBR),
+        "2025-12-31": (1516.8, IBR)}
 
 
 def test_investment_banking_revenue_beside_a_net_total_is_a_part():
@@ -402,10 +412,14 @@ def test_investment_banking_revenue_beside_a_net_total_is_a_part():
 
 
 def test_a_banks_investment_banking_fees_beside_its_total_are_never_read():
-    # PNC's own payload: its investment banking fees (FY2025: 1,548M) beside its total Revenues (23,099M) are a part,
-    # so the rule meets them and no revenue row reads them (its choice stays Revenues, then the fee tag)
+    # PNC's own payload: its investment banking fees (FY2025: 1,548M) beside its total Revenues (23,099M) are a part.
+    # Revenues reports every period they do, so a year only they report is planted (FY2016): admitted, they would
+    # fill it. The rule meets them, refuses them, and no revenue row reads them.
     payload = _load("PNC")
-    assert payload["facts"]["us-gaap"][IBR]["units"]["USD"]  # the fixture keeps them, so the rule meets them
+    items = payload["facts"]["us-gaap"][IBR]["units"]["USD"]
+    assert items  # the fixture keeps them, so the rule meets them
+    items.append(_item(0.6e9, "2016-12-31", "2016-01-01", "K2016"))
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (REV, FEE)
     assert [f for f in _facts(payload) if f["concept"] == "revenue"
             and any(tag == f"us-gaap:{IBR}" for tag, *_ in _operands(f))] == []
 
@@ -418,13 +432,30 @@ def test_a_banks_investment_banking_line_is_no_total():
     assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ()
 
 
-@pytest.mark.parametrize("y2019,tags", [(1.0e9, (FEE, IBR)), (0.4e9, (FEE,))])
-def test_investment_banking_revenue_follows_the_fee_tag_only_where_it_matches(y2019, tags):
-    # read after the ASC 606 elements: an adviser's earlier InvestmentBankingRevenue years fill behind its fee-tagged
-    # total only where the two agree at the year both report
-    fee = {y: 1.0e9 for y in range(2019, 2026)}
-    payload = _years({FEE: fee, IBR: {2016: 0.8e9, 2017: 0.9e9, 2018: 0.95e9, 2019: y2019}})
-    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
+@pytest.mark.parametrize("element", fi_revenue.SOLE_TAGS)
+@pytest.mark.parametrize("parts,value,admitted", [
+    ({NII: 0.5e6}, 600e6, True),  # above the one part beside it, with no total: the total (MC's 2016-2020 shape)
+    ({NII: 400e6}, 50e6, False),  # below the part beside it, with no bank's sum: only the below-a-part test refuses
+    ({NII: 400e6, NONII: 300e6}, 500e6, False),  # above each part, short of their sum: only the sum's floor refuses
+    ({NII: 400e6, NONII: 300e6}, 700e6, True),  # the bank's sum: the total
+])
+def test_each_element_of_2_meets_each_check_where_it_alone_decides(element, parts, value, admitted):
+    # Each element the rule reads only where it is the filer's total meets the same test (2), so each check is
+    # pinned for each element by a case only that check decides (lessons/test-pin-each-guard-where-it-alone-decides.md)
+    years = range(2023, 2026)
+    payload = _years({element: {y: value for y in years}, **{p: {y: v for y in years} for p, v in parts.items()}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ((element,) if admitted else ())
+
+
+@pytest.mark.parametrize("fee", [FEE, FEEI])
+@pytest.mark.parametrize("y2019,matches", [(1.0e9, True), (0.4e9, False)])
+def test_investment_banking_revenue_follows_the_fee_tag_only_where_it_matches(fee, y2019, matches):
+    # read after both ASC 606 elements: an adviser's earlier InvestmentBankingRevenue years fill behind its
+    # fee-tagged total only where the two agree at the year both report, whichever ASC 606 element holds it
+    payload = _years({fee: {y: 1.0e9 for y in range(2019, 2026)}, IBR: {2016: 0.8e9, 2017: 0.9e9, 2018: 0.95e9,
+                                                                       2019: y2019}})
+    expected = (fee, IBR) if matches else (fee,)
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == expected
 
 
 @pytest.mark.parametrize("fee,tags", [(450e6, ()), (484.5e6, ()), (500e6, (FEE,)), (510e6, (FEE,))])
@@ -617,8 +648,9 @@ REPLAY_EXEMPT = {("AJG", date(2017, 6, 30), "Q")}  # the replay gate's one exemp
 def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker):
     """Rule 12: replayed at every filing date in the fixture, each state the trimmed fixture passed through (its
     first kept period on, so a filer's earlier years are never replayed), no revenue row (or calculation operand)
-    carries the fee tag at a period any total tag reports more than 1% above it, in the full fixture; the fee-subset
-    filers carry none at all. Except AJG's Q2 2017 (``REPLAY_EXEMPT``, which must fire): ASC 606 moved revenue
+    carries an element of (2) (``fi_revenue.SOLE_TAGS``: the fee tags and, since E290, InvestmentBankingRevenue) at a
+    period any total tag reports more than 1% above it, in the full fixture; the fee-subset filers carry none at all.
+    Except AJG's Q2 2017 (``REPLAY_EXEMPT``, which must fire): ASC 606 moved revenue
     between its 2017 quarters, and its Revenues restated them to the fee tag's figures (Q2: 1,563.4M first reported,
     1,489.5M restated), so the first-reported quarter reads above the fee tag the rule reads there."""
     full = _load(ticker)
@@ -631,7 +663,7 @@ def test_never_the_fee_line_where_a_total_reports_more_at_any_filing_date(ticker
                     for i in items})
     exempted = set()
     for cutoff in filed:
-        rows = _fee_rows(_facts(_as_of(full, cutoff)))
+        rows = _sole_rows(_facts(_as_of(full, cutoff)))
         assert not (rows and ticker in ("IBKR", "AMT", "AXP", "KKR", "MET", "CLSK", "WBHC")), (cutoff, rows[:1])
         for fact in rows:
             for tag, start, end, value in _operands(fact):
@@ -651,7 +683,10 @@ def test_the_total_tags_stay_out_of_the_generic_registries():
     # fills only a period no other revenue tag reports; the authority's list is unchanged.
     assert COMPANYFACTS_DURATION_TAGS["revenue"] == (FEE, REV, FEEI, SRN, "NetSales", GII)
     assert HEADLINE_GAAP_TAGS["revenue"] == (FEE, REV, FEEI, SRN)
-    for tag in (RNOIE, RERN, SRSN):  # never a currency vote (currency.py reads the registries)
+    rule_only = [tag for tag in (*fi_revenue.TOTAL_TAGS, *fi_revenue.SOLE_TAGS)  # read from the rule, never listed
+                 if tag not in (*COMPANYFACTS_DURATION_TAGS["revenue"], *HEADLINE_GAAP_TAGS["revenue"])]
+    assert {RNOIE, RERN, SRSN, IBR} <= set(rule_only)  # every element only the rule can choose
+    for tag in rule_only:  # never a currency vote (currency.py reads the registries)
         named = [p.relative_to(BACKEND).as_posix() for p in (BACKEND / "app" / "services" / "facts").glob("*.py")
                  if tag in p.read_text()]
         assert named == ["app/services/facts/fi_revenue.py"], tag
