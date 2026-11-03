@@ -98,7 +98,7 @@ const RESIDUE_MAX = { titles: 1, descriptions: 1 }
 
 /** Each route by its directory under app/ ('' is the home page). Private routes stay out of the index. */
 const PRIVATE_ROUTES = [
-  'admin/feedback', 'admin/invites', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
+  'admin/feedback', 'admin/invites', 'auth/complete', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
   'delete-account', 'forgot-password', 'login', 'register', 'reset-password', 'verify-email',
   // An invitation email's own opt-out link: public, but nothing to find by search.
   'email/unsubscribe',

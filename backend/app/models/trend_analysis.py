@@ -40,8 +40,10 @@ class TrendAnalysis(Base):
     # dropped from a group). NULL on rows persisted before the column existed.
     unverified = Column(Integer, nullable=True)
     # Who triggered the last (re)generation — analytics only, never an access gate (any Pro user
-    # may re-serve any cached row).
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # may re-serve any cached row). The account's deletion clears it and keeps the shared row
+    # (ON DELETE SET NULL, 20261102_trend_analysis_creator_set_null.sql): with no action, deleting
+    # an account that had generated an analysis failed on this reference.
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

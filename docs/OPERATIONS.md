@@ -424,8 +424,8 @@ sends) is a clean miss, logged at INFO with the masked recipient, the id and the
 `earningsnerd-retention-purge` (weekly; `scripts/retention_purge.py`, ad hoc through
 `POST /internal/jobs/retention-purge?dry_run=true|false`) applies the clocked rows of
 `DATA_RETENTION_POLICY.md`: search history older than 365 days, failed-login state untouched for
-7 days and not locked, expired OAuth states, refresh tokens expired or revoked more than 30 days
-ago, contact-form submissions older than 365 days. Deletes run in batches of 5,000 committed
+7 days and not locked, expired OAuth states, expired OAuth session handoffs (E29 (5)), refresh
+tokens expired or revoked more than 30 days ago, contact-form submissions older than 365 days. Deletes run in batches of 5,000 committed
 one at a time; the job ledger row (`earningsnerd_job_runs`, `job_name = 'retention-purge'`)
 carries `<target>_purged` counts and `dry_run`. Nothing user-facing changes: every qualifying
 row is already invisible or unusable. Account deletion for inactivity, waitlist and referral
@@ -667,6 +667,10 @@ Located in `backend/scripts/`:
 - `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+- `complimentary_access.py` - Grant or revoke complimentary Pro for invited private-beta accounts from a private
+  manifest (PB-02): `fingerprint` and `check` run offline; `dry-run` writes nothing; `apply --confirm-digest`
+  runs only the manifest its dry run reported; `readout` counts grants, reviews due and drift. Every report
+  is safe for a public log. Procedure, manifest and end-date rules: `docs/ops/complimentary-access.md`
 
 ### Review gate (rule 12 for the review-wait lesson)
 

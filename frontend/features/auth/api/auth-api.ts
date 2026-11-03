@@ -32,9 +32,11 @@ export const register = async (
  * Start an invited social sign-up. The closed-beta invite is a live single-use credential, so it is
  * sent in the request body (never a URL: request logs record query strings); the backend stores its
  * hash against the OAuth state, sets the state cookie and returns the provider URL to navigate to.
+ * `handoff: true` asks for the landing page's code exchange (E29 (5)), as oauthStartHref's `handoff=1` does: an API
+ * that predates it ignores the key and sets the session cookies on the callback's redirect, as before.
  */
 export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?: string, agreement?: AccountAgreement): Promise<string> => {
-  const response = await api.post<{ url: string }>(`/api/auth/${provider}/start`, { ...(invite ? { invite } : {}), ...agreement })
+  const response = await api.post<{ url: string }>(`/api/auth/${provider}/start`, { ...(invite ? { invite } : {}), ...agreement, handoff: true })
   return response.data.url
 }
 
@@ -60,6 +62,36 @@ export const login = async (email: string, password: string, turnstileToken?: st
   return response.data
 }
 
+/**
+ * The OAuth sign-in's exchange of its one-time code (E29 (5)). A Google or Apple callback's answer is a navigation,
+ * which cannot hold the session cookies' lock, so for a start that asks for the handoff (oauthStartHref's `handoff=1`,
+ * startOAuthWithInvite's `handoff: true`, as this app's starts do) it sets no session cookie: it hands the landing page
+ * (app/auth/complete/page.tsx) a one-time code in the URL fragment, bound to this browser by a cookie the callback set,
+ * and this post's answer sets the new session's cookies. It posts through the password login's hold
+ * (withoutRefreshBeside, at LOGIN_REFRESH_WAIT_MS), strictly: this tab's refresh in flight answers first, then the
+ * refreshes queued for the lock before its request, in any tab, while a refresh asked for after it, in this tab or
+ * another, waits for its answer and goes out with the new session's cookies. So a refresh another tab sent with the
+ * previous account's cookies can no longer set them over the new session's, as one could over the callback's
+ * navigation. Unlike the login, it posts only inside a granted lock (client.ts's policy 'strict'): at the limit, a
+ * refresh in this tab or another still unanswered, it posts nothing and rejects with client.ts's SessionStillRenewing,
+ * cancelling no refresh; with no lock manager, or a lock request the browser rejects, it posts nothing and rejects with
+ * SessionLockUnavailable. The code is then still unredeemed, and the landing page offers it again
+ * (app/auth/complete/page.tsx): a retry is safe, since the code is single use, so a retry of a code an earlier post
+ * redeemed is refused. A refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing (client.ts's RefreshLockTimeout),
+ * so it cannot answer after the exchange. The route refuses a used, expired, unknown or unbound code with a 400, which
+ * its path in client.ts's NO_REFRESH_PATHS keeps from asking for a refresh under the hold.
+ */
+export const completeOAuthSignIn = async (code: string) => {
+  const generation = getExplicitSessionGeneration()
+  const response = await withoutRefreshBeside(LOGIN_REFRESH_WAIT_MS, () => api.post(
+    '/api/auth/oauth/complete',
+    { code },
+  ), 'strict')
+  assertExplicitSessionGeneration(generation)
+  markSessionActive()
+  return response.data
+}
+
 /** Shape of GET /api/auth/me. Keep in sync with auth.py get_current_user_info. */
 export interface CurrentUser {
   id: number
@@ -76,16 +108,18 @@ export const IDENTITY_READ_REFRESH_WAIT_MS = 10_000
 
 export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promise<CurrentUser> => {
   const generation = getSessionGeneration()
-  // A refresh another tab sent with the previous session's cookies can answer after an OAuth sign-in's navigation has
-  // set the new session's (E29): read once it has, so this tab shows the account the browser then holds.
+  // A refresh another tab sent with the previous session's cookies sets them again when it answers (E29): read once the
+  // refreshes queued before this read have answered, so this tab shows the account the browser then holds.
   await sessionCookiesSettled(IDENTITY_READ_REFRESH_WAIT_MS, options?.signal)
   const response = await api.get('/api/auth/me', { signal: options?.signal })
   assertSessionGeneration(generation)
   options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
-  // refresh an expired access token. This also covers OAuth redirect logins, where the
-  // JS login()/register() path (which normally sets the marker) never runs. A /me that a refresh replays during a
-  // logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
+  // refresh an expired access token. This also covers OAuth redirect logins whose start did not ask for the handoff
+  // (main's path, until E29 (5)'s follow-up retires it), where the JS login()/register() path (which normally sets
+  // the marker) never runs, and a session no login in this tab started (another tab's): login() and
+  // completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a refresh replays
+  // during a logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
   markSessionConfirmed()
   return response.data
 }
@@ -149,13 +183,13 @@ export const unlinkProvider = async (provider: string) => {
  * that login, then post with its cookies: given a login, a refresh asked for while it is out, and a logout pressed
  * after that refresh, all within one post's time. Two tabs are enough: this tab's own refresh, asked for by a 401 while
  * the other tab's login is out, queues behind that login, and this logout's refreshSettled waits on it. A refresh that
- * waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; and where the browser has no lock manager,
- * or refuses the lock, the logout posts once this tab's refresh has settled, as before, and any other tab's refresh can
- * set the cookies again after its answer.
+ * waited past REFRESH_LOCK_WAIT_MS sends nothing (client.ts's RefreshLockTimeout); and where the browser has no lock
+ * manager, or refuses the lock, the logout posts once this tab's refresh has settled, as before, and any other tab's
+ * refresh can set the cookies again after its answer.
  */
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 // How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout
-// does.
+// does; the OAuth sign-in's code exchange waits as long (E29 (5)).
 export const LOGIN_REFRESH_WAIT_MS = 10_000
 
 /** A logout of every session refused because another login was accepted while it waited (see logoutAllSessions). */
@@ -254,13 +288,21 @@ const sessionChangedMeanwhile = () =>
 // withSessionCookiesForPost). A login or a logout accepted in this tab while it waited changed the account the tab
 // shows, so it posts only while the explicit generation it was asked under is current, in the post's own turn, after
 // both waits, as a logout does.
-function postPasswordChange(currentPassword: string | null, newPassword: string, generation: number) {
+function postPasswordChange(
+  currentPassword: string | null,
+  newPassword: string,
+  generation: number,
+  accountId: number,
+) {
   return withSessionCookiesForPost(PASSWORD_CHANGE_REFRESH_WAIT_MS, async () => {
     if (!isExplicitSessionGenerationCurrent(generation)) throw sessionChangedMeanwhile()
-    // current_password is omitted for OAuth-only users setting a password for the first time.
+    // current_password is omitted for OAuth-only users setting a password for the first time. account_id names the
+    // account this tab shows, and the route refuses with 409, changing nothing, when the browser holds another's
+    // (E29 (6)); the route requires it, so a page loaded before this deploy must reload.
     return api.post('/api/auth/change-password', {
       current_password: currentPassword || undefined,
       new_password: newPassword,
+      account_id: accountId,
     })
   }, 'refuse')
 }
@@ -279,20 +321,23 @@ function postPasswordChange(currentPassword: string | null, newPassword: string,
  * in client.ts's NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read,
  * whose own 401 refreshes and confirms a lost session as any read's does, and the post goes out once more through the
  * hold. Neither post goes out once a login or a logout has been accepted in this tab since the change was asked for.
- * What this leaves open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; where
+ * What this leaves open (a refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing: RefreshLockTimeout): where
  * the browser has no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the
  * post is out, can answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main,
  * and their answers can land in either order; the post can wait behind a refresh queued after another tab's login, then
- * post with that login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the
- * account the browser holds, which the renewal's read does not compare with the account the tab shows, so a tab left
- * stale by another tab's sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers
- * (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it
- * hangs, where a login or a logout posts at its limit.
+ * post with that login's cookies, as a logout can (withSessionCookiesForPost). Those cookies can be another account's:
+ * a tab left stale by another tab's sign-in still shows the account it loaded with. So both posts name the account the
+ * tab shows (`accountId`, read as the change is asked for), and the route refuses with 409, checking, setting and
+ * revoking nothing, when the browser's session is another account's (E29 (6)), for an account without a password as for
+ * one with. The route requires the account (422 without it), so its one caller, ChangePasswordForm, posts nothing when
+ * it has no account to name, and a page loaded before this deploy must reload. And the refusal's cost: a refresh that
+ * never answers (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as
+ * long as it hangs, where a login or a logout posts at its limit.
  */
-export const changePassword = async (currentPassword: string | null, newPassword: string) => {
+export const changePassword = async (currentPassword: string | null, newPassword: string, accountId: number) => {
   const generation = getExplicitSessionGeneration()
   try {
-    return (await postPasswordChange(currentPassword, newPassword, generation)).data
+    return (await postPasswordChange(currentPassword, newPassword, generation, accountId)).data
   } catch (error: unknown) {
     if (getErrorStatus(error) !== 401) throw error
   }
@@ -303,7 +348,9 @@ export const changePassword = async (currentPassword: string | null, newPassword
     if (error instanceof DOMException && error.name === 'AbortError') throw sessionChangedMeanwhile()
     throw error
   }
-  return (await postPasswordChange(currentPassword, newPassword, generation)).data
+  // The renewal's read can name another account than the tab shows; the post below still names the tab's, so the route
+  // refuses that account's change rather than this read moving the change to it.
+  return (await postPasswordChange(currentPassword, newPassword, generation, accountId)).data
 }
 
 export const verifyEmail = async (token: string) => {

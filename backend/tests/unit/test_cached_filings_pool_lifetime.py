@@ -80,6 +80,18 @@ from main import app
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
 
+# How long a request waits for a slot in every pool here (E295). The timeout breaks a deadlock and detects nothing
+# else. A checkout that blocks the event loop, or a unit that waits for a second connection, never finishes, so it
+# answers 500 at any finite timeout. A connection held too long without a deadlock is caught by checks that do not
+# race the clock: `open_at_close` and the loop-checkout log on the bursts (the what-changed burst has neither, and
+# the cached-filings burst holds its route to both), and `checkedout()` read during the slow step on the cases that
+# hold none while they hash, wait, send or render. So the value only bounds how long a broken case takes to fail
+# and how much CPU starvation a correct one survives. With four times as many runnable processes as CPUs, a unit's
+# hold stretched to 4.8 s, mostly inside DBAPI calls waiting to take the GIL back or for a starved writer's SQLite
+# lock, and the fifth request waited up to 2.1 s: at the old 1.0, two of four runs failed.
+# test_every_pool_here_takes_the_file_timeout holds every create_engine here to this value.
+POOL_TIMEOUT = 5.0
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path,payload_kind", [
@@ -120,7 +132,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -322,7 +334,7 @@ async def test_what_changed_burst_beyond_the_pool_waits_in_the_threadpool_not_on
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -373,7 +385,7 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     with sessionmaker(bind=engine)() as db:
@@ -463,7 +475,7 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, Subscription, Company, Filing, FilingContentCache, Summary, SummaryGenerationProgress):
         model.__table__.create(engine)
@@ -551,7 +563,7 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -700,7 +712,7 @@ async def test_generate_stream_refuses_a_throttled_request_before_its_admission(
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -780,7 +792,7 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
     signed-in logout and logout-all left their transactions to the finalizer; and the cookie-only
     logout checked out on the loop."""
     from app.config import settings
-    from app.models import AuditLog, RefreshToken, User
+    from app.models import AuditLog, RefreshToken, SessionHandoff, User
     from app.routers import auth
     from app.services import refresh_token_service
 
@@ -790,9 +802,9 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
-    for model in (User, RefreshToken, AuditLog):
+    for model in (User, RefreshToken, AuditLog, SessionHandoff):
         model.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     with sessions() as db:
@@ -896,7 +908,7 @@ async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_o
     that read joins the revocation and the audit row in the route's one thread-pool unit, released before it returns.
     Eight readers' logouts on four slots each end their own sessions, and nothing checks out on the loop."""
     from app.config import settings
-    from app.models import AuditLog, RefreshToken, User
+    from app.models import AuditLog, RefreshToken, SessionHandoff, User
     from app.routers import auth
     from app.services import refresh_token_service
 
@@ -906,9 +918,9 @@ async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_o
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
-    for model in (User, RefreshToken, AuditLog):
+    for model in (User, RefreshToken, AuditLog, SessionHandoff):
         model.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     with sessions() as db:
@@ -985,7 +997,7 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog, LoginAttempt):
         model.__table__.create(engine)
@@ -1119,7 +1131,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
     The fakes stand in for the hash and its check (a blocking call on the password thread) and HaveIBeenPwned (an await);
     the links carry no expiry, which SQLite would hand back without its zone."""
     from app.config import settings
-    from app.models import RefreshToken, User
+    from app.models import RefreshToken, SessionHandoff, User
     from app.routers import auth
     from app.services import auth_account_service, refresh_token_service
 
@@ -1129,9 +1141,9 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
-    for model in (User, RefreshToken):
+    for model in (User, RefreshToken, SessionHandoff):  # a revocation deletes the handoffs too (E29 (5))
         model.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
@@ -1213,7 +1225,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
         else:
             headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
             body = {"current_password": "not-the-password" if case == "change_wrong" else current,  # gitleaks:allow
-                    "new_password": new}
+                    "new_password": new, "account_id": account_ids[emails[i]]}
         async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
             return await client.post(f"/api/auth/{route}-password", json=body)
 
@@ -1314,7 +1326,7 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, Subscription):
         model.__table__.create(engine)
@@ -1481,7 +1493,7 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, InviteCode, AccountAgreement, AuditLog):
         model.__table__.create(engine)
@@ -1691,7 +1703,7 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, OAuthAccount, AuditLog):
         model.__table__.create(engine)
@@ -1816,7 +1828,7 @@ async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkey
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, OAuthAccount, AuditLog):
         model.__table__.create(engine)
@@ -1895,7 +1907,7 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     OAuthState.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -1958,7 +1970,7 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
 # sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
 # attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
 # new account with an unverified email (its state carries signup assent, so the email decides); a lost race is a
-# sign-up whose mint meets another sign-in's committed row, and rolls its own account back.
+# sign-up whose commit meets another sign-in's committed row, and rolls its own account back.
 _CALLBACK_AUDITS = {
     "signin": ["oauth_login"],
     "signup": ["register", "oauth_login"],
@@ -1969,9 +1981,12 @@ _CALLBACK_AUDITS = {
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
 @pytest.mark.parametrize("case", list(_CALLBACK_AUDITS))
 @pytest.mark.parametrize("provider", ["google", "apple"])
-async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_path, collection_ready, provider, case):
+async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(
+    monkeypatch, tmp_path, collection_ready, provider, case, handoff,
+):
     """Each OAuth callback consumes its state in one thread-pool unit, waits for the provider with no connection
     out, then resolves the account, mints and commits the sign-in, sets the session cookies and writes its audit
     rows in a second, released before it sends the linked-account notice with no connection out (E121). On the
@@ -1979,7 +1994,15 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
     commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
     slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
     carries the session of its own account; a refusal or a lost race carries none and writes no account, link or
-    row, the lost race's rollback leaving nothing for the release."""
+    row, the lost race's rollback leaving nothing for the release.
+
+    With ``handoff`` the starts asked for the session handoff (E29 (5)): each sign-in commits its one-time handoff in
+    the token's place, and each answer redirects to the landing page with its own handoff's code and binding cookie
+    and carries no session cookie (a refusal or a lost race writes no handoff either). Then the landing pages' nine
+    exchanges at once, one thread-pool unit each (the redemption under the account's lock, the refresh token's mint
+    and its commit), make no checkout, statement or release on the loop either, and each answer carries the session
+    of its own account."""
+    import hashlib
     from types import SimpleNamespace
 
     import jwt
@@ -1987,7 +2010,7 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
 
     from app.config import settings
     from app.database import Base
-    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models import OAuthAccount, OAuthState, RefreshToken, SessionHandoff, User
     from app.models.audit_log import AuditLog
     from app.routers import auth
     from app.services import oauth_account_service, refresh_token_service
@@ -1999,7 +2022,7 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2016,7 +2039,9 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
                             for account, subject in zip(accounts, subjects)])
         agreement = accept_current_agreement() if case in ("signup", "refused", "lost_race") else None
         for i in range(9):
-            oauth_account_service.store_oauth_state(db, f"state-{i}", f"nonce-{i}", None, agreement)
+            oauth_account_service.store_oauth_state(
+                db, f"state-{i}", f"nonce-{i}", None, agreement, session_handoff=handoff,
+            )
         db.commit()
 
     request_sessions: list[Session] = []
@@ -2100,11 +2125,20 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
     monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
     monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
     monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
-    if case == "lost_race":
-        def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
-            db.flush()  # the staged link and assent rows, as the token's flush would send them
-            raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
+    # The exchanges' bucket (per IP, "oauth-complete"), which nine exchanges a case, ten cases a minute, would spend.
+    monkeypatch.setattr(auth, "OAUTH_START_LIMITER", RateLimiter(limit=100, window_seconds=60))
 
+    def lose_at_the_commit(*_args: Any) -> None:
+        # The staged account, link and assent rows went out ahead of the handoff in the commit's flush.
+        raise IntegrityError("INSERT INTO earningsnerd_session_handoffs", {}, Exception("another sign-in committed first"))
+
+    def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
+        db.flush()  # the staged link and assent rows, as the token's flush would send them
+        raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
+
+    if case == "lost_race" and handoff:
+        event.listen(SessionHandoff, "before_insert", lose_at_the_commit)
+    elif case == "lost_race":
         monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
@@ -2137,20 +2171,23 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
         assert [response.status_code for response in responses] == [302] * 9
         refused = case in ("refused", "lost_race")
         error = "email_unverified" if case == "refused" else f"{provider}_account_conflict"
-        landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
-        assert [response.headers["location"] for response in responses] == [landing] * 9
-        assert sorted(sent) == ([] if case != "link" else sorted(
-            (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
-        with sessions() as db:
-            account_ids = {user.email: user.id for user in db.query(User)}
-            links = sorted((link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
-            live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
-            audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
-            assert db.query(OAuthState).count() == 0
-        if refused:
-            assert (account_ids, links, live, audits) == ({}, [], {}, [])
-            assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
-        else:
+        if not handoff:
+            landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
+            assert [response.headers["location"] for response in responses] == [landing] * 9
+            assert sorted(sent) == ([] if case != "link" else sorted(
+                (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
+            with sessions() as db:
+                account_ids = {user.email: user.id for user in db.query(User)}
+                links = sorted(
+                    (link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
+                live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
+                audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
+                assert db.query(OAuthState).count() == 0
+                assert db.query(SessionHandoff).count() == 0
+            if refused:
+                assert (account_ids, links, live, audits) == ({}, [], {}, [])
+                assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
+                return
             assert sorted(account_ids) == sorted(emails)
             assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
             # Each answer's refresh cookie is its own account's only session.
@@ -2164,27 +2201,113 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
                 for response in responses
             ] == emails
             assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
+            return
+        landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else f"{settings.FRONTEND_URL}/auth/complete"
+        assert [response.headers["location"].split("#")[0] for response in responses] == [landing] * 9
+        # No answer carries a session cookie: the landing page's exchange sets it (E29 (5)).
+        assert [
+            {settings.COOKIE_NAME, settings.REFRESH_COOKIE_NAME} & set(response.cookies) for response in responses
+        ] == [set()] * 9
+        assert sorted(sent) == ([] if case != "link" else sorted(
+            (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
+        with sessions() as db:
+            account_ids = {user.email: user.id for user in db.query(User)}
+            links = sorted((link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
+            handoffs = {row.code_hash: row.user_id for row in db.query(SessionHandoff)}
+            audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
+            assert db.query(OAuthState).count() == 0
+            assert db.query(RefreshToken).count() == 0
+        if refused:
+            assert (account_ids, links, handoffs, audits) == ({}, [], {}, [])
+            assert [auth._OAUTH_HANDOFF_COOKIE in response.cookies for response in responses] == [False] * 9
+            return
+        assert sorted(account_ids) == sorted(emails)
+        assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
+        assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
+        # Each answer's code names a handoff of its own account, and comes with its binding cookie.
+        codes = [response.headers["location"].split("#code=", 1)[1] for response in responses]
+        assert [handoffs.get(hashlib.sha256(code.encode()).hexdigest()) for code in codes] == [
+            account_ids[email] for email in emails]
+
+        exchanged_from = len(request_sessions)
+        for probes in on_loop.values():
+            probes.clear()  # the reads above are the test's own, on the loop
+
+        async def exchange(code: str, binder: str) -> httpx.Response:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test", cookies={auth._OAUTH_HANDOFF_COOKIE: binder},
+            ) as client:
+                return await client.post("/api/auth/oauth/complete", json={"code": code})
+
+        exchanges = await asyncio.gather(*[
+            exchange(code, response.cookies[auth._OAUTH_HANDOFF_COOKIE]) for code, response in zip(codes, responses)
+        ])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # The unit's release finds its mint's commit done, and so does the finalizer.
+        assert [request.open_at_close for request in request_sessions[exchanged_from:]] == [[False, False]] * 9
+        assert [response.status_code for response in exchanges] == [200] * 9
+        with sessions() as db:
+            live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
+            assert db.query(SessionHandoff).filter(SessionHandoff.used_at.is_(None)).count() == 0
+        # Each exchange's refresh cookie is its own account's only session.
+        assert [
+            live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+            for response in exchanges
+        ] == [account_ids[email] for email in emails]
+        # And its access cookie names its own account.
+        assert [
+            jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})["sub"]
+            for response in exchanges
+        ] == emails
+
+        # The same nine codes again, now used: each refusal rolls back under the account's lock, releasing it, so its
+        # unit's release finds no transaction, and none touches the session on the loop or mints anything.
+        refused_from = len(request_sessions)
+        for probes in on_loop.values():
+            probes.clear()
+        again = await asyncio.gather(*[
+            exchange(code, response.cookies[auth._OAUTH_HANDOFF_COOKIE]) for code, response in zip(codes, responses)
+        ])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        assert [request.open_at_close for request in request_sessions[refused_from:]] == [[False, False]] * 9
+        assert [response.status_code for response in again] == [400] * 9
+        assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in again] == [False] * 9
+        with sessions() as db:
+            assert db.query(RefreshToken).count() == 9
     finally:
+        if case == "lost_race" and handoff:
+            event.remove(SessionHandoff, "before_insert", lose_at_the_commit)
         engine.dispose()
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
-    monkeypatch, tmp_path, collection_ready, provider,
+    monkeypatch, tmp_path, collection_ready, provider, handoff,
 ):
     """A sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
     timeout, the database gone. The account, its link and its session have committed, so the callback must still
     answer with that session; only its best-effort audit rows are missing. The session cookies take the address
     the unit read before the commit: reading it from the user that commit expired was a statement after it, and
-    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121)."""
+    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121).
+
+    With ``handoff`` (a start that asked for the session handoff, E29 (5)) the sign-in commits its handoff instead,
+    and the callback must still answer with that handoff: the redirect takes the code the unit minted before the
+    commit. With the database back, the landing page's exchange of that code signs the account in."""
     from types import SimpleNamespace
 
     import jwt
 
     from app.config import settings
     from app.database import Base
-    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models import OAuthAccount, OAuthState, RefreshToken, SessionHandoff, User
     from app.models.audit_log import AuditLog
     from app.routers import auth
     from app.services import oauth_account_service, refresh_token_service
@@ -2196,21 +2319,24 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
     with sessions() as db:
-        oauth_account_service.store_oauth_state(db, "state-0", "nonce-0", None, accept_current_agreement())
+        oauth_account_service.store_oauth_state(
+            db, "state-0", "nonce-0", None, accept_current_agreement(), session_handoff=handoff,
+        )
         db.commit()
 
-    # Once a commit follows the refresh token's insert, every statement fails.
+    # Once a commit follows the session's insert (the handoff's, or the refresh token's), every statement fails.
     minted, failing = threading.Event(), threading.Event()
+    session_insert = "INSERT INTO earningsnerd_session_handoffs" if handoff else "INSERT INTO refresh_tokens"
 
     def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
         if failing.is_set():
             raise OperationalError(statement, {}, Exception("the server went away"))
-        if statement.startswith("INSERT INTO refresh_tokens"):
+        if statement.startswith(session_insert):
             minted.set()
 
     def committed(_conn: Any) -> None:
@@ -2272,21 +2398,48 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
                 response = await client.post("/api/auth/apple/callback",
                                              data={"state": "state-0", "id_token": "token-0"}, follow_redirects=False)
         assert failing.is_set()
-        assert response.status_code == 302 and response.headers["location"] == settings.FRONTEND_URL
-        access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
-        assert access["sub"] == "after-commit@example.com"
+        assert response.status_code == 302
+        location = response.headers["location"]
         assert engine.pool.checkedout() == 0
         event.remove(engine, "before_cursor_execute", watch)
+        if not handoff:
+            assert location == settings.FRONTEND_URL
+            access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
+            assert access["sub"] == "after-commit@example.com"
+            with sessions() as db:
+                [user] = db.query(User).all()
+                assert user.email == "after-commit@example.com"
+                assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
+                    (provider, f"{provider}-subject-0")]
+                [token] = db.query(RefreshToken).all()
+                assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
+                # The audit writes failed and were swallowed; the sign-in stands without them.
+                assert db.query(AuditLog).count() == 0
+                assert db.query(OAuthState).count() == 0
+            return
+        assert location.startswith(f"{settings.FRONTEND_URL}/auth/complete#code="), location
+        assert settings.COOKIE_NAME not in response.cookies
         with sessions() as db:
             [user] = db.query(User).all()
             assert user.email == "after-commit@example.com"
             assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
                 (provider, f"{provider}-subject-0")]
-            [token] = db.query(RefreshToken).all()
-            assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
+            [row] = db.query(SessionHandoff).all()
+            assert row.user_id == user.id and row.used_at is None
             # The audit writes failed and were swallowed; the sign-in stands without them.
             assert db.query(AuditLog).count() == 0
             assert db.query(OAuthState).count() == 0
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            cookies={auth._OAUTH_HANDOFF_COOKIE: response.cookies[auth._OAUTH_HANDOFF_COOKIE]},
+        ) as client:
+            exchange = await client.post("/api/auth/oauth/complete", json={"code": location.split("#code=", 1)[1]})
+        assert exchange.status_code == 200, exchange.text
+        access = jwt.decode(exchange.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
+        with sessions() as db:
+            [token] = db.query(RefreshToken).all()
+            assert refresh_token_service._hash_token(exchange.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
     finally:
         engine.dispose()
 
@@ -2317,7 +2470,7 @@ async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_c
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2411,7 +2564,7 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -2480,7 +2633,7 @@ async def test_a_refused_refresh_keeps_its_401_when_its_release_finds_the_connec
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -2527,7 +2680,7 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
     connection can fail this close as one fails a refused refresh's release above; the second close raises
     instead, once its own close has run, and the route answers with the new session's cookie."""
     from app.config import settings
-    from app.models import RefreshToken, User
+    from app.models import RefreshToken, SessionHandoff, User
     from app.routers import auth
     from app.services import refresh_token_service
 
@@ -2537,9 +2690,9 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
-    for model in (User, RefreshToken):
+    for model in (User, RefreshToken, SessionHandoff):  # a revocation deletes the handoffs too (E29 (5))
         model.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     with sessions() as db:
@@ -2548,6 +2701,7 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
         db.flush()
         refresh_token_service.create_refresh_token(db, user)
         db.commit()
+        user_id = user.id
 
     at_close: list[bool] = []
 
@@ -2575,7 +2729,8 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
             headers={"Authorization": f"Bearer {token}"},
         ) as client:
             response = await client.post(
-                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+                "/api/auth/change-password",
+                json={"current_password": current, "new_password": new, "account_id": user_id},
             )
         assert response.status_code == 200 and response.json() == {"message": "Password updated."}
         # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.
@@ -2635,7 +2790,7 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2772,7 +2927,7 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     WaitlistSignup.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -2885,7 +3040,7 @@ async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     WaitlistSignup.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -2943,7 +3098,7 @@ def _submit_fixture(monkeypatch, tmp_path, send_email):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3091,7 +3246,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3204,7 +3359,7 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3360,7 +3515,7 @@ def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3631,7 +3786,7 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -3776,7 +3931,7 @@ async def test_saved_summary_routes_release_their_connection_off_the_loop(monkey
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3917,7 +4072,7 @@ async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4048,7 +4203,7 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4183,7 +4338,7 @@ def _account_records_fixture(monkeypatch, tmp_path):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4374,7 +4529,7 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4509,7 +4664,7 @@ def _summary_export_fixture(tmp_path, name: str, *, pro: bool):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4766,7 +4921,7 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4961,7 +5116,7 @@ async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -5037,7 +5192,7 @@ def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -5300,7 +5455,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     from app.models import AuditLog
     from app.services import admin_summary_service, summary_generation_service
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False},
+                           pool_timeout=POOL_TIMEOUT)
     database.Base.metadata.create_all(engine)
     with sessionmaker(bind=engine)() as db:
         company = Company(cik="0000000011", ticker="CLOSE", name="Close fixture")
@@ -5340,6 +5496,38 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
                 if "Closing the stale refresh's own session failed" in record.getMessage()] == [error, error]
     finally:
         engine.dispose()
+
+
+def pool_timeout_lines(source: str) -> tuple[list[int], list[int]]:
+    """The lines of the ``create_engine`` calls in ``source`` that pass ``pool_timeout=POOL_TIMEOUT``, and of every
+    other ``create_engine`` call: one that passes another timeout, passes none (SQLAlchemy's 30 s default), or splats
+    keywords the walk cannot read (``**kw``)."""
+    on_value, off_value = [], []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "create_engine":
+            named = [keyword for keyword in node.keywords if keyword.arg == "pool_timeout"]
+            on = (not any(keyword.arg is None for keyword in node.keywords) and len(named) == 1
+                  and isinstance(named[0].value, ast.Name) and named[0].value.id == "POOL_TIMEOUT")
+            (on_value if on else off_value).append(node.lineno)
+    return sorted(on_value), sorted(off_value)
+
+
+def test_every_pool_here_takes_the_file_timeout():
+    """E295: every ``create_engine`` in this file passes ``pool_timeout=POOL_TIMEOUT``. A tighter literal failed correct
+    cases on a starved runner and caught nothing the cases' own checks miss (POOL_TIMEOUT's comment). Scored on planted
+    source first. Out of its reach, and absent from this file: a pool built without ``create_engine`` (``QueuePool``
+    directly) and ``create_engine`` under another name (an aliased import, ``functools.partial``)."""
+    planted = (
+        "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=POOL_TIMEOUT)\n"
+        "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=1.0)\n"
+        "sqlalchemy.create_engine(url, pool_timeout=OTHER_TIMEOUT)\n"
+        "create_engine(url, poolclass=QueuePool)\n"
+        "create_engine(url, pool_timeout=POOL_TIMEOUT, **kw)\n"
+    )
+    assert pool_timeout_lines(planted) == ([1], [2, 3, 4, 5])
+    on_value, off_value = pool_timeout_lines(Path(__file__).read_text(encoding="utf-8"))
+    assert off_value == [], "these create_engine calls pass no pool_timeout, another one, or keywords the walk cannot read"
+    assert len(on_value) >= 39, "the walk reads the engines the file's cases build (39 when E295 named them)"
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────

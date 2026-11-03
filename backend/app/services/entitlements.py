@@ -5,7 +5,9 @@ Resolution order (see :func:`get_plan`):
    this is the authoritative billing record, written only by the Stripe webhook.
 2. Fallback to the ``User.is_pro`` denormalised mirror (kept in sync by the same webhook), so
    existing reads keep working and a missing/lazy subscription relationship never downgrades a
-   paying user.
+   paying user. For an account no billing state owns (no row, no Stripe ids), an operator's
+   complimentary beta grant sets the mirror (``complimentary_access_service``); once a row exists,
+   the row decides, so a canceled or past_due row outranks such a grant (:func:`pro_from_mirror`).
 
 Feature gates should call :func:`get_entitlements` (or the ``require_entitlement`` FastAPI
 dependency in ``app.dependencies``) rather than reading ``is_pro`` directly. Adding a tier or a
@@ -190,6 +192,13 @@ def get_plan(user: User) -> Plan:
     if from_sub is not None:
         return Plan.PRO if from_sub else Plan.FREE
     return Plan.PRO if getattr(user, "is_pro", False) else Plan.FREE
+
+
+def pro_from_mirror(user: User) -> bool:
+    """True when the user is Pro through :func:`get_plan`'s fallback alone: no usable Subscription row
+    decides the plan and the ``is_pro`` mirror is set. A complimentary beta grant's Pro is of this kind
+    (``complimentary_access_service``); a subscriber's, decided by the row, never is."""
+    return _subscription_grants_pro(user) is None and bool(getattr(user, "is_pro", False))
 
 
 def get_entitlements(user: User) -> Entitlements:

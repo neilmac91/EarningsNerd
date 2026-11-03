@@ -2,7 +2,8 @@
 
 `Subscription` is the durable, queryable record of a user's billing state — the single source
 of truth that `entitlements.py` reads (``User.is_pro`` remains a denormalised mirror kept in sync
-by the Stripe webhook, for back-compat with existing reads).
+by the Stripe webhook, for back-compat with existing reads; for an account with no row and no Stripe
+ids, an operator's complimentary beta grant sets it, ``complimentary_access_service``).
 
 `StripeEvent` records processed webhook event ids so a duplicate delivery (Stripe retries, or
 at-least-once delivery) is a no-op and can never double-apply an entitlement change.

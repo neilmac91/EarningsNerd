@@ -5,7 +5,9 @@ XBRL only needs the accession number and CIK and runs concurrently with the (slo
 ``parse_and_enrich`` is the stage that starts the section parse (it reads the fetched document, so it
 cannot start earlier), emits the parsing/analyzing/summarizing progress, awaits the parse (bounded by
 ``get_filing_sections``), then builds the excerpt and joins the excerpt and XBRL tasks under
-``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``.
+``CONTEXT_ENRICHMENT_TIMEOUT_SECONDS``. Once the excerpt build returns it starts the statement-context
+parse, which reads only the fetched document; the generation stage awaits it where it used to call
+it, so the parse runs while the join waits on XBRL instead of after it.
 """
 from __future__ import annotations
 
@@ -82,6 +84,11 @@ def start_enrichment_tasks(run: GenerationRun) -> None:
                                         exc_info=True,
                                     )
 
+                    # The write stays inside the join, before the provider request. Moved beside
+                    # the generation it saves ~0.3 s alone, but it then lands on the provider
+                    # start's charge write: two pooled connections at once per run, and on the
+                    # four-slot pool the harness's load run doubled its pool-wait time (#1977's
+                    # rejected candidates; test_summary_enrichment_overlap.py pins this order).
                     try:
                         await run.run_sync_db(update_xbrl_sync)
                     except Exception as persistence_error:
@@ -133,6 +140,53 @@ def start_section_parse(run: GenerationRun) -> None:
             run.sections_task = asyncio.create_task(parse_sections())
 
 
+# What the statement task returns when it did not parse: its run's excerpt task was cancelled, by the
+# join's timeout or by the run's own teardown. The generation stage then parses where it always did.
+STATEMENT_DEFERRED = object()
+
+
+async def parse_statement_context(run: GenerationRun) -> dict | None:
+    """The statement-context parse of the fetched document, in the request's thread pool."""
+    return await pipeline.run_in_threadpool(
+        pipeline.acquire_statement_context, run.filing_text, accession=run.filing_accession_number,
+        document_url=run.filing_document_url, form=run.filing_type,
+        report_period=run.filing_fields["report_period"].date().isoformat(),
+    )
+
+
+def start_statement_context(run: GenerationRun) -> None:
+    """Start the primary-statement context parse as a request-owned task.
+
+    It reads only the fetched document and the filing's own fields, never the sections, excerpt or
+    XBRL the join produces, and only the provider task reads its result (generation stage). The
+    parse is CPU work on a one-vCPU service, so it gains only where it overlaps a wait: it starts
+    once this run's excerpt build has returned and runs while the join still waits on XBRL. Not
+    beside the build: the build holds a pooled connection through its CPU work, and on one vCPU a
+    parse beside it would stretch that hold (pool waits rose under load in #1977's harness when it
+    did). When the excerpt task is cancelled instead (the join's timeout, or a disconnect or the
+    pipeline deadline during the join), the task does not parse: it returns
+    ``STATEMENT_DEFERRED``, and the generation stage, if the run reaches it, parses there as
+    before. The arguments are read inside the parse and the generation stage awaits the task where
+    it used to make the call, so an error surfaces there as before, ahead of the provider request.
+    Same condition as the call it replaces: a fetched document and a known report period (a
+    valid-cache run has no document).
+    """
+    run.statement_task = None
+    report_period = run.filing_fields.get("report_period")
+    if not (run.filing_text and report_period is not None):
+        return
+
+    async def acquire() -> dict | None | object:
+        if run.excerpt_task is not None:
+            await asyncio.wait({run.excerpt_task})  # its end only: the join reads its result or error
+            if run.excerpt_task.cancelled():
+                return STATEMENT_DEFERRED
+        return await parse_statement_context(run)
+
+    with run.worker_owner.activate():
+        run.statement_task = asyncio.create_task(acquire())
+
+
 async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
     """Parsing/analyzing/summarizing progress, the excerpt task and the bounded enrichment join."""
     filing_id = run.filing_id
@@ -176,6 +230,10 @@ async def parse_and_enrich(run: GenerationRun) -> AsyncIterator[dict]:
         run.excerpt_task = asyncio.create_task(return_cached_excerpt())
     else:
         run.excerpt_task = asyncio.create_task(run.run_sync_db(extract_excerpt_sync))
+
+    # Its parse follows the excerpt build and overlaps the wait on XBRL below, rather than
+    # following the whole join.
+    start_statement_context(run)
 
     # XBRL fetch was already started concurrently with the document fetch above.
 

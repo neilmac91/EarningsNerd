@@ -131,7 +131,9 @@ stream_filing_summary(filing_id, ...)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
                                          no SEC call; starts once (a) has the text; awaited (30 s /
-                                         40 s bound) before the excerpt is built and joined with (b))
+                                         40 s bound) before the excerpt is built and joined with (b));
+                                         the statement-context parse follows the excerpt build inside
+                                         that join's wait on (b)
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -152,7 +154,7 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
 | `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `start_statement_context` (after the excerpt build, awaited by `generate`), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
@@ -220,6 +222,7 @@ frontend/
 | `durable_tasks.py` + `task_routing.py` | Task envelopes and confirmed Cloud Tasks delivery; separate summary/background routes, role-selected OIDC verification and task-kind restrictions |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` and Pro's summary and analysis fair-use ceilings (`PRO_SUMMARY_MONTHLY_CAP`, `ANALYSIS_MONTHLY_CAP`, D-050) |
+| `complimentary_access_service.py` / `complimentary_access_manifest.py` | Complimentary Pro for invited private-beta accounts (PB-02): an operator's grant sets the `is_pro` fallback `entitlements.py` resolves for an account with no subscription row and no Stripe id, records it in `earningsnerd_complimentary_access_grants` and writes its audit row in one commit per account, under an advisory lock and the account's row lock; a revoke clears only that grant's Pro. The manifest module (strict private manifest, address fingerprints, digest) imports no settings, so the operator checks a manifest offline (`docs/ops/complimentary-access.md`) |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
 | `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
@@ -228,10 +231,10 @@ frontend/
 | `billing_serving_prices.py` | The public serving-charge report (`GET /api/subscriptions/prices`): what the bound Pro Prices charge, without IDs, cached per process; one read at a time, and no request waits on another's; the price-agreement checks compare it with the page (`docs/PRICING_OFFER.md`) |
 | `billing_account_service.py` | The reader's `subscriptions` row (served by `GET /api/subscriptions/subscription`, counted by checkout's first-time-trial check) and the claim of a new Stripe customer id before checkout, stored only while the account has none, returning the stored id that checkout then uses (E166); the subscriptions router owns Stripe calls and HTTP responses |
 | `stripe_threads.py` | The Stripe threads: eight of their own, which run checkout's, the billing portal's and the account deletion's calls through stripe-python's global client, out of anyio's default worker threads and off the event loop (E170) |
-| `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change and the account's deletion take the users row lock first |
+| `refresh_token_service.py` | Refresh-token rotation + reuse theft-detection, hashed storage; every rotation and revocation of a user's tokens, a password login's mint, a password change, an OAuth sign-in's code exchange and the account's deletion take the users row lock first; an account-wide revocation (logout-all, password change or reset) also deletes the account's pending OAuth session handoffs |
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; Argon2id hashing (a legacy bcrypt hash's check by its marker) on one thread of its own + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
-| `oauth_account_service.py` | OAuth state, account creation/linking, refresh-token persistence and provider connections; the auth router owns provider exchange, cookies and responses |
+| `oauth_account_service.py` | OAuth state (with the start's ask for the session handoff), account creation/linking, the sign-in's commit (main's path, for a start that did not ask for the handoff, until E29 (5)'s follow-up: its refresh token, the callback then setting the session cookies; or, for a start that asked, its one-time session handoff, which the `/auth/complete` landing page exchanges under the account's lock: E29 (5)) and provider connections; the auth router owns provider exchange, cookies and responses. On either path the callback writes `last_login_at`, a new account's registration row and the `oauth_login` audit row before the session reaches the browser, so a handoff whose exchange never happens leaves them in place |
 | `user_account_service.py` | Profile updates and the database commit/rollback for account deletion, its mandatory `user_deleted` audit row in the same transaction; the users router owns third-party erasure and the other audit events |
 | `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
 | `admin_account_service.py` | Refuse direct provisioning of a Free account: the admin route answers 409 and points to an invitation, so only the recipient accepts the account requirements; nothing is created, and the service takes no session |
@@ -405,7 +408,8 @@ Core models in `models/__init__.py`: `User`, `OAuthAccount`/`OAuthState`, `Compa
 `SummaryGenerationProgress`.
 Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
-`notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
+`notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain), `session_handoff.py`
+(`earningsnerd_session_handoffs`: the one-time code, as a hash, of an OAuth sign-in whose start asked for the handoff, which its landing page exchanges for the session),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
 `contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
 `summary_job.py` (durable filing ownership and preparation budgets),

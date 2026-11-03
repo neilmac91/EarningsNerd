@@ -266,6 +266,38 @@ describe('FeedbackWidget', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add screenshots' }))
   })
 
+  it('keeps a screenshot draft but sends nothing while uploads turn off, and sends the note once the screenshots are removed', async () => {
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    api.submitFeedback.mockResolvedValue({ id: 7, type: 'bug', message: 'Screenshot explains this problem', created_at: '2026-11-02T00:00:00Z' })
+    const client = mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [new File(['image'], 'private.png', { type: 'image/png' })] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Screenshot explains this problem' } })
+    // The operator's disable apply lands while this draft is open: the next capability read reports uploads off.
+    act(() => { client.setQueryData(queryKeys.feedback.capabilities(1), { attachments_enabled: false }) })
+    expect(await screen.findByText(/^Screenshot uploads are unavailable right now\./)).toBeInTheDocument()
+    const send = screen.getByRole('button', { name: 'Send feedback' })
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(send)
+    fireEvent.submit(send.closest('form')!)
+    await settle()
+    expect(api.submitFeedback).not.toHaveBeenCalled()
+    expect(screen.getByText('private.png')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add screenshots' })).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.paste(screen.getByLabelText('Feedback message'), { clipboardData: {
+      items: [{ kind: 'file', getAsFile: () => new File(['second'], 'paste.png', { type: 'image/png' }) }],
+      getData: () => '',
+    } })
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove screenshot 1' }))
+    expect(screen.queryByText(/^Screenshot uploads are unavailable right now\./)).not.toBeInTheDocument()
+    expect(send).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(send)
+    await waitFor(() => expect(api.submitFeedback).toHaveBeenCalledTimes(1))
+    expect(api.submitFeedback.mock.calls[0][1].files).toEqual([])
+  })
+
   it('freezes the complete upload snapshot, closes without cancelling, and checks an uncertain receipt before reusing the key', async () => {
     api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
     api.getFeedbackSubmission.mockImplementation(async (key: string) => ({ submission_id: key, state: 'not_found', retry_after_seconds: null, feedback: null }))
