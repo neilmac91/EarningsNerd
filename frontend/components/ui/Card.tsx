@@ -8,6 +8,10 @@
    `interactive` hover BRIGHTENS (toward white + brand hairline), never darkens
    — and never hover:opacity. Pressed takes the sage tint, its dark twin in dark.
    Focus-visible = brand ring for keyboard users.
+   A caller sets what the card offers through its props (tone, radius, elevation,
+   interactive), never a class on top that competes with one it sets here: cx
+   merges nothing, so stylesheet order decides (gate:
+   tests/unit/cardClassesNoOverrides.spec.tsx, which reads the sections too; D-076).
 ============================================================================= */
 
 import { type ElementType, type HTMLAttributes } from 'react'
