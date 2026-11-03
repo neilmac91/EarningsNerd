@@ -173,8 +173,10 @@ export default function SettingsPage() {
           {/* Connected accounts & sessions */}
           <ConnectedAccounts />
 
-          {/* Set / change password (OAuth-only users can set one here) */}
-          <ChangePasswordForm />
+          {/* Set / change password (OAuth-only users can set one here). Keyed by the account shown: a read of /me that
+              moves this tab to another account (another tab's sign-in, E29 (6)) remounts it with empty fields, so
+              nothing typed for one account is posted under another. */}
+          <ChangePasswordForm key={user?.id ?? 'no-account'} />
 
           {/* New-filing alert preferences */}
           <NotificationPreferencesForm />
