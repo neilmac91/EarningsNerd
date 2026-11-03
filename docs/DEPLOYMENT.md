@@ -827,7 +827,7 @@ identity's effective permissions on the production bucket, so an inherited broad
 assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
 object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
 every future permission or project-level bucket listing. Broader inherited access blocks rollout;
-adding the narrow binding does not remove it. The provisioning identity needs permissions to create those buckets,
+adding the narrow binding does not remove it. For whatever does not yet exist (below), the provisioning identity needs permissions to create those buckets,
 create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.
@@ -924,7 +924,10 @@ Merge and verify the backend deployment, then merge the screenshot frontend and 
 `frontend/` or `ops/feedback_media/` meant to ship with it, before `feedback-media-provision-apply`.
 **Release freeze:** from that provision's dispatch until `feedback-media-enable-apply` completes, merge
 nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`; records-only merges are
-fine. Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
+fine for the receipt. Ops still refuses provision, verify and enable while a CI run for a push to `main` is in
+progress or queued, so even a records-only merge in the window can cost an approval and part of the two hours
+([closed-beta runbook](ops/closed-beta-acceptance.md#1-identities-to-record-before-every-acceptance-step), section
+1). Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
 the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
 provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
 sitting. A verify that fails after seeding its run holds a two-hour lease, by which time the probe has
