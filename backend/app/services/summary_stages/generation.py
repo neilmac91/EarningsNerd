@@ -36,15 +36,12 @@ async def generate(run: GenerationRun) -> AsyncIterator[dict]:
 
     # Now run AI summarization (with excerpt/XBRL if available)
     # Wrap in task to enable heartbeat loop while waiting
+    # Started after the excerpt build (enrichment.start_statement_context) so the parse overlapped
+    # the enrichment join's wait on XBRL; awaited here, where it used to run, so an error still ends
+    # the run before the provider request.
     statement_source = None
-    report_period = run.filing_fields.get("report_period")
-    if run.filing_text and report_period is not None:
-        with run.worker_owner.activate():
-            statement_source = await pipeline.run_in_threadpool(
-                pipeline.acquire_statement_context, run.filing_text, accession=run.filing_accession_number,
-                document_url=run.filing_document_url, form=run.filing_type,
-                report_period=report_period.date().isoformat(),
-            )
+    if run.statement_task is not None:
+        statement_source = await run.statement_task
     if run.is_six_k:
         # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
         # variant and is recorded on the stored summary for audit. Placed after every grounding
