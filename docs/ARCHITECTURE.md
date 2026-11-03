@@ -131,7 +131,9 @@ stream_filing_summary(filing_id, ...)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Parse critical sections locally from the fetched primary-document HTML (edgar/xbrl_sections;
                                          no SEC call; starts once (a) has the text; awaited (30 s /
-                                         40 s bound) before the excerpt is built and joined with (b))
+                                         40 s bound) before the excerpt is built and joined with (b));
+                                         the statement-context parse follows the excerpt build inside
+                                         that join's wait on (b)
   d. Summarize with the AI model; the admission lease is counted as one usage unit when the
                                          request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
@@ -152,7 +154,7 @@ The generator itself is a short stage map (`_stage_sequence()` in `summary_pipel
 | `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
 | `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
 | `fetch.py` | `fetch_document` (starts the XBRL task; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
-| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `parse_and_enrich` (progress, excerpt, bounded join) |
+| `enrichment.py` | `start_enrichment_tasks` (XBRL), `start_section_parse` (local parse of the fetched document), `start_statement_context` (after the excerpt build, awaited by `generate`), `parse_and_enrich` (progress, excerpt, bounded join) |
 | `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
 | `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
 | `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
