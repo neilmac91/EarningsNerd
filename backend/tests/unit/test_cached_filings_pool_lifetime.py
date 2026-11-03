@@ -4854,8 +4854,9 @@ async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
         assert [response.status_code for response in responses] == [_EXPORT_STATUS[case]] * 8
         if case == "export":
+            # The download is named as the page names it, from the detached company's ticker (E305).
             assert [response.headers["content-disposition"] for response in responses] == [
-                f'attachment; filename="Cached fixture_10-K_20260203.{export}"'] * 8
+                f'attachment; filename="CACHED_10-K_20260203.{export}"'] * 8
             # Each build read the company's name and the summary's text from the detached rows.
             built = renders if export == "pdf" else [response.content.decode() for response in responses]
             assert len(built) == 8
