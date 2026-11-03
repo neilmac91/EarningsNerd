@@ -581,6 +581,7 @@ class BootstrapCloud:
     def __init__(self, bootstrapped=True):
         runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
         self.calls, self.granted, self.denied, self.latest_version = [], None, set(), None
+        self.denied_paths = set()  # exact paths answered 403
         self.project_granted = None  # the project's testIamPermissions answer; None answers as the resources do
         self.secret_policies, self.latest_versions = {}, {}  # per-secret answers in place of the shared ones
         self.run, self.run_policies, self.schedule = {}, {}, None  # the Cloud Run job and service, and the schedule
@@ -598,7 +599,7 @@ class BootstrapCloud:
 
     def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
         self.calls.append((api, path, method, body))
-        if any(part in path for part in self.denied):
+        if path in self.denied_paths or any(part in path for part in self.denied):
             raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 403)")
         if path.endswith(":testIamPermissions"):
             granted = self.project_granted if api == "cloudresourcemanager" and self.project_granted is not None else self.granted
@@ -617,8 +618,8 @@ class BootstrapCloud:
             return self.project
         if api == "secretmanager":
             name = path.split("/secrets/", 1)[1].split("/", 1)[0].split(":", 1)[0]
-            if ":getIamPolicy" in path:
-                return self.secret_policies.get(name, self.secret_policy)
+            if ":getIamPolicy" in path:  # one policy per secret, each its own copy of the shared default
+                return self.secret_policies.setdefault(name, copy.deepcopy(self.secret_policy))
             if path.endswith("/versions/latest"):
                 # None: the founder adds no value, and the run adds the first version itself
                 return self.latest_versions.get(name, self.latest_version)
@@ -765,6 +766,11 @@ class IdentityCloud(BootstrapCloud):
     def __init__(self):
         super().__init__()
         self.writes = []
+        self.role = {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"}
+        self.preview_bucket = {
+            "name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
+            "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
+            "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
 
     def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
         if method != "GET" and not path.endswith(":getIamPolicy") and ":getIamPolicy?" not in path:
@@ -773,13 +779,14 @@ class IdentityCloud(BootstrapCloud):
             return {}
         if api == "iam" and path == "v1/" + verify.media.ROLE:
             self.calls.append((api, path, method, body))
-            return {"includedPermissions": verify.media.PERMISSIONS.copy(), "stage": "GA"}
+            return self.role
         if api == "storage" and path == "storage/v1/b/" + verify.BUCKET:
             self.calls.append((api, path, method, body))
-            return {"name": verify.BUCKET, "location": "US-WEST1", "labels": {"purpose": "feedback-media", "environment": "preview"},
-                    "iamConfiguration": {"uniformBucketLevelAccess": {"enabled": True}, "publicAccessPrevention": "enforced"},
-                    "versioning": {"enabled": False}, "softDeletePolicy": {"retentionDurationSeconds": "0"}}
+            return self.preview_bucket
         return super().call(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
+
+    def wait(self, operation, step=None):
+        return {}
 
 
 @pytest.mark.parametrize("case", ["second-binding", "missing-role"])
@@ -846,6 +853,12 @@ RERUN = ["cloudscheduler.jobs.update", "run.jobs.update", "run.services.update"]
     ("rerun-schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
     ("rerun-identity-disabled", "Existing verification identity is not the active feature-owned identity"),
     ("rerun-secret-grant-conditional", "Existing verification secret grants differ from the approved bootstrap"),
+    ("rerun-version-destroyed", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-version-no-state", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-version-state-list", f"Verification secret {verify.DB_SECRET} has a latest version that is not enabled"),
+    ("rerun-bucket-policy-no-etag", "Resource policy has no etag"),
+    ("rerun-job-policy-no-etag", "Resource policy has no etag"),
+    ("rerun-service-policy-no-etag", "Resource policy has no etag"),
 ])
 def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected):
     """The verifier's planning table, read against secret(), ensure_identity, ensure_job and the service deploy: a
@@ -882,9 +895,200 @@ def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected)
         cloud.identity = {"description": verify.PURPOSE, "disabled": True}
     elif state == "rerun-secret-grant-conditional":
         cloud.secret_policy["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    elif state.startswith("rerun-version-"):
+        # The run reads the latest value and never rotates one: only an ENABLED latest version is usable.
+        cloud.latest_version = {"rerun-version-destroyed": {"name": "projects/p/secrets/s/versions/1", "state": "DESTROYED"},
+                                "rerun-version-no-state": {"name": "projects/p/secrets/s/versions/1"},
+                                "rerun-version-state-list": {"state": ["ENABLED"]}}[state]
+    elif state == "rerun-bucket-policy-no-etag":
+        del cloud.bucket_policy["etag"]
+    elif state in ("rerun-job-policy-no-etag", "rerun-service-policy-no-etag"):
+        del cloud.run_policies[job if "job" in state else service]["etag"]
     if isinstance(expected, str):
         with pytest.raises(verify.media.OperationError, match="^" + re.escape(expected)):
             verify.bootstrap_gaps(cloud, DEPLOYER)
     else:
         assert verify.bootstrap_gaps(cloud, DEPLOYER) == expected
     assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)
+
+
+VERIFIER_READS = {
+    "identity": "v1/" + verify.SA_PATH,
+    "identity-policy": "v1/" + verify.SA_PATH + ":getIamPolicy?options.requestedPolicyVersion=3",
+    "project-policy": f"v1/projects/{verify.PROJECT}:getIamPolicy",
+    **{f"{label}-{kind}": path for label, name in (("db", verify.DB_SECRET), ("key", verify.KEY_SECRET))
+       for kind, path in (("secret", f"v1/projects/{verify.PROJECT}/secrets/{name}"),
+                          ("secret-policy", verify.media.policy_path(f"v1/projects/{verify.PROJECT}/secrets/{name}")),
+                          ("latest-version", f"v1/projects/{verify.PROJECT}/secrets/{name}/versions/latest"))},
+    "bucket-policy": verify.media.policy_path("storage/v1/b/" + verify.BUCKET, storage=True),
+    "job": "v2/" + verify.JOB, "job-policy": verify.media.policy_path("v2/" + verify.JOB),
+    "service": "v2/" + verify.SERVICE, "service-policy": verify.media.policy_path("v2/" + verify.SERVICE),
+    "schedule": "v1/" + verify.SCHEDULE,
+}
+
+
+def unbootstrapped_cloud():
+    """Nothing made yet, and no write permission held: the planner's first-run paths."""
+    cloud = BootstrapCloud(bootstrapped=False)
+    cloud.granted = set()
+    return cloud
+
+
+# The states the planner reads differently in: a later run, the founder's bootstrap alone, and nothing made yet.
+PLANNING_STATES = (rerun_cloud, BootstrapCloud, unbootstrapped_cloud)
+
+
+def planning_reads(cloud):
+    """The paths bootstrap_gaps reads on this state, its capability tests left out."""
+    verify.bootstrap_gaps(cloud, DEPLOYER)
+    return {path for _api, path, _m, _b in cloud.calls if not path.endswith(":testIamPermissions")}
+
+
+def test_the_denial_table_holds_every_read_bootstrap_gaps_makes():
+    """The table is the planner's reads in each state it reads differently in: a read added to bootstrap_gaps on any of
+    those paths fails here until it is denied below."""
+    assert set().union(*(planning_reads(make()) for make in PLANNING_STATES)) == set(VERIFIER_READS.values())
+
+
+@pytest.mark.parametrize("read", sorted(VERIFIER_READS))
+def test_a_denied_verifier_planning_read_refuses_before_any_write_is_tested(read):
+    """Each read bootstrap_gaps makes stops on a denial, in a state that reaches it: none is planned as absent, and the
+    project's write test, bootstrap_gaps' last step, never runs."""
+    cloud = next(make for make in PLANNING_STATES if VERIFIER_READS[read] in planning_reads(make()))()
+    cloud.denied_paths = {VERIFIER_READS[read]}
+    with pytest.raises(verify.media.ProviderError, match=r"^[a-z]+ operation failed \(HTTP 403\)$"):
+        verify.bootstrap_gaps(cloud, DEPLOYER)
+    assert not [path for api, path, _m, _b in cloud.calls if api == "cloudresourcemanager" and path.endswith(":testIamPermissions")]
+
+
+def rerun_identity_cloud():
+    """IdentityCloud in a re-run's state: the job, service and schedule exist, owned, with their invoker grants."""
+    cloud, member = IdentityCloud(), "serviceAccount:" + verify.IDENTITY
+    for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+        cloud.run[path] = {"labels": {"purpose": verify.PURPOSE}, "etag": "run-version"}
+        cloud.run_policies[path] = {"etag": "BwYrun", "bindings": [{"role": "roles/run.invoker", "members": [member]}]}
+    cloud.schedule = {"description": verify.PURPOSE}
+    return cloud
+
+
+@pytest.mark.parametrize("change, refusal", [
+    ("job-foreign", "Existing verification cleanup job is not feature-owned"),
+    ("schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
+    ("service-foreign", "Existing verification service is not feature-owned"),
+    ("identity-foreign", "Existing verification identity is not the active feature-owned identity"),
+    ("identity-foreign-granted", "Existing verification identity is not the active feature-owned identity"),
+    ("project-editor", "Verification identity has unexpected direct project privileges"),
+    ("project-editor-granted", "Verification identity has unexpected direct project privileges"),
+    ("project-no-etag", "Resource policy has no etag"),
+    ("identity-policy-foreign", "Existing verification identity grants differ from the approved bootstrap"),
+    ("identity-policy-foreign-granted", "Existing verification identity grants differ from the approved bootstrap"),
+    ("role-disabled", "Feedback object role stage is DISABLED"),
+    ("role-disabled-granted", "Feedback object role stage is DISABLED"),
+    ("bucket-drift", "preview bucket differs from approved private retention settings"),
+    ("bucket-drift-granted", "preview bucket differs from approved private retention settings"),
+    ("bucket-other-role-granted", "Runtime bucket grants differ from the approved unconditional object role"),
+    ("bucket-other-role-after-bind", "Runtime bucket grants differ from the approved unconditional object role"),
+    ("job-etag-moved", None),
+    ("service-etag-moved", None),
+    ("bucket-grant-to-make", None),
+])
+def test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan(change, refusal):
+    """The verifier's write steps re-read what they write: a state that changed after bootstrap_gaps planned is refused
+    before that write, and a PATCH carries the etag read at the write, not the plan's. Each identity and bucket check
+    runs both where the write it guards is still to be made, so a check moved after that write fails, and where every
+    grant already exists (-granted), so a check made only on the way to a write fails too."""
+    cloud, member = rerun_identity_cloud(), "serviceAccount:" + verify.IDENTITY
+    job, service = "v2/" + verify.JOB, "v2/" + verify.SERVICE
+    granted, kind = change.endswith("-granted"), change.removesuffix("-granted")
+    if kind == "job-foreign":
+        cloud.run[job]["labels"]["purpose"] = "sql-backups"
+    elif kind == "schedule-foreign":
+        cloud.schedule = {"description": "Another team's hourly job"}
+    elif kind == "service-foreign":
+        cloud.run[service]["labels"]["purpose"] = "another-service"
+    elif kind == "identity-foreign":
+        cloud.identity = {"description": "someone else's"}
+        if not granted:  # the first later write, the project grant, still to make
+            cloud.project["bindings"] = []
+    elif kind == "project-editor":
+        cloud.project["bindings"].append({"role": "roles/editor", "members": [member]})
+        if not granted:  # the identity-policy grants still to make
+            cloud.sa_policy["bindings"] = []
+    elif kind == "project-no-etag":  # a grant to add, on a policy whose write-back could not be conditional
+        cloud.project["bindings"] = []
+        del cloud.project["etag"]
+    elif kind == "identity-policy-foreign":  # a member beyond the bootstrap on one role
+        cloud.sa_policy["bindings"][0]["members"].append("user:someone@example.invalid")
+        if not granted:  # and the other role still to grant
+            del cloud.sa_policy["bindings"][1]
+    elif kind in ("role-disabled", "bucket-drift"):
+        if not granted:  # the verifier's bucket grant still to make
+            cloud.bucket_policy["bindings"][0]["members"].remove(member)
+        if kind == "role-disabled":
+            cloud.role["stage"] = "DISABLED"
+        else:
+            cloud.preview_bucket["versioning"]["enabled"] = True
+    elif kind == "bucket-other-role":  # granted, and holding a second role before the step runs
+        cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectViewer", "members": [member]})
+    elif kind in ("bucket-other-role-after-bind", "bucket-grant-to-make"):  # the verifier's bucket grant still to make
+        cloud.bucket_policy["bindings"][0]["members"].remove(member)
+        if kind == "bucket-other-role-after-bind":  # a second role lands with the grant: only a read-back after it sees it
+            original = cloud.call
+
+            def call(api, path, **kwargs):
+                answer = original(api, path, **kwargs)
+                if api == "storage" and kwargs.get("method") == "PUT":
+                    cloud.bucket_policy["bindings"].append({"role": "roles/storage.objectViewer", "members": [member]})
+                return answer
+            cloud.call = call
+    elif kind == "job-etag-moved":
+        cloud.run[job]["etag"] = "run-version-2"
+    else:
+        cloud.run[service]["etag"] = "run-version-2"
+    step = (verify.ensure_identity if kind.startswith(("identity", "project", "role", "bucket")) else
+            verify.ensure_service if kind.startswith("service") else verify.ensure_job)
+    args = (cloud, DEPLOYER) if step is verify.ensure_identity else (cloud, {"labels": {"purpose": verify.PURPOSE}})
+    if refusal is None:
+        step(*args)
+        if kind == "bucket-grant-to-make":  # the step completes with its one grant, under the etag it read
+            assert [api for api, _path, _body in cloud.writes] == ["storage"]
+            assert cloud.writes[0][2]["etag"] == "CAE=" and verify.media.bound(cloud.writes[0][2], verify.media.ROLE, member)
+            return
+        patches = [body for api, path, body in cloud.writes if api == "run" and path.split("?", 1)[0] in (job, service)]
+        assert len(patches) == 1 and patches[0]["etag"] == "run-version-2"  # read at the write, not at the plan
+        return
+    with pytest.raises(verify.media.OperationError, match="^" + re.escape(refusal)):
+        step(*args)
+    if granted:  # every grant already made: nothing is written before the refusal
+        assert cloud.writes == []
+        return
+    if kind == "bucket-other-role-after-bind":  # refused on the read-back, after exactly its one write
+        assert [api for api, _path, _body in cloud.writes] == ["storage"]
+        return
+    # The guarded write never happened: the job or service update, the schedule, any write (where the check comes
+    # before every write), the project grant, or the bucket grant.
+    guarded = {"job-foreign": lambda api, path: path.split("?", 1)[0] == job,
+               "schedule-foreign": lambda api, path: api == "cloudscheduler",
+               "service-foreign": lambda api, path: path.split("?", 1)[0] == service,
+               "identity-foreign": lambda api, path: True,
+               "project-editor": lambda api, path: True,
+               "project-no-etag": lambda api, path: api == "cloudresourcemanager",
+               "identity-policy-foreign": lambda api, path: True,
+               "role-disabled": lambda api, path: api == "storage",
+               "bucket-drift": lambda api, path: api == "storage"}[kind]
+    assert not [path for api, path, _body in cloud.writes if guarded(api, path)]
+
+
+@pytest.mark.parametrize("invoker", ["granted", "missing"])
+def test_ensure_service_grants_its_invoker_exactly_when_it_is_missing(invoker):
+    """The service step grants the verifier identity its invoker role only when the policy lacks it, conditional on the
+    policy's etag: the write bootstrap_gaps plans as run.services.setIamPolicy."""
+    cloud, service = rerun_identity_cloud(), "v2/" + verify.SERVICE
+    if invoker == "missing":
+        cloud.run_policies[service]["bindings"] = []
+    verify.ensure_service(cloud, {"labels": {"purpose": verify.PURPOSE}})
+    grants = [body["policy"] for api, path, body in cloud.writes if api == "run" and path == service + ":setIamPolicy"]
+    assert len(grants) == (invoker == "missing")
+    if grants:
+        assert verify.media.bound(grants[0], "roles/run.invoker", "serviceAccount:" + verify.IDENTITY)
+        assert grants[0]["etag"] == "BwYrun"

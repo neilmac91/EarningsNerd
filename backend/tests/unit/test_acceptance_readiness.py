@@ -669,6 +669,95 @@ def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path:
     assert "we operate in a very competitive and rapidly changing environment" in projected
 
 
+def test_two_checkouts_render_exports_that_blind_to_the_same_bytes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each arm renders its exports in its own checkout, and the PDF's shell names each font by its absolute file://
+    address there (pdf_branding.font_face_css), so the exports as written name their arm's checkout. The projection
+    keeps each font's file name alone (E303): one summary rendered from two checkouts blinds to the same bytes."""
+    import re
+
+    import tests.unit.test_export_service as export_fixtures
+    from app.services import pdf_branding
+    from app.services.export_service import ExportService
+
+    summary, filing = export_fixtures._make_summary_and_filing(export_fixtures._full_sections())
+    written, projected = [], []
+    for arm in ("candidate", "comparator"):
+        checkout = tmp_path / f"checkout-{arm}"
+        monkeypatch.setattr(pdf_branding, "_ASSETS", checkout / "backend" / "app" / "assets")
+        export = tmp_path / f"export-{arm}.html"
+        export.write_text(ExportService().generate_pdf_html(summary, filing), encoding="utf-8")
+        text = export.read_text(encoding="utf-8")
+        addresses = re.findall(r"url\('(file://[^']*)'\)", text)
+        # Every font the shell declares, each under this arm's checkout.
+        assert len(addresses) == 5 and all(a.startswith(checkout.as_uri() + "/backend/app/assets/fonts/")
+                                           for a in addresses), addresses
+        written.append(text)
+        row = {"config_sha256": "c" * 64, "arm": arm, "draw": 1}
+        config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+                  "base_url": "https://provider.invalid/v1", "checkout_path": str(checkout)}
+        projected.append(_reviewer_artifact(export, "export", row, config, "H01"))
+    assert written[0] != written[1]
+    assert projected[0] == projected[1]
+    # Neither arm's checkout, nor the checkout running this test, whose other export modules both renders share.
+    assert b"file://" not in projected[0] and str(tmp_path).encode() not in projected[0]
+    assert str(Path(__file__).resolve().parents[3]).encode() not in projected[0]
+    assert b"src: url('fonts/Inter-Variable-latin.woff2') format('woff2');" in projected[0]
+    assert b"we operate in a very competitive and rapidly changing environment" in projected[0]
+
+
+@pytest.mark.parametrize("key,leak", [
+    ("export", "an image"),
+    ("export", "a font outside app/assets/fonts"),
+    ("export", "the checkout path"),
+    ("rendered", "the checkout path"),
+])
+def test_blinding_refuses_an_artifact_still_naming_its_checkout(tmp_path: Path, key: str, leak: str) -> None:
+    """The projection blinds the shell's font addresses only. A local address it does not know, in an export, and
+    the configured checkout path, in any artifact, refuse the packet rather than reach a reviewer (E303)."""
+    checkout = tmp_path / "checkout"
+    planted = {
+        "an image": f'<img src="{(checkout / "backend/app/assets/logo.png").as_uri()}">',
+        "a font outside app/assets/fonts": f"src: url('{(checkout / 'backend/fonts/Inter.woff2').as_uri()}')",
+        "the checkout path": f"Rendered in {checkout}.",
+    }[leak]
+    artifact = tmp_path / f"{key}.txt"
+    artifact.write_text(f"<p>Revenue rose.</p>{planted}", encoding="utf-8")
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1", "checkout_path": str(checkout)}
+    expected = "exposes execution identity" if leak == "the checkout path" else "names a local file"
+    with pytest.raises(ValueError, match=expected):
+        _reviewer_artifact(artifact, key, row, config, "H01")
+
+
+@pytest.mark.parametrize("spelling", ["through a symlink", "with a trailing slash", "with a space, as an address"])
+def test_the_checkout_marker_reads_the_path_as_the_arm_writes_it(tmp_path: Path, spelling: str) -> None:
+    """frozen_checkout runs the worker in the resolved checkout, so an artifact carries that path, or its file://
+    address, whatever the config spells. The marker reads each form (E303): a config naming the checkout through a
+    symlink or with a trailing slash still stops a rendered summary that names the resolved path, and one whose path
+    holds a space stops a summary that names its percent-encoded address."""
+    real = tmp_path / ("check out" if "space" in spelling else "checkout")
+    real.mkdir()
+    if spelling == "through a symlink":
+        (tmp_path / "link").symlink_to(real)
+    # The trailing slash's checkout is absent here, as an arm's may be where the packets are built, so only the
+    # spelling without the slash can find it.
+    elsewhere = tmp_path / "elsewhere" / "checkout"
+    configured = {"through a symlink": str(tmp_path / "link"), "with a trailing slash": f"{elsewhere}/",
+                  "with a space, as an address": str(real)}[spelling]
+    written = {"through a symlink": str(real.resolve()), "with a trailing slash": str(elsewhere),
+               "with a space, as an address": real.resolve().as_uri()}[spelling]
+    assert configured not in written  # the config's spelling alone would miss it
+    artifact = tmp_path / "rendered.md"
+    artifact.write_text(f"Revenue rose. Rendered under {written}.", encoding="utf-8")
+    row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
+    config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
+              "base_url": "https://provider.invalid/v1", "checkout_path": configured}
+    with pytest.raises(ValueError, match="exposes execution identity"):
+        _reviewer_artifact(artifact, "rendered", row, config, "H01")
+
+
 # The meta line before E210, which an export retained from an earlier run still carries, and since: unpadded days, the
 # generation instant, and each clause in its span. The blinding keeps the Period End clause as the export wrote it.
 _HEADERS = {
