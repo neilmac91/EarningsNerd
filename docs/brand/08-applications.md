@@ -458,11 +458,14 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   summaries of SEC filings". Titles take the middot and sentence case ("Biogen Inc. · 10-K summary",
   "{company} · Multi-Period Analysis", the feature keeping its name). Every export prints the company as
   the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's capitals) through
-  `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`, and its days and
-  instants in one form: a day unpadded ("October 5, 2026") and an instant with its zone named
-  ("November 3, 2026, 06:45 UTC", `analysis_export_metadata.py`'s `display_date` and `display_instant`),
-  each of a PDF meta line's clauses whole on its line. The filing summary's PDF and CSV joined them in
-  E210, with the eval's blinding of that PDF's generation date (`backend/evals/acceptance_readiness.py`).
+  `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`. Its header's days and
+  instants take one form, `analysis_export_metadata.py`'s `display_date` and `display_instant`: a day
+  unpadded ("Filing Date: October 5, 2026") and an instant with its zone named ("Generated November 3,
+  2026, 06:45 UTC"), each dated clause of a PDF meta line whole on its line. A source record's day prints
+  as stored ("2025-02-14"): an operand's period and filed day in Sources & methods, the filed days in the
+  first-reported sentence, and the workbook's period and filed columns. The filing summary's PDF and CSV
+  joined the analysis exports in E210, with the eval's blinding of that PDF's generation date
+  (`backend/evals/acceptance_readiness.py`).
   The middot and sentence case hold for the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
   document, with the address that link opens) and the CSV, which now carries that source row under its

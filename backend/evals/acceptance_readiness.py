@@ -51,19 +51,22 @@ _EXECUTION_KEY_TEXT = re.compile(
 # SEC.gov · " since, each followed by the address in a span. An export retained from an earlier run still
 # carries its version's line, so the blinding strips the generation date before any of them. Arms generated
 # from versions with different lines would tell a reviewer the arm by it, so every export in a packet set that
-# carries a line carries the same one, read up to the address's tag (build_blinded_packets). The builder
-# compares this line only: exports that differ elsewhere (the closing note's markup changed on 2026-10-20)
-# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py (E210's
-# title and date forms among them).
+# carries a line carries the same one, read up to the address's tag (build_blinded_packets).
 # The generation date before that line, as each version writes it: a zero-padded day until E210 ("Generated
 # September 21, 2026"), and since E210 the instant the analysis exports print, "Generated November 3, 2026, 06:45
 # UTC", with each of the meta line's clauses in a span that keeps it whole. The blinding strips either form and
-# then refuses an export that still carries a generation date of either form.
+# then refuses an export that still carries a generation date of either form. Arms that wrote the two forms
+# would tell the arm by them too, so every export in a packet set that carries the date writes it in one form,
+# read by the generation clause's span and its time (build_blinded_packets).
+# The builder compares these two only: exports that differ elsewhere (the closing note's markup changed on
+# 2026-10-20) are the custodian's to catch, by generating both arms from one version of each file that writes the
+# export: export_service.py and pdf_branding.py, and since E210 analysis_export_metadata.py (the meta line's days
+# and instant) and app/utils/company_names.py (the title's name).
 _EXPORT_SOURCE = "(?:" + "|".join(map(re.escape, ("<br>Original on SEC.gov", "<br>Source: SEC EDGAR"))) + ")"
 _GENERATED_DATE = r"Generated [A-Z][a-z]+ [0-9]{1,2}, [0-9]{4}"
 _EXPORT_GENERATED = re.compile(
-    r'((?:<span class="clause">)?Period End: [^<]+?(?:</span>)?) · (?:<span class="clause">)?' + _GENERATED_DATE
-    + r"(?:, [0-9]{2}:[0-9]{2} UTC)?(?:</span>)?(?=" + _EXPORT_SOURCE + ")"
+    r'((?:<span class="clause">)?Period End: [^<]+?(?:</span>)?) · (?P<span><span class="clause">)?'
+    + _GENERATED_DATE + r"(?P<time>, [0-9]{2}:[0-9]{2} UTC)?(?:</span>)?(?=" + _EXPORT_SOURCE + ")"
 )
 _EXPORT_SOURCE_LINE = re.compile(_EXPORT_SOURCE + "[^<]*")
 
@@ -629,6 +632,8 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
         # This exact header comes from ExportService.generate_pdf_html. Retain the filing
         # dates and all substantive content; the original export remains custodian-side.
         text = _EXPORT_GENERATED.sub(r"\1", text, count=1)
+        # This reads the whole export, so a summary whose own words put "Generated" before a day in this form is
+        # refused too: the check fails closed rather than trust where the header ends.
         if re.search(_GENERATED_DATE, text):
             raise ValueError("unrecognized export generation-date metadata")
         data = text.encode("utf-8")
@@ -706,10 +711,14 @@ def build_blinded_packets(
         if _utc(config["frozen_at"]) >= earliest_output:
             raise ValueError("configuration freeze must predate every output")
         configs[arm] = config
-    lines = {found.group(0) for item in checked
-             if (found := _EXPORT_SOURCE_LINE.search(item["paths"]["export"].read_bytes().decode("utf-8")))}
+    exports = [item["paths"]["export"].read_bytes().decode("utf-8") for item in checked]
+    lines = {found.group(0) for text in exports if (found := _EXPORT_SOURCE_LINE.search(text))}
     if len(lines) > 1:
         raise ValueError("exports carry more than one source line: generate every arm from one export version")
+    forms = {(found["span"] is not None, found["time"] is not None)
+             for text in exports if (found := _EXPORT_GENERATED.search(text))}
+    if len(forms) > 1:
+        raise ValueError("exports date themselves in more than one form: generate every arm from one export version")
 
     reviewer_root, custodian_root = Path(reviewer_root), Path(custodian_root)
     if (reviewer_root.exists() or custodian_root.exists() or reviewer_root.is_symlink() or

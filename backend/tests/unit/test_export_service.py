@@ -290,6 +290,16 @@ class TestPdfHtml:
         assert '<span class="clause">Filing Date: N/A</span> · <span class="clause">Period End: N/A</span>' in html
         assert _csv_rows(service.generate_csv(summary, filing))[3:5] == [["BIIB · 10-K summary"], ["Filing Date: N/A"]]
 
+    def test_the_pdf_escapes_the_title_and_the_csv_writes_it_as_read(self, service):
+        """summary_title returns words, not markup: the PDF escapes them where it prints them, so a name EDGAR serves
+        with an ampersand prints one in the tab and the heading, and the CSV, plain text, writes it as it reads."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        filing.company = SimpleNamespace(name="AT&T INC.")
+        html = service.generate_pdf_html(summary, filing)
+        assert "<title>AT&amp;T Inc. · 10-K summary</title>" in html
+        assert "<h1>AT&amp;T Inc. · 10-K summary</h1>" in html
+        assert _csv_rows(service.generate_csv(summary, filing))[3] == ["AT&T Inc. · 10-K summary"]
+
     def test_closing_note_keeps_its_published_words(self, service):
         """The closing note prints main's words in its own markup and classes now that the CSV reads
         them from the same constant (D-046), so a change to the legal text is a change to this test."""
