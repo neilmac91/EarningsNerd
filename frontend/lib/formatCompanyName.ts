@@ -17,7 +17,8 @@
  *      a lowercase suffix must not exempt the shouting body in front of it.
  *   2. Otherwise every whitespace-separated token is title-cased (first letter up, rest down),
  *      EXCEPT:
- *        - tokens with a digit or an ampersand are left untouched ("3M", "AT&T", "S&P");
+ *        - tokens with a digit or an ampersand are left untouched ("3M", "AT&T", "S&P"), unless OVERRIDES names
+ *          them ("L3HARRIS" -> "L3Harris");
  *        - a token with a slash is EDGAR's legal form with a marker glued on: the part before the first slash is
  *          cased as that word on its own, and each marker after a slash (a state code, NEW) keeps its capitals
  *          ("INC/DE" -> "Inc/DE", "CO/VA/" -> "Co/VA/"); a marker alone ("/DE/") stays as served (chief design on
@@ -167,6 +168,12 @@ const caseToken = (token: string, isFirst: boolean): string => {
   // Whole-token lookups first (entries such as "U.S." carry their own punctuation).
   if (OVERRIDES[upper]) return OVERRIDES[upper]
   if (KEEP_UPPER.has(upper)) return upper
+  // Then the core with glued punctuation stripped: "(IBM)", "IBM,", "CO." -> lookup "IBM" / "CO". It comes before the
+  // digit rule, so an override holding a digit keeps its casing with punctuation glued on ("L3HARRIS,").
+  const [lead, core, trail] = splitPunctuation(token)
+  const coreUpper = core.toUpperCase()
+  if (OVERRIDES[coreUpper]) return lead + OVERRIDES[coreUpper] + trail
+  if (KEEP_UPPER.has(coreUpper)) return lead + coreUpper + trail
   // Digits, ampersands: ticker-like or brand tokens ("3M", "AT&T", "S&P") -> as-is.
   if (/[0-9&]/.test(token)) return token
   // A legal form with EDGAR's marker glued on: the word before the first slash cased on its own, each marker as served
@@ -174,11 +181,6 @@ const caseToken = (token: string, isFirst: boolean): string => {
   const slash = token.indexOf('/')
   if (slash === 0) return token
   if (slash > 0) return caseToken(token.slice(0, slash), isFirst) + token.slice(slash)
-  // Then the core with glued punctuation stripped: "(IBM)", "IBM,", "CO." -> lookup "IBM" / "CO".
-  const [lead, core, trail] = splitPunctuation(token)
-  const coreUpper = core.toUpperCase()
-  if (OVERRIDES[coreUpper]) return lead + OVERRIDES[coreUpper] + trail
-  if (KEEP_UPPER.has(coreUpper)) return lead + coreUpper + trail
   const lower = core.toLowerCase()
   if (!isFirst && LOWER_MIDWORD.has(lower)) return lead + lower + trail
   // Case each run of letters separately so joiners survive: "COCA-COLA", "O'REILLY", "U.S.". A letter is any script's,

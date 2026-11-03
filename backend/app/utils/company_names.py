@@ -9,11 +9,12 @@ The rule is the TypeScript module's, line for line (its docstring states it in f
 
 1. A name whose body (every token before the trailing run of legal-form tokens) already holds a lowercase
    letter, in any script, is returned as served.
-2. Otherwise each token is title-cased, except: a token with a digit or an ampersand stays as served; a
-   token with a slash cases the word before the first slash and keeps each marker after it ("INC/DE" ->
-   "Inc/DE"); OVERRIDES take their brand casing; KEEP_UPPER stays upper; LOWER_MIDWORD is lowercased
-   unless it leads; a name's first token in LEADING_INITIALISMS stays upper before its partner token
-   ("ON SEMICONDUCTOR CORP" -> "ON Semiconductor Corp"). Lookups ignore punctuation glued to a token.
+2. Otherwise each token is title-cased, except: a token with a digit or an ampersand stays as served unless
+   OVERRIDES names it ("L3HARRIS" -> "L3Harris"); a token with a slash cases the word before the first slash
+   and keeps each marker after it ("INC/DE" -> "Inc/DE"); OVERRIDES take their brand casing; KEEP_UPPER stays
+   upper; LOWER_MIDWORD is lowercased unless it leads; a name's first token in LEADING_INITIALISMS stays upper
+   before its partner token ("ON SEMICONDUCTOR CORP" -> "ON Semiconductor Corp"). Lookups ignore punctuation
+   glued to a token.
 3. A trailing group of tickers in parentheses ("BOEING CO (BA, BA-PA)") stays as served.
 4. Punctuation is never added or removed; joined segments are cased one by one, with a trailing "'S" -> "'s".
 5. A letter is any script's, with its accents: a word is lowercased whole (a Greek final sigma keeps its
@@ -179,6 +180,14 @@ def _case_token(token: str, is_first: bool) -> str:
         return OVERRIDES[upper]
     if upper in KEEP_UPPER:
         return upper
+    # Then the core with glued punctuation stripped: "(IBM)", "IBM,", "CO." -> lookup "IBM" / "CO". It comes before
+    # the digit rule, so an override holding a digit keeps its casing with punctuation glued on ("L3HARRIS,").
+    lead, core, trail = _split_punctuation(token)
+    core_upper = core.upper()
+    if core_upper in OVERRIDES:
+        return lead + OVERRIDES[core_upper] + trail
+    if core_upper in KEEP_UPPER:
+        return lead + core_upper + trail
     # Digits, ampersands: ticker-like or brand tokens ("3M", "AT&T", "S&P") stay as served.
     if _DIGIT_OR_AMPERSAND.search(token):
         return token
@@ -189,13 +198,6 @@ def _case_token(token: str, is_first: bool) -> str:
         return token
     if slash > 0:
         return _case_token(token[:slash], is_first) + token[slash:]
-    # Then the core with glued punctuation stripped: "(IBM)", "IBM,", "CO." -> lookup "IBM" / "CO".
-    lead, core, trail = _split_punctuation(token)
-    core_upper = core.upper()
-    if core_upper in OVERRIDES:
-        return lead + OVERRIDES[core_upper] + trail
-    if core_upper in KEEP_UPPER:
-        return lead + core_upper + trail
     lower = core.lower()
     if not is_first and lower in LOWER_MIDWORD:
         return lead + lower + trail
