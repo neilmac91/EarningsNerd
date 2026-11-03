@@ -404,15 +404,18 @@ async def send_invite_email(
     magic_link: str,
     unsubscribe_link: str,
     delivery_ref: str,
+    cohort: str | None,
     name: str | None = None,
 ) -> str:
     """The account invitation its recipient asked for (invite_delivery_service), and the provider's id for it.
 
-    Refused unless requested invitation email is available now (``legal_readiness_service``), whatever the caller
-    checked: the router's check may be a request old. Sent with the delivery's idempotency key, so a repeat of the
+    Refused unless requested invitation email is available now for this invitation (``legal_readiness_service``:
+    the capability, and a link its recipient could redeem, which while collection is held means one bound to the
+    address and in the invited cohort, ``cohort`` being what the invite stores), whatever the caller checked: the
+    router's check may be a request old. Sent with the delivery's idempotency key, so a repeat of the
     same request is the provider's one email, and its tag, which the provider's events carry back. Its footer says
     why the reader got it and links the page that stops these emails; account mail they request is unaffected."""
-    if not legal_readiness_service.is_invitation_email_available():
+    if not legal_readiness_service.is_invitation_email_available_for(cohort, to_email):
         raise PromotionalMailUnavailable(legal_readiness_service.INVITATION_EMAIL_UNAVAILABLE_MESSAGE)
     greeting = _greeting(name)
     invite_footer = (

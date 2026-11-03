@@ -37,7 +37,9 @@ import {
   type MintResult,
 } from '@/features/admin/api/admin-api'
 import { localDay } from '@/features/admin/lib/invitePermission'
-import { COLLECTION_HELD, EMAIL_HELD, READY, delivery, pendingInvite } from './fixtures/inviteReadiness'
+import {
+  COHORT_EXCEPTION_HELD, COHORT_ONLY, COLLECTION_HELD, EMAIL_HELD, READY, delivery, pendingInvite,
+} from './fixtures/inviteReadiness'
 
 const mint = (email: string, emailed: boolean): MintResult => ({
   id: email.length,
@@ -168,8 +170,93 @@ describe('the readiness banner says what holds what, and the page turns it off',
     await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith(1))
   })
 
+  it('with only the invited cohort open, says so, needs the cohort and sends links for it', async () => {
+    answer(COHORT_ONLY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const registration = notice('Registration is open to the invited cohort only')
+    expect(registration).toHaveAttribute('role', 'status')
+    expect(registration).toHaveTextContent('New registrations are switched off (LEGAL_COLLECTION_ENABLED is off).')
+    expect(registration).toHaveTextContent(
+      "Until registration opens, a new invite link needs its recipient's address and exactly the cohort set in LEGAL_INVITED_COHORT, and only such a link can be resent.",
+    )
+    expect(screen.queryByText('Registration is on hold')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Cohort (required)')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Cohort (required)'), 'cohort-synthetic-7f3a9c')
+    await stage('ann@example.com')
+    expect(sendButton()).not.toHaveAttribute('aria-disabled')
+    await user.click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0]).toMatchObject({ email: 'ann@example.com', cohort: 'cohort-synthetic-7f3a9c', sendEmail: false })
+  })
+
+  it('with only the invited cohort open, sends nothing while the cohort is empty and says so at the field', async () => {
+    answer(COHORT_ONLY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const field = screen.getByLabelText('Cohort (required)')
+    expect(field).toBeRequired()
+    expect(field).not.toHaveAttribute('aria-invalid')
+
+    const user = userEvent.setup()
+    await stage('ann@example.com')
+    await user.type(field, '   ')  // blank is no cohort
+    await user.click(sendButton())
+
+    expect(createInvite).not.toHaveBeenCalled()
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('Enter the cohort set in LEGAL_INVITED_COHORT.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter the cohort set in LEGAL_INVITED_COHORT.')
+    expect(field).toHaveFocus()
+
+    // Typing clears the error, and the send goes out with the cohort.
+    await user.type(field, 'cohort-synthetic-7f3a9c')
+    expect(field).not.toHaveAttribute('aria-invalid')
+    expect(screen.queryByText('Enter the cohort set in LEGAL_INVITED_COHORT.')).toBeNull()
+    await user.click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0].cohort).toBe('cohort-synthetic-7f3a9c')
+  })
+
+  it('with only the invited cohort open, an empty cohort is the first field it asks for when the request is missing too', async () => {
+    answer({ ...COHORT_ONLY, invitation_email: { available: true, reasons: [] } })
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const user = userEvent.setup()
+    await waitFor(() => expect(emailBox()).not.toHaveAttribute('aria-disabled'))
+    await user.click(emailBox())
+    await stage('ann@example.com')
+    await user.click(sendButton())
+
+    expect(createInvite).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Cohort (required)')).toHaveFocus()
+    // The request's fields are checked in the same press, so each says what it needs.
+    expect(screen.getByLabelText('How they asked')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('keeps the cohort optional while registration is open, and sends without one', async () => {
+    answer(READY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
+    renderPage()
+    await screen.findByText(/No invites yet/)
+    const field = screen.getByLabelText('Cohort (optional)')
+    expect(field).not.toBeRequired()
+    await stage('ann@example.com')
+    await userEvent.setup().click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0].cohort).toBeUndefined()
+    expect(field).not.toHaveAttribute('aria-invalid')
+  })
+
   it('says something it does not recognize holds a capability, rather than nothing', async () => {
-    answer({ collection: { available: true, reasons: [] }, invitation_email: { available: false, reasons: ['a_new_condition'] } })
+    answer({
+      collection: { available: true, reasons: [] }, invited_cohort: COHORT_EXCEPTION_HELD,
+      invitation_email: { available: false, reasons: ['a_new_condition'] },
+    })
     renderPage()
     await screen.findByText('Invitation email is on hold')
     expect(notice('Invitation email is on hold')).toHaveTextContent(

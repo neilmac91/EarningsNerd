@@ -1,0 +1,16 @@
+{
+  "why": "E305: the filing summary's download name, which the page builds (buildFilename in frontend/features/summaries/hooks/useSummaryExports.ts) and the backend's export routes send (summary_export_filename in backend/app/services/export_service.py). It leads with the ticker, as the analysis PDF's name does, so two companies' filings of one form and day never share a name. A filing date is the wire form the API serves; a null ticker is a filing whose company is not loaded.",
+  "cases": [
+    {"ticker": "BIIB", "filing_type": "10-K", "filing_date": "2026-02-06T00:00:00+00:00", "kind": "pdf", "name": "BIIB_10-K_20260206.pdf"},
+    {"ticker": "BIIB", "filing_type": "10-K", "filing_date": "2026-02-06T00:00:00+00:00", "kind": "csv", "name": "BIIB_10-K_20260206.csv"},
+    {"ticker": "AAPL", "filing_type": "10-K", "filing_date": "2026-02-06T00:00:00+00:00", "kind": "pdf", "name": "AAPL_10-K_20260206.pdf"},
+    {"ticker": "BRK.B", "filing_type": "10-Q", "filing_date": "2025-08-05T00:00:00+00:00", "kind": "pdf", "name": "BRK.B_10-Q_20250805.pdf"},
+    {"ticker": "SAP", "filing_type": "20-F", "filing_date": "2026-02-26T00:00:00+00:00", "kind": "csv", "name": "SAP_20-F_20260226.csv"},
+    {"ticker": "AAPL", "filing_type": "10-K/A", "filing_date": "2025-11-14T00:00:00+00:00", "kind": "pdf", "name": "AAPL_10-KA_20251114.pdf"},
+    {"ticker": null, "filing_type": "10-Q", "filing_date": "2025-08-05T00:00:00+00:00", "kind": "pdf", "name": "10-Q_20250805.pdf"},
+    {"ticker": "", "filing_type": "10-Q", "filing_date": "2025-08-05T00:00:00+00:00", "kind": "csv", "name": "10-Q_20250805.csv"},
+    {"ticker": "BIIB", "filing_type": "10-K", "filing_date": null, "kind": "csv", "name": "BIIB_10-K_summary.csv"},
+    {"ticker": "BIIB", "filing_type": null, "filing_date": "2026-02-06T00:00:00+00:00", "kind": "pdf", "name": "BIIB_filing_20260206.pdf"},
+    {"ticker": "../\"BIIB\"", "filing_type": "10-K", "filing_date": "2026-02-06T00:00:00+00:00", "kind": "pdf", "name": "BIIB_10-K_20260206.pdf"}
+  ]
+}

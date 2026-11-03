@@ -163,7 +163,7 @@ def test_closed_readiness_preserves_invitation_list_and_revoke(client, admin_hea
 
 
 SENDER_INPUTS = dict(
-    unsubscribe_link="https://example.com/email/unsubscribe#token=synthetic", delivery_ref="0" * 32,
+    unsubscribe_link="https://example.com/email/unsubscribe#token=synthetic", delivery_ref="0" * 32, cohort=None,
 )
 
 
@@ -183,7 +183,7 @@ async def test_invitation_sender_independently_refuses_while_invitation_email_cl
 @pytest.mark.asyncio
 async def test_dormant_invitation_copy_promises_account_access_without_pro(delivery, monkeypatch):
     # Inspect the dormant template without making delivery available in production.
-    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available_for", lambda cohort, email: True)
     link = "https://example.com/invite"
 
     await email_service.send_invite_email(to_email="invitee@example.com", magic_link=link, **SENDER_INPUTS)

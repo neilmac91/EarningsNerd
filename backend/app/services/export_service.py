@@ -9,7 +9,8 @@ from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
     ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, QUARTER_LEGEND, calculated_sentence, derived_quarters,
-    detail_entries, display_instant, evidence_lines, export_points, fine_print_summary, formula_text, later_filing_entry,
+    detail_entries, display_date, display_instant, evidence_lines, export_points, fine_print_summary, formula_text,
+    later_filing_entry,
     method_words, not_meaningful_lines, note_index, operand_records, pdf_closing, period_label, raw_value_text,
     source_urls, source_words,
 )
@@ -109,6 +110,39 @@ def original_document_url(filing: Filing) -> str:
     return ""
 
 
+def summary_title(filing: Filing) -> str:
+    """The filing summary's title in the PDF and the CSV: the company as the page names it, never EDGAR's capitals
+    ("Biogen Inc. · 10-K summary"), as the analysis exports print theirs (E210). Unescaped: the PDF escapes it."""
+    company = filing.company
+    name = display_company_name(company.name) or getattr(company, "ticker", None) or ""
+    return f"{name} · {filing.filing_type or ''} summary"
+
+
+def _filename_part(value: str | None, fallback: str) -> str:
+    """``sanitizeFilename`` in frontend/lib/format.ts, step for step, since the page names the summary's download
+    through it: no "..", no character a file system refuses, every other character outside [A-Za-z0-9._-] an
+    underscore, runs of underscores one, no leading or trailing dot or underscore, at most 100 characters."""
+    if not value:
+        return fallback
+    part = value.replace("..", "")
+    part = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part)
+    part = re.sub(r"[^a-zA-Z0-9._-]", "_", part)
+    part = re.sub(r"_+", "_", part)
+    part = re.sub(r"\A[._]+|[._]+\Z", "", part)[:100]
+    return part or fallback
+
+
+def summary_export_filename(filing: Filing, kind: str) -> str:
+    """The filing summary's download name, as the page names it (``buildFilename`` in
+    frontend/features/summaries/hooks/useSummaryExports.ts): the ticker, the form and the filed day
+    ("BIIB_10-K_20260206.pdf"), or the form and the day for a filing without a ticker (E305). Both run
+    backend/tests/fixtures/summary_export_filenames.json."""
+    ticker = _filename_part(getattr(filing.company, "ticker", None), "")
+    form = _filename_part(filing.filing_type, "filing")
+    day = filing.filing_date.strftime("%Y%m%d") if filing.filing_date else "summary"
+    return f"{ticker}_{form}_{day}.{kind}" if ticker else f"{form}_{day}.{kind}"
+
+
 class ExportService:
     def __init__(self):
         pass
@@ -117,10 +151,13 @@ class ExportService:
         """HTML for the filing-summary PDF — body sections inside the shared branded shell."""
         raw_summary = export_raw_summary(summary, filing)
 
+        # The days and the generation instant read as the analysis exports print them ("October 5, 2026",
+        # "November 3, 2026, 06:45 UTC", E210), each clause one unbroken run as theirs are, so the line breaks between
+        # clauses, never inside a date or before "UTC".
         meta_html = (
-            f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
-            f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
-            f"Generated {utcnow().strftime('%B %d, %Y')}"
+            f'<span class="clause">Filing Date: {display_date(filing.filing_date) or "N/A"}</span> · '
+            f'<span class="clause">Period End: {display_date(filing.period_end_date) or "N/A"}</span> · '
+            f'<span class="clause">Generated {display_instant(utcnow())}</span>'
             # The filing page's words for its link to the primary document, with the address it opens (E190).
             # backend/evals/acceptance_readiness.py anchors its blinding of the generation date on
             # "<br>Original on SEC.gov"; test_acceptance_readiness.py runs that blinding on this output.
@@ -138,7 +175,7 @@ class ExportService:
         body_html += f'<div class="closing-note footnote">{closing}</div>'
 
         return render_branded_pdf(
-            title=f"{escape(filing.company.name or '')} · {escape(filing.filing_type or '')} summary",
+            title=escape(summary_title(filing)),
             doc_kind="Filing<br>Summary",
             meta_html=meta_html,
             body_html=body_html,
@@ -232,9 +269,9 @@ class ExportService:
         writer.writerow([])
 
         # Header: the PDF's title form, then where the words come from (the PDF's meta line).
-        writer.writerow([f"{filing.company.name} · {filing.filing_type} summary"])
-        writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
-        writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
+        writer.writerow([summary_title(filing)])
+        writer.writerow([f"Filing Date: {display_date(filing.filing_date) or 'N/A'}"])
+        writer.writerow([f"Generated: {display_instant(utcnow())}"])
         writer.writerow([f"Original on SEC.gov · {original_document_url(filing)}"])
         writer.writerow([])
 

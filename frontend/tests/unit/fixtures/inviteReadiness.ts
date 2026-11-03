@@ -1,21 +1,34 @@
 import type { InviteDelivery, InviteReadiness, InviteRecord } from '@/features/admin/api/admin-api'
 
+/** The invited-cohort exception as an invite-only service holds it by default: switched off, no cohort set. */
+export const COHORT_EXCEPTION_HELD = { available: false, reasons: ['invited_cohort_disabled', 'invited_cohort_unset'] }
+
 /** GET /api/admin/invites/readiness answers (backend legal_readiness_service), for the admin invites specs. */
 export const READY: InviteReadiness = {
   collection: { available: true, reasons: [] },
+  invited_cohort: COHORT_EXCEPTION_HELD,
   invitation_email: { available: true, reasons: [] },
 }
 
 /** Registration open, invitation email off until the founder's approval: links only. */
 export const EMAIL_HELD: InviteReadiness = {
   collection: { available: true, reasons: [] },
+  invited_cohort: COHORT_EXCEPTION_HELD,
   invitation_email: { available: false, reasons: ['invitation_email_disabled'] },
 }
 
 /** Registration closed, which holds invitation email too. */
 export const COLLECTION_HELD: InviteReadiness = {
   collection: { available: false, reasons: ['collection_disabled', 'operator_unpublished'] },
+  invited_cohort: COHORT_EXCEPTION_HELD,
   invitation_email: { available: false, reasons: ['collection_unavailable', 'invitation_email_disabled'] },
+}
+
+/** Registration closed but the invited-cohort exception open: links for the cohort alone, invitation email off. */
+export const COHORT_ONLY: InviteReadiness = {
+  collection: { available: false, reasons: ['collection_disabled', 'operator_unpublished'] },
+  invited_cohort: { available: true, reasons: [] },
+  invitation_email: { available: false, reasons: ['invitation_email_disabled'] },
 }
 
 /** An emailed invite's delivery, in a given state. */
