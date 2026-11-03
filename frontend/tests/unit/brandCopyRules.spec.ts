@@ -1639,9 +1639,9 @@ const FIGURE_FIELDS = new Set([
   'as_of', 'completed_at', 'created_at', 'current_period_end', 'data_as_of', 'earnings_date', 'end_period', 'enddt', 'event_date',
   'expires_at', 'extracted_at', 'filed_at', 'filed_date', 'filingDate', 'filing_date', 'fiscal_period', 'key', 'last_transaction_date',
   'later_filed_at', 'linked_at', 'month', 'period', 'period_end', 'period_end_date', 'period_ending', 'period_key', 'periods',
-  'report_date', 'start_period',
+  'permission_requested_on', 'report_date', 'requested_on', 'start_period',
   'startdt', 'summary_created_at', 'summary_updated_at', 'synced_at', 'timestamp', 'transaction_date', 'trial_end',
-  'used_at', 'week_end', 'week_start',
+  'updated_at', 'used_at', 'week_end', 'week_start',
   // The text written about the filing, which quotes its figures, a table's or a list's included.
   'excerpt', 'section_ref', 'source_section_ref', 'section_label', 'before', 'after', 'ops', 'answer', 'business_overview', 'commentary', 'comparison_basis',
   'content', 'coverage_reason', 'description', 'detail', 'followups', 'headers', 'headline', 'items', 'key_changes',
@@ -1655,8 +1655,8 @@ const WORD_FIELDS = new Set([
   'metric', 'label', 'reason_label', 'concept', 'concepts', 'xbrl_concept', 'raw_tag', 'form', 'forms', 'filing_type',
   'filingType', 'unit', 'currency', 'reporting_currency', 'exchange', 'cohort', 'provider', 'transaction_label', 'universe',
   // Codes the product reads, and its status lines.
-  'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'fallback_reason', 'id',
-  'kind', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
+  'acquired_disposed', 'channel', 'code', 'coverage_status', 'digest', 'entryPoint', 'error', 'error_kind', 'fallback_reason', 'id',
+  'kind', 'permission_via', 'plan', 'qualityTier', 'reason', 'reasons', 'referral_code', 'role', 'stage', 'status', 'subscription_status',
   'section', 'summary_status', 'tier', 'time', 'tone', 'transaction_code', 'type', 'writer_error',
   'accepted_content_types', 'content_type',
   // URLs and opaque ids.

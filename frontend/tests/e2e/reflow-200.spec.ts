@@ -154,6 +154,14 @@ const ROUTES: Route[] = [
   { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
   { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
   { name: 'terms', path: '/terms', open: answerGuest, ready: (p) => h1(p, 'Terms of Service'), ...siteHeader },
+  // Without the email's token: its notice carries the support address, the widest run on the page.
+  {
+    name: 'unsubscribe',
+    path: '/email/unsubscribe',
+    open: answerGuest,
+    ready: (p) => expect(p.getByText('This page needs the link from your email')).toBeVisible(),
+    ...siteHeader,
+  },
   {
     name: 'filing',
     path: '/filing/3',

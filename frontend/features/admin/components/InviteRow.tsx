@@ -1,17 +1,20 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon, PaperPlaneTiltIcon, ProhibitIcon } from '@/lib/icons'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { resendInvite, revokeInvite, type InviteRecord } from '@/features/admin/api/admin-api'
+import { resendInvite, revokeInvite, type InviteRecord, type ResendResult } from '@/features/admin/api/admin-api'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
+import InviteDeliveryState from '@/features/admin/components/InviteDeliveryState'
+import { resendEmails } from '@/features/admin/lib/inviteDelivery'
 import RevokeConfirmModal from '@/features/admin/components/RevokeConfirmModal'
 import { MissingValue } from '@/components/ui/MissingValue'
 import ResendShareModal from '@/features/admin/components/ResendShareModal'
+import AddressText from '@/features/auth/components/AddressText'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -26,10 +29,16 @@ function fmtDate(value: string | null): string | null {
 
 interface InviteRowProps {
   invite: InviteRecord
+  /** Why no new invite link can be made now (registration is on hold, or its check has not answered), or null when
+   *  one can: Resend stays focusable but inert, and says why. Revoke never waits on it. */
+  linkHold: string | null
+  /** Requested invitation email is available (the readiness read answered so). */
+  invitationEmailAvailable: boolean
 }
 
-export default function InviteRow({ invite }: InviteRowProps) {
+export default function InviteRow({ invite, linkHold, invitationEmailAvailable }: InviteRowProps) {
   const queryClient = useQueryClient()
+  const holdId = useId()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   // Holds the freshly-minted link after a resend so we can offer it for sharing.
@@ -37,6 +46,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
     link: string
     email: string | null
     emailed: boolean
+    deliveryStatus: ResendResult['delivery_status']
   } | null>(null)
 
   // Client-side cooldown countdown after a resend, so an admin can't hammer the endpoint and
@@ -48,12 +58,19 @@ export default function InviteRow({ invite }: InviteRowProps) {
   }, [cooldown])
 
   const resendMutation = useMutation({
-    mutationFn: () => resendInvite(invite.id),
+    // send_email is always explicit (resendEmails): left out, the backend would email any bound invite's replacement.
+    mutationFn: () => resendInvite(invite.id, { sendEmail: resendEmails(invite, invitationEmailAvailable) }),
     onSuccess: (result) => {
       setCooldown(RESEND_COOLDOWN_SECONDS)
-      toast.success(result.emailed ? `Invite re-sent to ${result.email}` : 'Fresh invite link minted')
+      // `emailed` is the provider's acceptance, never delivery: the dialog and the row say what is known.
+      toast.success(result.emailed ? 'New invite link ready · accepted by the email provider' : 'New invite link ready')
       // Surface the fresh link in a dialog so the admin can copy/share it right away.
-      setResendShare({ link: result.invite_link, email: result.email, emailed: result.emailed })
+      setResendShare({
+        link: result.invite_link,
+        email: result.email,
+        emailed: result.emailed,
+        deliveryStatus: result.delivery_status ?? null,
+      })
       queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     },
     onError: (err: unknown) => {
@@ -78,12 +95,17 @@ export default function InviteRow({ invite }: InviteRowProps) {
   // A link-only invite has no address to name, so its actions say what it is.
   const resendLabel = invite.email ? `Resend invite to ${invite.email}` : 'Resend this link-only invite'
   const revokeLabel = invite.email ? `Revoke invite to ${invite.email}` : 'Revoke this link-only invite'
-  const resendDisabled = resendMutation.isPending || cooldown > 0
+  const resendDisabled = resendMutation.isPending || cooldown > 0 || linkHold !== null
 
   return (
     <tr className="hover:bg-background-light dark:hover:bg-white/5">
-      <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
-        {invite.email ?? (
+      {/* The address breaks after its @ (AddressText), never nowrap: one 51-character address took the table to 1295px
+          in its 1214px box from 1280px to 1920px, Revoke past its right edge (chief design on #1965). A short address
+          still keeps its line. */}
+      <td className="px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
+        {invite.email ? (
+          <AddressText address={invite.email} />
+        ) : (
           <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Link only</span>
         )}
       </td>
@@ -93,6 +115,9 @@ export default function InviteRow({ invite }: InviteRowProps) {
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <InviteStatusBadge status={invite.status} />
+      </td>
+      <td className="px-4 py-3 text-sm">
+        <InviteDeliveryState delivery={invite.delivery} suppression={invite.email_suppression} />
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {fmtDate(invite.created_at) ?? <MissingValue />}
@@ -118,6 +143,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               aria-disabled={resendDisabled || undefined}
               aria-busy={resendMutation.isPending || undefined}
               aria-label={resendLabel}
+              aria-describedby={linkHold !== null ? holdId : undefined}
               className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:cursor-not-allowed aria-disabled:border-border-light/50 aria-disabled:text-text-primary-light/50 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5 dark:aria-disabled:border-white/5 dark:aria-disabled:text-text-primary-dark/50"
             >
               {resendMutation.isPending ? (
@@ -127,6 +153,11 @@ export default function InviteRow({ invite }: InviteRowProps) {
               )}
               {cooldown > 0 ? `Resend (${cooldown}s)` : 'Resend'}
             </button>
+          )}
+          {!isUsed && linkHold !== null && (
+            <span id={holdId} className="sr-only">
+              {linkHold}
+            </span>
           )}
 
           {/* Visual separator between the constructive and destructive actions. */}
@@ -163,6 +194,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
           link={resendShare.link}
           email={resendShare.email}
           emailed={resendShare.emailed}
+          deliveryStatus={resendShare.deliveryStatus}
           onClose={() => setResendShare(null)}
         />
       )}

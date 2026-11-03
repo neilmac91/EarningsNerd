@@ -100,6 +100,8 @@ const RESIDUE_MAX = { titles: 1, descriptions: 1 }
 const PRIVATE_ROUTES = [
   'admin/feedback', 'admin/invites', 'auth/complete', 'check-email', 'dashboard', 'dashboard/settings', 'dashboard/watchlist',
   'delete-account', 'forgot-password', 'login', 'register', 'reset-password', 'verify-email',
+  // An invitation email's own opt-out link: public, but nothing to find by search.
+  'email/unsubscribe',
   // Default-off prototypes (lib/featureFlags.ts); each page sets its own robots.
   'labs/filing-redlines', 'labs/financial-refresh-review', 'labs/research-evidence-packs',
 ]

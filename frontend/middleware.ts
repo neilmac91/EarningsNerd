@@ -16,6 +16,8 @@ const ALLOWED_PATHS = new Set([
   '/security',
   '/.well-known/security.txt',
   '/contact',
+  // An invitation email's opt-out works in either mode: the link in a sent email must never land on /waitlist.
+  '/email/unsubscribe',
   '/robots.txt',
   '/sitemap.xml',
   '/favicon.ico',
