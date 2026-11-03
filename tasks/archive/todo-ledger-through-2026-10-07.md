@@ -7196,6 +7196,18 @@ Full local and hosted verification plus independent exact-head review precede re
   CODE RED spend; no ledger event. No new chief defect; no hook refusal; the lapses counted from the
   chief's notes and its own commands. Two container restarts. Gate (d) in its ninth round; gate (c) in
   its third.
+- 2026-11-03 (record 76, `runtime/control/DECISIONS-76.md`): PR #1982 (record 75) merged `87656c72` by
+  the chief's own squash (seventy-first deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, one delta commit and a clean delta check. Closure 227
+  registers record 75's reviewer, gate (d)'s round-8 and round-9 reviews and gate (c)'s round-2 review, and
+  pre-registers record 77's reviewer and the review-rounds rule's label. No survey or fact-check workflow for
+  this record. Sixteen main merges, ten deploy jobs each healthy by its own health step, five push runs
+  skipping every deploy step. Production read live after nine of the ten deploys: describe-service passing
+  and logs-probe reading logging permitted; none after #1979's, the container restart coming first. The
+  founder's correction on review rounds: chief defect 42, the rule recorded and gated in #1989. No CODE RED
+  spend; no ledger event. No hook refusal; the lapses counted from the chief's notes and its own commands.
+  One container restart; one full disk. Gate (d)'s round-10 review, of the fix diff only, running at the
+  window's end; gate (c)'s fourth and last fix round handed back.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
