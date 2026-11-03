@@ -65,7 +65,8 @@ SEC_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000001.json"
 RNOIE, FEE = fi_revenue.TOTAL_TAGS[0], fi_revenue.FEE_TAG
 SIC = {"AMT": "6798", "AXP": "6199", "BLK": "6211", "IBKR": "6211", "ICE": "6200", "KKR": "6282",
        "MET": "6311", "PNC": "6021", "TROW": "6282", "WFC": "6021",
-       "AJG": "6411", "ARE": "6798", "CBOE": "6200", "CLSK": "6199", "HUT": "6199", "TRC": "6500", "WBHC": "6021"}
+       "AJG": "6411", "ARE": "6798", "CBOE": "6200", "CLSK": "6199", "HUT": "6199", "TRC": "6500", "WBHC": "6021",
+       "MC": "6282"}
 # The design's table came from a pure prototype that stored no per-filing rows and never split D and E by tag. Here
 # each 10-K's own year also goes through the per-filing writer, which adds F, F_gap and unjudged and changes no feed
 # count. ICE's FY2017 fee history is D: ICE's choice keeps the fee tag, but behind Revenues, which that 10-K reports,
@@ -87,6 +88,7 @@ FIXTURE_SETS = {
     "AJG": {}, "ARE": {}, "CBOE": {}, "CLSK": {}, "HUT": {},
     "TRC": {"K_review": 1},
     "WBHC": {"B": 21, "C2": 2, "unjudged": 1},
+    "MC": {},  # E290: no revenue element the old reading reads, so every row is the deployed resync's
 }
 START_KEYS = {"started", "run_id", "workflow_commit", "dry_run", "execution", "production_image_used",
               "payload_source", "rule", "cohort_size", "blank_sic_companies", "cohort"}

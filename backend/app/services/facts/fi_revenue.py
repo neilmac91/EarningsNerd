@@ -20,7 +20,9 @@ quarters. A bank's sum is its net interest income plus its noninterest income as
    the periods every other tag lacks, and only when that element is read. Of the rest, one is left out when it
    reports one year, which another of the rest reports among others (CLSK's FY2019 component).
 2. The ASC 606 elements, excluding then including assessed tax (CBOE, ARE, BRX, SDEV and HUT tag their total with
-   the latter), after the totals, each read only when it is the filer's total. Either its value matches the earlier
+   the latter), then InvestmentBankingRevenue, an adviser's whole revenue where it tags no other total (MC; GS, MS,
+   JPM, BAC, PNC, RJF and JEF tag it as a part beside their net totals), after the totals, each read only when it is
+   the filer's total. Either its value matches the earlier
    tags' at the latest year it shares with them (ICE, NDAQ, EQIX, O, PNC); or it shares no year with them, matches
    them at the latest quarter they share if they share one (a quarter can refuse it, never admit it), and no filing
    reads it more than 3% below the bank's sum (RF's, FITB's and WAL's fee lines read 1-9% of it): a year's, or where
@@ -44,12 +46,13 @@ TOTAL_TAGS = (
 )
 FEE_TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
 FEE_TAGS = (FEE_TAG, "RevenueFromContractWithCustomerIncludingAssessedTax")
+SOLE_TAGS = (*FEE_TAGS, "InvestmentBankingRevenue")  # each read only where it is the filer's total (docstring, 2)
 NON_606_TAGS = (  # revenue outside ASC 606: interest, premiums, investment income (a BDC's whole total), leases
     "InterestIncomeExpenseNet", "InterestAndDividendIncomeOperating", "InterestIncomeOperating", "NoninterestIncome",
     "PremiumsEarnedNet", "NetInvestmentIncome", "GrossInvestmentIncomeOperating", "OperatingLeaseLeaseIncome",
     "LeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue",
 )  # not InvestmentIncomeNet: NDAQ, ICE and BX tag nonoperating income with it beside a fee line that is their total
-RULE_TAGS = (*TOTAL_TAGS, *FEE_TAGS, *NON_606_TAGS)  # every element the rule reads, a bank's sum among the parts
+RULE_TAGS = (*TOTAL_TAGS, *SOLE_TAGS, *NON_606_TAGS)  # every element the rule reads, a bank's sum among the parts
 PARTIAL_RATIO = 0.9  # a total element below this share of the ASC 606 element is a partial line (BLK's at 0.62)
 IDENTITY_TOLERANCE = 0.03  # a line against the bank's sum (module docstring)
 _Items = dict[tuple[date, str], list[tuple[str, float]]]
@@ -107,7 +110,7 @@ def _take(chosen: list[str], held: _Items, tag: str, series: _Items) -> None:
 
 
 def _fee_admitted(fee: _Items, held: _Items, beside: list, bank_ratios: list[float]) -> bool:
-    """An ASC 606 element is the filer's total where it fills (module docstring, 2)."""
+    """An element of (2) is the filer's total where it fills (module docstring, 2)."""
     if not fee:
         return False
     shared = _shared(fee, held)  # the years both report, else the quarters
@@ -148,7 +151,7 @@ def financial_revenue_tags(usgaap: dict, unit: str, foreign: frozenset = frozens
         shared = _shared(series, held)
         if not chosen or (shared and _matches(_read(series[max(shared)]), held[max(shared)])):
             _take(chosen, held, tag, series)
-    for tag in FEE_TAGS:
+    for tag in SOLE_TAGS:
         series = _items(usgaap, tag, unit, foreign)
         beside = [(key, v) for part in NON_606_TAGS for key, got in _items(usgaap, part, unit, foreign).items()
                   if key in series and (v := _read(got)) > 0]  # each positive part, as read, at a period it reports

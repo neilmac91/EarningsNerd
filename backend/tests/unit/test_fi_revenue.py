@@ -9,8 +9,10 @@ ASC 606, OperatingLeaseLeaseIncome), TROW from 2007 (RevenuesNetOfInterestExpens
 (Revenues, ASC 606), AXP from 2015 (RevenuesNetOfInterestExpense, both ASC 606 tags), PNC from 2017 (Revenues, ASC 606)
 and MET from 2020 (Revenues, ASC 606). E286's, fetched 2026-11-02 the same way and trimmed to the rule's tags
 (``fi_revenue.RULE_TAGS``) and the generic list's: CBOE from 2015, ARE from 2014, CLSK from 2017, AJG from 2013, TRC
-from 2016, WBHC from 2021, HUT from 2021, and BXSL, a business development company with no SIC code, from 2020. Each
-gives the same tag choice and the same revenue rows, after its first kept year, as the full payload. The lender
+from 2016, WBHC from 2021, HUT from 2021, and BXSL, a business development company with no SIC code, from 2020. E290's,
+fetched 2026-11-02 the same way: MC (Moelis) from 2021, whose total is its only revenue element,
+InvestmentBankingRevenue. Each gives the same tag choice and the same revenue rows, after its first kept year, as the
+full payload. The lender
 without a total (fee 50 beside net interest income 400) stays pinned by ``test_companyfacts_ingest.py``'s financial
 cases.
 """
@@ -33,12 +35,14 @@ from app.services.facts.reconcile import extract_authoritative_values
 BACKEND = Path(__file__).resolve().parents[2]
 FIXTURES = BACKEND / "tests" / "fixtures" / "companyfacts_fi"
 TICKERS = ("IBKR", "BLK", "ICE", "WFC", "AMT", "TROW", "KKR", "AXP", "PNC", "MET",
-           "CBOE", "ARE", "CLSK", "AJG", "TRC", "WBHC", "HUT")  # the second row E286's
+           "CBOE", "ARE", "CLSK", "AJG", "TRC", "WBHC", "HUT",  # the second row E286's
+           "MC")  # E290's
 RNOIE, REV, SRN = "RevenuesNetOfInterestExpense", "Revenues", "SalesRevenueNet"
 RERN, SRSN, GII = "RealEstateRevenueNet", "SalesRevenueServicesNet", "GrossInvestmentIncomeOperating"
 NII, NONII = "InterestIncomeExpenseNet", "NoninterestIncome"
 FEE, FEEI = "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax"
 FEE_TAGS = {f"us-gaap:{FEE}", f"us-gaap:{FEEI}"}
+IBR = "InvestmentBankingRevenue"
 
 
 def _load(ticker):
@@ -106,7 +110,7 @@ def _fee_rows(facts):
     ("IBKR", (RNOIE,)), ("WFC", (RNOIE, REV)), ("BLK", (FEE,)), ("ICE", (REV, FEE)), ("AMT", (REV, SRN)),
     ("TROW", (RNOIE, REV, FEE)), ("KKR", (REV,)), ("AXP", (RNOIE,)), ("PNC", (REV, FEE)), ("MET", (REV,)),
     ("CBOE", (REV, FEEI)), ("ARE", (RERN, FEEI)), ("CLSK", (REV,)), ("AJG", (FEE, REV)), ("TRC", (REV, FEE)),
-    ("WBHC", ()), ("HUT", (FEE, FEEI)),
+    ("WBHC", ()), ("HUT", (FEE, FEEI)), ("MC", (IBR,)),
 ])
 def test_each_filer_reads_its_own_tags(ticker, tags):
     assert fi_revenue.financial_revenue_tags(_load(ticker)["facts"]["us-gaap"], "USD") == tags
@@ -381,6 +385,37 @@ def test_with_no_total_a_fee_tag_above_the_part_beside_it_is_the_total():
         "2016-12-31": (45.98, REV), "2017-12-31": (35.26, REV), "2018-12-31": (45.62, REV), "2019-12-31": (49.52, REV),
         "2020-12-31": (37.83, REV), "2022-12-31": (79.22, FEE), "2023-12-31": (44.74, FEE),
         "2024-12-31": (41.89, FEE), "2025-12-31": (49.59, FEE)}
+
+
+def test_an_advisers_investment_banking_revenue_is_its_total():
+    # E290: Moelis tags its whole revenue as InvestmentBankingRevenue and no total element (FY2025 10-K
+    # 0001193125-26-076747: 1,516.8M), so it read no revenue at all before.
+    assert _millions(_load("MC")) == {
+        "2021-12-31": (1540.61, IBR), "2022-12-31": (985.3, IBR), "2023-12-31": (854.75, IBR),
+        "2024-12-31": (1194.55, IBR), "2025-12-31": (1516.8, IBR)}
+
+
+def test_investment_banking_revenue_beside_a_net_total_is_a_part():
+    # GS, MS and JPM tag their investment banking fees beside their net totals (GS FY2025: 9,348M of 58,283M)
+    payload = _years({RNOIE: {y: 58.283e9 for y in range(2022, 2026)}, IBR: {y: 9.348e9 for y in range(2022, 2026)}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == (RNOIE,)
+
+
+def test_a_banks_investment_banking_line_is_no_total():
+    # JMSB's shape: a bank without a total element whose investment banking fees (0.3M) sit far below its net interest
+    # income, so the line is a part, and the lender keeps no revenue row
+    years = range(2023, 2026)
+    payload = _years({IBR: {y: 0.336e6 for y in years}, NII: {y: 60e6 for y in years}, NONII: {y: 4e6 for y in years}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == ()
+
+
+@pytest.mark.parametrize("y2019,tags", [(1.0e9, (FEE, IBR)), (0.4e9, (FEE,))])
+def test_investment_banking_revenue_follows_the_fee_tag_only_where_it_matches(y2019, tags):
+    # read after the ASC 606 elements: an adviser's earlier InvestmentBankingRevenue years fill behind its fee-tagged
+    # total only where the two agree at the year both report
+    fee = {y: 1.0e9 for y in range(2019, 2026)}
+    payload = _years({FEE: fee, IBR: {2016: 0.8e9, 2017: 0.9e9, 2018: 0.95e9, 2019: y2019}})
+    assert fi_revenue.financial_revenue_tags(payload["facts"]["us-gaap"], "USD") == tags
 
 
 @pytest.mark.parametrize("fee,tags", [(450e6, ()), (484.5e6, ()), (500e6, (FEE,)), (510e6, (FEE,))])
