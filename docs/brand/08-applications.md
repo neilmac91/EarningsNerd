@@ -466,7 +466,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   as stored ("2025-02-14"): an operand's period and filed day in Sources & methods, the filed days in the
   first-reported sentence, and the workbook's period and filed columns. The filing summary's PDF and CSV
   joined the analysis exports in E210, with the eval's blinding of that PDF's generation date
-  (`backend/evals/acceptance_readiness.py`).
+  (`backend/evals/acceptance_readiness.py`), which since E303 also keeps each of the shell's fonts to its file
+  name, since the fonts' `file://` addresses name the checkout an export was rendered in.
   The middot and sentence case hold for the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
   document, with the address that link opens) and the CSV, which now carries that source row under its
@@ -546,7 +547,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   rule, and the fine print's count clauses, places, detail forms and checks sentence (read from `DataNotes.tsx`), the
   calculated sentence (from `metrics-table.spec.tsx`) and the Q4 legend (from `MetricsTable.tsx`) to the page's words, by
   `test_export_note_marks.py`; the eval's blinding
-  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
+  of the generation date and of the fonts' addresses by cases in `test_acceptance_readiness.py` that run it on a
+  real export, the second rendering one from two checkouts and pinning the shell's five font addresses; the
   backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
   backend's company display name to the page's by one case table,
   `backend/tests/fixtures/company_display_names.json`, which `test_company_names.py` and
