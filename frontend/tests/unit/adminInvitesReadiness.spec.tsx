@@ -179,7 +179,7 @@ describe('the readiness banner says what holds what, and the page turns it off',
     expect(registration).toHaveAttribute('role', 'status')
     expect(registration).toHaveTextContent('New registrations are switched off (LEGAL_COLLECTION_ENABLED is off).')
     expect(registration).toHaveTextContent(
-      'Until registration opens, a new invite link must be bound to an address and carry the cohort set in LEGAL_INVITED_COHORT, exactly, and only such a link can be resent.',
+      "Until registration opens, a new invite link needs its recipient's address and exactly the cohort set in LEGAL_INVITED_COHORT, and only such a link can be resent.",
     )
     expect(screen.queryByText('Registration is on hold')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Cohort (required)')).toBeInTheDocument()
@@ -193,11 +193,63 @@ describe('the readiness banner says what holds what, and the page turns it off',
     expect(vi.mocked(createInvite).mock.calls[0][0]).toMatchObject({ email: 'ann@example.com', cohort: 'cohort-synthetic-7f3a9c', sendEmail: false })
   })
 
-  it('keeps the cohort optional while registration is open', async () => {
+  it('with only the invited cohort open, sends nothing while the cohort is empty and says so at the field', async () => {
+    answer(COHORT_ONLY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const field = screen.getByLabelText('Cohort (required)')
+    expect(field).toBeRequired()
+    expect(field).not.toHaveAttribute('aria-invalid')
+
+    const user = userEvent.setup()
+    await stage('ann@example.com')
+    await user.type(field, '   ')  // blank is no cohort
+    await user.click(sendButton())
+
+    expect(createInvite).not.toHaveBeenCalled()
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('Enter the cohort set in LEGAL_INVITED_COHORT.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter the cohort set in LEGAL_INVITED_COHORT.')
+    expect(field).toHaveFocus()
+
+    // Typing clears the error, and the send goes out with the cohort.
+    await user.type(field, 'cohort-synthetic-7f3a9c')
+    expect(field).not.toHaveAttribute('aria-invalid')
+    expect(screen.queryByText('Enter the cohort set in LEGAL_INVITED_COHORT.')).toBeNull()
+    await user.click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0].cohort).toBe('cohort-synthetic-7f3a9c')
+  })
+
+  it('with only the invited cohort open, an empty cohort is the first field it asks for when the request is missing too', async () => {
+    answer({ ...COHORT_ONLY, invitation_email: { available: true, reasons: [] } })
+    renderPage()
+    await screen.findByText('Registration is open to the invited cohort only')
+    const user = userEvent.setup()
+    await waitFor(() => expect(emailBox()).not.toHaveAttribute('aria-disabled'))
+    await user.click(emailBox())
+    await stage('ann@example.com')
+    await user.click(sendButton())
+
+    expect(createInvite).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Cohort (required)')).toHaveFocus()
+    // The request's fields are checked in the same press, so each says what it needs.
+    expect(screen.getByLabelText('How they asked')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('keeps the cohort optional while registration is open, and sends without one', async () => {
     answer(READY)
+    vi.mocked(createInvite).mockImplementation(async (input: CreateInviteInput) => mint(input.email as string, false))
     renderPage()
     await screen.findByText(/No invites yet/)
-    expect(screen.getByLabelText('Cohort (optional)')).toBeInTheDocument()
+    const field = screen.getByLabelText('Cohort (optional)')
+    expect(field).not.toBeRequired()
+    await stage('ann@example.com')
+    await userEvent.setup().click(sendButton())
+    await waitFor(() => expect(createInvite).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(createInvite).mock.calls[0][0].cohort).toBeUndefined()
+    expect(field).not.toHaveAttribute('aria-invalid')
   })
 
   it('says something it does not recognize holds a capability, rather than nothing', async () => {

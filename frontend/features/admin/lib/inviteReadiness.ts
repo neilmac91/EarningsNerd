@@ -39,7 +39,7 @@ export const INVITED_COHORT_REASONS: Record<string, string> = {
   registration_not_invite_only: 'Registration is not invite-only (REGISTRATION_MODE is public).',
   invited_cohort_disabled: 'The exception is switched off (LEGAL_INVITED_COHORT_ENABLED is off).',
   invited_cohort_unset:
-    "No cohort an invite can carry is set (LEGAL_INVITED_COHORT is empty, or has spaces at either end, a control character or more than 64 characters). The operator sets it in the server settings.",
+    "No cohort an invite can carry is set (LEGAL_INVITED_COHORT is empty, or has a space at either end, a control character or more than 64 characters). The operator sets it in the server settings.",
 }
 
 export const INVITATION_EMAIL_REASONS: Record<string, string> = {
@@ -93,7 +93,7 @@ export function heldCapabilities(readiness: InviteReadiness): HeldCapability[] {
       title: 'Registration is open to the invited cohort only',
       description: [
         ...reasonSentences(readiness.collection.reasons, COLLECTION_REASONS),
-        'Until registration opens, a new invite link must be bound to an address and carry the cohort set in LEGAL_INVITED_COHORT, exactly, and only such a link can be resent. The list and Revoke still work.',
+        "Until registration opens, a new invite link needs its recipient's address and exactly the cohort set in LEGAL_INVITED_COHORT, and only such a link can be resent. The list and Revoke still work.",
       ].join(' '),
     })
   } else if (!links) {

@@ -148,8 +148,8 @@ async def send_test_email(
 MAX_INVITE_HOURS = 24 * 30  # a link lives a month at most; an unbounded value overflowed to a 500
 PERMISSION_REQUIRED_DETAIL = "Record how and when the recipient asked for an invitation before emailing it."
 INVITED_COHORT_ONLY_DETAIL = (
-    "Registration is open only to the invited cohort, so an invitation needs its recipient's address and that "
-    "cohort, exactly."
+    "Registration is open to the invited cohort only, so an invitation needs its recipient's address and exactly "
+    "that cohort."
 )
 
 

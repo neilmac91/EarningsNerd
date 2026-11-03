@@ -107,7 +107,7 @@ describe('each reason says what holds it and who or what clears it', () => {
     expect(reasonSentences(['registration_not_invite_only'], INVITED_COHORT_REASONS)[0]).toMatch(/REGISTRATION_MODE is public/)
     expect(reasonSentences(['invited_cohort_disabled'], INVITED_COHORT_REASONS)[0]).toMatch(/LEGAL_INVITED_COHORT_ENABLED is off/)
     expect(reasonSentences(['invited_cohort_unset'], INVITED_COHORT_REASONS)[0]).toMatch(
-      /LEGAL_INVITED_COHORT is empty, or has spaces at either end, a control character or more than 64 characters/,
+      /LEGAL_INVITED_COHORT is empty, or has a space at either end, a control character or more than 64 characters/,
     )
   })
 
@@ -161,7 +161,7 @@ describe('the banner tells registration held apart from invitation email held', 
     expect(held.map((h) => h.key)).toEqual(['collection', 'invitation_email'])
     expect(held[0].title).toBe('Registration is open to the invited cohort only')
     expect(held[0].description).toBe(
-      `${COLLECTION_REASONS.collection_disabled} ${COLLECTION_REASONS.operator_unpublished} Until registration opens, a new invite link must be bound to an address and carry the cohort set in LEGAL_INVITED_COHORT, exactly, and only such a link can be resent. The list and Revoke still work.`,
+      `${COLLECTION_REASONS.collection_disabled} ${COLLECTION_REASONS.operator_unpublished} Until registration opens, a new invite link needs its recipient's address and exactly the cohort set in LEGAL_INVITED_COHORT, and only such a link can be resent. The list and Revoke still work.`,
     )
     // Links are open, so invitation email waits only for its own conditions, and links can still go out by hand.
     expect(held[1].description).toBe(
