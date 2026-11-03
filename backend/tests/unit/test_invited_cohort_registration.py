@@ -406,6 +406,28 @@ def test_a_cohort_changed_after_the_routes_check_is_refused_by_the_redemption_it
     assert _user(email) is None and _invite(invite_id).used_at is None
 
 
+def test_an_invitation_bound_to_an_existing_account_creates_nothing_and_notifies_its_owner(client, cohort_open,
+                                                                                           monkeypatch):
+    # As with open registration: the answer is a new account's, nothing is created or spent, and the account's owner
+    # gets the account-exists notice (docs/LEGAL_READINESS.md, "Invited-cohort registration").
+    email = _address()
+    with SessionLocal() as db:
+        db.add(User(email=email, hashed_password="synthetic-hash", email_verified=True))
+        db.commit()
+    invite_id, raw = _mint(email)
+    notice = AsyncMock()
+    monkeypatch.setattr(auth_module, "_send_account_exists_email_safe", notice)
+
+    resp = _register(client, email, raw)
+
+    assert (resp.status_code, resp.json()) == (200, OPAQUE)
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.email == email).count() == 1
+    assert _invite(invite_id).used_at is None
+    notice.assert_awaited_once()
+    assert notice.await_args.args[0].email == email
+
+
 def test_collection_open_keeps_the_general_path_for_any_invitation(client, cohort_open, collection_ready):
     email = _address()
     invite_id, raw = _mint(None, None)  # unbound, no cohort: admitted by collection as before the exception
