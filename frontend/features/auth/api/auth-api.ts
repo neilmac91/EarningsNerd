@@ -288,13 +288,21 @@ const sessionChangedMeanwhile = () =>
 // withSessionCookiesForPost). A login or a logout accepted in this tab while it waited changed the account the tab
 // shows, so it posts only while the explicit generation it was asked under is current, in the post's own turn, after
 // both waits, as a logout does.
-function postPasswordChange(currentPassword: string | null, newPassword: string, generation: number) {
+function postPasswordChange(
+  currentPassword: string | null,
+  newPassword: string,
+  generation: number,
+  accountId: number,
+) {
   return withSessionCookiesForPost(PASSWORD_CHANGE_REFRESH_WAIT_MS, async () => {
     if (!isExplicitSessionGenerationCurrent(generation)) throw sessionChangedMeanwhile()
-    // current_password is omitted for OAuth-only users setting a password for the first time.
+    // current_password is omitted for OAuth-only users setting a password for the first time. account_id names the
+    // account this tab shows, and the route refuses with 409, changing nothing, when the browser holds another's
+    // (E29 (6)); the route requires it, so a page loaded before this deploy must reload.
     return api.post('/api/auth/change-password', {
       current_password: currentPassword || undefined,
       new_password: newPassword,
+      account_id: accountId,
     })
   }, 'refuse')
 }
@@ -317,16 +325,19 @@ function postPasswordChange(currentPassword: string | null, newPassword: string,
  * the browser has no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the
  * post is out, can answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main,
  * and their answers can land in either order; the post can wait behind a refresh queued after another tab's login, then
- * post with that login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the
- * account the browser holds, which the renewal's read does not compare with the account the tab shows, so a tab left
- * stale by another tab's sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers
- * (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it
- * hangs, where a login or a logout posts at its limit.
+ * post with that login's cookies, as a logout can (withSessionCookiesForPost). Those cookies can be another account's:
+ * a tab left stale by another tab's sign-in still shows the account it loaded with. So both posts name the account the
+ * tab shows (`accountId`, read as the change is asked for), and the route refuses with 409, checking, setting and
+ * revoking nothing, when the browser's session is another account's (E29 (6)), for an account without a password as for
+ * one with. The route requires the account (422 without it), so its one caller, ChangePasswordForm, posts nothing when
+ * it has no account to name, and a page loaded before this deploy must reload. And the refusal's cost: a refresh that
+ * never answers (the refresh has no timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as
+ * long as it hangs, where a login or a logout posts at its limit.
  */
-export const changePassword = async (currentPassword: string | null, newPassword: string) => {
+export const changePassword = async (currentPassword: string | null, newPassword: string, accountId: number) => {
   const generation = getExplicitSessionGeneration()
   try {
-    return (await postPasswordChange(currentPassword, newPassword, generation)).data
+    return (await postPasswordChange(currentPassword, newPassword, generation, accountId)).data
   } catch (error: unknown) {
     if (getErrorStatus(error) !== 401) throw error
   }
@@ -337,7 +348,9 @@ export const changePassword = async (currentPassword: string | null, newPassword
     if (error instanceof DOMException && error.name === 'AbortError') throw sessionChangedMeanwhile()
     throw error
   }
-  return (await postPasswordChange(currentPassword, newPassword, generation)).data
+  // The renewal's read can name another account than the tab shows; the post below still names the tab's, so the route
+  // refuses that account's change rather than this read moving the change to it.
+  return (await postPasswordChange(currentPassword, newPassword, generation, accountId)).data
 }
 
 export const verifyEmail = async (token: string) => {

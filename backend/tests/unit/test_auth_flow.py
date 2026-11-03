@@ -353,11 +353,13 @@ def test_change_password_revokes_existing_sessions(client):
     assert login.status_code == 200, login.text
     stale_refresh = client.cookies.get("earningsnerd_refresh_token")
     assert stale_refresh
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200
 
     # Change the password while authenticated (via the login cookie jar).
     changed = client.post(
         "/api/auth/change-password",
-        json={"current_password": old_pw, "new_password": new_pw},
+        json={"current_password": old_pw, "new_password": new_pw, "account_id": me.json()["id"]},
     )
     assert changed.status_code == 200, changed.text
     # The acting device is re-issued a *different* refresh token — it stays logged in.
