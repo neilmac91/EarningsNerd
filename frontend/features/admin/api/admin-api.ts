@@ -102,11 +102,17 @@ export interface InviteCapability {
   reasons: string[]
 }
 
-/** What holds new invite links (collection) and requested invitation email, as the admin page reads it. */
+/** What holds new invite links (collection, or the invited-cohort exception) and requested invitation email, as the
+ *  admin page reads it. */
 export interface InviteReadiness {
   collection: InviteCapability
+  /** Collection held, it alone opens links: each bound to an address and in the configured cohort (named nowhere). */
+  invited_cohort: InviteCapability
   invitation_email: InviteCapability
 }
+
+/** The invited-cohort exception held, with no reason, as an API from before it answers by leaving the field out. */
+const COHORT_EXCEPTION_ABSENT: InviteCapability = { available: false, reasons: [] }
 
 function capabilityOf(value: unknown): InviteCapability | null {
   if (!value || typeof value !== 'object') return null
@@ -124,16 +130,22 @@ export interface RevokeResult {
 
 /**
  * What holds new invite links and invitation email. The page turns off what this says is held, and treats a failed
- * or malformed read as both held (fail closed); every invite route checks again on the server, so a stale answer
- * can only turn a control off, never let one through.
+ * or malformed read as all held (fail closed); every invite route checks again on the server, so a stale answer
+ * can only turn a control off, never let one through. An answer without `invited_cohort` (an API from before the
+ * exception) holds the exception and changes nothing else; one with it malformed fails the read.
  */
 export const getInviteReadiness = async (signal?: AbortSignal): Promise<InviteReadiness> => {
   const response = await api.get('/api/admin/invites/readiness', { signal })
-  const data: unknown = response.data
-  const collection = capabilityOf((data as { collection?: unknown } | null)?.collection)
-  const invitationEmail = capabilityOf((data as { invitation_email?: unknown } | null)?.invitation_email)
-  if (!collection || !invitationEmail) throw new Error('Availability could not be checked.')
-  return { collection, invitation_email: invitationEmail }
+  const raw: unknown = response.data
+  // Not an object (no body, a string, a number): every field is missing, and the read fails below.
+  const data = raw && typeof raw === 'object'
+    ? (raw as { collection?: unknown; invited_cohort?: unknown; invitation_email?: unknown })
+    : null
+  const collection = capabilityOf(data?.collection)
+  const invitedCohort = data && 'invited_cohort' in data ? capabilityOf(data.invited_cohort) : COHORT_EXCEPTION_ABSENT
+  const invitationEmail = capabilityOf(data?.invitation_email)
+  if (!collection || !invitedCohort || !invitationEmail) throw new Error('Availability could not be checked.')
+  return { collection, invited_cohort: invitedCohort, invitation_email: invitationEmail }
 }
 
 export const listInvites = async (): Promise<InviteRecord[]> => {

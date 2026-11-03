@@ -25,7 +25,7 @@ from app.services.auth_validation import is_valid_unicode
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
 )
-from app.services.legal_readiness_service import require_collection_available
+from app.services.legal_readiness_service import require_account_admission
 from app.services.refresh_token_service import create_refresh_token, lock_user_tokens, revoke_all_for_user
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
@@ -80,8 +80,13 @@ def create_password_account(
     ``invite`` is the closed-beta invite the register handler already validated (None in public
     mode). None covers a refused redemption (the invite redeemed or revoked since it validated) and
     a lost concurrent-create race for the same email; the caller answers both with its opaque response.
+
+    What admits the account is decided here, now, whatever the route checked (``require_account_admission``,
+    raising ``CollectionUnavailable`` when nothing does): collection, or the invited-cohort exception, under
+    which the redemption also requires the invite's row to be in the cohort and bound to ``email``, so neither
+    the invite the route read in an earlier unit nor the browser decides it.
     """
-    require_collection_available()
+    cohort = require_account_admission(invited=invite is not None)
     agreement = require_current_agreement(agreement)
     user = User(
         email=email,
@@ -99,7 +104,7 @@ def create_password_account(
         # back too, so an invite admits one account at most and none once revoked, and a failed
         # insert never burns an invite.
         if invite is not None:
-            if not invite_service.redeem_invite(db, invite, user, commit=False):
+            if not invite_service.redeem_invite(db, invite, user, commit=False, cohort=cohort):
                 db.rollback()
                 return None
             user.is_beta = True

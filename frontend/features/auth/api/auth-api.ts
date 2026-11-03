@@ -29,6 +29,20 @@ export const register = async (
 }
 
 /**
+ * Whether the invited-cohort exception is open (`invited_cohort_available` in GET /api/auth/registration), read
+ * afresh: the API answers it with no-store, and the register page asks before it offers an invitee the form while
+ * collection is held and again before each sign-up. Only an exact `true` in an invite-only answer opens it; any other
+ * answer is closed, and a failed read rejects, which the caller treats as closed. It names no cohort and authorizes
+ * nothing: the server checks the invite itself on every path that creates an account.
+ */
+export const getInvitedCohortAvailable = async (signal?: AbortSignal): Promise<boolean> => {
+  const { data } = await api.get<unknown>('/api/auth/registration', { signal })
+  if (!data || typeof data !== 'object') return false
+  const answer = data as { mode?: unknown; invited_cohort_available?: unknown }
+  return answer.mode === 'invite_only' && answer.invited_cohort_available === true
+}
+
+/**
  * Start an invited social sign-up. The closed-beta invite is a live single-use credential, so it is
  * sent in the request body (never a URL: request logs record query strings); the backend stores its
  * hash against the OAuth state, sets the state cookie and returns the provider URL to navigate to.

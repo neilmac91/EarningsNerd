@@ -52,7 +52,7 @@ from app.models.invite_mail import (
     SUPPRESSED_UNSUBSCRIBED,
     InviteDelivery,
 )
-from app.services import email_service, invite_service, mail_suppression_service
+from app.services import email_service, invite_service, legal_readiness_service, mail_suppression_service
 from app.services.auth_validation import is_valid_unicode
 from app.services.resend_service import ResendAmbiguousError, ResendPermanentError, ResendRetryableError
 from app.services.resend_webhook_service import (
@@ -135,6 +135,11 @@ class InviteNotBound(Exception):
 
 class PermissionRequired(Exception):
     """An emailed re-send of a link never emailed before needs the recipient's request recorded."""
+
+
+class InviteNotAdmitted(Exception):
+    """No account could be opened with the invite now (``legal_readiness_service.admits_invite``): collection is held
+    and the invite is outside the invited-cohort exception, unbound or in another cohort, or that exception is held."""
 
 
 @dataclass(frozen=True)
@@ -260,13 +265,17 @@ def prepare_reissue(
     bound to the address, so two re-sends of one invite (a double press, a retry, two tabs) make one replacement: the
     second waits for the first's commit and then finds its replacement live. An emailed re-send also refuses a
     suppressed address, and needs the request the link was first emailed under, or ``permission`` when it never was.
-    A manual re-send makes a link the admin shares; a suppressed address does not stop that."""
+    A manual re-send makes a link the admin shares; a suppressed address does not stop that. Either is refused
+    (``InviteNotAdmitted``) when the replacement could open no account now: while only the invited-cohort exception
+    admits accounts, the invite must be bound to an address and carry that cohort, which its replacement keeps."""
     try:
         current = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
         if current is None:
             raise invite_service.InviteNotFoundError(invite_id)
         if current.used_at is not None:
             raise invite_service.InviteAlreadyRedeemedError(invite_id)
+        if not legal_readiness_service.admits_invite(current.cohort, current.email):
+            raise InviteNotAdmitted(invite_id)
         if send_email and not current.email:
             raise InviteNotBound(invite_id)
         hashed: Optional[str] = None
@@ -324,6 +333,7 @@ async def deliver(prepared: PreparedInvite) -> SendOutcome:
             magic_link=prepared.issued["invite_link"],
             unsubscribe_link=prepared.unsubscribe_link,
             delivery_ref=prepared.delivery_ref,
+            cohort=prepared.issued["cohort"],
         )
     except email_service.PromotionalMailUnavailable:
         outcome = SendOutcome(STATUS_FAILED, error_kind="held")  # the sender's own readiness check refused it

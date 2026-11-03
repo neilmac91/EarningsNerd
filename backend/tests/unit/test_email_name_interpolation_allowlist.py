@@ -153,10 +153,10 @@ _IMPORTS: dict[tuple[str, str | None], frozenset[str]] = {
     ("html", None): frozenset({"escape", "unescape"}),  # the escaping _greeting applies, and a link's address unescaped
     ("re", None): frozenset({"compile", "IGNORECASE", "DOTALL", "Match", "Pattern"}),  # patterns, and their types
     ("app.config", "settings"): frozenset({"FRONTEND_URL"}),  # the frontend's address
-    # Readiness booleans and the invitation hold's refusal sentence only: no recipient data, template access or other
-    # module attributes.
+    # Readiness booleans (invitation email's for one invitation's cohort and address, EN-BETA PB-01) and the invitation
+    # hold's refusal sentence only: they return no recipient data, template access or other module attributes.
     ("app.services", "legal_readiness_service"): frozenset({
-        "is_marketing_available", "is_invitation_email_available", "INVITATION_EMAIL_UNAVAILABLE_MESSAGE",
+        "is_marketing_available", "is_invitation_email_available_for", "INVITATION_EMAIL_UNAVAILABLE_MESSAGE",
     }),
     (TRANSPORT_MODULE, TRANSPORT): frozenset(),  # the transport, to which a mail's text part goes: only called
 }
