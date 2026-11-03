@@ -28,7 +28,11 @@ from app.services.turnstile import enforce_turnstile
 from app.schemas.account_agreement import AccountAgreementInput
 from app.services.account_agreement_service import AcceptedAccountAgreement, accept_current_agreement
 from app.services.legal_readiness_service import (
-    CollectionUnavailable, is_checkout_available, require_collection_available,
+    CollectionUnavailable,
+    admits_invite,
+    is_checkout_available,
+    is_invited_cohort_available,
+    require_collection_available,
 )
 from app.utils.text import has_control_characters
 from app.services import (
@@ -210,7 +214,12 @@ class OAuthStartRequest(BaseModel):
         return accept_current_agreement() if self.adult_eligible is True else None
 
 
-def _require_new_collection() -> None:
+def _require_new_collection(*, invited: bool = False) -> None:
+    """503 unless new collection is available, or, for a request that carries an invite, the invited-cohort exception
+    is: that invite is then checked where it is read (``admits_invite``) and again where the account is created. A
+    request with no invite meets the closure it always met."""
+    if invited and is_invited_cohort_available():
+        return
     try:
         require_collection_available()
     except CollectionUnavailable as exc:
@@ -764,25 +773,34 @@ _REGISTER_OPAQUE = {
 class RegistrationConfig(BaseModel):
     """Public read of the signup gate. `mode` mirrors settings.REGISTRATION_MODE; `beta_promo_enabled`
     says whether the closed-beta 100%-off promo is configured AND checkout is available. A
-    configured but unavailable offer must not produce a public promise of Pro at $0."""
+    configured but unavailable offer must not produce a public promise of Pro at $0.
+    `invited_cohort_available` says whether the invited-cohort exception is open: an invitation
+    bound to its recipient and in the operator's cohort can open an account while collection is
+    held. It names no cohort, and it is no authorization: every creation path checks the invite
+    itself."""
 
     mode: str
     beta_promo_enabled: bool
+    invited_cohort_available: bool
 
 
 @router.get("/registration", response_model=RegistrationConfig)
 async def get_registration_config(response: Response):
-    """Unauthenticated, cacheable read of the registration gate.
+    """Unauthenticated read of the registration gate, never stored by a cache.
 
     The marketing landing page renders its account CTAs ("Create a free account" vs "Request an
     invite") and the "Free for beta members" pricing line from this answer, so flipping
     REGISTRATION_MODE on the service flips the public copy without a frontend redeploy. Nothing
     here is secret: /register already answers "A valid invite is required" in invite-only mode.
+    The register page reads `invited_cohort_available` afresh before it offers an invitee the
+    form and again before each sign-up, so no browser or proxy may keep an earlier answer (the
+    landing page's server read keeps its own hourly revalidation).
     """
-    response.headers["Cache-Control"] = "public, max-age=300"
+    response.headers["Cache-Control"] = "no-store"
     return RegistrationConfig(
         mode=settings.REGISTRATION_MODE,
         beta_promo_enabled=bool(settings.STRIPE_BETA_PROMO_CODE_ID) and is_checkout_available(),
+        invited_cohort_available=is_invited_cohort_available(),
     )
 
 
@@ -815,21 +833,24 @@ async def register(
         "register",
         error_detail="Too many registration attempts. Try again in a minute.",
     )
-    _require_new_collection()
+    _require_new_collection(invited=bool(user_data.invite_code))
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
     email, full_name, hashed_ip = user_data.email, user_data.full_name, _hashed_client_ip(request)
 
     # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
     # account work. It rejects uniformly regardless of email, so it is not an enumeration vector;
     # the email-existence anti-enumeration (opaque response + hashing timing) is preserved below for
-    # the valid-invite path. In "public" mode the invite is ignored and nothing changes.
+    # the valid-invite path. In "public" mode the invite is ignored and nothing changes. While only
+    # the invited-cohort exception admits accounts, an invite outside it (unbound, or another cohort)
+    # is refused the same way, and the account unit decides admission again.
     invite: Optional[InviteCode] = None
     if settings.REGISTRATION_MODE == "invite_only":
         def read_invite() -> Optional[InviteCode]:
             # The release detaches the invite without expiring it: the redemption below reads only its id, and the
             # funnel event whether it names an address.
             try:
-                return invite_service.validate_invite(db, user_data.invite_code, email)
+                found = invite_service.validate_invite(db, user_data.invite_code, email)
+                return found if found is not None and admits_invite(found.cohort, found.email) else None
             finally:
                 filing_list_service.release_request_session(db)
 
@@ -1416,12 +1437,16 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     """
     agreement = body.accepted_agreement()
     if agreement is not None:
-        _require_new_collection()
+        _require_new_collection(invited=bool(body.invite))
     url, state = _google_authorize_url(request)
-    # Signup assent, any live invite and the handoff's ask are bound to this single-use state.
-    await run_in_threadpool(
-        oauth_account_service.save_google_state, db, state, body.invite, agreement, body.handoff is True,
-    )
+    # Signup assent, any live invite and the handoff's ask are bound to this single-use state. A sign-up start the
+    # invited-cohort exception does not admit while collection is held is refused before the state is written.
+    try:
+        await run_in_threadpool(
+            oauth_account_service.save_google_state, db, state, body.invite, agreement, body.handoff is True,
+        )
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     response = JSONResponse({"url": url})
     _set_google_state_cookie(response, state)
     return response
@@ -1603,11 +1628,14 @@ async def apple_start(body: OAuthStartRequest, request: Request, db: Session = D
     (``invite`` and ``handoff``: as for google_start)."""
     agreement = body.accepted_agreement()
     if agreement is not None:
-        _require_new_collection()
+        _require_new_collection(invited=bool(body.invite))
     url, state, raw_nonce = _apple_authorize_url(request)
-    await run_in_threadpool(
-        oauth_account_service.save_apple_state, db, state, raw_nonce, body.invite, agreement, body.handoff is True,
-    )
+    try:
+        await run_in_threadpool(
+            oauth_account_service.save_apple_state, db, state, raw_nonce, body.invite, agreement, body.handoff is True,
+        )
+    except CollectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response

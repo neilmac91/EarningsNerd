@@ -27,7 +27,14 @@ from app.services import invite_service, refresh_token_service
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, AgreementRequired, require_current_agreement, stage_account_agreement,
 )
-from app.services.legal_readiness_service import is_collection_available
+from app.services.legal_readiness_service import (
+    COLLECTION_UNAVAILABLE_MESSAGE,
+    CollectionUnavailable,
+    admits_invite,
+    is_collection_available,
+    is_invited_cohort_available,
+    require_account_admission,
+)
 from app.utils.datetimes import utcnow
 
 # Lifetime of an OAuth state row; the router gives its state cookies the same max-age.
@@ -70,32 +77,38 @@ class LastSignInMethodError(Exception):
 def oauth_new_account_gate(
     db: Session, *, email: str, email_verified: bool, invite_code_hash: Optional[str],
     agreement: AcceptedAccountAgreement | None = None,
-) -> tuple[Optional[str], Optional[InviteCode]]:
+) -> tuple[Optional[str], Optional[InviteCode], Optional[str]]:
     """Decide whether a social sign-in may create a NEW User (linking is decided by the callers).
 
-    Returns ``(error_code, invite)``. ``error_code`` is None when creation may proceed, else the
-    ``/login?error=`` code to redirect with: ``registration_unavailable`` while collection is held,
-    ``account_agreement_required`` without current signup assent, ``email_unverified`` when the provider has not verified
-    the address (an unverified claim never seeds an account), ``invite_required`` when
-    REGISTRATION_MODE is invite_only and the sign-in carries no valid invite. ``invite`` is the
-    validated invite the caller must redeem in the SAME transaction as the insert (None in public
-    mode). Mirrors the register() gate; tests/unit/test_oauth_invite_gate.py keeps every ``User(``
-    construction in app/ behind it (register()'s ``create_password_account`` is gated in register).
+    Returns ``(error_code, invite, cohort)``. ``error_code`` is None when creation may proceed, else the
+    ``/login?error=`` code to redirect with: ``registration_unavailable`` while neither collection nor, for an
+    invited sign-in, the invited-cohort exception admits a new account (read now, at the callback, so an exception
+    closed since the start admits nothing), ``account_agreement_required`` without current signup assent,
+    ``email_unverified`` when the provider has not verified the address (an unverified claim never seeds an
+    account), ``invite_required`` when REGISTRATION_MODE is invite_only and the sign-in carries no valid invite, or,
+    under the exception, one that is not bound to this address or not in its cohort. ``invite`` is the validated
+    invite the caller must redeem in the SAME transaction as the insert (None in public mode), and ``cohort`` the
+    exception's cohort that redemption must find on the invite's row (None when collection admits the account).
+    Mirrors the register() gate; tests/unit/test_oauth_invite_gate.py keeps every ``User(`` construction in app/
+    behind it (register()'s ``create_password_account`` is gated in register).
     """
-    if not is_collection_available():
-        return "registration_unavailable", None
+    try:
+        cohort = require_account_admission(invited=invite_code_hash is not None)
+    except CollectionUnavailable:
+        return "registration_unavailable", None, None
     try:
         require_current_agreement(agreement)
     except AgreementRequired:
-        return "account_agreement_required", None
+        return "account_agreement_required", None, None
     if not email_verified:
-        return "email_unverified", None
+        return "email_unverified", None, None
     if settings.REGISTRATION_MODE != "invite_only":
-        return None, None
+        return None, None, None
     invite = invite_service.validate_invite_hash(db, invite_code_hash, email)
-    if invite is None:
-        return "invite_required", None
-    return None, invite
+    # Under the exception the invite must be bound and carry its cohort exactly; the redemption repeats this on the row.
+    if invite is None or (cohort is not None and not (invite.email and invite.cohort == cohort)):
+        return "invite_required", None, None
+    return None, invite, cohort
 
 
 def oauth_create_account(
@@ -118,7 +131,7 @@ def oauth_create_account(
     loses a concurrent first sign-in for the same email is rolled back and raises
     :class:`OAuthSignInRefused` with ``lost_create_race`` set.
     """
-    error_code, invite = oauth_new_account_gate(
+    error_code, invite, cohort = oauth_new_account_gate(
         db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash, agreement=agreement,
     )
     if error_code:
@@ -133,7 +146,7 @@ def oauth_create_account(
         db.rollback()
         raise OAuthSignInRefused(f"{provider}_account_conflict", lost_create_race=True) from None
     if invite is not None:
-        if not invite_service.redeem_invite(db, invite, user, commit=False):
+        if not invite_service.redeem_invite(db, invite, user, commit=False, cohort=cohort):
             db.rollback()
             return None, "invite_required"
         user.is_beta = True
@@ -205,13 +218,51 @@ def live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
     return code_hash if invite_service.invite_hash_is_live(db, code_hash) else None
 
 
+def _signup_start_invite_hash(
+    db: Session, invite: Optional[str], agreement: AcceptedAccountAgreement | None,
+) -> Optional[str]:
+    """The live invite's hash for a start's state row (``live_invite_hash``), after the invited-cohort exception's check.
+
+    While collection is held, a sign-up start (one with assent) that carries an invitation is the exception's to admit:
+    it is refused with ``CollectionUnavailable``, before anything is written, unless the exception is open and the
+    invitation live, bound to an address and in its cohort (``admits_invite``). A sign-up start with no invitation then
+    is the route's to refuse, as before the exception (``routers/auth.py::_require_new_collection``); stored, its state
+    could open no account. The callback decides again, on the address the provider verifies (``oauth_new_account_gate``).
+    A login start, and any start while collection is available, are unchanged."""
+    if agreement is None or not invite or is_collection_available():
+        return live_invite_hash(db, invite)
+    if not is_invited_cohort_available():
+        raise CollectionUnavailable(COLLECTION_UNAVAILABLE_MESSAGE)
+    code_hash = invite_service.hash_invite_token(invite)
+    found = invite_service.live_invite(db, code_hash)
+    if found is None or not admits_invite(found.cohort, found.email):
+        raise CollectionUnavailable(COLLECTION_UNAVAILABLE_MESSAGE)
+    return code_hash
+
+
+def _refused_start_rolls_back(
+    db: Session, invite: Optional[str], agreement: AcceptedAccountAgreement | None,
+) -> Optional[str]:
+    """``_signup_start_invite_hash``, with a refusal's read rolled back before it raises. The route answers 503 with no
+    commit of its own, so without the rollback the invitation's read would stay open for the request's finalizer to
+    close; the unit returns its connection itself, as every unit does
+    (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    try:
+        return _signup_start_invite_hash(db, invite, agreement)
+    except CollectionUnavailable:
+        db.rollback()  # nothing was written
+        raise
+
+
 def save_google_state(
     db: Session, state: str, invite: Optional[str], agreement: AcceptedAccountAgreement | None = None,
     session_handoff: bool = False,
 ) -> None:
     """Commit one-time state for Google login/signup, with any live invite and explicit assent, and whether
-    the start asked for the session handoff."""
-    invite_code_hash = live_invite_hash(db, invite)
+    the start asked for the session handoff. A sign-up start the invited-cohort exception does not admit while
+    collection is held raises ``CollectionUnavailable`` before anything is written (``_signup_start_invite_hash``),
+    its invitation's read rolled back first (``_refused_start_rolls_back``)."""
+    invite_code_hash = _refused_start_rolls_back(db, invite, agreement)
     # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
     store_oauth_state(
         db, state, secrets.token_urlsafe(32), invite_code_hash, agreement, session_handoff=session_handoff,
@@ -224,9 +275,10 @@ def save_apple_state(
     agreement: AcceptedAccountAgreement | None = None, session_handoff: bool = False,
 ) -> None:
     """Commit Apple's state row: the raw nonce its callback checks, plus the invite's hash when live, and
-    whether the start asked for the session handoff."""
+    whether the start asked for the session handoff. Refused as Google's is (``_refused_start_rolls_back``)."""
     store_oauth_state(
-        db, state, raw_nonce, live_invite_hash(db, invite), agreement, session_handoff=session_handoff,
+        db, state, raw_nonce, _refused_start_rolls_back(db, invite, agreement), agreement,
+        session_handoff=session_handoff,
     )
     db.commit()
 
