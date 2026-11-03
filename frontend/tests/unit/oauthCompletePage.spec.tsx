@@ -125,10 +125,14 @@ describe('the OAuth login landing page (E29 (5))', () => {
   })
 })
 
-/** The notice that replaced the wait: its alert, the element that takes focus around it, and its Try again, if any. */
+/** The notice that replaced the wait: its alert, the element that takes focus around it, and its Try again, if any.
+ * The page moves focus in an effect after the render that shows the notice, which can run after the alert is found,
+ * so this waits for the focus too: asserting it the moment the alert appears failed under load. */
 async function noticeShown() {
   const alert = await screen.findByRole('alert')
-  return { alert, answer: alert.parentElement as HTMLElement, tryAgain: screen.queryByRole('button', { name: 'Try again' }) }
+  const answer = alert.parentElement as HTMLElement
+  await waitFor(() => expect(document.activeElement).toBe(answer))
+  return { alert, answer, tryAgain: screen.queryByRole('button', { name: 'Try again' }) }
 }
 
 const timedOut = () => new ApiError(0, 'The request timed out. Please try again.')
@@ -220,7 +224,8 @@ describe('the landing page when the exchange did not finish (E29 (5))', () => {
     fireEvent.click(tryAgain as HTMLElement)
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("This browser couldn't finish the Google login"))
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    expect(document.activeElement).toBe(answer)
+    // The leaving button hands focus back in a microtask and an effect (useFocusHandoff), after that render.
+    await waitFor(() => expect(document.activeElement).toBe(answer))
   })
 
   it.each([
