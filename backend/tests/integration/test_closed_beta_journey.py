@@ -24,6 +24,7 @@ import asyncio
 import hashlib
 import importlib
 import json
+import secrets
 import uuid
 from dataclasses import fields
 from datetime import timedelta, timezone
@@ -331,12 +332,13 @@ def _revoke_pro(email: str) -> None:
 
 def _complimentary_access(action: str, email: str) -> dict:
     """PB-02's operator procedure (docs/ops/complimentary-access.md) for one account: a manifest naming it by id and
-    address fingerprint, naming as its operator an active, verified administrator; the dry run; then the apply of the digest that
-    dry run reported, on the app's own sessions."""
+    address fingerprint, under an opaque cohort code and a salt drawn fresh for it, and naming as its operator an
+    active, verified administrator; the dry run; then the apply of the digest that dry run reported, on the app's own
+    sessions."""
     operator, account = _account(_seed_admin()), _account(email)
     today = utcnow().date()
-    payload = {"action": action, "cohort": "beta-acceptance", "reason": "PB-05 closed-beta acceptance",
-               "operator_account_id": operator.id,
+    payload = {"action": action, "cohort": "private-beta-2026-11", "reason": "PB-05 closed-beta acceptance",
+               "operator_account_id": operator.id, "salt": secrets.token_hex(16),
                "accounts": [{"account_id": account.id, "email_sha256": email_fingerprint(account.email)}]}
     if action == "grant":
         payload["review_on"] = (today + timedelta(days=90)).isoformat()
