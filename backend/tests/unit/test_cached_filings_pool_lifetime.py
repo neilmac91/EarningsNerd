@@ -82,13 +82,14 @@ pytestmark = pytest.mark.usefixtures("collection_ready")
 
 # How long a request waits for a slot in every pool here (E295). The timeout breaks a deadlock and detects nothing
 # else. A checkout that blocks the event loop, or a unit that waits for a second connection, never finishes, so it
-# answers 500 at any finite timeout. A connection held too long without a deadlock is caught by the case's own
-# checks, which do not race the clock: `open_at_close` and the loop-checkout log on each burst, and `checkedout()`
-# read during the slow step on the cases that hold none while they hash, wait, send or render. So the value only
-# bounds how long a broken case takes to fail and how much CPU starvation a correct one survives. With four times
-# as many runnable processes as CPUs, a unit's hold stretched to 4.8 s, mostly inside DBAPI calls waiting to take
-# the GIL back or for a starved writer's SQLite lock, and the fifth request waited up to 2.1 s: at the old 1.0, two
-# of four runs failed. test_every_pool_here_takes_the_file_timeout keeps every pool on this value.
+# answers 500 at any finite timeout. A connection held too long without a deadlock is caught by checks that do not
+# race the clock: `open_at_close` and the loop-checkout log on the bursts (the what-changed burst has neither, and
+# the cached-filings burst holds its route to both), and `checkedout()` read during the slow step on the cases that
+# hold none while they hash, wait, send or render. So the value only bounds how long a broken case takes to fail
+# and how much CPU starvation a correct one survives. With four times as many runnable processes as CPUs, a unit's
+# hold stretched to 4.8 s, mostly inside DBAPI calls waiting to take the GIL back or for a starved writer's SQLite
+# lock, and the fifth request waited up to 2.1 s: at the old 1.0, two of four runs failed.
+# test_every_pool_here_takes_the_file_timeout holds every create_engine here to this value.
 POOL_TIMEOUT = 5.0
 
 
@@ -5299,7 +5300,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     from app.models import AuditLog
     from app.services import admin_summary_service, summary_generation_service
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False},
+                           pool_timeout=POOL_TIMEOUT)
     database.Base.metadata.create_all(engine)
     with sessionmaker(bind=engine)() as db:
         company = Company(cik="0000000011", ticker="CLOSE", name="Close fixture")
@@ -5342,31 +5344,35 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 
 
 def pool_timeout_lines(source: str) -> tuple[list[int], list[int]]:
-    """The lines of the ``create_engine`` calls in ``source`` that pass ``pool_timeout=POOL_TIMEOUT``, and of those
-    that pass any other ``pool_timeout``."""
+    """The lines of the ``create_engine`` calls in ``source`` that pass ``pool_timeout=POOL_TIMEOUT``, and of every
+    other ``create_engine`` call: one that passes another timeout, passes none (SQLAlchemy's 30 s default), or splats
+    keywords the walk cannot read (``**kw``)."""
     on_value, off_value = [], []
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "create_engine":
-            for keyword in node.keywords:
-                if keyword.arg == "pool_timeout":
-                    named = isinstance(keyword.value, ast.Name) and keyword.value.id == "POOL_TIMEOUT"
-                    (on_value if named else off_value).append(node.lineno)
+            named = [keyword for keyword in node.keywords if keyword.arg == "pool_timeout"]
+            on = (not any(keyword.arg is None for keyword in node.keywords) and len(named) == 1
+                  and isinstance(named[0].value, ast.Name) and named[0].value.id == "POOL_TIMEOUT")
+            (on_value if on else off_value).append(node.lineno)
     return sorted(on_value), sorted(off_value)
 
 
 def test_every_pool_here_takes_the_file_timeout():
-    """E295: every pool in this file waits POOL_TIMEOUT for a slot. A tighter literal failed correct cases on a starved
-    runner and caught nothing the cases' own checks miss (POOL_TIMEOUT's comment). Scored on planted source first."""
+    """E295: every ``create_engine`` in this file passes ``pool_timeout=POOL_TIMEOUT``. A tighter literal failed correct
+    cases on a starved runner and caught nothing the cases' own checks miss (POOL_TIMEOUT's comment). Scored on planted
+    source first. Out of its reach, and absent from this file: a pool built without ``create_engine`` (``QueuePool``
+    directly) and ``create_engine`` under another name (an aliased import, ``functools.partial``)."""
     planted = (
         "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=POOL_TIMEOUT)\n"
         "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=1.0)\n"
         "sqlalchemy.create_engine(url, pool_timeout=OTHER_TIMEOUT)\n"
         "create_engine(url, poolclass=QueuePool)\n"
+        "create_engine(url, pool_timeout=POOL_TIMEOUT, **kw)\n"
     )
-    assert pool_timeout_lines(planted) == ([1], [2, 3])
+    assert pool_timeout_lines(planted) == ([1], [2, 3, 4, 5])
     on_value, off_value = pool_timeout_lines(Path(__file__).read_text(encoding="utf-8"))
-    assert off_value == [], "these pools name a timeout other than POOL_TIMEOUT"
-    assert len(on_value) >= 38, "the walk reads the pools the file's cases build (38 when E295 named them)"
+    assert off_value == [], "these create_engine calls pass no pool_timeout, another one, or keywords the walk cannot read"
+    assert len(on_value) >= 39, "the walk reads the engines the file's cases build (39 when E295 named them)"
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────
