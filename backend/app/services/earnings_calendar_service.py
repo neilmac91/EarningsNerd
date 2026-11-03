@@ -197,6 +197,52 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return {(t or "").upper(): int(n) for t, n in rows if t}
 
 
+_EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit
+
+
+def _events_by_key(
+    db: Session, rows: list, *, members: Optional[frozenset[str]], today: date,
+) -> dict[tuple[str, date], EarningsEvent]:
+    """The stored events ``ingest_alpha_vantage`` can key on, by ``(ticker, fiscal_period_end)``.
+
+    Collects the keys of the rows the loop will look up (the same filters as the loop) and
+    reads their events in a few ``ticker IN (...) AND fiscal_period_end IN (...)`` queries; the IN
+    pair can return extra rows, which no key reaches. A row the filters cannot read is skipped
+    here: the loop meets it and raises there, at the same row as before. A key's event is the row
+    the per-row ``WHERE ticker = ? AND fiscal_period_end = ?`` SELECT returned (one at most, by
+    ``uq_earnings_events_ticker_period``), and the session's identity map makes it the same object.
+    """
+    tickers: set[str] = set()
+    periods: set = set()
+    for row in rows:
+        try:
+            ticker = (getattr(row, "symbol", "") or "").upper()
+            fpe = getattr(row, "fiscal_period_end", None)
+            if not ticker or fpe is None:
+                continue
+            if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+                continue
+            new_date = getattr(row, "report_date", None)
+            if new_date is None or new_date < today:
+                continue
+        except Exception:  # noqa: BLE001 — the loop raises on this row; the lookup only skips it
+            continue
+        tickers.add(ticker)
+        periods.add(fpe)
+    by_key: dict[tuple[str, date], EarningsEvent] = {}
+    if not tickers:
+        return by_key
+    ordered = sorted(tickers)
+    for start in range(0, len(ordered), _EVENT_LOOKUP_CHUNK):
+        events = db.query(EarningsEvent).filter(
+            EarningsEvent.ticker.in_(ordered[start:start + _EVENT_LOOKUP_CHUNK]),
+            EarningsEvent.fiscal_period_end.in_(periods),
+        )
+        for event in events:
+            by_key[(event.ticker, event.fiscal_period_end)] = event
+    return by_key
+
+
 def ingest_alpha_vantage(
     db: Session,
     rows: Iterable,
@@ -216,6 +262,11 @@ def ingest_alpha_vantage(
     if stats is None:
         stats = RefreshStats()  # solo callers/tests: keep the counter bumps unconditional
     members = index_membership_service.active_member_filter()
+    rows = list(rows)
+    # One chunked read of every existing event a row can key on, instead of one SELECT per row
+    # (~6k a day). The loop below is unchanged otherwise: each insert still flushes at once, so what
+    # the EDGAR pass and the later steps can see, and where an error stops the pass, stay as before.
+    by_key = _events_by_key(db, rows, members=members, today=today)
     upserted = 0
     for row in rows:
         ticker = (getattr(row, "symbol", "") or "").upper()
@@ -228,36 +279,34 @@ def ingest_alpha_vantage(
         new_date = getattr(row, "report_date", None)
         if new_date is None or new_date < today:
             continue
-        existing = (
-            db.query(EarningsEvent)
-            .filter(EarningsEvent.ticker == ticker, EarningsEvent.fiscal_period_end == fpe)
-            .first()
-        )
+        existing = by_key.get((ticker, fpe))
         # Precedence: a provider estimate must never overwrite ground truth (reported) OR a
         # confirmed row (a source with a real confirmation flag outranks an AV estimate).
         if existing is not None and existing.status in (STATUS_REPORTED, STATUS_CONFIRMED):
             existing.last_seen_at = now
             continue
         if existing is None:
-            db.add(
-                EarningsEvent(
-                    ticker=ticker,
-                    company_name=getattr(row, "company_name", None),
-                    fiscal_period_end=fpe,
-                    event_date=new_date,
-                    event_time=getattr(row, "event_time", None),
-                    status=STATUS_ESTIMATED,
-                    confidence=CONFIDENCE_MEDIUM,
-                    eps_estimate=getattr(row, "eps_estimate", None),
-                    source=SOURCE_ALPHA_VANTAGE,
-                    first_seen_at=now,
-                    last_seen_at=now,
-                )
+            created = EarningsEvent(
+                ticker=ticker,
+                company_name=getattr(row, "company_name", None),
+                fiscal_period_end=fpe,
+                event_date=new_date,
+                event_time=getattr(row, "event_time", None),
+                status=STATUS_ESTIMATED,
+                confidence=CONFIDENCE_MEDIUM,
+                eps_estimate=getattr(row, "eps_estimate", None),
+                source=SOURCE_ALPHA_VANTAGE,
+                first_seen_at=now,
+                last_seen_at=now,
             )
+            db.add(created)
+            # A repeated (ticker, fpe) later in this run updates this row, as the per-row SELECT
+            # found it once flushed.
+            by_key[(ticker, fpe)] = created
             # Flush so this row is visible to later existence checks in the SAME transaction —
-            # SessionLocal is autoflush=False, so without this the EDGAR pass (and a repeated
-            # (ticker, fpe) later in this run) wouldn't see it and would INSERT a duplicate, making
-            # the final commit raise on the unique constraint and lose the whole day's ingest.
+            # SessionLocal is autoflush=False, so without this the EDGAR pass wouldn't see it and
+            # would INSERT a duplicate, making the final commit raise on the unique constraint and
+            # lose the whole day's ingest.
             db.flush()
         else:
             if existing.event_date != new_date:
