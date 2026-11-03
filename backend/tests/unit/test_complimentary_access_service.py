@@ -317,7 +317,14 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
 # The operator's raw address list, by any name that says so in a plain-text form: addresses.txt, email_addresses.csv,
 # beta-addresses (no suffix).
 _ADDRESS_LIST_SUFFIXES = {"", ".txt", ".csv", ".tsv", ".lst", ".list"}
-_DECODER = json.JSONDecoder()
+# The key that names an address's fingerprint, however a draft spells it: email_sha256, emailSha256, EMAIL-SHA256,
+# "email sha256".
+_FINGERPRINT_KEY = re.compile(rb"(?i)email[\s_-]*sha[\s_-]*256")
+# A SHA-256 in hex, in either case, that is not part of a longer run of hex digits.
+_SHA256_HEX = re.compile(rb"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
+# The runbook example's two fingerprints, of reserved .invalid addresses
+# (test_the_runbooks_example_manifest_is_one_the_command_accepts holds the example to them): no person's.
+_SYNTHETIC_FINGERPRINTS = frozenset(email_fingerprint(f"tester-{n}@example.invalid").encode() for n in ("one", "two"))
 
 
 def _tree(root: Path):
@@ -330,57 +337,25 @@ def _tree(root: Path):
             yield Path(folder) / name
 
 
-def _objects(document):
-    """Every JSON object in a parsed document, the document itself included."""
-    if isinstance(document, dict):
-        yield document
-        for value in document.values():
-            yield from _objects(value)
-    elif isinstance(document, list):
-        for value in document:
-            yield from _objects(value)
-
-
-def _manifest_shaped(root: Path):
-    """Each JSON object written out in a file under ``root`` that names ``email_sha256``, whatever the file and however
-    the object is held: a .json file, a fenced block of any kind, a shell heredoc, a string in Python or YAML, a wrapper
-    under a key. The reader tries a JSON value at every "{" and yields each object in it, so no form or fence is
-    named. Every manifest the command runs carries the key, so a file without it cannot hold one. A key spelled with
-    escapes, or JSON split by its holder (a string concatenated in pieces), is not looked for: the gate stops a
-    manifest saved or pasted by mistake, not one disguised."""
+def _files_with_fingerprints(root: Path) -> list[str]:
+    """Each file under ``root`` that names an address fingerprint's key and holds a SHA-256 in hex other than the
+    runbook example's two synthetic ones. A manifest the command runs, a draft it refuses (an extra key, 21 accounts, a
+    trailing comma, a key spelled another way, the accounts under another name) and a roster with an ``email_sha256``
+    column all hold what a list of candidate addresses matches, whatever their form: the reader looks at the bytes, so
+    no format, fence or quoting is named. A file that never names the key, or that disguises the value (encoded, split
+    in pieces), is not looked for: the gate stops a manifest saved or pasted by mistake, not one hidden. It reports
+    paths, never a value."""
+    found = []
     for path in _tree(root):
         try:
             raw = path.read_bytes()
         except OSError:
             continue
-        if b"email_sha256" not in raw:
-            continue
-        text = raw.decode("utf-8", "replace")
-        at = text.find("{")
-        while at != -1:
-            try:
-                document, end = _DECODER.raw_decode(text, at)
-            except (ValueError, RecursionError):
-                at = text.find("{", at + 1)
-                continue
-            # A manifest names both keys, so only such objects are worth the strict parse.
-            for found in _objects(document):
-                if "action" in found and "accounts" in found:
-                    yield path, json.dumps(found).encode()
-            at = text.find("{", end)
-
-
-def _committed_manifests(root: Path) -> list[tuple[str, str]]:
-    """Each manifest the command would run, by its file and its digest: one entry per distinct manifest in a file, so
-    a second manifest beside an allowed one is seen."""
-    accepted = set()
-    for path, raw in _manifest_shaped(root):
-        try:
-            _, digest = load_manifest(raw)
-        except ManifestError:
-            continue
-        accepted.add((path.relative_to(root).as_posix(), digest))
-    return sorted(accepted)
+        # The key ends in "256", and a plain search for it spares most files the case-blind one.
+        if b"256" in raw and _FINGERPRINT_KEY.search(raw) and any(
+                value not in _SYNTHETIC_FINGERPRINTS for value in _SHA256_HEX.findall(raw)):
+            found.append(path.relative_to(root).as_posix())
+    return sorted(found)
 
 
 def _address_lists(root: Path) -> list[str]:
@@ -389,35 +364,66 @@ def _address_lists(root: Path) -> list[str]:
 
 
 def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
-    example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
-    manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
-    other = json.dumps({**json.loads(manifest), "cohort": "private-beta-wave-2"})
+    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
+    example = re.search(r"```json\n(.*?)```", runbook, re.S).group(1)
+    # The example with a person's fingerprints in place of its synthetic ones: what a real manifest holds.
+    manifest = example
+    for n, address in (("one", "someone@example.com"), ("two", "another@example.com")):
+        manifest = manifest.replace(email_fingerprint(f"tester-{n}@example.invalid"), email_fingerprint(address))
+    assert manifest != example
+    fields = json.loads(manifest)
+    entries = fields["accounts"]
+    fingerprint = entries[0]["email_sha256"]
+
+    def draft(**changes) -> str:
+        return json.dumps({**fields, **changes}, indent=2)
+
     for rel, text in {
-        "ops/saved.json": manifest, "docs/pasted.md": example,
+        # A manifest the command would run, saved or pasted in any form, the example's own place included.
+        "ops/saved.json": manifest, "docs/pasted.md": runbook.replace(example, manifest),
+        "docs/ops/complimentary-access.md": runbook.replace(example, manifest),
+        "docs/two.md": f"{runbook}\nWave 2:\n\n```json\n{manifest}```\n",
         "docs/bare-fence.md": f"Notes\n```\n{manifest}```\n", "docs/text-fence.md": f"```text\n{manifest}```\n",
         "docs/tilde.md": f"~~~json\n{manifest}~~~\n", "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
         "docs/inline-fence.md": f"Paste it between ``` fences:\n\n```json\n{manifest}```\n",
-        "docs/two.md": f"```json\n{manifest}```\n\nWave 2:\n\n```json\n{other}\n```\n",
         "ops/grant.sh": f"cat <<'JSON' | python scripts/complimentary_access.py check --manifest /dev/stdin\n{manifest}JSON\n",
         "tasks/notes.py": f"MANIFEST = \'\'\'{manifest}\'\'\'\n",
         "tasks/notes.yml": "manifest: |\n" + "".join(f"  {line}\n" for line in manifest.splitlines()),
         "tasks/manifest.txt": manifest, "tasks/manifest.json.bak": manifest,
-        "tasks/wrapped.json": json.dumps({"wave": {"manifest": json.loads(manifest)}}),
-        "docs/other.md": "email_sha256 is a key, and {not json} here", "frontend/node_modules/pkg/fixture.json": manifest,
-        ".claude/worktrees/agent/docs/runbook.md": example, ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "tasks/wrapped.json": json.dumps({"wave": {"manifest": fields}}),
+        "tasks/escaped.json": json.dumps({"pasted": manifest}),
+        # Drafts the command refuses, which hold the same fingerprints.
+        "backend/scripts/draft-names.json": draft(accounts=[{**entry, "name": "Someone"} for entry in entries]),
+        "backend/scripts/draft-21.json": draft(accounts=[{**entries[0], "account_id": n} for n in range(1, 22)]),
+        "backend/scripts/draft-comma.json": draft()[:-2] + ",\n}\n",
+        "backend/scripts/draft-upper.json": manifest.replace('"email_sha256"', '"EMAIL_SHA256"'),
+        "backend/scripts/draft-camel.json": manifest.replace('"email_sha256"', '"emailSha256"'),
+        "backend/scripts/draft-elsewhere.json": json.dumps(
+            {**{key: value for key, value in fields.items() if key != "accounts"}, "testers": entries}),
+        "tasks/draft.json5": f"{{\n  // wave 1\n  accounts: [{{account_id: 1001, email_sha256: '{fingerprint}'}}],\n}}\n",
+        "tasks/roster.csv": f"account_id,email_sha256\n1001,{fingerprint.upper()}\n",
+        # Not a fingerprint, or not this tree's: the synthetic example anywhere, the key with no value, a longer run of
+        # hex digits, a SHA-256 under no fingerprint key, a dependency and another checkout.
+        "docs/example-copy.md": runbook, "docs/other.md": "email_sha256 is a key, and {not json} here",
+        "docs/longer.md": f"email_sha256 is not {fingerprint}{fingerprint}",
+        "tasks/receipt.json": json.dumps({"source_sha256": fingerprint}),
+        "frontend/node_modules/pkg/fixture.json": manifest,
+        ".claude/worktrees/agent/docs/runbook.md": runbook.replace(example, manifest),
+        ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        # The address list, by the names that say so.
         "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "x\n",
         "tasks/email_addresses.csv": "x\n", "tasks/tester-addresses": "x\n", "tasks/ip_addresses.py": "x = 1\n",
         ".claude/worktrees/agent/addresses.txt": "x\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_bytes(text.encode())
-    found = _committed_manifests(tmp_path)
-    assert sorted({path for path, _ in found}) == sorted([
-        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md",
-        "docs/inline-fence.md", "docs/two.md", "ops/grant.sh", "tasks/notes.py", "tasks/notes.yml",
-        "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json"])
-    assert [digest for path, digest in found if path == "docs/two.md"] != [] and len(
-        [path for path, _ in found if path == "docs/two.md"]) == 2  # a second manifest in one file is its own entry
+    assert _files_with_fingerprints(tmp_path) == sorted([
+        "ops/saved.json", "docs/pasted.md", "docs/ops/complimentary-access.md", "docs/two.md", "docs/bare-fence.md",
+        "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md", "docs/inline-fence.md", "ops/grant.sh", "tasks/notes.py",
+        "tasks/notes.yml", "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json", "tasks/escaped.json",
+        "backend/scripts/draft-names.json", "backend/scripts/draft-21.json", "backend/scripts/draft-comma.json",
+        "backend/scripts/draft-upper.json", "backend/scripts/draft-camel.json", "backend/scripts/draft-elsewhere.json",
+        "tasks/draft.json5", "tasks/roster.csv"])
     assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt",
                                         "tasks/email_addresses.csv", "tasks/tester-addresses"]
 
@@ -425,16 +431,15 @@ def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
     """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
-    (rule 12). The one manifest allowed is the runbook's example, by its digest, and
-    test_the_runbooks_example_manifest_is_one_the_command_accepts holds that example to reserved .invalid addresses,
-    so a second manifest in the runbook, or a real one in the example's place, fails. Pasting one into an issue or a
-    pull request stays a review check."""
-    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
-    _, example = load_manifest(re.search(r"```json\n(.*?)```", runbook, re.S).group(1).encode())
-    accepted = _committed_manifests(REPO)
-    assert accepted == [("docs/ops/complimentary-access.md", example)], (
-        "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
-        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
+    (rule 12), for a draft the command would refuse as much as for one it runs, since both hold the fingerprints. The
+    only ones allowed are the runbook example's two, and
+    test_the_runbooks_example_manifest_is_one_the_command_accepts holds them to reserved .invalid addresses, so a real
+    manifest in the example's place, or anywhere else, fails. Pasting one into an issue or a pull request stays a
+    review check."""
+    found = _files_with_fingerprints(REPO)
+    assert found == [], (
+        "a file in the repository holds an address fingerprint; keep real manifests and their drafts in the founder's "
+        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {found}"
     )
 
 
