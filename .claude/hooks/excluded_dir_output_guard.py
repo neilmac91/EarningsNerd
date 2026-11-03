@@ -54,23 +54,23 @@ reads as masked digits (a dotted year) and ends a cut there (Claude Code's middl
 an elision), wherever in the date it lands. Next to a whole-date token the date is also read per
 digit, in the text before the rewrite, at three kinds of junction only: the word/date junction six
 or nine characters before the token's dash, when a masked year, or year and month, reaches that
-dash (the dash is then the date's own, which a letter left of it lets the token claim); the
-word/date junction at the token's own dash, when a character other than whitespace follows the
-token (one more digit of the date, or the slash after a token of two or more characters) and the
-word's letters or the date's next dash leave room for an eight-character cut; and each
-date/component junction within a date's length after the token and before the next token (the
-token's last characters, or a mark after it, then the date's last digits). So the dated parent
-before a sibling file (``<parent>/plan.md``) is flagged, by design (over-flagging that rare shape
-is the safe side), when its date is elided whole by one ellipsis or a masked digit after its first
-is a clean border (a non-path character such as an ellipsis or ``*``, or the start of a ``...``
-run: a dotted year, every digit dotted, an elided month or day); with no such border (a plain date,
-a mask token such as ``*`` for the whole date, a two-dot month or day, a dotted last digit, a year
-elided by a Unicode ellipsis or three dots) it stays silent. A listing that prints the dated parent
-directory's name alone is flagged by design too: a cut of the longer name cannot be told from it.
-The scan is linear in the text's length (fixed-substring search to candidate junctions and one
-bounded walk around each, and a few fixed checks, a search of a few characters and a bounded walk
-per hit next to each token; the regular expressions have no unbounded repetition and use only
-bounded slices).
+dash (the dash is then the date's own, which the token claims after any character but a digit, a
+dash or a mask character); the word/date junction at the token's own dash, when a character other
+than whitespace follows the token (one more digit of the date, or the slash after a token of two
+or more characters) and the word's letters or the date's next dash leave room for an
+eight-character cut; and each date/component junction within a date's length after the token and
+before the next token (the token's last characters, or a mark after it, then the date's last
+digits). So the dated parent before a sibling file (``<parent>/plan.md``) is flagged, by design
+(over-flagging that rare shape is the safe side), when its date is elided whole by one ellipsis or
+a masked digit after its first is a clean border (a non-path character such as an ellipsis or
+``*``, or the start of a ``...`` run: a dotted year, every digit dotted, an elided month or day);
+with no such border (a plain date, a mask token such as ``*`` for the whole date, a two-dot month
+or day, a dotted last digit, a year elided by a Unicode ellipsis or three dots) it stays silent. A
+listing that prints the dated parent directory's name alone is flagged by design too: a cut of the
+longer name cannot be told from it. The scan is linear in the text's length (fixed-substring
+search to candidate junctions and one bounded walk around each, and a few fixed checks, a search
+of a few characters and a bounded walk per hit next to each token; the regular expressions have no
+unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -105,7 +105,7 @@ cancels the command at the ~10 s timeout and discards its output. The densest in
 one-character whole-date token after the dated word's last letter, or after that letter and a
 masked year that ends in the word's last three letters, then a punctuation mark, repeated, costs up
 to about 3 s of CPU per MB through the registered command; with margin for a slower machine, a
-result holding more than about 2 MB of it may reach that timeout. It is also a detector only -- it
+result holding more than about 2.5 MB of it may reach that timeout. It is also a detector only -- it
 does not mask or replace the result (containment), does not see a subagent's hand-back message or a
 workflow's completion notice (text that reaches the chief outside a tool result), and does not
 pre-empt a command that would read either directory. Whether a workflow agent's tool calls fire
@@ -204,11 +204,11 @@ _ELLIPSIS_TOKEN = r"(?:\N{HORIZONTAL ELLIPSIS}|\.{3,10})(?![.\N{HORIZONTAL ELLIP
 # already handles). The char left of the dash is never a digit, a mask character or a dash, so a date
 # masked digit by digit with those has no dash that starts a token; before an ellipsis token it is
 # not a dot or an ellipsis either, so a dotted date's own dashes do not match, while a mask token
-# after an elided word or the truncation marker still does. A letter-masked date's own dash (after
-# its year or month, YYYY-MM-DD style) does start a token: `_per_digit_near` reads the date per digit
-# again, but only at the junctions next to the token. Rewritten to the plain date so the walk's cut
-# rules apply to a token mask as to a per-digit one; the rewrite is tracked, so the eight-character
-# minimum counts the token as written. It holds no part of either name.
+# after an elided word or the truncation marker still does. A date masked with letters or other marks
+# (YYYY-MM-DD style, or underscores) has own dashes that do start a token: `_per_digit_near` reads the
+# date per digit again, but only at the junctions next to the token. Rewritten to the plain date so
+# the walk's cut rules apply to a token mask as to a per-digit one; the rewrite is tracked, so the
+# eight-character minimum counts the token as written. It holds no part of either name.
 _DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _MASK_TOKEN + r"|(?<![.\N{HORIZONTAL ELLIPSIS}]-)"
                             + _ELLIPSIS_TOKEN + r")(?=/|$|\.\.\.|[^0-9a-z._/#*?-])")
 _ESCAPED_SLASH_RE = re.compile(r"\\/|%2f")  # after case-folding, %2F is %2f
@@ -403,8 +403,8 @@ def _per_digit_near(folded: str, tokens: list[tuple[int, int, bool]]) -> bool:
     """Whether a cut of the dated name, read per digit in the text before the token rewrite, holds a
     junction next to a whole-date token (each a start, its dash; an end; and whether it is an
     ellipsis). For every token: the word/date junction six or nine characters before its dash, when
-    the per-digit stretch from there reaches that dash (a letter-masked year's or year and month's
-    own, which the rewrite read as the word's); the word/date junction at its own dash, when a
+    the per-digit stretch from there reaches that dash (a masked year's or year and month's own,
+    which the rewrite read as the word's); the word/date junction at its own dash, when a
     character other than whitespace follows the token (a slash only after two or more token
     characters: after one, no cut can end) and the word's two letters before the junction's, or a
     dash five characters after the token's, leave room for eight characters; and each

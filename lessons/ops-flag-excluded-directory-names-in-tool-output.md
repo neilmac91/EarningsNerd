@@ -34,7 +34,7 @@ count as clean borders, at the date's masked digits too: a dotted year reads as 
 truncation marker or an elision inside the date still ends a cut. A lone ellipsis (Unicode, or three
 to ten dots) standing for the whole date is a whole-date token like `*`, so a cut may run across it,
 and a cut may also end where it ends. At three junctions next to a whole-date token the date is also
-read per digit: a letter-masked year or year and month before the token's dash, a character other
+read per digit: a masked year or year and month before the token's dash, a character other
 than whitespace after the token, and the token's last characters or a mark after it before a
 date/component junction. So the dated parent before a sibling file is flagged, by
 design, when its date is elided whole by one ellipsis or a masked digit after its first is a clean
@@ -57,7 +57,7 @@ hook); and a run where Claude Code cancels the command at its ~10 s timeout and 
 The densest input measured, a one-character whole-date token after the dated word's last letter, or
 after that letter and a masked year that ends in the word's last three letters, then a punctuation
 mark, repeated, costs up to about 3 s of CPU per MB; with margin for a slower machine, a result that
-holds more than about 2 MB of it may reach that timeout.
+holds more than about 2.5 MB of it may reach that timeout.
 It is a detector only: it does not mask or replace the result (containment), does not see a
 subagent's hand-back message or a workflow's completion notice (text that reaches the chief outside
 a tool result), and does not pre-empt a command that would read either directory. Two further limits

@@ -286,30 +286,35 @@ def _token_listing(with_form: bool) -> str:
     return component_lines + sibling_lines + (f"-.....]/{parts.component1}\n" if with_form else "")
 
 
-# The costliest-class case's blocks: block A of 0.9 MB (units of four, then of ten characters), the
-# size its CPU per MB is checked over, and block B's lines of 101 characters (about 0.4 MB).
-COSTLIEST_A1_UNITS = 187_500
-COSTLIEST_A2_UNITS = 15_000
-COSTLIEST_BLOCK_MB = 0.9
+# The costliest-class case's blocks, one run each. The first run: block A1, the first class (units of
+# four characters, 1.0 MB, the size the run's CPU per MB is taken over), then block B's lines of 101
+# characters (about 0.4 MB). The second run: block A2, the second class alone (units of ten
+# characters, 0.5 MB).
+COSTLIEST_A1_UNITS = 250_000
+COSTLIEST_A1_MB = 1.0
 COSTLIEST_B_LINES = 4_000
+COSTLIEST_A2_UNITS = 50_000
+COSTLIEST_A2_MB = 0.5
 
 
-def _costliest_listing() -> str:
-    """About 1.3 MB with no cut, built so the walk six or nine characters back and the walk at a
-    token's own dash run at every token of block A. First the dated word's last letter, a dash, an x
-    and a closing parenthesis, repeated: at every token the walk nine characters back finds its
-    junction and the walk at the token's own dash passes its junction check, and both stop at their
-    pre-checks (read per digit, no cut there reaches eight characters). Then a letter, the word's
-    last letter, a dash, a letter and the word's last three letters, a dash, a star and a closing
-    parenthesis, repeated: at every token both walks pass their pre-checks and walk (no cut there has
-    a clean start). Block B last: lines of a letter, a dash, an x and a closing parenthesis, whose
-    tokens fail every junction check, with no junction anywhere after them, so a junction check that
-    searched on from its index would cross the rest of the text at every token."""
+def _costliest_listing(second: bool) -> str:
+    """A listing with no cut for one run of the costliest-class case. The first: the dated word's last
+    letter, a dash, an x and a closing parenthesis, repeated (block A1) -- at every token the walk
+    nine characters back finds its junction and the walk at the token's own dash passes its junction
+    check, and both stop at their pre-checks (read per digit, no cut there reaches eight characters);
+    then lines of a letter, a dash, an x and a closing parenthesis (block B), whose tokens fail every
+    junction check, with no junction anywhere after them, so a junction check that searched on from
+    its index would cross the rest of the text at every token. The second, `second`: a letter, the
+    word's last letter, a dash, a letter and the word's last three letters, a dash, a star and a
+    closing parenthesis, repeated (block A2) -- at every token both walks pass their pre-checks and
+    walk, the one six characters back to find no clean start, the one at the token's own dash to find
+    no cut of eight characters."""
     __tracebackhide__ = True
     parts = _Parts()
-    last, year = parts.word1[-1], "a" + parts.word1[-3:]
-    block_a = f"{last}-x)" * COSTLIEST_A1_UNITS + f"q{last}-{year}-*)" * COSTLIEST_A2_UNITS
-    return block_a + ("q-x)" * 25 + "\n") * COSTLIEST_B_LINES
+    last = parts.word1[-1]
+    if second:
+        return f"q{last}-a{parts.word1[-3:]}-*)" * COSTLIEST_A2_UNITS
+    return f"{last}-x)" * COSTLIEST_A1_UNITS + ("q-x)" * 25 + "\n") * COSTLIEST_B_LINES
 
 
 def _stated_size_mb() -> float:
@@ -634,6 +639,35 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
         lambda p: f"q-*)/{p.component1}",
     "the word, the dash and two stars, then a sibling file": lambda p: f"{p.word1}-**/plan.md",
     "the dated parent with two stars for its date, then a sibling file": lambda p: f"{p.head1}**/plan.md",
+    # The pre-checks next to a token, one case per branch and per masked-year form. An own-dash cut
+    # may find its room for eight characters in the date's next dash, five characters after the
+    # token's, with only the word's last letter or two before the junction; and the year, or year and
+    # month, that a walk six or nine characters back reads per digit may be masked with marks that
+    # are not letters.
+    "the word's last letter, the dash, a star, a mark, the year's last two digits, then month and day":
+        lambda p: f"{p.word1[-1]}-*){p.date[2:]}",
+    "the word's last two letters, the dash, a star, three dots, then the month and day with their dashes":
+        lambda p: f"{p.word1[-2:]}-*...{p.date[4:]}",
+    "the word's last letter, the dash, an angle token, a mark, then the month and day with their dashes":
+        lambda p: f"{p.word1[-1]}-<d>){p.date[4:]}",
+    "the word's last letter, the dash, an x, a mark, two letters, a dash and two letters, in prose":
+        lambda p: f"see {p.word1[-1]}-x)ab-cd now",
+    "a line of the word's last two letters, the dash, a star, a mark, two letters, a dash and two letters":
+        lambda p: f"{p.word1[-2:]}-*]ab-cd\n",
+    "N1 with a year of a letter, a dot and two letters, its dash, a star, the slash and the component":
+        lambda p: f"{p.head1}Y.YY-*/{p.component1}",
+    "the word, the dash, a year whose last digit is a letter, its dash and a Unicode ellipsis, in prose":
+        lambda p: f"see {p.word1}-{p.date[:3]}Y-{ELLIPSIS} now",
+    "the word, the dash, a year of four underscores, its dash and a Unicode ellipsis, in prose":
+        lambda p: f"see {p.word1}-____-{ELLIPSIS} now",
+    "N1 with a year and month of underscores, their dash, a star, the slash and the component":
+        lambda p: f"{p.head1}____-__-*/{p.component1}",
+    "the word, the dash, the real year, a month of a digit and an underscore, their dash, an ellipsis":
+        lambda p: f"see {p.word1}-{p.date[:6]}_-{ELLIPSIS} now",
+    # By design (the header's sibling sentence): a short bracketed token's last character is a masked
+    # digit after its first that is a clean border.
+    "the dated parent with a three-character angle token for its date, then a sibling file":
+        lambda p: f"{p.head1}<d>/plan.md",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -681,8 +715,10 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "a six-character J2 cut whose slash is %2F": lambda p: f"see {p.date[-2:]}%2F{p.component1[:3]} now",
     "a six-character J2 cut whose slash is %2f": lambda p: f"see {p.date[-2:]}%2f{p.component1[:3]} now",
     # Two dots in date position are a parent-directory step, never an elided date, even before the
-    # whole component; a bracketed token is a label, not an elision, so the parent before a sibling
-    # file stays a sibling path.
+    # whole component; and the parent before a sibling file with this bracketed token for its date
+    # stays silent because the masked digits after its first are letters, no clean border (a short
+    # bracketed token, with a mark after its first character, flags by design: the header's sibling
+    # sentence).
     "two dots in date position, then a look-alike of the component": lambda p: f"see {p.head1}../{p.component1[:4]}x now",
     "two dots in date position, then the component": lambda p: f"see {p.head1}../{p.component1} now",
     "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
@@ -817,8 +853,8 @@ def test_a_several_megabyte_hit_dense_output_is_silent_and_in_time(event: str, o
             f"5MB hit-dense listing: {event}")
 
 
-# The token-dense case's wall-clock hang stop, far above the run's loaded wall time: it only ends a
-# runaway run and is not the assertion.
+# The token-dense and costliest-class cases' wall-clock hang stop, far above their runs' loaded wall
+# time: it only ends a runaway run and is not the assertion.
 TOKEN_HANG_STOP = 60
 
 
@@ -843,20 +879,25 @@ def test_a_token_dense_output_is_checked_within_its_registered_timeout(with_form
     assert cpu_seconds < timeout, f"the hook used {cpu_seconds:.1f} s of CPU, over its registered {timeout} s timeout"
 
 
-def test_the_costliest_token_classes_stay_within_the_size_the_docs_state(opted_repo: Path, plain_kit: Path) -> None:
-    # The walks next to a token six or nine characters back and at its own dash, at every token of
-    # block A (_costliest_listing), then block B, whose tokens fail every junction check with no
-    # junction after them. Two bounds, both from the registration's own timeout read from
-    # settings.json: the run's CPU (the hook uses at most about a quarter of it), and block A's
-    # CPU per MB times the size the hook and the lesson state for the costliest class (the hook keeps
-    # 1.5x headroom with every CPU busy). The assertions bound CPU time, which a loaded runner hardly
-    # inflates, not wall time (test_wall_clock_bounds.py).
-    run, cpu_seconds = _cpu_run(lambda: _post_event(_costliest_listing(), opted_repo), project_dir=plain_kit,
+@pytest.mark.parametrize("second", [False, True], ids=["the first class, then lines with no junction",
+                                                       "the second class alone"])
+def test_the_costliest_token_classes_stay_within_the_size_the_docs_state(second: bool, opted_repo: Path,
+                                                                          plain_kit: Path) -> None:
+    # The walks next to a token six or nine characters back and at its own dash, at every token of a
+    # costliest class (_costliest_listing): the first run times their junction checks and pre-checks
+    # on the first class, then lines whose tokens fail every junction check with no junction after
+    # them; the second run times their cut walks on the second class alone. Two bounds per run, both
+    # from the registration's own timeout read from settings.json: the run's CPU (the hook uses at most
+    # about a fifth of it), and the run's CPU per MB of its class times the size the hook and the
+    # lesson state for the costliest class (the hook keeps 1.5x headroom with every CPU busy). The
+    # assertions bound CPU time, which a loaded runner hardly inflates, not wall time
+    # (test_wall_clock_bounds.py).
+    run, cpu_seconds = _cpu_run(lambda: _post_event(_costliest_listing(second), opted_repo), project_dir=plain_kit,
                                 hang_stop=TOKEN_HANG_STOP)
     _silent(run, "costliest-class listing")
     timeout = _registered_hook("PostToolUse")["timeout"]
     assert cpu_seconds < timeout, f"the hook used {cpu_seconds:.1f} s of CPU, over its registered {timeout} s timeout"
-    per_mb, stated = cpu_seconds / COSTLIEST_BLOCK_MB, _stated_size_mb()
+    per_mb, stated = cpu_seconds / (COSTLIEST_A2_MB if second else COSTLIEST_A1_MB), _stated_size_mb()
     assert per_mb * stated < timeout, (f"at {per_mb:.2f} s of CPU per MB, the {stated} MB the docs state for the "
                                        f"costliest class would take over the registered {timeout} s timeout")
 
