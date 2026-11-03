@@ -33,10 +33,10 @@ a name segment start, an ASCII `...` run and any non-path character (a Unicode e
 count as clean borders, at the date's masked digits too: a dotted year reads as masked digits while a
 truncation marker or an elision inside the date still ends a cut. A lone ellipsis (Unicode, or three
 to ten dots) standing for the whole date is a whole-date token like `*`, so a cut may run across it,
-and a cut may also end where it ends. Where a date/component junction follows such a token within a
-date's length, the token's last dot or a punctuation mark after it is also read as the date's last
-digit, so a cut through that junction may start inside the token or at the mark; a mark right after
-the token still ends a word/date cut there. So the dated parent before a sibling file is flagged, by
+and a cut may also end where it ends. Next to every whole-date token the per-digit reading is kept
+too: a letter-masked year or year and month before the token's dash, a masked-digit character after
+the token, and, after an ellipsis token, its last dot or a punctuation mark before a date/component
+junction are read as the date's digits. So the dated parent before a sibling file is flagged, by
 design, when its date is elided whole by one ellipsis or a masked digit after its first is a clean
 border (a dotted year, every digit dotted, an elided month or day), and stays silent with a plain
 date, a mask token such as `*` for the whole date, a two-dot month or day, a dotted last digit or a
@@ -54,6 +54,9 @@ It surfaces leaks; it does not guarantee catching every one. Fail-open modes, wh
 not opted in; a session that loads no repository hooks (a multi-repo cloud session, an untrusted
 folder, `disableAllHooks` — as `ops-name-codex-without-its-at-mention.md` notes for the sibling
 hook); and a run where Claude Code cancels the command at its ~10 s timeout and discards the output.
+The densest input measured, a one-character whole-date token between the dated word's last letter
+and a punctuation mark, repeated, costs about 3 s of CPU per MB, so a result that holds about 3 MB
+or more of it reaches that timeout.
 It is a detector only: it does not mask or replace the result (containment), does not see a
 subagent's hand-back message or a workflow's completion notice (text that reaches the chief outside
 a tool result), and does not pre-empt a command that would read either directory. Two further limits

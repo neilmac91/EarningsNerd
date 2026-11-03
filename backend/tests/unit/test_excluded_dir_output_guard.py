@@ -56,6 +56,7 @@ import resource
 import signal
 import subprocess
 import sys
+import types
 from collections.abc import Callable
 from pathlib import Path
 from xml.etree import ElementTree
@@ -266,17 +267,20 @@ def _path_listing() -> str:
 
 
 def _token_listing() -> str:
-    """About two megabytes in which every line holds a whole-date token and no cut: four dots before
-    the component's first three letters (the per-digit walk at a token's date/component junction),
-    then lines alternating an ellipsis after the dated word's last letter before a sibling file (the
-    elision-border check) and four dots before a sibling file. The component lines come first, so a
-    token on a later line has no date/component junction anywhere after it, and a search that ran to
-    the next junction instead of a few characters would cross the rest of the text at every one."""
+    """About two megabytes in which every line holds a whole-date token: four dots before the
+    component's first three letters (the per-digit walk at a token's date/component junction), then
+    lines alternating an ellipsis after the dated word's last letter before a sibling file (the
+    elision-border check) and four dots before a sibling file, none of them a cut; and last, one form
+    only the per-digit walk after an ellipsis token finds (five dots, a closing bracket, the slash and
+    the component), so the hook must scan the whole text to flag it. The component lines come first,
+    so no token on the lines after them has a date/component junction until the last line, and a
+    search that ran to the next junction instead of a few characters would cross the rest of the text
+    at every one."""
     __tracebackhide__ = True
     parts = _Parts()
     component_lines = f"q-..../{parts.component1[:3]}\n" * 60_000
     sibling_lines = f"q{parts.word1[-1]}-{ELLIPSIS}/plan.md\nq-..../plan\n" * 60_000
-    return component_lines + sibling_lines
+    return component_lines + sibling_lines + f"-.....]/{parts.component1}\n"
 
 
 def _json(stdout: str) -> object:
@@ -533,6 +537,43 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "a dash, a Unicode ellipsis, a closing parenthesis, a slash and the component": lambda p: f"-{ELLIPSIS})/{p.component1}",
     "a dash, a Unicode ellipsis, two marks, a slash and five component letters at a line's end":
         lambda p: f"-{ELLIPSIS}])/{p.component1[:5]}\n",
+    # A letter-masked year, or year and month, keeps its per-digit reading when a whole-date token
+    # claims its own dash (the letter left of that dash lets the token match there): an ellipsis, a
+    # star, a bracketed token, the truncation marker, or a mask run for the day.
+    "N1 with a letter-masked year, its dash, an ellipsis, a slash and the component":
+        lambda p: f"{p.head1}YYYY-{ELLIPSIS}/{p.component1}",
+    "N1 with a letter-masked year, its dash, three dots, a slash and the component":
+        lambda p: f"{p.head1}YYYY-.../{p.component1}",
+    "N1 with a letter-masked year and month, their dash, an ellipsis, a slash and the component":
+        lambda p: f"{p.head1}YYYY-MM-{ELLIPSIS}/{p.component1}",
+    "N1 with a letter-masked year, its dash, a star, a slash and the component":
+        lambda p: f"{p.head1}YYYY-*/{p.component1}",
+    "N1 with a letter-masked year, its dash, an angle-bracket token, a slash and the component":
+        lambda p: f"{p.head1}YYYY-<mm-dd>/{p.component1}",
+    "N1 with a letter-masked year, its dash, a square-bracket token, a slash and the component":
+        lambda p: f"{p.head1}YYYY-[mm-dd]/{p.component1}",
+    "the word, a letter-masked year, its dash and an ellipsis, before a space":
+        lambda p: f"see {p.word1}-YYYY-{ELLIPSIS} now",
+    "the word's last four letters, a letter-masked year and month, their dash and an ellipsis":
+        lambda p: f"{p.word1[-4:]}-YYYY-MM-{ELLIPSIS}\n",
+    "the head, a letter-masked year, its dash and the truncation marker": lambda p: f"{p.head1}YYYY-{TRUNC} end",
+    "the head, a letter-masked year and month, their dash and the truncation marker":
+        lambda p: f"{p.head1}YYYY-MM-{TRUNC} end",
+    "N1 with a letter-masked year and month and xx for the day": lambda p: f"{p.head1}YYYY-MM-xx/{p.component1}",
+    "the dated parent with a letter-masked year and month and two stars for the day, at a text's end":
+        lambda p: f"{p.head1}YYYY-MM-**",
+    "N1 with its real year, a letter-masked month and xx for the day":
+        lambda p: f"{p.head1}{p.date[:5]}MM-xx/{p.component1}",
+    # A masked-digit character right after a whole-date token is one more digit of the date: per digit,
+    # these cuts are eight characters.
+    "the word's last three letters, the dash, three dots and a closing parenthesis": lambda p: f"{p.word1[-3:]}-...)",
+    "the word's last five letters, the dash, a star and a closing parenthesis": lambda p: f"{p.word1[-5:]}-*)",
+    "the word's last four letters, the dash, two stars and a closing parenthesis": lambda p: f"{p.word1[-4:]}-**)",
+    "the word's last three letters, the dash, three stars and a closing parenthesis": lambda p: f"{p.word1[-3:]}-***)",
+    "the word's last three letters, the dash, a three-character angle token and a closing parenthesis":
+        lambda p: f"{p.word1[-3:]}-<d>)",
+    "the word's last five letters, the dash, an x and a closing square bracket, in prose":
+        lambda p: f"see {p.word1[-5:]}-x] now",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -587,9 +628,6 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
     # Eleven or more dots are no whole-date token: per digit, this cut is seven characters.
     "the word's last two letters, the dash and eleven dots, before a space": lambda p: f"see {p.word1[-2:]}-{'.' * 11} now",
-    # A punctuation mark right after an ellipsis token ends a word/date cut there; it is not read as one
-    # more masked digit, which would make this seven-character cut eight. The reading kept, pinned.
-    "the word's last three letters, the dash, three dots and a closing parenthesis": lambda p: f"{p.word1[-3:]}-...)",
 }
 NOT_FLAGGED.update({f"N1 short form: a one-character token after the word's last {j} letters":
                     (lambda p, j=j: f"run {p.word1[-j:]}-* now") for j in range(1, 6)})
@@ -714,21 +752,23 @@ def test_a_several_megabyte_hit_dense_output_is_silent_and_in_time(event: str, o
             f"5MB hit-dense listing: {event}")
 
 
-# The token-dense case's bounds: CPU seconds (user plus system) for the run, against 1.3 to 1.9 s the
-# hook uses idle or with every CPU busy, where a check that grows with the token count takes 45 s or
-# more; and a wall-clock hang stop, far above the run's loaded wall time, that only ends a runaway.
-TOKEN_CPU_BOUND = 15
+# The token-dense case's wall-clock hang stop, far above the run's loaded wall time: it only ends a
+# runaway run and is not the assertion.
 TOKEN_HANG_STOP = 60
 
 
-def test_a_token_dense_output_is_silent_within_its_cpu_bound(opted_repo: Path, plain_kit: Path) -> None:
-    # ~2 MB whose every line holds a whole-date token (_token_listing): the token rewrite, the
-    # elision-border check and the per-digit walk next to a token all run. The assertion bounds CPU
-    # time, which a loaded runner hardly inflates, not wall time (test_wall_clock_bounds.py).
+def test_a_token_dense_output_is_flagged_within_its_registered_timeout(opted_repo: Path, plain_kit: Path) -> None:
+    # ~2 MB whose every line holds a whole-date token, ending with one form only the per-digit walk
+    # after a token finds (_token_listing), so the hook scans the whole text: the token rewrite, the
+    # elision-border check and every per-digit walk run. The bound is the registration's own timeout,
+    # read from settings.json: a run needing more CPU than that is cancelled in use and fails open, on
+    # any machine. The assertion bounds CPU time, which a loaded runner hardly inflates, not wall time
+    # (test_wall_clock_bounds.py).
     run, cpu_seconds = _cpu_run(lambda: _post_event(_token_listing(), opted_repo), project_dir=plain_kit,
                                 hang_stop=TOKEN_HANG_STOP)
-    _silent(run, "2MB token-dense listing")
-    assert cpu_seconds < TOKEN_CPU_BOUND, f"the hook used {cpu_seconds:.1f} s of CPU, over its {TOKEN_CPU_BOUND} s bound"
+    _flagged(run, "2MB token-dense listing ending with a form", "PostToolUse")
+    timeout = _registered_hook("PostToolUse")["timeout"]
+    assert cpu_seconds < timeout, f"the hook used {cpu_seconds:.1f} s of CPU, over its registered {timeout} s timeout"
 
 
 def test_a_several_megabyte_output_with_a_name_is_flagged_and_in_time(opted_repo: Path, plain_kit: Path) -> None:
@@ -791,17 +831,16 @@ def test_no_case_id_is_longer_than_pytest_names_by_value() -> None:
 
 def test_no_hook_frame_holds_a_joined_name_while_the_names_are_built() -> None:
     # A fresh copy of the hook builds its names under sys.settrace, and the matcher reads the repr of
-    # every argument and local of every hook frame at each call, line and return event, so a helper's
-    # arguments and a local bound and deleted again are read too, not only what a frame holds at its
-    # end (the broken copies below check pytest's reports). The report names frames, locals and events.
+    # every argument and local of every frame the build creates -- the hook's own, and any library
+    # frame it calls into -- at each call, line and return event, so a helper's arguments and a local
+    # bound and deleted again are read too, not only what a frame holds at its end (the broken copies
+    # below check pytest's reports). The report names frames, locals and events.
     spec = importlib.util.spec_from_file_location("excluded_dir_output_guard_traced", HOOK)
     fresh = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fresh)
     held: set[str] = set()
 
-    def trace(frame, event, arg):
-        if frame.f_code.co_filename != fresh.__file__:
-            return None
+    def trace(frame: types.FrameType, event: str, arg: object) -> Callable[..., object]:
         values = {**frame.f_locals, "<its return value>": arg} if event == "return" else frame.f_locals
         held.update(f"{frame.f_code.co_name}: {name} at a {event} event" for name, value in values.items()
                     if _hook.flagged(repr(value)))
@@ -865,7 +904,8 @@ _ECHOING = ((_FLAG_BRANCH, _ECHOING_FLAG_BRANCH), (_OPT_IN_CHECK, _OPT_IN_IGNORE
 _PIN = "test_a_broken_copy_prints_no_scanned_text"
 _MESSAGES_TEST = "test_the_fixed_messages_are_distinct_and_say_what_they_mean"
 _REGISTRATION_TEST = "test_the_hook_is_registered_on_both_events"
-# The tests that never run the hook through its registration, so they pass in every copy.
+# The tests that never run the hook through its registration, so they pass in the copy with the
+# registrations removed.
 _UNREGISTERED_TESTS = (_MESSAGES_TEST, "test_no_case_id_is_longer_than_pytest_names_by_value",
                        "test_no_hook_frame_holds_a_joined_name_while_the_names_are_built")
 _FIRST_CASE = "test_a_named_result_is_flagged_on_post_tool_use[N1 alone]"

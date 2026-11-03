@@ -51,21 +51,23 @@ under a different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` 
 is caught while a mid-segment look-alike is not. That border may itself be a character the date's
 tolerance took as a masked digit, so an ASCII ``...`` run or a Unicode ellipsis inside the date both
 reads as masked digits (a dotted year) and ends a cut there (Claude Code's middle-truncation marker,
-an elision), wherever in the date it lands. An ellipsis token is also read per digit where a
-date/component junction follows it within a date's length: its last dot, or a punctuation mark after
-it, is then the date's last digit, so a cut through that junction may start inside the token or at
-the mark (the junction is walked once more in the text before the rewrite). A mark right after the
-token still ends a word/date cut there; it is not read as one more masked digit. So the dated parent
-before a sibling file (``<parent>/plan.md``) is flagged, by design (over-flagging that rare shape is
-the safe side), when its date is elided whole by one ellipsis or a masked digit after its first is a
-clean border (a non-path character such as an ellipsis or ``*``, or the start of a ``...`` run: a
-dotted year, every digit dotted, an elided month or day); with no such border (a plain date, a mask
-token such as ``*`` for the whole date, a two-dot month or day, a dotted last digit, a year elided by
-a Unicode ellipsis or three dots) it stays silent. A listing that prints the dated parent
-directory's name alone is flagged by design too: a cut of the longer name cannot be told from it. The
-scan is linear in the text's length (fixed-substring search to candidate junctions and one bounded
-walk around each, and a search of a few characters and a bounded walk per hit after each ellipsis
-token; the regular expressions have no unbounded repetition and use only bounded slices).
+an elision), wherever in the date it lands. Next to every whole-date token the per-digit reading is
+kept as well, walked once more in the text before the rewrite: at the word/date junction six or nine
+characters before the token's dash (that dash is then a letter-masked year's or year and month's
+own, which a letter left of it lets the token claim), at the token's own dash when the character
+after the token reads as a masked digit (one more digit of the date), and, after an ellipsis token,
+at each date/component junction within a date's length and before the next ellipsis token (its
+last dot, or a punctuation mark after it, then the date's last digit). So the dated parent before a
+sibling file (``<parent>/plan.md``) is flagged, by design (over-flagging that rare shape is the safe
+side), when its date is elided whole by one ellipsis or a masked digit after its first is a clean
+border (a non-path character such as an ellipsis or ``*``, or the start of a ``...`` run: a dotted
+year, every digit dotted, an elided month or day); with no such border (a plain date, a mask token
+such as ``*`` for the whole date, a two-dot month or day, a dotted last digit, a year elided by a
+Unicode ellipsis or three dots) it stays silent. A listing that prints the dated parent directory's
+name alone is flagged by design too: a cut of the longer name cannot be told from it. The scan is
+linear in the text's length (fixed-substring search to candidate junctions and one bounded walk
+around each, and a few fixed checks, a search of a few characters and a bounded walk per hit next to
+each token; the regular expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -96,7 +98,10 @@ in, it stays silent.
 
 Limits. Fail-open modes (it stays silent): not opted in; a session that loads no repository hooks
 (a multi-repo cloud session, an untrusted folder, ``disableAllHooks``); and a run where Claude Code
-cancels the command at the ~10 s timeout and discards its output. It is also a detector only -- it
+cancels the command at the ~10 s timeout and discards its output. The densest input measured, a
+one-character whole-date token between the dated word's last letter and a punctuation mark,
+repeated, costs about 3 s of CPU per MB through the registered command, so a result that holds
+about 3 MB or more of it reaches that timeout. It is also a detector only -- it
 does not mask or replace the result (containment), does not see a subagent's hand-back message or a
 workflow's completion notice (text that reaches the chief outside a tool result), and does not
 pre-empt a command that would read either directory. Whether a workflow agent's tool calls fire
@@ -189,16 +194,17 @@ _MASK_TOKEN = r"[#*?xn]{1,10}|<[^>\n]{0,14}>|\[[^\]\n]{0,14}\]|\{[^}\n]{0,14}\}"
 # dots, not followed by another dot or ellipsis -- two ellipses, an ellipsis and dots, or eleven or
 # more dots keep the per-digit reading -- and never two dots ('..' is a parent-directory step).
 _ELLIPSIS_TOKEN = r"(?:\N{HORIZONTAL ELLIPSIS}|\.{3,10})(?![.\N{HORIZONTAL ELLIPSIS}])"
-# A whole-date token standing where the date stands: the word/date dash, then one complete token,
-# then the component slash, the text end, an ASCII '...' run, or a non-path non-mask character, a
-# Unicode ellipsis among them (never '-' or another mask char, which would be a per-digit mask the
-# walk already handles). The char left of the dash is the word's last letter, never a date-content
-# char -- a digit, a mask character or a dash -- so a per-digit mask's own dashes do not match; before
-# an ellipsis token it is not a dot or an ellipsis either, so a dotted date's own dashes do not match,
-# while a mask token after an elided word or the truncation marker still does. Rewritten to the
-# plain date so the walk's cut rules apply to a token mask as to a per-digit one; the rewrite is
-# tracked, so the eight-character minimum counts the token as written. It holds no part of either
-# name.
+# A whole-date token standing where the date stands: a dash, then one complete token, then the
+# component slash, the text end, an ASCII '...' run, or a non-path non-mask character, a Unicode
+# ellipsis among them (never '-' or another mask char, which would be a per-digit mask the walk
+# already handles). The char left of the dash is never a digit, a mask character or a dash, so a date
+# masked digit by digit with those has no dash that starts a token; before an ellipsis token it is
+# not a dot or an ellipsis either, so a dotted date's own dashes do not match, while a mask token
+# after an elided word or the truncation marker still does. A letter-masked date's own dash (after
+# its year or month, YYYY-MM-DD style) does start a token: `_per_digit_near` reads that date per digit
+# again. Rewritten to the plain date so the walk's cut rules apply to a token mask as to a per-digit
+# one; the rewrite is tracked, so the eight-character minimum counts the token as written. It holds
+# no part of either name.
 _DATE_TOKEN_RE = re.compile(r"(?<![-0-9#*?xn])-(?:" + _MASK_TOKEN + r"|(?<![.\N{HORIZONTAL ELLIPSIS}]-)"
                             + _ELLIPSIS_TOKEN + r")(?=/|$|\.\.\.|[^0-9a-z._/#*?-])")
 _ESCAPED_SLASH_RE = re.compile(r"\\/|%2f")  # after case-folding, %2F is %2f
@@ -244,28 +250,28 @@ def _date_for_token(match: re.Match[str]) -> str:
     return "-" + _names()[0].date
 
 
-def _normalize(text: str) -> tuple[str, str, list, frozenset[int], list[tuple[int, int]]]:
+def _normalize(text: str) -> tuple[str, str, list, frozenset[int], list[tuple[int, int, bool]]]:
     """The text before the token rewrite and the text the walk reads, the rewrites that map the
-    latter's positions back for the length rule, its elision borders, and where each ellipsis token
-    starts (its dash) and ends in the former: case-fold (``str.casefold``, so a sharp s reads as the
-    two letters it folds to); undo the \\/ and %2f escapes of a slash; rewrite a whole-date token in
-    date position to the plain date. Only the token step is tracked, so a cut's length counts
-    normalised characters, a token as written. An elision border is the end of a date rewritten from
-    an ellipsis token, where the ellipsis ended: a cut may end there, as it may at an ellipsis inside
-    a date."""
+    latter's positions back for the length rule, its elision borders, and each whole-date token's
+    start (its dash) and end in the former, and whether it is an ellipsis: case-fold
+    (``str.casefold``, so a sharp s reads as the two letters it folds to); undo the \\/ and %2f
+    escapes of a slash; rewrite a whole-date token in date position to the plain date. Only the token
+    step is tracked, so a cut's length counts normalised characters, a token as written. An elision
+    border is the end of a date rewritten from an ellipsis token, where the ellipsis ended: a cut may
+    end there, as it may at an ellipsis inside a date."""
     folded = text.casefold()
     if "\\/" in folded or "%2f" in folded:
         folded = _ESCAPED_SLASH_RE.sub("/", folded)
-    text, maps, elisions, elided = folded, [], frozenset(), []
+    text, maps, elisions, tokens = folded, [], frozenset(), []
     if "-" in folded:
         text, records = _tracked_sub(folded, _DATE_TOKEN_RE, _date_for_token)
         if records:
             maps.append(([r[0] for r in records], records))
             elisions = frozenset(new_start + new_len for new_start, new_len, old_start, _ in records
                                  if folded[old_start + 1] in ".\N{HORIZONTAL ELLIPSIS}")
-            elided = [(old_start, old_start + old_len) for _, _, old_start, old_len in records
-                      if folded[old_start + 1] in ".\N{HORIZONTAL ELLIPSIS}"]
-    return folded, text, maps, elisions, elided
+            tokens = [(old_start, old_start + old_len, folded[old_start + 1] in ".\N{HORIZONTAL ELLIPSIS}")
+                      for _, _, old_start, old_len in records]
+    return folded, text, maps, elisions, tokens
 
 
 def _map_back(position: int, maps: list) -> int:
@@ -374,31 +380,45 @@ def _walk(text: str, maps: list, elisions: frozenset[int], name: _Name) -> bool:
 
 
 def flagged(text: str) -> bool:
-    """Whether a scanned string carries a form of either name. An ellipsis token is also read per digit
-    at the date/component junctions right after it (`_per_digit_near`)."""
+    """Whether a scanned string carries a form of either name. A whole-date token is also read per
+    digit at the junctions next to it (`_per_digit_near`)."""
     if not isinstance(text, str) or not text:
         return False
-    folded, norm, maps, elisions, elided = _normalize(text)
+    folded, norm, maps, elisions, tokens = _normalize(text)
     if any(_walk(norm, maps, elisions, name) for name in _names()):
         return True
-    return any(_per_digit_near(folded, start, end) for start, end in elided)
+    return _per_digit_near(folded, tokens)
 
 
-def _per_digit_near(folded: str, start: int, end: int) -> bool:
-    """Whether a cut of the dated name, read per digit in the text before the rewrite, holds a
-    date/component junction within a date's length after the ellipsis token from `start` (its dash)
-    to `end`: the token's last dot, or a punctuation mark after it, read as the date's last digit. Only
-    a run of four or more dots holds a clean border (a '...' run) before its last dot, so after a
-    shorter token the search starts one character later. Each token costs a search of a few
-    characters and a bounded walk per hit."""
+def _per_digit_near(folded: str, tokens: list[tuple[int, int, bool]]) -> bool:
+    """Whether a cut of the dated name, read per digit in the text before the token rewrite, holds a
+    junction next to a whole-date token (each a start, its dash; an end; and whether it is an
+    ellipsis). For every token, the word/date junction six or nine characters before its dash, where
+    that dash is a letter-masked year's or year and month's own (the rewrite read it as the word's),
+    and the word/date junction at its own dash when the character after it reads as a masked digit;
+    after an ellipsis token, each date/component junction within a date's length of it and before the
+    next ellipsis token, its last dot or a punctuation mark after it then read as the date's last
+    digit. Only a run of four or more dots holds a clean border (a '...' run) before its last dot, so
+    after a shorter token that search starts one character later. Each token costs a few fixed
+    checks, a search of a few characters and a bounded walk per hit."""
     dated = _names()[0]
-    find_sub, c0, _ = dated.junctions[1]  # date/component: the slash and the letter after it
-    limit = end + len(dated.date) + 1  # the junction no further than a date's length after the token
-    hit = folded.find(find_sub, end if end - start > 4 else end + 1, limit)
-    while hit >= 0:
-        if _cut_at(folded, [], frozenset(), dated, c0, hit - 1):
+    (word_sub, word_c0, _), (comp_sub, comp_c0, _) = dated.junctions
+    n = len(folded)
+    next_starts = iter([start for start, _, ellipsis in tokens if ellipsis][1:] + [n])
+    for start, end, ellipsis in tokens:
+        for hit in (start - 6, start - 9):  # the word's last letter before a four-char year, or year and month
+            if hit >= 0 and folded.startswith(word_sub, hit) and _cut_at(folded, [], frozenset(), dated, word_c0, hit):
+                return True
+        if (0 < start and end < n and folded[end] not in "/-" and not folded[end].isspace()
+                and folded.startswith(word_sub, start - 1) and _cut_at(folded, [], frozenset(), dated, word_c0, start - 1)):
             return True
-        hit = folded.find(find_sub, hit + 1, limit)
+        if ellipsis:
+            limit = min(end + len(dated.date) + 1, next(next_starts) + 1)
+            hit = folded.find(comp_sub, end if end - start > 4 else end + 1, limit)
+            while hit >= 0:
+                if _cut_at(folded, [], frozenset(), dated, comp_c0, hit - 1):
+                    return True
+                hit = folded.find(comp_sub, hit + 1, limit)
     return False
 
 
