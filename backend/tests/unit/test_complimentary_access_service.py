@@ -12,7 +12,9 @@ and ``test_the_grants_lock_is_a_transaction_scoped_advisory_lock_on_postgresql``
 (lessons/test-pin-a-row-lock-with-a-statement-spy.md). The re-read cases show what SQLite can: a unit refuses what
 changed after its dry run.
 """
+import ast
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -28,7 +30,7 @@ from sqlalchemy.orm import Query
 
 from app.database import SessionLocal
 from app.models import AccountAgreement, AuditLog, ComplimentaryAccessGrant, InviteCode, Subscription, User
-from app.services import admin_filing_service, complimentary_access_service as service, waitlist_service
+from app.services import audit_service, complimentary_access_service as service
 from app.services.complimentary_access_manifest import (
     MAX_ACTIVE_GRANTS,
     ManifestError,
@@ -46,6 +48,8 @@ TODAY = date(2030, 6, 1)
 REVIEW_ON = date(2030, 8, 1)
 COHORT = "private-beta-2026-11"
 REASON = "Private beta tester"
+# A synthetic salt (32 hex digits): a real manifest's is secret randomness the operator draws.
+SALT = "5a" * 16
 NOW = datetime(2030, 5, 1, 12, tzinfo=timezone.utc)
 INVITE_COHORT = "pb02-invites"
 
@@ -108,9 +112,9 @@ def _entry(account) -> dict:
 
 
 def _raw(action: str, accounts: list, *, operator_id: int = 1, cohort: str = COHORT, reason: str = REASON,
-         review_on: date = REVIEW_ON) -> bytes:
+         review_on: date = REVIEW_ON, salt: str = SALT) -> bytes:
     payload = {"action": action, "cohort": cohort, "reason": reason, "operator_account_id": operator_id,
-               "accounts": accounts}
+               "salt": salt, "accounts": accounts}
     if action == "grant":
         payload["review_on"] = review_on.isoformat()
     return json.dumps(payload).encode()
@@ -222,7 +226,7 @@ _REPEATED = ["manifest: names a key twice in one object"]
     # Unknown keys, values of the wrong type or format, and this module's own validators.
     (json.dumps({
         "action": "grant", "cohort": "Not A Slug", "reason": "Private beta tester", "review_on": PLANTED_ADDRESS,
-        "operator_account_id": str(PLANTED_ID), PLANTED_ADDRESS: PLANTED_ID,
+        "operator_account_id": str(PLANTED_ID), "salt": SALT, PLANTED_ADDRESS: PLANTED_ID,
         "accounts": [{"account_id": PLANTED_ID, "email_sha256": PLANTED_ADDRESS, PLANTED_ADDRESS: 1}],
     }).encode(), [
         "grant.<unexpected key>: is not a manifest key",
@@ -235,6 +239,8 @@ _REPEATED = ["manifest: names a key twice in one object"]
     (_planted(accounts=PLANTED_ADDRESS), ["grant.accounts: must be a list"]),
     (_planted(accounts=[PLANTED_ADDRESS]), ["grant.accounts.0: must be an object"]),
     (_planted(reason=f" {PLANTED_ADDRESS}"), ["grant.reason: must be printable text without surrounding spaces"]),
+    (_planted(salt=PLANTED_ADDRESS), ["grant.salt: does not match its format"]),
+    (_planted(salt=PLANTED_ID), ["grant.salt: must be a string"]),
     (_planted(accounts=[{**_fake_entry(1), "account_id": PLANTED_ID}, {**_fake_entry(2), "account_id": PLANTED_ID}]),
      ["grant: names an account id more than once"]),
 ])
@@ -242,7 +248,8 @@ def test_a_fault_names_its_place_and_kind_never_the_value(raw, problems):
     with pytest.raises(ManifestError) as refused:
         load_manifest(raw)
     assert sorted(refused.value.problems) == sorted(problems)
-    for planted in (PLANTED_ADDRESS, "planted.tester", str(PLANTED_ID), "Not A Slug"):
+    for planted in (PLANTED_ADDRESS, "planted.tester", str(PLANTED_ID), "Not A Slug", _fake_entry(1)["email_sha256"],
+                    _fake_entry(2)["email_sha256"], SALT):
         assert planted not in str(refused.value)
 
 
@@ -253,6 +260,10 @@ def test_a_fault_names_its_place_and_kind_never_the_value(raw, problems):
     {"reason": " Padded"},
     {"reason": "Line\nbreak"},
     {"accounts": []},
+    {"salt": "5a" * 15 + "5"},  # 31 hex digits: under 128 bits
+    {"salt": "5A" * 16},  # upper case
+    {"salt": "5g" * 16},  # not hex
+    {"salt": "5a" * 64 + "5"},  # over 128 digits
 ])
 def test_a_manifest_is_strict_json(change):
     payload = json.loads(_raw("grant", [_fake_entry(1)]))
@@ -275,10 +286,41 @@ def test_the_digest_is_canonical_and_moves_with_every_field():
     assert load_manifest(reordered)[1] == digest
     variants = [
         _raw("grant", list(reversed(accounts))), _raw("grant", accounts[:1]), _raw("revoke", accounts),
-        _raw("grant", accounts, operator_id=2), _raw("grant", accounts, cohort="another-cohort"),
+        _raw("grant", accounts, operator_id=2), _raw("grant", accounts, cohort="private-beta-2026-12"),
         _raw("grant", accounts, reason="Another reason"), _raw("grant", accounts, review_on=REVIEW_ON + timedelta(1)),
+        _raw("grant", accounts, salt="f" * 32),
     ]
     assert len({load_manifest(raw)[1] for raw in variants} | {digest}) == len(variants) + 1
+
+
+def test_the_digest_covers_a_secret_salt_so_its_public_copy_names_no_one():
+    """Every report prints the digest to the public Ops log, and every other field can be guessed (a stock reason, the
+    founder's id, sequential ids, a candidate address's fingerprint): without a salt, the digest of a one-account
+    manifest is matched to its tester by hashing guesses offline. The salt is required and inside the canonical form,
+    so what a guesser rebuilds from the public fields is not the digest."""
+    entry = _fake_entry(1)
+    _, digest = load_manifest(_raw("grant", [entry]))
+    public = {key: value for key, value in json.loads(_raw("grant", [entry])).items() if key != "salt"}
+    rebuilt = hashlib.sha256(json.dumps(public, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert rebuilt != digest
+    assert load_manifest(_raw("grant", [entry], salt="f" * 32))[1] != digest
+    with pytest.raises(ManifestError) as refused:
+        load_manifest(json.dumps(public).encode())
+    assert refused.value.problems == ["grant.salt: is required"]
+
+
+def test_a_cohort_is_an_opaque_code_that_names_no_one():
+    """Every report and the readout print the cohort to the public Ops log, so it is a fixed scheme with no free letter:
+    private-beta-YYYY-MM, with an optional wave. A slug that could hold a name, a workplace or a description is
+    refused."""
+    for cohort in ("private-beta-2026-11", "private-beta-2026-11-w2", "private-beta-2027-01-w12"):
+        assert load_manifest(_raw("grant", [_fake_entry(1)], cohort=cohort))[0].cohort == cohort
+    for cohort in ("jane-doe-acme", "acme-corp-friends", "private-beta-2026-13", "private-beta-2026-1",
+                   "private-beta-2026-11-wave2", "private-beta-2026-11-w0", "Private-Beta-2026-11",
+                   "private-beta-2026-11-jane", "private-beta-2026-11\n"):
+        with pytest.raises(ManifestError) as refused:
+            load_manifest(_raw("grant", [_fake_entry(1)], cohort=cohort))
+        assert refused.value.problems == ["grant.cohort: does not match its format"], cohort
 
 
 def test_the_review_date_falls_after_today_and_within_a_year():
@@ -296,11 +338,15 @@ def test_the_fingerprint_matches_how_accounts_store_addresses():
     assert email_fingerprint("  Tester.One@Example.COM\n") == hashlib.sha256(b"tester.one@example.com").hexdigest()
 
 
-def test_the_runbooks_example_manifest_is_one_the_command_accepts():
+def test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn():
     runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
     example = re.search(r"```json\n(.*?)```", runbook, re.S)
     assert example, "docs/ops/complimentary-access.md shows a synthetic example manifest in a json block"
-    manifest, digest = load_manifest(example.group(1).encode())
+    # As written, the example is refused: its salt is a placeholder, so no manifest runs with a published salt.
+    with pytest.raises(ManifestError) as refused:
+        load_manifest(example.group(1).encode())
+    assert refused.value.problems == ["grant.salt: does not match its format"]
+    manifest, digest = load_manifest(json.dumps({**json.loads(example.group(1)), "salt": SALT}).encode())
     assert manifest.action == "grant" and len(manifest.accounts) >= 1 and len(digest) == 64
     assert "@" not in example.group(1), "the example carries fingerprints, never an address"
     # Synthetic, which the manifest gate below relies on when it allows this one file: each fingerprint is a reserved
@@ -315,9 +361,19 @@ _NOT_THE_REPOSITORY = {".git", "node_modules", ".venv", "venv", ".next", "test-r
 
 
 # The operator's raw address list, by any name that says so in a plain-text form: addresses.txt, email_addresses.csv,
-# beta-addresses (no suffix).
+# beta-addresses (no suffix), and an editor's or a copy's leftovers of one (addresses.txt~, .addresses.txt.swp).
 _ADDRESS_LIST_SUFFIXES = {"", ".txt", ".csv", ".tsv", ".lst", ".list"}
-_DECODER = json.JSONDecoder()
+_BACKUP_SUFFIXES = ("~", ".bak", ".orig", ".old", ".tmp", ".swp", ".save")
+# One address alone on its line, as the list holds them; a line of prose that mentions one is not.
+_ADDRESS_LINE = re.compile(r"[^\s@<>\"',;:()]+@[^\s@<>\"',;:()]+\.[A-Za-z]{2,}")
+# The key that names an address's fingerprint, however a draft spells it: email_sha256, emailSha256, EMAIL-SHA256,
+# "email sha256".
+_FINGERPRINT_KEY = re.compile(rb"(?i)email[\s_-]*sha[\s_-]*256")
+# A SHA-256 in hex, in either case, that is not part of a longer run of hex digits.
+_SHA256_HEX = re.compile(rb"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
+# The runbook example's two fingerprints, of reserved .invalid addresses
+# (test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn holds the example to them): no person's.
+_SYNTHETIC_FINGERPRINTS = frozenset(email_fingerprint(f"tester-{n}@example.invalid").encode() for n in ("one", "two"))
 
 
 def _tree(root: Path):
@@ -330,111 +386,140 @@ def _tree(root: Path):
             yield Path(folder) / name
 
 
-def _objects(document):
-    """Every JSON object in a parsed document, the document itself included."""
-    if isinstance(document, dict):
-        yield document
-        for value in document.values():
-            yield from _objects(value)
-    elif isinstance(document, list):
-        for value in document:
-            yield from _objects(value)
-
-
-def _manifest_shaped(root: Path):
-    """Each JSON object written out in a file under ``root`` that names ``email_sha256``, whatever the file and however
-    the object is held: a .json file, a fenced block of any kind, a shell heredoc, a string in Python or YAML, a wrapper
-    under a key. The reader tries a JSON value at every "{" and yields each object in it, so no form or fence is
-    named. Every manifest the command runs carries the key, so a file without it cannot hold one. A key spelled with
-    escapes, or JSON split by its holder (a string concatenated in pieces), is not looked for: the gate stops a
-    manifest saved or pasted by mistake, not one disguised."""
+def _files_with_fingerprints(root: Path) -> list[str]:
+    """Each file under ``root`` that names an address fingerprint's key and holds a SHA-256 in hex other than the
+    runbook example's two synthetic ones. A manifest the command runs, a draft it refuses (an extra key, 21 accounts, a
+    trailing comma, a key spelled another way, the accounts under another name) and a roster with an ``email_sha256``
+    column all hold what a list of candidate addresses matches, whatever their form: the reader looks at the bytes, so
+    no format, fence or quoting is named. A file that never names the key, or that disguises the value (encoded, split
+    in pieces), is not looked for: the gate stops a manifest saved or pasted by mistake, not one hidden. It reports
+    paths, never a value."""
+    found = []
     for path in _tree(root):
         try:
             raw = path.read_bytes()
         except OSError:
             continue
-        if b"email_sha256" not in raw:
-            continue
-        text = raw.decode("utf-8", "replace")
-        at = text.find("{")
-        while at != -1:
-            try:
-                document, end = _DECODER.raw_decode(text, at)
-            except (ValueError, RecursionError):
-                at = text.find("{", at + 1)
-                continue
-            # A manifest names both keys, so only such objects are worth the strict parse.
-            for found in _objects(document):
-                if "action" in found and "accounts" in found:
-                    yield path, json.dumps(found).encode()
-            at = text.find("{", end)
+        # The key ends in "256", and a plain search for it spares most files the case-blind one.
+        if b"256" in raw and _FINGERPRINT_KEY.search(raw) and any(
+                value not in _SYNTHETIC_FINGERPRINTS for value in _SHA256_HEX.findall(raw)):
+            found.append(path.relative_to(root).as_posix())
+    return sorted(found)
 
 
-def _committed_manifests(root: Path) -> list[tuple[str, str]]:
-    """Each manifest the command would run, by its file and its digest: one entry per distinct manifest in a file, so
-    a second manifest beside an allowed one is seen."""
-    accepted = set()
-    for path, raw in _manifest_shaped(root):
-        try:
-            _, digest = load_manifest(raw)
-        except ManifestError:
-            continue
-        accepted.add((path.relative_to(root).as_posix(), digest))
-    return sorted(accepted)
+def _without_backup_suffixes(name: str) -> str:
+    while any(name.lower().endswith(suffix) and len(name) > len(suffix) for suffix in _BACKUP_SUFFIXES):
+        name = next(name[: -len(suffix)] for suffix in _BACKUP_SUFFIXES if name.lower().endswith(suffix))
+    return name
+
+
+def _is_address_list(path: Path) -> bool:
+    """A file named as the list (or a backup of one), or, whatever its name, a small text file whose every non-blank
+    line is one address, a byte-order mark and CRLF line ends allowed."""
+    name = _without_backup_suffixes(path.name)
+    if "addresses" in name.lower() and Path(name).suffix.lower() in _ADDRESS_LIST_SUFFIXES:
+        return True
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return False
+    if len(raw) > 65_536 or b"@" not in raw or b"\0" in raw:
+        return False
+    # A byte-order mark is no whitespace, so the first line keeps it and still reads as an address.
+    lines = [line.strip() for line in raw.decode("utf-8", "replace").splitlines()]
+    lines = [line for line in lines if line]
+    return bool(lines) and all(_ADDRESS_LINE.fullmatch(line) for line in lines)
 
 
 def _address_lists(root: Path) -> list[str]:
-    return sorted(path.relative_to(root).as_posix() for path in _tree(root)
-                  if "addresses" in path.name.lower() and path.suffix.lower() in _ADDRESS_LIST_SUFFIXES)
+    return sorted(path.relative_to(root).as_posix() for path in _tree(root) if _is_address_list(path))
 
 
 def test_the_gates_read_every_form_a_manifest_or_an_address_list_is_saved_in_and_skip_what_is_not_this_tree(tmp_path):
-    example = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
-    manifest = re.search(r"```json\n(.*?)```", example, re.S).group(1)
-    other = json.dumps({**json.loads(manifest), "cohort": "private-beta-wave-2"})
+    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
+    example = re.search(r"```json\n(.*?)```", runbook, re.S).group(1)
+    # The example with a person's fingerprints in place of its synthetic ones: what a real manifest holds.
+    manifest = example
+    for n, address in (("one", "someone@example.com"), ("two", "another@example.com")):
+        manifest = manifest.replace(email_fingerprint(f"tester-{n}@example.invalid"), email_fingerprint(address))
+    assert manifest != example
+    fields = json.loads(manifest)
+    entries = fields["accounts"]
+    fingerprint = entries[0]["email_sha256"]
+
+    def draft(**changes) -> str:
+        return json.dumps({**fields, **changes}, indent=2)
+
     for rel, text in {
-        "ops/saved.json": manifest, "docs/pasted.md": example,
+        # A manifest the command would run, saved or pasted in any form, the example's own place included.
+        "ops/saved.json": manifest, "docs/pasted.md": runbook.replace(example, manifest),
+        "docs/ops/complimentary-access.md": runbook.replace(example, manifest),
+        "docs/two.md": f"{runbook}\nWave 2:\n\n```json\n{manifest}```\n",
         "docs/bare-fence.md": f"Notes\n```\n{manifest}```\n", "docs/text-fence.md": f"```text\n{manifest}```\n",
         "docs/tilde.md": f"~~~json\n{manifest}~~~\n", "docs/crlf.md": f"```json\n{manifest}```\n".replace("\n", "\r\n"),
         "docs/inline-fence.md": f"Paste it between ``` fences:\n\n```json\n{manifest}```\n",
-        "docs/two.md": f"```json\n{manifest}```\n\nWave 2:\n\n```json\n{other}\n```\n",
         "ops/grant.sh": f"cat <<'JSON' | python scripts/complimentary_access.py check --manifest /dev/stdin\n{manifest}JSON\n",
         "tasks/notes.py": f"MANIFEST = \'\'\'{manifest}\'\'\'\n",
         "tasks/notes.yml": "manifest: |\n" + "".join(f"  {line}\n" for line in manifest.splitlines()),
         "tasks/manifest.txt": manifest, "tasks/manifest.json.bak": manifest,
-        "tasks/wrapped.json": json.dumps({"wave": {"manifest": json.loads(manifest)}}),
-        "docs/other.md": "email_sha256 is a key, and {not json} here", "frontend/node_modules/pkg/fixture.json": manifest,
-        ".claude/worktrees/agent/docs/runbook.md": example, ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        "tasks/wrapped.json": json.dumps({"wave": {"manifest": fields}}),
+        "tasks/escaped.json": json.dumps({"pasted": manifest}),
+        # Drafts the command refuses, which hold the same fingerprints.
+        "backend/scripts/draft-names.json": draft(accounts=[{**entry, "name": "Someone"} for entry in entries]),
+        "backend/scripts/draft-21.json": draft(accounts=[{**entries[0], "account_id": n} for n in range(1, 22)]),
+        "backend/scripts/draft-comma.json": draft()[:-2] + ",\n}\n",
+        "backend/scripts/draft-upper.json": manifest.replace('"email_sha256"', '"EMAIL_SHA256"'),
+        "backend/scripts/draft-camel.json": manifest.replace('"email_sha256"', '"emailSha256"'),
+        "backend/scripts/draft-elsewhere.json": json.dumps(
+            {**{key: value for key, value in fields.items() if key != "accounts"}, "testers": entries}),
+        "tasks/draft.json5": f"{{\n  // wave 1\n  accounts: [{{account_id: 1001, email_sha256: '{fingerprint}'}}],\n}}\n",
+        "tasks/roster.csv": f"account_id,email_sha256\n1001,{fingerprint.upper()}\n",
+        # Not a fingerprint, or not this tree's: the synthetic example anywhere, the key with no value, a longer run of
+        # hex digits, a SHA-256 under no fingerprint key, a dependency and another checkout.
+        "docs/example-copy.md": runbook, "docs/other.md": "email_sha256 is a key, and {not json} here",
+        "docs/longer.md": f"email_sha256 is not {fingerprint}{fingerprint}",
+        "tasks/receipt.json": json.dumps({"source_sha256": fingerprint}),
+        "frontend/node_modules/pkg/fixture.json": manifest,
+        ".claude/worktrees/agent/docs/runbook.md": runbook.replace(example, manifest),
+        ".claude/worktrees/agent/.git": "gitdir: elsewhere\n",
+        # The address list, by the names that say so, an editor's backups of one, and by its content alone.
         "tasks/addresses.txt": "someone@example.invalid\n", "tasks/beta/Addresses-wave2.txt": "x\n",
         "tasks/email_addresses.csv": "x\n", "tasks/tester-addresses": "x\n", "tasks/ip_addresses.py": "x = 1\n",
+        "backend/addresses.txt~": "x\n", "backend/addresses.txt.bak": "x\n", "backend/.addresses.txt.swp": "x\n",
+        "tasks/addresses.txt.orig.bak": "x\n", "tasks/testers.txt": "\ufeffSomeone@Example.com\r\n\r\nanother@example.com\r\n",
+        "tasks/list": "someone@example.com\n",
+        "tasks/contacts.md": "Write to someone@example.com\nor to another@example.com.\n",
+        "backend/app/public_email_addresses.json": json.dumps({"support": "support@example.com"}),
+        "frontend/node_modules/pkg/emails.txt": "someone@example.com\n",
         ".claude/worktrees/agent/addresses.txt": "x\n",
     }.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_bytes(text.encode())
-    found = _committed_manifests(tmp_path)
-    assert sorted({path for path, _ in found}) == sorted([
-        "ops/saved.json", "docs/pasted.md", "docs/bare-fence.md", "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md",
-        "docs/inline-fence.md", "docs/two.md", "ops/grant.sh", "tasks/notes.py", "tasks/notes.yml",
-        "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json"])
-    assert [digest for path, digest in found if path == "docs/two.md"] != [] and len(
-        [path for path, _ in found if path == "docs/two.md"]) == 2  # a second manifest in one file is its own entry
-    assert _address_lists(tmp_path) == ["tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt",
-                                        "tasks/email_addresses.csv", "tasks/tester-addresses"]
+    assert _files_with_fingerprints(tmp_path) == sorted([
+        "ops/saved.json", "docs/pasted.md", "docs/ops/complimentary-access.md", "docs/two.md", "docs/bare-fence.md",
+        "docs/text-fence.md", "docs/tilde.md", "docs/crlf.md", "docs/inline-fence.md", "ops/grant.sh", "tasks/notes.py",
+        "tasks/notes.yml", "tasks/manifest.txt", "tasks/manifest.json.bak", "tasks/wrapped.json", "tasks/escaped.json",
+        "backend/scripts/draft-names.json", "backend/scripts/draft-21.json", "backend/scripts/draft-comma.json",
+        "backend/scripts/draft-upper.json", "backend/scripts/draft-camel.json", "backend/scripts/draft-elsewhere.json",
+        "tasks/draft.json5", "tasks/roster.csv"])
+    assert _address_lists(tmp_path) == sorted([
+        "tasks/addresses.txt", "tasks/beta/Addresses-wave2.txt", "tasks/email_addresses.csv", "tasks/tester-addresses",
+        "backend/addresses.txt~", "backend/addresses.txt.bak", "backend/.addresses.txt.swp",
+        "tasks/addresses.txt.orig.bak", "tasks/testers.txt", "tasks/list"])
 
 
 def test_no_file_in_the_repository_is_a_manifest_but_the_runbooks_synthetic_example():
     """A real manifest names accounts by id and by an unsalted SHA-256 of their address, which anyone holding a list of
     candidate addresses can match, and the repository is public: the runbook's rule never to commit one is held here
-    (rule 12). The one manifest allowed is the runbook's example, by its digest, and
-    test_the_runbooks_example_manifest_is_one_the_command_accepts holds that example to reserved .invalid addresses,
-    so a second manifest in the runbook, or a real one in the example's place, fails. Pasting one into an issue or a
-    pull request stays a review check."""
-    runbook = (REPO / "docs" / "ops" / "complimentary-access.md").read_text()
-    _, example = load_manifest(re.search(r"```json\n(.*?)```", runbook, re.S).group(1).encode())
-    accepted = _committed_manifests(REPO)
-    assert accepted == [("docs/ops/complimentary-access.md", example)], (
-        "a file the command would run as a manifest is in the repository; keep real manifests in the founder's "
-        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {accepted}"
+    (rule 12), for a draft the command would refuse as much as for one it runs, since both hold the fingerprints. The
+    only ones allowed are the runbook example's two, and
+    test_the_runbooks_example_manifest_runs_once_its_salt_is_drawn holds them to reserved .invalid addresses, so a real
+    manifest in the example's place, or anywhere else, fails. Pasting one into an issue or a pull request stays a
+    review check."""
+    found = _files_with_fingerprints(REPO)
+    assert found == [], (
+        "a file in the repository holds an address fingerprint; keep real manifests and their drafts in the founder's "
+        f"private store (docs/ops/complimentary-access.md, \"The manifest\"): {found}"
     )
 
 
@@ -469,8 +554,9 @@ def test_a_dry_run_counts_outcomes_and_names_each_refusal_by_place_without_writi
         state = _committed(account.id)
         assert (state.is_pro, state.grant, state.actions) == (False, None, [])
     published = json.dumps(report)
-    assert "account_id" not in published and REASON not in published
-    assert not any(account.email in published for account in (eligible, unverified, uninvited))
+    assert "account_id" not in published and REASON not in published and SALT not in published
+    for account in (eligible, unverified, uninvited):
+        assert account.email not in published and email_fingerprint(account.email) not in published
 
 
 def _subscription(user_id: int, status: str) -> Subscription:
@@ -593,6 +679,34 @@ def test_a_grant_whose_audit_row_fails_writes_nothing(world, monkeypatch):
     assert (state.is_pro, state.grant, state.actions) == (False, None, [])
 
 
+@pytest.mark.parametrize("step", ["grant", "move", "revoke"])
+def test_a_unit_whose_real_audit_insert_fails_raises_and_changes_nothing(world, monkeypatch, step):
+    """Each audit row is mandatory (``create_audit_log(mandatory=True)``): it joins the unit's transaction and its
+    failure raises. Without the flag, the real function would roll the unit back itself and swallow the error, and the
+    report would say granted, moved or revoked for a change that never committed. The insert fails here inside the
+    real function, so the flag is what is tested."""
+    operator = world.operator()
+    tester = world.tester()
+    if step != "grant":
+        _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    before = _committed(tester.id)
+    manifest = {
+        "grant": lambda: world.manifest("grant", [tester], operator_id=operator.id),
+        "move": lambda: world.manifest("grant", [tester], operator_id=operator.id, review_on=REVIEW_ON + timedelta(7)),
+        "revoke": lambda: world.manifest("revoke", [tester], operator_id=operator.id),
+    }[step]()
+
+    def unrecordable(**_fields):
+        raise RuntimeError("audit insert failed")
+
+    monkeypatch.setattr(audit_service, "AuditLog", unrecordable)
+    with pytest.raises(RuntimeError, match="audit insert failed"):
+        _apply(world, manifest)
+
+    after = _committed(tester.id)
+    assert (after.is_pro, after.grant, after.actions) == (before.is_pro, before.grant, before.actions)
+
+
 def test_a_rerun_changes_nothing_it_already_changed(world):
     operator = world.operator()
     tester = world.tester()
@@ -689,7 +803,7 @@ def test_the_cap_holds_at_twenty_active_grants_across_cohorts(world):
     operator = world.operator()
     testers = [world.tester() for _ in range(MAX_ACTIVE_GRANTS)]
     assert _apply(world, world.manifest("grant", testers[:12], operator_id=operator.id)).outcomes == {"granted": 12}
-    second = world.manifest("grant", testers[12:], operator_id=operator.id, cohort="private-beta-wave-2")
+    second = world.manifest("grant", testers[12:], operator_id=operator.id, cohort="private-beta-2026-11-w2")
     assert _apply(world, second).outcomes == {"granted": 8}
     extra = world.tester()
     over = world.manifest("grant", [extra], operator_id=operator.id)
@@ -842,7 +956,7 @@ def test_a_revoke_refuses_a_grant_of_another_cohort(world):
     tester = world.tester()
     _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
 
-    report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, cohort="another-cohort"))
+    report = _apply(world, world.manifest("revoke", [tester], operator_id=operator.id, cohort="private-beta-2026-12"))
 
     assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).is_pro is True
@@ -853,7 +967,7 @@ def test_a_grant_refuses_an_account_another_cohort_holds(world):
     tester = world.tester()
     _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
 
-    report = _apply(world, world.manifest("grant", [tester], operator_id=operator.id, cohort="another-cohort"))
+    report = _apply(world, world.manifest("grant", [tester], operator_id=operator.id, cohort="private-beta-2026-12"))
 
     assert report.refusals == [{"entry": 1, "codes": ["granted_in_another_cohort"]}]
     assert _committed(tester.id).grant.cohort == COHORT
@@ -953,8 +1067,31 @@ def test_the_grants_lock_is_a_transaction_scoped_advisory_lock_on_postgresql():
     sql = str(executed[0].compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
     assert sql == f"SELECT pg_advisory_xact_lock({service.GRANT_LOCK_KEY}) AS pg_advisory_xact_lock_1"
     assert service.GRANT_LOCK_KEY == int.from_bytes(b"COMPGRNT", "big")
-    assert service.GRANT_LOCK_KEY not in {waitlist_service.WAITLIST_PLACE_LOCK_KEY,
-                                          admin_filing_service.MAINTENANCE_LOCK_KEY}
+
+
+def test_every_advisory_lock_in_the_backend_takes_a_named_key_of_its_own():
+    """Two advisory locks with one key serialize each other: a grant would queue behind a filing insert or a whole
+    recovery pass. Every advisory-lock call under app/ passes a module-level ``*_LOCK_KEY`` constant, and the constants
+    are pairwise distinct, so a lock added later is checked against the grants' without this test changing."""
+    app = REPO / "backend" / "app"
+    keys, calls = {}, []
+    for path in sorted(app.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        module = ".".join(path.relative_to(REPO / "backend").with_suffix("").parts)
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id.endswith("LOCK_KEY") for target in node.targets):
+                for target in node.targets:
+                    keys[f"{module}.{target.id}"] = getattr(importlib.import_module(module), target.id)
+        calls += [(path.relative_to(REPO).as_posix(), ast.unparse(node)) for node in ast.walk(tree)
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                  and "advisory" in node.func.attr and not (
+                      len(node.args) == 1 and isinstance(node.args[0], ast.Name) and node.args[0].id.endswith("LOCK_KEY"))]
+    assert calls == [], f"an advisory lock whose key is not a module-level *_LOCK_KEY constant: {calls}"
+    assert keys["app.services.complimentary_access_service.GRANT_LOCK_KEY"] == service.GRANT_LOCK_KEY
+    assert len(keys) >= 5, keys
+    shared = {key: [name for name, value in keys.items() if value == key] for key in set(keys.values())}
+    assert all(len(names) == 1 for names in shared.values()), {k: v for k, v in shared.items() if len(v) > 1}
 
 
 # --------------------------------------------------------------------------- deletion, readout, Billing
@@ -978,7 +1115,7 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
     operator = world.operator()
     testers = [world.tester() for _ in range(3)]
     _apply(world, world.manifest("grant", testers[:2], operator_id=operator.id))
-    _apply(world, world.manifest("grant", testers[2:], operator_id=operator.id, cohort="private-beta-wave-2",
+    _apply(world, world.manifest("grant", testers[2:], operator_id=operator.id, cohort="private-beta-2026-11-w2",
                                  review_on=REVIEW_ON + timedelta(days=30)))
     _apply(world, world.manifest("revoke", testers[1:2], operator_id=operator.id))
     # Drift of each kind: a row now decides the first account's plan, something set the revoked account's flag again,
@@ -993,7 +1130,7 @@ def test_the_readout_counts_active_grants_reviews_due_and_drift(world):
 
     assert before_review == {
         "cap": MAX_ACTIVE_GRANTS, "active_grants": 2, "revoked_grants": 1,
-        "active_by_cohort": {COHORT: 1, "private-beta-wave-2": 1}, "due_for_review": 0,
+        "active_by_cohort": {COHORT: 1, "private-beta-2026-11-w2": 1}, "due_for_review": 0,
         "active_without_complimentary_pro": 1, "active_with_stripe_identity": 1, "revoked_still_pro": 1,
     }
     assert on_review["due_for_review"] == 1

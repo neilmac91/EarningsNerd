@@ -708,7 +708,7 @@ def _pb02_account(engine, *, admin=False):
 
 def _pb02_manifest(action, operator_id, accounts):
     payload = {"action": action, "cohort": "private-beta-2026-11", "reason": "Private beta tester",
-               "operator_account_id": operator_id,
+               "operator_account_id": operator_id, "salt": "5a" * 16,  # synthetic: a real salt is secret randomness
                "accounts": [{"account_id": i, "email_sha256": email_fingerprint(e)} for i, e in accounts]}
     if action == "grant":
         payload["review_on"] = (utcnow().date() + timedelta(days=30)).isoformat()

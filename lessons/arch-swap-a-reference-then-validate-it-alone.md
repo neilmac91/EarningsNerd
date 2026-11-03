@@ -21,10 +21,16 @@ references, which stop none.
 - Read each statement's locks from PostgreSQL, not from memory: run it in an open transaction, read `pg_locks`, and
   probe the tables from a second session with a short `lock_timeout`.
 
-**Gate** (partly): `backend/tests/integration/test_subscription_event_transactions.py::test_postgres_each_pb02_migration_statement_holds_only_the_locks_its_comments_name`
+**Gate** (partly): in the hermetic suite, `backend/tests/unit/test_migration_lock_safety.py` reads every migration:
+`::test_a_swapped_reference_is_validated_in_a_statement_of_its_own` fails a DO block, a transaction block or a single
+statement that validates a constraint and also drops or adds one, and
+`::test_a_change_to_a_reference_to_users_waits_at_most_a_few_seconds_for_its_lock` a file that drops a constraint or
+adds a foreign key to `users` before setting a `lock_timeout` of at most 5 s.
+`backend/tests/integration/test_subscription_event_transactions.py::test_postgres_each_pb02_migration_statement_holds_only_the_locks_its_comments_name`
 holds PB-02's two files on CI's PostgreSQL (each statement's locks, the second session's probes, the 2 s wait, and that
-`apply_migrations.sh` runs psql outside a transaction block). Another file that swaps a reference is review-checked.
+`apply_migrations.sh` runs psql outside a transaction block). Reading another file's locks from PostgreSQL is
+review-checked.
 
 **Evidence**: the chief's review of `fef3056` on #1955 (item 2) and PB-05's trial on #1954; `812523b` split the file;
-mutation proof M12 (the validation back in the swap's statement fails the case); `lessons/ops-migrations-need-lock-timeout.md`
+mutation proof M12 (the validation back in the swap's statement fails the case); the hermetic gate from the final review of `037dc992` (rules lens); `lessons/ops-migrations-need-lock-timeout.md`
 for the session's own timeouts.
