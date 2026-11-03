@@ -361,11 +361,11 @@ async def stream_analysis(
     """Streamed (SSE) AI trend narrative over the deterministic dataset.
 
     Cache-first: a stored narrative whose prompt, display format and financial snapshot match is
-    re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
-    fresh "analysis" completions against the monthly fair-use cap — a failed generation, or one the
-    client leaves before its cache row is written, never burns quota; once the row is written it
-    counts, the client gone or not, since the next request re-serves it free. Excluded from the
-    timeout middleware by the ``*stream*`` name rule.
+    re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts each fresh
+    "analysis" completion against the monthly fair-use cap, but for a system-invalidated
+    regeneration whose row was written. A generation that fails, or that the client leaves before
+    its narrative is sent, never burns quota; one whose narrative was sent completes and counts even
+    if the client has gone. Excluded from the timeout middleware by the ``*stream*`` name rule.
     """
     enforce_rate_limit(
         request,
@@ -447,8 +447,8 @@ async def stream_analysis(
                     # metering those bounds the unmetered-model-call exposure at the cap.
                     exempt = event.get("invalidated") and event.get("analysis_id") is not None
                     if not metered and not exempt:
-                        # Shielded like the release below: a disconnect the loop took while the cache write ran
-                        # in its thread lands at this await's first checkpoint, and the row is written by then
+                        # Shielded like the release below: a disconnect the loop took during the cache write is
+                        # delivered at this await's first checkpoint, once the write is done
                         # (lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md).
                         with anyio.CancelScope(shield=True):
                             converted = await run_in_threadpool(_meter_analysis_best_effort, user_id, held["token"])

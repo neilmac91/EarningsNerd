@@ -21,6 +21,8 @@ import json
 from contextlib import aclosing
 from typing import Any, Optional
 
+import anyio
+
 from app.config import settings
 from app.models import Company
 from app.services.ai.copilot_chat import merge_chat_usage
@@ -179,23 +181,17 @@ async def _publish(run: _NarrativeRun):
         return
 
     run.dataset = {**run.dataset, "narrative_presentation": presentation}
-    # The token, the sole narrative payload, follows strict selection and code rendering. No await comes between the
-    # cache write and the completion, so the router's meter, shielded, counts every row written.
+    # The token, the sole narrative payload, follows strict selection and code rendering. Once it is out, the cache
+    # write is shielded (its unit's entry and its wait for a worker thread each take a disconnect's cancel), and the
+    # completion follows it with no await between, so the router's shielded meter counts the run
+    # (lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md).
     yield {"type": "token", "text": narrative}
-    analysis_id = await run_owned_sync(
-        _persist_analysis,
-        company_id=run.company_id,
-        mode=run.mode,
-        key=run.key,
-        fingerprint=run.fingerprint,
-        dataset=run.dataset,
-        narrative=narrative,
-        citations=citations,
-        model=run.model_name,
-        grounded=grounded,
-        unverified=unverified,
-        user_id=run.user_id,
-    )
+    with anyio.CancelScope(shield=True):
+        analysis_id = await run_owned_sync(
+            _persist_analysis, company_id=run.company_id, mode=run.mode, key=run.key, fingerprint=run.fingerprint,
+            dataset=run.dataset, narrative=narrative, citations=citations, model=run.model_name, grounded=grounded,
+            unverified=unverified, user_id=run.user_id,
+        )
     yield analysis_completion(
         run.dataset, analysis_id=analysis_id, narrative=narrative, citations=citations,
         grounded=grounded, unverified=unverified, mismatched=len(mismatched),

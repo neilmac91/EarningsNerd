@@ -3842,10 +3842,12 @@ async def test_first_time_narratives_race_for_one_cache_row_off_the_loop(monkeyp
         write.first_read = True
         return real_persist(**kwargs)
 
-    def read(*args: Any, **kwargs: Any) -> Any:  # the cache write's reads; the assembly binds its own name
+    def read(*args: Any, **kwargs: Any) -> Any:
+        """The cache module's reads: the cache write's, and ``has_cached_analysis``'s for an over-cap admission, which
+        none of these readers is. The assembly binds its own name and goes uncounted."""
         reads.append(1)
         row = real_read(*args, **kwargs)
-        if write.first_read:
+        if getattr(write, "first_read", False):  # only a write's first read; a thread that never wrote has no flag
             write.first_read = False
             first_reads.wait(timeout=5.0)  # a hang guard; a passing run never waits for it
         return row

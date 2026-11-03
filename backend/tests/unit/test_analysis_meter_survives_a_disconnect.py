@@ -1,18 +1,20 @@
-"""A Multi-Period Analysis generation whose cache row is written is metered, whenever its client leaves (E301).
+"""A Multi-Period Analysis generation whose narrative was sent is metered, whenever its client leaves (E301).
 
 uvicorn speaks ASGI 2.3, so Starlette cancels a streaming response's task when its client disconnects. The narrative
-writes its cache row in a thread-pool unit, which anyio shields: a disconnect the loop takes while the row is written is
-delivered at the task's next checkpoint. The router's meter, an await of its own, was that checkpoint, so a client that
-read the narrative and closed went uncounted, its lease given back (#1990's review). The meter is shielded now, like the
-release beside it, and no await comes between the cache write and the completion it meters on: a frame's send is one,
-behind the app's ``BaseHTTPMiddleware`` layers, which is why the ``token`` frame goes before the write
-(``lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md``).
+writes its cache row in a thread-pool unit after the ``token`` frame. A disconnect taken while the write runs in its
+thread was delivered at the router's meter, an await of its own (round 1 of #1990's review). One taken while the write
+waited for a worker thread, or at its unit's entry, both before the unit's own shield, cancelled the write itself
+(round 2). Either way a client that read the narrative and closed went uncounted, its lease given back. The write is
+shielded now once the token is out, the completion follows it with no await between, and the meter is shielded like
+the release beside it. The write stays after the token: behind the app's ``BaseHTTPMiddleware`` layers a frame's send
+is a checkpoint too (``lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md``).
 
 Each case drives the real app (its middleware included), the router, the narrative, the admission and the meter over a
 SQLite database, with only the model faked, and the client leaves at one step:
 - while the model runs: no row is written, nothing is counted, and the lease is given back;
-- while the cache row is written, after it read the narrative: the row is written and counted once, and the lease is
-  converted.
+- while the cache write waits for a worker thread, every token of anyio's default limiter held, after the client read
+  the narrative: the row is written once a thread frees, counted once, and the lease converted;
+- while the cache row is written, after the client read the narrative: the same.
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ import threading
 from datetime import date
 from typing import Any
 
+import anyio
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -71,8 +74,8 @@ def _scope(token: str, body: bytes) -> dict[str, Any]:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("leaves_while", ["the_model_runs", "the_cache_row_is_written"])
-async def test_a_written_analysis_is_counted_whenever_its_client_leaves(monkeypatch, tmp_path, leaves_while):
+@pytest.mark.parametrize("leaves_while", ["the_model_runs", "the_write_waits_for_a_thread", "the_cache_row_is_written"])
+async def test_a_sent_analysis_is_counted_whenever_its_client_leaves(monkeypatch, tmp_path, leaves_while):
     from app.routers import analysis, auth
     from app.services import openai_service as oa
     from app.services.trend_analysis import narrative
@@ -80,6 +83,9 @@ async def test_a_written_analysis_is_counted_whenever_its_client_leaves(monkeypa
 
     engine, sessions = _database(tmp_path)
     loop = asyncio.get_running_loop()
+    limiter = anyio.to_thread.current_default_thread_limiter()  # what run_in_threadpool, and so the write, waits on
+    held: list[object] = []  # borrowers holding the limiter's tokens
+    watcher: list[asyncio.Task] = []
     leave = asyncio.Event()  # the client closes the connection
     read_the_narrative = threading.Event()  # the token frame reached the client
     stream_cancelled = threading.Event()  # the route's response took the disconnect
@@ -92,11 +98,34 @@ async def test_a_written_analysis_is_counted_whenever_its_client_leaves(monkeypa
         await real_listen(self, receive)
         stream_cancelled.set()  # its cancel of the stream follows in this step, before the loop resumes the stream
 
+    def release_the_threads() -> None:
+        while held:
+            limiter.release_on_behalf_of(held.pop())
+
+    async def leave_while_the_write_waits() -> None:  # on the loop, beside the stream
+        deadline = loop.time() + 5.0  # a hang guard only
+        try:
+            while not (limiter.statistics().tasks_waiting and read_the_narrative.is_set()):
+                assert loop.time() < deadline, "the write never waited for a thread after the token"
+                await asyncio.sleep(0)
+            leave.set()
+            while not stream_cancelled.is_set():
+                assert loop.time() < deadline + 5.0, "the route never took the disconnect"
+                await asyncio.sleep(0)
+            write_saw["the write waited for a thread"] = True
+        finally:
+            release_the_threads()  # always, or a shielded write would wait for a thread forever
+
     async def stream_chat(_messages: Any, **kwargs: Any):
         kwargs["usage_sink"].update({"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
         if leaves_while == "the_model_runs":
             leave.set()
             await asyncio.Event().wait()  # the disconnect's cancel lands here
+        if leaves_while == "the_write_waits_for_a_thread":  # every worker thread taken, as a full pool's units do
+            while limiter.available_tokens:
+                held.append(object())
+                limiter.acquire_on_behalf_of_nowait(held[-1])
+            watcher.append(asyncio.ensure_future(leave_while_the_write_waits()))
         yield selection
 
     def persist(**kwargs: Any) -> Any:  # the cache write, in its thread-pool unit
@@ -136,6 +165,8 @@ async def test_a_written_analysis_is_counted_whenever_its_client_leaves(monkeypa
 
     try:
         await asyncio.wait_for(app(_scope(auth.create_access_token({"sub": _EMAIL}), body), receive, send), 15)
+        for task in watcher:
+            await asyncio.wait_for(task, 5)  # surfaces its assertions
         # Starlette leaves a cancelled stream's generators suspended, for the collector to close as a server's would.
         # Close them now, so each ``finally`` has run before the rows are read and no worker thread outlives the loop.
         await loop.shutdown_asyncgens()
@@ -145,7 +176,10 @@ async def test_a_written_analysis_is_counted_whenever_its_client_leaves(monkeypa
             assert not read_the_narrative.is_set()
             assert stored() == (0, 0, 0)  # nothing written, nothing counted, the lease given back
         else:
-            assert write_saw == {"the narrative read first": True, "the stream cancelled": True}
+            assert read_the_narrative.is_set()
+            assert write_saw == ({"the write waited for a thread": True} if leaves_while == "the_write_waits_for_a_thread"
+                                 else {"the narrative read first": True, "the stream cancelled": True})
             assert stored() == (1, 1, 0)  # written, counted once, the lease converted
     finally:
+        release_the_threads()
         engine.dispose()
