@@ -30,7 +30,7 @@ from sqlalchemy.orm import Query
 
 from app.database import SessionLocal
 from app.models import AccountAgreement, AuditLog, ComplimentaryAccessGrant, InviteCode, Subscription, User
-from app.services import complimentary_access_service as service
+from app.services import audit_service, complimentary_access_service as service
 from app.services.complimentary_access_manifest import (
     MAX_ACTIVE_GRANTS,
     ManifestError,
@@ -663,6 +663,34 @@ def test_a_grant_whose_audit_row_fails_writes_nothing(world, monkeypatch):
 
     state = _committed(tester.id)
     assert (state.is_pro, state.grant, state.actions) == (False, None, [])
+
+
+@pytest.mark.parametrize("step", ["grant", "move", "revoke"])
+def test_a_unit_whose_real_audit_insert_fails_raises_and_changes_nothing(world, monkeypatch, step):
+    """Each audit row is mandatory (``create_audit_log(mandatory=True)``): it joins the unit's transaction and its
+    failure raises. Without the flag, the real function would roll the unit back itself and swallow the error, and the
+    report would say granted, moved or revoked for a change that never committed. The insert fails here inside the
+    real function, so the flag is what is tested."""
+    operator = world.operator()
+    tester = world.tester()
+    if step != "grant":
+        _apply(world, world.manifest("grant", [tester], operator_id=operator.id))
+    before = _committed(tester.id)
+    manifest = {
+        "grant": lambda: world.manifest("grant", [tester], operator_id=operator.id),
+        "move": lambda: world.manifest("grant", [tester], operator_id=operator.id, review_on=REVIEW_ON + timedelta(7)),
+        "revoke": lambda: world.manifest("revoke", [tester], operator_id=operator.id),
+    }[step]()
+
+    def unrecordable(**_fields):
+        raise RuntimeError("audit insert failed")
+
+    monkeypatch.setattr(audit_service, "AuditLog", unrecordable)
+    with pytest.raises(RuntimeError, match="audit insert failed"):
+        _apply(world, manifest)
+
+    after = _committed(tester.id)
+    assert (after.is_pro, after.grant, after.actions) == (before.is_pro, before.grant, before.actions)
 
 
 def test_a_rerun_changes_nothing_it_already_changed(world):

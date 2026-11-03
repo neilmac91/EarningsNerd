@@ -22,7 +22,7 @@ import pytest
 from app.database import SessionLocal
 from app.models import AccountAgreement, AuditLog, ComplimentaryAccessGrant, InviteCode, User
 from app.services import complimentary_access_service as service
-from app.services.complimentary_access_manifest import email_fingerprint
+from app.services.complimentary_access_manifest import email_fingerprint, load_manifest
 from app.services.legal_readiness_service import ELIGIBILITY_VERSION, TERMS_VERSION
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -140,7 +140,9 @@ def test_every_report_and_log_line_carries_no_planted_id_or_address(accounts, tm
 
     revoke = _manifest_file(tmp_path, "revoke", operator, testers[:1])
     code, out, err, logged = _run(capsys, caplog, "apply", "--manifest", str(revoke), "--confirm-digest", "0" * 64)
-    assert (code, json.loads(out)["refused"]) == (1, "digest_mismatch")
+    # Exactly the refusal and the manifest's own digest: nothing of its entries.
+    assert (code, json.loads(out)) == (1, {"refused": "digest_mismatch",
+                                           "manifest_sha256": load_manifest(revoke.read_bytes())[1]})
     texts += [out, err, logged]
 
     _assert_nothing_planted(texts, operator, testers)
@@ -211,6 +213,31 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
     _assert_nothing_planted(texts, operator, testers)
 
 
+def test_a_manifest_stopped_at_the_cap_exits_one_and_grants_nothing(accounts, tmp_path, capsys, caplog, monkeypatch):
+    """A grant that would take the active grants past the cap stops the whole manifest, and the command exits 1, which
+    the Ops step, running under set -e, shows as a refusal rather than a grant."""
+    operator, testers = accounts
+    monkeypatch.setattr(service, "MAX_ACTIVE_GRANTS", 1)
+    first = _manifest_file(tmp_path, "grant", operator, testers[:1])
+    code, out, *_ = _run(capsys, caplog, "dry-run", "--manifest", str(first))
+    code, out, *_ = _run(capsys, caplog, "apply", "--manifest", str(first),
+                         "--confirm-digest", json.loads(out)["manifest_sha256"], "--runner", "ops-run:1")
+    assert (code, json.loads(out)["outcomes"]) == (0, {"granted": 1})
+
+    second = _manifest_file(tmp_path, "grant", operator, testers[1:2])
+    code, out, err, logged = _run(capsys, caplog, "dry-run", "--manifest", str(second))
+    report = json.loads(out)
+    assert (code, report["stopped"]) == (1, "cap_exceeded")
+    texts = [out, err, logged]
+    code, out, err, logged = _run(capsys, caplog, "apply", "--manifest", str(second),
+                                  "--confirm-digest", report["manifest_sha256"], "--runner", "ops-run:2")
+    assert (code, json.loads(out)["stopped"]) == (1, "cap_exceeded")
+    with SessionLocal() as db:
+        assert db.get(User, testers[1].id).is_pro is False
+        assert db.query(ComplimentaryAccessGrant).filter_by(user_id=testers[1].id).count() == 0
+    _assert_nothing_planted(texts + [out, err, logged], operator, testers)
+
+
 def test_settings_that_fail_to_load_are_a_failure_by_class_not_a_refusal(accounts, tmp_path, capsys, caplog,
                                                                         monkeypatch):
     """The database commands import the app's settings when they run. Settings that fail to load (an unparseable
@@ -256,4 +283,10 @@ def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):
     checked = subprocess.run([sys.executable, "-I", str(SCRIPT), "check", "--manifest", str(manifest)],
                              capture_output=True, text=True, env=env, cwd=BACKEND)
     assert checked.returncode == 0, checked.stderr
-    assert json.loads(checked.stdout)["entries"] == 1 and len(json.loads(checked.stdout)["manifest_sha256"]) == 64
+    # Exactly these fields: no entry's id or fingerprint, no reason, no salt.
+    assert json.loads(checked.stdout) == {"action": "grant", "cohort": "private-beta-2026-11", "entries": 1,
+                                          "review_on": review_on, "manifest_sha256": load_manifest(manifest.read_bytes())[1]}
+    # The Ops step hands the manifest on stdin (--manifest /dev/stdin), through a pipe.
+    piped = subprocess.run([sys.executable, "-I", str(SCRIPT), "check", "--manifest", "/dev/stdin"],
+                           input=manifest.read_text(), capture_output=True, text=True, env=env, cwd=BACKEND)
+    assert (piped.returncode, piped.stdout) == (0, checked.stdout), piped.stderr
