@@ -80,6 +80,18 @@ from main import app
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
 
+# How long a request waits for a slot in every pool here (E295). The timeout breaks a deadlock and detects nothing
+# else. A checkout that blocks the event loop, or a unit that waits for a second connection, never finishes, so it
+# answers 500 at any finite timeout. A connection held too long without a deadlock is caught by checks that do not
+# race the clock: `open_at_close` and the loop-checkout log on the bursts (the what-changed burst has neither, and
+# the cached-filings burst holds its route to both), and `checkedout()` read during the slow step on the cases that
+# hold none while they hash, wait, send or render. So the value only bounds how long a broken case takes to fail
+# and how much CPU starvation a correct one survives. With four times as many runnable processes as CPUs, a unit's
+# hold stretched to 4.8 s, mostly inside DBAPI calls waiting to take the GIL back or for a starved writer's SQLite
+# lock, and the fifth request waited up to 2.1 s: at the old 1.0, two of four runs failed.
+# test_every_pool_here_takes_the_file_timeout holds every create_engine here to this value.
+POOL_TIMEOUT = 5.0
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path,payload_kind", [
@@ -120,7 +132,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -322,7 +334,7 @@ async def test_what_changed_burst_beyond_the_pool_waits_in_the_threadpool_not_on
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -373,7 +385,7 @@ async def test_analysis_stream_releases_its_connection_before_the_body_streams(m
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     with sessionmaker(bind=engine)() as db:
@@ -463,7 +475,7 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, Subscription, Company, Filing, FilingContentCache, Summary, SummaryGenerationProgress):
         model.__table__.create(engine)
@@ -551,7 +563,7 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -700,7 +712,7 @@ async def test_generate_stream_refuses_a_throttled_request_before_its_admission(
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -790,7 +802,7 @@ async def test_auth_session_routes_release_their_connection_off_the_loop(monkeyp
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -906,7 +918,7 @@ async def test_logout_all_with_only_the_refresh_cookie_releases_its_connection_o
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -985,7 +997,7 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog, LoginAttempt):
         model.__table__.create(engine)
@@ -1129,7 +1141,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken):
         model.__table__.create(engine)
@@ -1314,7 +1326,7 @@ async def test_email_verification_releases_its_connection_off_the_loop(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, Subscription):
         model.__table__.create(engine)
@@ -1481,7 +1493,7 @@ async def test_registration_releases_its_connection_off_the_loop(monkeypatch, tm
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, InviteCode, AccountAgreement, AuditLog):
         model.__table__.create(engine)
@@ -1691,7 +1703,7 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, OAuthAccount, AuditLog):
         model.__table__.create(engine)
@@ -1816,7 +1828,7 @@ async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkey
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, OAuthAccount, AuditLog):
         model.__table__.create(engine)
@@ -1895,7 +1907,7 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     OAuthState.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -1999,7 +2011,7 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2196,7 +2208,7 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2317,7 +2329,7 @@ async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_c
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2411,7 +2423,7 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -2480,7 +2492,7 @@ async def test_a_refused_refresh_keeps_its_401_when_its_release_finds_the_connec
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken, AuditLog):
         model.__table__.create(engine)
@@ -2537,7 +2549,7 @@ async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fail
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     for model in (User, RefreshToken):
         model.__table__.create(engine)
@@ -2635,7 +2647,7 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -2772,7 +2784,7 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     WaitlistSignup.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -2885,7 +2897,7 @@ async def test_waitlist_join_holds_no_connection_while_its_mails_send(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     WaitlistSignup.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
@@ -2943,7 +2955,7 @@ def _submit_fixture(monkeypatch, tmp_path, send_email):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3091,7 +3103,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3204,7 +3216,7 @@ def _billing_fixture(monkeypatch, tmp_path, *, with_customer: bool, rival: bool 
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3360,7 +3372,7 @@ def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3631,7 +3643,7 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Company.__table__.create(engine)
     Filing.__table__.create(engine)
@@ -3776,7 +3788,7 @@ async def test_saved_summary_routes_release_their_connection_off_the_loop(monkey
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -3917,7 +3929,7 @@ async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatc
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4048,7 +4060,7 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4183,7 +4195,7 @@ def _account_records_fixture(monkeypatch, tmp_path):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4374,7 +4386,7 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4509,7 +4521,7 @@ def _summary_export_fixture(tmp_path, name: str, *, pro: bool):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4766,7 +4778,7 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -4961,7 +4973,7 @@ async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch,
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -5037,7 +5049,7 @@ def _invite_fixture(monkeypatch, tmp_path, send_invite_email):
         poolclass=QueuePool,
         pool_size=4,
         max_overflow=0,
-        pool_timeout=5.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     database.Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -5288,7 +5300,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     from app.models import AuditLog
     from app.services import admin_summary_service, summary_generation_service
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False},
+                           pool_timeout=POOL_TIMEOUT)
     database.Base.metadata.create_all(engine)
     with sessionmaker(bind=engine)() as db:
         company = Company(cik="0000000011", ticker="CLOSE", name="Close fixture")
@@ -5328,6 +5341,38 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
                 if "Closing the stale refresh's own session failed" in record.getMessage()] == [error, error]
     finally:
         engine.dispose()
+
+
+def pool_timeout_lines(source: str) -> tuple[list[int], list[int]]:
+    """The lines of the ``create_engine`` calls in ``source`` that pass ``pool_timeout=POOL_TIMEOUT``, and of every
+    other ``create_engine`` call: one that passes another timeout, passes none (SQLAlchemy's 30 s default), or splats
+    keywords the walk cannot read (``**kw``)."""
+    on_value, off_value = [], []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "create_engine":
+            named = [keyword for keyword in node.keywords if keyword.arg == "pool_timeout"]
+            on = (not any(keyword.arg is None for keyword in node.keywords) and len(named) == 1
+                  and isinstance(named[0].value, ast.Name) and named[0].value.id == "POOL_TIMEOUT")
+            (on_value if on else off_value).append(node.lineno)
+    return sorted(on_value), sorted(off_value)
+
+
+def test_every_pool_here_takes_the_file_timeout():
+    """E295: every ``create_engine`` in this file passes ``pool_timeout=POOL_TIMEOUT``. A tighter literal failed correct
+    cases on a starved runner and caught nothing the cases' own checks miss (POOL_TIMEOUT's comment). Scored on planted
+    source first. Out of its reach, and absent from this file: a pool built without ``create_engine`` (``QueuePool``
+    directly) and ``create_engine`` under another name (an aliased import, ``functools.partial``)."""
+    planted = (
+        "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=POOL_TIMEOUT)\n"
+        "create_engine(url, poolclass=QueuePool, pool_size=4, max_overflow=0, pool_timeout=1.0)\n"
+        "sqlalchemy.create_engine(url, pool_timeout=OTHER_TIMEOUT)\n"
+        "create_engine(url, poolclass=QueuePool)\n"
+        "create_engine(url, pool_timeout=POOL_TIMEOUT, **kw)\n"
+    )
+    assert pool_timeout_lines(planted) == ([1], [2, 3, 4, 5])
+    on_value, off_value = pool_timeout_lines(Path(__file__).read_text(encoding="utf-8"))
+    assert off_value == [], "these create_engine calls pass no pool_timeout, another one, or keywords the walk cannot read"
+    assert len(on_value) >= 39, "the walk reads the engines the file's cases build (39 when E295 named them)"
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────
