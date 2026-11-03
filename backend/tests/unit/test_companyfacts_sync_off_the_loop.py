@@ -101,7 +101,11 @@ def _engine(tmp_path, *, pool_size: int, pool_timeout: float):
 
 @pytest.fixture
 def engine(tmp_path):
-    engine = _engine(tmp_path, pool_size=4, pool_timeout=1.0)
+    # The sync keeps to two threads (test_the_sync_keeps_to_two_threads), so it holds at most two of these four slots
+    # and no checkout here waits. The timeout gives a starved runner room and checks nothing, as a burst pool's does
+    # (lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md). The one-slot case below keeps its
+    # own, POOL_TIMEOUT, which the regression it guards runs into.
+    engine = _engine(tmp_path, pool_size=4, pool_timeout=5.0)
     yield engine
     engine.dispose()
 
