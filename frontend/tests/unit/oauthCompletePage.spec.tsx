@@ -125,20 +125,24 @@ describe('the OAuth login landing page (E29 (5))', () => {
   })
 })
 
-/** The notice that replaced the wait: its alert, the element that takes focus around it, and its Try again, if any. */
+/** The notice that replaced the wait: its alert, the element that takes focus around it, and its Try again, if any.
+ * The page moves focus in an effect after the render that shows the notice, which can run after the alert is found,
+ * so this waits for the focus too: asserting it the moment the alert appears failed under load. */
 async function noticeShown() {
   const alert = await screen.findByRole('alert')
-  return { alert, answer: alert.parentElement as HTMLElement, tryAgain: screen.queryByRole('button', { name: 'Try again' }) }
+  const answer = alert.parentElement as HTMLElement
+  await waitFor(() => expect(document.activeElement).toBe(answer))
+  return { alert, answer, tryAgain: screen.queryByRole('button', { name: 'Try again' }) }
 }
 
 const timedOut = () => new ApiError(0, 'The request timed out. Please try again.')
 
 describe('the landing page when the exchange did not finish (E29 (5))', () => {
-  it('says another tab is finishing its session update, takes focus, and its Try again posts the same code, then goes home', async () => {
+  it('says another tab is renewing its login, takes focus, and its Try again posts the same code, then goes home', async () => {
     completeOAuthSignIn.mockRejectedValueOnce(new SessionStillRenewing()).mockResolvedValueOnce({ status: 'signed_in' })
     land('/auth/complete#code=one-time-code')
     const { alert, answer, tryAgain } = await noticeShown()
-    expect(alert).toHaveTextContent('Another EarningsNerd tab is finishing its session update')
+    expect(alert).toHaveTextContent('Another EarningsNerd tab is renewing its login')
     expect(alert).toHaveTextContent('Your login can finish once it is done. Try again in a moment.')
     expect(screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)).toEqual(['Login not finished'])
     expect(screen.queryByRole('status')).toBeNull()
@@ -167,7 +171,7 @@ describe('the landing page when the exchange did not finish (E29 (5))', () => {
     await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'true'))
     expect(button).toHaveTextContent('Trying again…')
     expect(document.activeElement).toBe(button)
-    expect(screen.getByRole('alert')).toHaveTextContent('Another EarningsNerd tab is finishing its session update')
+    expect(screen.getByRole('alert')).toHaveTextContent('Another EarningsNerd tab is renewing its login')
     // A press while it is busy posts nothing more.
     fireEvent.click(button)
     expect(completeOAuthSignIn).toHaveBeenCalledTimes(2)
@@ -195,7 +199,7 @@ describe('the landing page when the exchange did not finish (E29 (5))', () => {
     expect(alert).toHaveTextContent("This browser couldn't finish the Google login")
     expect(alert).not.toHaveTextContent(/Apple/)
     expect(alert).toHaveTextContent(
-      'It may be an older browser, or one that blocks site data for this site. Use another browser, or log in with your email and password.',
+      "It may be an older browser, or one that blocks this site's data. Log in again from an up-to-date browser that allows it.",
     )
     expect(tryAgain).toBeNull()
     expect(screen.getByRole('link', { name: 'Log in again' })).toHaveAttribute('href', '/login')
@@ -220,7 +224,8 @@ describe('the landing page when the exchange did not finish (E29 (5))', () => {
     fireEvent.click(tryAgain as HTMLElement)
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("This browser couldn't finish the Google login"))
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
-    expect(document.activeElement).toBe(answer)
+    // The leaving button hands focus back in a microtask and an effect (useFocusHandoff), after that render.
+    await waitFor(() => expect(document.activeElement).toBe(answer))
   })
 
   it.each([

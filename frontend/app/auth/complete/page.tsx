@@ -39,14 +39,14 @@ function noticeFor(problem: Problem): { title: string; description: string } {
   switch (problem) {
     case 'renewing':
       return {
-        title: 'Another EarningsNerd tab is finishing its session update',
+        title: 'Another EarningsNerd tab is renewing its login',
         description: 'Your login can finish once it is done. Try again in a moment.',
       }
     case 'unavailable':
       return {
         title: `This browser couldn't finish the ${ENABLE_APPLE_SIGNIN ? 'Google or Apple' : 'Google'} login`,
         description:
-          'It may be an older browser, or one that blocks site data for this site. Use another browser, or log in with your email and password.',
+          "It may be an older browser, or one that blocks this site's data. Log in again from an up-to-date browser that allows it.",
       }
     case 'failed':
       return { title: "We couldn't finish your login just now", description: 'Try again in a minute, or log in again.' }
@@ -60,14 +60,16 @@ const LINK =
 const ANSWER = 'rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 /**
- * The landing page of a Google or Apple login (E29 (5)). The provider's callback answers with a navigation, which
- * cannot hold the session cookies' lock (lib/api/client.ts), so it sets no session cookie: it sends the browser here
- * with a one-time code in the URL fragment, which no request log records, and a cookie that binds the code to this
- * browser. On mount the page reads the code, takes it off the address bar at once (a bookmark, a shared link or the
- * history entry never keeps it), keeps it in this page's state alone, and exchanges it (completeOAuthSignIn), which
- * posts only inside the lock, so a refresh another tab sent with the previous account's cookies answers first and
- * cannot set those over the new session's. Then, as the login page does, it drops the previous account's queries and
- * reads the new identity, and goes to the home page; a missing or refused code goes to the login page, which says so.
+ * The landing page of a Google or Apple login (E29 (5)) whose start asked for the handoff (oauthStartHref's
+ * `handoff=1`, startOAuthWithInvite's `handoff: true`, as this app's starts do). The provider's callback answers with a
+ * navigation, which cannot hold the session cookies' lock (lib/api/client.ts), so for such a start it sets no session
+ * cookie: it sends the browser here with a one-time code in the URL fragment, which no request log records, and a
+ * cookie that binds the code to this browser. On mount the page reads the code, takes it off the address bar at once (a
+ * bookmark, a shared link or the history entry never keeps it), keeps it in this page's state alone, and exchanges it
+ * (completeOAuthSignIn), which posts only inside the lock, so a refresh another tab sent with the previous account's
+ * cookies answers first and cannot set those over the new session's. Then, as the login page does, it drops the
+ * previous account's queries and reads the new identity, and goes to the home page; a missing or refused code goes to
+ * the login page, which says so.
  *
  * An exchange that posted nothing (another tab's session update held the lock past its wait, or this browser cannot
  * hold the lock) or got no answer it could use leaves a notice in place of the wait, which takes focus, with Log in

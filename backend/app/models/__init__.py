@@ -154,7 +154,8 @@ class OAuthState(Base):
     # Whether the start asked for the OAuth session handoff (E29 (5)): True only from a frontend with the
     # /auth/complete landing page, which sends ``handoff=1`` on a GET start or ``"handoff": true`` on a POST start.
     # False or NULL (a row written before the column existed among them) takes the cookie-setting callback path, so
-    # the frontend and the API roll back independently. Additive: self-healed by database.ensure_additive_columns.
+    # a new API serves an older frontend and an API rollback is safe at any time; a frontend rollback strands the
+    # starts that asked (docs/DEPLOYMENT.md). Additive: self-healed by database.ensure_additive_columns.
     session_handoff = Column(Boolean, nullable=True)
 
 

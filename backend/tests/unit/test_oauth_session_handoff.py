@@ -2,26 +2,28 @@
 
 A Google or Apple callback's answer is a navigation, which cannot hold the session cookies' Web Lock
 (frontend/lib/api/client.ts), so a refresh another tab sent with the previous account's cookies could answer after it
-and set those back over the new session's: the reader landed as the previous account. The callbacks now set no
-session cookie. They commit the sign-in with a one-time session handoff and redirect to the frontend's landing page,
+and set those back over the new session's: the reader landed as the previous account. For a start that asks for the
+handoff, the callbacks set no session cookie. They commit the sign-in with a one-time session handoff and redirect to the frontend's landing page,
 /auth/complete, with its code in the URL fragment, which no request log records, and set a cookie that binds the code
 to the browser they answer. The landing page posts the code to ``POST /api/auth/oauth/complete`` holding the lock,
 and that answer sets the session cookies. Only a start that asks for it hands off (``handoff=1`` on a GET start,
 ``"handoff": true`` on a POST start: a frontend with the landing page asks); any other takes main's path, the session
-cookies on the redirect home, so the frontend and the API each roll back alone. Pinned here:
+cookies on the redirect home, so an API rollback is safe at any time, and a frontend rollback for every start a page
+of the older frontend makes (docs/DEPLOYMENT.md). Pinned here:
 
 - the compatibility gate: each start that asks hands off, each that does not (no parameter or key, ``handoff=true``,
   ``handoff=0``, a state row from before the column) takes main's path, and a JSON string is refused 422;
 
 - the callback's redirect: the landing page with the code in its fragment alone (no query string), the binding
   cookie and no session cookie; the handoff row holds only the SHA-256 hashes of the code and the binder, for two
-  minutes, and the binding cookie is scoped as the session cookies are, its clear matching it;
-- the exchange signs in once, the session cookies on its own answer, in order, and clears the binding cookie;
+  minutes, and the binding cookie is scoped as the session cookies are;
+- the exchange signs in once, the session cookies on its own answer, in order, and leaves the binding cookie alone;
 - it refuses, with one sentence, a second use, an expired code, a code from another browser (login CSRF: no binding
   cookie, or another sign-in's), and an unknown code, each setting no cookie and writing nothing; and a code or binder
   of the wrong shape without a query of the handoffs;
-- a refusal leaves the binding cookie the browser holds: two sign-ins at once in one browser, the second's callback
-  replacing the first's binding cookie, end with the second signed in whichever landing page posts first;
+- no exchange's answer touches the binding cookie the browser holds, a refusal or a success: two sign-ins at once in
+  one browser, the second's callback replacing the first's binding cookie, end with the second signed in whichever
+  landing page posts first, and so do two whose second callback lands while the first's exchange is in flight;
 - it reads the code from a JSON body alone, never a query string;
 - a mint that fails at the exchange leaves the code unused and sets no cookie;
 - the exchange is rate limited per IP in a bucket of its own;
@@ -77,7 +79,6 @@ STATE_CLEARED = {
     "apple": 'apple_oauth_state=""; expires=<t>; HttpOnly; Max-Age=0; Path=/; SameSite=none; Secure',
 }
 HANDOFF_SET = "en_oauth_handoff=<v>; HttpOnly; Max-Age=120; Path=/api/auth/oauth; SameSite=lax"
-HANDOFF_CLEARED = 'en_oauth_handoff=""; expires=<t>; Max-Age=0; Path=/api/auth/oauth; SameSite=lax'
 _EXPIRES = re.compile(r"expires=[^;]+")
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = "An0therSecretPassw0rd"  # test fixture, not a credential  # gitleaks:allow
@@ -100,6 +101,9 @@ def _fresh(client, monkeypatch):
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
     yield
     client.cookies.clear()
+    # The limiter is the process's: the rate-limit case leaves the exchange's bucket full, and another file's next
+    # exchange on this worker (test_apple_signin.py's, which resets no limiter) would answer 429 within the minute.
+    auth_module.OAUTH_START_LIMITER._hits.clear()
 
 
 @pytest.fixture
@@ -114,6 +118,14 @@ def server_errors():
 @pytest.fixture
 def other_device():
     """A second browser, the account owner's on another device (no lifespan of its own, as ``server_errors``)."""
+    device = TestClient(app, base_url="https://testserver")
+    yield device
+    device.close()
+
+
+@pytest.fixture
+def bystander():
+    """A third browser, another account's, its own sign-in in flight (no lifespan of its own, as ``server_errors``)."""
     device = TestClient(app, base_url="https://testserver")
     yield device
     device.close()
@@ -264,40 +276,41 @@ def test_a_callback_hands_the_landing_page_a_code_in_its_fragment_and_sets_no_se
 
 
 @pytest.mark.requires_db
-def test_the_binding_cookie_is_scoped_as_the_session_cookies_are_and_its_clear_matches_it(client, monkeypatch):
-    """Under the deployment's cookie settings the binding cookie takes the session cookies' Domain, Secure and SameSite,
-    and the exchange clears it with the same Domain and Path, the pair a browser deletes by."""
+def test_the_binding_cookie_is_scoped_as_the_session_cookies_are(client, monkeypatch):
+    """Under the deployment's cookie settings the binding cookie takes the session cookies' Domain, Secure and SameSite;
+    the exchange's answer sets those three cookies alone and leaves the binding cookie to lapse."""
     monkeypatch.setattr(settings, "COOKIE_DOMAIN", ".earningsnerd.io")
     monkeypatch.setattr(settings, "COOKIE_SECURE", True)
+    # Not the default, so a binder whose SameSite were written out rather than read from the setting fails here.
+    monkeypatch.setattr(settings, "COOKIE_SAMESITE", "strict")
     resp = _callback(client, monkeypatch, "google", _email())
     code = handoff_code(resp)
     (issued,) = [h for h in resp.headers.get_list("set-cookie") if h.startswith(f"{HANDOFF_COOKIE}=")]
     binder = issued.split(";", 1)[0].split("=", 1)[1]
     assert issued == (
         f"{HANDOFF_COOKIE}={binder}; Domain=.earningsnerd.io; HttpOnly; Max-Age=120; Path=/api/auth/oauth; "
-        "SameSite=lax; Secure"
+        "SameSite=strict; Secure"
     )
     # The jar keeps no cookie for another domain, so the landing page's post carries the binder by hand.
     exchange = client.post(COMPLETE_PATH, json={"code": code}, headers={"cookie": f"{HANDOFF_COOKIE}={binder}"})
     assert exchange.status_code == 200, exchange.text
-    access, presence, refresh, cleared = exchange.headers.get_list("set-cookie")
+    access, presence, refresh = exchange.headers.get_list("set-cookie")
     for header in (access, presence, refresh):
-        assert "Domain=.earningsnerd.io" in header and "Secure" in header and "SameSite=lax" in header, header
-    assert cleared.startswith(f'{HANDOFF_COOKIE}=""; Domain=.earningsnerd.io; expires='), cleared
-    assert "Max-Age=0; Path=/api/auth/oauth" in cleared, cleared
+        assert "Domain=.earningsnerd.io" in header and "Secure" in header and "SameSite=strict" in header, header
+        assert not header.startswith(f"{HANDOFF_COOKIE}="), header
 
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_the_exchange_signs_in_once_with_the_session_cookies_on_its_own_answer(client, monkeypatch, provider):
-    """The landing page's post sets the new account's session, in order, and clears the binding cookie; the same
-    code again, even with its binder, is refused and changes nothing."""
+    """The landing page's post sets the new account's session, in order, and leaves the binding cookie alone; the same
+    code again, with that binder still in the jar, is refused and changes nothing."""
     email = _email()
     resp = _callback(client, monkeypatch, provider, email)
     binder = resp.cookies[HANDOFF_COOKIE]
     exchange = complete_sign_in(client, resp)
     assert exchange.status_code == 200 and exchange.json() == {"status": "signed_in"}
-    assert _cookies(exchange) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    assert _cookies(exchange) == SESSION_ISSUED
     access = jwt.decode(exchange.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
     assert access["sub"] == email
     user_id, (row,), tokens = _account(email)
@@ -308,7 +321,7 @@ def test_the_exchange_signs_in_once_with_the_session_cookies_on_its_own_answer(c
     me = client.get("/api/auth/me")
     assert me.status_code == 200 and me.json()["email"] == email
 
-    client.cookies.set(HANDOFF_COOKIE, binder)
+    assert client.cookies.get(HANDOFF_COOKIE) == binder
     again = complete_sign_in(client, resp)
     assert again.status_code == 400 and again.json() == REFUSED
     assert _cookies(again) == []
@@ -366,11 +379,39 @@ def test_two_sign_ins_at_once_in_one_browser_end_with_the_later_one_signed_in(cl
         signed_in = complete_sign_in(client, later)
         refused = complete_sign_in(client, earlier)
         assert refused.status_code == 400 and refused.json() == REFUSED and _cookies(refused) == []
-    assert signed_in.status_code == 200 and _cookies(signed_in) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    assert signed_in.status_code == 200 and _cookies(signed_in) == SESSION_ISSUED
     assert client.get("/api/auth/me").json()["email"] == later_email
     (_, (earlier_row,), earlier_tokens), (_, (later_row,), later_tokens) = _account(earlier_email), _account(later_email)
     assert earlier_row.used_at is None and earlier_tokens == 0
     assert later_row.used_at is not None and later_tokens == 1
+
+
+@pytest.mark.requires_db
+def test_a_success_leaves_a_later_sign_ins_binding_cookie_for_its_own_exchange(client, monkeypatch):
+    """One browser: sign-in 1's landing page posts its code, and sign-in 2's callback sets its binding cookie while
+    that exchange is in flight (the post carries sign-in 1's binder, the cookie of the moment it was sent). Sign-in 1's
+    answer, a 200, sets the session cookies alone and leaves sign-in 2's binder in place, so sign-in 2's exchange signs
+    in. An answer that cleared the binding cookie on a success deleted sign-in 2's, and its exchange was refused."""
+    first_email, second_email = _email(), _email()
+    first = _callback(client, monkeypatch, "google", first_email)
+    first_binder = first.cookies[HANDOFF_COOKIE]
+    second = _callback(client, monkeypatch, "apple", second_email)
+    second_binder = second.cookies[HANDOFF_COOKIE]
+    assert client.cookies.get(HANDOFF_COOKIE) == second_binder
+
+    # Sent before sign-in 2's callback replaced the cookie, so it carries sign-in 1's binder; it answers after.
+    exchanged = client.post(
+        COMPLETE_PATH, json={"code": handoff_code(first)}, headers={"cookie": f"{HANDOFF_COOKIE}={first_binder}"},
+    )
+    assert exchanged.status_code == 200 and _cookies(exchanged) == SESSION_ISSUED
+    assert client.cookies.get(HANDOFF_COOKIE) == second_binder
+
+    signed_in = complete_sign_in(client, second)
+    assert signed_in.status_code == 200 and _cookies(signed_in) == SESSION_ISSUED
+    assert client.get("/api/auth/me").json()["email"] == second_email
+    (_, (first_row,), first_tokens), (_, (second_row,), second_tokens) = _account(first_email), _account(second_email)
+    assert first_row.used_at is not None and first_tokens == 1
+    assert second_row.used_at is not None and second_tokens == 1
 
 
 @pytest.mark.requires_db
@@ -443,7 +484,7 @@ def test_a_mint_that_fails_at_the_exchange_leaves_the_code_unused_and_sets_no_co
     _, (row,), tokens = _account(email)
     assert row.used_at is None and tokens == 0
     retried = complete_sign_in(server_errors, resp)
-    assert retried.status_code == 200 and _cookies(retried) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    assert retried.status_code == 200 and _cookies(retried) == SESSION_ISSUED
 
 
 @pytest.mark.requires_db
@@ -485,7 +526,7 @@ def _assert_handed_off(client: TestClient, resp, provider: str, email: str) -> N
     assert _cookies(resp) == [STATE_CLEARED[provider], HANDOFF_SET]
     assert _account(email)[2] == 0
     exchange = complete_sign_in(client, resp)
-    assert exchange.status_code == 200 and _cookies(exchange) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    assert exchange.status_code == 200 and _cookies(exchange) == SESSION_ISSUED
     assert client.get("/api/auth/me").json()["email"] == email
 
 
@@ -507,7 +548,8 @@ def _assert_handed_off(client: TestClient, resp, provider: str, email: str) -> N
 def test_only_a_start_that_asks_for_the_handoff_gets_it(client, monkeypatch, provider, start, ask, hands_off):
     """The compatibility gate (E29 (5)): the login page's link asks with ``handoff=1`` and the sign-up page's buttons
     with ``"handoff": true``; any other start (an older frontend, a bookmark, the runbook's direct URL) takes main's
-    path, so a new API serves an old frontend and an old API, which ignores the ask, a new one."""
+    path, so a new API serves an old frontend, and an old API, which ignores the ask, serves a start a new one makes
+    (a start that asked before a frontend rollback still lands on /auth/complete: docs/DEPLOYMENT.md)."""
     email = _email()
     _verified_account(email)
     resp = _callback(client, monkeypatch, provider, email, start=start, ask=ask)
@@ -556,17 +598,22 @@ def _reset_token(client: TestClient, monkeypatch, email: str) -> str:
 @pytest.mark.requires_db
 @pytest.mark.parametrize("revocation", ["logout_all", "change_password", "reset"])
 def test_an_account_wide_sign_out_ends_a_handoff_not_yet_exchanged(
-    client, monkeypatch, other_device, postgres_shaped_reset_expiry, revocation,
+    client, monkeypatch, other_device, bystander, postgres_shaped_reset_expiry, revocation,
 ):
     """A Google sign-in committed its handoff; before its landing page exchanges the code, the account's owner signs out
     everywhere, changes the password or resets it on another device. The revocation deletes the account's handoffs
     with its tokens (``revoke_all_for_user``), so the exchange is refused, sets no cookie and mints nothing: no session
-    from before the sign-out reaches a browser after it."""
+    from before the sign-out reaches a browser after it. Another account's sign-in in flight at that moment is not the
+    revocation's: its handoff stays, and its exchange signs that browser in."""
     email = _email()
     user_id = _verified_account(email, PASSWORD)
     resp = _callback(client, monkeypatch, "google", email)
     handoff_code(resp)
     assert len(_account(email)[1]) == 1
+    bystander_email = _email()
+    _verified_account(bystander_email)
+    bystander_resp = _callback(bystander, monkeypatch, "google", bystander_email)
+    handoff_code(bystander_resp)
     if revocation == "reset":
         signed_out = other_device.post(
             "/api/auth/reset-password", json={"token": _reset_token(other_device, monkeypatch, email), "new_password": NEW_PASSWORD},
@@ -593,6 +640,33 @@ def test_an_account_wide_sign_out_ends_a_handoff_not_yet_exchanged(
         live = db.query(RefreshToken).filter_by(user_id=user_id, revoked_at=None).count()
     assert live == (1 if revocation == "change_password" else 0)  # the changer's new session alone
     assert client.get("/api/auth/me").status_code == 401
+
+    assert len(_account(bystander_email)[1]) == 1
+    exchanged = complete_sign_in(bystander, bystander_resp)
+    assert exchanged.status_code == 200 and _cookies(exchanged) == SESSION_ISSUED
+    assert bystander.get("/api/auth/me").json()["email"] == bystander_email
+
+
+@pytest.mark.requires_db
+def test_a_handoff_sign_in_deletes_the_expired_handoffs_and_keeps_the_live_ones(client, monkeypatch, other_device):
+    """The handoff commit (``commit_oauth_sign_in``) deletes every expired handoff, whosever it is, as the scheduled
+    purge does (``retention_service``): another account's lapsed handoff goes, and another's live one stays."""
+    lapsed_email, live_email, email = _email(), _email(), _email()
+    for address in (lapsed_email, live_email, email):
+        _verified_account(address)
+    lapsed_id = _account(lapsed_email)[0]
+    handoff_code(_callback(other_device, monkeypatch, "google", lapsed_email))
+    handoff_code(_callback(other_device, monkeypatch, "google", live_email))
+    with SessionLocal() as db:
+        updated = db.query(SessionHandoff).filter_by(user_id=lapsed_id).update(
+            {SessionHandoff.expires_at: utcnow() - timedelta(seconds=1)},
+        )
+        db.commit()
+    assert updated == 1
+    handoff_code(_callback(client, monkeypatch, "google", email))
+    assert _account(lapsed_email)[1] == []
+    assert len(_account(live_email)[1]) == 1
+    assert len(_account(email)[1]) == 1
 
 
 @pytest.mark.requires_db
@@ -630,7 +704,7 @@ def test_a_browser_signed_in_as_one_account_completes_anothers_handoff_and_ends_
     resp = _callback(client, monkeypatch, provider, b_email)
     handoff_code(resp)
     exchange = complete_sign_in(client, resp)
-    assert exchange.status_code == 200 and _cookies(exchange) == [*SESSION_ISSUED, HANDOFF_CLEARED]
+    assert exchange.status_code == 200 and _cookies(exchange) == SESSION_ISSUED
 
     assert client.get("/api/auth/me").json()["email"] == b_email
     access = jwt.decode(client.cookies.get(settings.COOKIE_NAME), options={"verify_signature": False})
@@ -650,8 +724,7 @@ def test_neither_the_code_nor_the_binder_reaches_a_log_record(client, monkeypatc
         resp = _callback(client, monkeypatch, provider, _email())
         code, binder = handoff_code(resp), resp.cookies[HANDOFF_COOKIE]
         assert complete_sign_in(client, resp).status_code == 200
-        client.cookies.set(HANDOFF_COOKIE, binder)
-        assert complete_sign_in(client, resp).status_code == 400
+        assert complete_sign_in(client, resp).status_code == 400  # the binder still in the jar
     assert caplog.records, "the run logged nothing, so the check read nothing"
     leaked = [
         record.name for record in caplog.records

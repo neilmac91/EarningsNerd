@@ -64,7 +64,8 @@ export const login = async (email: string, password: string, turnstileToken?: st
 
 /**
  * The OAuth sign-in's exchange of its one-time code (E29 (5)). A Google or Apple callback's answer is a navigation,
- * which cannot hold the session cookies' lock, so it sets no session cookie: it hands the landing page
+ * which cannot hold the session cookies' lock, so for a start that asks for the handoff (oauthStartHref's `handoff=1`,
+ * startOAuthWithInvite's `handoff: true`, as this app's starts do) it sets no session cookie: it hands the landing page
  * (app/auth/complete/page.tsx) a one-time code in the URL fragment, bound to this browser by a cookie the callback set,
  * and this post's answer sets the new session's cookies. It posts through the password login's hold
  * (withoutRefreshBeside, at LOGIN_REFRESH_WAIT_MS), strictly: this tab's refresh in flight answers first, then the
@@ -76,9 +77,9 @@ export const login = async (email: string, password: string, turnstileToken?: st
  * cancelling no refresh; with no lock manager, or a lock request the browser rejects, it posts nothing and rejects with
  * SessionLockUnavailable. The code is then still unredeemed, and the landing page offers it again
  * (app/auth/complete/page.tsx): a retry is safe, since the code is single use, so a retry of a code an earlier post
- * redeemed is refused. What it leaves open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever
- * holds the lock. The route refuses a used, expired, unknown or unbound code with a 400, which its path in client.ts's
- * NO_REFRESH_PATHS keeps from asking for a refresh under the hold.
+ * redeemed is refused. A refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing (client.ts's RefreshLockTimeout),
+ * so it cannot answer after the exchange. The route refuses a used, expired, unknown or unbound code with a 400, which
+ * its path in client.ts's NO_REFRESH_PATHS keeps from asking for a refresh under the hold.
  */
 export const completeOAuthSignIn = async (code: string) => {
   const generation = getExplicitSessionGeneration()
@@ -114,10 +115,11 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
   assertSessionGeneration(generation)
   options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
-  // refresh an expired access token. This also covers a session no login in this tab started (another tab's):
-  // login() and completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a
-  // refresh replays during a logout in this tab marks nothing: the logout is ending that session (session.ts's
-  // beginLogout).
+  // refresh an expired access token. This also covers OAuth redirect logins whose start did not ask for the handoff
+  // (main's path, until E29 (5)'s follow-up retires it), where the JS login()/register() path (which normally sets
+  // the marker) never runs, and a session no login in this tab started (another tab's): login() and
+  // completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a refresh replays
+  // during a logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
   markSessionConfirmed()
   return response.data
 }
@@ -181,9 +183,9 @@ export const unlinkProvider = async (provider: string) => {
  * that login, then post with its cookies: given a login, a refresh asked for while it is out, and a logout pressed
  * after that refresh, all within one post's time. Two tabs are enough: this tab's own refresh, asked for by a 401 while
  * the other tab's login is out, queues behind that login, and this logout's refreshSettled waits on it. A refresh that
- * waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; and where the browser has no lock manager,
- * or refuses the lock, the logout posts once this tab's refresh has settled, as before, and any other tab's refresh can
- * set the cookies again after its answer.
+ * waited past REFRESH_LOCK_WAIT_MS sends nothing (client.ts's RefreshLockTimeout); and where the browser has no lock
+ * manager, or refuses the lock, the logout posts once this tab's refresh has settled, as before, and any other tab's
+ * refresh can set the cookies again after its answer.
  */
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 // How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout
@@ -319,7 +321,7 @@ function postPasswordChange(
  * in client.ts's NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read,
  * whose own 401 refreshes and confirms a lost session as any read's does, and the post goes out once more through the
  * hold. Neither post goes out once a login or a logout has been accepted in this tab since the change was asked for.
- * What this leaves open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; where
+ * What this leaves open (a refresh that waited past REFRESH_LOCK_WAIT_MS sends nothing: RefreshLockTimeout): where
  * the browser has no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the
  * post is out, can answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main,
  * and their answers can land in either order; the post can wait behind a refresh queued after another tab's login, then
