@@ -1256,9 +1256,9 @@ def test_a_winner_in_another_currency_refuses_until_a_sync(db, monkeypatch):
         # these 21 rows, every one current.
         collect = companyfacts._collect_companyfacts_values
 
-        def old_units(usgaap, tags, unit_key, *, instant, foreign=frozenset()):
+        def old_units(usgaap, tags, unit_key, *, instant, foreign=frozenset(), unruled=None):
             unit = unit_key.replace("CNY", "USD") if REV_TAG in tags else unit_key.replace("USD", "CNY")
-            return collect(usgaap, tags, unit, instant=instant, foreign=foreign)
+            return collect(usgaap, tags, unit, instant=instant, foreign=foreign, unruled=unruled)
 
         patch.setattr(companyfacts, "_collect_companyfacts_values", old_units)
         patch.setattr(currency, "_filing_pick", lambda *args: ("USD", frozenset(), {}, None))

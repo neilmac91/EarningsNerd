@@ -61,25 +61,26 @@ def _fiscal_year_windows(duration_values: dict) -> list[tuple[date, date]]:
     return [(start, end) for end, start in sorted(by_end.items())]
 
 
-def fiscal_duration_values(duration_values: dict, windows: list[tuple[date, date]], metadata: dict) -> dict:
-    """Keep annual-duration rows only when their dates match a completed fiscal year."""
-    filtered = {
-        concept: {key: record for key, record in values.items()
-                  if key[1] != "FY" or any(
-                      key[0] == end and abs((record["period_start"] - start).days) <= 1
-                      for start, end in windows
-                  )}
-        for concept, values in duration_values.items()
-    }
+def fiscal_duration_values(duration_values: dict, windows: list[tuple[date, date]], metadata: dict,
+                           unruled: dict | None = None) -> dict:
+    """Keep annual-duration rows only when their dates match a completed fiscal year. The exclusions judge the
+    collector's ``unruled`` winners when given, which the partial-year rule leaves whole (E292), so a rolling year
+    stays on record as the calendar kept it before that rule: the quarterly repair's only evidence."""
+    def fiscal(key: tuple[date, str], record: dict) -> bool:  # no year, or one whose dates are a fiscal year
+        return key[1] != "FY" or any(
+            key[0] == end and abs((record["period_start"] - start).days) <= 1 for start, end in windows)
+
+    filtered = {concept: {key: record for key, record in values.items() if fiscal(key, record)}
+                for concept, values in duration_values.items()}
     exclusions = []
-    for concept, values in duration_values.items():
+    for concept, values in (duration_values if unruled is None else unruled).items():
         for key, record in values.items():
             end = key[0]
             next_label = _next_year_label(end, record, windows)
             known_interim = any(start <= end < finish for start, finish in windows) or (
                 next_label is not None and next_label[0] != "Q4"
             )
-            if key in filtered[concept] or not known_interim:
+            if fiscal(key, record) or not known_interim:
                 continue  # Absence of annual evidence alone cannot quarantine historical rows.
             for candidate in record.get("candidates") or [record]:
                 exclusions.append({
