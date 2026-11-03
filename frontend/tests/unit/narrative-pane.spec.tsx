@@ -270,8 +270,9 @@ describe('NarrativePane readable evidence', () => {
     expect(document.getElementById('analysis-source-1')).toHaveTextContent('26.1% (26.065360767092645%)')
     expect(document.getElementById('analysis-source-2')).toHaveTextContent('1.00004× (1.00004 ratio)')
     // A legacy calculation's note is about its record, not its number: no letter on the chip or in its name (D-061).
-    const chip = screen.getByRole('button', { name: '1. Citation: XBRL · net_margin. Net margin · Q2 2026 · 26.1% (26.065360767092645%)' })
-    expect(chip).toHaveAttribute('title', 'Net margin · Q2 2026 · 26.1% (26.065360767092645%) · XBRL · net_margin')
+    // The chip says the source in the list's words, never the stored key the list does not print.
+    const chip = screen.getByRole('button', { name: '1. Citation: calculated before we kept its inputs. Net margin · Q2 2026 · 26.1% (26.065360767092645%)' })
+    expect(chip).toHaveAttribute('title', 'Net margin · Q2 2026 · 26.1% (26.065360767092645%) · calculated before we kept its inputs')
     expect(chip.querySelector('[data-note-kind]')).not.toBeInTheDocument()
     const source = document.getElementById('analysis-source-1')!
     expect(source).toHaveTextContent('calculated before we kept its inputs')
@@ -279,6 +280,43 @@ describe('NarrativePane readable evidence', () => {
     expect(source).not.toHaveTextContent('Calculated from filing figures')
     expect(source).not.toHaveTextContent('Calculated from recorded inputs')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.')
+  })
+
+  it('names each citation chip by the source list’s label, which the analysis PDF prints too', () => {
+    const provenance = (method: 'reported' | 'calculated' | 'unknown', inputs = 0) => ({
+      version: 1 as const, method, validation: 'passed' as const, reasons: [], formula: null,
+      inputs: Array.from({ length: inputs }, () => ({ concept: 'revenue', value: 1 })),
+    })
+    const citations = [
+      { ...citation, n: 1, section_ref: 'XBRL · us-gaap:Revenues', provenance: provenance('reported') },
+      { ...citation, n: 2, section_ref: 'Calculated · 100 * net_income / revenue', provenance: provenance('calculated', 2) },
+      { ...citation, n: 3, section_ref: 'Calculated · free_cash_flow', provenance: provenance('calculated') },
+      { ...citation, n: 4, section_ref: 'XBRL · us-gaap:Revenues', provenance: provenance('unknown') },
+      { ...citation, n: 5, section_ref: 'Computed · CAGR', provenance: undefined },
+      { ...citation, n: 6, section_ref: null },
+    ]
+    const narrative = 'Revenue [1], net margin [2], free cash flow [3], revenue again [4], its CAGR [5] and a sixth [6].'
+    render(<NarrativePane state={doneState({ text: narrative, completion: doneCompletion({ narrative, citations, grounded: 6 }) })} />)
+    const expected = ['SEC filing', 'calculated from filed figures', 'calculated figure', 'XBRL · us-gaap:Revenues', 'Computed · CAGR', null]
+    expected.forEach((label, index) => {
+      const n = index + 1
+      const chip = screen.getByRole('button', { name: new RegExp(`^${n}\\. Citation: `) })
+      const name = chip.getAttribute('aria-label')!
+      // The chip's name and title say what the source list prints after its dot; with no label, the name says "Source n".
+      expect(name.startsWith(`${n}. Citation: ${label ?? `Source ${n}`}. `), name).toBe(true)
+      expect(chip.getAttribute('title')!.endsWith(label ? ` · ${label}` : citationDisplay(citations[index]))).toBe(true)
+      const listed = document.getElementById(`analysis-source-${n}`)!
+      // The list's label is the tertiary span after the figure (and its filing link); a source with no label has none.
+      const printed = listed.querySelector('span.ml-1')
+      if (label) expect(printed).toHaveTextContent(`· ${label}`)
+      else expect(printed).toBeNull()
+    })
+    // No stored key reaches a chip whose source has a method.
+    for (const n of [1, 2, 3]) {
+      const chip = screen.getByRole('button', { name: new RegExp(`^${n}\\. Citation: `) })
+      expect(chip.getAttribute('aria-label')).not.toMatch(/XBRL|Calculated ·|net_income|free_cash_flow/)
+      expect(chip.getAttribute('title')).not.toMatch(/XBRL|Calculated ·|net_income|free_cash_flow/)
+    }
   })
 })
 
