@@ -243,9 +243,10 @@ def _signup_start_invite_hash(
 def _refused_start_rolls_back(
     db: Session, invite: Optional[str], agreement: AcceptedAccountAgreement | None,
 ) -> Optional[str]:
-    """``_signup_start_invite_hash``, with a refusal's read rolled back before it raises: the route answers 503 with
-    no commit of its own, so the invitation's read would otherwise hold its pooled connection until the request's
-    finalizer, after the answer (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    """``_signup_start_invite_hash``, with a refusal's read rolled back before it raises. The route answers 503 with no
+    commit of its own, so without the rollback the invitation's read would stay open for the request's finalizer to
+    close; the unit returns its connection itself, as every unit does
+    (lessons/ops-release-cached-filing-reads-before-yield.md)."""
     try:
         return _signup_start_invite_hash(db, invite, agreement)
     except CollectionUnavailable:
