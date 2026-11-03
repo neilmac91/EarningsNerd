@@ -1470,6 +1470,11 @@ Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, 
                  plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
                  2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
                  plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Unavailable but focusable (`aria-disabled`, with the caller's onChange returning early so
+                 the controlled value stays: the admin invites page's "Email invites" while invitation email
+                 is held) fades the edge and the checked fill to half, never the element, so the focus ring
+                 keeps its strength; native `disabled` keeps `disabled:opacity-50` for a box that cannot hold
+                 focus when it turns off.
                  Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
                  state equal to the Primary's dark fill and label ink).
 
@@ -2792,7 +2797,8 @@ accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a s
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
 /login, /register, /forgot-password, /check-email, /verify-email, /reset-password and /auth/complete (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
-/privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
+/privacy, /terms, /security, /delete-account, /email/unsubscribe (opened without its token), /calendar
+and /search (CI's e2e build turns both on:
 the calendar reads its own fixtures with the clock pinned to one week, the search is answered and
 run), a finished Multi-Period Analysis run on /analysis, and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run

@@ -231,7 +231,8 @@ const ROUTES: Route[] = [
  * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar
  * and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
  * one week (fixtures/calendarWeek.ts), and the search is answered here and run (fixtures/searchApi.ts), so each is
- * read with its rows painted. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
+ * read with its rows painted. It also adds /email/unsubscribe, an invitation email's opt-out, opened without its
+ * token. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
  * that no entry visits (a dynamic route by a representative path) unless NOT_VISITED names it with its reason,
  * so a new public page cannot stay outside the gate in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
  * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
@@ -268,6 +269,8 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
   { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
   { name: 'delete account', path: '/delete-account', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Delete your account' })).toBeVisible() },
+  // Opened without the email's token, so it settles on the notice that asks for the email's link; it makes no request of its own.
+  { name: 'unsubscribe (no token)', path: '/email/unsubscribe', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByText('This page needs the link from your email')).toBeVisible() },
   {
     name: 'calendar',
     path: '/calendar',

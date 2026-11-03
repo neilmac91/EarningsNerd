@@ -229,8 +229,9 @@ const INFO_NOTICES: Record<string, number> = {
   'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
   'features/analysis/components/AnalysisPageClient.tsx': 1, // an unsupported filer: a state
   'features/calendar/components/DayDetailDialog.tsx': 1, // "Market closed for {holiday}": a state of the day (E196 (3))
+  'features/admin/components/InviteReadinessBanner.tsx': 1, // "Registration is on hold", "Invitation email is on hold": a mode of the system, one per held capability (EN-BETA PB-01)
 }
-const INFO_NOTICES_MAX = { files: 6, uses: 8 }
+const INFO_NOTICES_MAX = { files: 7, uses: 9 }
 
 /** The `warning` Notices since E196 (2), per file at their count: each a state the reader weighs (a limit near or
     reached, a risk in what they are about to do). A new warning Notice is added here on purpose, reviewed for state

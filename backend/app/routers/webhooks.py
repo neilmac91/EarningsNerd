@@ -10,6 +10,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.config import settings
+from app.services import resend_webhook_service
+from app.services.resend_webhook_service import signing_key
 from app.utils.datetimes import utcnow
 from app.utils.pii import mask_recipients
 
@@ -19,19 +21,6 @@ logger = logging.getLogger(__name__)
 
 # Svix's own libraries refuse a timestamp more than five minutes either side of the receiver's clock.
 _TIMESTAMP_TOLERANCE_SECONDS = 5 * 60
-
-
-def _signing_key(secret: str) -> Optional[bytes]:
-    """The HMAC key a Svix signing secret carries: the base64 text after its ``whsec_`` prefix.
-
-    None when that text is empty or not base64: a misconfigured secret, which must fail closed.
-    """
-    encoded = secret.strip().removeprefix("whsec_")  # a secret stored with a newline still reads
-    try:
-        key = base64.b64decode(encoded + "=" * (-len(encoded) % 4), validate=True)
-    except ValueError:  # binascii.Error, or a character outside ASCII
-        return None
-    return key or None
 
 
 def verify_webhook_signature(payload: bytes, signature_header: str, secret: str, svix_id: str, svix_timestamp: str) -> bool:
@@ -52,7 +41,7 @@ def verify_webhook_signature(payload: bytes, signature_header: str, secret: str,
             logger.error("RESEND_WEBHOOK_SECRET is not set in production. Webhook verification failed.")
             return False
 
-    key = _signing_key(secret)
+    key = signing_key(secret)
     if key is None:
         logger.error("RESEND_WEBHOOK_SECRET is not a Svix signing secret (whsec_ and base64). Webhook verification failed.")
         return False
@@ -90,9 +79,13 @@ async def handle_resend_webhook(request: Request):
     - email.bounced: Email bounced (hard or soft)
     - email.opened: Recipient opened the email
     - email.clicked: Recipient clicked a link in the email
+    - email.failed and email.suppressed: the provider did not send it (recorded, not logged by a handler)
 
     Webhook signature verification:
     Resend uses the Svix webhook standard with HMAC SHA256.
+
+    Sent, delivered, delayed, bounced, complained, failed and suppressed events also update the invitation ledger
+    and the suppression list (invite_delivery_service), once the signature verified.
     """
     # Get the raw body for signature verification
     body = await request.body()
@@ -156,11 +149,36 @@ async def handle_resend_webhook(request: Request):
         await handle_email_opened(data)
     elif event_type == "email.clicked":
         await handle_email_clicked(data)
-    else:
+    elif not isinstance(event_type, str) or event_type not in resend_webhook_service.FEEDBACK_EVENTS:
         logger.warning(f"Unhandled Resend webhook event type: {event_type}")
 
-    # Always return 200 OK to acknowledge receipt
+    # Durable feedback (EN-BETA PB-01): only from a delivery the signature check authenticated, so with no secret set
+    # (outside production, where verification is skipped) nothing is recorded. A failed write answers 503, so the
+    # provider retries the delivery; applying it twice changes nothing.
+    event = resend_webhook_service.parse_event(event_type, data, svix_id)
+    if event is not None:
+        if not webhook_secret:
+            logger.warning("Resend feedback not recorded: the delivery is unauthenticated (RESEND_WEBHOOK_SECRET unset)")
+        else:
+            await _record_feedback(event)
+
+    # Acknowledge receipt
     return {"status": "ok", "event": event_type}
+
+
+async def _record_feedback(event: "resend_webhook_service.ProviderEvent") -> None:
+    """Apply one signed event to the invitation ledger and the suppression list, off the event loop in a session of
+    its own (the route holds none), or answer 503 so the provider sends the delivery again."""
+    from app.services.invite_delivery_service import apply_provider_event
+    from app.services.job_sessions import run_in_own_session_sync
+
+    try:
+        await run_in_threadpool(run_in_own_session_sync, apply_provider_event, event)
+    except Exception as exc:  # noqa: BLE001 — the class alone: a database error can carry the statement's values
+        logger.error("Could not record Resend feedback %s: %s", event.event_id, type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Feedback not recorded; send it again."
+        ) from None
 
 
 async def handle_email_sent(data: Dict[str, Any]):
@@ -191,13 +209,14 @@ async def handle_email_delayed(data: Dict[str, Any]):
 
 
 async def handle_email_bounced(data: Dict[str, Any]):
-    """Handle email.bounced event"""
+    """Handle email.bounced event. Resend sends the bounce as ``data.bounce`` (``type``: "Permanent" or
+    "Temporary"); a permanent one suppresses the address (``_record_feedback``)."""
     email_id = data.get("email_id")
     masked_to = mask_recipients(data.get("to"))
-    bounce_type = data.get("bounce_type")  # "hard" or "soft"
+    bounce = data.get("bounce") if isinstance(data.get("bounce"), dict) else {}
+    bounce_type = bounce.get("type") if isinstance(bounce.get("type"), str) else None
 
     logger.error(f"Email bounced ({bounce_type}): {email_id} to {masked_to}")
-    # Future: For hard bounces, mark email as invalid; update contact submission status
 
 
 async def handle_email_complained(data: Dict[str, Any]):
@@ -206,7 +225,6 @@ async def handle_email_complained(data: Dict[str, Any]):
     masked_to = mask_recipients(data.get("to"))
 
     logger.error(f"Email marked as spam: {email_id} to {masked_to}")
-    # Future: Auto-unsubscribe this email address to comply with anti-spam regulations
 
 
 async def handle_email_opened(data: Dict[str, Any]):

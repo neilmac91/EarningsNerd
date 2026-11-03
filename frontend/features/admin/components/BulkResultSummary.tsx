@@ -5,13 +5,18 @@ import { CheckCircleIcon, WarningCircleIcon, XCircleIcon } from '@/lib/icons'
 import CopyLinkButton from '@/features/admin/components/CopyLinkButton'
 import ShareInvite from '@/features/admin/components/ShareInvite'
 import AddressText from '@/features/auth/components/AddressText'
+import type { DeliveryStatus } from '@/features/admin/api/admin-api'
+import { deliveryState, NOT_EMAILED } from '@/features/admin/lib/inviteDelivery'
 
 export interface BulkInviteOutcome {
   email: string
   ok: boolean
   link?: string
-  /** The API's `emailed` flag: the backend emails best-effort, so a created invite may not have been sent. */
+  /** The API's `emailed` flag: the email provider accepted the email. Never delivery, and best-effort: a created invite
+   *  may not have been emailed at all. */
   emailed?: boolean
+  /** The invitation email's state when one was asked for (the API's `delivery_status`). */
+  deliveryStatus?: DeliveryStatus | null
   error?: string
 }
 
@@ -22,16 +27,25 @@ interface BulkResultSummaryProps {
   emailRequested: boolean
 }
 
-/** The created group's heading: what was created and, when email was asked for, how many were emailed. */
+/** The created group's heading: what was created and, when email was asked for, how many the email provider accepted
+ *  (an acceptance, never a delivery). */
 function createdSummary(created: BulkInviteOutcome[], emailRequested: boolean): string {
   if (!emailRequested) return `${created.length} invite link${created.length === 1 ? '' : 's'} created`
-  return `${created.length} created · ${created.filter((o) => o.emailed).length} emailed`
+  return `${created.length} created · ${created.filter((o) => o.emailed).length} accepted by the email provider`
+}
+
+/** What a created row the provider did not accept says of its email: why it was not sent, or that the outcome is not
+ *  known. A row the provider accepted says nothing of its own: the heading counts it. */
+function unacceptedLabel(outcome: BulkInviteOutcome): string {
+  if (!outcome.deliveryStatus) return NOT_EMAILED.label
+  return deliveryState({ status: outcome.deliveryStatus, error_kind: null, bounce_type: null }).label
 }
 
 /**
  * Inline breakdown of a bulk-invite run, rendered whenever the run created, failed or skipped anything;
- * the parent's toast says the same in brief. Each created invite keeps its Copy link, and one that was
- * not emailed says so, so the links still to share by hand are plain.
+ * the parent's toast says the same in brief. Each created invite keeps its Copy link, and one whose email the
+ * provider did not accept says what happened to it, so the links still to share by hand are plain. The provider's
+ * acceptance is never called a delivery: the invites list shows each email's state as it is learned.
  * Wrapped in an aria-live region so the outcome is announced to screen readers.
  */
 export default function BulkResultSummary({ outcomes, skipped, emailRequested }: BulkResultSummaryProps) {
@@ -53,6 +67,12 @@ export default function BulkResultSummary({ outcomes, skipped, emailRequested }:
             <CheckCircleIcon className="h-4 w-4" />
             {createdSummary(succeeded, emailRequested)}
           </div>
+          {emailRequested && succeeded.some((o) => o.emailed) && (
+            <p className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              Accepted means the email provider took it, not that it was delivered. The invites list shows each
+              email&apos;s state.
+            </p>
+          )}
           <ul className="space-y-1.5">
             {succeeded.map((o) => (
               <li
@@ -68,7 +88,7 @@ export default function BulkResultSummary({ outcomes, skipped, emailRequested }:
                 {o.link && (
                   <div className="flex flex-wrap items-center gap-2">
                     {emailRequested && !o.emailed && (
-                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Not emailed</span>
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{unacceptedLabel(o)}</span>
                     )}
                     <CopyLinkButton link={o.link} />
                     {/* The share options open in a dialog: under 200% text they cannot fit the row (E242). */}

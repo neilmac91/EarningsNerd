@@ -17,7 +17,9 @@ const { usePathname, useSearchParams, refresh } = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh }) }))
 vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }))
 
-vi.mock('@/features/admin/api/admin-api', () => ({
+vi.mock('@/features/admin/api/admin-api', async (original) => ({
+  ...(await original<typeof import('@/features/admin/api/admin-api')>()),
+  getInviteReadiness: vi.fn(),
   listInvites: vi.fn(),
   createInvite: vi.fn(),
   resendInvite: vi.fn(),
@@ -43,6 +45,7 @@ import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import {
   createInvite,
+  getInviteReadiness,
   listFeedback,
   listInvites,
   updateFeedbackStatus,
@@ -50,6 +53,7 @@ import {
   type InviteRecord,
   type MintResult,
 } from '@/features/admin/api/admin-api'
+import { READY } from './fixtures/inviteReadiness'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/queryKeys'
@@ -87,13 +91,15 @@ function expectBusyAndFocused(el: HTMLElement) {
 }
 
 describe('Admin invites: Send invites stays focusable', () => {
+  // Email invites is off by default, so a send mints a link to share by hand.
   const minted: MintResult = {
     id: 9,
     email: 'good@example.com',
     invite_link: 'https://earningsnerd.io/invite/token',
     expires_at: '2026-07-08T00:00:00Z',
-    emailed: true,
+    emailed: false,
     cohort: null,
+    delivery_status: null,
   }
   const pendingGood: InviteRecord = {
     id: 9,
@@ -104,9 +110,12 @@ describe('Admin invites: Send invites stays focusable', () => {
     used_at: null,
     user_id: null,
     created_at: '2026-07-01T00:00:00Z',
+    delivery: null,
+    email_suppression: null,
   }
 
   beforeEach(() => {
+    vi.mocked(getInviteReadiness).mockReset().mockResolvedValue(READY)
     vi.mocked(listInvites).mockReset()
     vi.mocked(createInvite).mockReset()
     vi.mocked(toast.success).mockReset()
@@ -119,7 +128,10 @@ describe('Admin invites: Send invites stays focusable', () => {
     fireEvent.change(field, { target: { value: 'good@example.com' } })
     fireEvent.blur(field)
     await waitFor(() => expect(screen.getByText(/to invite/).textContent).toMatch(/^1 to invite/))
-    return screen.getByRole('button', { name: 'Send invites' })
+    const send = screen.getByRole('button', { name: 'Send invites' })
+    // New links wait for the readiness read (adminInvitesReadiness.spec.tsx).
+    await waitFor(() => expect(send).not.toHaveAttribute('aria-disabled'))
+    return send
   }
 
   it('keeps Send focused but inert while the batch is in flight', async () => {
@@ -182,7 +194,7 @@ describe('Admin invites: Send invites stays focusable', () => {
     expect(createInvite).toHaveBeenCalledTimes(1)
     // Only the early return stops a no-op send now: without it this run would clear the batch's
     // results (and their invite links) and relist the just-sent address as skipped.
-    expect(screen.getByText('1 created · 1 emailed')).toBeInTheDocument()
+    expect(screen.getByText('1 invite link created')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
     expect(toast.success).toHaveBeenCalledTimes(1)
   })
@@ -219,6 +231,8 @@ describe('Admin list Retry: the Notice holds through the refetch, then focus goe
     used_at: null,
     user_id: null,
     created_at: '2026-06-20T00:00:00Z',
+    delivery: null,
+    email_suppression: null,
   }
   const bugReport: FeedbackRecord = {
     id: 1,
@@ -251,6 +265,7 @@ describe('Admin list Retry: the Notice holds through the refetch, then focus goe
   }
 
   beforeEach(() => {
+    vi.mocked(getInviteReadiness).mockReset().mockResolvedValue(READY)
     vi.mocked(listInvites).mockReset()
     vi.mocked(listFeedback).mockReset()
   })
