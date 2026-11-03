@@ -336,9 +336,16 @@ def test_realtime_and_8k_alerts_are_kept_and_an_8k_is_delivered_for_the_grant(co
     suffix = uuid.uuid4().hex[:8]
     with SessionLocal() as db:
         company = Company(cik=f"cik{suffix}", ticker=f"S{suffix[:4].upper()}", name=f"Scan {suffix}")
-        db.add(company)
+        # What other modules leave in this worker: another Pro account's watch, with real-time 8-K alerts on, of a
+        # company the scan reaches first. It has no new filing, so it sends nothing.
+        other = Company(cik=f"oth{suffix}", ticker=f"O{suffix[:4].upper()}", name=f"Other {suffix}")
+        watcher = User(email=f"pb02-other-{suffix}@example.com", is_pro=True, email_verified=True, is_active=True)
+        db.add_all([other, company, watcher])
         db.commit()
-        company_id = company.id
+        company_id, other_id, watcher_id = company.id, other.id, watcher.id
+        db.add(NotificationPreferences(user_id=watcher_id, **wanted))
+        db.add(Watchlist(user_id=watcher_id, company_id=other_id, created_at=WATCH_SINCE))
+        db.commit()
         for tester in (cohort.granted, cohort.free):
             db.add(Watchlist(user_id=tester.id, company_id=company_id, created_at=WATCH_SINCE))
             # The control's stored choice as a Free account would hold it had it opted in before: the scan still
@@ -350,7 +357,8 @@ def test_realtime_and_8k_alerts_are_kept_and_an_8k_is_delivered_for_the_grant(co
               "sec_url": f"https://sec.example/{suffix}/", "cik": "x"}
 
     async def fetch(cik, filing_types=None, limit=None):
-        return [eightk]
+        # Only this case's company has a new filing, so what other modules leave watched in this worker sends nothing.
+        return [eightk] if cik == f"cik{suffix}" else []
 
     send = AsyncMock()
     try:
@@ -361,9 +369,13 @@ def test_realtime_and_8k_alerts_are_kept_and_an_8k_is_delivered_for_the_grant(co
             (cohort.granted.email, "8-K")]
     finally:
         with SessionLocal() as db:
-            db.query(Filing).filter(Filing.company_id == company_id).delete(synchronize_session=False)
-            db.query(Watchlist).filter(Watchlist.company_id == company_id).delete(synchronize_session=False)
-            db.query(Company).filter(Company.id == company_id).delete(synchronize_session=False)
+            db.query(NotificationLog).filter(NotificationLog.user_id == watcher_id).delete(synchronize_session=False)
+            for scanned in (company_id, other_id):
+                db.query(Filing).filter(Filing.company_id == scanned).delete(synchronize_session=False)
+                db.query(Watchlist).filter(Watchlist.company_id == scanned).delete(synchronize_session=False)
+                db.query(Company).filter(Company.id == scanned).delete(synchronize_session=False)
+            db.query(NotificationPreferences).filter_by(user_id=watcher_id).delete(synchronize_session=False)
+            db.query(User).filter(User.id == watcher_id).delete(synchronize_session=False)
             db.commit()
 
 
@@ -389,13 +401,15 @@ def test_earnings_alerts_pass_the_free_cap_for_the_grant(cohort, client):
 
 
 def test_saved_summaries_work_for_the_grant(cohort, client):
+    """Saved summaries are open to every account (app/routers/saved_summaries.py reads no entitlement), so this case
+    shows they work for a grant and, with the Free control's, that no plan gates them; it is not evidence of the grant."""
     summary_id = _summary_of(_summarised_filing())
 
-    saved = client.post("/api/saved-summaries", json={"summary_id": summary_id}, headers=cohort.granted.headers)
-    listed = client.get("/api/saved-summaries", headers=cohort.granted.headers)
-
-    assert saved.status_code == 200, saved.text
-    assert listed.status_code == 200 and [row["summary_id"] for row in listed.json()] == [summary_id]
+    for account in (cohort.granted, cohort.free):
+        saved = client.post("/api/saved-summaries", json={"summary_id": summary_id}, headers=account.headers)
+        listed = client.get("/api/saved-summaries", headers=account.headers)
+        assert saved.status_code == 200, saved.text
+        assert listed.status_code == 200 and [row["summary_id"] for row in listed.json()] == [summary_id]
 
 
 # --------------------------------------------------------------------------- revoke
