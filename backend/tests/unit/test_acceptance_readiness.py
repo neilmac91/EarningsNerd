@@ -741,9 +741,13 @@ def test_the_checkout_marker_reads_the_path_as_the_arm_writes_it(tmp_path: Path,
     real.mkdir()
     if spelling == "through a symlink":
         (tmp_path / "link").symlink_to(real)
-    configured = {"through a symlink": str(tmp_path / "link"), "with a trailing slash": f"{real}/",
+    # The trailing slash's checkout is absent here, as an arm's may be where the packets are built, so only the
+    # spelling without the slash can find it.
+    elsewhere = tmp_path / "elsewhere" / "checkout"
+    configured = {"through a symlink": str(tmp_path / "link"), "with a trailing slash": f"{elsewhere}/",
                   "with a space, as an address": str(real)}[spelling]
-    written = real.resolve().as_uri() if "address" in spelling else str(real.resolve())
+    written = {"through a symlink": str(real.resolve()), "with a trailing slash": str(elsewhere),
+               "with a space, as an address": real.resolve().as_uri()}[spelling]
     assert configured not in written  # the config's spelling alone would miss it
     artifact = tmp_path / "rendered.md"
     artifact.write_text(f"Revenue rose. Rendered under {written}.", encoding="utf-8")
