@@ -64,19 +64,32 @@ def _row(i, report_date, fpe=FPE):
                            fiscal_period_end=fpe, eps_estimate=1.5, currency="USD", event_time="amc")
 
 
+class _Reads:
+    """The SELECTs on earnings_events a block ran: call it for their number; ``widest`` is the most
+    bound parameters any one of them carried (an IN list binds one per value)."""
+
+    def __init__(self):
+        self.statements: list[str] = []
+        self.widest = 0
+
+    def __call__(self) -> int:
+        return len(self.statements)
+
+
 @contextmanager
 def _event_selects():
     """Counts the SELECTs that read earnings_events while the block runs."""
-    seen = []
+    reads = _Reads()
 
     def count(conn, cursor, statement, parameters, context, executemany):
         text = statement.lstrip().upper()
         if text.startswith("SELECT") and "EARNINGS_EVENTS" in text:
-            seen.append(statement)
+            reads.statements.append(statement)
+            reads.widest = max(reads.widest, len(parameters or ()))
 
     event.listen(engine, "before_cursor_execute", count)
     try:
-        yield lambda: len(seen)
+        yield reads
     finally:
         event.remove(engine, "before_cursor_execute", count)
 
@@ -101,11 +114,13 @@ def test_existing_events_are_read_in_chunks_whatever_the_row_count(n_rows):
     with SessionLocal() as db, _event_selects() as selects:
         upserted = svc.ingest_alpha_vantage(db, rows, today=TODAY)
         db.commit()
-        reads = selects()
+        reads, widest = selects(), selects.widest
 
     # Literal counts, not ones derived from the chunk constant: a chunk under 400 tickers (down to
     # one ticker per query) changes the 1,200-row count and fails here.
     assert reads == {10: 1, 1200: 3}[n_rows]
+    # Each query binds its own chunk of tickers and the file's one period, never the whole list.
+    assert widest == {10: 11, 1200: 501}[n_rows]
     assert upserted == n_rows - 1  # the confirmed row is only marked seen
     with SessionLocal() as db:
         stored = {e.ticker: e for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.like(f"{PREFIX}%"))}
@@ -231,31 +246,38 @@ def test_stored_rows_under_each_of_the_files_periods_are_all_found():
 def test_with_the_index_filter_on_a_stored_member_row_is_updated_and_a_non_member_is_left_alone(monkeypatch):
     """The worker runs the refresh with the filter on. The prefetch reads rows through the same
     _ingest_key as the pass, so a stored member row is in the map: if it were not, the pass would
-    insert a second row for its key and the flush would fail on uq_earnings_events_ticker_period."""
+    insert a second row for its key and the flush would fail on uq_earnings_events_ticker_period.
+    stats.skipped_non_member counts the rows skipped for membership alone, as main counted them:
+    a past-dated non-member counts (membership is checked before the date), while a past-dated
+    member and a row with no fiscal period do not."""
     from app.config import settings
     from app.services import index_membership_service as idx
 
-    members = {f"{PREFIX}0001", f"{PREFIX}0003"}
+    members = {f"{PREFIX}0001", f"{PREFIX}0003", f"{PREFIX}0005"}
     monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset(members))
     monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
     with SessionLocal() as db:
         db.add_all([_store(f"{PREFIX}{i:04d}", FPE, STATUS_ESTIMATED, TODAY + timedelta(days=10)) for i in (1, 2, 3)])
         db.commit()
     before = _snapshot()
-    rows = [_row(i, TODAY + timedelta(days=12)) for i in (1, 2, 3, 4)]
+    rows = [_row(i, TODAY + timedelta(days=12)) for i in (1, 2, 3, 4)] + [
+        _row(5, TODAY - timedelta(days=1)),  # past-dated member: skipped, not counted
+        _row(6, TODAY - timedelta(days=1)),  # past-dated non-member: counted
+        _row(7, TODAY + timedelta(days=12), fpe=None),  # no fiscal period: skipped, not counted
+    ]
 
     stats = svc.RefreshStats()
     with SessionLocal() as db:
         assert svc.ingest_alpha_vantage(db, rows, today=TODAY, stats=stats) == 2
         db.commit()
 
-    assert stats.skipped_non_member == 2
+    assert stats.skipped_non_member == 3  # LKP0002, LKP0004 and the past-dated LKP0006
     after = _snapshot()
     for i in (1, 3):
         status, event_date, prior, _, _ = after[(f"{PREFIX}{i:04d}", FPE)]
         assert (status, event_date, prior) == (STATUS_ESTIMATED, TODAY + timedelta(days=12), TODAY + timedelta(days=10))
     assert after[(f"{PREFIX}0002", FPE)] == before[(f"{PREFIX}0002", FPE)]
-    assert (f"{PREFIX}0004", FPE) not in after
+    assert {key[0] for key in after} == {f"{PREFIX}0001", f"{PREFIX}0002", f"{PREFIX}0003"}
 
 
 @pytest.mark.requires_db
