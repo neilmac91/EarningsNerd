@@ -33,7 +33,7 @@ from app.services import filing_list_service, summary_job_store, summary_jobs
 from app.services.request_work import run_owned_sync
 from app.services.summary_job_progress import durable_progress_answer
 from app.services.entitlements import get_entitlements, is_pro_user
-from app.services.export_service import export_service
+from app.services.export_service import export_service, summary_export_filename
 from app.services.rate_limiter import ActiveStreamLimiter, RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     LIFETIME_SCOPE,
@@ -959,7 +959,7 @@ async def export_summary_pdf(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'attachment; filename="{filing.company.name}_{filing.filing_type}_{filing.filing_date.strftime("%Y%m%d") if filing.filing_date else "summary"}.pdf"'
+                "Content-Disposition": f'attachment; filename="{summary_export_filename(filing, "pdf")}"'
             }
         )
     except Exception as e:
@@ -993,7 +993,7 @@ async def export_summary_csv(
             content=csv_content,
             media_type="text/csv",
             headers={
-                "Content-Disposition": f'attachment; filename="{filing.company.name}_{filing.filing_type}_{filing.filing_date.strftime("%Y%m%d") if filing.filing_date else "summary"}.csv"'
+                "Content-Disposition": f'attachment; filename="{summary_export_filename(filing, "csv")}"'
             }
         )
     except Exception as e:

@@ -118,6 +118,31 @@ def summary_title(filing: Filing) -> str:
     return f"{name} · {filing.filing_type or ''} summary"
 
 
+def _filename_part(value: str | None, fallback: str) -> str:
+    """``sanitizeFilename`` in frontend/lib/format.ts, step for step, since the page names the summary's download
+    through it: no "..", no character a file system refuses, every other character outside [A-Za-z0-9._-] an
+    underscore, runs of underscores one, no leading or trailing dot or underscore, at most 100 characters."""
+    if not value:
+        return fallback
+    part = value.replace("..", "")
+    part = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", part)
+    part = re.sub(r"[^a-zA-Z0-9._-]", "_", part)
+    part = re.sub(r"_+", "_", part)
+    part = re.sub(r"\A[._]+|[._]+\Z", "", part)[:100]
+    return part or fallback
+
+
+def summary_export_filename(filing: Filing, kind: str) -> str:
+    """The filing summary's download name, as the page names it (``buildFilename`` in
+    frontend/features/summaries/hooks/useSummaryExports.ts): the ticker, the form and the filed day
+    ("BIIB_10-K_20260206.pdf"), or the form and the day for a filing without a ticker (E305). Both run
+    backend/tests/fixtures/summary_export_filenames.json."""
+    ticker = _filename_part(getattr(filing.company, "ticker", None), "")
+    form = _filename_part(filing.filing_type, "filing")
+    day = filing.filing_date.strftime("%Y%m%d") if filing.filing_date else "summary"
+    return f"{ticker}_{form}_{day}.{kind}" if ticker else f"{form}_{day}.{kind}"
+
+
 class ExportService:
     def __init__(self):
         pass
