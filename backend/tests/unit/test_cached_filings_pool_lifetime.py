@@ -5365,8 +5365,8 @@ def test_every_pool_here_takes_the_file_timeout():
     )
     assert pool_timeout_lines(planted) == ([1], [2, 3])
     on_value, off_value = pool_timeout_lines(Path(__file__).read_text(encoding="utf-8"))
+    assert off_value == [], "these pools name a timeout other than POOL_TIMEOUT"
     assert len(on_value) >= 38, "the walk reads the pools the file's cases build (38 when E295 named them)"
-    assert off_value == []
 
 
 # ── Structure: every async route keeps its request session off the loop ──────────────
