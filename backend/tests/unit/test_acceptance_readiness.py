@@ -660,34 +660,48 @@ def test_blinding_strips_the_generation_date_from_a_real_filing_export(tmp_path:
     row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
     config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
               "base_url": "https://provider.invalid/v1"}
-    generated = re.compile(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}")
-    assert generated.search(export.read_text(encoding="utf-8"))  # the export dates itself
+    # Since E210 the export dates itself with the instant the analysis exports print, in its clause's span.
+    instant = re.compile(r'<span class="clause">Generated [A-Z][a-z]+ [0-9]{1,2}, [0-9]{4}, [0-9]{2}:[0-9]{2} UTC</span>')
+    assert instant.search(export.read_text(encoding="utf-8"))
     projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
-    assert not generated.search(projected)
-    assert "Period End: December 31, 2025<br>Original on SEC.gov · " in projected
+    assert not re.search(r"Generated [A-Z][a-z]+ [0-9]{1,2}, [0-9]{4}", projected)
+    assert '<span class="clause">Period End: December 31, 2025</span><br>Original on SEC.gov · ' in projected
     assert "we operate in a very competitive and rapidly changing environment" in projected
 
 
+# The meta line before E210, which an export retained from an earlier run still carries, and since: unpadded days, the
+# generation instant, and each clause in its span. The blinding keeps the Period End clause as the export wrote it.
+_HEADERS = {
+    "before-E210": ("Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>",
+                    "Period End: March 31, 2026<br>"),
+    "since-E210": ('<span class="clause">Filing Date: May 1, 2026</span> · <span class="clause">Period End: '
+                   'March 31, 2026</span> · <span class="clause">Generated November 3, 2026, 06:45 UTC</span><br>',
+                   '<span class="clause">Period End: March 31, 2026</span><br>'),
+}
+
+
+@pytest.mark.parametrize("header", list(_HEADERS))
 @pytest.mark.parametrize("source_line", [
     'Original on SEC.gov · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
     'Source: SEC EDGAR · <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
     'Source: SEC EDGAR — <span class="data">https://www.sec.gov/Archives/edgar/data/1/x.htm</span>',
 ], ids=["since-E190", "retained-from-before", "retained-from-before-2026-10-16"])
 def test_blinding_reads_the_source_line_of_an_export_written_before_or_after_e190(
-        tmp_path: Path, source_line: str) -> None:
+        tmp_path: Path, source_line: str, header: str) -> None:
     """The PDF's source line reads "Original on SEC.gov" since E190 and "Source: SEC EDGAR" before it, with an
     em dash until 2026-10-16, which an export retained from an earlier run still carries: the blinding strips
-    the generation date before each, and refuses a line it does not know rather than pass the date on."""
+    the generation date before each, in the meta line's form before E210 and since, and refuses a line it does not
+    know rather than pass the date on."""
     row = {"config_sha256": "c" * 64, "arm": "candidate", "draw": 1}
     config = {"content_stamp": "stamp-synthetic", "source_commit": "d" * 40, "model": "model-synthetic",
               "base_url": "https://provider.invalid/v1"}
-    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
+    written, kept = _HEADERS[header]
     export = tmp_path / "export.html"
-    export.write_text(f"{header}{source_line}<p>Revenue rose.</p>", encoding="utf-8")
+    export.write_text(f"{written}{source_line}<p>Revenue rose.</p>", encoding="utf-8")
     projected = _reviewer_artifact(export, "export", row, config, "H01").decode()
-    assert "Generated September" not in projected
-    assert f"Period End: March 31, 2026<br>{source_line}<p>Revenue rose.</p>" in projected
-    export.write_text(f"{header}Source: EDGAR · <p>Revenue rose.</p>", encoding="utf-8")
+    assert "Generated " not in projected
+    assert f"{kept}{source_line}<p>Revenue rose.</p>" in projected
+    export.write_text(f"{written}Source: EDGAR · <p>Revenue rose.</p>", encoding="utf-8")
     with pytest.raises(ValueError, match="unrecognized export generation-date metadata"):
         _reviewer_artifact(export, "export", row, config, "H01")
 
@@ -705,42 +719,48 @@ def _rewrite_export(fixture: dict[str, Any], row: dict[str, Any], text: str) -> 
         db.execute("UPDATE slots SET result_sha=? WHERE id=?", (result["sha256"], row["slot_id"]))
 
 
-@pytest.mark.parametrize("lines", [("Original on SEC.gov · ", "Original on SEC.gov · "),
-                                   ("Source: SEC EDGAR · ", "Source: SEC EDGAR · "),
-                                   ("Source: SEC EDGAR · ", "Original on SEC.gov · "),
-                                   ("Source: SEC EDGAR — ", "Source: SEC EDGAR · ")],
-                         ids=["since-E190", "retained-from-before", "mixed", "mixed-before-E190"])
-def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line(
-        tmp_path: Path, lines: tuple[str, str]) -> None:
-    """Each arm generates its exports in its own frozen checkout, so they print that version's source line:
-    "Source: SEC EDGAR" and an em dash until 2026-10-16, a middot until E190, "Original on SEC.gov" since.
-    A packet set whose two arms printed different lines would tell a reviewer the arm: the builder refuses it
-    before it writes anything, and builds a set whose exports carry one line, each beside its own filing's
-    address, as a real set's are, so a check that read the address into the line would refuse it."""
+@pytest.mark.parametrize("arms", [
+    (("before-E210", "Original on SEC.gov · "), ("before-E210", "Original on SEC.gov · ")),
+    (("before-E210", "Source: SEC EDGAR · "), ("before-E210", "Source: SEC EDGAR · ")),
+    (("since-E210", "Original on SEC.gov · "), ("since-E210", "Original on SEC.gov · ")),
+    (("before-E210", "Source: SEC EDGAR · "), ("before-E210", "Original on SEC.gov · ")),
+    (("before-E210", "Source: SEC EDGAR — "), ("before-E210", "Source: SEC EDGAR · ")),
+    (("before-E210", "Original on SEC.gov · "), ("since-E210", "Original on SEC.gov · ")),
+], ids=["since-E190", "retained-from-before", "since-E210", "mixed", "mixed-before-E190", "mixed-E210"])
+def test_blinding_refuses_a_packet_set_whose_exports_mix_the_source_line_or_the_date_form(
+        tmp_path: Path, arms: tuple[tuple[str, str], tuple[str, str]]) -> None:
+    """Each arm generates its exports in its own frozen checkout, so they print that version's source line and
+    generation date: "Source: SEC EDGAR" and an em dash until 2026-10-16, a middot until E190, "Original on SEC.gov"
+    since; a zero-padded day until E210, and since E210 the instant with its time, each meta clause in its span.
+    A packet set whose two arms printed different lines or date forms would tell a reviewer the arm: the builder
+    refuses it before it writes anything, and builds a set whose exports carry one of each, each line beside its
+    own filing's address, as a real set's are, so a check that read the address into the line would refuse it."""
     fixture = _fixture(tmp_path)
     records = json.loads(fixture["outputs"].read_text())["records"]
     assert {row["arm"] for row in records} == {"candidate", "comparator"}
     assert len({row["accession_number"] for row in records}) > 1
-    header = "Filing Date: May 01, 2026 · Period End: March 31, 2026 · Generated September 21, 2026<br>"
-    for row in records:  # the candidate arm prints the first line, the comparator the second
-        line = lines[0] if row["arm"] == "candidate" else lines[1]
+    for row in records:  # the candidate arm prints the first header and line, the comparator the second
+        header, line = arms[0] if row["arm"] == "candidate" else arms[1]
         address = f"https://www.sec.gov/Archives/edgar/data/1/{row['accession_number'].replace('-', '')}/x.htm"
-        _rewrite_export(fixture, row, f'{header}{line}<span class="data">{address}</span><p>Revenue rose.</p>')
+        written = _HEADERS[header][0]
+        _rewrite_export(fixture, row, f'{written}{line}<span class="data">{address}</span><p>Revenue rose.</p>')
     fixture["outputs"].write_text(json.dumps(inspect_outputs(
         fixture["outputs"].parent, fixture["outputs"].parent, expected_manifest_sha=fixture["manifest_sha"])))
     build = lambda: build_blinded_packets(  # noqa: E731
         fixture["manifest"], fixture["archive"], fixture["preflight"], fixture["outputs"],
         tmp_path / "reviewers", tmp_path / "custodian", expected_manifest_sha=fixture["manifest_sha"])
-    if lines[0] != lines[1]:
-        with pytest.raises(ValueError, match="more than one source line"):
+    (header, line), (other_header, other_line) = arms
+    if (header, line) != (other_header, other_line):
+        refusal = "more than one source line" if line != other_line else "date themselves in more than one form"
+        with pytest.raises(ValueError, match=refusal):
             build()
         assert not (tmp_path / "reviewers").exists() and not (tmp_path / "custodian").exists()
         return
     assert build()["mapping_path"]
     projected = [path.read_text(encoding="utf-8") for path in (tmp_path / "reviewers").rglob("export.html")]
     assert len(projected) == 2 * len(records)
-    assert all(f"Period End: March 31, 2026<br>{lines[0]}<span" in text for text in projected)
-    assert not any("Generated September" in text for text in projected)
+    assert all(f"{_HEADERS[header][1]}{line}<span" in text for text in projected)
+    assert not any("Generated " in text for text in projected)
 
 
 def test_blinding_refuses_unknown_nested_execution_marker_or_canonical_shape(tmp_path: Path) -> None:
