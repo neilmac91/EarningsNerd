@@ -616,7 +616,8 @@ def test_session_cookie_headers_and_their_order(client, mail):
     assert rotated.status_code == 200 and _cookies(rotated) == SESSION_ISSUED
 
     changed = client.post(
-        "/api/auth/change-password", json={"current_password": PASSWORD, "new_password": NEW_PASSWORD}
+        "/api/auth/change-password",
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD, "account_id": _user(email).id},
     )
     assert changed.status_code == 200 and _cookies(changed) == SESSION_ISSUED
 
@@ -920,7 +921,7 @@ def test_a_password_change_whose_session_mint_fails_changes_nothing(
     fail_the_refresh_token_insert["on"] = True
     resp = server_errors.post(
         "/api/auth/change-password",
-        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD, "account_id": user_id},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
@@ -961,7 +962,7 @@ def test_a_password_change_whose_password_changed_while_it_hashed_is_refused(cli
     monkeypatch.setattr(auth_module, "verify_password", verify_then_reset)
     resp = client.post(
         "/api/auth/change-password",
-        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD, "account_id": user_id},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert matches == [True]  # refused by the re-check, not as a wrong current password
