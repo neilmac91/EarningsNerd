@@ -337,7 +337,9 @@ def bootstrap_gaps(cloud: media.Cloud, deployer: str) -> list[str]:
 
     Only a read that finds a resource absent (404) plans its create; a denied read stops here, and a malformed
     answer or drift is refused, so neither is planned as absent or as already approved. A write the founder
-    already made by hand in the approved shape is not tested. Grants held only on one resource are tested on it.
+    already made by hand in the approved shape is not tested. Two prerequisites held on one resource are tested on
+    it: actAs and getOpenIdToken on the identity, once the deployer's grants on it exist, and versions.add on a secret
+    with no version yet. The deployer's accessor grant on each secret is read as a binding.
     """
     member, runner = "serviceAccount:" + IDENTITY, "serviceAccount:" + deployer
     needed: set[str] = set()

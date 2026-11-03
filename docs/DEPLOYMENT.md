@@ -990,14 +990,15 @@ connection at :41 to the job budget above.
 
 Before creating resources, the provisioner checks actual project IAM capabilities and SQL
 `CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.
-Its identity, grant, secret and Cloud Run create permissions are tested only while this run would make that write
-(`bootstrap_gaps` in `ops/feedback_media/verify_manage.py`). Once the founder has made the verification identity,
-its one unconditional `roles/cloudsql.client` project grant, the deployer's service-account user and OpenID-token
-creator grants on it, the two labelled secrets with their accessor grants and the deployer's version-adder grant on
-each, and its preview-bucket grant, the run
-needs no `resourcemanager.projects.setIamPolicy`, `iam.serviceAccounts.*` write or `secretmanager.secrets.*` write.
-A pre-existing identity, grant or secret in any other shape, a malformed policy, or a denied read is refused
-before the first write. `feedback-media-verify-inspect` prints what a verify-apply would lack on the current state.
+Its identity, grant and secret writes, and its Cloud Run and Scheduler creates and updates, are tested only
+while this run would make that write (`bootstrap_gaps` in `ops/feedback_media/verify_manage.py`). Once the
+founder has made the verification identity, its one unconditional `roles/cloudsql.client` project grant, the
+deployer's service-account user and OpenID-token creator grants on it, the two labelled secrets with their
+accessor grants and the deployer's version-adder grant on each, and its preview-bucket grant, the run needs no
+`resourcemanager.projects.setIamPolicy`, `iam.serviceAccounts.*` write or `secretmanager.secrets.*` write. A
+pre-existing identity, grant or secret in any other shape, a malformed policy, or a denied read is refused
+before the first write. `feedback-media-verify-inspect` prints what a verify-apply would lack on the current
+state.
 It verifies that the test role has no privileges on production application tables, sequences or
 security-definer functions. PostgreSQL's inherited PUBLIC CONNECT cannot be denied to one role
 without editing production ACLs, so this is an object-access check, not a claim that the role cannot

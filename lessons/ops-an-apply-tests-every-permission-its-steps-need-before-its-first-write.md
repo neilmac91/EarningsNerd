@@ -62,12 +62,16 @@ switch's enable or disable, fails at its one write with nothing partial):
   under them, with one policy per bucket, so a read that forgets `missing_ok` fails it.
 - `test_provision_tests_exactly_the_writes_its_state_needs` holds the write set a run tests equal to the write
   permissions its write labels name, from nothing, over existing resources, after a founder bootstrap, with
-  grants missing and with grants held through a later binding of the same role.
+  grants missing, with grants held through a later binding of the same role, and in mixed states (one bucket
+  absent or without its grant, a conditional or other-role grant on the job, one alert policy absent).
   `test_provision_reads_are_exactly_the_reads_its_runs_make` holds the every-run set to read verbs and to the
   reads the runs make. `test_a_founder_bootstrap_provisions_without_role_bucket_or_bucket_grant_permissions`,
   `test_provision_refuses_a_malformed_or_denied_read_before_any_write_never_planning_it`,
   `test_a_malformed_policy_never_reads_as_private_or_granted` and
-  `test_bind_writes_exactly_when_the_planners_bound_test_is_false` pin the planning's reads and writes.
+  `test_bind_writes_exactly_when_the_planners_bound_test_is_false` pin the planning's reads and writes: a
+  denial at each planning read, and malformed policies and resources. `test_only_a_404_reads_as_absent` pins
+  the transport rule they rest on, and `test_each_write_step_rechecks_what_it_writes_after_the_plan` pins the
+  write-time ownership and etag checks against a state that changes after the plan.
 - `test_provision_from_nothing_tests_its_capability_before_its_first_write`,
   `test_provision_refuses_before_any_write_when_its_identity_lacks_a_permission` and
   `test_provision_refuses_a_state_it_would_not_repair_before_any_write` pin the order, and
@@ -88,8 +92,11 @@ labelled media-prerequisite reads, its operation poll and its revision read to i
 `test_a_founder_bootstrap_removes_every_owner_equivalent_and_identity_write_from_verify_apply`,
 `test_without_a_bootstrap_verify_apply_still_names_every_grant_it_would_make`,
 `test_a_bootstrap_in_another_shape_or_unreadable_is_refused_before_any_write`,
-`test_ensure_identity_writes_the_identity_policy_exactly_when_bootstrap_planning_does` and
-`test_verify_inspect_reports_what_verify_apply_would_lack_without_writing` pin its bootstrap planning.
+`test_ensure_identity_writes_the_identity_policy_exactly_when_bootstrap_planning_does`,
+`test_verify_inspect_reports_what_verify_apply_would_lack_without_writing` and
+`test_verify_apply_plans_exactly_the_writes_each_state_needs` (a first run, a re-run, partial bootstraps and
+refusals, each against the writes read off its write paths) pin its bootstrap planning; its fixture answers 404
+where Google does.
 
 Review-checked: whether a label names the exact permission its call needs (the gate checks only that it fits
 the call's method); the verifier's other calls, which are unlabelled today and print the API name with the

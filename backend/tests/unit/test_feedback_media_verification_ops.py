@@ -581,6 +581,9 @@ class BootstrapCloud:
     def __init__(self, bootstrapped=True):
         runner, member = "serviceAccount:" + DEPLOYER, "serviceAccount:" + verify.IDENTITY
         self.calls, self.granted, self.denied, self.latest_version = [], None, set(), None
+        self.project_granted = None  # the project's testIamPermissions answer; None answers as the resources do
+        self.secret_policies, self.latest_versions = {}, {}  # per-secret answers in place of the shared ones
+        self.run, self.run_policies, self.schedule = {}, {}, None  # the Cloud Run job and service, and the schedule
         self.identity = {"description": verify.PURPOSE} if bootstrapped else None
         # Google returns every IAM policy with an etag; its write-back is conditional on it.
         self.sa_policy = {"etag": "BwYsa", "bindings": [{"role": role, "members": [runner]} for role in verify.SA_ROLES]
@@ -598,21 +601,37 @@ class BootstrapCloud:
         if any(part in path for part in self.denied):
             raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 403)")
         if path.endswith(":testIamPermissions"):
-            return {"permissions": [name for name in body["permissions"] if self.granted is None or name in self.granted]}
+            granted = self.project_granted if api == "cloudresourcemanager" and self.project_granted is not None else self.granted
+            return {"permissions": [name for name in body["permissions"] if granted is None or name in granted]}
         assert method == "GET" or path.endswith(":getIamPolicy") or ":getIamPolicy?" in path, (api, path, method)
+        answer = self.answer(api, path)
+        if answer is None and not missing_ok:
+            # Google answers an absent resource with 404, which Cloud.call returns as None only when the caller allows it.
+            raise verify.media.ProviderError(f"{step or api + ' operation'} failed (HTTP 404; NOT_FOUND)")
+        return answer
+
+    def answer(self, api, path):
         if api == "iam":
             return self.sa_policy if ":getIamPolicy" in path else self.identity
         if api == "cloudresourcemanager":
             return self.project
         if api == "secretmanager":
+            name = path.split("/secrets/", 1)[1].split("/", 1)[0].split(":", 1)[0]
             if ":getIamPolicy" in path:
-                return self.secret_policy
+                return self.secret_policies.get(name, self.secret_policy)
             if path.endswith("/versions/latest"):
-                return self.latest_version  # None: the founder adds no value, and the run adds the first version itself
-            return self.secrets.get(path.rsplit("/", 1)[-1])
+                # None: the founder adds no value, and the run adds the first version itself
+                return self.latest_versions.get(name, self.latest_version)
+            return self.secrets.get(name)
         if api == "storage":
             return self.bucket_policy
-        return None  # Cloud Run job, service and the scheduler are the run's own creations
+        if api == "run":
+            if ":getIamPolicy" in path:
+                return self.run_policies.get(path.split(":getIamPolicy", 1)[0])
+            return self.run.get(path)
+        if api == "cloudscheduler":
+            return self.schedule
+        raise AssertionError((api, path))
 
 
 def test_a_founder_bootstrap_removes_every_owner_equivalent_and_identity_write_from_verify_apply():
@@ -792,3 +811,80 @@ def cloud_copy(cloud):
     planning.sa_policy = copy.deepcopy(cloud.sa_policy)
     planning.granted = set()
     return planning
+
+
+def rerun_cloud():
+    """A bootstrapped project on a later run: its job, service and schedule exist, and both secrets hold a value."""
+    cloud = BootstrapCloud()
+    member = "serviceAccount:" + verify.IDENTITY
+    for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+        cloud.run[path] = {"labels": {"purpose": verify.PURPOSE}, "etag": "run-version"}
+        cloud.run_policies[path] = {"etag": "BwYrun", "bindings": [{"role": "roles/run.invoker", "members": [member]}]}
+    cloud.schedule = {"description": verify.PURPOSE}
+    cloud.latest_version = {"name": "projects/p/secrets/s/versions/1", "state": "ENABLED"}
+    return cloud
+
+
+RERUN = ["cloudscheduler.jobs.update", "run.jobs.update", "run.services.update"]
+
+
+@pytest.mark.parametrize("state, expected", [
+    ("first-run", ["cloudscheduler.jobs.create", "run.jobs.create", "run.jobs.setIamPolicy", "run.services.create",
+                   "run.services.setIamPolicy", f"secretmanager.versions.add on {verify.DB_SECRET}",
+                   f"secretmanager.versions.add on {verify.KEY_SECRET}"]),
+    ("rerun", RERUN),
+    ("rerun-job-invoker-missing", sorted(RERUN + ["run.jobs.setIamPolicy"])),
+    ("rerun-service-invoker-missing", sorted(RERUN + ["run.services.setIamPolicy"])),
+    ("rerun-schedule-absent", ["cloudscheduler.jobs.create", "run.jobs.update", "run.services.update"]),
+    ("rerun-identity-without-grants", sorted(RERUN + ["iam.serviceAccounts.setIamPolicy"])),
+    ("rerun-project-grant-missing", sorted(RERUN + ["resourcemanager.projects.setIamPolicy"])),
+    ("rerun-key-accessor-deployer-only", sorted(RERUN + ["secretmanager.secrets.setIamPolicy"])),
+    ("rerun-key-accessor-identity-only", sorted(RERUN + ["secretmanager.secrets.setIamPolicy"])),
+    ("rerun-bucket-grant-missing", sorted(RERUN + ["storage.buckets.setIamPolicy"])),
+    ("rerun-job-foreign", "Existing verification cleanup job is not feature-owned"),
+    ("rerun-service-public", "Resource policy includes a public principal"),
+    ("rerun-schedule-foreign", "Existing verification cleanup schedule is not feature-owned"),
+    ("rerun-identity-disabled", "Existing verification identity is not the active feature-owned identity"),
+    ("rerun-secret-grant-conditional", "Existing verification secret grants differ from the approved bootstrap"),
+])
+def test_verify_apply_plans_exactly_the_writes_each_state_needs(state, expected):
+    """The verifier's planning table, read against secret(), ensure_identity, ensure_job and the service deploy: a
+    state's every write is named and no other, and a re-run tests only the updates. The resource-held prerequisites are
+    granted on the identity, and versions.add is not, since only a secret with no value needs it."""
+    cloud = BootstrapCloud() if state == "first-run" else rerun_cloud()
+    cloud.project_granted = set()  # every project write the state needs is named
+    cloud.granted = {verify.media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"}
+    member, runner = "serviceAccount:" + verify.IDENTITY, "serviceAccount:" + DEPLOYER
+    job, service = "v2/" + verify.JOB, "v2/" + verify.SERVICE
+    if state == "rerun-job-invoker-missing":
+        cloud.run_policies[job]["bindings"] = []
+    elif state == "rerun-service-invoker-missing":
+        cloud.run_policies[service]["bindings"] = []
+    elif state == "rerun-schedule-absent":
+        cloud.schedule = None
+    elif state == "rerun-identity-without-grants":
+        cloud.sa_policy["bindings"] = []
+    elif state == "rerun-project-grant-missing":
+        cloud.project["bindings"] = []
+    elif state == "rerun-key-accessor-deployer-only":
+        cloud.secret_policies[verify.KEY_SECRET] = {"etag": "BwYkey", "bindings": [{"role": verify.ACCESSOR, "members": [runner]}]}
+    elif state == "rerun-key-accessor-identity-only":
+        cloud.secret_policies[verify.KEY_SECRET] = {"etag": "BwYkey", "bindings": [{"role": verify.ACCESSOR, "members": [member]}]}
+    elif state == "rerun-bucket-grant-missing":
+        cloud.bucket_policy["bindings"][0]["members"].remove(member)
+    elif state == "rerun-job-foreign":
+        cloud.run[job]["labels"]["purpose"] = "sql-backups"
+    elif state == "rerun-service-public":
+        cloud.run_policies[service]["bindings"].append({"role": "roles/run.invoker", "members": ["allUsers"]})
+    elif state == "rerun-schedule-foreign":
+        cloud.schedule = {"description": "Another team's hourly job"}
+    elif state == "rerun-identity-disabled":
+        cloud.identity = {"description": verify.PURPOSE, "disabled": True}
+    elif state == "rerun-secret-grant-conditional":
+        cloud.secret_policy["bindings"][0]["condition"] = {"title": "fixture", "expression": "true"}
+    if isinstance(expected, str):
+        with pytest.raises(verify.media.OperationError, match="^" + re.escape(expected)):
+            verify.bootstrap_gaps(cloud, DEPLOYER)
+    else:
+        assert verify.bootstrap_gaps(cloud, DEPLOYER) == expected
+    assert all(method == "GET" or "IamPolicy" in path or path.endswith(":testIamPermissions") for _a, path, method, _b in cloud.calls)

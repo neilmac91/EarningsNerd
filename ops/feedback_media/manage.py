@@ -210,18 +210,23 @@ class Cloud:
         return operation.get("response", {})
 
 
+# What reading a provider answer of another shape raises: no answer of the documented shape raises these.
+SHAPE_ERRORS = (AttributeError, TypeError, KeyError, IndexError)
+
+
 def closed_shape(resource: str):
     """A check reads a provider answer by its documented shape; an answer of another shape is refused, closed.
 
     The check's own comparisons refuse drift; this refuses what they cannot compare (an object where a list
-    belongs, a list where an object belongs), so a malformed answer is never read as approved or absent.
+    belongs, a list where an object belongs, a missing index), so a malformed answer is never read as approved or
+    absent, nor ends in a traceback.
     """
     def wrap(check):
         @functools.wraps(check)
         def checked(*args, **kwargs):
             try:
                 return check(*args, **kwargs)
-            except (AttributeError, TypeError):
+            except SHAPE_ERRORS:
                 raise OperationError(f"{resource} answer is malformed") from None
         return checked
     return wrap
@@ -822,7 +827,7 @@ def inspect(cloud: Cloud) -> bool:
         except OperationError as exc:
             print(f"{name}: refused ({exc})")
             refused.append(name)
-        except (AttributeError, TypeError):  # an answer of another shape than the checks read
+        except SHAPE_ERRORS:  # an answer of another shape than the checks read
             print(f"{name}: refused (answer is malformed)")
             refused.append(name)
     if refused:
@@ -847,8 +852,7 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
         raise OperationError("Cleanup job differs from the approved runtime, image or bounded configuration")
     job_policy = cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ)
     check_private_policy(job_policy)
-    if not any(b.get("role") == "roles/run.invoker" and not b.get("condition")
-               and "serviceAccount:" + runtime in b.get("members", []) for b in job_policy.get("bindings", [])):
+    if not bound(job_policy, "roles/run.invoker", "serviceAccount:" + runtime):  # the test the planner and bind() use
         raise OperationError("Cleanup scheduler's job invocation grant is missing")
     # API sorts creation time descending. Keep the latest attempt for each mode, including failures;
     # an older success must not hide a failed current attempt. Fifty bounds a noisy retry history.
