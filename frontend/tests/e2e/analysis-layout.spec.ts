@@ -1567,10 +1567,13 @@ function dropEmptyLists(dataset: AnalysisDataset) {
 // E294: a calculated KPI whose inputs are themselves calculated lists their reported operands two levels down in its
 // source dialog. The legacy fixture's pruning had left those operands without an inputs list, and opening "Free cash
 // flow, Q2 2026" took the page down to its error screen. The fixture now carries the list the builders write, and the
-// page admits a missing one as the builders' empty list where the response enters (lib/provenanceInputs.ts): both
-// shapes open the same dialog.
+// page admits a missing one as the builders' empty list where the dataset enters (lib/provenanceInputs.ts): both shapes
+// open the same dialog. The completion keeps its lists: this fixture's citations whose own list is empty are reported
+// figures or legacy calculations, which NarrativePane labels without reading it, and no reader on the page opens a
+// citation's operands, so no browser case here could tell the stream's admission from none.
+// analysis-presentation-api.spec.ts proves that admission.
 test.describe('analysis source dialog / operands two levels down', () => {
-  for (const lists of ['as the builders write them', 'missing, as a stored record can send them'] as const) {
+  for (const lists of ['as the builders write them', "missing from the dataset, as a stored record can send them"] as const) {
     test(`a calculated KPI's dialog lists them, their lists ${lists}`, async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 1280, height: 900 })
       await openAnalysis(page, baseURL!, 'legacy', 'light', 1, false, lists.startsWith('missing') ? dropEmptyLists : undefined)
