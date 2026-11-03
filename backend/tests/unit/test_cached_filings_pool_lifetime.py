@@ -1966,6 +1966,85 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
         engine.dispose()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_a_refused_invited_sign_up_start_leaves_its_finalizer_nothing_open(monkeypatch, tmp_path, provider):
+    """While collection is held and only the invited-cohort exception admits accounts, a sign-up start whose invitation
+    the exception refuses reads that invitation in its thread-pool unit and answers 503 (EN-BETA PB-01). The refusal
+    rolls the read back in the unit, so nine such starts on four slots leave no transaction for the finalizer and no
+    connection checked out, make no checkout, statement or release on the loop, and write no state."""
+    from app.config import settings
+    from app.models import InviteCode, OAuthState
+    from app.routers import auth
+    from app.services import invite_service
+    from tests.support.account_agreement import ACCOUNT_AGREEMENT
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-refused-starts.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=POOL_TIMEOUT,
+    )
+    OAuthState.__table__.create(engine)
+    InviteCode.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        # Nine live invitations bound to an address, in another cohort than the one the exception admits.
+        raws = [invite_service.mint_invite(db, created_by=None, email=f"invitee-{i}@example.com",
+                                           cohort="cohort-synthetic-0b4e1d")[1] for i in range(9)]
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "google-client")
+    monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "apple-client")
+    monkeypatch.setattr(auth, "OAUTH_START_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    # Collection held (this module opens it for every case), and the exception open for another cohort.
+    monkeypatch.setattr(settings, "LEGAL_COLLECTION_ENABLED", False)
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+    monkeypatch.setattr(settings, "LEGAL_INVITED_COHORT_ENABLED", True)
+    monkeypatch.setattr(settings, "LEGAL_INVITED_COHORT", "cohort-synthetic-7f3a9c")
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(raw: str) -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post(f"/api/auth/{provider}/start", json={**ACCOUNT_AGREEMENT, "invite": raw})
+
+    try:
+        responses = await asyncio.gather(*[send(raw) for raw in raws])
+        assert [response.status_code for response in responses] == [503] * 9
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # One close per request, the finalizer's, with the refusal's read already rolled back.
+        assert [request.open_at_close for request in request_sessions] == [[False]] * 9
+        with sessions() as db:
+            assert db.query(OAuthState).count() == 0
+    finally:
+        engine.dispose()
+
+
 # The OAuth callbacks' cases: what the nine accounts are before their callbacks, and what each sign-in writes. A
 # sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
 # attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
@@ -5295,7 +5374,7 @@ async def test_admin_invite_routes_release_their_connection_off_the_loop(monkeyp
     sent: list[tuple[str, str]] = []
 
     async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
-                                name: str | None = None) -> str:
+                                cohort: str | None, name: str | None = None) -> str:
         await asyncio.sleep(0.05)  # the other admins' units run while this mail sends
         if int(to_email.split("@")[0].rsplit("-", 1)[1]) % 2:
             raise RuntimeError("the mail provider refused the message")
@@ -5402,7 +5481,7 @@ async def test_invite_mint_and_resend_hold_no_connection_while_their_mail_sends(
     engine, sessions, request_sessions, _, pending, _, _ = _invite_fixture(monkeypatch, tmp_path, None)
 
     async def send_invite_email(*, to_email: str, magic_link: str, unsubscribe_link: str, delivery_ref: str,
-                                name: str | None = None) -> str:
+                                cohort: str | None, name: str | None = None) -> str:
         checked_out = engine.pool.checkedout()  # read before this check's own session checks one out
         with sessions() as db:
             held.append((to_email, checked_out, db.query(AuditLog).count()))

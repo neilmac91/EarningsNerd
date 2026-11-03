@@ -61,6 +61,9 @@ const LINKS_HELD = {
   failed: 'New invite links are off until the availability check above answers.',
   held: 'New invite links are off while registration is on hold (see above).',
 } as const
+/** What an empty Cohort field says while only the invited-cohort exception opens links. The page never learns the
+ *  cohort, so it checks only that one is given; a wrong one meets the server's refusal. */
+const COHORT_REQUIRED = 'Enter the cohort set in LEGAL_INVITED_COHORT.'
 /** Why "Email invites" is off, the same way; held, it says whether links can still go out by hand. */
 const EMAIL_HELD = {
   checking: 'Invitation email waits for the availability check above.',
@@ -97,6 +100,8 @@ export default function AdminInvitesPage() {
   // Zone A state
   const [breakdown, setBreakdown] = useState<EmailChipsBreakdown>(EMPTY_BREAKDOWN)
   const [cohort, setCohort] = useState('')
+  const [cohortProblem, setCohortProblem] = useState<string | undefined>(undefined)
+  const cohortRef = useRef<HTMLInputElement>(null)
   const [expiryHours, setExpiryHours] = useState<number>(168)
   // Off by default: an invitation is emailed only on purpose, under the recipient's recorded request.
   const [sendEmail, setSendEmail] = useState(false)
@@ -188,19 +193,23 @@ export default function AdminInvitesPage() {
       toast.error(`Too many at once. Send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
       return
     }
+    // While only the invited-cohort exception opens links the server refuses one without its cohort, so an empty
+    // Cohort field stops the send, as an incomplete request does.
+    const cohortMissing = available.cohortOnly && !cohort.trim()
+    setCohortProblem(cohortMissing ? COHORT_REQUIRED : undefined)
     // An emailed invite carries the recipient's request: every field of it, or no request is sent at all.
     const emailing = emailOn
-    let permission: InvitePermission | undefined
-    if (emailing) {
-      const problems = permissionErrors(requestedVia, requestedOn, permissionDayRange())
-      setPermissionProblems(problems)
-      if (problems.via || problems.on) {
-        const firstInvalid = problems.via ? viaRef.current : onRef.current
-        firstInvalid?.focus()
-        return
-      }
-      permission = permissionOf(requestedVia as PermissionVia, requestedOn)
+    const problems: PermissionErrors = emailing ? permissionErrors(requestedVia, requestedOn, permissionDayRange()) : {}
+    if (emailing) setPermissionProblems(problems)
+    if (cohortMissing || problems.via || problems.on) {
+      // Focus goes to the first field the send needs, in the form's order.
+      const firstInvalid = cohortMissing ? cohortRef.current : problems.via ? viaRef.current : onRef.current
+      firstInvalid?.focus()
+      return
     }
+    const permission: InvitePermission | undefined = emailing
+      ? permissionOf(requestedVia as PermissionVia, requestedOn)
+      : undefined
     setSending(true)
     setOutcomes([])
     setEmailRequested(emailing)
@@ -307,13 +316,23 @@ export default function AdminInvitesPage() {
                 htmlFor="cohort"
                 className="mb-2 block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
               >
-                Cohort <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
+                {/* While only the invited-cohort exception opens links, the server refuses a link without its cohort. */}
+                Cohort{' '}
+                <span className="text-text-tertiary-light dark:text-text-tertiary-dark">
+                  {available.cohortOnly ? '(required)' : '(optional)'}
+                </span>
               </label>
               <Input
                 id="cohort"
+                ref={cohortRef}
                 value={cohort}
-                onChange={(e) => setCohort(e.target.value)}
+                onChange={(e) => {
+                  setCohort(e.target.value)
+                  setCohortProblem(undefined)
+                }}
                 disabled={sending}
+                required={available.cohortOnly || undefined}
+                error={available.cohortOnly ? cohortProblem : undefined}
                 placeholder="e.g. beta-wave-2"
               />
             </div>
