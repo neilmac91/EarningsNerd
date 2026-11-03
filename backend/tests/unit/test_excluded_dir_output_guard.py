@@ -20,9 +20,10 @@ The two names are never written whole here: the module holds only their fragment
 builders, and `_Parts` joins the names when a case runs, so this source holds no name and no form the
 hook flags (proven by test_neither_source_is_flagged), and no module global holds one either (an error
 while a module loads makes pytest print module globals under `-l`; the hook builds its names lazily
-too, each joined straight onto its object, so no argument or local of the hook's frames holds one,
-and this file scans in-process through `_shape` and the pin). No scanned text reaches a failure
-report:
+too, each joined straight onto its object, so no argument or local of the hook's frames holds one --
+test_no_hook_frame_holds_a_joined_name_while_the_names_are_built reads every frame of a traced build
+at each event --, and this file scans in-process through `_shape` and the pin). No scanned text
+reaches a failure report:
 - the parametrize id is the case id, never the scanned value;
 - `_Parts` and `_Run` (a finished run: exit status and streams) have text-free reprs, so no frame that
   holds one prints a name or a stream, even with frame hiding off (`--full-trace`);
@@ -31,9 +32,10 @@ report:
   builds the input, binds the input to no name, and turns a timeout or a command that cannot start
   into a text-free error, so the standard library's frames, which hold the input, never show;
 - the helpers whose arguments hold scanned text or a run's streams hide their frames from pytest's
-  traceback: `_run`, `_text`, the input builders (`_post_event`, `_failure_event`, `_event_stdin`,
-  `_tool_input_only_stdin`, `_unknown_event_stdin`, `_path_listing`), the checks (`_flagged`,
-  `_unchecked`, `_silent`, `_expect`) and the stream readers (`_json`, `_shape`);
+  traceback: `_run`, `_cpu_run`, `_text`, the input builders (`_post_event`, `_failure_event`,
+  `_event_stdin`, `_tool_input_only_stdin`, `_unknown_event_stdin`, `_path_listing`,
+  `_token_listing`), the checks (`_flagged`, `_unchecked`, `_silent`, `_expect`) and the stream
+  readers (`_json`, `_shape`);
 - a failed check reports only a run's shape (exit status, JSON keys, stream lengths, whether a stream
   carries a form), never stream text.
 test_a_broken_copy_prints_no_scanned_text pins this on copies with the registrations removed (every
@@ -50,6 +52,8 @@ import ast
 import importlib.util
 import json
 import os
+import resource
+import signal
 import subprocess
 import sys
 from collections.abc import Callable
@@ -178,6 +182,30 @@ def _run(build: Callable[[], str], *, project_dir: Path, event: str = "PostToolU
         raise AssertionError("the registered command could not be started") from None
 
 
+def _cpu_run(build: Callable[[], str], *, project_dir: Path, hang_stop: int) -> tuple[_Run, float]:
+    """Run the registered PostToolUse command as `_run` does, in its own process group, and return the
+    run and the CPU seconds (user plus system) the shell and the hook used, from the children's resource
+    usage around it. `hang_stop` is wall time and only stops a runaway: past it the whole group is
+    killed and the case fails with a text-free AssertionError raised `from None`. The input is bound to
+    no name, and the streams go straight into a `_Run`."""
+    __tracebackhide__ = True  # this frame builds the scanned input
+    hook = _registered_hook("PostToolUse")
+    assert _hook._common_dir(str(project_dir)) != _hook._common_dir(str(ROOT)), "project dir is the host clone"
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    proc = subprocess.Popen(["sh", "-c", hook["command"]], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, cwd=str(project_dir), start_new_session=True,
+                            env={**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir)})
+    try:
+        run = _Run(subprocess.CompletedProcess(proc.args, -1, *proc.communicate(input=build(), timeout=hang_stop)))
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        raise AssertionError(f"the hook was still running at its {hang_stop} s hang stop") from None
+    run.returncode = proc.returncode
+    after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return run, after.ru_utime - before.ru_utime + after.ru_stime - before.ru_stime
+
+
 def _post_event(tool_response: object, cwd: Path) -> str:
     __tracebackhide__ = True
     return json.dumps({
@@ -235,6 +263,20 @@ def _path_listing() -> str:
     lines = [f"./{first}pp/{first}sset{last}-v2/images/icon_{i:06d}.png\n" for i in range(140_000)]
     lines.insert(70_000, "...\n")
     return "".join(lines)
+
+
+def _token_listing() -> str:
+    """About two megabytes in which every line holds a whole-date token and no cut: four dots before
+    the component's first three letters (the per-digit walk at a token's date/component junction),
+    then lines alternating an ellipsis after the dated word's last letter before a sibling file (the
+    elision-border check) and four dots before a sibling file. The component lines come first, so a
+    token on a later line has no date/component junction anywhere after it, and a search that ran to
+    the next junction instead of a few characters would cross the rest of the text at every one."""
+    __tracebackhide__ = True
+    parts = _Parts()
+    component_lines = f"q-..../{parts.component1[:3]}\n" * 60_000
+    sibling_lines = f"q{parts.word1[-1]}-{ELLIPSIS}/plan.md\nq-..../plan\n" * 60_000
+    return component_lines + sibling_lines
 
 
 def _json(stdout: str) -> object:
@@ -472,7 +514,7 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     # from the dash after a space, and from the word's last two letters.
     "a space, the dash, a Unicode ellipsis, a slash and the component": lambda p: f"see -{ELLIPSIS}/{p.component1} now",
     "a space, the dash, three dots, a slash and the component": lambda p: f"see -.../{p.component1} now",
-    "the word's last two letters, the dash, an ellipsis, a slash and four component letters at a line's end":
+    "the word's last two letters, an elided date and four component letters at a line's end":
         lambda p: f"{p.word1[-2:]}-{ELLIPSIS}/{p.component1[:4]}\n",
     # An ellipsis followed by another is no whole-date token: per digit, two masked digits make this an
     # eight-character cut.
@@ -485,6 +527,12 @@ FLAGGED: dict[str, Callable[[_Parts], str]] = {
     # name's own start not clean, a cut through that junction starts inside the run, after three dots.
     "a letter, the word, the dash, four dots, a slash and six component letters": lambda p: f"x{p.word1}-..../{p.component1[:6]}",
     "a letter, the word, the dash, five dots, a slash and the component": lambda p: f"x{p.word1}-...../{p.component1}",
+    # A punctuation mark between an ellipsis token and the component's slash is the date's last digit,
+    # per digit: a cut through that junction then starts inside the token, or at the first of two marks.
+    "a dash, five dots, a closing bracket, a slash and the component at a line's end": lambda p: f"-.....]/{p.component1}\n",
+    "a dash, a Unicode ellipsis, a closing parenthesis, a slash and the component": lambda p: f"-{ELLIPSIS})/{p.component1}",
+    "a dash, a Unicode ellipsis, two marks, a slash and five component letters at a line's end":
+        lambda p: f"-{ELLIPSIS}])/{p.component1[:5]}\n",
     # The length counts normalised characters: a sharp s folds to the parent word's double s, so this
     # cut is eight characters (seven as written); an escaped slash is one character.
     "N1 eight-character cut whose double s is a sharp s": lambda p: f"run {p.word1[-4:-2]}{SHARP_S}-{p.date[:3]} now",
@@ -539,6 +587,9 @@ NOT_FLAGGED: dict[str, Callable[[_Parts], str]] = {
     "the dated parent with a bracketed token date, then a sibling file": lambda p: f"{p.head1}<date>/plan.md",
     # Eleven or more dots are no whole-date token: per digit, this cut is seven characters.
     "the word's last two letters, the dash and eleven dots, before a space": lambda p: f"see {p.word1[-2:]}-{'.' * 11} now",
+    # A punctuation mark right after an ellipsis token ends a word/date cut there; it is not read as one
+    # more masked digit, which would make this seven-character cut eight. The reading kept, pinned.
+    "the word's last three letters, the dash, three dots and a closing parenthesis": lambda p: f"{p.word1[-3:]}-...)",
 }
 NOT_FLAGGED.update({f"N1 short form: a one-character token after the word's last {j} letters":
                     (lambda p, j=j: f"run {p.word1[-j:]}-* now") for j in range(1, 6)})
@@ -657,9 +708,27 @@ def test_a_several_megabyte_benign_output_is_silent_and_in_time(event: str, opte
 def test_a_several_megabyte_hit_dense_output_is_silent_and_in_time(event: str, opted_repo: Path,
                                                                    plain_kit: Path) -> None:
     # ~5.5 MB with about 420,000 junction hits, none of them a cut, dashes throughout and one ASCII
-    # '...': the per-hit walk and the token rewrite must stay within the registered timeout.
+    # '...': the per-hit walk must stay within the registered timeout. No whole-date token follows any
+    # of its dashes, so the token paths are pinned by the token-dense case below, on CPU time.
     _silent(_run(lambda: _event_stdin(_path_listing(), opted_repo, event), project_dir=plain_kit, event=event),
             f"5MB hit-dense listing: {event}")
+
+
+# The token-dense case's bounds: CPU seconds (user plus system) for the run, against 1.3 to 1.9 s the
+# hook uses idle or with every CPU busy, where a check that grows with the token count takes 45 s or
+# more; and a wall-clock hang stop, far above the run's loaded wall time, that only ends a runaway.
+TOKEN_CPU_BOUND = 15
+TOKEN_HANG_STOP = 60
+
+
+def test_a_token_dense_output_is_silent_within_its_cpu_bound(opted_repo: Path, plain_kit: Path) -> None:
+    # ~2 MB whose every line holds a whole-date token (_token_listing): the token rewrite, the
+    # elision-border check and the per-digit walk next to a token all run. The assertion bounds CPU
+    # time, which a loaded runner hardly inflates, not wall time (test_wall_clock_bounds.py).
+    run, cpu_seconds = _cpu_run(lambda: _post_event(_token_listing(), opted_repo), project_dir=plain_kit,
+                                hang_stop=TOKEN_HANG_STOP)
+    _silent(run, "2MB token-dense listing")
+    assert cpu_seconds < TOKEN_CPU_BOUND, f"the hook used {cpu_seconds:.1f} s of CPU, over its {TOKEN_CPU_BOUND} s bound"
 
 
 def test_a_several_megabyte_output_with_a_name_is_flagged_and_in_time(opted_repo: Path, plain_kit: Path) -> None:
@@ -713,6 +782,40 @@ def test_neither_source_is_flagged(opted_repo: Path, plain_kit: Path) -> None:
                      project_dir=plain_kit), f"{label} is not flagged")
 
 
+def test_no_case_id_is_longer_than_pytest_names_by_value() -> None:
+    # pytest names a case whose id is over 100 characters by its argument name and index instead (its
+    # default parametrize_long_str_id_strategy), so a longer case id would run under a number.
+    longest = max(len(case) for case in (*FLAGGED, *NOT_FLAGGED, *_COPIES))
+    assert longest <= 100, f"the longest case id is {longest} characters; pytest names ids over 100 by index"
+
+
+def test_no_hook_frame_holds_a_joined_name_while_the_names_are_built() -> None:
+    # A fresh copy of the hook builds its names under sys.settrace, and the matcher reads the repr of
+    # every argument and local of every hook frame at each call, line and return event, so a helper's
+    # arguments and a local bound and deleted again are read too, not only what a frame holds at its
+    # end (the broken copies below check pytest's reports). The report names frames, locals and events.
+    spec = importlib.util.spec_from_file_location("excluded_dir_output_guard_traced", HOOK)
+    fresh = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fresh)
+    held: set[str] = set()
+
+    def trace(frame, event, arg):
+        if frame.f_code.co_filename != fresh.__file__:
+            return None
+        values = {**frame.f_locals, "<its return value>": arg} if event == "return" else frame.f_locals
+        held.update(f"{frame.f_code.co_name}: {name} at a {event} event" for name, value in values.items()
+                    if _hook.flagged(repr(value)))
+        return trace
+
+    previous = sys.gettrace()
+    sys.settrace(trace)
+    try:
+        fresh._names()
+    finally:
+        sys.settrace(previous)
+    assert not held, f"hook frames held a joined name while the names were built: {sorted(held)}"
+
+
 def test_the_fixed_messages_are_distinct_and_say_what_they_mean() -> None:
     # The payload checks compare with these constants, so their content is pinned here.
     assert FLAGGED_MSG and UNCHECKED_MSG, "a fixed message is empty"
@@ -762,6 +865,9 @@ _ECHOING = ((_FLAG_BRANCH, _ECHOING_FLAG_BRANCH), (_OPT_IN_CHECK, _OPT_IN_IGNORE
 _PIN = "test_a_broken_copy_prints_no_scanned_text"
 _MESSAGES_TEST = "test_the_fixed_messages_are_distinct_and_say_what_they_mean"
 _REGISTRATION_TEST = "test_the_hook_is_registered_on_both_events"
+# The tests that never run the hook through its registration, so they pass in every copy.
+_UNREGISTERED_TESTS = (_MESSAGES_TEST, "test_no_case_id_is_longer_than_pytest_names_by_value",
+                       "test_no_hook_frame_holds_a_joined_name_while_the_names_are_built")
 _FIRST_CASE = "test_a_named_result_is_flagged_on_post_tool_use[N1 alone]"
 _FULL_TRACE_ECHO_CASES = (_FIRST_CASE, "test_opt_in_off_is_silent_even_for_a_named_result[PostToolUse]",
                           "test_unreadable_stdin_is_reported_unchecked_to_claude_when_opted_in[empty-PostToolUse]")
@@ -895,9 +1001,9 @@ def _failed_as_intended(variant: str, outcomes: dict[str, str]) -> bool:
     """Whether the copied run failed the way its break should make it fail, so a copy whose hook
     cannot run at all (no python3 on PATH, say) does not pass the pin vacuously."""
     if variant == "the registrations removed":
-        rest = {name: kind for name, kind in outcomes.items() if name not in (_MESSAGES_TEST, _REGISTRATION_TEST)}
-        return (outcomes.get(_MESSAGES_TEST) == "passed" and outcomes.get(_REGISTRATION_TEST) == "other"
-                and bool(rest) and set(rest.values()) == {"unpack"})
+        rest = {name: kind for name, kind in outcomes.items() if name not in (*_UNREGISTERED_TESTS, _REGISTRATION_TEST)}
+        return (all(outcomes.get(name) == "passed" for name in _UNREGISTERED_TESTS)
+                and outcomes.get(_REGISTRATION_TEST) == "other" and bool(rest) and set(rest.values()) == {"unpack"})
     if variant == "an echoing hook that ignores the opt-in":
         # Every flag case, both opt-in-off cases and the ten unreadable-input cases fail with the
         # streams carrying a form, which their reports state and do not print.

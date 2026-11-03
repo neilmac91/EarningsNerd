@@ -51,19 +51,21 @@ under a different parent (git ``--stat``'s ``.../<parent>/<component>``, ``./`` 
 is caught while a mid-segment look-alike is not. That border may itself be a character the date's
 tolerance took as a masked digit, so an ASCII ``...`` run or a Unicode ellipsis inside the date both
 reads as masked digits (a dotted year) and ends a cut there (Claude Code's middle-truncation marker,
-an elision), wherever in the date it lands. A whole-date token of three to ten dots reads as the
-date and, right before the component's slash, also per digit (the date's last digits dotted), so a
-cut through that junction may still start inside the run. So the dated parent before a sibling file
-(``<parent>/plan.md``) is flagged, by design (over-flagging that rare shape is the safe side), when
-its date is elided whole by one ellipsis or a masked digit after its first is a clean border (a
-non-path character such as an ellipsis or ``*``, or the start of a ``...`` run: a dotted year, every
-digit dotted, an elided month or day); with no such border (a plain date, a mask token such as ``*``
-for the whole date, a two-dot month or day, a dotted last digit, a year elided by one ellipsis) it
-stays silent. A listing that prints the dated parent directory's name alone is flagged by design too:
-a cut of the longer name cannot be told from it. The scan is linear in the text's length
-(fixed-substring search to candidate junctions and one bounded walk around each, and at most one
-more at each dot-run token; the regular expressions have no unbounded repetition and use only
-bounded slices).
+an elision), wherever in the date it lands. An ellipsis token is also read per digit where a
+date/component junction follows it within a date's length: its last dot, or a punctuation mark after
+it, is then the date's last digit, so a cut through that junction may start inside the token or at
+the mark (the junction is walked once more in the text before the rewrite). A mark right after the
+token still ends a word/date cut there; it is not read as one more masked digit. So the dated parent
+before a sibling file (``<parent>/plan.md``) is flagged, by design (over-flagging that rare shape is
+the safe side), when its date is elided whole by one ellipsis or a masked digit after its first is a
+clean border (a non-path character such as an ellipsis or ``*``, or the start of a ``...`` run: a
+dotted year, every digit dotted, an elided month or day); with no such border (a plain date, a mask
+token such as ``*`` for the whole date, a two-dot month or day, a dotted last digit, a year elided by
+a Unicode ellipsis or three dots) it stays silent. A listing that prints the dated parent
+directory's name alone is flagged by design too: a cut of the longer name cannot be told from it. The
+scan is linear in the text's length (fixed-substring search to candidate junctions and one bounded
+walk around each, and a search of a few characters and a bounded walk per hit after each ellipsis
+token; the regular expressions have no unbounded repetition and use only bounded slices).
 
 What is scanned: for PostToolUse, every string inside ``tool_response`` -- recursively through
 objects (keys and values) and arrays, a top-level string too; for PostToolUseFailure, ``error`` and
@@ -242,26 +244,28 @@ def _date_for_token(match: re.Match[str]) -> str:
     return "-" + _names()[0].date
 
 
-def _normalize(text: str) -> tuple[str, str, list, frozenset[int], list[int]]:
+def _normalize(text: str) -> tuple[str, str, list, frozenset[int], list[tuple[int, int]]]:
     """The text before the token rewrite and the text the walk reads, the rewrites that map the
-    latter's positions back for the length rule, its elision borders, and where each dot-run token's
-    last dot sits in the former: case-fold (``str.casefold``, so a sharp s reads as the two letters it
-    folds to); undo the \\/ and %2f escapes of a slash; rewrite a whole-date token in date position to
-    the plain date. Only the token step is tracked, so a cut's length counts normalised characters, a
-    token as written. An elision border is the end of a date rewritten from an ellipsis token, where
-    the ellipsis ended: a cut may end there, as it may at an ellipsis inside a date."""
+    latter's positions back for the length rule, its elision borders, and where each ellipsis token
+    starts (its dash) and ends in the former: case-fold (``str.casefold``, so a sharp s reads as the
+    two letters it folds to); undo the \\/ and %2f escapes of a slash; rewrite a whole-date token in
+    date position to the plain date. Only the token step is tracked, so a cut's length counts
+    normalised characters, a token as written. An elision border is the end of a date rewritten from
+    an ellipsis token, where the ellipsis ended: a cut may end there, as it may at an ellipsis inside
+    a date."""
     folded = text.casefold()
     if "\\/" in folded or "%2f" in folded:
         folded = _ESCAPED_SLASH_RE.sub("/", folded)
-    text, maps, elisions, dot_runs = folded, [], frozenset(), []
+    text, maps, elisions, elided = folded, [], frozenset(), []
     if "-" in folded:
         text, records = _tracked_sub(folded, _DATE_TOKEN_RE, _date_for_token)
         if records:
             maps.append(([r[0] for r in records], records))
             elisions = frozenset(new_start + new_len for new_start, new_len, old_start, _ in records
                                  if folded[old_start + 1] in ".\N{HORIZONTAL ELLIPSIS}")
-            dot_runs = [old_start + old_len - 1 for _, _, old_start, old_len in records if folded[old_start + 1] == "."]
-    return folded, text, maps, elisions, dot_runs
+            elided = [(old_start, old_start + old_len) for _, _, old_start, old_len in records
+                      if folded[old_start + 1] in ".\N{HORIZONTAL ELLIPSIS}"]
+    return folded, text, maps, elisions, elided
 
 
 def _map_back(position: int, maps: list) -> int:
@@ -370,17 +374,32 @@ def _walk(text: str, maps: list, elisions: frozenset[int], name: _Name) -> bool:
 
 
 def flagged(text: str) -> bool:
-    """Whether a scanned string carries a form of either name. A dot-run token is also the date's last
-    digits dotted: where the component's slash follows it, a cut through that junction may start
-    inside the run, so the junction is walked once more in the text before the rewrite."""
+    """Whether a scanned string carries a form of either name. An ellipsis token is also read per digit
+    at the date/component junctions right after it (`_per_digit_near`)."""
     if not isinstance(text, str) or not text:
         return False
-    folded, norm, maps, elisions, dot_runs = _normalize(text)
+    folded, norm, maps, elisions, elided = _normalize(text)
     if any(_walk(norm, maps, elisions, name) for name in _names()):
         return True
+    return any(_per_digit_near(folded, start, end) for start, end in elided)
+
+
+def _per_digit_near(folded: str, start: int, end: int) -> bool:
+    """Whether a cut of the dated name, read per digit in the text before the rewrite, holds a
+    date/component junction within a date's length after the ellipsis token from `start` (its dash)
+    to `end`: the token's last dot, or a punctuation mark after it, read as the date's last digit. Only
+    a run of four or more dots holds a clean border (a '...' run) before its last dot, so after a
+    shorter token the search starts one character later. Each token costs a search of a few
+    characters and a bounded walk per hit."""
     dated = _names()[0]
     find_sub, c0, _ = dated.junctions[1]  # date/component: the slash and the letter after it
-    return any(folded.startswith(find_sub, t + 1) and _cut_at(folded, [], frozenset(), dated, c0, t) for t in dot_runs)
+    limit = end + len(dated.date) + 1  # the junction no further than a date's length after the token
+    hit = folded.find(find_sub, end if end - start > 4 else end + 1, limit)
+    while hit >= 0:
+        if _cut_at(folded, [], frozenset(), dated, c0, hit - 1):
+            return True
+        hit = folded.find(find_sub, hit + 1, limit)
+    return False
 
 
 def _iter_strings(roots: list) -> Iterator[str]:

@@ -33,14 +33,16 @@ a name segment start, an ASCII `...` run and any non-path character (a Unicode e
 count as clean borders, at the date's masked digits too: a dotted year reads as masked digits while a
 truncation marker or an elision inside the date still ends a cut. A lone ellipsis (Unicode, or three
 to ten dots) standing for the whole date is a whole-date token like `*`, so a cut may run across it,
-and a cut may also end where it ends; right before the component's slash such dots are also read
-as the date's last digits, so a cut through that junction may start inside them. So the dated parent
-before a sibling file is flagged, by design, when its date is elided whole by one ellipsis or a
-masked digit after its first is a clean border (a dotted year, every digit dotted, an elided month
-or day), and stays silent with a plain date, a mask token such as `*` for the whole date, a two-dot
-month or day, a dotted last digit or a year elided by one ellipsis. It is a detector, not a filter:
-it leaves the result unchanged and never echoes the matched text. It acts only when the marker sits
-in the git common directory of the clone that holds the event's `cwd` OR of the clone that
+and a cut may also end where it ends. Where a date/component junction follows such a token within a
+date's length, the token's last dot or a punctuation mark after it is also read as the date's last
+digit, so a cut through that junction may start inside the token or at the mark; a mark right after
+the token still ends a word/date cut there. So the dated parent before a sibling file is flagged, by
+design, when its date is elided whole by one ellipsis or a masked digit after its first is a clean
+border (a dotted year, every digit dotted, an elided month or day), and stays silent with a plain
+date, a mask token such as `*` for the whole date, a two-dot month or day, a dotted last digit or a
+year elided by a Unicode ellipsis or three dots. It is a detector, not a filter: it leaves the
+result unchanged and never echoes the matched text. It acts only when the marker sits in the git
+common directory of the clone that holds the event's `cwd` OR of the clone that
 `$CLAUDE_PROJECT_DIR` names
 (either suffices). It never scans `tool_input` (the CODE RED git commands carry the names as
 exclusion pathspecs). Its flag, and its "could not check" notice for an input it cannot parse, reach
