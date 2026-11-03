@@ -209,6 +209,28 @@ def test_refusals_exit_one_and_say_why_without_values(accounts, tmp_path, capsys
     _assert_nothing_planted(texts, operator, testers)
 
 
+def test_settings_that_fail_to_load_are_a_failure_by_class_not_a_refusal(accounts, tmp_path, capsys, caplog,
+                                                                        monkeypatch):
+    """The database commands import the app's settings when they run. Settings that fail to load (an unparseable
+    DATABASE_URL, whose message can quote it) exit 2 with the error's class alone, as a database failure does, never 1,
+    which the Ops step reads as a refusal, and never a traceback."""
+    operator, testers = accounts
+    grant = _manifest_file(tmp_path, "grant", operator, testers[:1])
+    secret = "postgresql://user:p@ss-7f3e@db.example.invalid/x"
+    broken = type(sys)("app.database")
+
+    def unloadable(name):
+        raise RuntimeError(f"DATABASE_URL could not be parsed ({secret})")
+
+    broken.__getattr__ = unloadable
+    monkeypatch.setitem(sys.modules, "app.database", broken)
+    for argv in (["readout"], ["dry-run", "--manifest", str(grant)]):
+        code, out, err, logged = _run(capsys, caplog, *argv)
+        assert (code, json.loads(out), err) == (2, {"failed": "RuntimeError"}, ""), argv
+        assert "p@ss-7f3e" not in out + err + logged
+        _assert_nothing_planted([out, err, logged], operator, testers)
+
+
 def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):
     env = {"PATH": os.environ.get("PATH", "")}
     fingerprints = subprocess.run(
@@ -216,6 +238,12 @@ def test_fingerprint_and_check_run_with_no_settings_and_no_database(tmp_path):
         capture_output=True, text=True, env=env, cwd=BACKEND, check=True,
     ).stdout.split()
     assert fingerprints == [email_fingerprint("one@example.com"), email_fingerprint("two@example.com")]
+    # Saved by Notepad, or as Excel's "CSV UTF-8": a byte-order mark first and CRLF line ends.
+    with_bom = subprocess.run(
+        [sys.executable, "-I", str(SCRIPT), "fingerprint"], input="\ufeff One@Example.com\r\n\r\ntwo@example.com\r\n",
+        capture_output=True, text=True, env=env, cwd=BACKEND, check=True, encoding="utf-8",
+    ).stdout.split()
+    assert with_bom == fingerprints
 
     manifest = tmp_path / "manifest.json"
     review_on = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()

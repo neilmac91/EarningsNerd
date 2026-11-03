@@ -51,7 +51,9 @@ AUDIT_REVOKED = "complimentary_access_revoked"
 
 class OperatorNotAuthorizedError(Exception):
     """The manifest's operator is not an active admin account with a verified address; nothing was read or
-    written for any account."""
+    written for any account. The check holds the actor every audit row names to a real admin; it does not prove who
+    ran the command, whose authority is the database credential and, in production, the founder's ``ops-apply``
+    approval of the run."""
 
 
 class DigestMismatchError(Exception):

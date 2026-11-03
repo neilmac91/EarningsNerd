@@ -95,7 +95,9 @@ the active grants past 20, across every cohort, stops the whole manifest (`stopp
 ## The manifest
 
 A JSON file with the action, the cohort (lower-case letters, digits and hyphens), the reason, the operator's admin
-account id, a secret salt, at most 20 accounts and, for a grant, the review date. Each account is named by its id and
+account id (an active admin with a verified address, whom every audit row names as the actor; the check attributes the
+run and authenticates no one, since the authority to run it is the database credential and, in production, the
+founder's `ops-apply` approval), a secret salt, at most 20 accounts and, for a grant, the review date. Each account is named by its id and
 the SHA-256 of its address as accounts store it (trimmed and lower-cased). Unknown keys and loosely typed values are
 refused, and a fault names its place and kind, never the value. This example is synthetic (reserved `.invalid`
 addresses):
