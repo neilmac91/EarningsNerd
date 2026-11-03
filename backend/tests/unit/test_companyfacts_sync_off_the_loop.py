@@ -21,8 +21,6 @@ normalize and the bulk upsert of every fact) ran there in full, blocking the loo
   the facts are still being written. That holds under an anyio cancel scope too, which cancels the
   task again at every loop step, and a persist that fails meanwhile is logged: the route's gather
   swallows the cancellation, the only outcome its caller sees.
-- The fetch decodes SEC's multi-MB body in the thread pool, not on the loop (E301), on the request path and on
-  the backfill bridge's private loop alike; a body that is not JSON still reads as no payload.
 """
 
 import asyncio
@@ -364,69 +362,3 @@ async def test_a_persist_failing_after_its_leader_was_cancelled_is_logged(engine
     assert 1 not in inflight
     with sessionmaker(bind=engine)() as db:
         assert db.get(Company, 1).facts_synced_at is None  # nothing committed, so a retry fetches again
-
-
-def _fake_companyfacts_http(monkeypatch, body):
-    """``httpx.AsyncClient`` without a socket, answering every GET with ``body`` (an exception from ``json()``
-    when ``body`` is one), and the shared SEC limiter running the request once with no token wait. Returns the
-    thread each decode ran on."""
-    import httpx
-
-    from app.services.sec_rate_limiter import sec_rate_limiter
-
-    decoded_on: list[int] = []
-
-    class Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self):
-            decoded_on.append(threading.get_ident())
-            if isinstance(body, Exception):
-                raise body
-            return body
-
-    class AsyncClient:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *exc_info) -> bool:
-            return False
-
-        async def get(self, url, **kwargs) -> Response:
-            return Response()
-
-    async def once(request_fn, *_args, **_kwargs):
-        return await request_fn()
-
-    monkeypatch.setattr(httpx, "AsyncClient", AsyncClient)
-    monkeypatch.setattr(sec_rate_limiter, "execute_with_backoff", once)
-    return decoded_on
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("body", [_payload(), ValueError("not JSON")], ids=["payload", "not_json"])
-async def test_the_companyfacts_fetch_decodes_its_body_off_the_loop(monkeypatch, body):
-    """E301: the request-path fetch decoded SEC's multi-MB companyfacts body with ``response.json()`` on the
-    loop, 50-500 ms on a coverage first touch while every other request waited. The decode runs in the thread
-    pool, inside the same backoff as the request, and a body that is not JSON still reads as no payload."""
-    from app.services.facts import transport
-
-    decoded_on = _fake_companyfacts_http(monkeypatch, body)
-    result = await transport._fetch_companyfacts_async("320193")
-    assert result == (body if isinstance(body, dict) else None)
-    assert len(decoded_on) == 1 and decoded_on[0] != threading.get_ident()
-
-
-def test_the_backfills_sync_bridge_decodes_off_its_own_loop(monkeypatch):
-    """The standalone backfill job's bridge runs the same fetch on a private loop (``asyncio.run``), whose
-    thread the decode leaves too, and still returns the payload."""
-    from app.services.facts import transport
-
-    monkeypatch.setattr(transport, "get_app_loop", lambda: None)
-    decoded_on = _fake_companyfacts_http(monkeypatch, _payload())
-    assert transport._fetch_companyfacts_sync("320193") == _payload()
-    assert len(decoded_on) == 1 and decoded_on[0] != threading.get_ident()

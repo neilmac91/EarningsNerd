@@ -362,8 +362,10 @@ async def stream_analysis(
 
     Cache-first: a stored narrative whose prompt, display format and financial snapshot match is
     re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
-    fresh "analysis" completions against the monthly fair-use cap — a failed or aborted generation
-    never burns quota. Excluded from the timeout middleware by the ``*stream*`` name rule.
+    fresh "analysis" completions against the monthly fair-use cap — a failed generation, or one the
+    client leaves before its cache row is written, never burns quota; once the row is written it
+    counts, the client gone or not, since the next request re-serves it free. Excluded from the
+    timeout middleware by the ``*stream*`` name rule.
     """
     enforce_rate_limit(
         request,
@@ -445,7 +447,12 @@ async def stream_analysis(
                     # metering those bounds the unmetered-model-call exposure at the cap.
                     exempt = event.get("invalidated") and event.get("analysis_id") is not None
                     if not metered and not exempt:
-                        if await run_in_threadpool(_meter_analysis_best_effort, user_id, held["token"]):
+                        # Shielded like the release below: a disconnect the loop took while the cache write ran
+                        # in its thread lands at this await's first checkpoint, and the row is written by then
+                        # (lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md).
+                        with anyio.CancelScope(shield=True):
+                            converted = await run_in_threadpool(_meter_analysis_best_effort, user_id, held["token"])
+                        if converted:
                             held["token"] = None
                         metered = True
                     # Cost telemetry fires for EVERY fresh generation — a model call happened.

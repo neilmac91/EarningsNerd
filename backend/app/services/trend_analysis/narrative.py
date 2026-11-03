@@ -13,8 +13,7 @@ Event contract (the Copilot shapes, so frontend consumers share plumbing):
 Cache-first (D4): if a row matches (company, mode, period_key) with the same prompt_version
 AND dataset_fingerprint and current presentation, it is re-served with no model call or meter (the
 router meters only non-cached "analysis" completions). ``force`` always regenerates.
-Opens its own sessions, each in a thread-pool unit off the event loop (E301): the request's session is gone by the
-time this generator runs, and the reads, the dataset build and the cache write would hold the one-vCPU loop.
+Opens its own sessions, each a thread-pool unit (E301): the request's session is gone by the time this generator runs.
 """
 from __future__ import annotations
 
@@ -180,9 +179,10 @@ async def _publish(run: _NarrativeRun):
         return
 
     run.dataset = {**run.dataset, "narrative_presentation": presentation}
-    # The sole token payload is emitted only after strict selection validation and code rendering.
+    # The token, the sole narrative payload, follows strict selection and code rendering. No await comes between the
+    # cache write and the completion, so the router's meter, shielded, counts every row written.
     yield {"type": "token", "text": narrative}
-    analysis_id = await run_owned_sync(  # its own session, in the thread pool
+    analysis_id = await run_owned_sync(
         _persist_analysis,
         company_id=run.company_id,
         mode=run.mode,
