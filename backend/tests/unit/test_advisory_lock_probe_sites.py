@@ -110,6 +110,15 @@ def test_the_scan_reads_every_planted_form_of_a_probe():
     assert probe_lines("tests/unit/test_advisory_lock_probe_sites.py", Path(__file__).read_text()) == Counter()
 
 
+def test_the_recovery_cases_also_run_with_late_releases():
+    # The late mode guards the recovery cases only while it runs, so its fixture's params must keep it. What the mode
+    # does when it runs is pinned by test_late_mode_frees_a_released_lock_only_for_a_waiter.
+    tree = ast.parse((BACKEND / "tests/integration/test_summary_job_transactions.py").read_text(encoding="utf-8"))
+    (fixture,) = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "recovery_guard"]
+    (decorator,) = fixture.decorator_list
+    assert ast.unparse(decorator) == "pytest.fixture(params=['prompt', 'late'])"
+
+
 def test_every_probe_under_tests_is_a_listed_check_of_a_held_lock():
     found: Counter[tuple[str, str]] = Counter()
     unasserted: list[str] = []
