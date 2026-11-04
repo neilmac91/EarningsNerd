@@ -43,5 +43,6 @@ finish: a request, a thread, an event, a future, a barrier, a polling deadline, 
   `backend/tests` for the timed waits its docstring lists, and resolves each bound to a number. It fails a bound
   under `FLOOR_S` (10 s) unless `SHORT_ON_PURPOSE` lists that site with its reason. That gates rule 1's 10 s floor and
   rule 4's list. Its docstring names what it cannot read, such as a bound it cannot resolve, waits in a string
-  source, a pool's `pool_timeout` and an elapsed-time assertion. Rule 1's choice of `HANG_GUARD_S` over another
-  bound of 10 s or more, and rules 2, 3, 5 and 6, are review-checked.
+  source, a pool's `pool_timeout` and an elapsed-time assertion, which `backend/tests/unit/test_wall_clock_bounds.py`
+  gates. Rule 1's choice of `HANG_GUARD_S` over another bound of 10 s or more, and rules 2, 3, 5 and 6, are
+  review-checked.

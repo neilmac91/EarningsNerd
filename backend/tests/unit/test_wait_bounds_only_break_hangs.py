@@ -34,11 +34,11 @@ What it does not read: a bound it cannot resolve to a number (a parameter that n
 call, a patched setting); a wait with no bound; an alias of a wait form other than an import (``real_timeout =
 asyncio.timeout``); waits in source held in a string, such as a pytester child's; a pool's ``pool_timeout``, which
 ``lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`` covers and which some cases set short
-on purpose; and an elapsed-time assertion (``assert clock() - started < bound``), a timing check E314 records.
-``time.time()`` is the wall clock, which stamps rather than waits, and ``.join`` with an argument that is not a
-number is ``str.join``. Whether a guard stays below a production timeout that would end the same wait, whether nested
-bounds stay in order, and whether a PostgreSQL step's cases fit its time when a defect makes each wait out its guard,
-are review-checked.
+on purpose; and an elapsed-time assertion (``assert clock() - started < bound``), which
+``tests/unit/test_wall_clock_bounds.py`` gates. ``time.time()`` is the wall clock, which stamps rather than waits,
+and ``.join`` with an argument that is not a number is ``str.join``. Whether a guard stays below a production timeout
+that would end the same wait, whether nested bounds stay in order, and whether a PostgreSQL step's cases fit its time
+when a defect makes each wait out its guard, are review-checked.
 """
 
 from __future__ import annotations
