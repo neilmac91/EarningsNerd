@@ -19,12 +19,14 @@ finish: a request, a thread, an event, a future, a barrier, a polling deadline, 
    bound, and a passing run never waits for it.
 2. Where production code would end the same wait sooner (a timeout or deadline, patched or not), keep the guard of
    that wait below it and at least 10 s, and name that timeout in a comment. Above it, a hung defect would pass when
-   production's timeout ends the wait, instead of failing at the guard.
+   production's timeout ends the wait, instead of failing at the guard. Where production's timeout is under 10 s,
+   no guard fits: check the order instead, with no wall-clock wait (rule 4's ordering check).
 3. Keep nested bounds in order: an inner bound (a barrier, a wait handed to a thread) below its outer one, so the
    inner one fires first and the failure says where.
 4. A bound under 10 s is right only where the case needs it to be short:
    - a negative window, where the case asserts that something does not happen within it;
    - a timing assertion, where the bound is the property under test;
+   - an ordering check, where what it looks for has already happened, so it takes no wall-clock time;
    - a polling step, or pacing.
    List each such bound in the gate, with why it is short.
 5. Never shorten a guard to make a check bite. Add a check that does not race the clock.
@@ -38,7 +40,12 @@ finish: a request, a thread, an event, a future, a barrier, a polling deadline, 
   bound. One re-run of the second passed.
 - Rule 6: #2010's first review found that with 30 s guards, a missing lock would make up to 10 cases of one
   PostgreSQL file each poll 30 s, past its step's 3 minutes. The admin invite and maintenance files' polls now exit
-  once a write that should be blocked has finished, and the filing-insert file's hold waits 10 s.
+  once a write that should be blocked has finished, and the filing-insert file's hold waits 10 s. Its second review
+  found the refresh-rotation file the same: without the users-row lock, ten cases each waited 30 s, 338 s in all. Its
+  second request now stops once the first has finished without reaching the point it starts at.
+- Rule 2's ordering check: the second review found that a 30 s poll for the company routes' released pool let
+  production's 4 s quote timeout give back a session held through the quote fan-out, and pass. The check went back to
+  20 loop turns with no wall-clock wait, listed in the gate as an ordering check.
 - Gate: `backend/tests/unit/test_wait_bounds_only_break_hangs.py` reads every tracked Python file under
   `backend/tests` for the timed waits its docstring lists, and resolves each bound to a number. It fails a bound
   under `FLOOR_S` (10 s) unless `SHORT_ON_PURPOSE` lists that site with its reason. That gates rule 1's 10 s floor and

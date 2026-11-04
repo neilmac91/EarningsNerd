@@ -142,7 +142,8 @@ def background_loop():
     loop.close()
 
 
-# Each .result(30) below is a hang guard: the 30 s of HANG_GUARD_S in tests/support/hang_guard.py.
+# Each .result(30) below, and the loopback connect's 30 s, is a hang guard: HANG_GUARD_S in
+# tests/support/hang_guard.py.
 def test_loop_started_here_passes(background_loop):
     assert asyncio.run_coroutine_threadsafe(asyncio.sleep(0, result=1), background_loop).result(30) == 1
 
@@ -158,7 +159,7 @@ def test_task_on_another_tests_loop_fails(background_loop):
 
 def test_loopback_and_unix_pass(tmp_path):
     server = socket.create_server(("127.0.0.1", 0))
-    with server, socket.create_connection(server.getsockname(), timeout=2):
+    with server, socket.create_connection(server.getsockname(), timeout=30):  # a hang guard, as above
         pass
     left, right = socket.socketpair()
     with left, right:

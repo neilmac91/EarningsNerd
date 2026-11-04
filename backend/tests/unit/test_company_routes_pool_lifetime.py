@@ -40,11 +40,13 @@ def _assert_competing_checkout(sessions, company_id):
 
 async def _wait_for_released_pool(stall, engine, sessions, company_id):
     await asyncio.wait_for(stall.started.wait(), timeout=HANG_GUARD_S)
-    # Polls for up to HANG_GUARD_S: the route's close can run on a thread that a starved runner starts late.
-    for _ in range(int(HANG_GUARD_S * 100)):
+    # Short on purpose, with no wall-clock wait: each unit releases its session in a finally the route awaits before it
+    # reaches the stall, so the pool is empty once the stall starts. A wait would let production's 4 s quote timeout
+    # end the stall and give back a session held through the quote fan-out, and that defect would pass.
+    for _ in range(20):
         if engine.pool.checkedout() == 0:
             break
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
     assert engine.pool.checkedout() == 0
     _assert_competing_checkout(sessions, company_id)
 

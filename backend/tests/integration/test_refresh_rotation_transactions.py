@@ -394,11 +394,16 @@ def _race(
             cookies["first"] = tokens.rotate_and_commit(db, raw)[1]
     role = threading.local()
     first_ready = threading.Event()
+    # Set with first_ready, or when the first finishes without reaching that point: the second's start can no longer
+    # come then, so the second stops at once instead of waiting out the guard (rule 6 of
+    # lessons/test-a-wait-bound-only-breaks-a-hang.md: a defect makes each case of this file wait the same way).
+    second_may_start = threading.Event()
     second_wrote = threading.Event()
     second_done = threading.Event()
     second_pid: list[int] = []
     released: list[str] = []
     hung: list[str] = []
+    unstaged: list[str] = []
 
     def wait_until(condition, waiting_for: str) -> None:
         deadline = time.monotonic() + HANG_GUARD_S
@@ -416,8 +421,10 @@ def _race(
             return
         if second_starts == "after_first_write" and statement.startswith(_WRITES):
             first_ready.set()
+            second_may_start.set()
         elif second_starts == "after_first_lock" and statement.startswith("SELECT users.id") and " FOR " in statement:
             first_ready.set()
+            second_may_start.set()
             wait_until(lambda: second_wrote.is_set() or second_blocked(), "the second request to block or write")
 
     def second_blocked() -> bool:
@@ -437,7 +444,8 @@ def _race(
         return bool(released)
 
     def before_commit(conn):
-        if getattr(role, "name", None) == "first":
+        # A first that commits before the point the second starts at has given the second nothing to block on.
+        if getattr(role, "name", None) == "first" and first_ready.is_set():
             wait_until(released_by_second, "the second request to block or finish")
 
     def run(name: str, operation: str):
@@ -445,8 +453,11 @@ def _race(
         try:
             with request_session() as db:
                 if name == "second":
-                    if not first_ready.wait(HANG_GUARD_S):
+                    if not second_may_start.wait(HANG_GUARD_S):
                         hung.append("the first request to reach the point the second starts at")
+                        return None
+                    if not first_ready.is_set():
+                        unstaged.append(f"{first} finished without reaching the point {second} starts at")
                         return None
                     second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
                 return _OPERATIONS[operation](db, user_id, cookies[name])
@@ -455,6 +466,8 @@ def _race(
         finally:
             if name == "second":
                 second_done.set()
+            else:
+                second_may_start.set()
 
     event.listen(engine, "after_cursor_execute", after_statement)
     event.listen(engine, "commit", before_commit)
@@ -465,6 +478,7 @@ def _race(
     finally:
         event.remove(engine, "after_cursor_execute", after_statement)
         event.remove(engine, "commit", before_commit)
+    assert not unstaged, f"the race never ran as staged: {unstaged}"
     assert not hung, f"waited out the {HANG_GUARD_S} s hang guard for {hung}"
     return first_outcome, second_outcome, _live_tokens(engine, user_id), released[0] if released else "never"
 
