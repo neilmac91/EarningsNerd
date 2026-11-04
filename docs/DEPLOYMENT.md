@@ -946,6 +946,38 @@ images; never delete the bucket, manifests or migrations as a rollback.
 
 #### Isolated live verification before enabling screenshots
 
+##### Optional founder-comment approval for the private beta
+
+If this private repository's plan does not support required environment reviewers, the founder may
+separately enable the bounded alternative by setting repository variable
+`BETA_COMMENT_APPROVAL_ENABLED` to `true`. Shipping this code does not enable it. The dispatch input
+`beta_comment_approval` also defaults to `false`; selecting it is required on each intended run.
+Only screenshot provision, isolated verification, screenshot enable/disable and
+`complimentary-access-apply` may use it. All other applies keep the existing environment approval.
+The `approve-apply` job remains unchanged: any configured environment protection still applies.
+
+The separate `approve-comment` job has read-only GitHub permissions, no cloud identity and no Ops
+concurrency lock. It prints one copyable approval statement and the link to the existing beta
+acceptance PR #1954, then waits at most 15 minutes. **The founder personally posts that statement.**
+Agents must never post or edit an approval comment, including with the founder's credentials.
+GitHub proves the owner account authored it; the API cannot prove which human or agent used that account.
+The statement binds repository, actual run ID, attempt `1`, immutable source SHA and exact operation.
+For complimentary access it also binds the existing salted `confirm_digest`; the manifest stays private.
+
+The reader checks the live owner ID, current main, checked-out commit and real workflow run. A comment
+from before dispatch, another thread/author/run/action/source/digest, an edited or hidden comment,
+an unavailable API answer, or a timeout grants no approval. The real comment is fetched again immediately
+before WIF authentication, including its edit history. Deletion, edit or source drift then stops the run.
+The existing main-deploy preflight, Ops concurrency, first-attempt rule and operation-specific resource,
+capability, manifest and runtime guards remain. A retry needs a fresh dispatch and personal approval;
+never reuse or invent a run ID. This route changes no live flags, IAM grants or tester entitlements by itself.
+
+The founder's decision to enable this approval route is separate from each operation's approval.
+When preparing an operation, include `-f beta_comment_approval=true` with its existing dispatch inputs,
+open that run's **Wait for the founder's exact beta approval** summary, and copy only the statement shown
+there. Do not pre-post a guessed statement. Normal dispatches that omit this input retain the existing
+`ops-apply` approval check. Keep the release freeze and two-hour verification sequence below.
+
 Merge and verify the backend deployment, then merge the screenshot frontend and every other change to
 `frontend/` or `ops/feedback_media/` meant to ship with it, before `feedback-media-provision-apply`.
 **Release freeze:** from that provision's dispatch until `feedback-media-enable-apply` completes, merge
@@ -970,7 +1002,8 @@ sending email.
 gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
 ```
 
-The founder approves this exact run's `ops-apply` deployment in GitHub. It has the same main-only,
+The founder approves this exact run's `ops-apply` deployment in GitHub, or personally supplies the
+exact-run comment through the separately enabled beta route above. It has the same main-only,
 first-attempt, owner-approval and no-overlapping-main-deploy gates as the other apply operations.
 Do not approve it through an agent or run its cloud writes directly. A failed or partial apply is
 inspected before a fresh dispatch and fresh founder approval.

@@ -52,11 +52,12 @@ DRY, APPLY, READOUT = "complimentary-access-dry-run", "complimentary-access-appl
 OPERATIONS = (DRY, APPLY, READOUT)
 CONFIRM = "Validate the complimentary access confirmation"
 APPROVAL = "Refuse an apply that no one approved in this run"
+RECHECK = "Recheck the exact beta approval before cloud authentication"
 PREFLIGHT = "Refuse to run while a main push (deploy) is in flight"
 SIGN_IN = ["Authenticate to Google Cloud", "Set up gcloud"]
 RUNS = {  # every step each dispatch runs, in order
     DRY: ["actions/checkout@v7", RESOLVE, PREFLIGHT, *SIGN_IN, PROXY, DEPS, COMPLIMENTARY],
-    APPLY: ["actions/checkout@v7", RESOLVE, APPROVAL, PREFLIGHT, CONFIRM, *SIGN_IN, PROXY, DEPS, COMPLIMENTARY],
+    APPLY: ["actions/checkout@v7", RESOLVE, APPROVAL, PREFLIGHT, CONFIRM, RECHECK, *SIGN_IN, PROXY, DEPS, COMPLIMENTARY],
     READOUT: ["actions/checkout@v7", RESOLVE, PREFLIGHT, *SIGN_IN, PROXY, DEPS, COMPLIMENTARY],
 }
 SECRET = "COMPLIMENTARY_ACCESS_MANIFEST"
@@ -151,18 +152,22 @@ def test_the_resolve_step_accepts_each_operation(tmp_path, operation):
 
 
 def test_the_confirmation_is_the_applys_own_input_checked_before_the_sign_in():
-    """The digest is a dispatch input of its own, not one the resolve step writes: only the confirmation step and the
-    script step read it, each through its env, and the check runs before any cloud sign-in."""
+    """Within Ops, only the two approval checks, confirmation and script receive the digest, each through its env.
+    The confirmation and the fresh comment-approval check both precede cloud sign-in."""
     at, step = BY_NAME[CONFIRM]
     assert set(step) == {"name", "if", "env", "run"}, "no continue-on-error: a refused digest fails the run"
     assert step["if"] == f"steps.request.outputs.operation == '{APPLY}'"
     assert step["env"] == {"CONFIRM_DIGEST": "${{ inputs.confirm_digest }}"}
     request_at = next(index for index, each in enumerate(STEPS) if each.get("id") == "request")
-    assert request_at < at < BY_NAME[SIGN_IN[0]][0] < BY_NAME[PROXY][0]
+    assert request_at < BY_NAME[APPROVAL][0] < at < BY_NAME[RECHECK][0] < BY_NAME[SIGN_IN[0]][0] < BY_NAME[PROXY][0]
     assert INPUTS["confirm_digest"] == {
         "description": "complimentary-access-apply only: the manifest_sha256 its dry run printed",
         "required": "false", "default": ""}
-    assert [each.get("name") for each in STEPS if "inputs.confirm_digest" in json.dumps(each)] == [CONFIRM, COMPLIMENTARY]
+    readers = [each for each in STEPS if "inputs.confirm_digest" in json.dumps(each)]
+    assert [each.get("name") for each in readers] == [APPROVAL, CONFIRM, RECHECK, COMPLIMENTARY]
+    for reader in readers:
+        assert reader["env"]["CONFIRM_DIGEST"] == "${{ inputs.confirm_digest }}"
+        assert "inputs.confirm_digest" not in json.dumps({key: value for key, value in reader.items() if key != "env"})
 
 
 def _run_confirmation(tmp_path, digest: str) -> subprocess.CompletedProcess:
