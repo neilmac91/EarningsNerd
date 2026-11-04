@@ -14,12 +14,15 @@ merge with a shard red or missing.
 
 **Rule.**
 1. A required check that sums other jobs runs with `if: ${{ always() }}`. Its one step fails unless the needed job's
-   result is exactly `success`; failure, cancelled, skipped and an empty result all fail it.
+   result is exactly `success`; failure, cancelled, skipped and an empty result all fail it. Nothing softens that
+   step: it carries no `if:` of its own, no `continue-on-error:` and no `shell:`, and neither its job nor the workflow
+   sets `defaults:`. Each of those passes the check with a shard red while the script still reads right.
 2. Only the summing job needs the summed jobs. The deploy and any other gate need the summing job, so the result
    reaches them through one place.
 3. A matrix of shards numbers its legs 1 to N on its only axis and passes `matrix.shard/strategy.job-total`, so the
    legs cover the whole suite. Each leg keeps the per-job time limit, and its failure artifacts carry its number,
-   since a run holds one artifact per name.
+   since a run holds one artifact per name. A leg fails when its tests fail: no step of it carries
+   `continue-on-error:` or `shell:`, and the job sets no `defaults:`.
 4. Choose the shard count from measured time, not test counts. Playwright splits shards by test count, keeps a file
    whole unless it runs in parallel mode, and orders files by their worker settings, so a slow block of files can
    land in one shard.
@@ -27,10 +30,14 @@ merge with a shard red or missing.
 **Evidence.**
 - `.github/workflows/ci.yml`: the `e2e-shard` matrix and the `e2e-tests` job that sums it.
 - Gates in `backend/tests/unit/test_ci_cost_controls.py`:
-  - `test_e2e_tests_passes_only_when_every_browser_shard_passed` runs the summing step for each result and checks that
-    only it needs the shards;
-  - `test_the_browser_shards_cover_the_suite_and_keep_their_evidence_apart`;
+  - `test_e2e_tests_passes_only_when_every_browser_shard_passed` runs the summing step for each result, pins the
+    summing job's and its step's keys, and checks that only it needs the shards;
+  - `test_the_browser_shards_cover_the_suite_and_keep_their_evidence_apart` pins the matrix, the shard job's and its
+    test step's keys, and the per-shard artifact names;
   - `test_e2e_tests_keeps_the_founders_35_minute_limit`.
+- Mutation proofs on committed state: 23 edits to `ci.yml` were each caught by a named gate. Among them were the
+  first review round's four softeners, which every gate had passed before the key pins (an `if:` on the summing step,
+  its `continue-on-error:`, its `shell:` and a job `defaults:`).
 - The sizing, measured for #1990 on 2026-11-04:
   - one-worker runs had passed 960 of the 1,300 tests after 28.6 minutes when the limit cut them;
   - calibrated to that run (×1.29), the Nov 1 HTML report's per-test durations give a 52-minute suite, about 22
