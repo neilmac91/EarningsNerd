@@ -17,7 +17,8 @@ extraction built); that run clears it. A forced run never stores its excerpt bef
 (``get_or_cache_excerpt(persist=False)``). An unforced run's excerpt is cached by
 ``summary_generation_service.get_or_cache_excerpt`` when it is built. A successful forced summary
 refresh explicitly replaces its bounded Risks source; an ordinary write fills that source only when
-absent. The caller commits.
+absent. An artifact-backed promotion also replaces its private excerpt and clears an incompatible
+legacy risk source when no matching source was produced (``clear_stale_risk_source``). The caller commits.
 """
 from typing import Any, Optional
 
@@ -37,6 +38,7 @@ def upsert_content_cache(
     replace_risk_source: bool = False,
     replace_excerpt: bool = False,
     clear_stale_excerpt: bool = False,
+    clear_stale_risk_source: bool = False,
 ) -> None:
     """Attach or refresh application-owned fields on a filing's FilingContentCache row.
 
@@ -61,6 +63,8 @@ def upsert_content_cache(
                 cache.critical_excerpt = None
             if risk_source_text and (replace_risk_source or not cache.risk_source_text):
                 cache.risk_source_text = risk_source_text
+            elif clear_stale_risk_source:
+                cache.risk_source_text = None
             cache.sections_payload = sections_payload
     elif (excerpt or risk_source_text) and cache is None:
         session.add(FilingContentCache(

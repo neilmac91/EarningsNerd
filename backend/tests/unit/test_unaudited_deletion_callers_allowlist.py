@@ -39,9 +39,9 @@ in ``PLANTED_GAPS``): a name built at run time (``'delete_' + 'user'``); a model
 one elsewhere, through an attribute or an item (``db.delete(request.state.user)``, ``db.delete(users[0])``; an
 attribute of a row, ``user.subscription``, is a child row, not the account), through a helper's return, or bound in
 another module; SQL
-assembled from non-literals (``"DELETE FROM " + table``) or with ``%``, ``.format`` or ``str.join``; SQL quoted in
-Markdown, which is read, not run; and a caller in a folder named ``tests`` outside the test homes
-(``backend/app/tests/``), which the shared walk skips.
+assembled from non-literals (``"DELETE FROM " + table``) or with ``%``, ``.format`` or ``str.join``; and SQL quoted in
+Markdown, which is read, not run. A folder named ``tests`` outside the test homes (``backend/app/tests/``) is read:
+the shared walk skips the test homes by path.
 """
 import ast
 import re
@@ -365,4 +365,4 @@ def test_the_walk_reads_the_files_it_guards():
         "ops/feedback_media/verify_runtime.py", "backend/main.py",
     } <= scanned
     assert any(relative.endswith(".sql") for relative in scanned)
-    assert not any(part == "tests" for relative in scanned for part in Path(relative).parts)
+    assert not any(relative.startswith(("frontend/", "backend/tests/")) for relative in scanned)  # the test homes

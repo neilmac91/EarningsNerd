@@ -33,6 +33,7 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     """Project, assess, persist, count usage and emit the chunk and terminal events."""
     filing_id, user_id, force_regenerate = run.filing_id, run.user_id, run.force_regenerate
     replace_unready_only = run.replace_unready_only
+    run.require_committed_source()
 
     # The application-prepared degraded source is private and will be popped by the shared
     # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
@@ -290,7 +291,8 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                             ),
                             replace_risk_source=True,
                             replace_excerpt=True,
-                            clear_stale_excerpt=run.rebuild_excerpt,
+                            clear_stale_excerpt=run.rebuild_excerpt or run.artifact_mode,
+                            clear_stale_risk_source=run.artifact_mode,
                         )
                     if job is not None:
                         settle_job_result(job, existing.id, run.summary_payload.get("status", "complete"))
@@ -324,13 +326,14 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
                         risk_source_for_cache
                         if (
                             isinstance(risk_source_for_cache, str)
-                            and (force_regenerate or not run.excerpt)
+                            and (force_regenerate or run.artifact_mode or not run.excerpt)
                         )
                         else None
                     ),
-                    replace_risk_source=force_regenerate,
-                    replace_excerpt=force_regenerate,
-                    clear_stale_excerpt=run.rebuild_excerpt,
+                    replace_risk_source=force_regenerate or run.artifact_mode,
+                    replace_excerpt=force_regenerate or run.artifact_mode,
+                    clear_stale_excerpt=run.rebuild_excerpt or run.artifact_mode,
+                    clear_stale_risk_source=run.artifact_mode,
                 )
 
             try:
