@@ -10,11 +10,6 @@
  * +/−) — meaning never rides on colour alone. `gain`/`loss` here signal financial DIRECTION;
  * `success`/`error` remain reserved for UI operation status, which is not a directional signal.
  *
- * v3 (DS-02): chip LABELS are text, not graphics — light-mode chip text moved off the
- * 600-level graphic values (#16A34A on its tint was 3.0:1, #DC2626 was 3.9:1) onto the
- * 700-level text tokens: gain.text on gain.soft = 4.57:1, loss.text on loss.soft = 5.30:1.
- * The 600s remain as the chips' BORDER tints (graphic, 3:1 floor). Flat chip text uses the
- * secondary ink in light (flat.light inside its own tint was 3.9:1).
  */
 export type Direction = 'up' | 'down' | 'flat'
 
@@ -24,9 +19,7 @@ export function directionOf(n: number | null | undefined): Direction {
   return n > 0 ? 'up' : 'down'
 }
 
-/** Text-only tone — inline figures, deltas, signal headlines. Theme-aware.
- *  Light uses the 700-level gain.text/loss.text: the 600-level gain/loss values are
- *  graphic/chip-border-only (3:1 non-text floor) and fail AA as text on cream. */
+/** Muted financial direction ink. Always accompany it with a sign, glyph or direction word. */
 export const directionText: Record<Direction, string> = {
   up: 'text-gain-text dark:text-gain-dark',
   down: 'text-loss-text dark:text-loss-dark',
@@ -42,17 +35,10 @@ export const dataDirectionText: Record<Direction, string> = {
   flat: 'text-text-secondary-light dark:text-note-dark',
 }
 
-/** Full pill/chip tone — text + a subtle tinted background + border.
- *  Label ink = the 700-level TEXT tokens (AA inside the tint); the 600s stay on the
- *  border only. Matches Badge's beat/miss recipe — the two primitives now agree.
- *  In dark the up and down labels are level in their tints on the panel, 5.72:1 and 5.76:1: loss.dark #FF96A1 is
- *  rose-400's hue, lightened to that level, where rose-400 was 4.44:1, under AA for the 12px label (E282, D-074).
- *  The flat chip's dark label is the semantic flat ink, flat-dark #9CA3AF (4.87:1 in its tint on the panel), a rung
- *  below its light label, quieter than the up and down chips where secondary-dark would outshine both (E202 (3), D-073;
- *  themePairs.spec.ts's CROSSED_RUNG_RESIDUE holds it). tests/unit/directionChipContrast.spec.ts holds every tone's
- *  label at 4.5:1 in its tint, on the panel and the page, in both themes. */
+/** Neutral stone shell shared by every financial chip. Labels stay neutral;
+ * DeltaChip applies directionText only to its glyph and figure. Borders are decorative. */
 export const directionChip: Record<Direction, string> = {
-  up: 'text-gain-text bg-gain-soft border-gain-light/20 dark:text-gain-dark dark:bg-gain-soft-dark dark:border-gain-dark/20',
-  down: 'text-loss-text bg-loss-soft border-loss-light/20 dark:text-loss-dark dark:bg-loss-soft-dark dark:border-loss-dark/20',
-  flat: 'text-text-secondary-light bg-flat-light/10 border-flat-light/20 dark:text-flat-dark dark:bg-flat-dark/10 dark:border-flat-dark/20',
+  up: 'text-text-secondary-light bg-background-light border-border-light dark:text-text-secondary-dark dark:bg-background-dark dark:border-border-dark',
+  down: 'text-text-secondary-light bg-background-light border-border-light dark:text-text-secondary-dark dark:bg-background-dark dark:border-border-dark',
+  flat: 'text-text-secondary-light bg-background-light border-border-light dark:text-text-secondary-dark dark:bg-background-dark dark:border-border-dark',
 }

@@ -269,8 +269,9 @@ async function chipGeometry(page: Page) {
         const style = getComputedStyle(chip)
         const row = chip.parentElement!.getBoundingClientRect()
         const card = chip.closest('a')!.getBoundingClientRect()
-        // The chip's own group of two: its label, then its figure.
-        const [label, figure] = [...chip.querySelector(':scope > span')!.children]
+        // DeltaChip keeps a neutral label beside the coloured glyph/figure group.
+        const label = chip.querySelector(':scope > span') ?? undefined
+        const figure = chip.querySelector('.font-data') ?? undefined
         return {
           name: chip.textContent, left: box.left, right: box.right,
           rowLeft: row.left, rowRight: row.right, cardRight: card.right,

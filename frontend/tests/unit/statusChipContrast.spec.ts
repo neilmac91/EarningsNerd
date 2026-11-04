@@ -950,10 +950,10 @@ describe('admin status chips: the label clears 4.5:1 on its actual ground, both 
       shipped.set(cls, decl.value.match(/[\d.]+%?/g)!.map((v, i) => (i === 3 && v.endsWith('%') ? parseFloat(v) / 100 : Number(v))))
     })
     for (const cls of modelled) expect(colour(cls.slice('bg-'.length)), cls).toEqual(shipped.get(cls))
-    // The loss tint's token carries 0.14; with /20 it ships 0.2, so the old reading (0.14 x 0.2) measured a ground that
+    // The loss tint's token carries 0.12; with /20 it ships 0.2, so the old reading (0.12 x 0.2) measured a ground that
     // never paints. Refused, as directionChipContrast.spec.ts refuses it.
-    expect(COLORS['loss-soft-dark']).toBe('rgba(251,113,133,0.14)')
-    expect(shipped.get('bg-loss-soft-dark/20')).toEqual([251, 113, 133, 0.2])
+    expect(COLORS['loss-soft-dark']).toBe('rgba(237,171,158,0.12)')
+    expect(shipped.get('bg-loss-soft-dark/20')).toEqual([237, 171, 158, 0.2])
     expect(colour('loss-soft-dark/20')).toBe('sets an opacity on a colour with its own alpha, which Tailwind replaces')
     expect(colour('transparent/50')).toBe('sets an opacity on a colour with its own alpha, which Tailwind replaces')
     // Off the scale it ships nothing, where the old reading measured white at 0.98.
