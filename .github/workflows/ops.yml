@@ -153,6 +153,11 @@ on:
         description: 'complimentary-access-apply only: the manifest_sha256 its dry run printed'
         required: false
         default: ''
+      beta_comment_approval:
+        description: 'Optional founder-comment route for the five beta applies; requires separate repository enablement'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -168,6 +173,33 @@ env:
   CLOUD_SQL_PROXY_SHA256: c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d
 
 jobs:
+  approve-comment:
+    # An optional, separately enabled route for the fixed beta operations only. Waiting
+    # has no cloud identity and stays outside Ops concurrency, like approve-apply below.
+    if: github.ref == 'refs/heads/main' && inputs.beta_comment_approval && contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      comment_id: ${{ steps.approval.outputs.comment_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Wait for the founder's exact beta approval
+        id: approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BETA_COMMENT_APPROVAL: ${{ inputs.beta_comment_approval }}
+          BETA_COMMENT_APPROVAL_ENABLED: ${{ vars.BETA_COMMENT_APPROVAL_ENABLED }}
+          OP: ${{ inputs.operation }}
+          CONFIRM_DIGEST: ${{ inputs.confirm_digest }}
+        run: python3 ops/beta_approval.py wait
+
   approve-apply:
     # An -apply operation waits here until the founder approves it in GitHub: the `ops-apply`
     # environment names the founder as its required reviewer. Every other operation skips this job.
@@ -187,8 +219,13 @@ jobs:
     # dispatch from another ref is skipped before any step executes. An -apply operation runs only
     # after approve-apply passes, and only in the run's first attempt (refuse-rerun fails a later
     # one); any other operation runs when approve-apply is skipped.
-    needs: approve-apply
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    needs: [approve-apply, approve-comment]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((!inputs.beta_comment_approval && needs.approve-comment.result == 'skipped') || (inputs.beta_comment_approval && needs.approve-comment.result == 'success')) && ((needs.approve-apply.result == 'skipped' && !contains('relabel-fy-apply repair-ticker-apply reset-filing-summary-apply rebuild-e28-excerpts-apply repair-quarterly-apply repair-lineage-apply feedback-media-provision-apply feedback-media-enable-apply feedback-media-disable-apply feedback-media-verify-apply summary-delivery-apply summary-delivery-cleanup-apply summary-recovery-caller-apply complimentary-access-apply', inputs.operation)) || (needs.approve-apply.result == 'success' && github.run_attempt == '1')) }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      id-token: write
     concurrency:
       # A read (describe-service, logs-probe) runs in its own run's group: it never replaces a pending run,
       # an approved apply's included (test_ops_readback_allow_rules.py pins this).
@@ -199,6 +236,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Resolve requested operation
         id: request
@@ -285,8 +323,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ github.repository_owner }}
+          BETA_COMMENT_APPROVAL: ${{ inputs.beta_comment_approval }}
+          BETA_COMMENT_APPROVAL_ENABLED: ${{ vars.BETA_COMMENT_APPROVAL_ENABLED }}
+          APPROVAL_COMMENT_ID: ${{ needs.approve-comment.outputs.comment_id }}
+          OP: ${{ steps.request.outputs.operation }}
+          CONFIRM_DIGEST: ${{ inputs.confirm_digest }}
         run: |
           set -euo pipefail
+          if [ "${BETA_COMMENT_APPROVAL:-false}" = true ]; then
+            [ -n "$APPROVAL_COMMENT_ID" ] || { echo "::error::no founder comment recorded"; exit 1; }
+            echo "The founder-comment approval will be rechecked immediately before cloud authentication."
+            exit 0
+          fi
           case "$OWNER" in ''|*[!A-Za-z0-9-]*) OWNER='' ;; esac  # not a GitHub login: no approval can match
           APPROVED="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
             --jq "[.[] | select(.state == \"approved\" and .user.login == \"$OWNER\") | .environments[]? | select(.name == \"ops-apply\")] | length" 2>/dev/null || true)"
@@ -364,6 +412,21 @@ jobs:
           set -euo pipefail
           [[ "$CONFIRM_DIGEST" =~ ^[a-f0-9]{64}$ ]] \
             || { echo "::error::complimentary-access-apply needs confirm_digest: the manifest_sha256 its dry run printed, 64 lowercase hex characters"; exit 1; }
+
+      - name: Recheck the exact beta approval before cloud authentication
+        if: contains('feedback-media-provision-apply feedback-media-verify-apply feedback-media-enable-apply feedback-media-disable-apply complimentary-access-apply', steps.request.outputs.operation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BETA_COMMENT_APPROVAL: ${{ inputs.beta_comment_approval }}
+          BETA_COMMENT_APPROVAL_ENABLED: ${{ vars.BETA_COMMENT_APPROVAL_ENABLED }}
+          APPROVAL_COMMENT_ID: ${{ needs.approve-comment.outputs.comment_id }}
+          OP: ${{ steps.request.outputs.operation }}
+          CONFIRM_DIGEST: ${{ inputs.confirm_digest }}
+        run: |
+          set -euo pipefail
+          if [ "${BETA_COMMENT_APPROVAL:-false}" = true ]; then
+            python3 ops/beta_approval.py verify
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
