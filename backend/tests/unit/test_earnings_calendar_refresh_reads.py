@@ -9,7 +9,8 @@ pending when two later steps read the table:
   skipped, and the downgrade then set the row low.
 
 The downgrade also read the EDGAR pass's pending flips: a stale row the sweep reported in the same run was counted in
-``stale_downgraded`` and written low before the commit wrote it high.
+``stale_downgraded`` and written low before the commit wrote it high. Each of the two steps now flushes before it reads,
+so they read every change also when the Alpha Vantage pass stopped at a row it could not read.
 
 Each test runs the real ``run_refresh`` with stubbed providers, in every order of the file's rows that matters, and
 expects one outcome. ``stale_downgraded`` counts the whole table, so each test counts the other stale rows the
@@ -170,3 +171,23 @@ async def test_a_stale_row_the_sweep_reports_is_not_counted_stale():
 
     assert events == {f"{PREFIX}D": (STATUS_REPORTED, CONFIDENCE_HIGH, date(2026, 6, 30))}
     assert (stats.edgar_reported, stats.stale_downgraded, stats.source_errors) == (1, others, 0)
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_a_2_02_hit_finds_the_moved_row_when_the_pass_stops_at_a_row_it_cannot_read():
+    """The pass raises at a row whose date is text (#1986's case), after it moved C into the attach window and before
+    the end of the file; the refresh logs the error and goes on. The EDGAR pass flushes before its query, so the hit
+    still finds C at its new date and reports it."""
+    fpe, stored, moved, filed = date(2026, 5, 31), date(2026, 3, 1), date(2026, 7, 2), date(2026, 7, 1)
+    _store((f"{PREFIX}C", fpe, stored))
+    rows = [_csv(f"{PREFIX}N", date(2026, 6, 30), date(2026, 7, 20)), _csv(f"{PREFIX}C", fpe, moved),
+            _csv(f"{PREFIX}X", date(2026, 6, 30), "2026-07-09")]
+
+    stats, events = await _refresh(rows, [_hit(f"{PREFIX}C", filed, "0000000001-26-000003")])
+
+    assert events == {
+        f"{PREFIX}C": (STATUS_REPORTED, CONFIDENCE_HIGH, filed),
+        f"{PREFIX}N": (STATUS_ESTIMATED, CONFIDENCE_MEDIUM, date(2026, 7, 20)),
+    }
+    assert (stats.edgar_reported, stats.skipped_no_prior, stats.source_errors) == (1, 0, 1)
