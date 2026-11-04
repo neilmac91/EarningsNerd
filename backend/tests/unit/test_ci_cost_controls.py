@@ -336,12 +336,17 @@ def test_e2e_tests_passes_only_when_every_browser_shard_passed():
     # e2e-tests is the required check and deploy-backend's need, so it must report on every run: GitHub counts a
     # skipped job as passing a required check, and `!cancelled()` would skip it on a cancelled run
     # (lessons/ops-a-required-check-that-sums-other-jobs-never-skips.md).
-    jobs = workflow()["jobs"]
+    ci = workflow()
+    jobs = ci["jobs"]
     summary = jobs["e2e-tests"]
     assert summary["needs"] == ["e2e-shard"]
     assert summary["if"] == "${{ always() }}"
-    assert "strategy" not in summary
+    # Every key is pinned: a step `if:` on the result, `continue-on-error:`, a `shell:` or a `defaults:` (the job's or
+    # the workflow's) would each pass the job with a shard red while its script still reads right.
+    assert set(summary) == {"needs", "if", "runs-on", "timeout-minutes", "steps"}
+    assert "defaults" not in ci
     (step,) = summary["steps"]
+    assert set(step) == {"name", "env", "run"}
     assert step["env"] == {"SHARDS": "${{ needs.e2e-shard.result }}"}
     for result in ("success", "failure", "cancelled", "skipped", "", "successful"):
         ran = subprocess.run(
@@ -359,7 +364,12 @@ def test_the_browser_shards_cover_the_suite_and_keep_their_evidence_apart():
     # three would need 28 to 29, too close to the 35-minute limit when a slow mirror adds minutes (#1990).
     shard = workflow()["jobs"]["e2e-shard"]
     assert shard["strategy"] == {"fail-fast": "false", "matrix": {"shard": ["1", "2", "3", "4", "5"]}}
+    # A leg must fail when its tests fail: no job `defaults:` and no step's `continue-on-error:` or `shell:`.
+    assert set(shard) == {"needs", "if", "runs-on", "timeout-minutes", "strategy", "steps"}
+    softened = [step.get("name") for step in shard["steps"] if {"continue-on-error", "shell"} & step.keys()]
+    assert softened == [], softened
     run = next(each for each in shard["steps"] if each.get("name") == "Run E2E tests")
+    assert set(run) == {"name", "if", "run", "working-directory", "env"}
     # The matrix numbers its shards 1 to N on its only axis, so job-total is N and every test runs in one shard.
     assert run["env"]["SHARD"] == "${{ matrix.shard }}/${{ strategy.job-total }}"
     uploads = [step for step in shard["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
