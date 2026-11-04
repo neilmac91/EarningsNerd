@@ -427,7 +427,9 @@ def _race(
         elif second_starts == "after_first_lock" and statement.startswith("SELECT users.id") and " FOR " in statement:
             first_ready.set()
             second_may_start.set()
-            wait_until(lambda: second_wrote.is_set() or second_blocked(), "the second request to block or write")
+            # A second that has finished can no longer block or write, so the first stops waiting then too.
+            wait_until(lambda: second_wrote.is_set() or second_done.is_set() or second_blocked(),
+                       "the second request to block or write")
 
     def second_blocked() -> bool:
         if not second_pid:

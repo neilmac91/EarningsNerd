@@ -981,14 +981,11 @@ there. Do not pre-post a guessed statement. Normal dispatches that omit this inp
 Merge and verify the backend deployment, then merge the screenshot frontend and every other change to
 `frontend/` or `ops/feedback_media/` meant to ship with it, before `feedback-media-provision-apply`.
 **Release freeze:** from that provision's dispatch until `feedback-media-enable-apply` completes, merge
-nothing to `main`, a records-only, docs-only or tests-only merge included, and re-run no `main` job, until the
-window's owner posts its release (on #1848 for EN-BETA-2026-11). A records-only merge leaves the receipt valid,
-but a waiting apply's approval binds the SHA it was dispatched on, and its check refuses once `main` moves: on
-2026-11-04 #2009's merge voided run 41841164865 that way. Ops also refuses provision, verify and enable while a
-CI run for a push to `main` is in progress or queued, so a merge or a re-run in the window costs part of the two
-hours ([closed-beta runbook](ops/closed-beta-acceptance.md#1-identities-to-record-before-every-acceptance-step),
-section 1; `lessons/ops-a-release-window-holds-every-merge-and-main-rerun.md`). Each backend deploy re-images the
-cleanup job, after which enable refuses the provision's probe;
+nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`; records-only merges are
+fine for the receipt. Ops still refuses provision, verify and enable while a CI run for a push to `main` is in
+progress or queued, so even a records-only merge in the window can cost an approval and part of the two hours
+([closed-beta runbook](ops/closed-beta-acceptance.md#1-identities-to-record-before-every-acceptance-step), section
+1). Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
 the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
 provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
 sitting. A verify that fails after seeding its run holds a two-hour lease, by which time the probe has

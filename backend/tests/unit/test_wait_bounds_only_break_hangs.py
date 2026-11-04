@@ -248,7 +248,14 @@ def _reads_clock(node: ast.AST, clocks: set[str], imports: dict[str, str]) -> bo
         isinstance(node, ast.Name) and node.id in clocks)
 
 
-def _poll_step(loop: ast.For) -> ast.AST | None:
+def _is_sleep(func: ast.AST, imports: dict[str, str]) -> bool:
+    """``time.sleep`` or ``asyncio.sleep``, also imported under another name."""
+    if isinstance(func, ast.Name) and imports.get(func.id) in ("time.sleep", "asyncio.sleep"):
+        return True
+    return (func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")) == "sleep"
+
+
+def _poll_step(loop: ast.For, imports: dict[str, str]) -> ast.AST | None:
     """The step a polling loop's body sleeps, if the body sleeps and can leave early (``break`` or ``return``),
     outside any function it defines; a loop that always runs out paces work rather than waiting for it."""
     step, leaves = None, False
@@ -258,8 +265,7 @@ def _poll_step(loop: ast.For) -> ast.AST | None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             continue
         leaves = leaves or isinstance(node, (ast.Break, ast.Return))
-        if step is None and isinstance(node, ast.Call) and node.args and (
-                getattr(node.func, "attr", getattr(node.func, "id", "")) == "sleep"):
+        if step is None and isinstance(node, ast.Call) and node.args and _is_sleep(node.func, imports):
             step = node.args[0]
         pending.extend(ast.iter_child_nodes(node))
     return step if leaves else None
@@ -279,7 +285,7 @@ def _bound(node: ast.AST, imports: dict[str, str], clocks: set[str]) -> tuple[st
             return "elapsed poll", node.test.comparators[0]
         return None
     if isinstance(node, ast.For) and isinstance(node.iter, ast.Call) and getattr(node.iter.func, "id", "") == "range":
-        step = _poll_step(node)
+        step = _poll_step(node, imports)
         count = node.iter.args[-1] if len(node.iter.args) == 1 else None
         return ("counted poll", ast.BinOp(left=count, op=ast.Mult(), right=step)) if count and step else None
     if not isinstance(node, ast.Call):
@@ -323,7 +329,8 @@ def _parameter_bounds(
 ) -> dict[str, list[tuple[_Function, ast.AST, set[str], dict[str, float]]]]:
     """For each function name, the waits in functions of that name whose bound reads one of their parameters (a
     timeout, a deadline's offset, a poll's count or step): the function, the bound's expression, the parameters it
-    reads, and the function's own names, its defaults included."""
+    reads, and the function's own names, its defaults included. A wait in a nested def, such as a closure's
+    deadline on a clock it saved, reads the clocks saved in the defs around it."""
     helpers: dict[str, list[tuple[_Function, ast.AST, set[str], dict[str, float]]]] = {}
     for function in ast.walk(tree):
         if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -331,8 +338,18 @@ def _parameter_bounds(
         arguments = function.args
         parameters = {a.arg for a in arguments.posonlyargs + arguments.args + arguments.kwonlyargs}
         own, clocks = _scope([function], base, imports)
+        clocks_at: dict[int, set[str]] = {}
+        pending: list[tuple[ast.AST, list[_Function], set[str]]] = [(function, [function], clocks)]
+        while pending:
+            parent, chain, seen = pending.pop()
+            for child in ast.iter_child_nodes(parent):
+                clocks_at[id(child)] = seen
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    pending.append((child, chain + [child], _scope(chain + [child], base, imports)[1]))
+                else:
+                    pending.append((child, chain, seen))
         for node in ast.walk(function):
-            hit = _bound(node, imports, clocks)
+            hit = _bound(node, imports, clocks_at.get(id(node), clocks))
             if hit is None or hit[1] is None:
                 continue
             read = {name.id for name in ast.walk(hit[1]) if isinstance(name, ast.Name)} & parameters
@@ -718,6 +735,49 @@ def test_the_scan_reads_positional_barriers_child_requests_puts_and_imports_from
         ("test_forms", 15, "asyncio.as_completed", 8.0),
         ("_poll_every", 17, "counted poll", 20.0),
         ("test_step_passed", 22, "_poll_every()", 0.4),
+    ]
+
+
+PLANTED_HELPERS = '''\
+import time
+from time import sleep as nap
+STEP = 0.01
+def _poll_both(event, polls=3000, step=0.01):
+    for _ in range(polls):
+        if event.is_set():
+            break
+        time.sleep(step)
+def _offset(event, within_s):
+    return event.wait(within_s + STEP)
+def _race(event, within_s):
+    def wait_until():
+        started = time.monotonic()
+        while not event.is_set():
+            if time.monotonic() > started + within_s:
+                return
+            time.sleep(0.01)
+    wait_until()
+def test_helpers(event):
+    _poll_both(event, step=0.001)
+    _offset(event, 0.5)
+    _race(event, 0.5)
+    for _ in range(200):
+        if event.is_set():
+            break
+        nap(0.01)
+'''
+
+
+def test_the_scan_reads_a_helpers_own_names_a_closures_clock_and_a_sleep_imported_under_another_name():
+    # Line 20 passes only the step, so its bound takes the helper's default count; line 21 passes only the timeout,
+    # which the helper adds to the module's STEP; line 22's helper waits in a closure, on a clock the closure saved;
+    # and line 23's poll sleeps through nap, time.sleep imported under another name.
+    assert timed_waits("tests/planted_helpers.py", PLANTED_HELPERS) == [
+        ("_poll_both", 5, "counted poll", 30.0),
+        ("test_helpers", 20, "_poll_both()", 3.0),
+        ("test_helpers", 21, "_offset()", 0.51),
+        ("test_helpers", 22, "_race()", 0.5),
+        ("test_helpers", 23, "counted poll", 2.0),
     ]
 
 
