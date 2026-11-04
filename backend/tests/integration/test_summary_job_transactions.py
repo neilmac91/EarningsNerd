@@ -11,11 +11,11 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier, Event, Timer
+from threading import Barrier, Event, Thread
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, event, func, select
+from sqlalchemy import any_, create_engine, event, func, literal, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
@@ -71,29 +71,70 @@ def seeded(factory):
         return user.id, filing.id
 
 
+class _LateRelease:
+    """The ``late`` mode's release: a released session that held the recovery lock stays open, its pool slot already
+    free, until another session waits for that lock or the case ends.
+
+    The server frees a released session's lock only when its backend exits, after release() returns, and a busy
+    runner can schedule that exit after any check that does not wait. This is the latest the exit can come, so a case
+    that counts on the lock being free without waiting for it fails here every time
+    (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
+    """
+
+    def __init__(self, engine):
+        self.engine = engine
+        self.finished = Event()
+        self.closers = []
+
+    def release(self, owner):
+        connection, owner.connection = owner.connection, None
+        if connection is None:
+            return
+        if owner.backend_pid is None:  # It never held the lock: close it at once, as release() does.
+            connection.invalidate()
+            connection.close()
+            return
+        connection.detach()
+        closer = Thread(target=self._close_once_waited_for, args=(connection, owner.backend_pid), daemon=True)
+        self.closers.append(closer)
+        closer.start()
+
+    def _close_once_waited_for(self, connection, backend_pid):
+        from sqlalchemy import column, table
+        # pg_locks reads the lock table live; pg_stat_activity would keep its first read for the whole transaction,
+        # and miss a waiter that connected after it. Autocommit ends each read's transaction anyway.
+        locks = table("pg_locks", column("pid"), column("granted"))
+        waiting = select(func.count()).select_from(locks).where(
+            locks.c.granted.is_(False), literal(backend_pid) == any_(func.pg_blocking_pids(locks.c.pid)),
+        )
+        try:
+            with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as watch:
+                while not self.finished.wait(0.01):
+                    if watch.execute(waiting).scalar_one():
+                        break
+        finally:
+            connection.close()
+
+    def finish(self):
+        self.finished.set()
+        for closer in self.closers:
+            closer.join()
+
+
 @pytest.fixture(params=["prompt", "late"])
 def recovery_guard(request, postgres_engine, monkeypatch):
     # Advisory locks are database-wide, unlike this home's per-case row schema.
     monkeypatch.setattr(recovery, "RECOVERY_LOCK_KEY", int(uuid4().hex[:15], 16))
     monkeypatch.setattr(database, "_DATABASE_URL", postgres_engine.url)
     monkeypatch.setattr(recovery, "_engine", None)
-    closes = []
-    if request.param == "late":
-        # The server frees a released session's lock only when its backend exits, after release() returns. Each case
-        # runs again with every released session held open for 300 ms, its pool slot already free, as on a runner too
-        # busy to schedule that exit soon: a case that counts on the lock being free without waiting for it fails
-        # every time (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
-        def release(self):
-            connection, self.connection = self.connection, None
-            if connection is not None:
-                connection.detach()
-                closes.append(Timer(0.3, connection.close))
-                closes[-1].start()
-
-        monkeypatch.setattr(recovery._RecoveryOwner, "release", release)
-    yield
-    for close in closes:
-        close.join()
+    # Every recovery case runs twice: with release() as it is, and with each released lock freed only once another
+    # session waits for it.
+    late = _LateRelease(postgres_engine) if request.param == "late" else None
+    if late is not None:
+        monkeypatch.setattr(recovery._RecoveryOwner, "release", lambda owner: late.release(owner))
+    yield late
+    if late is not None:
+        late.finish()
     if recovery._engine is not None:
         recovery._engine.dispose()
 
@@ -112,6 +153,18 @@ def _wait_until_free(postgres_engine):
     # fails the case there (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
     with postgres_engine.begin() as probe:
         probe.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
+
+
+def test_late_mode_frees_a_released_lock_only_for_a_waiter(recovery_guard, postgres_engine):
+    owner = recovery._RecoveryOwner()
+    assert owner.acquire()
+    owner.release()
+    assert owner.connection is None
+    if recovery_guard is not None:
+        # Nothing has waited for the lock yet, so the late mode still holds the released session, and its lock.
+        assert [closer.is_alive() for closer in recovery_guard.closers] == [True]
+        _assert_held_elsewhere(postgres_engine)
+    _wait_until_free(postgres_engine)
 
 
 def test_recovery_session_excludes_other_caller_without_open_transaction(recovery_guard, postgres_engine):

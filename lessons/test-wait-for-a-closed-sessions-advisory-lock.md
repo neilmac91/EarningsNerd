@@ -23,6 +23,9 @@ runs.
    ever succeeds keeps nothing on a pooled connection.
 3. The same race holds for the code under test's own non-blocking acquisition. After a close, wait for the lock
    before asserting that another owner's try-lock (`_RecoveryOwner.acquire()`, a recovery pass) succeeds.
+4. A test thread that watches for a waiter reads `pg_locks` with `pg_blocking_pids`, in autocommit. A transaction
+   keeps its first read of `pg_stat_activity` until it ends, so a watcher reading it would miss a waiter that
+   connected after that read.
 
 **Evidence.**
 - The failure: [job 126317457344](https://github.com/neilmac91/EarningsNerd/actions/runs/41751512361/job/126317457344)
@@ -30,8 +33,12 @@ runs.
 - On a local PostgreSQL 16, with the owning backend paused (SIGSTOP) across `release()`, the non-blocking probe
   returned False, and a waiting probe took the lock once the backend exited.
 - `tests/integration/test_summary_job_transactions.py`: `_wait_until_free` and `_assert_held_elsewhere`, and
-  `recovery_guard`'s `late` mode, which runs every recovery case again with each released session held open for
-  300 ms, its pool slot already free. Each of the three racy forms fails there every time.
+  `recovery_guard`'s `late` mode. That mode runs every recovery case again, and keeps each released session that held
+  the lock open, with its pool slot already free, until another session waits for the lock or the case ends. Each of
+  the three racy forms fails there every time, and `test_late_mode_frees_a_released_lock_only_for_a_waiter` pins that
+  the mode holds the lock. Its first watcher read `pg_stat_activity` in one transaction, and so missed a waiter on a
+  connection opened after its first read. That failed one parallel run in five, until it read `pg_locks` in
+  autocommit (rule 4).
 - Gate: `backend/tests/unit/test_advisory_lock_probe_sites.py` holds every line under `backend/tests/` that names a
   probe, in code, a string or a comment, to an exact list by file and top-level definition, and requires each probe
   call to sit inside an `assert not`. Rules 1 and 3 are gated by the `late` mode for the recovery owner's cases, and
