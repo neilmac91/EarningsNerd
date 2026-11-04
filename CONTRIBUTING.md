@@ -78,7 +78,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
 `backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
 `frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
-charts and gallery), `lighthouse` and
+charts and gallery, in `e2e-shard`'s shards, each under F59's 35-minute limit; `e2e-tests` passes when every
+shard passed), `lighthouse` and
 `secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
 pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).

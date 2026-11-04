@@ -670,13 +670,21 @@ jobs:
             backend/evals/reports/ci-execution.txt
           retention-days: 14
 
-  e2e-tests:
+  e2e-shard:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    # F59 (the founder, 2026-10-23): the suite takes about 20 minutes; a slow npm registry or apt mirror adds minutes
-    # to the installs. At 25 such runs were cancelled, and deploy-backend, which needs this job, skipped its deploy.
+    # F59 (the founder, 2026-10-23): a slow npm registry or apt mirror adds minutes to the installs, and at 25 minutes
+    # such runs were cancelled, so deploy-backend, which needs e2e-tests, skipped its deploy. The repository went
+    # private on 2026-11-03 (the founder's choice), and its runners have 2 vCPUs instead of 4: Playwright runs one
+    # worker instead of two, and the whole suite needs about 40 minutes. So it runs in shards, each a job of its own
+    # under the limit, and e2e-tests below is the required check. A shard that nears 30 minutes takes another: add one
+    # to the matrix, since the run step reads the total from it.
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Require a valid browser scope
         env:
@@ -764,7 +772,7 @@ jobs:
         working-directory: frontend
       - name: Run E2E tests
         if: needs.ci-scope.outputs.records_only == 'false'
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
@@ -772,16 +780,31 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           retention-days: 7
       - name: Upload test videos
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-videos
+          name: playwright-videos-${{ matrix.shard }}
           path: frontend/test-results/
           retention-days: 7
+
+  e2e-tests:
+    # The required check (main's ruleset) and the job deploy-backend needs: it passes only when the scope was read and
+    # every e2e-shard passed. A records-only change passes, since each shard then skips its build and tests.
+    needs: [ci-scope, e2e-shard]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a valid browser scope and every shard
+        env:
+          SCOPE_RESULT: ${{ needs.ci-scope.result }}
+          SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          [ "$SCOPE_RESULT" = success ] && [ "$SHARDS_RESULT" = success ]
 
   # Backend continuous deployment to Cloud Run.
   # Runs only on push to main, only after every test job is green, and only

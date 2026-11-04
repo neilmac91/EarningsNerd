@@ -763,7 +763,9 @@ blocked; a pull request required with **zero** approvals and squash as the only 
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
 `lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app. The founder
 removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and gallery specs now run
-unconditionally in `e2e-tests`, and E195 deletes the duplicate job; no bypass actors, so the rules
+unconditionally in `e2e-tests`, and E195 deletes the duplicate job. Since the repository went private
+(2026-11-03) its runners have 2 vCPUs, so the browser suite runs in `e2e-shard`'s shards, each under F59's
+35-minute limit, and `e2e-tests` passes only when every shard passed; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
