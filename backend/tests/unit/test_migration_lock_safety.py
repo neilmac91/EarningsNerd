@@ -709,6 +709,7 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
 
 # Each PostgreSQL gate's step, "Verify <subject> on PostgreSQL", its test home and the variable the step sets.
 _POSTGRES_STEPS = [
+    ("filing source publication", "test_filing_source_transactions.py", "FILING_SOURCE_TEST_DATABASE_URL"),
     ("durable summary ownership", "test_summary_job_transactions.py", "SUMMARY_JOB_TEST_DATABASE_URL"),
     ("Stripe transaction concurrency", "test_subscription_event_transactions.py",
      "STRIPE_CONCURRENCY_TEST_DATABASE_URL"),

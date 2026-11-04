@@ -28,6 +28,7 @@ from app.models.section_review import SectionReview
 from app.models.account_agreement import AccountAgreement
 from app.models.complimentary_access import ComplimentaryAccessGrant
 from app.models.summary_job import SummaryJob, SummaryPreparationBudget
+from app.models.filing_source import FilingSourceBundle, FilingSourceMember, FilingSourceExtraction
 from app.models.invite_mail import InviteDelivery, MailRecipient
 
 logger = logging.getLogger(__name__)
@@ -379,6 +380,9 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "FilingSourceBundle",
+    "FilingSourceMember",
+    "FilingSourceExtraction",
     "FilingSectionText",
     "InviteCode",
     "InviteDelivery",

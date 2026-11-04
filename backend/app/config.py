@@ -139,6 +139,9 @@ class Settings(BaseSettings):
     DURABLE_TASKS_ENABLED: bool = False
     # Requires validated worker/schema rollout. Existing SSE behavior remains the default.
     SUMMARY_DURABLE_GENERATION_ENABLED: bool = False
+    # Default-off exact primary/exhibit capture; requires a separately provisioned private bucket.
+    FILING_SOURCE_ARTIFACTS_ENABLED: bool = False
+    FILING_SOURCE_ARTIFACTS_BUCKET: str = ""
     # Stop only NEW work for a drain/rollback; existing durable workers keep running.
     SUMMARY_NEW_JOBS_PAUSED: bool = False
     SUMMARY_JOB_FAILED_RETRY_SECONDS: int = Field(default=60, ge=15, le=3600)
