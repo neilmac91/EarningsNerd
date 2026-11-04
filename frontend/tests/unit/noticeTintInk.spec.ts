@@ -340,12 +340,12 @@ describe("words inside Notice's tint (E283)", () => {
   })
 
   it('fails what it should: the loss tint the warning wore, a tint it cannot read, words in another ink, and a tint with no element', () => {
-    // The loss tint (loss-soft-dark, an rgba token) under the error ink, on the dark panel: 4.32:1, under the floor.
+    // The loss tint (loss-soft-dark, an rgba token) under the error ink, on the dark panel: 4.14:1, under the floor.
     const m = /^rgba\((\d+),(\d+),(\d+),(\d*\.?\d+)\)$/.exec(COLORS['loss-soft-dark'] ?? '')
     if (!m) throw new Error(`loss-soft-dark is not the rgba this case reads: ${COLORS['loss-soft-dark']}`)
     const loss: Rgb = [Number(m[1]), Number(m[2]), Number(m[3])]
     const measured = ratio(inkOf('dark:text-error-dark'), over(loss, Number(m[4]), GROUNDS.dark.panel))
-    expect(measured.toFixed(2)).toBe('4.32')
+    expect(measured.toFixed(2)).toBe('4.14')
     expect(measured).toBeLessThan(FLOOR)
     expect(() => tint('bg-error-light', 'light')).toThrow('a tint this spec cannot read')
     expect(() => tint('bg-error-light/[0.06] bg-error-light/10', 'light')).toThrow('2 tints')

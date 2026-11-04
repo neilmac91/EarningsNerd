@@ -18,41 +18,30 @@ const { fontFamily } = require('tailwindcss/defaultTheme')
    Every color pair is AA (>= 4.5:1) for body text on its intended surface.
 ============================================================================= */
 
-// Financial data signal — deliberately NOT the sage brand. Sage is identity; this is data.
+// Financial direction: muted Fern / Clay, separate from Sage brand and UI status.
+// DeltaChip uses neutral surfaces; soft tokens are reserved for financial data graphics.
 const gain = {
-  light: '#16A34A',  // green-600 — GRAPHIC/chip value only: 3.0:1 on cream (meets the 3:1 non-text floor for bars/sparklines, FAILS AA for text)
-  text: '#15803D',   // green-700 — delta TEXT on cream/white (4.5:1); lib/financialTone directionText resolves to this
-  dark: '#34D399',  // emerald-400 — 9.7:1 on navy, text-safe
-  soft: '#DCFCE7',
-  softDark: 'rgba(52,211,153,0.14)',
-  // Change text on the analysis figure surfaces (the metrics table's well and the KPI cards), held to APCA
-  // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1). Dark matches
-  // loss.dataDark (rose-200, Lc -83.1 / -80.1) in lightness and chroma, so neither direction reads louder: Lc -83.5 on
-  // the dark well and -80.5 on panel, OKLCH chroma 0.056 against rose-200's 0.056 (emerald-300 #6EE7B7, at 0.130 and
-  // -78.5 / -75.5, outshouted the loss beside it; emerald-400 is -65.6 / -62.6). Level inks give colour-blind readers
-  // no lightness cue: under deuteranopia (Machado 2009, full severity) the pair is ΔE76 2.1 (emerald-300's was 7.2),
-  // protanopia 8.8. The sign carries direction for every reader (the drawn minus is as wide as the plus).
-  data: '#166534',
-  dataDark: '#B6E4CE',
+  light: '#406425',
+  text: '#406425',
+  dark: '#A9CA95',
+  soft: '#ECF3E9',
+  softDark: 'rgba(169,202,149,0.12)',
+  // Analysis figure inks retain APCA |Lc| >= 75 on the well and panel.
+  data: '#406425',
+  dataDark: '#C0D9B1',
 }
 const loss = {
-  light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
-  text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); lib/financialTone directionText resolves to this
-  // Dark delta text: rose-400's hue, lightened until a down chip reads level with an up chip (E282, D-074; OKLCH L 0.79,
-  // near the gain ink's 0.77). 7.08:1 on panel, 9.08:1 on navy; a down chip's 12px label is 5.76:1 in its tint on the
-  // panel, beside the up chip's 5.72:1, where rose-400 #FB7185 was 4.44:1, under AA
-  // (tests/unit/directionChipContrast.spec.ts). The tint below keeps rose-400.
-  dark: '#FF96A1',
-  soft: '#FEE2E2',
-  softDark: 'rgba(251,113,133,0.14)',
-  // Figure surfaces, APCA |Lc| >= 75: red-700 already holds Lc 78.4 / 77.2 in light; dark needs rose-200,
-  // Lc -83.1 on the dark well and -80.1 on panel (loss.dark is -61.5 / -58.6; rose-400 was -49.7 / -46.7).
-  data: '#B91C1C',
-  dataDark: '#FECDD3',
+  light: '#924739',
+  text: '#924739',
+  dark: '#EDAB9E',
+  soft: '#FBEDEA',
+  softDark: 'rgba(237,171,158,0.12)',
+  data: '#90493B',
+  dataDark: '#F9C7BC',
 }
 const flat = {
-  light: '#6B7280', // gray-500
-  dark: '#9CA3AF',  // gray-400
+  light: '#636A77', // text-safe on cream, panel and white
+  dark: '#9CA3AF',
 }
 
 // E120 (chief design, 2026-10-19): under enlarged text a surface's inset stops growing at narrow widths.
@@ -188,11 +177,11 @@ module.exports = {
           // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The landing page's tick rules
           // (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired (E195's token fold).
           grid: { light: '#DCD9D0', dark: '#525C6B' },
-          // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
+          // Axis labels: 11–12px data face + tabular-nums. Light = the chart-label ink #6B7280 (4.6:1 on
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
           label: { light: '#6B7280', dark: '#B8BEC7' },
-          ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
+          ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line (independent of light financial flat) — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           // The chart tooltip takes the Card recipe's surface and the column wash the engine's own cursor, so no
           // crosshair or tooltip token remains (E255).
           // The trend charts' spec renderer (features/analysis/lib/charts/theme.ts, docs/design/analysis-trend-charts-spec-2026-10.md
