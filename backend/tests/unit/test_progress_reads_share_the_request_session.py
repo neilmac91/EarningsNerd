@@ -44,6 +44,12 @@ from main import app
 _VARIANTS = (("analyzing", False), ("error", False), (None, False), ("summarizing", True))
 _STATUS = {"analyzing": "generating:analyzing", "error": "error", None: "missing"}
 
+# Room for a starved runner, never a check (lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md).
+# A unit that waits for a second connection never finishes here, so it answers 500 at any timeout, and a connection the
+# feed's unit keeps is caught by open_at_close and checkedout(), which do not race the clock. Eight readers on four slots
+# wait out each other's holds, which a runner with more processes than CPUs stretches past a second (E295).
+POOL_TIMEOUT = 5.0
+
 
 def _expected_status(i: int) -> str:
     stage, summarized = _VARIANTS[i % 4]
@@ -62,7 +68,7 @@ async def test_progress_reads_need_no_second_connection(monkeypatch, tmp_path, p
         poolclass=QueuePool,
         pool_size=slots,
         max_overflow=0,
-        pool_timeout=1.0,
+        pool_timeout=POOL_TIMEOUT,
     )
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
