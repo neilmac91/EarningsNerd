@@ -177,11 +177,11 @@ module.exports = {
           // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The landing page's tick rules
           // (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired (E195's token fold).
           grid: { light: '#DCD9D0', dark: '#525C6B' },
-          // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
+          // Axis labels: 11–12px data face + tabular-nums. Light = the chart-label ink #6B7280 (4.6:1 on
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
           label: { light: '#6B7280', dark: '#B8BEC7' },
-          ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
+          ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line (independent of light financial flat) — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           // The chart tooltip takes the Card recipe's surface and the column wash the engine's own cursor, so no
           // crosshair or tooltip token remains (E255).
           // The trend charts' spec renderer (features/analysis/lib/charts/theme.ts, docs/design/analysis-trend-charts-spec-2026-10.md

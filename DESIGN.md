@@ -75,6 +75,8 @@ colors:
   chart-4-dark: "#E8927C"
   chart-5-dark: "#97A6C2"
   chart-6-dark: "#AFA2DE"
+  chart-label-light: "#6B7280"
+  chart-label-dark: "#B8BEC7"
   chart-context-light: "#968A78"
   chart-context-dark: "#AFA391"
 typography:
@@ -360,7 +362,7 @@ The sticky-column hover guidance for panel tables was refreshed from [`DataTable
 
 ## Colors
 
-The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use. The snapshot deliberately omits the `chart.*` chrome sub-tokens (`grid`, `label`, `ref`), chart-scope values that the trend charts' renderer mirrors (since E195's token fold, which retired the hairline `axis`, the dark `label`, `#B8BEC7`, and both `grid` values, `#DCD9D0` / `#525C6B`, are the chart spec's own; the rest derive from text and flat colors; E255 retired `crosshair` and `tip`, unread since Recharts left the app), and the aliases `text-heading-*` (equal to `text-primary-*`) and bare `gain` / `loss` (equal to their `-light` values). The figure-surface tokens are documented as roles of their own where they share a value with another token (`figure-light` with `text-primary-light`, `figure-dark` with `text-primary-dark`, `note-light` with `text-tertiary-light`, `note-dark` with `text-secondary-dark`, `well-dark` with `background-dark`, `loss-data` with `loss-text`): each is measured on its own ground and can move alone.
+The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use. The snapshot records `chart-label-light` / `chart-label-dark` explicitly: their existing values remain `#6B7280` / `#B8BEC7` when the financial flat ink changes. The light chart-label value also remains in existing mail templates. The snapshot deliberately omits the chart-scope `grid` and `ref` sub-tokens, which the trend charts' renderer mirrors (`grid` is `#DCD9D0` / `#525C6B`; `ref` equals light chart-label / dark flat). E195 retired the hairline `axis`; E255 retired `crosshair` and `tip`, unread since Recharts left the app. It also omits the aliases `text-heading-*` (equal to `text-primary-*`) and bare `gain` / `loss` (equal to their `-light` values). The figure-surface tokens are documented as roles of their own where they share a value with another token (`figure-light` with `text-primary-light`, `figure-dark` with `text-primary-dark`, `note-light` with `text-tertiary-light`, `note-dark` with `text-secondary-dark`, `well-dark` with `background-dark`, `loss-data` with `loss-text`): each is measured on its own ground and can move alone.
 
 ### Primary
 

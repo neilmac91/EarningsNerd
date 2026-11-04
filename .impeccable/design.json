@@ -453,6 +453,18 @@
         "displayName": "Context Stone (dark)",
         "canonical": "#AFA391",
         "description": "The context ink in dark mode: APCA Lc −49.7 on the dark card, chart-1-dark's own, and −46.4 under the column wash (5.92:1), apart from chart-1-dark by chroma and hue alone."
+      },
+      "chart-label-light": {
+        "role": "neutral",
+        "displayName": "Chart label",
+        "canonical": "#6B7280",
+        "description": "Existing light chart-label ink, independent of financial flat ink; this value also remains in existing mail templates."
+      },
+      "chart-label-dark": {
+        "role": "neutral",
+        "displayName": "Chart label (dark)",
+        "canonical": "#B8BEC7",
+        "description": "Existing dark chart-label ink; chart chrome remains unchanged by the financial palette."
       }
     },
     "typographyMeta": {
