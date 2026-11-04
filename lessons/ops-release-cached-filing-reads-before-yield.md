@@ -75,7 +75,19 @@ unit now runs on the sync's own threads (`lessons/ops-auth-lookups-must-let-requ
 says why not the default executor); the leader claims the sync before its read, so a request arriving
 meanwhile follows it; a leader cancelled during its persist keeps its claim until the persist ends;
 and the burst's `coverage_sync` row runs `ingest_companyfacts_by_id` itself, only its SEC fetch faked,
-with its sessions off the loop (2026-10-19, E129).
+with its sessions off the loop (2026-10-19, E129). The analysis stream's narrative opens its own sessions
+once the request's is gone, and it worked them on the loop: its assembly (the company, the dataset build
+and its fingerprint, the cached row) and a generated run's cache write. Each is now a unit in the thread
+pool. Over AAPL's, JPM's and WMT's ten years or twelve quarters, locally, the assembly's longest loop stall
+fell from 58-194 ms to 9-55 ms. What remains is C code that holds the GIL in any thread, mostly the
+fingerprint's `json.dumps`; for the same reason the companyfacts fetch's decode stays on E301's row. The
+narrative's cases stream the real narrative to eight Pro readers on four slots: a regeneration burst, a
+cached burst, and eight first-time generations of one range. In the first-time burst the cache write's
+check-then-write races, the unique key on (company, mode, period_key) refuses the losers, and each loser
+rolls back, re-reads and updates. In all three, every checkout, statement, dataset build and fingerprint
+runs off the loop, and so does each cached completion. The write's move off the loop also opened a gap at
+the stream's meter (`lessons/arch-shield-a-streams-meter-and-await-nothing-before-it.md`) (2026-11-03,
+E301).
 The contact form handed its session to `persist_contact_submission` on the loop, and the feedback
 submit committed and refreshed its row in its own body, so each held a connection through its mails:
 eight contact messages on four slots, each mail taking 0.3 s, answered 4x201 then 4x500, and eight

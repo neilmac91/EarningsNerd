@@ -8,6 +8,9 @@ One rule, three parts in this one module:
   event-loop thread; a six-reader what-changed burst
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
+  narrative that stream runs must work its sessions, its dataset build and fingerprint, and a cached re-serve's
+  completion in the thread pool, for a burst of regenerations, a burst of cached re-serves, and eight first-time
+  generations racing for one cache row (E301); the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
   in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
   filing or summary; each auth session route (logout signed in, with only the refresh cookie and
@@ -3581,10 +3584,11 @@ async def test_checkout_and_portal_hold_no_connection_while_stripe_answers(
         engine.dispose()
 
 
-def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
+def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True, saved: bool = True):
     """A four-slot pool over one company with two fiscal years of revenue and net income, eight
     readers (Pro or Free), and a saved annual analysis whose snapshot matches the current facts.
-    Unless ``synced``, the company's companyfacts were never synced, so coverage syncs them."""
+    Unless ``synced``, the company's companyfacts were never synced, so coverage syncs them; unless
+    ``saved``, no analysis is saved."""
     from app.models import TrendAnalysis, User
     from app.services import trend_analysis_service
 
@@ -3613,13 +3617,14 @@ def _analysis_fixture(tmp_path, name: str, *, pro: bool, synced: bool = True):
         for i in range(8):
             db.add(User(email=f"analysis-reader-{i}@example.com", is_active=True, is_pro=pro))
         db.flush()
-        saved = trend_analysis_service.build_dataset(db, company, "annual", "FY2024", "FY2025")
-        fingerprint = trend_analysis_service.dataset_fingerprint(saved)
-        db.add(TrendAnalysis(
-            company_id=company.id, mode="annual", period_key=saved["period_key"],
-            prompt_version=trend_analysis_service.PROMPT_VERSION, dataset_fingerprint=fingerprint,
-            dataset_json={**saved, "snapshot_id": fingerprint}, narrative_md="## Narrative",
-        ))
+        if saved:
+            dataset = trend_analysis_service.build_dataset(db, company, "annual", "FY2024", "FY2025")
+            fingerprint = trend_analysis_service.dataset_fingerprint(dataset)
+            db.add(TrendAnalysis(
+                company_id=company.id, mode="annual", period_key=dataset["period_key"],
+                prompt_version=trend_analysis_service.PROMPT_VERSION, dataset_fingerprint=fingerprint,
+                dataset_json={**dataset, "snapshot_id": fingerprint}, narrative_md="## Narrative",
+            ))
         db.commit()
     return engine, sessions
 
@@ -3797,6 +3802,149 @@ async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch
                 assert db.get(Company, 1).facts_synced_at is not None
     finally:
         facts_service._inflight_syncs.clear()
+        engine.dispose()
+
+
+def _narrative_burst(monkeypatch, tmp_path, name: str, *, saved: bool):
+    """The analysis stream's real narrative for eight Pro readers on four slots, with only the model faked, and a
+    record of where its work ran: each checkout and statement, and each call of the dataset build, its fingerprint
+    and a cached re-serve's completion, by whether it ran on the loop's thread. The fake model holds every run of a
+    burst until all eight have assembled, so their cache writes race for the slots."""
+    import json
+
+    from app.routers import analysis, auth
+    from app.services import openai_service as oa
+    from app.services.trend_analysis import narrative
+    from app.services.trend_analysis.observations import ANALYSIS_SECTIONS
+
+    engine, sessions = _analysis_fixture(tmp_path, name, pro=True, saved=saved)
+    selection = json.dumps({key: [] for key, _ in ANALYSIS_SECTIONS}, separators=(",", ":"))
+    selecting: list[int] = []
+    all_assembled = asyncio.Event()
+
+    async def stream_chat(_messages: Any, **kwargs: Any):
+        selecting.append(1)
+        if len(selecting) % 8 == 0:
+            all_assembled.set()
+        await asyncio.wait_for(all_assembled.wait(), timeout=10.0)  # a hang guard; a passing run never waits for it
+        kwargs["usage_sink"].update({"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+        yield selection
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkout": [], "statement": [], "build_dataset": [], "dataset_fingerprint": [],
+                                      "cached_analysis_completion": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkout"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statement"].append(threading.get_ident() == loop_thread))
+    for step in ("build_dataset", "dataset_fingerprint", "cached_analysis_completion"):
+        def spy(*args: Any, _step: str = step, _real: Any = getattr(narrative, step), **kwargs: Any) -> Any:
+            on_loop[_step].append(threading.get_ident() == loop_thread)
+            return _real(*args, **kwargs)
+
+        monkeypatch.setattr(narrative, step, spy)
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(analysis, "STREAM_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(analysis, "_emit_analysis_cost_best_effort", lambda *_a, **_k: None)
+    monkeypatch.setattr(oa.openai_service, "stream_chat", stream_chat)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def stream(i: int) -> tuple:
+        token = auth.create_access_token({"sub": f"analysis-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post("/api/analysis/CACHED/stream", json=_ANALYSIS_RANGE)
+        frames = [json.loads(frame[len("data: "):]) for frame in response.text.split("\n\n") if frame.startswith("data: ")]
+        last = frames[-1]
+        return response.status_code, last["type"], last.get("kind"), last.get("cached"), last.get("analysis_id")
+
+    async def burst() -> list[tuple]:
+        all_assembled.clear()
+        return await asyncio.gather(*[stream(i) for i in range(8)])
+
+    return engine, sessions, burst, on_loop
+
+
+def _ran_off_the_loop(on_loop: dict[str, list[bool]], *, cached: bool) -> None:
+    """Every checkout and statement ran in the thread pool, and so did the dataset build and its fingerprint (most of
+    the assembly's time is their computation, which no checkout shows) and a cached re-serve's completion."""
+    steps = ["checkout", "statement", "build_dataset", "dataset_fingerprint"] + (["cached_analysis_completion"] * cached)
+    for step in steps:
+        assert on_loop[step] and on_loop[step] == [False] * len(on_loop[step]), (step, on_loop[step])
+
+
+@pytest.mark.asyncio
+async def test_the_analysis_narrative_works_its_sessions_off_the_loop(monkeypatch, tmp_path):
+    """E301: the narrative the analysis stream runs opens its own sessions once the request's is gone, and it worked
+    them on the loop: its assembly (the company, the dataset build and its fingerprint, the cached row) and a
+    generated run's cache write, each blocking every other request on the one-vCPU API. The saved row predates the
+    presentation, so the first burst regenerates and each run writes the row back; the second re-serves it from the
+    cache. Each step of both bursts runs in the thread pool, none on the loop, and no connection is out at the end."""
+    from app.models import TrendAnalysis
+    from app.services.trend_analysis.presentation import presentation_is_current
+
+    engine, sessions, burst, on_loop = _narrative_burst(monkeypatch, tmp_path, "analysis-narrative.db", saved=True)
+
+    def saved_is_current() -> bool:
+        with sessions() as db:
+            return presentation_is_current(db.get(TrendAnalysis, 1).dataset_json)
+
+    try:
+        assert await burst() == [(200, "complete", "analysis", False, 1)] * 8
+        assert await asyncio.to_thread(saved_is_current)  # the burst wrote it back (read off the loop, as counted)
+        assert await burst() == [(200, "complete", "analysis", True, 1)] * 8
+        assert engine.pool.checkedout() == 0
+        _ran_off_the_loop(on_loop, cached=True)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_first_time_narratives_race_for_one_cache_row_off_the_loop(monkeypatch, tmp_path):
+    """Off the loop, the cache write is a check-then-write that no longer runs one at a time in the process. Eight
+    first-time generations of one range write four at a time on the four slots, and a barrier holds the first four
+    until each has found no saved row: each inserts, the unique key on (company, mode, period_key) refuses three, and
+    each of those rolls back, reads the winner's row again and updates it (``trend_analysis/cache.py``'s
+    ``_persist_analysis``). The other four find the row and update it. The eight streams complete as analyses of the
+    one row, each metered once, with every step off the loop."""
+    from app.models import TrendAnalysis, UserUsage
+    from app.services.trend_analysis import cache, narrative
+
+    engine, sessions, burst, on_loop = _narrative_burst(monkeypatch, tmp_path, "analysis-first-time.db", saved=False)
+    first_reads = threading.Barrier(4)  # the four slots' writes, each past its first read before any inserts
+    write = threading.local()
+    reads: list[int] = []
+    real_read, real_persist = cache._load_cached_analysis, narrative._persist_analysis
+
+    def persist(**kwargs: Any) -> Any:
+        write.first_read = True
+        return real_persist(**kwargs)
+
+    def read(*args: Any, **kwargs: Any) -> Any:
+        """The cache module's reads: the cache write's, and ``has_cached_analysis``'s for an over-cap admission, which
+        none of these readers is. The assembly binds its own name and goes uncounted."""
+        reads.append(1)
+        row = real_read(*args, **kwargs)
+        if getattr(write, "first_read", False):  # only a write's first read; a thread that never wrote has no flag
+            write.first_read = False
+            first_reads.wait(timeout=5.0)  # a hang guard; a passing run never waits for it
+        return row
+
+    monkeypatch.setattr(narrative, "_persist_analysis", persist)
+    monkeypatch.setattr(cache, "_load_cached_analysis", read)
+
+    def stored() -> tuple[int, list[int]]:
+        with sessions() as db:
+            return db.query(TrendAnalysis).count(), sorted(row.analysis_count for row in db.query(UserUsage))
+
+    try:
+        assert await burst() == [(200, "complete", "analysis", False, 1)] * 8
+        assert await asyncio.to_thread(stored) == (1, [1] * 8)
+        assert len(reads) == 8 + 3  # each write's first read, and a second for each of the three the key refused
+        assert engine.pool.checkedout() == 0
+        _ran_off_the_loop(on_loop, cached=False)
+    finally:
         engine.dispose()
 
 
