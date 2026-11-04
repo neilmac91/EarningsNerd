@@ -71,6 +71,11 @@ _EXPORT_GENERATED = re.compile(
     + _GENERATED_DATE + r"(?P<time>, [0-9]{2}:[0-9]{2} UTC)?(?:</span>)?(?=" + _EXPORT_SOURCE + ")"
 )
 _EXPORT_SOURCE_LINE = re.compile(_EXPORT_SOURCE + "[^<]*")
+# Each font as pdf_branding.font_face_css writes it: an absolute file:// address under the checkout the export was
+# rendered in. Each arm renders its exports in its own checkout (acceptance_executor.frozen_checkout reads the
+# config's checkout_path), so two arms' addresses would name the arm (E303). The projection keeps each font's file
+# name alone, then refuses an export that still names a local file; the checkout path is also a marker.
+_EXPORT_FONT_ADDRESS = re.compile(r"url\('file://[^']*/backend/app/assets/fonts/([A-Za-z0-9._-]+)'\)")
 
 
 def _positive_price(value: Any) -> bool:
@@ -611,12 +616,29 @@ def _check_output_records(
     return checked
 
 
+def _checkout_markers(config: dict[str, Any]) -> set[str]:
+    """The arm's checkout in each form an artifact can carry it (E303): as the config spells it, without a trailing
+    slash; resolved, where it exists here, since frozen_checkout runs the worker in the resolved path and
+    pdf_branding resolves its own (a symlink or a relative spelling); and each of those as a file:// address, which
+    percent-encodes a space."""
+    raw = config.get("checkout_path")
+    if not raw:
+        return set()
+    spelled = str(raw).rstrip("/") or str(raw)
+    forms = {spelled}
+    if Path(spelled).exists():
+        forms.add(str(Path(spelled).resolve()))
+    forms |= {Path(form).as_uri() for form in list(forms) if Path(form).is_absolute()}
+    return {form for form in forms if len(form) > 1}
+
+
 def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
                        config: dict[str, Any], holdout_id: str) -> bytes:
     """Project known DB columns, then reject remaining execution identity markers.
 
-    Narrative bytes are never rewritten. The known export generation-date metadata
-    is omitted from the reviewer projection; any remaining execution marker stops it.
+    Narrative bytes are never rewritten. The known export generation-date metadata and
+    the fonts' checkout addresses are omitted from the reviewer projection; any remaining
+    execution marker, the checkout path among them, stops it.
     """
     if key == "canonical":
         value = _json(source)
@@ -638,10 +660,15 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
         # refused too: the check fails closed rather than trust where the header ends.
         if re.search(_GENERATED_DATE, text):
             raise ValueError("unrecognized export generation-date metadata")
+        # The shell's fonts name the checkout the arm rendered in: keep each font's file name alone. Any local
+        # address left (a font moved out of app/assets/fonts, an image) is refused rather than guessed at.
+        text = _EXPORT_FONT_ADDRESS.sub(r"url('fonts/\1')", text)
+        if "file://" in text:
+            raise ValueError("export names a local file the projection does not blind")
         data = text.encode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
                str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
-               f"{holdout_id}-{row['arm']}-{row['draw']}"}
+               *_checkout_markers(config), f"{holdout_id}-{row['arm']}-{row['draw']}"}
     if _EXECUTION_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
         raise ValueError(f"reviewer artifact exposes execution identity: {key}")
     return data

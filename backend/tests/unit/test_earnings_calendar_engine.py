@@ -222,17 +222,18 @@ def test_non_2_02_8k_ignored():
 
 @pytest.mark.requires_db
 def test_in_run_duplicate_does_not_break_commit():
-    """Regression for the critical ingest bug: an AV row and an EDGAR 8-K that resolve to the same
-    (ticker, fiscal_period_end) within ONE un-flushed transaction must not double-INSERT and blow
-    up the final commit (SessionLocal is autoflush=False)."""
+    """An AV row and an EDGAR 8-K that resolve to the same (ticker, fiscal_period_end) within ONE
+    transaction end as one row, flipped to reported, and the final commit succeeds
+    (SessionLocal is autoflush=False). This was written for a double-INSERT; the sweep is now
+    flip-only, so what the per-insert flush guards here is the flip itself."""
     from app.database import SessionLocal
     from app.models import EarningsEvent
 
     _clear("DUPE")
     db = SessionLocal()
     # AV estimate for Q2 with a far-off date, then a same-day 8-K whose derived quarter-end == the
-    # AV row's fiscal_period_end. Without the per-insert flush the EDGAR path can't see the pending
-    # AV row and inserts a second (DUPE, 2026-06-30), making commit() raise on the unique constraint.
+    # AV row's fiscal_period_end. Without the per-insert flush the EDGAR path's queries can't see
+    # the pending AV row, so the hit finds no prior row and the flip is skipped (it never inserts).
     svc.ingest_alpha_vantage(db, [_av_row("DUPE", date(2026, 1, 5), date(2026, 6, 30))], today=date(2026, 1, 2))
     hit = SimpleNamespace(
         items=["2.02"], ticker="DUPE", filed_date="2026-07-31",
