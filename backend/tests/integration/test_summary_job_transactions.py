@@ -127,8 +127,9 @@ def recovery_guard(request, postgres_engine, monkeypatch):
     monkeypatch.setattr(recovery, "RECOVERY_LOCK_KEY", int(uuid4().hex[:15], 16))
     monkeypatch.setattr(database, "_DATABASE_URL", postgres_engine.url)
     monkeypatch.setattr(recovery, "_engine", None)
-    # Every recovery case runs twice: with release() as it is, and with each released lock freed only once another
-    # session waits for it.
+    # Each recovery case runs twice: with release() as it is, and with each released lock freed only once another
+    # session waits for it. The two whose owner acquires and releases in a child process run once, since the late
+    # mode cannot reach the child.
     late = _LateRelease(postgres_engine) if request.param == "late" else None
     if late is not None:
         monkeypatch.setattr(recovery._RecoveryOwner, "release", lambda owner: late.release(owner))
@@ -348,6 +349,7 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         owner.release()
 
 
+@pytest.mark.parametrize("recovery_guard", ["prompt"], indirect=True)  # the owner releases in a child process
 def test_recovery_process_crash_releases_session_lock(recovery_guard, postgres_engine):
     # The child opens only a Core guard connection against this disposable test
     # database. It touches no table outside the fixture's schema or any provider.
@@ -394,6 +396,7 @@ signal.pause()
         process.communicate(timeout=10)
 
 
+@pytest.mark.parametrize("recovery_guard", ["prompt"], indirect=True)  # the owner releases in a child process
 def test_asyncio_run_shutdown_finishes_recovery_disconnect(recovery_guard, postgres_engine):
     # A separate process supplies the outer hang guard: asyncio shutdown cancels
     # every remaining Task, including any cleanup child an implementation adds.

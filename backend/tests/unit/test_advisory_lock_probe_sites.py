@@ -10,7 +10,8 @@ A probe that does not wait is sound only while a live session holds the lock and
 gate holds every line, in every tracked file under `backend/tests/`, that names one of PostgreSQL's non-blocking
 advisory-lock functions (in code, a string or a comment) to the exact list below, by file and by the top-level
 definition around it. In Python source, each call of one sits inside an `assert not`, so no helper can hand its result
-to a check that it succeeded. A new probe fails here until it is listed, with why it cannot race a close.
+to a check that it succeeded; a probe inside a string, such as a child process's script or raw SQL, is held by the line
+list alone. A new probe fails here until it is listed, with why it cannot race a close.
 """
 
 from __future__ import annotations
