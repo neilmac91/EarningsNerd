@@ -9,11 +9,12 @@ file wait it out still fits that file's CI step (``lessons/test-a-wait-bound-onl
 
 This gate reads every tracked Python file under ``backend/tests`` for a timed wait, and resolves its bound to a number:
 a literal, a module constant (``HANG_GUARD_S`` imported from the support module included), a parameter's default or a
-local assignment in an enclosing function, ``int()`` or ``float()`` of one, or arithmetic on those. A name assigned
-more than once resolves to its smallest value. A module imported at the top of the file under another name
-(``import asyncio as aio``, ``import subprocess as sp``, ``from concurrent import futures as pool``) and a form or clock
-imported from one (``from asyncio import timeout as within``, ``from time import monotonic as clock``) are read as the
-forms they stand for. The forms it reads:
+local assignment in an enclosing function (one computed from an earlier one included), ``int()`` or ``float()`` of
+one, or arithmetic on those. A name assigned more than once resolves to its smallest value. ``asyncio``,
+``concurrent.futures``, ``subprocess``, ``threading``, ``time`` and ``urllib.request`` imported at the top of the file
+under another name (``import asyncio as aio``, ``from concurrent import futures as pool``), and a form or clock
+imported from one (``from asyncio import timeout as within``, ``from threading import Barrier as Rendezvous``,
+``from time import monotonic as clock``), are read as the forms they stand for. The forms it reads:
 - ``wait_for(awaitable, bound)`` (``asyncio``'s and ``threading.Condition``'s); ``asyncio.timeout(bound)``, imported
   from ``asyncio`` or not; ``asyncio.wait`` and ``concurrent.futures.wait`` or ``as_completed`` with ``timeout=``;
 - ``.wait(bound)``, ``.join(bound)`` and ``.result(bound)``, or with ``timeout=``; ``.get``, ``.put`` and ``.acquire``
@@ -39,10 +40,10 @@ changes, fails here until it is listed.
 
 What it does not read: a bound it cannot resolve to a number (a parameter that no call resolves, an attribute, a call, a
 patched setting); a wait with no bound; a socket's connect timeout (``socket.create_connection(address, timeout)``); an
-alias made by assignment (``real_timeout = asyncio.timeout``, ``clock = time.monotonic``) or by an import inside a
-function; waits in source held in a string, such as a pytester child's; a pool's ``pool_timeout``, which
-``lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`` covers and which some cases set short on
-purpose; and an elapsed-time assertion (``assert clock() - started < bound``), which
+alias made by assignment (``real_timeout = asyncio.timeout``, ``clock = time.monotonic``), by an import inside a
+function, or by an import from any other module; waits in source held in a string, such as a pytester child's; a pool's
+``pool_timeout``, which ``lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`` covers and which
+some cases set short on purpose; and an elapsed-time assertion (``assert clock() - started < bound``), which
 ``tests/unit/test_wall_clock_bounds.py`` gates. ``time.time()`` is the wall clock, which stamps rather than waits, and
 ``.join`` with an argument that is not a number is ``str.join``. Whether a guard stays below a production timeout that
 would end the same wait, whether nested bounds stay in order, and whether a PostgreSQL step's cases fit its time when a
@@ -65,7 +66,7 @@ SHARED = {"HANG_GUARD_S": HANG_GUARD_S}
 THREAD_WAITS = {"wait", "join", "result", "get", "acquire", "wait_for"}
 SUBPROCESS_WAITS = {"run", "check_output", "check_call", "call"}
 CLOCKS = {"monotonic", "perf_counter"}
-MODULES = {"asyncio", "concurrent.futures", "subprocess", "time"}
+MODULES = {"asyncio", "concurrent.futures", "subprocess", "threading", "time", "urllib.request"}
 _OPS = {
     ast.Add: lambda left, right: left + right,
     ast.Sub: lambda left, right: left - right,
@@ -232,13 +233,14 @@ def _is_flag(node: ast.AST) -> bool:
 
 
 def _own_nodes(function: _Function):
-    """The nodes of a function's own body: a nested def's, class's or lambda's assignments are their own scope's."""
-    pending = list(ast.iter_child_nodes(function))
+    """The nodes of a function's own body in source order, so a name computed from an earlier one resolves; a nested
+    def's, class's or lambda's assignments are their own scope's."""
+    pending = list(ast.iter_child_nodes(function))[::-1]
     while pending:
         node = pending.pop()
         yield node
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
-            pending.extend(ast.iter_child_nodes(node))
+            pending.extend(reversed(list(ast.iter_child_nodes(node))))
 
 
 def _reads_clock(node: ast.AST, clocks: set[str], imports: dict[str, str]) -> bool:
@@ -553,10 +555,59 @@ def test_least(event, other):
     event.wait(bound)
     bound = 30
     def nested():
-        EARLY = 60
+        EARLY = 1
+    async def nested_async():
+        EARLY = 1
     class Fake:
-        bound = 90
+        bound = 1
     other.wait(EARLY)
+    other.wait(bound)
+'''
+
+PLANTED_ORDER = '''\
+import time
+def test_derived(event):
+    step = 0.5
+    bound = step * 4
+    event.wait(bound)
+def test_counted(event):
+    step = 0.01
+    polls = int(2 / step)
+    for _ in range(polls):
+        if event.is_set():
+            break
+        time.sleep(step)
+def test_reassigned(event):
+    first = 0.5
+    bound = first * 2
+    first = 30
+    event.wait(bound)
+'''
+
+PLANTED_FORMS = '''\
+import asyncio, threading, time
+import threading as th
+import urllib.request as ur
+from threading import Barrier as Rendezvous
+from urllib.request import urlopen as fetch
+from urllib.request import urlopen
+async def test_forms(queue, url, action, fs):
+    threading.Barrier(2, action, 1)
+    th.Barrier(2, timeout=2)
+    Rendezvous(2, timeout=3)
+    urlopen(url, timeout=4)
+    ur.urlopen(url, timeout=5)
+    fetch(url, timeout=6)
+    queue.put("item", timeout=7)
+    asyncio.as_completed(fs, timeout=8)
+def _poll_every(event, step=0.5):
+    for _ in range(40):
+        if event.is_set():
+            break
+        time.sleep(step)
+def test_step_passed(event):
+    _poll_every(event, step=0.01)
+    _poll_every(event)
 '''
 
 
@@ -633,12 +684,40 @@ def test_the_scan_reads_module_and_clock_aliases_and_the_counts_and_deadlines_a_
 
 
 def test_a_name_assigned_twice_resolves_to_its_smallest_value_in_its_own_scope_only():
-    # The smaller value comes first, so reading the last one would give 30 s at lines 5 and 7. A nested def's or class's
-    # own assignment (lines 10 and 12) is not the enclosing function's, so line 13 still reads the module's 3 s.
+    # The smaller value comes first, so reading the last one would give 30 s at lines 5 and 7. A nested def's, async
+    # def's or class's own assignment (lines 10, 12 and 14) is smaller and not the enclosing function's, so line 15
+    # still reads the module's 3 s and line 16 the function's own 2 s.
     assert timed_waits("tests/planted_least.py", PLANTED_LEAST) == [
         ("test_least", 5, "wait", 3.0),
         ("test_least", 7, "wait", 2.0),
-        ("test_least", 13, "wait", 3.0),
+        ("test_least", 15, "wait", 3.0),
+        ("test_least", 16, "wait", 2.0),
+    ]
+
+
+def test_a_name_computed_from_an_earlier_one_resolves_in_source_order():
+    # Each bound reads a local computed from another local, so a walk of the function's body that does not keep source
+    # order finds nothing at lines 5 and 9, and reads line 17's second value of first, 60 s, where the first gives 1 s.
+    assert timed_waits("tests/planted_order.py", PLANTED_ORDER) == [
+        ("test_derived", 5, "wait", 2.0),
+        ("test_counted", 9, "counted poll", 2.0),
+        ("test_reassigned", 17, "wait", 1.0),
+    ]
+
+
+def test_the_scan_reads_positional_barriers_child_requests_puts_and_imports_from_threading_and_urllib():
+    # A helper called with its defaults is read once, at its own poll (line 17), not again at line 23.
+    assert timed_waits("tests/planted_forms.py", PLANTED_FORMS) == [
+        ("test_forms", 8, "Barrier", 1.0),
+        ("test_forms", 9, "Barrier", 2.0),
+        ("test_forms", 10, "Barrier", 3.0),
+        ("test_forms", 11, "urlopen", 4.0),
+        ("test_forms", 12, "urlopen", 5.0),
+        ("test_forms", 13, "urlopen", 6.0),
+        ("test_forms", 14, "put", 7.0),
+        ("test_forms", 15, "asyncio.as_completed", 8.0),
+        ("_poll_every", 17, "counted poll", 20.0),
+        ("test_step_passed", 22, "_poll_every()", 0.4),
     ]
 
 

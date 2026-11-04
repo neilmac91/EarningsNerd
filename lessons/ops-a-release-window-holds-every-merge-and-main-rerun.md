@@ -29,14 +29,19 @@ an Ops run that binds the exact SHA it was dispatched on.
 4. A notification is not the channel: comments on #1848 and on a merged pull request can reach the session hours late
    or not at all. Read them where they are posted.
 
-**Gate.** Review-checked. No check on a pull request runs at the merge call, and a window lives in a comment, so no
-check can see it at that moment. The rule lives in the merge turn's reads, beside
+**Gate.** Review-checked for now. No check on a pull request runs at the merge call, but a PreToolUse hook does:
+`.claude/settings.json` runs one before every Bash line and GitHub MCP call, as `codex_review_overlap_guard.py`
+refuses a ready mark while a Codex review runs. Such a hook could refuse a merge to main or a main re-run while a
+window holds, once the window and its release are lines it can read rather than free text; E315 records that gate.
+Until then the rule lives in the merge turn's reads, beside
 `ops-read-main-and-every-slot-claim-before-a-backend-merge.md` and `ops-read-the-reviews-in-the-turn-that-merges.md`.
 
 **Evidence.**
 - #1848: the window 6631725489 (13:21), root's report of the merge 6632592300 (14:00), and the session's
-  acknowledgement 6636990408 (17:09).
+  acknowledgement 6636990408 (17:10).
 - #2009: root's request 6633067809 (14:21) and the session's verification 6633556334 (14:42).
 - Runs 41841164865 (provisioning, cancelled at 13:59) and 41842721758 (main on `8e712d806`: attempt 1 failed at
   14:15, attempt 2 started at 14:17).
-- #1957, 6636582830: root's account of why the merge voided the approval check.
+- #1957, 6636582830: the PB-03 implementation owner's report on root's 13:41-13:59 Ops runs, not a chief review. It
+  says why the merge voided the approval check: the statement binds the dispatched SHA, and the check refuses once
+  main has moved.

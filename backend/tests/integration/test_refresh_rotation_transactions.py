@@ -10,7 +10,8 @@ always across the API's two instances, two of them can interleave inside those s
 two of them on one user's token, each in a session made with production's ``SessionLocal`` settings
 (autoflush off), so their statements reach the database in production's order. The first holds its
 COMMIT until the second is blocked on a lock or has finished, so the second makes its first read, and
-its check if nothing stops it, while the first's writes are uncommitted:
+its check if nothing stops it, while the first's writes are uncommitted; a first that commits or finishes
+before the point the second starts at fails the case at once:
 - two refreshes with one cookie: one rotates, and the other meets the replay sweep, as the second of
   two did when refresh ran on the event loop, so no live token is left;
 - a refresh and a logout-all, in either order: no live token is left;
@@ -363,7 +364,8 @@ def _race(
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
-    records itself instead, and the race fails once both requests have ended."""
+    records itself instead, and the race fails once both requests have ended. So does a ``first`` that
+    commits, or finishes, before the point ``second`` starts at, and ``second`` then does not start."""
     user_id, raw = _signed_in(engine, password_hash)
     if links:
         with _session(engine) as db:
@@ -444,9 +446,15 @@ def _race(
         return bool(released)
 
     def before_commit(conn):
-        # A first that commits before the point the second starts at has given the second nothing to block on.
-        if getattr(role, "name", None) == "first" and first_ready.is_set():
-            wait_until(released_by_second, "the second request to block or finish")
+        if getattr(role, "name", None) != "first":
+            return
+        if not first_ready.is_set():
+            # A first that commits before the point the second starts at gives the second nothing to block on, and
+            # what it committed is outside the race: the case fails as unstaged, and the second stops at once.
+            unstaged.append(f"{first} committed before reaching the point {second} starts at")
+            second_may_start.set()
+            return
+        wait_until(released_by_second, "the second request to block or finish")
 
     def run(name: str, operation: str):
         role.name = name
@@ -457,7 +465,8 @@ def _race(
                         hung.append("the first request to reach the point the second starts at")
                         return None
                     if not first_ready.is_set():
-                        unstaged.append(f"{first} finished without reaching the point {second} starts at")
+                        if not unstaged:
+                            unstaged.append(f"{first} finished without reaching the point {second} starts at")
                         return None
                     second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
                 return _OPERATIONS[operation](db, user_id, cookies[name])
