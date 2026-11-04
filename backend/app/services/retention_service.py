@@ -1,8 +1,9 @@
 """Scheduled retention purge for the rows the policy promises to delete on a clock.
 
 `docs/DATA_RETENTION_POLICY.md` schedules: search history one year (§2.3), failed-login state
-seven days (§2.2), contact-form submissions one year (§2.5), plus the two token tables whose
-rows are dead once expired or revoked (§2.2). Everything here is data hygiene with no
+seven days (§2.2), contact-form submissions one year (§2.5), plus the token tables whose
+rows are dead once expired or revoked (§2.2): OAuth states, OAuth session handoffs (E29 (5)) and
+refresh tokens. Everything here is data hygiene with no
 user-facing behaviour: the rows are already invisible or unusable by the time they qualify.
 
 Deliberately NOT here (founder-held or a product decision, never a silent purge): account
@@ -23,7 +24,7 @@ from typing import Any
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, UserSearch
+from app.models import ContactSubmission, LoginAttempt, OAuthState, RefreshToken, SessionHandoff, UserSearch
 from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,10 @@ def purge_targets(now: datetime) -> list[PurgeTarget]:
             ),
         ),
         PurgeTarget("oauth_states", OAuthState, OAuthState.id, OAuthState.expires_at < naive_now),
+        # A handoff's stamps are timezone-aware (app/models/session_handoff.py): compared with ``now`` itself. The next
+        # handoff sign-in deletes the expired ones too (oauth_account_service.commit_oauth_sign_in); main's path writes
+        # none and deletes none, so without this target they would wait for that next sign-in.
+        PurgeTarget("session_handoffs", SessionHandoff, SessionHandoff.id, SessionHandoff.expires_at < now),
         PurgeTarget(
             "refresh_tokens", RefreshToken, RefreshToken.id,
             or_(

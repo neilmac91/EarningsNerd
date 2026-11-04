@@ -2,11 +2,11 @@
 
 The script reads SEC's current companyfacts once per financial company, computes the deployed rule with the deployed
 pure functions and sorts the stored revenue and margin rows of both fact writers into its sets. These cases pin:
-- the sets on the 17 financial fixtures (tests/fixtures/companyfacts_fi, 7 of them E286's), the old state written by
-  the real writers (a blank-SIC sync, Filing rows for every 10-K and 10-Q, each 10-K's own year through the per-filing
-  writer under the old generic authority), then the deployed resync: every set equals a brute-force oracle written
-  here, row by row, and the per-company table is pinned (FIXTURE_SETS says where it differs from the design's table,
-  and why);
+- the sets on the 18 financial fixtures (tests/fixtures/companyfacts_fi, 7 of them E286's and MC E290's), the old
+  state written by the real writers (a blank-SIC sync, Filing rows for every 10-K and 10-Q, each 10-K's own year
+  through the per-filing writer under the old generic authority), then the deployed resync: every set equals a
+  brute-force oracle written here, row by row, and the per-company table is pinned (FIXTURE_SETS says where it
+  differs from the design's table, and why);
 - synthetic stored states: an empty choice, each per-filing verdict, per-filing rows holding feed identities, legacy
   quarter twins, the deploy-instant boundaries and every company outcome;
 - read-only: every statement a SELECT with no lock clause when compiled for PostgreSQL (SQLite drops the clause), no
@@ -46,6 +46,7 @@ from app.services.facts.fiscal_naming import is_proxy_form, own_period_ends
 from app.services.facts.reconcile import extract_authoritative_values
 from app.services.facts.upsert import process_filing_facts
 from app.services.sec_rate_limiter import sec_rate_limiter
+from tests.support.sync_eras import usd_syncs_before_e198
 from app.utils.sec_urls import build_sec_archive_url
 from scripts import financial_revenue_preview as preview
 
@@ -65,7 +66,8 @@ SEC_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK0000000001.json"
 RNOIE, FEE = fi_revenue.TOTAL_TAGS[0], fi_revenue.FEE_TAG
 SIC = {"AMT": "6798", "AXP": "6199", "BLK": "6211", "IBKR": "6211", "ICE": "6200", "KKR": "6282",
        "MET": "6311", "PNC": "6021", "TROW": "6282", "WFC": "6021",
-       "AJG": "6411", "ARE": "6798", "CBOE": "6200", "CLSK": "6199", "HUT": "6199", "TRC": "6500", "WBHC": "6021"}
+       "AJG": "6411", "ARE": "6798", "CBOE": "6200", "CLSK": "6199", "HUT": "6199", "TRC": "6500", "WBHC": "6021",
+       "MC": "6282"}
 # The design's table came from a pure prototype that stored no per-filing rows and never split D and E by tag. Here
 # each 10-K's own year also goes through the per-filing writer, which adds F, F_gap and unjudged and changes no feed
 # count. ICE's FY2017 fee history is D: ICE's choice keeps the fee tag, but behind Revenues, which that 10-K reports,
@@ -87,6 +89,7 @@ FIXTURE_SETS = {
     "AJG": {}, "ARE": {}, "CBOE": {}, "CLSK": {}, "HUT": {},
     "TRC": {"K_review": 1},
     "WBHC": {"B": 21, "C2": 2, "unjudged": 1},
+    "MC": {},  # E290: no revenue element the old reading reads, so every row is the deployed resync's
 }
 START_KEYS = {"started", "run_id", "workflow_commit", "dry_run", "execution", "production_image_used",
               "payload_source", "rule", "cohort_size", "blank_sic_companies", "cohort"}
@@ -203,14 +206,17 @@ def _own_years(payload):
     return out
 
 
-def _seed(db, ticker, payload, sic):
+def _seed(db, ticker, payload, sic, *, resync_since_e198=False):
     """The state before step (2): the generic tuple's sync while the SIC was blank, Filing rows for every 10-K and
     10-Q, each 10-K's own year through the per-filing writer under the old generic authority (dated OLD); then the
-    deployed resync (its rows dated NEW)."""
+    deployed resync (its rows dated NEW). Every sync runs as production's ran them, before E198 (the upsert alone in
+    USD), unless ``resync_since_e198``, when the resync runs as a sync runs now."""
     company = Company(cik=f"{int(payload['cik']):010d}", ticker=ticker, name=ticker, sic=None)
     db.add(company)
     db.flush()
-    facts_service._persist_companyfacts_payload(db, company, payload)
+    with pytest.MonkeyPatch.context() as before_e198:
+        usd_syncs_before_e198(before_e198)
+        facts_service._persist_companyfacts_payload(db, company, payload)
     filed, forms = {}, {}
     for node in payload["facts"]["us-gaap"].values():
         for item in node["units"]["USD"]:
@@ -226,7 +232,10 @@ def _seed(db, ticker, payload, sic):
     old = {row_id for (row_id,) in db.query(FinancialFact.id).filter_by(company_id=company.id)}
     company.sic = sic
     db.commit()
-    facts_service._persist_companyfacts_payload(db, company, payload)
+    with pytest.MonkeyPatch.context() as era:
+        if not resync_since_e198:
+            usd_syncs_before_e198(era)
+        facts_service._persist_companyfacts_payload(db, company, payload)
     db.query(FinancialFact).filter(FinancialFact.company_id == company.id, FinancialFact.id.notin_(old)).update(
         {"created_at": NEW}, synchronize_session=False)
     company.facts_synced_at = NEW
@@ -314,7 +323,13 @@ def _oracle(rows, payload):
     return out
 
 
-def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_row(db, factory, tmp_path, capsys, sec):
+@pytest.mark.parametrize("resync_since_e198", [False, True], ids=["resynced-before-e198", "resynced-since-e198"])
+def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_row(db, factory, tmp_path, capsys, sec,
+                                                                                  resync_since_e198):
+    # The deployed resync runs as production ran it (before E198), and again as a sync since E198 runs it: E198 changes
+    # no value, tag or identity a writer stores, and its convergence keeps a named filing's feed row by date only where
+    # the upsert's own Filing-date rule keeps it too (R1u), nor promotes another figure (R2), so every set reads the
+    # same on both, which shows E264's instants need not move.
     offline = tmp_path / "companyfacts"
     offline.mkdir()
     payloads = {}
@@ -322,7 +337,7 @@ def test_the_sets_on_the_committed_fixtures_equal_a_brute_force_oracle_row_by_ro
     assert {path.stem for path in fixtures} - set(SIC) == {"BXSL"}  # a BDC with no SIC code; any other needs one
     for path in (path for path in fixtures if path.stem != "BXSL"):
         payloads[path.stem] = json.loads(path.read_text())
-        _seed(db, path.stem, payloads[path.stem], SIC[path.stem])
+        _seed(db, path.stem, payloads[path.stem], SIC[path.stem], resync_since_e198=resync_since_e198)
         shutil.copy(path, offline / f"CIK{int(payloads[path.stem]['cik']):010d}.json")
 
     code, lines, report = _main(tmp_path, capsys, "--companyfacts-dir", str(offline))
@@ -990,7 +1005,7 @@ def test_the_deploy_instant_is_the_census_literal_and_the_script_names_no_tag_or
                   if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef)) and node.body
                   and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)}
     constants = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and id(node) not in docstrings]
-    tags = {*fi_revenue.TOTAL_TAGS, fi_revenue.FEE_TAG, *fi_revenue.NON_606_TAGS, *HEADLINE_GAAP_TAGS["revenue"]}
+    tags = {*fi_revenue.RULE_TAGS, *HEADLINE_GAAP_TAGS["revenue"]}  # every element the rule or the generic list reads
     assert [c for c in constants if isinstance(c, str) and any(tag in c for tag in tags)] == []
     assert [c for c in constants if str(c) in ("6000", "6799")] == []
     header = ast.get_docstring(tree)

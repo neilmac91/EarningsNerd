@@ -9,7 +9,7 @@ from app.services.resend_service import send_email
 
 
 class PromotionalMailUnavailable(RuntimeError):
-    """Invitation delivery remains closed until marketing permission controls are available."""
+    """Invitation delivery is held: ``legal_readiness_service.invitation_email_readiness`` names why."""
 
 # Every character str.splitlines breaks a line at: a name's run of them becomes one space (_greeting_text).
 _LINE_SEPARATORS = re.compile("[\n\v\f\r\x1c-\x1e\x85\u2028\u2029]+")
@@ -402,13 +402,30 @@ async def send_invite_email(
     *,
     to_email: str,
     magic_link: str,
+    unsubscribe_link: str,
+    delivery_ref: str,
+    cohort: str | None,
     name: str | None = None,
-) -> None:
-    """Account invitation, held until permission and suppression controls permit delivery."""
-    if not legal_readiness_service.is_marketing_available():
-        raise PromotionalMailUnavailable("Invitation email delivery is currently unavailable.")
+) -> str:
+    """The account invitation its recipient asked for (invite_delivery_service), and the provider's id for it.
+
+    Refused unless requested invitation email is available now for this invitation (``legal_readiness_service``:
+    the capability, and a link its recipient could redeem, which while collection is held means one bound to the
+    address and in the invited cohort, ``cohort`` being what the invite stores), whatever the caller checked: the
+    router's check may be a request old. Sent with the delivery's idempotency key, so a repeat of the
+    same request is the provider's one email, and its tag, which the provider's events carry back. Its footer says
+    why the reader got it and links the page that stops these emails; account mail they request is unaffected."""
+    if not legal_readiness_service.is_invitation_email_available_for(cohort, to_email):
+        raise PromotionalMailUnavailable(legal_readiness_service.INVITATION_EMAIL_UNAVAILABLE_MESSAGE)
     greeting = _greeting(name)
-    invite_footer = "You're receiving this because you were invited to create an EarningsNerd account."
+    invite_footer = (
+        "You're receiving this because you asked for an invitation to EarningsNerd. "
+        f'<a href="{html.escape(unsubscribe_link)}" style="color:#3C6650;">Unsubscribe from invitation emails</a>.'
+    )
+    invite_footer_text = (
+        "You're receiving this because you asked for an invitation to EarningsNerd. "
+        f"Unsubscribe from invitation emails: {unsubscribe_link}"
+    )
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're invited to create an EarningsNerd account.</p>
@@ -423,12 +440,17 @@ async def send_invite_email(
         f"Accept your invite: {magic_link}\n\nThis is a single-use invite link. Review the account requirements when you sign up."
     )
     preheader = "Your account invitation. Review the requirements when you sign up. The link works once."
-    await send_email(
+    result = await send_email(
         to=[to_email],
         subject="Your EarningsNerd account invitation",
         html=_wrap_html(html_body, invite_footer, preheader=preheader),
-        text=_wrap_text(text_body, invite_footer),
+        text=_wrap_text(text_body, invite_footer_text),
+        idempotency_key=f"en-invite-{delivery_ref}",
+        # The tag resend_webhook_service.DELIVERY_TAG reads back from the provider's events (held equal by
+        # tests/unit/test_invite_mail_controls.py).
+        tags=[{"name": "en_invite_delivery", "value": delivery_ref}],
     )
+    return result["id"]
 
 
 async def send_password_reset_email(

@@ -306,8 +306,9 @@ class TestTheSyncRetiresTheSeries:
 
     def test_a_filer_that_moves_back_to_us_gaap_reads_its_new_reports_year_as_its_latest(self):
         # IFRS 20-Fs for 2021-23, then a US-GAAP 20-F again in 2025: the sync reads the us-gaap series once more,
-        # and the new report's own years go in current. The years the retire left behind stay non-current in USD
-        # (module docstring; E287), so only the new report's years are asserted.
+        # and the new report's own years go in current. Since E198 it also re-promotes, in USD too, the amounts the
+        # retire left behind wherever its payload's own row holds the retired identity, though not their ratios
+        # (E287): the old years' revenue and net income are current again, their net margins stay behind.
         from app.database import SessionLocal
         from app.services import peers_service, trend_analysis_service
 
@@ -328,6 +329,10 @@ class TestTheSyncRetiresTheSeries:
         assert (subject["value"], subject["period_end"]) == (3025.0, "2025-03-31")
         years = {p["fiscal_year"] for p in trend_analysis_service.available_periods(db, company.id)["annual"]}
         assert {2024, 2025} <= years
+        current = {(row.concept, row.fiscal_year) for row in _rows(db, company.id)
+                   if row.is_latest and row.fiscal_period == "FY" and row.concept in ("revenue", "net_income", "net_margin")}
+        assert current == {(concept, year) for concept in ("revenue", "net_income")
+                           for year in (2017, 2018, 2019, 2020, 2024, 2025)} | {("net_margin", 2024), ("net_margin", 2025)}
         db.close()
 
     def test_the_retire_takes_the_company_row_before_it_updates_a_fact(self, monkeypatch):

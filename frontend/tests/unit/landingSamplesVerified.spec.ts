@@ -7,6 +7,7 @@ import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/ap
 import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
 import { decodeNarrativePresentation } from '@/features/analysis/lib/narrativePresentation'
+import { admitCitationInputs, admitDatasetInputs } from '@/features/analysis/lib/provenanceInputs'
 import * as samples from '@/features/marketing/lib/landing-samples'
 
 /**
@@ -522,6 +523,10 @@ describe('the Multi-Period demo is one pipeline run, ending at the verified fisc
     expect(completion.unverified).toBe(0)
     expect(completion.mismatched).toBe(0)
     // streamAnalysis and getAnalysisDataset (features/analysis/api/analysis-api.ts) admit a live payload through these.
+    // The provenance admission leaves this one as sent: every provenance carries its inputs list, which the teaser reads
+    // without passing the boundary (E294).
+    expect(admitDatasetInputs(structuredClone(dataset))).toEqual(dataset)
+    expect(admitCitationInputs(structuredClone(completion.citations))).toEqual(completion.citations)
     expect(decodeDataNotes(dataset.data_notes, dataset)).toEqual(dataset.data_notes)
     expect(() => decodeNarrativePresentation(completion.narrative_presentation, completion, dataset)).not.toThrow()
   })

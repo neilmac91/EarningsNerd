@@ -9,10 +9,12 @@ import { ActivityLine, Badge, Button, Card, Notice, countControlClass, cx } from
 import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
+import { inSentence } from '@/lib/format'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
 import type { KnownErrorCode } from '@/lib/api/client'
 import { sourceUrl, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
+import { conceptName } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { groupQualityNotes, noteMarksFigure, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -38,9 +40,10 @@ function flashAndScrollToSource(n: number | string) {
 /** An inline `[n]` citation chip: no filing viewer to highlight into (unlike Copilot), so
  *  clicking scrolls to + flashes the matching Sources row instead. The excerpt is exposed via
  *  `title` (hover) and `aria-label` (screen readers) — the full text is also visible below in
- *  the Sources list, so a heavier popover isn't needed here. */
+ *  the Sources list, so a heavier popover isn't needed here. Both say the source in the list's
+ *  words (sourceLabel), never a stored key the list does not print. */
 function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation; notes: QualityNotesModel }) {
-  const label = citation.section_ref || `Source ${citation.n}`
+  const source = sourceLabel(citation)
   const note = notes.noteForQuality(citation)
   const display = citationDisplay(citation)
   // Names only a note whose letter the chip shows (D-061); the rest are read in the Sources list's data notes.
@@ -49,8 +52,8 @@ function NarrativeCitationChip({ citation, notes }: { citation: AnalysisCitation
     <button
       type="button"
       onClick={() => flashAndScrollToSource(citation.n)}
-      title={`${display}${citation.section_ref ? ` · ${citation.section_ref}` : ''}`}
-      aria-label={`${citation.n}. Citation: ${label}. ${display}${described ? `, ${described}` : ''}`}
+      title={`${display}${source ? ` · ${source}` : ''}`}
+      aria-label={`${citation.n}. Citation: ${source || `Source ${citation.n}`}. ${display}${described ? `, ${described}` : ''}`}
       className="tnum inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 align-baseline font-data text-xs font-semibold leading-none transition-colors border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       [{citation.n}]<DataNoteMark note={note} />
@@ -175,6 +178,16 @@ function calculationWords(provenance: FactProvenance): string {
   return provenance.inputs.length ? 'calculated from filed figures' : 'calculated figure'
 }
 
+/** A source's label, as the Sources list prints it and the citation chip's name and title say it: words for a
+ *  calculated or reported source, and the stored label only for a citation saved without a method; none where no
+ *  label is stored. The analysis PDF prints the same (analysis_export_metadata.source_words, whose gate in
+ *  test_export_service.py reads this function). */
+function sourceLabel(citation: AnalysisCitation): string | null {
+  if (!citation.section_ref) return null
+  return citation.provenance?.method === 'calculated' ? calculationWords(citation.provenance)
+    : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref
+}
+
 function CitationList({ citations, sample, notes }: { citations: AnalysisCitation[]; sample?: boolean; notes: QualityNotesModel }) {
   if (citations.length === 0) return null
   return (
@@ -200,10 +213,10 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
             <span className="min-w-0 break-words">
               {citationDisplay(citation)}
               <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
-              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'} (opens in a new tab)`}>Original filing</a>}
-              {citation.section_ref && (
+              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept ? inSentence(conceptName(citation.concept)) : 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'} (opens in a new tab)`}>Original filing</a>}
+              {sourceLabel(citation) && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-tertiary-dark">
-                  · {citation.provenance?.method === 'calculated' ? calculationWords(citation.provenance) : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
+                  · {sourceLabel(citation)}
                 </span>
               )}
             </span>

@@ -102,7 +102,8 @@ class Settings(BaseSettings):
 
     # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
     # valid, unexpired, unused InviteCode token; "public" removes only the invite requirement.
-    # Both modes still require legal collection readiness and the user's own agreement.
+    # Both modes still require legal collection readiness (invite_only alone may instead admit the
+    # invited cohort below) and the user's own agreement.
     # Invite magic links expire after INVITE_EXPIRY_HOURS.
     REGISTRATION_MODE: str = "public"
     INVITE_EXPIRY_HOURS: int = 168  # 7 days
@@ -116,6 +117,19 @@ class Settings(BaseSettings):
     LEGAL_OPERATOR_POSTAL_ADDRESS: str = ""
     LEGAL_OPERATOR_COUNTRY: str = ""
     LEGAL_OPERATOR_EMAIL: str = ""
+    # Requested beta-invitation email, a capability of its own (docs/LEGAL_READINESS.md, "Invitation email"): only
+    # with collection ready, a configured provider and a verifiable Resend webhook secret, and only to an address
+    # whose owner asked for an invitation, as the admin records with each send. Promotional mail stays closed in code
+    # (legal_readiness_service.is_marketing_available) whatever this says.
+    LEGAL_INVITATION_EMAIL_ENABLED: bool = False
+    # Invited-cohort registration, an admission exception of its own (docs/LEGAL_READINESS.md, "Invited-cohort
+    # registration"): while collection is held and only under REGISTRATION_MODE=invite_only, an invite bound to its
+    # recipient's address whose cohort is exactly LEGAL_INVITED_COHORT may still open an account. The public notice,
+    # general registration, the waitlist, contact, promotion and checkout stay as collection readiness says. The cohort
+    # is an opaque label that links the invites to the notice the operator delivers privately; no public response
+    # carries it.
+    LEGAL_INVITED_COHORT_ENABLED: bool = False
+    LEGAL_INVITED_COHORT: str = ""
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.

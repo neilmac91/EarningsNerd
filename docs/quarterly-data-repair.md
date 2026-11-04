@@ -44,9 +44,9 @@ nothing, so the repair refuses it as it refuses an IFRS-only filer; its sync ret
 series earlier syncs stored, which leaves the repair nothing to plan.
 The repair does not demote the rows an older sync stored in another currency, or under a filing that
 reports in another currency (USD convenience rows, a switcher's years before the switch); only the
-companyfacts sync does that, and only where another currency than USD is involved (the response's
-pick or a stored row of its concepts; a sync in USD alone is main's and its currency step touches no
-row), as it is for every company this section concerns. Sync such a company first
+companyfacts sync does that, where another currency than USD is involved (the response's pick or a
+stored row of its concepts), as it is for every company this section concerns. Every sync runs that
+step since E198, one in USD alone too, but there its by-currency parts find nothing to demote. Sync such a company first
 (`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise, after the apply, both currencies are current
 for the same periods. Unless a newer filing proves a switch (below), the sync never demotes a row in
 the currency it reads from a filing that SEC's companyfacts response does not name and that was
@@ -67,9 +67,12 @@ currency that it names or cannot protect. So run the sync once companyfacts show
 latest filing: a sync whose response names every stored filing makes its own row the one current row
 at every period it presents, whatever earlier syncs or the per-filing writer left there, except a
 period where a row of a filing filed strictly after its own was current (a newer-filing rule by date,
-each row dated by its own filing), a period where a proxy statement's row is current (whatever its date,
-as main leaves it, for this repair's proxy step) and a quarter whose unlabelled twin in that unit is
-current, each left as found, and never a row this repair quarantined, for any reason (a rolled-back insert among
+each row dated by its own filing; a feed row of a filing the response names, only where the upsert's own
+Filing-date rule keeps it too), a period where a proxy statement's row is current (whatever its date,
+as main leaves it, for this repair's proxy step), a quarter whose unlabelled twin in that unit is
+current, and a period whose stored row at its own identity holds another figure than its own (an old
+cross-check's replacement, an older rule's reading, left for its repair), each left as found, and never a row
+this repair quarantined, for any reason (a rolled-back insert among
 them): such a period is left as the sync found it, a gap only where nothing else was current. The sync leaves one thing for this
 repair: an annual ratio (a margin or the current ratio) that an older sync computed from
 other-currency operands under the same filing as the series-currency calculation. That identity is
@@ -116,9 +119,10 @@ companyfacts period, and the backfill's cross-check could take it as the authori
 parse (`facts/fiscal_naming.is_proxy_form` keeps both out now). Ingestion never rewrites a stored identity,
 so those rows stay until this repair's proxy step (`backend/app/services/proxy_fact_repair.py`) repairs
 them. A sync leaves a proxy row current wherever a stored row holds the 10-K's identity, whether it runs
-in USD alone or involves another currency (above): the latter never protects a proxy row, so it demotes one
-where it inserts the 10-K's row, as a sync in USD alone does, and where the identity is stored it leaves
-the key as found behind the proxy row, whatever the proxy's date, for this step to judge the stored row. The
+in USD alone or involves another currency (above): it never protects a proxy row, so it demotes one where it
+inserts the 10-K's row, and where the identity is stored it leaves the key as found behind the proxy row,
+whatever the proxy's date, for this step to judge the stored row (a sync in USD alone before E198, the
+upsert alone, did the same). The
 step runs in every preview and apply, with no flag, after the calendar correction and before the
 computed-metric correction, reading only the payload the repair already fetched. A company with no proxy
 row and no filing row a proxy figure replaced or confirmed passes through it unchanged.
@@ -223,7 +227,7 @@ positive evidence, with every reason in one error: `Proxy repair refused for thi
 | `a stored report row (fact N) has no fresh winner to agree with` | no fresh winner, but a stored report gives a figure |
 | `the winner's row (fact N) was rolled back; a reviewed reapplication is required` | as for any rolled-back identity (below) |
 | `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K on: …` | the agreement test, naming each failing clause: `value`, `start`, `fiscal year` |
-| `a report row holds the proxy figure behind the filing row, which is the company's current figure, <value>, more than 1% off the 10-K's, <10-K figure>` | sets 4 and 5: a row left because a report row holds its figure is the company's current figure at its key (`is_latest`), and its value (set 5: the row's own, not the figure its check was confirmed against) is more than 1% off today's 10-K figure, which in set 4 contradicts its recorded original too, or the row records none (where it confirms the original, set 4 restores the row instead). It clears in two ways once the later 10-K's Filing is stored: a sync, or that 10-K's own per-filing write; a sync that involves another currency clears it with no Filing. A sync in USD alone that reads the later 10-K's items before its Filing is stored closes both ways while every later sync is in USD alone (below, "A company synced since #1682") |
+| `a report row holds the proxy figure behind the filing row, which is the company's current figure, <value>, more than 1% off the 10-K's, <10-K figure>` | sets 4 and 5: a row left because a report row holds its figure is the company's current figure at its key (`is_latest`), and its value (set 5: the row's own, not the figure its check was confirmed against) is more than 1% off today's 10-K figure, which in set 4 contradicts its recorded original too, or the row records none (where it confirms the original, set 4 restores the row instead). Since E198 any sync clears it, with no Filing for the later 10-K, and so does that 10-K's own per-filing write once its Filing is stored; before E198 a sync in USD alone that read the later 10-K's items before its Filing was stored closed both ways while every later sync was in USD alone, until the first sync since E198's deploy (below, "A company synced since #1682") |
 | `a row outside the repair's scope is built on a proxy figure` | set 3: a filing's calculation or a reported row |
 
 A postcondition then holds on the plan, before any write, and again on the apply's rows after its
@@ -387,20 +391,17 @@ So read a company synced since the deploy against its own fresh dry run. Beside 
 sync, `filing_rows_restored` and `filing_rows_reconfirmed` can be lower, with the rows they leave in
 `left_report_backed`; an `inserted` count can move to `promoted`; and a refusal can disappear or change
 its reason. The current-figure refusal clears once the later 10-K's row lands current over the filing
-row, which then stops being the company's current figure. On a sync in USD alone that needs the later
-10-K's Filing stored first (the upsert keeps the row of the later local Filing); a sync that involves
-another currency (above) dates the later 10-K's row by its `filed` in the payload and makes it current
-over the filing row, which clears the refusal without the Filing. With that Filing stored it clears in either of two ways: a sync, or
-that 10-K's own per-filing write (`process_filing_facts`, from the post-summary hook and
-`backfill-facts`). A sync in USD alone that reads the later 10-K's items before its Filing is stored closes both ways
-while every later sync is in USD alone: it stores that 10-K's row behind the filing row, and further
-syncs in USD alone and the 10-K's own per-filing write skip that identity (a sync that involves another
-currency still makes it current, as above). Any such sync does this, not only an operator's: the coverage route
-syncs a company again once the 24-hour TTL lapses (`COMPANYFACTS_SYNC_TTL_HOURS`) or once a newer Filing
-is stored (`facts/ingest.py`). A re-sync for the later 10-K's own Filing is one of the two ways, not a
-closer; one before it, for the TTL or another Filing, closes both. So for a company in this shape both
-ways have usually closed before any preview, unless the app stored the later Filing first or a sync
-involved another currency. The one shape
+row, which then stops being the company's current figure. Since E198 every sync dates the later 10-K's row
+by its `filed` in the payload and makes it current over the filing row, which clears the refusal without
+the 10-K's Filing, in USD as in any currency; so does that 10-K's own per-filing write once its Filing is
+stored (`process_filing_facts`, from the post-summary hook and `backfill-facts`). Before E198 a sync in USD
+alone needed that Filing stored first (the upsert keeps the row of the later local Filing), and one that
+read the later 10-K's items before its Filing was stored closed both ways while every later sync was in
+USD alone: it stored that 10-K's row behind the filing row, and further such syncs and the 10-K's own
+per-filing write skipped that identity. The first sync of such a company since E198's deploy makes that
+row current, and the coverage route syncs a company again once the 24-hour TTL lapses
+(`COMPANYFACTS_SYNC_TTL_HOURS`) or once a newer Filing is stored (`facts/ingest.py`), so read a dry run
+from before E198's deploy against a fresh one for every company synced since. The one shape
 that clears the refusal is a later 10-K that also reports the year (the third year of a three-year income
 statement); a balance-sheet line, and a filer that presents two years, have no such 10-K, and a company
 refused so waits on a reviewed repair. Read every listed row against its filing, as above: none is the

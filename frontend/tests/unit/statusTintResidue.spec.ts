@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -229,16 +230,18 @@ const INFO_NOTICES: Record<string, number> = {
   'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
   'features/analysis/components/AnalysisPageClient.tsx': 1, // an unsupported filer: a state
   'features/calendar/components/DayDetailDialog.tsx': 1, // "Market closed for {holiday}": a state of the day (E196 (3))
+  'features/admin/components/InviteReadinessBanner.tsx': 1, // "Registration is on hold", "Invitation email is on hold": a mode of the system, one per held capability (EN-BETA PB-01)
 }
-const INFO_NOTICES_MAX = { files: 6, uses: 8 }
+const INFO_NOTICES_MAX = { files: 7, uses: 9 }
 
 /** The `warning` Notices since E196 (2), per file at their count: each a state the reader weighs (a limit near or
     reached, a risk in what they are about to do). A new warning Notice is added here on purpose, reviewed for state
     against guidance, which is the `neutral` Notice (DESIGN_SYSTEM.md §4 › Inline notice). */
 const WARNING_NOTICES: Record<string, number> = {
+  'app/dashboard/settings/page.tsx': 1, // "This action is permanent": deleting the account cannot be undone (D-076)
   'features/admin/components/ShareInvite.tsx': 1, // "Not bound to an email": anyone with the link can redeem it
 }
-const WARNING_NOTICES_MAX = { files: 1, uses: 1 }
+const WARNING_NOTICES_MAX = { files: 2, uses: 2 }
 
 /** The `neutral` Notices since E196 (2), per file at their count: each guidance, a pointer that is no state (a sign-in, a
     plan, an invite). A state written as guidance would step past the two tables above, so a new neutral Notice is
@@ -254,11 +257,10 @@ const NEUTRAL_NOTICES_MAX = { files: 2, uses: 3 }
     on purpose, with the state it shows, and moves TINT_BORROWED_MAX with it. */
 const TINT_BORROWED: Record<string, Record<string, number>> = {
   'app/dashboard/page.tsx': { warning: 1 }, // the limit banner: a banner's shape, the upgrade at its end from sm (E196 (2))
-  'app/dashboard/settings/page.tsx': { error: 1 }, // the Delete account card's warning: a list, which a Notice's description cannot hold (E283)
   'features/auth/components/VerificationBanner.tsx': { warning: 1 }, // the strip under the header: an unverified address (E196 (2))
   'features/filings/components/copilot/CopilotMessage.tsx': { error: 1 }, // the error bubble: the answer card's shape, with the thread's tail (E196 (3))
 }
-const TINT_BORROWED_MAX = { files: 4, calls: 4 }
+const TINT_BORROWED_MAX = { files: 3, calls: 3 }
 
 describe('status tints are a census (DESIGN_SYSTEM.md §4 › Inline notice, §12)', () => {
   const uses = new Map<string, number>()

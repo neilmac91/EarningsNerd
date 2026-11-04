@@ -4,8 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// Mock the admin API module so the page renders without real network calls.
-vi.mock('@/features/admin/api/admin-api', () => ({
+// Mock the admin API module so the page renders without real network calls; its constants stay real.
+vi.mock('@/features/admin/api/admin-api', async (original) => ({
+  ...(await original<typeof import('@/features/admin/api/admin-api')>()),
+  getInviteReadiness: vi.fn(),
   listInvites: vi.fn(),
   createInvite: vi.fn(),
   resendInvite: vi.fn(),
@@ -17,12 +19,16 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import AdminInvitesPage from '@/app/admin/invites/page'
 import {
+  getInviteReadiness,
   listInvites,
   resendInvite,
   type InviteRecord,
   type ResendResult,
 } from '@/features/admin/api/admin-api'
+import { toast } from 'sonner'
+import { READY } from './fixtures/inviteReadiness'
 
+// A link never emailed: its Resend makes a new link to share by hand (send_email false).
 const invite: InviteRecord = {
   id: 1,
   email: 'alice@example.com',
@@ -32,7 +38,15 @@ const invite: InviteRecord = {
   used_at: null,
   user_id: null,
   created_at: '2026-06-20T00:00:00Z',
+  delivery: null,
+  email_suppression: null,
 }
+
+// New links and invitation email are available unless a case says otherwise (adminInvitesReadiness.spec.tsx holds
+// the page to each hold).
+beforeEach(() => {
+  vi.mocked(getInviteReadiness).mockReset().mockResolvedValue(READY)
+})
 
 /** The page's heading outline: SecondaryHeader's h1 first, then the sections, never skipping a level. */
 function expectOutline(h1: string) {
@@ -116,9 +130,9 @@ describe('AdminInvitesPage', () => {
       expect(screen.getByText('1')).toBeInTheDocument() // 1 to invite
     })
     expect(screen.getByText(/1 invalid/)).toBeInTheDocument()
-    // The Send button enables once there is at least one valid, not-already-invited email.
+    // The Send button enables once there is at least one valid, not-already-invited email (and readiness answers).
     expect(screen.getByRole('button', { name: /Send invites/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled')
+    await waitFor(() => expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled'))
   })
 
   it('marks an already-invited address in the chip\'s own plain type, not a faded eyebrow (ADM-17)', async () => {
@@ -151,8 +165,9 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     email: 'alice@example.com',
     invite_link: 'https://earningsnerd.io/invite/fresh-token',
     expires_at: '2026-07-08T00:00:00Z',
-    emailed: true,
+    emailed: false,
     cohort: 'beta',
+    delivery_status: null,
     revoked_invite_id: 1,
   }
   // The refetched list: the fresh invite on top, the original row now revoked beneath it.
@@ -182,6 +197,8 @@ describe('AdminInvitesPage resend dialog focus return', () => {
   async function resendFromRow(user: User) {
     renderPage()
     const resend = await screen.findByRole('button', { name: 'Resend invite to alice@example.com' })
+    // Resend waits for the readiness read: until it answers, no new link can be made.
+    await waitFor(() => expect(resend).not.toHaveAttribute('aria-disabled'))
     const row = resend.closest('tr') as HTMLTableRowElement
     await user.click(resend)
     await screen.findByRole('dialog')
@@ -203,7 +220,17 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     expect(resend).toHaveAttribute('aria-disabled', 'true')
     expect(resend).not.toBeDisabled()
     expect(resendInvite).toHaveBeenCalledTimes(1)
-    expect(resendInvite).toHaveBeenCalledWith(1)
+    // send_email is always explicit: this link was never emailed, so its replacement is a link to share by hand.
+    expect(resendInvite).toHaveBeenCalledWith(1, { sendEmail: false })
+  })
+
+  it('says "New invite link ready" when a resend makes a link to share by hand, as the dialog\'s heading does', async () => {
+    vi.mocked(toast.success).mockReset()
+    const user = userEvent.setup()
+    await resendFromRow(user)
+    expect(toast.success).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledWith('New invite link ready')
+    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'New invite link ready' })).toBeInTheDocument()
   })
 
   it('ignores activation of the focused Resend button during the cooldown', async () => {
@@ -231,6 +258,7 @@ describe('AdminInvitesPage resend dialog focus return', () => {
     const user = userEvent.setup()
     renderPage()
     const resend = await screen.findByRole('button', { name: 'Resend invite to alice@example.com' })
+    await waitFor(() => expect(resend).not.toHaveAttribute('aria-disabled'))
 
     await user.click(resend)
 
@@ -268,6 +296,26 @@ describe('AdminInvitesPage: the table scrolls inside its card', () => {
     expect(box).not.toHaveAttribute('role')
     expect(box).not.toHaveAttribute('tabindex')
     expect(screen.queryByText('Scroll horizontally to read all columns.')).not.toBeInTheDocument()
+  })
+
+  it("breaks an invitee's address after its @, never nowrap, so one long address keeps the table inside its box", async () => {
+    const long = 'maximilian.featherstonehaugh@example-enterprise.com'
+    vi.mocked(listInvites).mockResolvedValue([{ ...invite, id: 4, email: long }, invite, { ...invite, id: 3, email: null }])
+    renderPage()
+    // A nowrap cell holding the bare address took the table to 1295px in its 1214px box from 1280px to 1920px,
+    // Revoke past its right edge (chief design on #1965); tests/e2e/admin-invite-chip-reflow.spec.ts measures it.
+    for (const email of [long, 'alice@example.com']) {
+      const cell = (await screen.findByText(email, { selector: 'td' })) as HTMLTableCellElement
+      expect(cell).not.toHaveClass('whitespace-nowrap')
+      expect(cell).toHaveTextContent(email)
+      // AddressText: the address, then a <wbr> straight after its @, so it reads and copies whole.
+      const wbr = cell.querySelectorAll('wbr')
+      expect(wbr).toHaveLength(1)
+      expect(wbr[0].previousSibling?.textContent).toBe(email.slice(0, email.indexOf('@') + 1))
+      expect(wbr[0].nextSibling?.textContent).toBe(email.slice(email.indexOf('@') + 1))
+    }
+    // "Link only" is as it was.
+    expect(screen.getByText('Link only').closest('td')!.querySelector('wbr')).toBeNull()
   })
 
   it('says the table scrolls, and makes it a named keyboard region, while it is wider than its box', async () => {

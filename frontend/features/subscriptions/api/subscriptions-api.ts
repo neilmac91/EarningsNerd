@@ -30,6 +30,9 @@ export interface SubscriptionStatus {
   trial_end: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
+  /** The Pro is a complimentary private-beta grant's (PB-02): no subscription, so no renewal, price, trial or
+      checkout applies. Optional: a backend from before the field reads as false. */
+  complimentary?: boolean
 }
 
 // Subscription APIs

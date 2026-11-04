@@ -21,8 +21,9 @@ then holds no current row, so that report's own year can read as current again u
 the writer store it behind (E287). A payload with no ifrs-full data (every domestic filer) never reaches
 the count, so its sync is unchanged. A filer that moves back to US GAAP reads its new reports' years as
 current, as its next sync stores them. The years the retire left behind stay non-current, since a sync
-skips an identity it holds, except a non-USD filer's amounts: a sync outside USD re-promotes the batch's
-own stored rows (``currency.py``), though not their ratios. Restoring them needs the same stored basis (E287).
+skips an identity it holds, except their amounts: a sync re-promotes each of the batch's own stored rows that holds
+the payload's figure (``currency.py``; since E198 in USD too, before only outside USD), though not their ratios.
+Restoring those needs the same stored basis (E287).
 A 6-K decides nothing either: a filer whose statements are tagged only in 6-Ks (CNI) is read from its last
 periodic report that tags us-gaap or ifrs-full items, so one that moved from IFRS to US GAAP that way would
 read as IFRS. None of production's 101 foreign filers reads against its newest items of any form (E287).

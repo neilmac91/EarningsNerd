@@ -356,7 +356,11 @@ clears the error in the render that starts the stream, so the card leaves with t
 and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
 (`isNonRetryableStreamError`: Pro's fair-use pause, a sign-in or a permission error keeps its sentence and no
 Retry), so a press that starts no run (signed out) keeps the card without it, and the target falls back to the
-card's own heading. A failure built by hand like this is pinned, with its
+card's own heading. So is the OAuth login landing's Try again (app/auth/complete/page.tsx, E29 (5)), which
+posts the page's kept one-time code once more, a post and not a query: `{ failed: true, error, busy, retry }`,
+busy while that post is out, so the notice stays with its Retry focused and busy through the press; a press that
+ends where the browser cannot hold the session cookies' lock takes the Retry away, and RetryButton hands focus to
+the notice, which took focus when it replaced the wait. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
@@ -680,8 +684,24 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  the loss tone, which is a direction (§1). Set it through the prop, never a border colour on top:
                  Card's own dark:border-white/10 beat the settings card's dark override, so it drew its hairline
                  in light only (a design selector in eslint.config.mjs fails a border colour written in a Card's
-                 className; designRules.spec.ts plants it). The card's confirmation warning lends Notice's error
-                 tint (noticeTint), its words in the ink and the error ink on its glyph alone (§4 › Inline notice).
+                 className; designRules.spec.ts plants it). The card's confirmation warning is a warning Notice,
+                 the risk the reader weighs before an act they cannot undo, its list the Notice's body (D-076;
+                 §4 › Inline notice).
+                 A class written on a Card or a section (CardHeader, CardBody, CardFooter, CardTitle) never
+                 competes with one the component sets, on its own state or under a dark or screen variant the
+                 class has no twin for: the hairline, the fill, the corner, the shadow, a section's padding, layout
+                 or title type. Stylesheet order, not class order, decides between two such classes:
+                 rounded-2xl loses to rounded-xl, CardBody's py-3 loses to py-4 while py-5 wins, ps-0 (a logical
+                 side) beats px-cap-5 today, and a bare bg-white loses in dark to Card's dark:bg-panel-dark. What
+                 Card offers is a prop (tone, radius, elevation, interactive); spacing, position and a ring, which
+                 composes with the shadow, are the caller's, and so is a layer on a state or screen the component
+                 leaves alone (sm:rounded-2xl), which the stylesheet orders after the resting class (gate:
+                 tests/unit/cardClassesNoOverrides.spec.tsx, every <Card> and section in the app read through its
+                 imports, cx() and conditions and measured against the classes it renders, as
+                 inputClassesNoOverrides.spec.tsx holds the field; a logical property reads as the side it sets in
+                 this left-to-right app, a shorthand as its longhands; the components that forward a caller's
+                 className to a Card are listed, traced, and their call sites read against the Card's classes and
+                 their own; one of the five used as a value or re-exported fails).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -1072,7 +1092,19 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  source lineage. Checks tell a reported figure taken from the company’s filed data (XBRL)
                  apart from a compatible-input calculation; neither claims an audit. Missing figures read
                  “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
-                 source links name their figure and period.
+                 source links name their figure and period. Each input is named as /analysis names its
+                 row, in the Method line's sentence case (“Operating cash flow”, “EPS (diluted)”;
+                 figureDisplay.ts conceptName), and no CSS recases it; inside a sentence, a source link's
+                 name or a noted comparison's input, the name takes inSentence (“for operating cash flow”).
+                 Gate: tests/unit/metricLabelParity.spec.ts holds the names to periods.py's
+                 _CONCEPT_LABELS and fails a name spelled from a concept's key (E309).
+                 A recorded formula reads in words (figureDisplay.ts FORMULAS: “Operating income ÷
+                 revenue × 100”), in the Method section, under each input, and after “Calculation:” for
+                 a comparison (“(Current − same period last year) ÷ absolute same period last year”);
+                 a formula with no words reads as stored, each underscore a space. The PDF's and the
+                 workbook's Sources & methods print the same words through one port
+                 (analysis_export_metadata.FORMULA_WORDS; gate: backend
+                 tests/unit/test_export_formula_words.py, which reads them from figureDisplay.ts).
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -1181,7 +1213,10 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  legacy_calculation, never on an empty input list) or “calculated figure”. A quiet
                  source count and Notes control replace repeated status labels; the Sources badge's title
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
-                 and names one, only for a marked note.
+                 and names one, only for a marked note. Its name and title say its source in the list's
+                 words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
+                 not print; the analysis PDF prints the same label (gates: narrative-pane.spec.tsx for the
+                 chip and the list; test_export_service.py for the PDF).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -1456,6 +1491,11 @@ Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, 
                  plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
                  2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
                  plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 Unavailable but focusable (`aria-disabled`, with the caller's onChange returning early so
+                 the controlled value stays: the admin invites page's "Email invites" while invitation email
+                 is held) fades the edge and the checked fill to half, never the element, so the focus ring
+                 keeps its strength; native `disabled` keeps `disabled:opacity-50` for a box that cannot hold
+                 focus when it turns off.
                  Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
                  state equal to the Primary's dark fill and label ink).
 
@@ -1650,9 +1690,18 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  result, an error, a limit, a mode of the account). The variant is written at every call
                  site, never a default (the default-info trap of lessons/frontend-status-colors-for-status-only.md):
                  `info` is an advisory state in the info ink; `warning` a state the reader weighs (a limit near or
-                 reached, a risk in what they are about to do: an invite link anyone can redeem) in the warning
-                 ink, its glyph the triangle, where an error's is the circle; `error` takes role="alert"; and the
-                 action slot takes a small Button. Guidance is no state (a sign-in that would show a company's
+                 reached, a risk in what they are about to do: an invite link anyone can redeem, deleting the
+                 account) in the warning ink, its glyph the triangle, where an error's is the circle, so its title
+                 never opens on "Warning:"; `error` takes role="alert"; and the action slot takes a small Button.
+                 More than a sentence (a list) is the Notice's children, in the description's secondary ink and
+                 size, since the description is a <p>: the settings page's delete warning lists what deleting
+                 removes (D-076). The words a caller writes into a Notice (its title, description and children)
+                 rest in the ink, a link in the accent ink at full strength (gate:
+                 tests/unit/noticeTintInk.spec.ts, every <Notice> under any alias; out of its reach, words a
+                 component inside the Notice inks itself and a class held in a variable), and no piece of a
+                 title opens on its state's name and a colon (gate: tests/unit/noticeTitlesAreOnePhrase.spec.ts,
+                 every piece of a Notice's or a GuidanceCard's title it can read; out of its reach, a title held
+                 in a variable or a spread of one, and a component reached through another module's re-export). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's
@@ -1691,10 +1740,8 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  E196 (3)). The warning tint goes to two banners, each keeping its words in the ink and the warning
                  ink on its glyph alone, as a Notice keeps them (E196 (2)): the verification banner, a strip under
                  the header, and the dashboard's limit banner, which keeps a banner's shape, its upgrade at its end
-                 from sm and at its full width below, as the trial banner above it does. The settings page's Delete
-                 account warning keeps its heading, its list and its closing line in the error tint, its words in
-                 the ink in the same way (E283): a Notice's description is a <p>, which cannot hold a list, and its
-                 role="alert" would read the whole warning out as the confirmation opens. Each borrower is listed
+                 from sm and at its full width below, as the trial banner above it does. A list is no reason to
+                 borrow: it is a Notice's children (D-076). Each borrower is listed
                  with the variant it writes, as a string literal (gate: statusTintResidue.spec.ts's
                  TINT_BORROWED). Words in another ink inside a tint are listed with their inks and measured at
                  4.5:1 on the panel and the page in both themes, today the Copilot bubble's sentence in the error
@@ -2766,7 +2813,7 @@ Each page frame owns one `main` landmark. The root layout's `div#main` is only t
 target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
 settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
 An error boundary or account-load failure replaces the page and owns its main too. Gates:
-tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all seven auth
 routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
 TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
 presentation remains with the loading-state work; a landmark does not change its visual design.
@@ -2776,9 +2823,10 @@ titles, so a page whose content ends at h1 (the 404, /analysis, /search) does no
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
-/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+/login, /register, /forgot-password, /check-email, /verify-email, /reset-password and /auth/complete (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
-/privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
+/privacy, /terms, /security, /delete-account, /email/unsubscribe (opened without its token), /calendar
+and /search (CI's e2e build turns both on:
 the calendar reads its own fixtures with the clock pinned to one week, the search is answered and
 run), a finished Multi-Period Analysis run on /analysis, and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
@@ -3160,7 +3208,13 @@ The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
-Firefox are unchecked). Use keyboard/touch source controls, not
+Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
+theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
+control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
+"Image matches your theme.", which a `hidden` line beside the button carries, so browse mode does not read it twice.
+Its name stays the label (ChartControl's `hint`; the expand control takes none; gate:
+`tests/unit/trend-charts-v2.spec.tsx`).
+Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker

@@ -154,6 +154,14 @@ const ROUTES: Route[] = [
   { name: 'security', path: '/security', open: answerGuest, ready: (p) => h1(p, 'Security'), ...siteHeader },
   { name: 'privacy', path: '/privacy', open: answerGuest, ready: (p) => h1(p, 'Privacy Policy'), ...siteHeader },
   { name: 'terms', path: '/terms', open: answerGuest, ready: (p) => h1(p, 'Terms of Service'), ...siteHeader },
+  // Without the email's token: its notice carries the support address, the widest run on the page.
+  {
+    name: 'unsubscribe',
+    path: '/email/unsubscribe',
+    open: answerGuest,
+    ready: (p) => expect(p.getByText('This page needs the link from your email')).toBeVisible(),
+    ...siteHeader,
+  },
   {
     name: 'filing',
     path: '/filing/3',
@@ -864,6 +872,86 @@ test.describe("a failure's controls stay inside their card at 200% text", () => 
           const busy = await check('busy')
           expect(busy.footprint, `${at}: the press resizes nothing in the card and moves nothing in it`).toEqual(rest.footprint)
         })
+      })
+    }
+  }
+})
+
+/** Settings › Billing's rows at both text sizes (features/settings/components/BillingPanel.tsx). Each row is a label and
+    its value, and a value that cannot share the line with its label goes under it: the row wraps. No row could, so a
+    value too long for its line ran past the card. Under 200% text a complimentary grant's "Complimentary (private
+    beta)" (PB-02) ended 89px past its row at 390px, and the page scrolled 33px sideways; at 320px every Pro's usage
+    line, "7 · Unlimited", ran past it too, and the page scrolled 59px for a paid account, 99px for a complimentary one
+    (the chief's design review on #1955, measured on f838af9's build). Each case, for a paid and a complimentary Pro:
+    the page does not scroll sideways, and every box and text run in the card lies inside its border. One width keeps
+    a residue: at 320px under 200% text the single word "Complimentary" is wider than the row, so it reaches a few
+    pixels past the border without moving the page, and a break inside the word would read worse. Light theme only, as
+    above: a theme changes no geometry here. */
+const PRO_USAGE = { summaries_used: 7, summaries_limit: null, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 100, copilot_free_taste_used: 0, copilot_free_taste_total: 3, analysis_used: 0, analysis_limit: 20 }
+const PRO_BILLING = {
+  complimentary: { is_pro: true, complimentary: true, stripe_customer_id: null, stripe_subscription_id: null, subscription_status: null, plan: 'pro', status: null, trial_end: null, current_period_end: null, cancel_at_period_end: false },
+  paid: { is_pro: true, complimentary: false, stripe_customer_id: 'cus_e2e', stripe_subscription_id: 'sub_e2e', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: '2026-12-02T00:00:00Z', cancel_at_period_end: false },
+} as const
+/** Each box and text run in the card that crosses its border, and by how many pixels. */
+const crossingCard = (card: Locator) =>
+  card.evaluate((el) => {
+    const c = el.getBoundingClientRect()
+    const over = (r: DOMRect) => Math.max(c.left - r.left, r.right - c.right, c.top - r.top, r.bottom - c.bottom)
+    const said = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 30)
+    const found: { what: string; by: number }[] = []
+    for (const box of el.querySelectorAll('*')) {
+      const r = box.getBoundingClientRect()
+      if (box.checkVisibility() && r.width > 1 && over(r) > 0.5) found.push({ what: `${box.tagName.toLowerCase()} "${said(box.textContent)}"`, by: Math.round(over(r)) })
+    }
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      for (const line of range.getClientRects()) {
+        if (line.width > 0 && over(line) > 0.5) found.push({ what: `text "${said(node.textContent)}"`, by: Math.round(over(line)) })
+      }
+    }
+    return found
+  })
+
+test.describe("Settings › Billing's rows stay inside the card", () => {
+  for (const account of ['paid', 'complimentary'] as const) {
+    for (const width of [320, 390]) {
+      test.describe(`a ${width}px phone`, () => {
+        test.use({ viewport: { width, height: 780 }, isMobile: true, hasTouch: true })
+        for (const enlarged of [false, true]) {
+          test(`a ${account} Pro's Billing card at ${width}px and ${enlarged ? '200%' : 'the default'} text`, async ({ page, baseURL }) => {
+            await page.addInitScript(() => {
+              try {
+                localStorage.setItem('theme', 'light')
+                localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+              } catch {}
+            })
+            await answerSite(page, baseURL!, true, { path: '/api/subscriptions/subscription', status: 200, body: PRO_BILLING[account] })
+            const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+            await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/subscriptions/usage', (route) =>
+              route.fulfill({ status: 200, headers: cors, json: PRO_USAGE }))
+            await page.goto('/dashboard/settings')
+            await page.evaluate(() => document.fonts.ready)
+            if (enlarged) await doubleText(page)
+            const card = page.getByRole('heading', { name: 'Billing', level: 2 }).locator('xpath=../..')
+            await expect(card.getByText('7 · Unlimited')).toBeVisible()
+            await expect(card.getByText(account === 'paid' ? 'Renews on' : 'Complimentary (private beta)')).toBeVisible()
+            await settle(page)
+
+            const at = `a ${account} Pro's Billing card at ${width}px and ${enlarged ? '200%' : 'default'} text`
+            const m = await measure(page)
+            expect(m.scrollWidth, `${at}: the page scrolls sideways; ${why(m)}`).toBeLessThanOrEqual(m.clientWidth)
+            const past = await crossingCard(card)
+            if (account === 'complimentary' && width === 320 && enlarged) {
+              // The value's box and its text run, each by the word's overhang.
+              expect(past.every(({ what, by }) => /^(span|text) "Complimentary \(private beta\)"$/.test(what) && by <= 4), `${at}: only the one word reaches past the border, by a few pixels: ${JSON.stringify(past)}`).toBe(true)
+            } else {
+              expect(past, `${at}: every box and text run lies inside the card`).toEqual([])
+            }
+          })
+        }
       })
     }
   }
@@ -2756,6 +2844,75 @@ for (const width of [390, 360, 320]) {
           expect(widths.scrollWidth, `/pricing with ${d.name} open at ${width}px in the ${theme} theme and 200% text: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
         })
       }
+    }
+  })
+}
+
+/** PB-03: the feedback composer with three selected screenshots, the most its picker holds, stays inside a phone at
+    the default size and under 200% text, in both themes. The dialog cases above open the text-only composer (shared
+    fixtures report uploads off), and the isolated live verifier captures the composer at 1440px only, so nothing read
+    a phone with previews, their remove buttons and long file names until this case. The capabilities route, added
+    after the shared fixture's, answers first: uploads on, for this case alone. The PNGs are drawn in the page itself,
+    wide, so no image bytes live in the repository. */
+for (const width of [390, 360, 320]) {
+  test.describe(`a ${width}px phone, the feedback composer holding three screenshots`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
+    for (const theme of ['light', 'dark'] as const) {
+      test(`keeps its previews, remove buttons and Send inside the dialog with no sideways scroll at the default size and 200% text, at ${width}px in the ${theme} theme`, async ({ page, baseURL }) => {
+        await page.addInitScript(([chosen]) => {
+          try {
+            localStorage.setItem('theme', chosen)
+            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+            localStorage.setItem('en_session_active', '1')
+          } catch {}
+        }, [theme] as const)
+        await answerApi(page, baseURL!, 'pro')
+        const cors = { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' }
+        await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/feedback/capabilities', (route) =>
+          route.fulfill({ status: 200, headers: cors, json: {
+            attachments_enabled: true, max_files: 3, max_file_bytes: 5 * 1024 * 1024, max_total_bytes: 16 * 1024 * 1024,
+            accepted_content_types: ['image/png', 'image/jpeg', 'image/webp'],
+          } }))
+        await page.goto('/pricing')
+        await h1(page, 'Pricing')
+        expect(await page.evaluate(() => document.documentElement.classList.contains('dark')), `/pricing in the ${theme} theme`).toBe(theme === 'dark')
+        await page.getByRole('button', { name: 'Feedback', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Send feedback' })
+        await expect(dialog.getByRole('button', { name: 'Add screenshots' })).toBeVisible()
+        const drawn = await page.evaluate(() => {
+          const canvas = document.createElement('canvas')
+          ;[canvas.width, canvas.height] = [1600, 900]
+          const context = canvas.getContext('2d')!
+          context.fillStyle = '#24445b'
+          context.fillRect(0, 0, canvas.width, canvas.height)
+          return canvas.toDataURL('image/png').split(',')[1]
+        })
+        await dialog.getByLabel('Screenshot files').setInputFiles([1, 2, 3].map((n) => ({
+          name: `quarterly-revenue-chart-clipped-at-the-right-edge-${n}.png`, mimeType: 'image/png', buffer: Buffer.from(drawn, 'base64'),
+        })))
+        await expect(dialog.getByRole('list', { name: 'Selected screenshots' }).getByRole('listitem')).toHaveCount(3)
+        await expect(dialog.getByRole('button', { name: 'Add screenshots' })).toHaveAttribute('aria-disabled', 'true')
+        await page.evaluate(() => document.fonts.ready)
+        for (const size of ['default', '200%'] as const) {
+          if (size === '200%') await doubleText(page)
+          const at = `the composer with three screenshots at ${width}px in the ${theme} theme and ${size} text`
+          const fit = await dialog.evaluate((panel) => {
+            const box = panel.getBoundingClientRect()
+            const inner = { left: box.left + panel.clientLeft, right: box.left + panel.clientLeft + panel.clientWidth }
+            const outside = [...panel.querySelectorAll('img, button, li, p, textarea')]
+              .map((node) => ({ node, rect: node.getBoundingClientRect() }))
+              .filter(({ rect }) => rect.width > 0 && (rect.left < inner.left - 0.5 || rect.right > inner.right + 0.5))
+              .map(({ node, rect }) => `${node.tagName.toLowerCase()} "${(node.getAttribute('aria-label') || node.textContent || '').trim().slice(0, 40)}" at ${Math.round(rect.left)}-${Math.round(rect.right)}px`)
+            return { outside, panelScroll: panel.scrollWidth > panel.clientWidth ? `${panel.scrollWidth}px of content in ${panel.clientWidth}px` : null }
+          })
+          expect(fit.outside, `${at}: everything inside the panel`).toEqual([])
+          expect(fit.panelScroll, `${at}: the panel does not scroll sideways`).toBeNull()
+          for (const n of [1, 2, 3]) await expect(dialog.getByRole('button', { name: `Remove screenshot ${n}` }), `${at}: remove ${n}`).toBeVisible()
+          await expect(dialog.getByRole('button', { name: 'Send feedback' }), `${at}: Send`).toBeVisible()
+          const widths = await measure(page)
+          expect(widths.scrollWidth, `/pricing with ${at}: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
+        }
+      })
     }
   })
 }

@@ -77,6 +77,7 @@ class GenerationRun:
     summary_task: Optional[asyncio.Task] = None
     provider_started_waiter: Optional[asyncio.Future] = None
     xbrl_task: Optional[asyncio.Task] = None
+    statement_task: Optional[asyncio.Task] = None
     sections_task: Optional[asyncio.Task] = None
     fetch_task: Optional[asyncio.Task] = None
     excerpt_task: Optional[asyncio.Task] = None
@@ -285,7 +286,10 @@ class GenerationRun:
             # join points. Cancel and drain every request-owned coroutine before releasing its
             # generation slot; none may continue as post-response enrichment.
             owned_siblings = [
-                task for task in (self.xbrl_task, self.sections_task, self.fetch_task, self.excerpt_task, self.provider_started_waiter)
+                task for task in (
+                    self.xbrl_task, self.sections_task, self.fetch_task, self.excerpt_task, self.statement_task,
+                    self.provider_started_waiter,
+                )
                 if task is not None
             ]
             for task in owned_siblings:

@@ -16,9 +16,10 @@ from app.services import legal_readiness_service
 
 
 @pytest.fixture(autouse=True)
-def invitation_ready(collection_ready, monkeypatch):
-    # Preserve the dormant invite lifecycle contract; new readiness tests exercise the real hold.
-    monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+def invitation_ready(collection_ready):
+    # The invite lifecycle needs collection alone: emailed invitations are tested in test_invite_mail_controls.py,
+    # and the real holds in test_invitation_readiness.py.
+    assert legal_readiness_service.is_collection_available()
 
 
 @pytest.fixture(scope="module")
@@ -123,9 +124,11 @@ def test_resend_mints_new_invite_and_revokes_old(client, as_admin):
     assert mint.status_code == 200, mint.text
     old_id = mint.json()["id"]
 
-    resend = client.post(f"/api/admin/invites/{old_id}/resend", json={})
+    # A manual re-send: the replacement of a bound invite is emailed unless the request says otherwise.
+    resend = client.post(f"/api/admin/invites/{old_id}/resend", json={"send_email": False})
     assert resend.status_code == 200, resend.text
     body = resend.json()
+    assert body["emailed"] is False and body["delivery_status"] is None
 
     # A brand-new invite was minted with the same email + cohort.
     assert body["id"] != old_id

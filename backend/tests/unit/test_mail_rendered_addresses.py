@@ -179,6 +179,8 @@ COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
+# The invitation hands in two links, the invite's and the unsubscribe page's, each LINK's length as each line holds.
+INVITE = dict(to_email=TO, magic_link=LINK, unsubscribe_link=LINK, delivery_ref="0123456789abcdef" * 2, cohort=None)
 WAITLIST = dict(name=NAME, position=3, referral_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
@@ -228,7 +230,7 @@ RENDERS = {
     "render_referral_success_email": [REFERRAL],
     "send_referral_success_email": [dict(REFERRAL, to_email=TO)],
     "send_verification_email": [dict(to_email=TO, name=NAME, verification_link=LINK)],
-    "send_invite_email": [dict(to_email=TO, magic_link=LINK), dict(to_email=TO, magic_link=LINK, name=NAME)],
+    "send_invite_email": [INVITE, dict(INVITE, name=NAME)],
     "send_password_reset_email": [dict(to_email=TO, name=NAME, reset_link=LINK)],
     "send_oauth_linked_email": [dict(to_email=TO, name=NAME, provider="Google")],
     "send_account_exists_email": [dict(to_email=TO, name=NAME, login_link=LINK, reset_link=LINK)],
@@ -489,6 +491,7 @@ def _render(cases: dict, module=email_service) -> dict:
     mails: dict[str, list[tuple[str, object]]] = {}  # each mail a function sends or returns, as (page, text part)
     transport = resend_service.send_email
     marketing_readiness = legal_readiness_service.is_marketing_available
+    invitation_readiness = legal_readiness_service.is_invitation_email_available_for
     sys.settrace(trace)
     try:
         resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
@@ -496,6 +499,7 @@ def _render(cases: dict, module=email_service) -> dict:
         if module is email_service:
             # Cover the no-mail refusal as well as the dormant template, without exempting lines.
             legal_readiness_service.is_marketing_available = lambda: False
+            legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: False
             asyncio.run(module.send_referral_success_email(**cases["send_referral_success_email"][0]))
             try:
                 asyncio.run(module.send_invite_email(**cases["send_invite_email"][0]))
@@ -504,6 +508,7 @@ def _render(cases: dict, module=email_service) -> dict:
             else:
                 raise AssertionError("closed invitation delivery must refuse")
         legal_readiness_service.is_marketing_available = lambda: True
+        legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: True
         for name, inputs in cases.items():
             for kwargs in inputs:
                 result = getattr(module, name)(**kwargs)
@@ -522,6 +527,7 @@ def _render(cases: dict, module=email_service) -> dict:
         sys.settrace(None)
         resend_service.send_email = transport
         legal_readiness_service.is_marketing_available = marketing_readiness
+        legal_readiness_service.is_invitation_email_available_for = invitation_readiness
     source = Path(module.__file__).read_text(encoding="utf-8")
     values = _public_values(module, source)
     lines = _lines(compile(source, module.__file__, "exec"))

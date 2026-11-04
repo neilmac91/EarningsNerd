@@ -49,8 +49,12 @@ def mint_invite(
     email: Optional[str] = None,
     expires_in_hours: Optional[int] = None,
     cohort: Optional[str] = None,
+    commit: bool = True,
 ) -> tuple[InviteCode, str, str]:
-    """Create an invite and return (row, raw_token, magic_link). The raw token is shown once."""
+    """Create an invite and return (row, raw_token, magic_link). The raw token is shown once.
+
+    ``commit=False`` flushes the row into the caller's open transaction instead, so an emailed invitation commits its
+    link and its delivery record together (invite_delivery_service), or neither."""
     raw = secrets.token_urlsafe(32)
     hours = expires_in_hours or settings.INVITE_EXPIRY_HOURS
     invite = InviteCode(
@@ -61,8 +65,11 @@ def mint_invite(
         created_by=created_by,
     )
     db.add(invite)
-    db.commit()
-    db.refresh(invite)
+    if commit:
+        db.commit()
+        db.refresh(invite)
+    else:
+        db.flush()
     return invite, raw, build_invite_link(raw)
 
 
@@ -81,14 +88,21 @@ def validate_invite(db: Session, raw_token: Optional[str], email: str) -> Option
     return validate_invite_hash(db, _hash_token(raw_token), email)
 
 
-def invite_hash_is_live(db: Session, code_hash: Optional[str]) -> bool:
-    """True when ``code_hash`` names an invite that is still usable (exists, not revoked, unused,
-    unexpired). The email binding is checked at redemption, when the address is known; this is the
-    cheap pre-check an OAuth start uses before it persists anything for the invite."""
+def live_invite(db: Session, code_hash: Optional[str]) -> Optional[InviteCode]:
+    """The invite ``code_hash`` names while it is still usable (exists, not revoked, unused, unexpired), else None.
+    The email binding is checked at redemption, when the address is known; this is the cheap pre-check an OAuth start
+    uses before it persists anything for the invite."""
     if not code_hash:
-        return False
+        return None
     invite = db.query(InviteCode).filter(InviteCode.code_hash == code_hash).first()
-    return invite is not None and not invite.is_revoked and invite.used_at is None and not _is_expired(invite)
+    if invite is None or invite.is_revoked or invite.used_at is not None or _is_expired(invite):
+        return None
+    return invite
+
+
+def invite_hash_is_live(db: Session, code_hash: Optional[str]) -> bool:
+    """True when ``code_hash`` names an invite that is still usable (``live_invite``)."""
+    return live_invite(db, code_hash) is not None
 
 
 def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> Optional[InviteCode]:
@@ -103,19 +117,43 @@ def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> O
     return invite
 
 
-def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
+def redeem_invite(
+    db: Session, invite: InviteCode, user, *, commit: bool = True, cohort: Optional[str] = None,
+) -> bool:
     """Atomically mark a single-use invite redeemed for ``user``. Returns False if a concurrent
-    registration already consumed it or an admin revoked it since it validated (guarded
-    ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false``; E201). On PostgreSQL a
-    redemption that waits behind a revoke's or re-issue's row lock re-checks the row when that
-    transaction commits, so it is refused too.
+    registration already consumed it, an admin revoked it since it validated, or it expired since it
+    validated (guarded ``UPDATE ... WHERE used_at IS NULL AND is_revoked IS false AND expires_at >= now``;
+    E201). The password registration validates the invite before its breached-password check and its
+    hash, seconds that an invite can expire in, so the expiry is part of the guard rather than a check
+    made only at validation (EN-BETA PB-01). On PostgreSQL a redemption that waits behind a revoke's or
+    re-issue's row lock re-checks the row when that transaction commits, so it is refused too.
+
+    ``cohort`` is the invited cohort when that exception, not collection, admits the account
+    (``legal_readiness_service.require_account_admission``): the guard then also requires the row to
+    carry exactly that cohort and to be bound to ``user``'s address, so the redemption decides on the
+    invite as stored, never on the copy an earlier unit read and released.
 
     ``commit=False`` leaves the UPDATE in the caller's open transaction, so a registration commits
     (or rolls back) the new account and the redemption together."""
+    now = _now()
+    conditions = [
+        InviteCode.id == invite.id,
+        InviteCode.used_at.is_(None),
+        InviteCode.is_revoked.is_(False),
+        InviteCode.expires_at >= now,  # validate_invite's test, inverted: _is_expired is exp < now
+    ]
+    if cohort is not None:
+        # Each address is normalized where it enters: a mint lower-cases and strips the invitation's, and the request
+        # schemas and the OAuth callbacks the account's.
+        conditions += [InviteCode.cohort == cohort, InviteCode.email == user.email]
     result = db.execute(
         update(InviteCode)
-        .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None), InviteCode.is_revoked.is_(False))
-        .values(used_at=_now(), user_id=user.id)
+        .where(*conditions)
+        .values(used_at=now, user_id=user.id)
+        # Not evaluated in Python against the session's copy: SQLite hands back a naive expires_at, which no aware
+        # instant compares with. The callers read nothing of the invite before the commit or rollback that ends the
+        # transaction, and either expires the session's copy, so nothing reads it stale.
+        .execution_options(synchronize_session=False)
     )
     if commit:
         db.commit()
@@ -178,6 +216,28 @@ def _unused_invite_locked(db: Session, invite_id: int) -> InviteCode:
     return invite
 
 
+def lock_unused_invite(db: Session, invite_id: int) -> InviteCode:
+    """The unused invite ``invite_id`` under its row lock until the caller's commit (see ``_unused_invite_locked``)."""
+    return _unused_invite_locked(db, invite_id)
+
+
+def pending_invite_for_address(db: Session, email: str, *, exclude_invite_id: Optional[int] = None) -> Optional[int]:
+    """The id of a live invite (unused, unrevoked, unexpired) bound to ``email``, other than ``exclude_invite_id``.
+
+    An emailed invitation and a re-issue of a bound one refuse to make a second live link for an address while one is
+    live (invite_delivery_service), so a repeated submit or a retry cannot mail two different links."""
+    query = db.query(InviteCode.id).filter(
+        InviteCode.email == (email or "").strip().lower(),
+        InviteCode.used_at.is_(None),
+        InviteCode.is_revoked.is_(False),
+        InviteCode.expires_at >= _now(),
+    )
+    if exclude_invite_id is not None:
+        query = query.filter(InviteCode.id != exclude_invite_id)
+    row = query.order_by(InviteCode.id).first()
+    return row.id if row is not None else None
+
+
 def revoke_invite(db: Session, invite_id: int) -> InviteCode:
     """Revoke an unused invite so its link can no longer be redeemed, and commit."""
     invite = _unused_invite_locked(db, invite_id)
@@ -192,9 +252,10 @@ def reissue_invite(
     *,
     created_by: Optional[int],
     expires_in_hours: Optional[int],
+    commit: bool = True,
 ) -> tuple[InviteCode, str, str]:
     """Revoke an unused invite and mint its replacement (same email + cohort); returns ``mint_invite``'s
-    (row, raw_token, magic_link)."""
+    (row, raw_token, magic_link). ``commit=False`` leaves both in the caller's transaction, as ``mint_invite``'s."""
     old = _unused_invite_locked(db, invite_id)
 
     # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
@@ -207,6 +268,7 @@ def reissue_invite(
         email=old.email,
         expires_in_hours=expires_in_hours,
         cohort=old.cohort,
+        commit=commit,
     )
 
 
