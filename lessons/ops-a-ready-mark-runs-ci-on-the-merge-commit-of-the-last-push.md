@@ -37,9 +37,13 @@ Operations and Issues"; its 09:50 update added Actions):
    branch's new head before you mark it ready or wait on its CI. When a push answers 5xx, read GitHub's status page
    before retrying. A pull request still on its old head takes the next real push (a gated merge of main), never an
    empty commit or a close and reopen.
-5. While GitHub reports an incident, a merge can get no push run (#2005), and a backend merge then deploys nothing.
-   Check that each merge's push run started, and hold a merge that deploys the backend until the incident closes or
-   main's tip has a finished run.
+5. When GitHub reports an incident, or a push or merge answers 5xx, decide each merge on fresh repository evidence,
+   not on the incident's status. Read again, before the merge: the pull request's exact head (`refs/pull/N/head`),
+   its required checks on that head, main's push run for each merge since the last backend deploy, and that deploy's
+   verification. Hold only while one of those is missing or inconsistent, a required check has not passed, or the
+   preceding backend deploy is unverified; once all hold, proceed without waiting for the incident to close. A merge
+   in such a window can still get no push run (#2005), and a backend merge then deploys nothing, so read the merge's
+   own push run afterwards too.
 
 **Evidence.**
 - Runs 41805116530 (#1998) and 41805744474 (#1997): their jobs list `e2e-tests` and no `e2e-shard`.
