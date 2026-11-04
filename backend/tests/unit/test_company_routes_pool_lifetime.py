@@ -40,10 +40,11 @@ def _assert_competing_checkout(sessions, company_id):
 
 async def _wait_for_released_pool(stall, engine, sessions, company_id):
     await asyncio.wait_for(stall.started.wait(), timeout=HANG_GUARD_S)
-    for _ in range(20):
+    # Polls for up to HANG_GUARD_S: the route's close can run on a thread that a starved runner starts late.
+    for _ in range(int(HANG_GUARD_S * 100)):
         if engine.pool.checkedout() == 0:
             break
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.01)
     assert engine.pool.checkedout() == 0
     _assert_competing_checkout(sessions, company_id)
 

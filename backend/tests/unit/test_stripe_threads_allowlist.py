@@ -94,8 +94,10 @@ from app.services import logging_service
 from main import app
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-# The portal case's usage read: below the middleware's 30 s default deadline, which would answer a stuck read 504.
-USAGE_READ_S = 20.0
+# The portal case's usage read. The held portal requests run under the middleware's 30 s default deadline, counted
+# from their start, and the case's 10 s poll comes first: together they stay 5 s under it, so a slow but correct run
+# is not answered 504.
+USAGE_READ_S = 15.0
 # The portal case's Stripe calls hold past its 10 s poll and that read together, so only the test releases them.
 STRIPE_HOLD_S = 10 + USAGE_READ_S + 10
 

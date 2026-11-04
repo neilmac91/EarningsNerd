@@ -45,7 +45,9 @@ SYNC_THREAD = "companyfacts_sync"
 # below the hang guards.
 POOL_TIMEOUT = 10.0
 # Below ingest's COMPANYFACTS_INFLIGHT_WAIT_SECONDS (25 s), when a follower its leader never woke returns and passes.
-FOLLOWER_GUARD_S = 20.0
+# A follower's 25 s can start before the case starts this guard (while its leader still runs), so 15 s leaves the
+# leader 10 s of that before production's wait would end first.
+FOLLOWER_GUARD_S = 15.0
 
 
 def _payload() -> dict:

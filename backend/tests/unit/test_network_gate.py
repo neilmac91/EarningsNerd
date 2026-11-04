@@ -142,8 +142,9 @@ def background_loop():
     loop.close()
 
 
+# Each .result(30) below is a hang guard: the 30 s of HANG_GUARD_S in tests/support/hang_guard.py.
 def test_loop_started_here_passes(background_loop):
-    assert asyncio.run_coroutine_threadsafe(asyncio.sleep(0, result=1), background_loop).result(5) == 1
+    assert asyncio.run_coroutine_threadsafe(asyncio.sleep(0, result=1), background_loop).result(30) == 1
 
 
 def test_task_on_another_tests_loop_fails(background_loop):
@@ -152,7 +153,7 @@ def test_task_on_another_tests_loop_fails(background_loop):
             socket.getaddrinfo("gate-selftest-portal.invalid", 443)
         except OSError:
             pass
-    asyncio.run_coroutine_threadsafe(lookup(), background_loop).result(5)
+    asyncio.run_coroutine_threadsafe(lookup(), background_loop).result(30)
 
 
 def test_loopback_and_unix_pass(tmp_path):

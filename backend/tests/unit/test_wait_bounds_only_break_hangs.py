@@ -6,28 +6,39 @@ the test guards fails it at any bound, by an assertion or by hanging until the b
 ``HANG_GUARD_S`` from ``tests/support/hang_guard.py``, or a bound of its own of at least ``FLOOR_S`` where production
 code would end the wait sooner (``lessons/test-a-wait-bound-only-breaks-a-hang.md``).
 
-This gate reads every tracked Python file under ``backend/tests`` for a timed wait and resolves its bound to a number:
+This gate reads every tracked Python file under ``backend/tests`` for a timed wait, and resolves its bound to a number:
 a literal, a module constant (``HANG_GUARD_S`` imported from the support module included), a parameter's default or a
-local assignment in an enclosing function, or arithmetic on those. The forms it reads:
-- ``wait_for(awaitable, bound)`` (``asyncio``'s and ``threading.Condition``'s), ``asyncio.timeout(bound)``,
-  ``asyncio.wait(..., timeout=bound)``;
-- ``.wait(bound)``, ``.join(bound)`` and ``.result(bound)``, or with ``timeout=``; ``.get``, ``.put`` and
-  ``.acquire`` with ``timeout=``; ``Barrier(parties, action, bound)`` or with ``timeout=``;
+local assignment in an enclosing function, ``int()`` or ``float()`` of one, or arithmetic on those. A name assigned
+more than once resolves to its smallest value. The forms it reads:
+- ``wait_for(awaitable, bound)`` (``asyncio``'s and ``threading.Condition``'s); ``asyncio.timeout(bound)``, imported
+  from ``asyncio`` or not; ``asyncio.wait`` and ``concurrent.futures.wait`` or ``as_completed`` with ``timeout=``;
+- ``.wait(bound)``, ``.join(bound)`` and ``.result(bound)``, or with ``timeout=``; ``.get``, ``.put`` and ``.acquire``
+  with ``timeout=``, or with it after a ``block`` flag given as ``True`` or ``False``;
+  ``Barrier(parties, action, bound)`` or with ``timeout=``;
+- a child process or a request with ``timeout=``: ``subprocess.run``, ``check_output``, ``check_call`` and ``call``,
+  ``.communicate``, ``urlopen``;
 - a wait handed to a thread with its bound: ``asyncio.to_thread(event.wait, bound)``,
   ``loop.run_in_executor(executor, event.wait, bound)``;
-- a polling deadline, ``time.monotonic() + bound`` or ``loop.time() + bound``.
+- a polling deadline: ``time.monotonic() + bound``, ``time.perf_counter() + bound`` or ``loop.time() + bound``, also
+  through a name that holds such a clock's reading (``started + bound``), and ``while clock() - started < bound``;
+- a counted poll: ``for _ in range(count)`` whose body sleeps ``step``, a bound of ``count * step``;
+- a helper's bound passed where it is called: a wait whose bound is the helper's parameter is read at each call
+  that passes that parameter.
 
 A bound under ``FLOOR_S`` is short on purpose only where the case needs it: a negative window (the case asserts that
 something does not happen within it), a timing assertion (the bound is the property under test), a polling step, or
-pacing. Each such site is listed in ``SHORT_ON_PURPOSE`` by file and top-level definition, with its reason, and a new
-one fails here until it is listed.
+pacing. Each such site is listed in ``SHORT_ON_PURPOSE`` by file, top-level definition, form and seconds, with its
+reason, and a new one, or one that changes, fails here until it is listed.
 
-What it does not read: a bound it cannot resolve to a number (a parameter with no default, an attribute, a call, a
-patched setting); a wait with no bound; an alias of a wait form (``real_timeout = asyncio.timeout``); a pool's
-``pool_timeout``, which ``lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`` covers and
-which some cases set short on purpose; and an elapsed-time assertion (``time.monotonic() - started < bound``).
-``.join`` with an argument that is not a number is ``str.join``. Whether a guard stays below a production timeout
-that would end the same wait, and whether nested bounds stay in order, is review-checked.
+What it does not read: a bound it cannot resolve to a number (a parameter that no call resolves, an attribute, a
+call, a patched setting); a wait with no bound; an alias of a wait form other than an import (``real_timeout =
+asyncio.timeout``); waits in source held in a string, such as a pytester child's; a pool's ``pool_timeout``, which
+``lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`` covers and which some cases set short
+on purpose; and an elapsed-time assertion (``assert clock() - started < bound``), a timing check E314 records.
+``time.time()`` is the wall clock, which stamps rather than waits, and ``.join`` with an argument that is not a
+number is ``str.join``. Whether a guard stays below a production timeout that would end the same wait, whether nested
+bounds stay in order, and whether a PostgreSQL step's cases fit its time when a defect makes each wait out its guard,
+are review-checked.
 """
 
 from __future__ import annotations
@@ -44,53 +55,63 @@ FLOOR_S = 10.0
 SUPPORT = "tests.support.hang_guard"
 SHARED = {"HANG_GUARD_S": HANG_GUARD_S}
 THREAD_WAITS = {"wait", "join", "result", "get", "acquire", "wait_for"}
+SUBPROCESS_WAITS = {"run", "check_output", "check_call", "call"}
+CLOCKS = {"monotonic", "perf_counter"}
 _OPS = {
     ast.Add: lambda left, right: left + right,
     ast.Sub: lambda left, right: left - right,
     ast.Mult: lambda left, right: left * right,
     ast.Div: lambda left, right: left / right,
 }
+_Function = ast.FunctionDef | ast.AsyncFunctionDef
 
-# (file under backend/, top-level definition) -> (sites, why each is short on purpose).
+# (file under backend/, top-level definition, form, seconds) -> (sites, why each is short on purpose).
 _LOCKOUT = "tests/integration/test_login_lockout_transactions.py"
 _PROGRESS = "tests/integration/test_summary_progress_transactions.py"
 _OWNERSHIP = "tests/unit/test_durable_request_ownership.py"
 _OVERLAP = "tests/unit/test_summary_enrichment_overlap.py"
-SHORT_ON_PURPOSE: dict[tuple[str, str], tuple[int, str]] = {
-    (_LOCKOUT, "test_failure_waiting_on_success_clear_records_against_committed_state"): (
+SHORT_ON_PURPOSE: dict[tuple[str, str, str, float], tuple[int, str]] = {
+    (_LOCKOUT, "test_failure_waiting_on_success_clear_records_against_committed_state", "wait", 0.1): (
         1, "negative window: the failure's upsert is still blocked on the uncommitted clear, inside statement_timeout"),
-    ("tests/integration/test_summary_job_transactions.py", "_LateRelease"): (
+    ("tests/integration/test_summary_job_transactions.py", "_LateRelease", "wait", 0.01): (
         1, "polling step: the late mode's watcher reads pg_locks every 10 ms, how long a waiter stays blocked"),
-    (_PROGRESS, "test_a_write_behind_an_uncommitted_clear_waits_and_follows_its_outcome"): (
+    (_PROGRESS, "test_a_write_behind_an_uncommitted_clear_waits_and_follows_its_outcome", "wait", 0.2): (
         1, "negative window: the write is still blocked on the uncommitted clear, inside statement_timeout"),
-    (_PROGRESS, "test_a_mark_behind_an_uncommitted_holder_waits_and_follows_its_outcome"): (
+    (_PROGRESS, "test_a_mark_behind_an_uncommitted_holder_waits_and_follows_its_outcome", "wait", 0.2): (
         1, "negative window: the stale mark is still blocked on the uncommitted holder, inside statement_timeout"),
     ("tests/integration/test_usage_counter_transactions.py",
-     "test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment"): (
+     "test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment", "result", 1.5): (
         1, "timing assertion: the patched lock_timeout ends the counter's lock wait within 1.5 s"),
-    (_OWNERSHIP, "test_summary_disconnect_joins_actual_worker_before_releasing_leadership"): (
+    (_OWNERSHIP, "test_summary_disconnect_joins_actual_worker_before_releasing_leadership", "asyncio.wait", 0.3): (
         1, "negative window: the cancelled request does not end while its worker still runs"),
-    (_OWNERSHIP, "test_summary_disconnect_joins_the_section_parse_worker_before_releasing_leadership"): (
+    (_OWNERSHIP, "test_summary_disconnect_joins_the_section_parse_worker_before_releasing_leadership",
+     "asyncio.wait", 0.3): (
         1, "negative window: the cancelled request does not end while its section parse still runs"),
-    ("tests/unit/test_event_loop_safety.py", "TestCacheOperationTimeouts"): (
+    ("tests/unit/test_event_loop_safety.py", "TestCacheOperationTimeouts", "wait_for", 3.0): (
         1, "timing assertion: CACHE_OPERATION_TIMEOUT (2 s) cuts a 10 s cache call within 3 s (vacuous today: E314)"),
     ("tests/unit/test_filing_source_storage.py",
-     "test_cancellation_kills_native_child_and_holds_single_permit_through_reap"): (
+     "test_cancellation_kills_native_child_and_holds_single_permit_through_reap", "deadline", 0.05): (
         1, "negative window: a second put gets no permit while the cancelled put's reap holds it"),
-    ("tests/unit/test_provider_admission.py", "test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot"): (
-        1, "timing assertion: the waiter's own 0.05 s budget, not a later one, rejects it within 2 s"),
-    ("tests/unit/test_secret_scan_guard.py", "test_a_scan_past_its_deadline_refuses"): (
+    ("tests/unit/test_provider_admission.py", "test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot",
+     "wait_for", 2.0): (1, "timing assertion: the waiter's own 0.05 s budget, not a later one, rejects it within 2 s"),
+    ("tests/unit/test_secret_scan_guard.py", "test_a_scan_past_its_deadline_refuses", "deadline", 1.5): (
         1, "timing assertion: the scan's deadline is the property under test, below the stub's 5 s sleep"),
     ("tests/unit/test_summary_delivery_acceptance.py",
-     "test_whole_http_deadline_interrupts_real_header_and_body_trickles"): (
+     "test_whole_http_deadline_interrupts_real_header_and_body_trickles", "wait", 0.03): (
         1, "pacing: each trickled byte waits 30 ms, under the client's socket inactivity timeout"),
-    (_OVERLAP, "test_the_statement_parse_waits_for_its_own_excerpt_build"): (
+    ("tests/unit/test_summary_delivery_acceptance.py",
+     "test_whole_http_deadline_interrupts_real_header_and_body_trickles", "deadline", 0.15): (
+        1, "timing assertion: the whole request's 0.15 s deadline is what must cut the trickle short"),
+    ("tests/unit/test_summary_delivery_acceptance.py",
+     "test_network_guard_permits_real_event_loop_uvicorn_and_task_child_startup", "urlopen", 1.0): (
+        1, "polling step: each health probe gives up at 1 s, and the loop retries under its 20 s deadline"),
+    (_OVERLAP, "test_the_statement_parse_waits_for_its_own_excerpt_build", "wait", 2.0): (
         1, "negative window: no statement parse starts during the excerpt build"),
-    (_OVERLAP, "test_the_xbrl_write_finishes_before_the_provider_request"): (
+    (_OVERLAP, "test_the_xbrl_write_finishes_before_the_provider_request", "wait", 2.0): (
         1, "negative window: no provider request starts during the XBRL write"),
-    (_OVERLAP, "test_a_disconnect_during_the_excerpt_build_cancels_the_pending_statement_parse"): (
+    (_OVERLAP, "test_a_disconnect_during_the_excerpt_build_cancels_the_pending_statement_parse", "to_thread", 2.0): (
         1, "negative window: no leaked statement task runs after the disconnect"),
-    ("tests/unit/test_summary_worker_http_isolation.py", "_ready"): (
+    ("tests/unit/test_summary_worker_http_isolation.py", "_ready", "get", 0.5): (
         1, "polling step: each readiness probe gives up at 0.5 s, and the loop retries under its 15 s bound"),
 }
 
@@ -106,6 +127,9 @@ def _number(node: ast.AST | None, names: dict[str, float]) -> float | None:
     if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
         left, right = _number(node.left, names), _number(node.right, names)
         return None if left is None or right is None else _OPS[type(node.op)](left, right)
+    if isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("int", "float") and len(node.args) == 1:
+        inner = _number(node.args[0], names)
+        return None if inner is None else float(int(inner)) if node.func.id == "int" else inner
     return None
 
 
@@ -117,95 +141,193 @@ def _assigned(node: ast.AST) -> tuple[str, ast.AST] | None:
     return None
 
 
-def _module_names(tree: ast.Module) -> dict[str, float]:
+def _keep_least(names: dict[str, float], name: str, value: float | None, defined: set[str]) -> None:
+    """Records a name's value; a name assigned again in the same scope keeps its smallest."""
+    if value is not None:
+        names[name] = min(names[name], value) if name in defined else value
+        defined.add(name)
+
+
+def _module_names(tree: ast.Module) -> tuple[dict[str, float], dict[str, str]]:
+    """The module's numeric names, and what each name imported from ``asyncio``, ``concurrent.futures`` or
+    ``subprocess`` stands for (``{"timeout": "asyncio.timeout"}``)."""
     names: dict[str, float] = {}
+    imports: dict[str, str] = {}
+    defined: set[str] = set()
     for node in tree.body:
         if isinstance(node, ast.ImportFrom) and node.module == SUPPORT:
             for alias in node.names:
                 if alias.name in SHARED:
-                    names[alias.asname or alias.name] = SHARED[alias.name]
-        if (assigned := _assigned(node)) and (value := _number(assigned[1], names)) is not None:
-            names[assigned[0]] = value
-    return names
+                    _keep_least(names, alias.asname or alias.name, SHARED[alias.name], defined)
+        if isinstance(node, ast.ImportFrom) and node.module in ("asyncio", "concurrent.futures", "subprocess"):
+            for alias in node.names:
+                imports[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+        if assigned := _assigned(node):
+            _keep_least(names, assigned[0], _number(assigned[1], names), defined)
+    return names, imports
 
 
-def _scope_names(functions: list[ast.FunctionDef | ast.AsyncFunctionDef], base: dict[str, float]) -> dict[str, float]:
+def _is_clock(func: ast.AST) -> bool:
+    """``time.monotonic``, ``time.perf_counter`` or a loop's ``time``; not ``time.time``, the wall clock."""
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+    if name in CLOCKS:
+        return True
+    return name == "time" and isinstance(func, ast.Attribute) and ast.unparse(func.value) != "time"
+
+
+def _scope(functions: list[_Function], base: dict[str, float]) -> tuple[dict[str, float], set[str]]:
+    """The numeric names an enclosing function chain sees, and the names that hold a clock's reading."""
     names = dict(base)
+    clocks: set[str] = set()
     for function in functions:  # outermost first, so an inner scope's name wins
+        defined: set[str] = set()
         arguments = function.args
         positional = arguments.posonlyargs + arguments.args
         defaulted = zip(positional[len(positional) - len(arguments.defaults):], arguments.defaults)
         for argument, default in [*defaulted, *zip(arguments.kwonlyargs, arguments.kw_defaults)]:
-            if (value := _number(default, names)) is not None:
-                names[argument.arg] = value
+            _keep_least(names, argument.arg, _number(default, names), defined)
         for node in ast.walk(function):
-            if (assigned := _assigned(node)) and (value := _number(assigned[1], names)) is not None:
-                names[assigned[0]] = value
-    return names
-
-
-def _is_clock(func: ast.AST) -> bool:
-    """``time.monotonic`` or a loop's ``time``; ``time.time()`` is the wall clock, which stamps rather than waits."""
-    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-    if name == "monotonic":
-        return True
-    return name == "time" and isinstance(func, ast.Attribute) and ast.unparse(func.value) != "time"
+            if assigned := _assigned(node):
+                _keep_least(names, assigned[0], _number(assigned[1], names), defined)
+                if isinstance(assigned[1], ast.Call) and _is_clock(assigned[1].func):
+                    clocks.add(assigned[0])
+    return names, clocks
 
 
 def _keyword(call: ast.Call, name: str) -> ast.AST | None:
     return next((keyword.value for keyword in call.keywords if keyword.arg == name), None)
 
 
-def _bound(node: ast.AST) -> tuple[str, ast.AST | None] | None:
-    """The form of a timed wait and its bound's expression, else None."""
+def _is_flag(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and isinstance(node.value, bool)
+
+
+def _reads_clock(node: ast.AST, clocks: set[str]) -> bool:
+    return (isinstance(node, ast.Call) and _is_clock(node.func)) or (isinstance(node, ast.Name) and node.id in clocks)
+
+
+def _poll_step(loop: ast.For) -> ast.AST | None:
+    """The step a polling loop's body sleeps, if the body sleeps and can leave early (``break`` or ``return``),
+    outside any function it defines; a loop that always runs out paces work rather than waiting for it."""
+    step, leaves = None, False
+    pending = list(loop.body)
+    while pending:
+        node = pending.pop(0)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        leaves = leaves or isinstance(node, (ast.Break, ast.Return))
+        if step is None and isinstance(node, ast.Call) and node.args and (
+                getattr(node.func, "attr", getattr(node.func, "id", "")) == "sleep"):
+            step = node.args[0]
+        pending.extend(ast.iter_child_nodes(node))
+    return step if leaves else None
+
+
+def _bound(node: ast.AST, imports: dict[str, str], clocks: set[str]) -> tuple[str, ast.AST | None] | None:
+    """The form of a timed wait and its bound's expression (for a counted poll, the count and step), else None."""
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         for side, other in ((node.left, node.right), (node.right, node.left)):
-            if isinstance(side, ast.Call) and _is_clock(side.func):
+            if _reads_clock(side, clocks):
                 return "deadline", other
         return None
+    if isinstance(node, ast.While) and isinstance(node.test, ast.Compare) and len(node.test.ops) == 1:
+        left = node.test.left
+        if (isinstance(node.test.ops[0], (ast.Lt, ast.LtE)) and isinstance(left, ast.BinOp)
+                and isinstance(left.op, ast.Sub) and _reads_clock(left.left, clocks)):
+            return "elapsed poll", node.test.comparators[0]
+        return None
+    if isinstance(node, ast.For) and isinstance(node.iter, ast.Call) and getattr(node.iter.func, "id", "") == "range":
+        step = _poll_step(node)
+        count = node.iter.args[-1] if len(node.iter.args) == 1 else None
+        return ("counted poll", ast.BinOp(left=count, op=ast.Mult(), right=step)) if count and step else None
     if not isinstance(node, ast.Call):
         return None
     func = node.func
     name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
     receiver = ast.unparse(func.value) if isinstance(func, ast.Attribute) else ""
+    if isinstance(func, ast.Name) and name in imports:
+        receiver, name = imports[name].rsplit(".", 1)
     args = node.args
+    timeout = _keyword(node, "timeout")
     if name == "wait_for":
-        return "wait_for", args[1] if len(args) > 1 else _keyword(node, "timeout")
+        return "wait_for", args[1] if len(args) > 1 else timeout
     if name == "timeout" and receiver == "asyncio":
         return "asyncio.timeout", args[0] if args else _keyword(node, "delay")
-    if name == "wait" and receiver == "asyncio":
-        return "asyncio.wait", _keyword(node, "timeout")
+    if name in ("wait", "as_completed") and receiver in ("asyncio", "futures", "concurrent.futures"):
+        return f"{'asyncio' if receiver == 'asyncio' else 'futures'}.{name}", timeout
     if name in ("wait", "join", "result"):
-        return name, args[0] if args else _keyword(node, "timeout")
-    if name in ("get", "put", "acquire"):
-        return name, _keyword(node, "timeout")
+        return name, timeout if timeout is not None else (args[0] if args else None)
+    if name in ("get", "acquire"):
+        return name, timeout if timeout is not None else (args[1] if len(args) > 1 and _is_flag(args[0]) else None)
+    if name == "put":
+        return name, timeout if timeout is not None else (args[2] if len(args) > 2 and _is_flag(args[1]) else None)
+    if name in SUBPROCESS_WAITS and receiver == "subprocess":
+        return f"subprocess.{name}", timeout
+    if name in ("communicate", "urlopen"):
+        return name, timeout
     if name == "Barrier":
-        return "Barrier", args[2] if len(args) > 2 else _keyword(node, "timeout")
+        return "Barrier", args[2] if len(args) > 2 else timeout
     if name == "to_thread" and args and getattr(args[0], "attr", "") in THREAD_WAITS:
-        return "to_thread", args[1] if len(args) > 1 else _keyword(node, "timeout")
+        return "to_thread", args[1] if len(args) > 1 else timeout
     if name == "run_in_executor" and len(args) > 1 and getattr(args[1], "attr", "") in THREAD_WAITS:
         return "run_in_executor", args[2] if len(args) > 2 else None
     return None
 
 
+def _parameter_bounds(tree: ast.Module, imports: dict[str, str]) -> dict[str, list[tuple[_Function, str]]]:
+    """For each function name, the functions of that name with a wait whose bound is one of their parameters."""
+    helpers: dict[str, list[tuple[_Function, str]]] = {}
+    for function in ast.walk(tree):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        arguments = function.args
+        parameters = {a.arg for a in arguments.posonlyargs + arguments.args + arguments.kwonlyargs}
+        for node in ast.walk(function):
+            hit = _bound(node, imports, set())
+            if hit and isinstance(hit[1], ast.Name) and hit[1].id in parameters:
+                helpers.setdefault(function.name, []).append((function, hit[1].id))
+    return helpers
+
+
+def _passed(call: ast.Call, function: _Function, parameter: str) -> ast.AST | None:
+    """What a call passes for a parameter, by keyword or by position (a method's ``self`` or ``cls`` skipped)."""
+    if (value := _keyword(call, parameter)) is not None:
+        return value
+    positional = [a.arg for a in function.args.posonlyargs + function.args.args]
+    if positional[:1] in (["self"], ["cls"]) and isinstance(call.func, ast.Attribute):
+        positional = positional[1:]
+    index = positional.index(parameter) if parameter in positional else len(call.args)
+    return call.args[index] if index < len(call.args) else None
+
+
 def timed_waits(path: str, text: str) -> list[tuple[str, int, str, float]]:
     """Each timed wait in one file whose bound resolves to a number: (top-level definition, line, form, seconds)."""
     tree = ast.parse(text)
-    base = _module_names(tree)
+    base, imports = _module_names(tree)
+    helpers = _parameter_bounds(tree, imports)
     found: list[tuple[str, int, str, float]] = []
 
-    def visit(node: ast.AST, functions: list, top: str) -> None:
+    def visit(node: ast.AST, functions: list[_Function], top: str, scope: tuple[dict[str, float], set[str]]) -> None:
+        names, clocks = scope
         for child in ast.iter_child_nodes(node):
-            hit = _bound(child)
-            if hit is not None and hit[1] is not None:
-                seconds = _number(hit[1], _scope_names(functions, base))
-                if seconds is not None:
-                    found.append((top, child.lineno, hit[0], seconds))
-            nested = functions + [child] if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else functions
+            hit = _bound(child, imports, clocks)
+            if hit is not None and hit[1] is not None and (seconds := _number(hit[1], names)) is not None:
+                found.append((top, child.lineno, hit[0], seconds))
+            # A helper is called by its name, or as a method on self or cls.
+            if isinstance(child, ast.Call) and (isinstance(child.func, ast.Name) or (
+                    isinstance(child.func, ast.Attribute) and ast.unparse(child.func.value) in ("self", "cls"))):
+                called = child.func.attr if isinstance(child.func, ast.Attribute) else child.func.id
+                for function, parameter in helpers.get(called, []):
+                    passed = _passed(child, function, parameter)
+                    if passed is not None and (seconds := _number(passed, names)) is not None:
+                        found.append((top, child.lineno, f"{called}()", seconds))
+            entered = isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            nested = functions + [child] if entered else functions
             named = isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-            visit(child, nested, child.name if top == "<module>" and named else top)
+            visit(child, nested, child.name if top == "<module>" and named else top,
+                  _scope(nested, base) if entered else scope)
 
-    visit(tree, [], "<module>")
+    visit(tree, [], "<module>", (dict(base), set()))
     return sorted(found, key=lambda site: site[1])
 
 
@@ -262,6 +384,49 @@ class Planted:
         return event.wait(timeout=-1 + 3)
 '''
 
+PLANTED_MORE = '''\
+import asyncio, subprocess, time
+from asyncio import timeout as within
+from concurrent import futures
+from concurrent.futures import wait as wait_all
+from tests.support.hang_guard import HANG_GUARD_S
+GUARD = HANG_GUARD_S
+GUARD = 3
+async def test_more(queue, lock, pool, process, fs, event):
+    subprocess.run(["true"], timeout=5)
+    subprocess.check_output(["true"], timeout=HANG_GUARD_S)
+    process.communicate(timeout=4)
+    futures.wait(fs, timeout=1)
+    wait_all(fs, timeout=2)
+    queue.get(True, 1)
+    lock.acquire(False, 1.5)
+    queue.put("item", True, 2)
+    async with within(1):
+        pass
+    started = time.monotonic()
+    deadline = started + 2
+    late = time.perf_counter() + 3
+    while time.monotonic() - started < 4:
+        await asyncio.sleep(0.01)
+    for _ in range(200):
+        if event.is_set():
+            break
+        await asyncio.sleep(0.01)
+    for _ in range(int(HANG_GUARD_S * 100)):
+        if event.is_set():
+            return
+        await asyncio.sleep(0.01)
+    for _ in range(3):
+        await asyncio.sleep(0.01)
+    event.wait(GUARD)
+    call(["not", "a", "child"], timeout=1)
+def _waited(event, within_s):
+    return event.wait(within_s)
+def test_callers(event):
+    _waited(event, 0.5)
+    _waited(event, within_s=HANG_GUARD_S)
+'''
+
 
 def test_the_scan_reads_every_planted_form_of_a_bound():
     assert timed_waits("tests/planted.py", PLANTED) == [
@@ -290,23 +455,46 @@ def test_the_scan_reads_every_planted_form_of_a_bound():
     ]
 
 
+def test_the_scan_reads_child_processes_polls_imported_forms_and_bounds_passed_to_helpers():
+    assert timed_waits("tests/planted_more.py", PLANTED_MORE) == [
+        ("test_more", 9, "subprocess.run", 5.0),
+        ("test_more", 10, "subprocess.check_output", 30.0),
+        ("test_more", 11, "communicate", 4.0),
+        ("test_more", 12, "futures.wait", 1.0),
+        ("test_more", 13, "futures.wait", 2.0),
+        ("test_more", 14, "get", 1.0),
+        ("test_more", 15, "acquire", 1.5),
+        ("test_more", 16, "put", 2.0),
+        ("test_more", 17, "asyncio.timeout", 1.0),
+        ("test_more", 20, "deadline", 2.0),
+        ("test_more", 21, "deadline", 3.0),
+        ("test_more", 22, "elapsed poll", 4.0),
+        ("test_more", 24, "counted poll", 2.0),
+        ("test_more", 28, "counted poll", 30.0),
+        ("test_more", 34, "wait", 3.0),
+        ("test_callers", 39, "_waited()", 0.5),
+        ("test_callers", 40, "_waited()", 30.0),
+    ]
+
+
 def test_the_shared_guard_clears_the_floor():
     assert HANG_GUARD_S >= FLOOR_S
     assert all(reason.strip() for _, reason in SHORT_ON_PURPOSE.values())
+    assert all(seconds < FLOOR_S for _, _, _, seconds in SHORT_ON_PURPOSE)
 
 
 def test_every_short_bound_under_tests_is_listed_as_short_on_purpose():
-    found: Counter[tuple[str, str]] = Counter()
-    sites: dict[tuple[str, str], list[str]] = {}
+    found: Counter[tuple[str, str, str, float]] = Counter()
+    sites: dict[tuple[str, str, str, float], list[str]] = {}
     for path, text in sorted(_tracked().items()):
         for top, line, form, seconds in short_waits(path, text):
-            found[(path, top)] += 1
-            sites.setdefault((path, top), []).append(f"{path}:{line} {form} {seconds:g}s")
+            found[(path, top, form, seconds)] += 1
+            sites.setdefault((path, top, form, seconds), []).append(f"{path}:{line} {form} {seconds:g}s")
     listed = {key: count for key, (count, _) in SHORT_ON_PURPOSE.items()}
     unlisted = [site for key in sorted(found) if found[key] != listed.get(key) for site in sites[key]]
     gone = sorted(key for key in listed if key not in found)
     assert not unlisted and not gone, (
-        f"a wait for work that should finish takes HANG_GUARD_S (tests/support/hang_guard.py), or a bound of its own of "
-        f"at least {FLOOR_S:g} s; list a bound that is short on purpose in SHORT_ON_PURPOSE with why.\n"
+        "a wait for work that should finish takes HANG_GUARD_S (tests/support/hang_guard.py), or a bound of its own "
+        f"of at least {FLOOR_S:g} s; list a bound that is short on purpose in SHORT_ON_PURPOSE with why.\n"
         + "\n".join(unlisted) + ("\nlisted but not found: " + repr(gone) if gone else "")
     )

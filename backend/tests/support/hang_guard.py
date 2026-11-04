@@ -8,7 +8,8 @@ the bound, so a long one costs a failing run only.
 
 A wait whose production code ends it sooner keeps a bound of its own below that, so that a defect that hangs fails at
 the bound and does not pass when production's timeout ends the wait. ``tests/unit/test_wait_bounds_only_break_hangs.py``
-holds every bound under ``backend/tests`` to at least ``FLOOR_S`` there, except the ones it lists as short on purpose.
+holds every bound it reads under ``backend/tests`` to at least ``FLOOR_S`` there, except the ones it lists as short
+on purpose, and names the forms it does not read.
 """
 
 from __future__ import annotations

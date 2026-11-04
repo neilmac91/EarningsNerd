@@ -24,6 +24,7 @@ import yaml
 from evals import copilot_runner as runner
 from evals import copilot_source_check as check
 from scripts import copilot_eval_draw_gate as gate
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_copilot_gate import preparation
 
 WORKFLOW = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "copilot-eval.yml"
@@ -265,7 +266,7 @@ def test_a_refused_source_fails_the_preparation_step_and_spends_no_draw(tmp_path
         env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"], "RUNNER_TEMP": str(tmp_path),
                "PREP_EXIT": str(prep_exit), "CHECK_EXIT": str(check_exit)}
         result = subprocess.run(["bash", "--noprofile", "--norc", "-eo", "pipefail", str(script)], cwd=tmp_path,
-                                env=env, capture_output=True, text=True, timeout=5)
+                                env=env, capture_output=True, text=True, timeout=HANG_GUARD_S)
         assert result.returncode == status, (prep_exit, check_exit, result.stdout, result.stderr)
         assert (reports / "preparation.log").read_text() == "preparation-evidence\n"
         checked = reports / "source-check.log"

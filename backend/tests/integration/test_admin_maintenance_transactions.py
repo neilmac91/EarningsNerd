@@ -138,8 +138,11 @@ def _run(engine, write):
         return None, exc
 
 
-def _waiting(engine, events: tuple[str, ...], sessions: int) -> bool:
-    """Whether, within the hang guard, at least ``sessions`` of the case's other sessions wait on an ``events`` lock."""
+def _waiting(engine, events: tuple[str, ...], sessions: int, *writes) -> bool:
+    """Whether at least ``sessions`` of the case's other sessions wait on an ``events`` lock. It polls until they do,
+    until one of ``writes`` (the writes that should be waiting) has finished, or until the hang guard. A write the lock
+    holds cannot finish, so a finished one never waited: a missing lock fails the case at once, and only a hang waits
+    out the guard, which keeps a defect in every case inside the PostgreSQL step's time."""
     deadline = time.monotonic() + HANG_GUARD_S
     with engine.connect() as conn:
         while time.monotonic() < deadline:
@@ -147,6 +150,8 @@ def _waiting(engine, events: tuple[str, ...], sessions: int) -> bool:
             conn.rollback()  # PostgreSQL reads pg_stat_activity once a transaction: each poll reads it afresh
             if waiting >= sessions:
                 return True
+            if any(write.done() for write in writes):
+                return False
             time.sleep(0.002)
     return False
 
@@ -192,7 +197,7 @@ def _two_writes_behind_the_lock(engine, first, second) -> tuple[list, list]:
     returns each write's result and error."""
     with ThreadPoolExecutor(max_workers=2) as pool, _Holder(engine) as holder:
         futures = [pool.submit(_run, engine, first), pool.submit(_run, engine, second)]
-        waited = _waiting(engine, ADVISORY, 2)
+        waited = _waiting(engine, ADVISORY, 2, *futures)
         holder.release()
         outcomes = [future.result(timeout=60) for future in futures]
     assert waited, "both writes must wait for the maintenance lock while another transaction holds it"
@@ -206,9 +211,11 @@ def _summary_delete_then_reset_all(engine) -> tuple[list, list]:
     first = _filing_ids(engine)[0]
     with ThreadPoolExecutor(max_workers=2) as pool, _Holder(engine, summary_of_filing=first) as holder:
         delete = pool.submit(_run, engine, _summary_delete(first))
-        assert _waiting(engine, ROW, 1), "the summary delete must wait for the held summary row"
+        assert _waiting(engine, ROW, 1, delete), "the summary delete must wait for the held summary row"
         reset_all = pool.submit(_run, engine, _reset_all)
-        assert _waiting(engine, ADVISORY + ROW, 2), "the reset-all must wait behind the summary delete"
+        assert _waiting(engine, ADVISORY + ROW, 2, delete, reset_all), (
+            "the reset-all must wait behind the summary delete"
+        )
         holder.release()
         outcomes = [delete.result(timeout=60), reset_all.result(timeout=60)]
     return [result for result, _ in outcomes], [error for _, error in outcomes]
@@ -249,7 +256,7 @@ def test_each_maintenance_write_waits_for_the_lock(postgres_engine, write):
     run = WRITES[write](_filing_ids(postgres_engine))
     with ThreadPoolExecutor(max_workers=1) as pool, _Holder(postgres_engine) as holder:
         future = pool.submit(_run, postgres_engine, run)
-        waited = _waiting(postgres_engine, ADVISORY, 1)
+        waited = _waiting(postgres_engine, ADVISORY, 1, future)
         finished_while_held = future.done()
         holder.release()
         _, error = future.result(timeout=60)

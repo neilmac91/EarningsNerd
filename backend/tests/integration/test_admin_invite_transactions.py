@@ -149,8 +149,11 @@ def _run(engine, write):
         return None, exc
 
 
-def _waiting(engine, sessions: int) -> bool:
-    """Whether, within the hang guard, at least ``sessions`` of the case's other sessions wait for a row's lock."""
+def _waiting(engine, sessions: int, *writes) -> bool:
+    """Whether at least ``sessions`` of the case's other sessions wait for a row's lock. It polls until they do, until
+    one of ``writes`` (the writes that should be waiting) has finished, or until the hang guard. A write the lock holds
+    cannot finish, so a finished one never waited: a missing lock fails the case at once, and only a hang waits out
+    the guard, which keeps a defect in every case inside the PostgreSQL step's time."""
     deadline = time.monotonic() + HANG_GUARD_S
     with engine.connect() as conn:
         while time.monotonic() < deadline:
@@ -158,6 +161,8 @@ def _waiting(engine, sessions: int) -> bool:
             conn.rollback()  # PostgreSQL reads pg_stat_activity once a transaction: each poll reads it afresh
             if waiting >= sessions:
                 return True
+            if any(write.done() for write in writes):
+                return False
             time.sleep(0.002)
     return False
 
@@ -206,7 +211,7 @@ def _write_beside_a_redemption(engine, write) -> tuple[object, Exception | None]
     invite_id, user_id = _ids(engine)
     with ThreadPoolExecutor(max_workers=1) as pool, _Redemption(engine, invite_id, user_id) as redemption:
         future = pool.submit(_run, engine, write(invite_id))
-        waited = _waiting(engine, 1)
+        waited = _waiting(engine, 1, future)
         redemption.commit()
         result, error = future.result(timeout=60)
     assert waited, "the write must wait for the row the uncommitted redemption wrote"
@@ -256,7 +261,7 @@ def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
                 pytest.fail("the first write must read the invite under its lock"
                             + (f": it raised {held.result()[1]!r}" if held.done() else ""))
             second = pool.submit(_run, postgres_engine, WRITES[write](invite_id))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, second)
         finally:
             release.set()
         results = [held.result(timeout=60), second.result(timeout=60)]
@@ -305,7 +310,7 @@ def _redemption_behind_a_write(engine, monkeypatch, write: str) -> tuple[bool, E
                 pytest.fail("the write must read the invite under its lock"
                             + (f": it raised {admin.result()[1]!r}" if admin.done() else ""))
             redemption = pool.submit(redeem)
-            waited = _waiting(engine, 1)
+            waited = _waiting(engine, 1, redemption)
         finally:
             release.set()
         _, error = admin.result(timeout=60)
@@ -435,7 +440,7 @@ def test_an_opt_out_that_commits_first_stops_the_send(postgres_engine):
             if not locked.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the opt-out must hold the address's lock")
             send = pool.submit(_run, postgres_engine, _prepare(email))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, send)
         finally:
             release.set()
         assert holder.result(timeout=60)[1] is None
@@ -458,7 +463,7 @@ def test_an_opt_out_waits_for_a_send_authorised_first_and_applies_after_it(postg
             if not reached.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the send must pass its checks" + (f": {send.result()[1]!r}" if send.done() else ""))
             opt_out = pool.submit(_run, postgres_engine, _unsubscribe(token))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, opt_out)
         finally:
             release.set()
         prepared, send_error = send.result(timeout=60)
@@ -512,7 +517,7 @@ def test_two_emailed_mints_for_one_address_make_one_link(postgres_engine, monkey
             if not reached.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the first send must pass its checks" + (f": {first.result()[1]!r}" if first.done() else ""))
             second = pool.submit(_run, postgres_engine, _prepare(email))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, second)
         finally:
             release.set()
         prepared, first_error = first.result(timeout=60)

@@ -9,9 +9,9 @@ Date: 2026-11-04 · Area: testing / CI
 
 `backend-tests` runs the suite under pytest-xdist on a 2-vCPU runner for 18 to 26 minutes. There, work that takes
 milliseconds alone stretches to seconds: a hold measured up to 4.8 s
-(`lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`). A scan of every timed wait under
-`backend/tests` found 236 bounds under 10 s, in 54 files. Most bounded work that should finish: a request, a thread,
-an event, a future, a barrier, a polling deadline.
+(`lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md`). Read by the gate below, main's
+`backend/tests` held 515 timed waits, and 244 of them, in 57 files, were under 10 s. Most bounded work that should
+finish: a request, a thread, an event, a future, a barrier, a polling deadline, a child process.
 
 **Rule.**
 1. A bound on a wait for work that should finish only breaks a hang. Use `HANG_GUARD_S` (30 s) from
@@ -28,11 +28,20 @@ an event, a future, a barrier, a polling deadline.
    - a polling step, or pacing.
    List each such bound in the gate, with why it is short.
 5. Never shorten a guard to make a check bite. Add a check that does not race the clock.
+6. In a PostgreSQL step, which gives a file 3 minutes in CI, a defect can make every case wait out the same guard.
+   A poll for a session to block on a lock is the usual one: under a missing lock, nothing ever blocks. Give such a
+   wait an early exit once what it waits for can no longer happen, or a bound whose total over the file's cases fits
+   the step. Above the step's time, CI kills the step with no report of which case failed.
 
 **Evidence.**
 - The failures: jobs 126548146317 (`a20c02079`) and 126618226224 (`8e712d806`), each a `TimeoutError` at the short
   bound. One re-run of the second passed.
+- Rule 6: #2010's first review found that with 30 s guards, a missing lock would make up to 10 cases of one
+  PostgreSQL file each poll 30 s, past its step's 3 minutes. The admin invite and maintenance files' polls now exit
+  once a write that should be blocked has finished, and the filing-insert file's hold waits 10 s.
 - Gate: `backend/tests/unit/test_wait_bounds_only_break_hangs.py` reads every tracked Python file under
-  `backend/tests` for a timed wait and resolves its bound to a number. It fails a bound under `FLOOR_S` (10 s) unless
-  `SHORT_ON_PURPOSE` lists it with its reason. Its docstring names what it cannot read: a bound it cannot resolve
-  to a number, an aliased `asyncio.timeout`, and a pool's `pool_timeout`. Rules 2 and 3 are review-checked.
+  `backend/tests` for the timed waits its docstring lists, and resolves each bound to a number. It fails a bound
+  under `FLOOR_S` (10 s) unless `SHORT_ON_PURPOSE` lists that site with its reason. That gates rule 1's 10 s floor and
+  rule 4's list. Its docstring names what it cannot read, such as a bound it cannot resolve, waits in a string
+  source, a pool's `pool_timeout` and an elapsed-time assertion. Rule 1's choice of `HANG_GUARD_S` over another
+  bound of 10 s or more, and rules 2, 3, 5 and 6, are review-checked.

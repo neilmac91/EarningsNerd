@@ -10,6 +10,7 @@ from evals import copilot_runner as runner
 from evals.copilot_schema import CopilotQACase
 from evals.copilot_scorers import score_copilot_answer
 from evals.schema import GroundTruthFact
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_copilot_provenance import ACC, OTHER, fact, filing
 
 
@@ -378,7 +379,7 @@ def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts(t
         page = tmp_path/f'summary-{present}.md'
         result = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', summary['run']],
             cwd=tmp_path, env={**os.environ, 'GITHUB_STEP_SUMMARY': str(page)},
-            capture_output=True, text=True, timeout=5)
+            capture_output=True, text=True, timeout=HANG_GUARD_S)
         assert result.returncode == 0, result.stderr
         assert (page.read_text() if page.exists() else '') == (readable.read_text() if present else '')
 
