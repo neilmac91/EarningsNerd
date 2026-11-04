@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { FEATURED } from '@/features/fundamentals/lib/featuredMetrics'
 import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
+import { CONCEPT_NAMES } from '@/features/analysis/lib/figureDisplay'
 
 /**
  * A metric that more than one surface names carries one name (E249; CLAUDE.md rule 12). /analysis names each concept
@@ -25,11 +26,18 @@ import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const service = (file: string) => readFileSync(path.resolve(frontendDir, '../backend/app/services', file), 'utf8')
 
-/** The `"concept": "Label",` lines of `_CONCEPT_LABELS`, one entry to a line as periods.py writes them. */
+/** The `"concept": "Label",` lines of `_CONCEPT_LABELS`, one entry to a line as periods.py writes them. Every line of the
+ *  dict that is not blank or a comment must be one, so an entry written another way fails here rather than going unread:
+ *  the source dialog's names are held equal to this table, every concept and no other (E309). */
 function analysisLabels(source: string): Record<string, string> {
   const body = source.match(/^_CONCEPT_LABELS: dict\[str, str\] = \{\n([\s\S]*?)^\}/m)?.[1]
   if (!body) throw new Error('periods.py has no _CONCEPT_LABELS dict')
-  return Object.fromEntries([...body.matchAll(/^ {4}"([a-z0-9_]+)": "([^"\n]*)",$/gm)].map((m) => [m[1], m[2]]))
+  const entries = [...body.matchAll(/^ {4}"([a-z0-9_]+)": "([^"\n]*)",$/gm)].map((m) => [m[1], m[2]])
+  const lines = body.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'))
+  if (entries.length !== lines.length) {
+    throw new Error(`_CONCEPT_LABELS has ${lines.length} entry lines and the reader reads ${entries.length}: write each as    "key": "Label",`)
+  }
+  return Object.fromEntries(entries)
 }
 
 /** The `("concept", "Label"),` entries of `_DELTA_METRICS`, in its headline order. Every line of the list that is not
@@ -100,8 +108,53 @@ describe('one name per metric across the picker, What changed, its landing sampl
       'eps_diluted: "Diluted EPS" (analysis: "EPS (diluted)")',
     ])
     expect(() => analysisLabels('_CONCEPT_LABELS = {}\n')).toThrow('no _CONCEPT_LABELS dict')
+    expect(() => analysisLabels('_CONCEPT_LABELS: dict[str, str] = {\n    "revenue": "Revenue",\n    "total_debt": "Total debt",  # planted\n}\n'))
+      .toThrow('2 entry lines and the reader reads 1')
     expect(() => whatChangedLabels('DELTA = []\n')).toThrow('no _DELTA_METRICS list')
     expect(() => whatChangedLabels('_DELTA_METRICS = [\n    ("revenue", "Revenue"),\n    ("net_income", "Net income"),  # planted\n]\n'))
       .toThrow('2 entry lines and the reader reads 1')
+  })
+})
+
+/** Each line that spells a concept's name from its key, as `file:line` and its text: a `replace` or `replaceAll` on
+ *  `concept`, a member, an optional or asserted one, or a bare name (`input.concept.replaceAll('_', ' ')`,
+ *  `concept!.replace(…)`). A name comes from conceptName (features/analysis/lib/figureDisplay.ts), /analysis's own: the
+ *  key re-spelled gave the source dialog "Operating Cash Flow" under a Method line reading "Operating cash flow", and
+ *  "eps diluted" (E309). conceptName's own fallback, for a concept /analysis does not name, is the one line allowed. */
+const KEY_AS_NAME = /\bconcept[?!]?\.replace(?:All)?\(/
+const NAME_FALLBACK = [path.join('features', 'analysis', 'lib', 'figureDisplay.ts'), "const words = concept.replaceAll('_', ' ')"]
+function keyNames(files: string[], read: (file: string) => string): [string, string][] {
+  return files.flatMap((file) => read(file).split('\n').flatMap((line, index): [string, string][] =>
+    KEY_AS_NAME.test(line) ? [[`${file}:${index + 1}`, line.trim()]] : []))
+}
+
+const SOURCE_ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
+const sources = SOURCE_ROOTS.flatMap((root) => readdirSync(path.resolve(frontendDir, root), { recursive: true, encoding: 'utf8' })
+  .filter((file) => /\.tsx?$/.test(file))
+  .map((file) => path.join(root, file)))
+
+describe('one name per concept in the source dialog and the narrative\'s citations (E309)', () => {
+  it("names every concept as /analysis does, each of its concepts and no other", () => {
+    expect(CONCEPT_NAMES).toEqual(analysis)
+  })
+
+  it("leaves no source spelling a concept's name from its key, conceptName's own fallback aside", () => {
+    expect(sources).toContain(path.join('features', 'analysis', 'components', 'SourceValue.tsx'))
+    // The fallback is pinned as the one hit, so its allowance cannot outlive it.
+    const hits = keyNames(sources, (file) => readFileSync(path.resolve(frontendDir, file), 'utf8'))
+    expect(hits.map(([at, text]) => [at.replace(/:\d+$/, ''), text])).toEqual([NAME_FALLBACK])
+  })
+
+  it("fails a name spelled from the key: the dialog's, the citation link's, a bare or asserted concept's (planted)", () => {
+    const planted: Record<string, string> = {
+      'dialog.tsx': "<p className=\"font-medium capitalize\">{input.concept.replaceAll('_', ' ')}</p>",
+      'citation.tsx': "aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}`}",
+      'bare.tsx': "<ModalHeader id={id}>{label ?? concept?.replaceAll('_', ' ')} · {period}</ModalHeader>",
+      'asserted.tsx': "const label = input.concept!.replace(/_/g, ' ')",
+      'named.tsx': '<p className="font-medium">{conceptName(input.concept)}</p>',
+      'other.tsx': "const id = conceptName(concept).replaceAll(' ', '-')",
+    }
+    expect(keyNames(Object.keys(planted), (file) => planted[file]).map(([at]) => at))
+      .toEqual(['dialog.tsx:1', 'citation.tsx:1', 'bare.tsx:1', 'asserted.tsx:1'])
   })
 })

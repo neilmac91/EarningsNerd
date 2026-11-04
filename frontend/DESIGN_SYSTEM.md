@@ -1092,7 +1092,12 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  source lineage. Checks tell a reported figure taken from the company’s filed data (XBRL)
                  apart from a compatible-input calculation; neither claims an audit. Missing figures read
                  “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
-                 source links name their figure and period.
+                 source links name their figure and period. Each input is named as /analysis names its
+                 row, in the Method line's sentence case (“Operating cash flow”, “EPS (diluted)”;
+                 figureDisplay.ts conceptName), and no CSS recases it; inside a sentence, a source link's
+                 name or a noted comparison's input, the name takes inSentence (“for operating cash flow”).
+                 Gate: tests/unit/metricLabelParity.spec.ts holds the names to periods.py's
+                 _CONCEPT_LABELS and fails a name spelled from a concept's key (E309).
                  A recorded formula reads in words (figureDisplay.ts FORMULAS: “Operating income ÷
                  revenue × 100”), in the Method section, under each input, and after “Calculation:” for
                  a comparison (“(Current − same period last year) ÷ absolute same period last year”);

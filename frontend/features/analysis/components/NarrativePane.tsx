@@ -9,10 +9,12 @@ import { ActivityLine, Badge, Button, Card, Notice, countControlClass, cx } from
 import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
+import { inSentence } from '@/lib/format'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
 import type { KnownErrorCode } from '@/lib/api/client'
 import { sourceUrl, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { citationDisplay, compactNarrativeText, currencyAmountsNeedingPrecision, remarkAnalysisPeriods, remarkCompactAnalysis, splitNarrativeEvidence, type NarrativeOperand } from '@/features/analysis/lib/narrativeDisplay'
+import { conceptName } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { groupQualityNotes, noteMarksFigure, qualityNotesModelFromWire, type QualityNotesModel } from '@/features/analysis/lib/dataNotes'
@@ -211,7 +213,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
             <span className="min-w-0 break-words">
               {citationDisplay(citation)}
               <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
-              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'} (opens in a new tab)`}>Original filing</a>}
+              {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept ? inSentence(conceptName(citation.concept)) : 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'} (opens in a new tab)`}>Original filing</a>}
               {sourceLabel(citation) && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-tertiary-dark">
                   · {sourceLabel(citation)}
