@@ -214,6 +214,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - test-verify-orphaned-tests-before-adopting.md — Verify orphaned or uncollected tests before adopting them
 - test-vitest-for-copy-changes.md — Run vitest before pushing any change to rendered text, numbers, or copy
 - test-vitest4-mock-error-tracking.md — Plain-function error mocks avoid handled-error failures; reproduced on Vitest 4 and rechecked on Vitest 5
+- test-wait-for-a-closed-sessions-advisory-lock.md — Prove that a closed session freed its advisory lock by waiting for it (`pg_advisory_xact_lock` under a statement timeout), never with a probe that does not wait; such a probe is sound only while a live session holds the lock, asserted to fail (partly gated by `backend/tests/unit/test_advisory_lock_probe_sites.py` and the recovery cases' `late` mode)
 - test-wire-format-coverage.md — Pin serialized wire formats with tests — suites that only check values let format drift through
 
 ## Frontend & design system

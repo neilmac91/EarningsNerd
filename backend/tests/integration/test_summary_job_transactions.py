@@ -11,7 +11,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier, Event
+from threading import Barrier, Event, Timer
 from uuid import uuid4
 
 import pytest
@@ -71,15 +71,47 @@ def seeded(factory):
         return user.id, filing.id
 
 
-@pytest.fixture
-def recovery_guard(postgres_engine, monkeypatch):
+@pytest.fixture(params=["prompt", "late"])
+def recovery_guard(request, postgres_engine, monkeypatch):
     # Advisory locks are database-wide, unlike this home's per-case row schema.
     monkeypatch.setattr(recovery, "RECOVERY_LOCK_KEY", int(uuid4().hex[:15], 16))
     monkeypatch.setattr(database, "_DATABASE_URL", postgres_engine.url)
     monkeypatch.setattr(recovery, "_engine", None)
+    closes = []
+    if request.param == "late":
+        # The server frees a released session's lock only when its backend exits, after release() returns. Each case
+        # runs again with every released session held open for 300 ms, its pool slot already free, as on a runner too
+        # busy to schedule that exit soon: a case that counts on the lock being free without waiting for it fails
+        # every time (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
+        def release(self):
+            connection, self.connection = self.connection, None
+            if connection is not None:
+                connection.detach()
+                closes.append(Timer(0.3, connection.close))
+                closes[-1].start()
+
+        monkeypatch.setattr(recovery._RecoveryOwner, "release", release)
     yield
+    for close in closes:
+        close.join()
     if recovery._engine is not None:
         recovery._engine.dispose()
+
+
+def _assert_held_elsewhere(postgres_engine):
+    # Sound only while a live session holds the lock: its backend cannot free it until that session ends. The
+    # transaction-level probe keeps nothing if it ever succeeds.
+    with postgres_engine.begin() as probe:
+        assert not probe.execute(select(func.pg_try_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+
+
+def _wait_until_free(postgres_engine):
+    # release() closes the owning session and returns at once. The server frees that session's lock only when its
+    # backend exits, which a busy runner can schedule after a probe that does not wait, so wait for the lock, as the
+    # crash case does. The fixture's 5 s statement timeout is a hang guard, not an elapsed assertion: a lock left held
+    # fails the case there (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
+    with postgres_engine.begin() as probe:
+        probe.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
 
 
 def test_recovery_session_excludes_other_caller_without_open_transaction(recovery_guard, postgres_engine):
@@ -106,9 +138,7 @@ def test_recovery_session_excludes_other_caller_without_open_transaction(recover
     finally:
         first.release()
     assert first.connection is None
-    with postgres_engine.begin() as probe:
-        assert probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-        assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+    _wait_until_free(postgres_engine)
 
 
 @pytest.mark.asyncio
@@ -141,7 +171,9 @@ async def test_recovery_real_transactions_have_local_budgets(recovery_guard, fac
 
 
 @pytest.mark.asyncio
-async def test_recovery_lock_timeout_closes_pass_without_queue_work(recovery_guard, factory, seeded, monkeypatch):
+async def test_recovery_lock_timeout_closes_pass_without_queue_work(
+    recovery_guard, factory, seeded, postgres_engine, monkeypatch,
+):
     user_id, filing_id = seeded
     view = store.ensure_job(filing_id, user_id)
     calls = []
@@ -157,6 +189,7 @@ async def test_recovery_lock_timeout_closes_pass_without_queue_work(recovery_gua
             await jobs.recover_due_jobs()
     assert calls == []
     assert not recovery._slot.locked()
+    _wait_until_free(postgres_engine)
     assert await jobs.recover_due_jobs() == 1
 
 
@@ -186,8 +219,7 @@ async def test_recovery_cancellation_keeps_pg_lock_until_sql_thread_finishes(
         assert await asyncio.to_thread(entered.wait, 10)
         task.cancel()
         await asyncio.wait_for(draining.wait(), 10)
-        with postgres_engine.begin() as probe:
-            assert not probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+        _assert_held_elsewhere(postgres_engine)
         assert not task.done()
     finally:
         release.set()
@@ -228,13 +260,6 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         entered.set()
         assert release.wait(10), "test did not unblock the cleanup executor"
 
-    def competitor_acquires():
-        with postgres_engine.begin() as probe:
-            acquired = probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-            if acquired:
-                assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-            return acquired
-
     async def one_pass():
         async with recovery.recovery_scope() as acquired:
             assert acquired
@@ -244,13 +269,13 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
     task = asyncio.create_task(one_pass())
     try:
         await asyncio.wait_for(cleanup_queued.wait(), 10)
-        assert not competitor_acquires()
+        _assert_held_elsewhere(postgres_engine)
         for _ in range(3):
             task.cancel()
             await asyncio.sleep(0)
             assert not submitted[2].cancelled(), "mandatory disconnect was discarded before starting"
             assert not task.done() and recovery._slot.locked()
-            assert not competitor_acquires()
+            _assert_held_elsewhere(postgres_engine)
             async with recovery.recovery_scope() as acquired:
                 assert not acquired
         release.set()
@@ -259,7 +284,7 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         assert submitted[2].done() and not submitted[2].cancelled()
         assert owner.connection is None
         assert not recovery._slot.locked()
-        assert competitor_acquires()
+        _wait_until_free(postgres_engine)
     finally:
         release.set()
         if not task.done():
