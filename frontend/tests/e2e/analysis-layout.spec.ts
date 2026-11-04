@@ -16,8 +16,8 @@ import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShape
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
  *
  * The trend charts are read through fixtures/trendChartDom.ts, on the spec renderer, the only one since step 7 of the
- * trend-chart migration (E195). CI's e2e-tests job runs this file and charts-v2.spec.ts, which holds the renderer's
- * keyboard and notes cases.
+ * trend-chart migration (E195). CI's browser shards (e2e-shard) run this file and charts-v2.spec.ts, which holds the
+ * renderer's keyboard and notes cases.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']

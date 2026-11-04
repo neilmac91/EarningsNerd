@@ -20,7 +20,7 @@ import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixt
  * it is drawn, a grid row's cards and plots line up, the page never scrolls sideways); and M19 (the legend wraps by whole
  * items). The unit fixtures (tests/unit/fixtures/chart-datasets.json) keep their values; the page receives each under its
  * own ticker (analysisLayoutApi's datasetFixture). D4, D7, D11, D12 and D13 run elsewhere: the first four on every fixture
- * in jsdom (trend-charts-v2.spec.tsx), D13 in charts-v2.spec.ts. CI's standard e2e-tests job runs the whole gallery.
+ * in jsdom (trend-charts-v2.spec.tsx), D13 in charts-v2.spec.ts. CI's browser shards (e2e-shard) run the whole gallery.
  */
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 const FIXTURE = JSON.parse(readFileSync(path.join(__dirname, '../unit/fixtures/chart-datasets.json'), 'utf8')) as {

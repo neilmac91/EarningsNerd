@@ -3330,8 +3330,9 @@ tooltip first, wherever focus is when a pointer raised it, then collapses an exp
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
 themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` and, for the tap on a tooltip over the bars it covers,
-`tests/e2e/company-sector-peers.spec.ts` (E267). CI's required `e2e-tests` job runs them all
-unconditionally after E195 retires the separate chart job and its flag guards (F67).
+`tests/e2e/company-sector-peers.spec.ts` (E267). CI's browser shards (`e2e-shard`) run them all
+unconditionally, and its required `e2e-tests` check passes only when every shard passed; E195 retired the separate
+chart job and its flag guards (F67).
 
 **Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws
 through the same engine in the analysis charts' full look (E195 (D), D-067): `buildBarChart` (`lib/charts/barChart.ts`)
