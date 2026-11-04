@@ -74,7 +74,7 @@ of one plain sentence, claims backed by a figure with its source, no throat-clea
 | "Join 0+ others on the waitlist" | (nothing, until the count is worth saying; then "Join 1,234+ others": the verb of the "Join the waitlist" it replaces, and short enough that the status above the form keeps its height) |
 | "Choose the plan that fits your workflow" (pricing subtitle) | "Summaries are generated once per filing and shared. That is what makes unlimited reading possible at this price." |
 | "You're on the EarningsNerd waitlist! 🎉" (email subject) | "You're on the EarningsNerd waitlist" |
-| "Please verify your email address to unlock AI-powered SEC filing summaries." | "Verify your email address to subscribe to Pro." (what verifying gates: checkout, as the site's banner says) |
+| "Please verify your email address to unlock AI-powered SEC filing summaries." | "Verify your email address to confirm it's yours." (the one ask, in the mail and the site's banner: beta testers get Pro by grant and checkout stays closed, so it names no purchase; #1965 Decision 4) |
 | "We couldn't find this page. The link may be mistyped or out of date." (404) | "We looked. The link is mistyped or out of date. Start from the homepage search, or open your dashboard." |
 | "Scanning 400 pages of footnotes so you don't have to…" (loading quip) | "Reading the footnotes so you can go straight to the ones that matter…" |
 | "Explore SEC filings with AI-assisted summaries." (footer) | "The summary that shows its work." |

@@ -61,7 +61,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   without one, and "We couldn't check the link just now. Reload this page to try again." for a lost
   connection, a timeout or a server error, never the API client's own text; on success, "Your email
   address is confirmed. Taking you to the home page…" (reading and a password sign-in never waited on
-  it). The verification banner says "Verify your email to subscribe.", and the dialog that checkout's
+  it). The verification banner says "Verify your email address to confirm it's yours.", the
+  verification mail's own ask (#1965 Decision 4: beta testers get Pro by grant and checkout stays
+  closed, so neither names subscribing), and the dialog that checkout's
   403 opens says "Subscribing requires a verified email. We send verification links to" the address:
   checkout is the one action that refuses an unverified email, with a 403
   (`tests/unit/authPagesCopy.spec.tsx` holds that 403 to `backend/app/routers/subscriptions.py`, and
@@ -555,8 +557,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `formatCompanyName.spec.ts` both run, the Python test also holding the two modules' word lists equal.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
-  mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
-  said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
+  mail asks only that the reader confirm the address, "Verify your email address to confirm it's
+  yours." (#1965 Decision 4, which replaced E46's "to subscribe to Pro."), where it said "and you can
+  start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
   "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
   can check it."), where it said "so you don't have to read the whole filing"; and the waitlist welcome
   mail no longer asks its reader to verify their address "to secure your place", a step no page took
