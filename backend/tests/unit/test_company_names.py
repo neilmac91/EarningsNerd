@@ -6,8 +6,9 @@ capitals. Two copies of one rule drift unless something holds them together:
 
 1. one case table, ``tests/fixtures/company_display_names.json``, which this test and
    ``frontend/tests/unit/formatCompanyName.spec.ts`` both run, so a case added for either copy runs on both;
-2. the four word lists (OVERRIDES, KEEP_UPPER, LEGAL_SUFFIX, LOWER_MIDWORD), read from the TypeScript source
-   and held equal to the Python module's, so a word added on one side fails here until the other has it.
+2. the five word lists (OVERRIDES, KEEP_UPPER, LEGAL_SUFFIX, LOWER_MIDWORD, LEADING_INITIALISMS), read from the
+   TypeScript source and held equal to the Python module's, so a word added on one side fails here until the other
+   has it.
 """
 from __future__ import annotations
 
@@ -88,6 +89,7 @@ def test_the_word_lists_are_the_typescript_modules():
     assert _ts_set("KEEP_UPPER") == company_names.KEEP_UPPER
     assert _ts_set("LEGAL_SUFFIX") == company_names.LEGAL_SUFFIX
     assert _ts_set("LOWER_MIDWORD") == company_names.LOWER_MIDWORD
+    assert _ts_record("LEADING_INITIALISMS") == company_names.LEADING_INITIALISMS
 
 
 def test_the_list_reader_reads_what_it_claims():
