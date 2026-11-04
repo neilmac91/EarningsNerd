@@ -16,10 +16,11 @@ main, so it picks up the shards with no push" (#1997, 07:40 UTC):
 
 Both runs were cancelled, since the limit cuts the single job, and each branch took a merge of main.
 
-The same morning GitHub opened an incident (Pull Requests, Git Operations, Issues and Actions, from 09:49 UTC):
-- A push of `e9d2614e6` to #2000 answered 500; its retry moved the branch, but the pull request kept `dd7455cd1` as
-  its head for 40 minutes. No CI run started, and the ready mark at 09:42 UTC started none either, since the stored
-  head conflicted with main.
+The same morning GitHub faltered before it posted an incident at 09:49 UTC ("Incident with Pull Requests, Git
+Operations and Issues"; its 09:50 update added Actions):
+- At about 09:41 UTC a push of `e9d2614e6` to #2000 answered 500; its retry moved the branch, but the pull request
+  kept `dd7455cd1` as its head for 44 minutes. No CI run started, and the ready mark at 09:42 UTC started none
+  either, since the stored head conflicted with main.
 - A gated merge of main, pushed at 10:25 UTC after another 500 and a retry, registered at once, and CI ran.
 - #2005's merge to main (`28c8eb1ec`, 10:15 UTC) got no `ci.yml` push run, and a merge call for #1998 answered 502
   and did not merge.
@@ -50,6 +51,6 @@ The same morning GitHub opened an incident (Pull Requests, Git Operations, Issue
 - `lessons/ops-unmergeable-pr-runs-no-pull-request-workflows.md`: a `pull_request` run builds on that test merge commit,
   and none starts while it cannot be built.
 - #2000: from 09:41 to 10:25 UTC `git ls-remote` gave the branch as `e9d2614e6` and `refs/pull/2000/head` as
-  `dd7455cd1`, and the pull request's timeline holds no commit event for `e9d2614e6`. After the push of `b38ce7f1d`
-  both read `b38ce7f1d`, and run 41814114906 started.
+  `dd7455cd1`, and the pull request's timeline showed no commit event for `e9d2614e6` until `b38ce7f1d` was pushed.
+  After that push both read `b38ce7f1d`, and run 41814114906 started.
 - githubstatus.com: "Incident with Pull Requests, Git Operations and Issues", opened 09:49:55 UTC on 2026-11-04.
