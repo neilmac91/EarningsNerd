@@ -292,6 +292,10 @@ def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_pa
         assert job["needs"] == ["ci-scope"]
         assert job["if"] == "${{ always() && !cancelled() }}"
         guard, records, *steps = job["steps"]
+        # The guard alone fails a leg whose scope failed or is missing. With an `if:` of its own it would skip, every
+        # step after it would skip too, and the leg would pass; so would a `continue-on-error:` or a `shell:` that runs
+        # nothing (E312). The shard job's own keys are pinned in the shards test; lighthouse is advisory by design.
+        assert set(guard) == {"name", "env", "run"} and guard["name"] == "Require a valid browser scope"
         assert guard["env"] == {
             "SCOPE_RESULT": "${{ needs.ci-scope.result }}",
             "RECORDS_ONLY": "${{ needs.ci-scope.outputs.records_only }}",

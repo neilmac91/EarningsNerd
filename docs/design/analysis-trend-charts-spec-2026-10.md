@@ -295,7 +295,8 @@ says so; everything else follows the spec.
   above. The renderer names each text's role (`data-text`) and each panel's plot rect (`data-plot`) for these checks.
   `frontend/tests/unit/chart-readout.spec.ts` holds every readout to the model, and the golden plans carry the six
   datasets' readouts. The unit specs also run M14, and M19 on the PNG's legend (`chart-export.spec.ts`). In a browser,
-  under full font hinting, unconditionally in CI's required `e2e-tests` job. The founder lifted the separate
+  under full font hinting, unconditionally in CI's browser shards (`e2e-shard`), which its required `e2e-tests`
+  check sums. The founder lifted the separate
   `e2e-charts-v2` check (F67), and E195 retired that duplicate job and the specs' flag guards:
   - `frontend/tests/e2e/charts-v2-gallery.spec.ts` draws twelve datasets chosen for their cases, in both themes at
     1280 and 390 px, card and expanded. It holds each chart to the plan the engine makes at the width the page
