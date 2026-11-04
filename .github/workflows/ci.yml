@@ -362,11 +362,21 @@ jobs:
         continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
+      - name: Cache ESLint results
+        uses: actions/cache@v6
+        with:
+          path: frontend/.eslintcache
+          # Keep custom-rule or toolchain changes out of restore-prefix hits too. The content
+          # strategy below rechecks changed files after restoring a different commit's results.
+          key: eslint-${{ runner.os }}-${{ runner.arch }}-node22.23.4-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/eslint*.mjs', 'frontend/tailwind.config.js', 'frontend/tsconfig*.json') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ runner.arch }}-node22.23.4-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/eslint*.mjs', 'frontend/tailwind.config.js', 'frontend/tsconfig*.json') }}-
       - name: Lint
-        run: npm run lint
+        # Local `npm run lint` stays uncached so edits to a custom rule always recheck its users.
+        run: npm run lint -- --cache --cache-strategy content
         working-directory: frontend
       - name: Typecheck (app/library code)
-        # Specs are typechecked at runtime by Vitest; this gates shipped code.
+        # Specs are exercised by Vitest, which strips their types; this gates shipped code (E246).
         run: npm run typecheck
         working-directory: frontend
       - name: Verify vitest config
@@ -468,6 +478,16 @@ jobs:
       - name: Install Chrome
         if: needs.ci-scope.outputs.records_only == 'false'
         uses: browser-actions/setup-chrome@v2
+      - name: Cache Next.js build
+        if: needs.ci-scope.outputs.records_only == 'false'
+        uses: actions/cache@v6
+        with:
+          path: frontend/.next/cache
+          # The workflow hash captures build-time flags; the job namespace keeps Lighthouse's
+          # different flags apart from E2E. Restore only compiler caches, never built pages.
+          key: next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-
       - name: Build
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run build
@@ -731,6 +751,16 @@ jobs:
           echo "::warning::playwright --with-deps failed/stalled (apt); falling back to browsers-only Chromium"
           npx playwright install chromium
         working-directory: frontend
+      - name: Cache Next.js build
+        if: needs.ci-scope.outputs.records_only == 'false'
+        uses: actions/cache@v6
+        with:
+          path: frontend/.next/cache
+          # Shards build identical flags, so they share a cache. Concurrent saves of the same
+          # key are harmless: the first successful shard saves it and the others keep testing.
+          key: next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-
       - name: Build frontend
         if: needs.ci-scope.outputs.records_only == 'false'
         run: npm run build

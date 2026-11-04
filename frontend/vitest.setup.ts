@@ -1,4 +1,7 @@
-import '@testing-library/jest-dom/vitest'
+// Filesystem and AST policy tests use Node and do not need browser matchers.
+if (typeof window !== 'undefined') {
+  await import('@testing-library/jest-dom/vitest')
+}
 
 // Enable feature flags for tests.
 process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS = 'true'
@@ -28,5 +31,4 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   })
 }
 
-
-
+export {}

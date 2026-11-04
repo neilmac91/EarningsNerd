@@ -1,3 +1,4 @@
+// @vitest-environment node
 /* =============================================================================
    trailingArrowRun.spec.ts: a trailing glyph keeps with its last word
    -----------------------------------------------------------------------------

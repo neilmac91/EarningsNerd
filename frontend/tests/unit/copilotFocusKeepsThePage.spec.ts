@@ -1,3 +1,4 @@
+// @vitest-environment node
 /* =============================================================================
    copilotFocusKeepsThePage.spec.ts — a focus the pane's code moves keeps the page
    -----------------------------------------------------------------------------
