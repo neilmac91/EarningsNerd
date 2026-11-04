@@ -43,6 +43,7 @@ from app.database import Base, SessionLocal
 from app.models import Company, Filing, FilingContentCache, Summary, SummaryGenerationProgress
 from app.services import admin_filing_service, admin_summary_service
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 ACTOR = SimpleNamespace(id=0)  # the admin a write logs; nothing reads the account
 # "MAINTAIN" in ASCII, pinned here rather than read from the module under test, so a changed key fails: a write that
@@ -57,6 +58,8 @@ WAITING = text(
 ).bindparams(bindparam("events", expanding=True))
 ADVISORY = ("advisory",)
 ROW = ("transactionid", "tuple")
+# A holder outlasts the hang-guarded polls (_waiting) made while it holds: two in _summary_delete_then_reset_all.
+HOLD_S = 2 * HANG_GUARD_S + 10
 
 
 @pytest.fixture
@@ -136,8 +139,8 @@ def _run(engine, write):
 
 
 def _waiting(engine, events: tuple[str, ...], sessions: int) -> bool:
-    """Whether, within 5 s, at least ``sessions`` of the case's other sessions wait for a lock of ``events``."""
-    deadline = time.monotonic() + 5
+    """Whether, within the hang guard, at least ``sessions`` of the case's other sessions wait on an ``events`` lock."""
+    deadline = time.monotonic() + HANG_GUARD_S
     with engine.connect() as conn:
         while time.monotonic() < deadline:
             waiting = conn.execute(WAITING, {"events": list(events)}).scalar()
@@ -169,11 +172,11 @@ class _Holder:
                     conn.execute(text("SELECT id FROM summaries WHERE filing_id = :filing FOR UPDATE"),
                                  {"filing": self.summary_of_filing})
                 self.held.set()
-                self.released.wait(timeout=30)
+                self.released.wait(timeout=HOLD_S)
 
     def __enter__(self) -> "_Holder":
         self.thread.start()
-        assert self.held.wait(timeout=5), "the holder must take its lock"
+        assert self.held.wait(timeout=HANG_GUARD_S), "the holder must take its lock"
         return self
 
     def __exit__(self, *exc) -> None:

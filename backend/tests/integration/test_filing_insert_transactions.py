@@ -44,6 +44,7 @@ from app.database import Base, SessionLocal
 from app.models import Company, Filing
 from app.services import filing_amendment_service, filing_list_service
 from app.services.filing_scan_service import upsert_filings
+from tests.support.hang_guard import HANG_GUARD_S
 
 PARENT, SUBSIDIARY = "XPAR", "YSUB"  # two registrants of one combined filing
 # A session of this case's engine waiting for the filing-insert lock: the checking connection is the case's own, so
@@ -53,6 +54,9 @@ WAITING_FOR_THE_INSERT_LOCK = text(
     " AND objsubid = 1 AND pg_locks.database = (SELECT oid FROM pg_database WHERE datname = current_database())"
     " AND classid::bigint = :high AND objid::bigint = :low AND application_name = current_setting('application_name')"
 )
+# Above what one writer can wait out in a row, the hold's barrier and insert-lock waits (HANG_GUARD_S each) and a
+# statement's 30 s statement_timeout, with 10 s to spare, so each of those ends its wait first.
+WRITER_GUARD_S = 2 * HANG_GUARD_S + 40
 
 
 @pytest.fixture
@@ -111,15 +115,16 @@ def _live_listing(ticker: str, rows: list[dict]):
 
 class _HoldAfterCheck:
     """Holds each writer's thread after its check, its first read of filings by accession once it has locked its
-    company, until every writer has made its own or 5 s pass, so each checks before any inserts, and records how many
-    of its accessions each check found stored. At the insert lock it lets the holder take the lock first, then keeps
-    the holder there, the lock granted, until PostgreSQL shows another of the case's sessions waiting for it or 5 s
-    pass, and records whether one did. With no holder, it leaves the insert lock alone."""
+    company, until every writer has made its own or HANG_GUARD_S passes, so each checks before any inserts, and
+    records how many of its accessions each check found stored. At the insert lock it lets the holder take the lock
+    first, then keeps the holder there, the lock granted, until PostgreSQL shows another of the case's sessions
+    waiting for it or HANG_GUARD_S passes, and records whether one did. With no holder, it leaves the insert lock
+    alone."""
 
     def __init__(self, engine, writers: int, holder: int | None):
         self.engine = engine
         self.holder = holder
-        self.barrier = threading.Barrier(writers, timeout=5)
+        self.barrier = threading.Barrier(writers, timeout=HANG_GUARD_S)
         self.holder_locked = threading.Event()
         self.local = threading.local()
         self.found: list[int] = []
@@ -129,7 +134,7 @@ class _HoldAfterCheck:
         sql = str(state.statement.compile(dialect=state.session.get_bind().dialect))
         if "pg_advisory_xact_lock" in sql and self.holder is not None:
             if self.local.index != self.holder:
-                self.holder_locked.wait(timeout=5)  # the holder takes the lock first
+                self.holder_locked.wait(timeout=HANG_GUARD_S)  # the holder takes the lock first
                 return None
             granted = state.invoke_statement().freeze()
             self.holder_locked.set()
@@ -152,7 +157,7 @@ class _HoldAfterCheck:
 
     def _a_session_waits_for_the_insert_lock(self) -> bool:
         key = filing_amendment_service.FILING_INSERT_LOCK_KEY
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + HANG_GUARD_S
         with self.engine.connect() as conn:
             while time.monotonic() < deadline:
                 waiting = conn.execute(WAITING_FOR_THE_INSERT_LOCK, {"high": key >> 32, "low": key & 0xFFFFFFFF}).scalar()
@@ -183,7 +188,7 @@ def _race(engine, writers: list, holder: int | None) -> tuple[list[int], list, b
     try:
         with ThreadPoolExecutor(max_workers=len(writers)) as pool:
             futures = [pool.submit(_write, engine, hold, index, writer) for index, writer in enumerate(writers)]
-            errors = [future.result(timeout=60) for future in futures]
+            errors = [future.result(timeout=WRITER_GUARD_S) for future in futures]
     finally:
         event.remove(Session, "do_orm_execute", hold)
     return hold.found, errors, hold.waited

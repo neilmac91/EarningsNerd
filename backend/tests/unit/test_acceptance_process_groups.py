@@ -20,6 +20,7 @@ import pytest
 import evals.acceptance_ai_judge_runner as judge_runner
 import evals.acceptance_source_review_delivery as delivery
 from evals.acceptance_source_review_delivery import RouteInvocation, run_route_process
+from tests.support.hang_guard import HANG_GUARD_S
 
 RUNNERS = pytest.mark.parametrize("runner", [delivery, judge_runner], ids=["delivery", "judge"])
 
@@ -142,7 +143,7 @@ def test_a_member_whose_main_thread_left_is_still_ended(runner, group) -> None:
     member that can write, so it is signalled after the child exits."""
     proc, grandchild = group("threaded", then="exit")
     proc.wait()
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + HANG_GUARD_S
     while _state(grandchild) != b"Z" and time.monotonic() < deadline:
         time.sleep(0.01)
     assert _state(grandchild) == b"Z" and _running(grandchild)

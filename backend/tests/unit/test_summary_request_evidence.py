@@ -15,6 +15,7 @@ from app.services import summary_pipeline as pipeline
 from app.services import summary_request_evidence as evidence_module
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
 
 
@@ -265,12 +266,12 @@ async def test_actual_response_closes_at_send_boundary_before_return(boundary, s
         call = response({"type": "http", "asgi": {"spec_version": spec}}, receive, send)
         if stop == "unexpected_error":
             with pytest.raises(RuntimeError, match="offline unexpected"):
-                await asyncio.wait_for(call, 2)
+                await asyncio.wait_for(call, HANG_GUARD_S)
         elif spec == "2.4":
             with pytest.raises(ClientDisconnect):
-                await asyncio.wait_for(call, 2)
+                await asyncio.wait_for(call, HANG_GUARD_S)
         else:
-            await asyncio.wait_for(call, 2)
+            await asyncio.wait_for(call, HANG_GUARD_S)
         result = terminal(boundary)
         expected = {"terminal_body": "complete", "unexpected_error": "error"}.get(stop, "cancelled")
         assert result["outcome"] == expected

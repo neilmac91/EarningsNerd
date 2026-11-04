@@ -13,6 +13,7 @@ from app.models import Company, Filing, FinancialFact
 from app.routers import analysis
 from app.services import facts_service
 from app.services.facts import ingest
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 def _companyfacts_payload():
@@ -98,8 +99,9 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     monkeypatch.setattr(ingest, "_companyfacts_fresh_result", counted_fresh_check)
     monkeypatch.setattr(analysis, "_ingest_with_own_session", counted_ingest)
     monkeypatch.setattr(analysis, "enforce_rate_limit", lambda *_args, **_kwargs: None)
-    # Longer than the poll below can take, so the leader's wait never fires before the release.
-    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 5.0)
+    # Longer than the wait for the fetch and the poll below can take together (HANG_GUARD_S each), so the leader's
+    # wait never fires before the release.
+    monkeypatch.setattr(analysis, "COVERAGE_SYNC_WAIT_SECONDS", 3 * HANG_GUARD_S)
     facts_service._inflight_syncs.clear()
 
     request = SimpleNamespace(client=None)
@@ -113,10 +115,10 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
         analysis.get_coverage("META", request=request, current_user=user, db=second_db)
     )
     try:
-        await asyncio.wait_for(fetch_started.wait(), timeout=1.0)
-        # Let the second request complete its short preflight and join the leader's event. The
-        # preflight is a thread-pool unit, so it takes wall-clock time rather than loop turns.
-        for _ in range(200):
+        await asyncio.wait_for(fetch_started.wait(), timeout=HANG_GUARD_S)
+        # Let the second request complete its short preflight and join the leader's event, polling for up to
+        # HANG_GUARD_S. The preflight is a thread-pool unit, so it takes wall-clock time rather than loop turns.
+        for _ in range(int(HANG_GUARD_S / 0.01)):
             if ingest_starts == 2 and engine.pool.checkedout() == 0:
                 break
             await asyncio.sleep(0.01)

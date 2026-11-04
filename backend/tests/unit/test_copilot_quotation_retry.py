@@ -19,6 +19,7 @@ from app.services.ai import copilot_chat
 from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.ai.provider_requests import signal_provider_start
 from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_copilot import _as_user, _asgi_post, _qa_state, _seed_filing, _wire_events
 from tests.unit.test_copilot import _fresh_ask_limiter as _fresh_ask_limiter
 from tests.unit.test_provider_resilience import chunk, event, service_for
@@ -412,7 +413,7 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
                 rows.append(row)
         task = asyncio.create_task(consume())
         try:
-            await asyncio.wait_for(started.wait(), 2)
+            await asyncio.wait_for(started.wait(), HANG_GUARD_S)
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task
@@ -427,7 +428,7 @@ async def test_retry_cancellation_closes_the_active_provider_without_terminal_pr
                 if row["type"] == "activity":
                     return
         try:
-            await asyncio.wait_for(until_activity(), 2)
+            await asyncio.wait_for(until_activity(), HANG_GUARD_S)
         finally:
             await generator.aclose()
     assert calls == [1, 2] and closed == [1, 2]

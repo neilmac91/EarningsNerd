@@ -35,9 +35,12 @@ from app.models import Company, FinancialFact, TrendAnalysis, UsageReservation, 
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
 
 _EMAIL = "meter-reader@example.com"
 _PATH = "/api/analysis/METER/stream"
+# The app call spans two hang-guarded steps (the watcher's or the cache write's), so a step's guard fires first.
+_APP_GUARD_S = 2 * HANG_GUARD_S + 10
 
 
 def _database(tmp_path):
@@ -108,7 +111,7 @@ async def test_a_sent_analysis_is_counted_whenever_its_client_leaves(monkeypatch
                 await asyncio.sleep(0)
 
         try:
-            await asyncio.wait_for(poll(), 5.0)  # a hang guard; a passing run waits a few loop turns
+            await asyncio.wait_for(poll(), HANG_GUARD_S)  # a hang guard; a passing run waits a few loop turns
         except TimeoutError as exc:
             raise AssertionError(failure) from exc
 
@@ -136,9 +139,9 @@ async def test_a_sent_analysis_is_counted_whenever_its_client_leaves(monkeypatch
 
     def persist(**kwargs: Any) -> Any:  # the cache write, in its thread-pool unit
         if leaves_while == "the_cache_row_is_written":
-            write_saw["the narrative read first"] = read_the_narrative.wait(timeout=5)  # a hang guard only
+            write_saw["the narrative read first"] = read_the_narrative.wait(timeout=HANG_GUARD_S)  # a hang guard only
             loop.call_soon_threadsafe(leave.set)
-            write_saw["the stream cancelled"] = stream_cancelled.wait(timeout=5)  # a hang guard only
+            write_saw["the stream cancelled"] = stream_cancelled.wait(timeout=HANG_GUARD_S)  # a hang guard only
         return real_persist(**kwargs)
 
     monkeypatch.setattr(StreamingResponse, "listen_for_disconnect", listen)
@@ -170,9 +173,10 @@ async def test_a_sent_analysis_is_counted_whenever_its_client_leaves(monkeypatch
             return db.query(TrendAnalysis).count(), counted, db.query(UsageReservation).count()
 
     try:
-        await asyncio.wait_for(app(_scope(auth.create_access_token({"sub": _EMAIL}), body), receive, send), 15)
+        await asyncio.wait_for(
+            app(_scope(auth.create_access_token({"sub": _EMAIL}), body), receive, send), _APP_GUARD_S)
         for task in watcher:
-            await asyncio.wait_for(task, 5)  # surfaces its assertions
+            await asyncio.wait_for(task, HANG_GUARD_S)  # surfaces its assertions
         # Starlette leaves a cancelled stream's generators suspended, for the collector to close as a server's would.
         # Close them now, so each ``finally`` has run before the rows are read and no worker thread outlives the loop.
         await loop.shutdown_asyncgens()

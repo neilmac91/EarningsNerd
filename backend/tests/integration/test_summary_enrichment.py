@@ -10,11 +10,17 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
 from app.models import Base, Filing, Summary
 from app.services import summary_pipeline as pipeline
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     seed_company_filing,
     stream_boundaries,
 )
+
+# Below production's CONTEXT_ENRICHMENT_TIMEOUT_SECONDS (18 s), so a run that waits out that join fails at this bound.
+ENRICHMENT_GUARD_S = 15.0
+# The cancel case's join outlasts the wait for the drive to reach it, so a join that starts before it fails the wait.
+CANCEL_JOIN_TIMEOUT_S = HANG_GUARD_S + 10
 
 # Filing-instance series shape: actual normalization runs inside the real pipeline.
 XBRL = {
@@ -84,18 +90,18 @@ async def test_completed_enrichment_survives_sibling_timeout_and_cancellation_dr
             scoped.setattr(pipeline.xbrl_service, "get_xbrl_data", fetch)
             scoped.setattr(pipeline, "run_in_threadpool", run_db)
             scoped.setattr(
-                pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", 10 if mode == "cancel" else 0
+                pipeline, "CONTEXT_ENRICHMENT_TIMEOUT_SECONDS", CANCEL_JOIN_TIMEOUT_S if mode == "cancel" else 0
             )
             task = asyncio.create_task(_drive(fid, before_join))
             try:
-                await asyncio.wait_for(joined.wait(), 2)
+                await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
                 if mode == "cancel":
                     task.cancel()
                     with pytest.raises(asyncio.CancelledError):
                         await task
                     generate.assert_not_awaited()
                 else:
-                    frames = await asyncio.wait_for(task, 2)
+                    frames = await asyncio.wait_for(task, ENRICHMENT_GUARD_S)
                     generate.assert_awaited_once()
                     supplied = generate.await_args.kwargs
                     if mode == "excerpt_timeout":
@@ -131,7 +137,7 @@ async def test_extracted_metrics_reach_generation_when_xbrl_commit_fails(monkeyp
         with stream_boundaries(payload=deepcopy(CANONICAL_PAYLOAD)) as generate:
             with monkeypatch.context() as scoped:
                 scoped.setattr(pipeline.xbrl_service, "get_xbrl_data", fetch)
-                frames = await asyncio.wait_for(_drive(fid), 2)
+                frames = await asyncio.wait_for(_drive(fid), ENRICHMENT_GUARD_S)
                 generate.assert_awaited_once()
                 metrics = generate.await_args.kwargs["xbrl_metrics"]
                 assert metrics["revenue"]["current"]["value"] == 996347000000

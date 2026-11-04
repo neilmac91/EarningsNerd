@@ -56,6 +56,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 from app.database import Base, SessionLocal
 from app.models import Company, Filing, Summary, SummaryGenerationProgress
 from app.services import summary_generation_service
+from tests.support.hang_guard import HANG_GUARD_S
 
 # The statement that writes the progress table: the UPDATE or INSERT before E214, or the upsert's INSERT.
 WRITE = re.compile(r"\s*(?:INSERT INTO|UPDATE) summary_generation_progress\b")
@@ -199,16 +200,16 @@ def test_a_write_behind_an_uncommitted_clear_waits_and_follows_its_outcome(postg
             with ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(write)
                 try:
-                    assert entered.wait(5), "the write did not reach its database write"
+                    assert entered.wait(HANG_GUARD_S), "the write did not reach its database write"
                     if finished.wait(0.2):
-                        future.result(timeout=5)  # a write that raised shows its own error
+                        future.result(timeout=HANG_GUARD_S)  # a write that raised shows its own error
                         pytest.fail("the write passed an uncommitted clear")
                 finally:
                     if commit_clear:
                         clearing.commit()
                     else:
                         clearing.rollback()
-                future.result(timeout=6)
+                future.result(timeout=HANG_GUARD_S)
         finally:
             event.remove(postgres_engine, "before_cursor_execute", before)
     # A committed clear starts the run's clock afresh; a rolled-back one leaves the row, and its start, as they were.
@@ -219,7 +220,7 @@ def test_a_write_behind_an_uncommitted_clear_waits_and_follows_its_outcome(postg
 
 def test_writers_of_a_filing_with_no_row_each_succeed_on_one_row(postgres_engine, filing_id):
     stages = ("fetching", "analyzing", "summarizing")
-    at_the_write = threading.Barrier(len(stages), timeout=5)
+    at_the_write = threading.Barrier(len(stages), timeout=HANG_GUARD_S)
     local = threading.local()
 
     def before(conn, cursor, statement, parameters, context, executemany):
@@ -236,7 +237,7 @@ def test_writers_of_a_filing_with_no_row_each_succeed_on_one_row(postgres_engine
         with ThreadPoolExecutor(max_workers=len(stages)) as pool:
             futures = [pool.submit(write, stage) for stage in stages]
             for future in futures:
-                future.result(timeout=10)
+                future.result(timeout=HANG_GUARD_S + 10)  # above the barrier's guard, so that one fires first
     finally:
         event.remove(postgres_engine, "before_cursor_execute", before)
     [row] = _rows(postgres_engine, filing_id)
@@ -326,16 +327,16 @@ def test_a_mark_behind_an_uncommitted_holder_waits_and_follows_its_outcome(
             with ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(poll)
                 try:
-                    assert entered.wait(5), "the poll did not reach its mark"
+                    assert entered.wait(HANG_GUARD_S), "the poll did not reach its mark"
                     if finished.wait(0.2):
-                        future.result(timeout=5)  # a poll that raised shows its own error
+                        future.result(timeout=HANG_GUARD_S)  # a poll that raised shows its own error
                         pytest.fail(f"the mark passed an uncommitted {holder}")
                 finally:
                     if commit_holder:
                         holding.commit()
                     else:
                         holding.rollback()
-                answer = future.result(timeout=6)
+                answer = future.result(timeout=HANG_GUARD_S)
         finally:
             event.remove(postgres_engine, "before_cursor_execute", before)
     rows = _AFTER_COMMIT[holder] if commit_holder else _MARKED

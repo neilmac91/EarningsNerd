@@ -19,6 +19,7 @@ from app.services.edgar.exceptions import EdgarError, EdgarRateLimitError
 from app.services.rate_limiter import RateLimiter
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
 
 
@@ -120,11 +121,11 @@ async def test_concurrent_follower_joins_even_when_leader_spent_last_creation_sl
             route = f"/api/summaries/filing/{filing_id}/generate-stream"
             try:
                 tasks.append(asyncio.create_task(client.post(route)))
-                await asyncio.wait_for(fetching.wait(), 3)
+                await asyncio.wait_for(fetching.wait(), HANG_GUARD_S)
                 tasks.append(asyncio.create_task(client.post(route)))
-                await asyncio.wait_for(joined.wait(), 3)
+                await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
                 release_fetch.set()
-                responses = await asyncio.wait_for(asyncio.gather(*tasks), 3)
+                responses = await asyncio.wait_for(asyncio.gather(*tasks), HANG_GUARD_S)
                 terminals = [frames(response)[-1] for response in responses]
                 assert all(item["type"] == "complete" for item in terminals)
                 assert terminals[0]["summary_id"] == terminals[1]["summary_id"]

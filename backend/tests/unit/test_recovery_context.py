@@ -13,6 +13,7 @@ import pytest
 from app.services.ai import recovery_context as context
 from app.services.ai import provider_requests
 from app.services.openai_service import OpenAIService
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @asynccontextmanager
@@ -203,7 +204,9 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
     def blocked(self, *args):
         entered.set()
         try:
-            assert release.wait(3), 'test did not release source worker'
+            # Far above the observation guard below, which must expire first: released here, a generation that
+            # waited for this worker would end on its own TimeoutError and pass.
+            assert release.wait(4 * HANG_GUARD_S), 'test did not release source worker'
             return original(self, *args)
         finally:
             finished.set()
@@ -221,11 +224,11 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
     async with native_service(handler) as service:
         task = asyncio.create_task(service.generate_structured_summary('chosen text', 'Fixture', '10-K'))
         try:
-            assert await asyncio.to_thread(entered.wait, 1), 'source worker never started'
+            assert await asyncio.to_thread(entered.wait, HANG_GUARD_S), 'source worker never started'
             assert len(timers) == 1 and 70 < timers[0].when() - asyncio.get_running_loop().time() <= 75
             timers[0].reschedule(asyncio.get_running_loop().time())
             with pytest.raises(TimeoutError):
-                await asyncio.wait_for(asyncio.shield(task), 1)
+                await asyncio.wait_for(asyncio.shield(task), HANG_GUARD_S)
             assert task.done(), 'outer observation guard must not supply the generation timeout'
             assert not task.cancelled() and isinstance(task.exception(), TimeoutError)
             assert wire == []
@@ -233,7 +236,7 @@ async def test_actual_generation_deadline_covers_source_preparation_and_prevents
             task.cancel()
             release.set()
             await asyncio.gather(task, return_exceptions=True)
-            assert await asyncio.to_thread(finished.wait, 1), 'source worker was not released'
+            assert await asyncio.to_thread(finished.wait, HANG_GUARD_S), 'source worker was not released'
         await asyncio.sleep(0)
         assert wire == []
 

@@ -26,6 +26,7 @@ from app.models import Company, Filing, Summary, SummaryJob, SummaryPreparationB
 from app.services import summary_job_store as store, subscription_service as usage
 from app.services import summary_jobs as jobs, summary_recovery as recovery
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -505,7 +506,7 @@ recovery._engine.dispose()
 def _race(call, count=4):
     barrier = Barrier(count)
     def worker():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         return call()
     with ThreadPoolExecutor(max_workers=count) as pool:
         return list(pool.map(lambda _: worker(), range(count)))
@@ -534,7 +535,7 @@ def test_account_backlog_limit_serializes_different_filings(factory, seeded, mon
         other_id = second.id
     barrier = Barrier(2)
     def create(filing):
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         try:
             return store.ensure_job(filing, user_id)
         except store.SummaryJobUnavailable:
@@ -607,13 +608,13 @@ def test_result_transaction_blocks_reclaim_until_atomic_terminal_commit(factory,
             return store.claim_job(view.job_id, view.generation)
         with ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(reclaim)
-            assert started.wait(timeout=2)
+            assert started.wait(timeout=HANG_GUARD_S)
             summary = Summary(filing_id=filing_id, business_overview="committed result")
             writer.add(summary)
             writer.flush()
             store.settle_job_result(row, summary.id, "complete")
             writer.commit()
-            assert future.result(timeout=5) is None
+            assert future.result(timeout=HANG_GUARD_S) is None
     assert store.read_job(view.job_id, view.generation).status == "complete"
 
 
@@ -648,7 +649,7 @@ def test_system_daily_budget_serializes_fleet_admissions(factory, seeded, monkey
         other_id = second.id
     barrier = Barrier(2)
     def create(filing):
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         try:
             return store.ensure_job(filing, None, system=True)
         except store.SummaryJobUnavailable:
@@ -678,7 +679,7 @@ def test_join_during_final_result_commit_neither_deadlocks_nor_creates_second_jo
         try:
             with ThreadPoolExecutor(max_workers=1) as pool:
                 joining = pool.submit(store.ensure_job, filing_id, user_id)
-                assert waiting_for_job.wait(timeout=2)
+                assert waiting_for_job.wait(timeout=HANG_GUARD_S)
                 try:
                     summary = Summary(filing_id=filing_id, business_overview="Current committed summary.")
                     writer.add(summary)
@@ -688,7 +689,7 @@ def test_join_during_final_result_commit_neither_deadlocks_nor_creates_second_jo
                 except BaseException:
                     writer.rollback()  # release the job lock before joining the thread on test failure
                     raise
-                observed = joining.result(timeout=5)
+                observed = joining.result(timeout=HANG_GUARD_S)
                 assert observed.status == "complete" and observed.summary_id == summary.id
                 assert not observed.created
         finally:

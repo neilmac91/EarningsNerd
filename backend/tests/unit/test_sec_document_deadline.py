@@ -6,6 +6,7 @@ import pytest
 
 from app.services.edgar import compat
 from app.services.edgar.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -129,7 +130,7 @@ async def test_total_deadline_cancels_blocked_work_and_only_network_wait_trips_b
     with pytest.raises(compat.EdgarError) as result:
         await asyncio.wait_for(
             compat.sec_edgar_service.get_filing_document("https://sec.example/report.htm", timeout=0.02),
-            timeout=1,
+            timeout=HANG_GUARD_S,  # below the fetch's 60 s default, so a dropped timeout=0.02 still fails
         )
     assert result.value.code == ("EDGAR_WAIT_TIMEOUT" if phase == "admission" else "EDGAR_TIMEOUT")
     assert request_started.is_set() is (phase == "request")

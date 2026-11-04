@@ -28,6 +28,10 @@ from app.services.notable_filings_service import (
 )
 from app.utils.datetimes import utcnow
 from app.utils.sec_urls import build_sec_archive_url
+from tests.support.hang_guard import HANG_GUARD_S
+
+# A held fill outlasts the case's wait for the second request, which the case makes before it releases the fill.
+FILL_HOLD_S = HANG_GUARD_S + 10
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -562,7 +566,7 @@ def test_a_miss_during_a_fill_waits_for_it_and_reads_nothing(serve_db, enabled, 
     def held_fetch(db, today):
         calls["fetch"] += 1
         (filling if calls["fetch"] == 1 else second).set()
-        assert release.wait(5)
+        assert release.wait(FILL_HOLD_S)
         return fetch(db, today)
 
     class _Watched:
@@ -586,13 +590,13 @@ def test_a_miss_during_a_fill_waits_for_it_and_reads_nothing(serve_db, enabled, 
 
     first = threading.Thread(target=request)
     first.start()
-    assert filling.wait(5)
+    assert filling.wait(HANG_GUARD_S)
     late = threading.Thread(target=request)
     late.start()
-    assert second.wait(5)
+    assert second.wait(HANG_GUARD_S)
     release.set()
-    first.join(5)
-    late.join(5)
+    first.join(HANG_GUARD_S)
+    late.join(HANG_GUARD_S)
     assert served == [tickers, tickers]
     assert calls["fetch"] == 1
     assert len(statements) == 2, statements
@@ -617,7 +621,7 @@ def test_a_failed_read_lets_the_next_waiter_read_again(serve_db, enabled, monkey
         if calls["fetch"] > 1:
             return fetch(db, today)
         filling.set()
-        assert release.wait(5)
+        assert release.wait(FILL_HOLD_S)
         return fetch(_BrokenDB(), today)
 
     class _Watched:
@@ -641,13 +645,13 @@ def test_a_failed_read_lets_the_next_waiter_read_again(serve_db, enabled, monkey
 
     first = threading.Thread(target=request, args=("first",))
     first.start()
-    assert filling.wait(5)
+    assert filling.wait(HANG_GUARD_S)
     second = threading.Thread(target=request, args=("second",))
     second.start()
-    assert waiting.wait(5)
+    assert waiting.wait(HANG_GUARD_S)
     release.set()
-    first.join(5)
-    second.join(5)
+    first.join(HANG_GUARD_S)
+    second.join(HANG_GUARD_S)
     request("third")
     assert served == {"first": [], "second": tickers, "third": tickers}
     assert calls == {"fetch": 2, "lock": 2}

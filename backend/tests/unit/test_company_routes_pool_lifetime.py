@@ -10,6 +10,7 @@ from sqlalchemy.pool import QueuePool
 
 from app.models import Company, Filing
 from app.routers import companies
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 class _Stall:
@@ -38,7 +39,7 @@ def _assert_competing_checkout(sessions, company_id):
 
 
 async def _wait_for_released_pool(stall, engine, sessions, company_id):
-    await asyncio.wait_for(stall.started.wait(), timeout=1.0)
+    await asyncio.wait_for(stall.started.wait(), timeout=HANG_GUARD_S)
     for _ in range(20):
         if engine.pool.checkedout() == 0:
             break

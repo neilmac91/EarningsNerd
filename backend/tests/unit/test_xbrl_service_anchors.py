@@ -41,6 +41,7 @@ from app.services.edgar.xbrl_service import (
     get_xbrl_cache_stats,
 )
 from app.services.sec_rate_limiter import sec_rate_limiter
+from tests.support.hang_guard import HANG_GUARD_S
 
 pytestmark = pytest.mark.unit
 
@@ -522,14 +523,14 @@ async def test_x0_2_parses_run_one_at_a_time_and_a_cancelled_queued_parse_never_
     def parse(html, base_form):
         started.append(html)
         first_running.set()
-        assert release.wait(5), "test did not release its controlled parse"
+        assert release.wait(HANG_GUARD_S), "test did not release its controlled parse"
         return {"mda": html}
 
     monkeypatch.setattr(xbrl_service, "_sections_from_html", parse)
     service = EdgarXBRLService()
     first = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="first"))
     try:
-        assert await asyncio.to_thread(first_running.wait, 2)
+        assert await asyncio.to_thread(first_running.wait, HANG_GUARD_S)
         second = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="second"))
         third = asyncio.create_task(service.get_filing_sections(ACC, "10-K", html="third"))
         await asyncio.sleep(0.2)

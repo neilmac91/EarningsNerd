@@ -24,6 +24,7 @@ from app.models import FilingContentCache, FilingSourceBundle, FilingSourceExtra
 from app.services import filing_source_store as store
 from app.services.filing_source_types import FilingSourceError, SourceBundle, SourceMember
 from tests.support.filing_source_fixtures import PRIMARY, seed_source
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -77,7 +78,7 @@ def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factor
         def commit(self):
             self.flush()
             entered.set()
-            assert release.wait(5)
+            assert release.wait(HANG_GUARD_S)
             raise OperationalError('synthetic rollback', None, None)
     paused = sessionmaker(**{**database.SessionLocal.kw, 'bind': postgres_engine}, class_=PausedSession)
     # Only the writer's first session pauses; independent readers use normal sessions.
@@ -90,7 +91,7 @@ def test_uncommitted_members_are_invisible_and_rollback_publishes_nothing(factor
     with ThreadPoolExecutor(max_workers=1) as worker:
         future = worker.submit(store.commit_bundle, candidate(identity))
         try:
-            assert entered.wait(5)
+            assert entered.wait(HANG_GUARD_S)
             assert store.lookup_bundle(identity) is None
         finally:
             release.set()
@@ -256,7 +257,7 @@ async def test_losing_summary_insert_rolls_back_excerpt_and_source_publication(f
     original = finalize._filing_with_cache
     def simultaneous_snapshot(session, filing_id):
         value = original(session, filing_id)
-        rendezvous.wait(timeout=5)
+        rendezvous.wait(timeout=HANG_GUARD_S)
         return value
     monkeypatch.setattr(finalize, '_filing_with_cache', simultaneous_snapshot)
     monkeypatch.setattr(pipeline, 'assess_quality', lambda *a, **k: {'tier': 'full', 'reasons': []})
@@ -280,7 +281,8 @@ async def test_losing_summary_insert_rolls_back_excerpt_and_source_publication(f
             return [event async for event in finalize.finalize(run)]
         finally:
             await run.release()
-    results = await asyncio.wait_for(asyncio.gather(*(finish(run) for run in runs)), timeout=15)
+    # Above the barrier's guard, so a snapshot left waiting breaks the barrier first.
+    results = await asyncio.wait_for(asyncio.gather(*(finish(run) for run in runs)), timeout=HANG_GUARD_S + 10)
     assert all(result[-1]['type'] == 'complete' for result in results)
     with factory() as db:
         summaries = db.scalars(select(Summary).where(Summary.filing_id == identity.filing_id)).all()

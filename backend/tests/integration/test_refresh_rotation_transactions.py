@@ -81,8 +81,8 @@ from app.routers import auth as auth_module
 from app.services import auth_account_service, oauth_account_service, user_account_service
 from app.services.account_agreement_service import accept_current_agreement
 from app.services import refresh_token_service as tokens
+from tests.support.hang_guard import HANG_GUARD_S
 
-HANG_GUARD_S = 5.0  # a passing case never waits for it
 OLD_PASSWORD_HASH = "the old password's hash"
 
 

@@ -21,6 +21,7 @@ from app.services.reporting_this_week_service import (
     ReportingThisWeekService,
     current_market_week,
 )
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -297,7 +298,7 @@ def _cold_burst(n, reads_return):
     def fetch(db, mon, fri, today):
         result = reads_return[min(len(reads), len(reads_return) - 1)]
         reads.append(1)
-        release_reads.wait(timeout=2)
+        release_reads.wait(timeout=HANG_GUARD_S)
         return result
 
     svc = ReportingThisWeekService()
@@ -317,7 +318,7 @@ def _cold_burst(n, reads_return):
             # Each request's first check and the first reader's recheck under the lock: all have missed
             # before any read returns, since the others wait on the lock that reader holds.
             missed = 0
-            while missed < n + 1 and checks.acquire(timeout=2):
+            while missed < n + 1 and checks.acquire(timeout=HANG_GUARD_S):
                 missed += 1
             # A request that raised before its check would look like a missing check, so its error rides along.
             assert missed == n + 1, (
@@ -327,7 +328,7 @@ def _cold_burst(n, reads_return):
             # A failed precondition still lets the held read return, so the pool's shutdown does not wait
             # out each reader's timeout in turn.
             release_reads.set()
-        return [request.result(timeout=3) for request in requests], len(reads)
+        return [request.result(timeout=HANG_GUARD_S) for request in requests], len(reads)
 
 
 def _week():

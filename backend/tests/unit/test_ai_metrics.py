@@ -13,6 +13,10 @@ from fastapi.concurrency import run_in_threadpool
 from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
 
 from app.services import ai_metrics, metrics_service
+from tests.support.hang_guard import HANG_GUARD_S
+
+# The blocked worker's hold outlasts the two hang-guarded waits the saturated-limiter case makes while it holds.
+WORKER_HOLD_S = 2 * HANG_GUARD_S + 10
 
 
 @pytest.fixture(autouse=True)
@@ -172,7 +176,7 @@ async def test_admin_metrics_observes_saturated_worker_limiter_without_joining_q
 
     def blocked_worker():
         loop.call_soon_threadsafe(started.set)
-        assert release.wait(5), "test worker was not released"
+        assert release.wait(WORKER_HOLD_S), "test worker was not released"
 
     async def wait_for_queued_worker():
         while limiter.statistics().tasks_waiting != 1:
@@ -181,17 +185,17 @@ async def test_admin_metrics_observes_saturated_worker_limiter_without_joining_q
     try:
         limiter.total_tokens = 1
         tasks.append(asyncio.create_task(run_in_threadpool(blocked_worker)))
-        await asyncio.wait_for(started.wait(), timeout=2)
+        await asyncio.wait_for(started.wait(), timeout=HANG_GUARD_S)
         tasks.append(asyncio.create_task(run_in_threadpool(lambda: None)))
-        await asyncio.wait_for(wait_for_queued_worker(), timeout=2)
-        snapshot = await asyncio.wait_for(metrics_service.get_all_metrics(), timeout=2)
+        await asyncio.wait_for(wait_for_queued_worker(), timeout=HANG_GUARD_S)
+        snapshot = await asyncio.wait_for(metrics_service.get_all_metrics(), timeout=HANG_GUARD_S)
         assert snapshot["thread_pool"]["anyio"] == {
             "scope": "event_loop", "total_tokens": 1, "borrowed_tokens": 1, "tasks_waiting": 1,
         }
         assert "edgar" in snapshot["thread_pool"]
         json.dumps(snapshot["thread_pool"])  # No task/borrower objects escape into the response.
         release.set()
-        await asyncio.wait_for(asyncio.gather(*tasks), timeout=2)
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=HANG_GUARD_S)
         drained = await metrics_service.get_all_metrics()
         assert drained["thread_pool"]["anyio"] == {
             "scope": "event_loop", "total_tokens": 1, "borrowed_tokens": 0, "tasks_waiting": 0,
@@ -199,7 +203,7 @@ async def test_admin_metrics_observes_saturated_worker_limiter_without_joining_q
     finally:
         release.set()
         try:
-            await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=2)
+            await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=HANG_GUARD_S)
         finally:
             limiter.total_tokens = original_capacity
 
