@@ -10,87 +10,86 @@
 //   BracketsCurlyIcon an XBRL fact (a figure's source chip)
 //   SparkleIcon       the AI summary alone (never an upgrade, a Pro badge or a status)
 // tests/unit/reservedGlyphs.spec.ts holds every use to its meaning sites, with a shrink-only residue.
-export {
-  ArrowClockwiseIcon,
-  ArrowDownRightIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ArrowSquareOutIcon,
-  ArrowUpRightIcon,
-  ArrowsClockwiseIcon,
-  ArrowsCounterClockwiseIcon,
-  ArrowsInSimpleIcon,
-  ArrowsOutSimpleIcon,
-  BellIcon,
-  BookmarkSimpleIcon,
-  BracketsCurlyIcon,
-  BrainIcon,
-  BuildingOfficeIcon,
-  CalendarBlankIcon,
-  CalendarDotsIcon,
-  CaretDownIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  ChartBarIcon,
-  ChatCircleDotsIcon,
-  ChatCircleTextIcon,
-  ChatTextIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  CircleNotchIcon,
-  ClockIcon,
-  ColumnsIcon,
-  CookieIcon,
-  CopyIcon,
-  CreditCardIcon,
-  DatabaseIcon,
-  DownloadSimpleIcon,
-  EnvelopeSimpleIcon,
-  EnvelopeSimpleOpenIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  FileArrowDownIcon,
-  FileTextIcon,
-  FileXlsIcon,
-  FunnelIcon,
-  GearIcon,
-  GitDiffIcon,
-  HouseIcon,
-  ImageSquareIcon,
-  InfoIcon,
-  KeyIcon,
-  LightningIcon,
-  LinkIcon,
-  LinkedinLogoIcon,
-  ListIcon,
-  LockSimpleIcon,
-  MagnifyingGlassIcon,
-  MinusIcon,
-  MoonIcon,
-  NewspaperIcon,
-  PaperPlaneTiltIcon,
-  PlusIcon,
-  ProhibitIcon,
-  PulseIcon,
-  QuestionIcon,
-  QuotesIcon,
-  SealCheckIcon,
-  ShareNetworkIcon,
-  ShieldCheckIcon,
-  ShieldIcon,
-  ShieldWarningIcon,
-  SignOutIcon,
-  SparkleIcon,
-  SquaresFourIcon,
-  StarIcon,
-  SunIcon,
-  TrashIcon,
-  TrendDownIcon,
-  TrendUpIcon,
-  UserIcon,
-  WarningCircleIcon,
-  WarningIcon,
-  WhatsappLogoIcon,
-  XCircleIcon,
-  XIcon,
-} from '@phosphor-icons/react'
+// Leaf exports avoid evaluating the full icon package in each isolated test file.
+export { ArrowClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowClockwise'
+export { ArrowDownRightIcon } from '@phosphor-icons/react/dist/csr/ArrowDownRight'
+export { ArrowLeftIcon } from '@phosphor-icons/react/dist/csr/ArrowLeft'
+export { ArrowRightIcon } from '@phosphor-icons/react/dist/csr/ArrowRight'
+export { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/csr/ArrowSquareOut'
+export { ArrowUpRightIcon } from '@phosphor-icons/react/dist/csr/ArrowUpRight'
+export { ArrowsClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsClockwise'
+export { ArrowsCounterClockwiseIcon } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise'
+export { ArrowsInSimpleIcon } from '@phosphor-icons/react/dist/csr/ArrowsInSimple'
+export { ArrowsOutSimpleIcon } from '@phosphor-icons/react/dist/csr/ArrowsOutSimple'
+export { BellIcon } from '@phosphor-icons/react/dist/csr/Bell'
+export { BookmarkSimpleIcon } from '@phosphor-icons/react/dist/csr/BookmarkSimple'
+export { BracketsCurlyIcon } from '@phosphor-icons/react/dist/csr/BracketsCurly'
+export { BrainIcon } from '@phosphor-icons/react/dist/csr/Brain'
+export { BuildingOfficeIcon } from '@phosphor-icons/react/dist/csr/BuildingOffice'
+export { CalendarBlankIcon } from '@phosphor-icons/react/dist/csr/CalendarBlank'
+export { CalendarDotsIcon } from '@phosphor-icons/react/dist/csr/CalendarDots'
+export { CaretDownIcon } from '@phosphor-icons/react/dist/csr/CaretDown'
+export { CaretLeftIcon } from '@phosphor-icons/react/dist/csr/CaretLeft'
+export { CaretRightIcon } from '@phosphor-icons/react/dist/csr/CaretRight'
+export { ChartBarIcon } from '@phosphor-icons/react/dist/csr/ChartBar'
+export { ChatCircleDotsIcon } from '@phosphor-icons/react/dist/csr/ChatCircleDots'
+export { ChatCircleTextIcon } from '@phosphor-icons/react/dist/csr/ChatCircleText'
+export { ChatTextIcon } from '@phosphor-icons/react/dist/csr/ChatText'
+export { CheckCircleIcon } from '@phosphor-icons/react/dist/csr/CheckCircle'
+export { CheckIcon } from '@phosphor-icons/react/dist/csr/Check'
+export { CircleNotchIcon } from '@phosphor-icons/react/dist/csr/CircleNotch'
+export { ClockIcon } from '@phosphor-icons/react/dist/csr/Clock'
+export { ColumnsIcon } from '@phosphor-icons/react/dist/csr/Columns'
+export { CookieIcon } from '@phosphor-icons/react/dist/csr/Cookie'
+export { CopyIcon } from '@phosphor-icons/react/dist/csr/Copy'
+export { CreditCardIcon } from '@phosphor-icons/react/dist/csr/CreditCard'
+export { DatabaseIcon } from '@phosphor-icons/react/dist/csr/Database'
+export { DownloadSimpleIcon } from '@phosphor-icons/react/dist/csr/DownloadSimple'
+export { EnvelopeSimpleIcon } from '@phosphor-icons/react/dist/csr/EnvelopeSimple'
+export { EnvelopeSimpleOpenIcon } from '@phosphor-icons/react/dist/csr/EnvelopeSimpleOpen'
+export { EyeIcon } from '@phosphor-icons/react/dist/csr/Eye'
+export { EyeSlashIcon } from '@phosphor-icons/react/dist/csr/EyeSlash'
+export { FileArrowDownIcon } from '@phosphor-icons/react/dist/csr/FileArrowDown'
+export { FileTextIcon } from '@phosphor-icons/react/dist/csr/FileText'
+export { FileXlsIcon } from '@phosphor-icons/react/dist/csr/FileXls'
+export { FunnelIcon } from '@phosphor-icons/react/dist/csr/Funnel'
+export { GearIcon } from '@phosphor-icons/react/dist/csr/Gear'
+export { GitDiffIcon } from '@phosphor-icons/react/dist/csr/GitDiff'
+export { HouseIcon } from '@phosphor-icons/react/dist/csr/House'
+export { ImageSquareIcon } from '@phosphor-icons/react/dist/csr/ImageSquare'
+export { InfoIcon } from '@phosphor-icons/react/dist/csr/Info'
+export { KeyIcon } from '@phosphor-icons/react/dist/csr/Key'
+export { LightningIcon } from '@phosphor-icons/react/dist/csr/Lightning'
+export { LinkIcon } from '@phosphor-icons/react/dist/csr/Link'
+export { LinkedinLogoIcon } from '@phosphor-icons/react/dist/csr/LinkedinLogo'
+export { ListIcon } from '@phosphor-icons/react/dist/csr/List'
+export { LockSimpleIcon } from '@phosphor-icons/react/dist/csr/LockSimple'
+export { MagnifyingGlassIcon } from '@phosphor-icons/react/dist/csr/MagnifyingGlass'
+export { MinusIcon } from '@phosphor-icons/react/dist/csr/Minus'
+export { MoonIcon } from '@phosphor-icons/react/dist/csr/Moon'
+export { NewspaperIcon } from '@phosphor-icons/react/dist/csr/Newspaper'
+export { PaperPlaneTiltIcon } from '@phosphor-icons/react/dist/csr/PaperPlaneTilt'
+export { PlusIcon } from '@phosphor-icons/react/dist/csr/Plus'
+export { ProhibitIcon } from '@phosphor-icons/react/dist/csr/Prohibit'
+export { PulseIcon } from '@phosphor-icons/react/dist/csr/Pulse'
+export { QuestionIcon } from '@phosphor-icons/react/dist/csr/Question'
+export { QuotesIcon } from '@phosphor-icons/react/dist/csr/Quotes'
+export { SealCheckIcon } from '@phosphor-icons/react/dist/csr/SealCheck'
+export { ShareNetworkIcon } from '@phosphor-icons/react/dist/csr/ShareNetwork'
+export { ShieldCheckIcon } from '@phosphor-icons/react/dist/csr/ShieldCheck'
+export { ShieldIcon } from '@phosphor-icons/react/dist/csr/Shield'
+export { ShieldWarningIcon } from '@phosphor-icons/react/dist/csr/ShieldWarning'
+export { SignOutIcon } from '@phosphor-icons/react/dist/csr/SignOut'
+export { SparkleIcon } from '@phosphor-icons/react/dist/csr/Sparkle'
+export { SquaresFourIcon } from '@phosphor-icons/react/dist/csr/SquaresFour'
+export { StarIcon } from '@phosphor-icons/react/dist/csr/Star'
+export { SunIcon } from '@phosphor-icons/react/dist/csr/Sun'
+export { TrashIcon } from '@phosphor-icons/react/dist/csr/Trash'
+export { TrendDownIcon } from '@phosphor-icons/react/dist/csr/TrendDown'
+export { TrendUpIcon } from '@phosphor-icons/react/dist/csr/TrendUp'
+export { UserIcon } from '@phosphor-icons/react/dist/csr/User'
+export { WarningCircleIcon } from '@phosphor-icons/react/dist/csr/WarningCircle'
+export { WarningIcon } from '@phosphor-icons/react/dist/csr/Warning'
+export { WhatsappLogoIcon } from '@phosphor-icons/react/dist/csr/WhatsappLogo'
+export { XCircleIcon } from '@phosphor-icons/react/dist/csr/XCircle'
+export { XIcon } from '@phosphor-icons/react/dist/csr/X'
