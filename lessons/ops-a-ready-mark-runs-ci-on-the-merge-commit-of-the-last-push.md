@@ -16,6 +16,14 @@ main, so it picks up the shards with no push" (#1997, 07:40 UTC):
 
 Both runs were cancelled, since the limit cuts the single job, and each branch took a merge of main.
 
+The same morning GitHub opened an incident (Pull Requests, Git Operations, Issues and Actions, from 09:49 UTC):
+- A push of `e9d2614e6` to #2000 answered 500; its retry moved the branch, but the pull request kept `dd7455cd1` as
+  its head for 40 minutes. No CI run started, and the ready mark at 09:42 UTC started none either, since the stored
+  head conflicted with main.
+- A gated merge of main, pushed at 10:25 UTC after another 500 and a retry, registered at once, and CI ran.
+- #2005's merge to main (`28c8eb1ec`, 10:15 UTC) got no `ci.yml` push run, and a merge call for #1998 answered 502
+  and did not merge.
+
 **Rule.**
 1. Before a ready mark or a re-run whose CI should carry something main gained after the head's last push (a
    workflow, a fixed test, a gate), read the pull request's merge commit: `git fetch origin refs/pull/N/merge` and its
@@ -24,6 +32,13 @@ Both runs were cancelled, since the limit cuts the single job, and each branch t
    mergeability check each left the stored merge commit as it was. Never an empty commit, a close and reopen, or a
    base change instead.
 3. Cancel a run already started on a stale merge commit when it cannot pass, so it holds no runner.
+4. After every push, check that the pull request took it: `git ls-remote origin refs/pull/N/head` must give the
+   branch's new head before you mark it ready or wait on its CI. When a push answers 5xx, read GitHub's status page
+   before retrying. A pull request still on its old head takes the next real push (a gated merge of main), never an
+   empty commit or a close and reopen.
+5. While GitHub reports an incident, a merge can get no push run (#2005), and a backend merge then deploys nothing.
+   Check that each merge's push run started, and hold a merge that deploys the backend until the incident closes or
+   main's tip has a finished run.
 
 **Evidence.**
 - Runs 41805116530 (#1998) and 41805744474 (#1997): their jobs list `e2e-tests` and no `e2e-shard`.
@@ -34,3 +49,7 @@ Both runs were cancelled, since the limit cuts the single job, and each branch t
   merge commit, `299c2d833`, still sat on `0245d3fe9`, so the check reads main and the stored commit does not move.
 - `lessons/ops-unmergeable-pr-runs-no-pull-request-workflows.md`: a `pull_request` run builds on that test merge commit,
   and none starts while it cannot be built.
+- #2000: from 09:41 to 10:25 UTC `git ls-remote` gave the branch as `e9d2614e6` and `refs/pull/2000/head` as
+  `dd7455cd1`, and the pull request's timeline holds no commit event for `e9d2614e6`. After the push of `b38ce7f1d`
+  both read `b38ce7f1d`, and run 41814114906 started.
+- githubstatus.com: "Incident with Pull Requests, Git Operations and Issues", opened 09:49:55 UTC on 2026-11-04.
