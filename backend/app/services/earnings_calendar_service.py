@@ -316,10 +316,9 @@ def ingest_alpha_vantage(
             # A repeated (ticker, fpe) later in this run updates this row, as the per-row SELECT
             # found it once flushed.
             by_key[(ticker, fpe)] = created
-            # Flush so the later steps' queries in the SAME transaction see this row (SessionLocal
-            # is autoflush=False). The EDGAR pass's attach query would otherwise find no prior row
-            # for a 2.02 hit on it and skip the flip (it never inserts), and each flush also writes
-            # the updates pending before it, which the stale downgrade then reads (E306).
+            # Each insert is flushed at once, so a row that cannot be read stops the pass with the
+            # inserts before it, and the updates before them, written. The later steps read what the
+            # flush after the loop writes.
             db.flush()
         else:
             if existing.event_date != new_date:
@@ -335,6 +334,11 @@ def ingest_alpha_vantage(
             existing.source = SOURCE_ALPHA_VANTAGE
             existing.last_seen_at = now
         upserted += 1
+    # Write every update before a later step reads the table. SessionLocal is autoflush=False, and an
+    # insert's flush writes only the updates made before it, so an update after the file's last insert
+    # stayed pending: the EDGAR pass's attach query looked for that row at its old date, and the stale
+    # downgrade's bulk UPDATE set it low though the file had just moved it into the future (E306).
+    db.flush()
     return upserted
 
 
@@ -444,6 +448,10 @@ def downgrade_stale_estimates(db: Session, *, today: date) -> int:
     the 8-K wasn't seen (strategy §3.5). Drop them to low confidence so the UI can frame the date
     as "may move" if the row resurfaces; they stay ``estimated`` and a later provider pass or 8-K
     still updates them. Bulk UPDATE; returns the number of rows downgraded."""
+    # The bulk UPDATE reads rows, not this session's pending changes (autoflush is off): write them
+    # first, so a row the EDGAR pass reported in this run is not read, counted and set low as a stale
+    # estimate (E306).
+    db.flush()
     updated = (
         db.query(EarningsEvent)
         .filter(
