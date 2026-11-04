@@ -56,7 +56,7 @@ export const formulaWords = (formula: string) => FORMULAS[formula] ?? formula.re
 // Each concept's name as /analysis's table writes it (trend_analysis/periods.py _CONCEPT_LABELS), so a source dialog's
 // operand reads as its own row does and as the Method line writes it, in sentence case: "Operating cash flow", never
 // its key title-cased by CSS (E309). tests/unit/metricLabelParity.spec.ts holds this map equal to the Python's, and
-// fails any source that names a concept by its key.
+// fails any other source that spells a concept's name from its key.
 export const CONCEPT_NAMES: Record<string, string> = {
   revenue: 'Revenue',
   net_interest_income: 'Net interest income',
