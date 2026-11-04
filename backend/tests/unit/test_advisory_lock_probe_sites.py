@@ -111,13 +111,40 @@ def test_the_scan_reads_every_planted_form_of_a_probe():
     assert probe_lines("tests/unit/test_advisory_lock_probe_sites.py", Path(__file__).read_text()) == Counter()
 
 
+_ONCE = "pytest.mark.parametrize('recovery_guard', ['prompt'], indirect=True)"
+# The recovery cases that run once, with release() as it is: each one's recovery owner runs in a child process,
+# which the late mode cannot reach.
+PROMPT_ONLY = {
+    "test_recovery_process_crash_releases_session_lock": _ONCE,
+    "test_asyncio_run_shutdown_finishes_recovery_disconnect": _ONCE,
+}
+
+
+def guard_overrides(source: str) -> dict[str, str]:
+    """Each parametrization of ``recovery_guard`` anywhere in a module, by the top-level definition around it."""
+    tree = ast.parse(source)
+    spans = _definitions(tree)
+    found = {}
+    for node in ast.walk(tree):
+        names = ast.unparse(node.args[0]) if isinstance(node, ast.Call) and node.args else ""
+        if "recovery_guard" in names and ast.unparse(node.func).endswith("parametrize"):
+            owner = next((name for start, end, name in spans if start <= node.lineno <= end), "<module>")
+            found[owner] = ast.unparse(node)
+    return found
+
+
 def test_the_recovery_cases_also_run_with_late_releases():
-    # The late mode guards the recovery cases only while it runs, so its fixture's params must keep it. What the mode
-    # does when it runs is pinned by test_late_mode_frees_a_released_lock_only_for_a_waiter.
-    tree = ast.parse((BACKEND / "tests/integration/test_summary_job_transactions.py").read_text(encoding="utf-8"))
+    # The late mode guards the recovery cases only while it runs: its fixture's params must keep it, and only the
+    # listed cases may override them. What the mode does when it runs is pinned by
+    # test_late_mode_frees_a_released_lock_only_for_a_waiter.
+    source = (BACKEND / "tests/integration/test_summary_job_transactions.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
     (fixture,) = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "recovery_guard"]
     (decorator,) = fixture.decorator_list
     assert ast.unparse(decorator) == "pytest.fixture(params=['prompt', 'late'])"
+    assert guard_overrides(source) == PROMPT_ONLY
+    planted = 'pytestmark = pytest.mark.parametrize("recovery_guard", ["prompt"], indirect=True)\n'
+    assert guard_overrides(planted) == {"<module>": _ONCE}
 
 
 def test_every_probe_under_tests_is_a_listed_check_of_a_held_lock():
@@ -130,6 +157,7 @@ def test_every_probe_under_tests_is_a_listed_check_of_a_held_lock():
                 unasserted += unasserted_probe_calls(path, text)
     assert dict(found) == HELD_LOCK_PROBES, (
         "a probe that does not wait was added or moved; to prove a closed session freed its lock, wait for it with "
-        "pg_advisory_xact_lock (lessons/test-wait-for-a-closed-sessions-advisory-lock.md), or list a check of a held lock"
+        "pg_advisory_xact_lock (lessons/test-wait-for-a-closed-sessions-advisory-lock.md), or list a check of a "
+        "held lock"
     )
     assert unasserted == [], "each probe call must sit inside an `assert not`: a live session holds the lock"

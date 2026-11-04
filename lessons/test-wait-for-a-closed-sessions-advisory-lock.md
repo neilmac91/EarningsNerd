@@ -33,14 +33,14 @@ runs.
 - On a local PostgreSQL 16, with the owning backend paused (SIGSTOP) across `release()`, the non-blocking probe
   returned False, and a waiting probe took the lock once the backend exited.
 - `tests/integration/test_summary_job_transactions.py`: `_wait_until_free` and `_assert_held_elsewhere`, and
-  `recovery_guard`'s `late` mode. That mode runs each recovery case again, except the two whose owner releases in a
-  child process it cannot reach. It keeps each released session that held the lock open, with its pool slot already
-  free, until another session waits for the lock or the case ends. Each of the three racy forms fails there every
-  time, and `test_late_mode_frees_a_released_lock_only_for_a_waiter` pins that the mode holds the lock. Its first
-  watcher read `pg_stat_activity` in one transaction, and so missed a waiter on a connection opened after its first
-  read. That failed one parallel run in five, until it read `pg_locks` in autocommit (rule 4).
+  `recovery_guard`'s `late` mode. That mode runs each recovery case again, except the two whose recovery owner runs in
+  a child process, which it cannot reach. It keeps each released session that held the lock open, with its pool slot
+  already free, until another session waits for the lock or the case ends. Each of the three racy forms fails there
+  every time, and `test_late_mode_frees_a_released_lock_only_for_a_waiter` pins that the mode holds the lock. Its
+  first watcher read `pg_stat_activity` in one transaction, and so missed a waiter on a connection opened after its
+  first read. That failed one parallel run in five, until it read `pg_locks` in autocommit (rule 4).
 - Gate: `backend/tests/unit/test_advisory_lock_probe_sites.py` holds every line under `backend/tests/` that names a
   probe, in code, a string or a comment, to an exact list by file and top-level definition, and requires each probe
-  call in Python's call syntax to sit inside an `assert not`; a probe inside a string is held by the list alone. Rules
-  1 and 3 are gated by the `late` mode for the recovery owner's cases in the test's own process, and review-checked
-  elsewhere.
+  call in Python's call syntax to sit inside an `assert not`; a probe inside a string is held by the list alone. It
+  also pins the late mode's params and its two per-case opt-outs. Rules 1 and 3 are gated by the `late` mode for the
+  recovery owner's cases in the test's own process, and review-checked elsewhere.
