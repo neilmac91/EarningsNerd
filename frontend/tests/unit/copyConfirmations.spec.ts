@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import ts from 'typescript'

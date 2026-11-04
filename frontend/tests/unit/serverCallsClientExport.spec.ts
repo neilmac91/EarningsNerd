@@ -1,3 +1,4 @@
+// @vitest-environment node
 /* =============================================================================
    serverCallsClientExport.spec.ts — server code never calls a client module's export
    -----------------------------------------------------------------------------
