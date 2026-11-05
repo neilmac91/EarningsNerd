@@ -63,8 +63,8 @@ def purge_targets(now: datetime) -> list[PurgeTarget]:
         ),
         PurgeTarget("oauth_states", OAuthState, OAuthState.id, OAuthState.expires_at < naive_now),
         # A handoff's stamps are timezone-aware (app/models/session_handoff.py): compared with ``now`` itself. The next
-        # handoff sign-in deletes the expired ones too (oauth_account_service.commit_oauth_sign_in); main's path writes
-        # none and deletes none, so without this target they would wait for that next sign-in.
+        # OAuth sign-in deletes the expired ones too (oauth_account_service.commit_oauth_sign_in); without this target
+        # they would wait for that next sign-in.
         PurgeTarget("session_handoffs", SessionHandoff, SessionHandoff.id, SessionHandoff.expires_at < now),
         PurgeTarget(
             "refresh_tokens", RefreshToken, RefreshToken.id,

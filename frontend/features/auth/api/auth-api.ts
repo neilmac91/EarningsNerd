@@ -129,9 +129,9 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
   assertSessionGeneration(generation)
   options?.signal?.throwIfAborted()
   // A confirmed identity means there's a session — mark it so the client will silently
-  // refresh an expired access token. This also covers OAuth redirect logins whose start did not ask for the handoff
-  // (main's path, until E29 (5)'s follow-up retires it), where the JS login()/register() path (which normally sets
-  // the marker) never runs, and a session no login in this tab started (another tab's): login() and
+  // refresh an expired access token. This covers a session no login in this tab started: another tab's, or that of
+  // an OAuth sign-in whose callback set the cookies on its redirect (only an API rolled back past E29 (5)'s handoff
+  // does), where the JS login()/register() path (which normally sets the marker) never runs. login() and
   // completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a refresh replays
   // during a logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
   markSessionConfirmed()

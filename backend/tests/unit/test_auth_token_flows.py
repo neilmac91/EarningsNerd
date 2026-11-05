@@ -1465,7 +1465,7 @@ def _oauth_callback(
     """Run a provider flow end to end; ``apple_user`` is the JSON ``user`` field Apple posts on a
     first authorization, and ``invite`` a closed-beta token the flow starts with, sent in the body of
     the POST start as the sign-up page sends it. ``handoff`` asks for the session handoff in that body,
-    as a frontend with the landing page does (E29 (5)); without it the callback takes main's path."""
+    as the sign-up page does; every start hands off, whatever it asks (E29 (5))."""
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client")
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
     body = {**ACCOUNT_AGREEMENT, "invite": invite, **(HANDOFF_BODY if handoff else {})}
@@ -1496,36 +1496,31 @@ _STATE_CLEARED = {"google": GOOGLE_STATE_CLEARED, "apple": APPLE_STATE_CLEARED}
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("audited", [True, False], ids=["audited", "audit-write-skipped"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, request, provider, audited, handoff):
     """Linking a verified account signs it in. The callback commits the sign-in itself (the link,
-    last_login_at and the refresh token) before its audit rows: with the audit writes made no-ops
-    all of it must still persist. For a start that asked for the session handoff it commits its
-    one-time handoff instead, and its redirect sets no session cookie, only the handoff's binding
-    cookie; the landing page's exchange sets the session cookies, in order, and leaves that one alone (E29 (5))."""
+    last_login_at and the one-time session handoff) before its audit rows: with the audit writes made
+    no-ops all of it must still persist. Whether or not the start asked for the handoff, the callback's
+    redirect sets no session cookie, only the handoff's binding cookie; the landing page's exchange sets
+    the session cookies, in order, and leaves that one alone (E29 (5))."""
     email = _email()
     user_id = _seed_verified(email)
     if not audited:
         request.getfixturevalue("no_audit_rows")
     resp = _oauth_callback(client, monkeypatch, provider, f"{provider}_{uuid.uuid4().hex}", email, handoff=handoff)
-    if handoff:
-        handoff_code(resp)
-        assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
-    else:
-        assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-        assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     user = _user(email)
     assert user.last_login_at is not None
     with SessionLocal() as db:
         assert db.query(OAuthAccount).filter_by(user_id=user_id, provider=provider).count() == 1
-        assert db.query(SessionHandoff).filter_by(user_id=user_id).count() == (1 if handoff else 0)
-        assert db.query(RefreshToken).filter_by(user_id=user_id).count() == (0 if handoff else 1)
-    if handoff:
-        exchange = complete_sign_in(client, resp)
-        assert exchange.status_code == 200 and exchange.json() == {"status": "signed_in"}
-        assert _cookies(exchange) == SESSION_ISSUED
+        assert db.query(SessionHandoff).filter_by(user_id=user_id).count() == 1
+        assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 0
+    exchange = complete_sign_in(client, resp)
+    assert exchange.status_code == 200 and exchange.json() == {"status": "signed_in"}
+    assert _cookies(exchange) == SESSION_ISSUED
     with SessionLocal() as db:
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 1
     audit_rows = [("user", {"provider": provider})] if audited else []
@@ -1542,31 +1537,26 @@ def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, req
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_first_sign_in_commits_the_new_account_itself(client, monkeypatch, no_audit_rows, provider, handoff):
-    """A first social sign-in's new account, its link, last_login_at and the refresh token are
-    committed by the sign-in, not by the audit row written after it (made a no-op here). For a start
-    that asked for the session handoff the sign-in commits its handoff in the token's place, and the
-    landing page's exchange of the handoff then mints the session's refresh token (E29 (5))."""
+    """A first social sign-in's new account, its link, last_login_at and its one-time session handoff
+    are committed by the sign-in, not by the audit row written after it (made a no-op here), whether or
+    not the start asked for the handoff; the landing page's exchange of the handoff then mints the
+    session's refresh token (E29 (5))."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
     resp = _oauth_callback(client, monkeypatch, provider, sub, email, handoff=handoff)
-    if handoff:
-        handoff_code(resp)
-        assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
-    else:
-        assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-        assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     user = _user(email)
     assert user.hashed_password is None and user.email_verified is True
     assert user.last_login_at is not None
     with SessionLocal() as db:
         assert db.query(OAuthAccount).filter_by(provider=provider, provider_account_id=sub).one().user_id == user.id
-        assert db.query(SessionHandoff).filter_by(user_id=user.id).count() == (1 if handoff else 0)
-    if handoff:
-        assert _refresh_tokens(user.id) == 0
-        assert complete_sign_in(client, resp).status_code == 200
+        assert db.query(SessionHandoff).filter_by(user_id=user.id).count() == 1
+    assert _refresh_tokens(user.id) == 0
+    assert complete_sign_in(client, resp).status_code == 200
     assert _refresh_tokens(user.id) == 1
 
 
@@ -1584,8 +1574,8 @@ def test_apple_sign_in_on_an_existing_link_fills_in_only_a_missing_name(client, 
     _seed_link(user_id, "apple", sub, email)
 
     resp = _oauth_callback(client, monkeypatch, "apple", sub, email, apple_user=_APPLE_FIRST_AUTH_USER)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [APPLE_STATE_CLEARED, HANDOFF_SET]
     assert _user(email).full_name == expected
 
 
@@ -1602,8 +1592,8 @@ def test_apple_sign_in_without_an_email_needs_an_existing_link(client, monkeypat
     resp = _oauth_callback(client, monkeypatch, "apple", sub, None)
     assert resp.status_code == 302
     if linked:
-        assert resp.headers["location"] == settings.FRONTEND_URL
-        assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+        handoff_code(resp)
+        assert _cookies(resp) == [APPLE_STATE_CLEARED, HANDOFF_SET]
         return
     assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error=apple_missing_claims"
     assert _cookies(resp) == [APPLE_STATE_CLEARED]
@@ -1637,7 +1627,7 @@ def lose_the_link_race():
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_link_that_loses_the_race_redirects_with_a_conflict(
     client, monkeypatch, caplog, root_rollbacks, lose_the_link_race, provider, handoff
@@ -1688,7 +1678,7 @@ def lose_the_create_race():
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflict(
     client, monkeypatch, caplog, root_rollbacks, lose_the_create_race, provider, handoff
@@ -1770,8 +1760,8 @@ def test_an_oauth_sign_in_writes_the_register_row_only_when_it_creates_the_accou
             _seed_link(user_id, provider, sub, email)
 
     resp = _oauth_callback(client, monkeypatch, provider, sub, email, invite=invite)
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
-    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    handoff_code(resp)
+    assert _cookies(resp) == [_STATE_CLEARED[provider], HANDOFF_SET]
     account, address = str(_user(email).id), _test_client_address()
     login = ("oauth_login", account, {"provider": provider}, address)
     assert _audit_trail(email) == {
@@ -1787,7 +1777,7 @@ def lose_the_new_accounts_link_race():
     """Arm with (email, sub, provider, owner_id): when a first sign-in for ``email`` flushes its new
     account, a competing request first commits the same provider identity for ``owner_id`` (the
     identity's email changed between the two), so the sign-in's commit, where its link is flushed
-    with the refresh token, raises IntegrityError and rolls the new account back."""
+    with the session handoff, raises IntegrityError and rolls the new account back."""
     armed: dict = {}
 
     def _before_flush(session, _flush_context, _instances):
@@ -1853,39 +1843,20 @@ def test_an_oauth_sign_in_that_creates_no_account_writes_no_register_row(
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("provider", ["google", "apple"])
-def test_an_oauth_first_sign_in_whose_session_mint_fails_leaves_no_account_and_no_register_row(
-    monkeypatch, server_errors, fail_the_refresh_token_insert, provider
-):
-    """A first sign-in's new account and link commit with its refresh token, and its audit rows follow
-    that commit: when the mint fails, the callback answers 500 with no session and leaves no account,
-    no link and no audit row. A register row written before the mint would commit the account, the link
-    and itself, all kept behind the 500, whether or not the database enforces the refresh token's
-    foreign key (SQLite here does not; PostgreSQL does)."""
-    email = _email()
-    sub = f"{provider}_{uuid.uuid4().hex}"
-    fail_the_refresh_token_insert["on"] = True
-    resp = _oauth_callback(server_errors, monkeypatch, provider, sub, email)
-    assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
-    assert resp.status_code == 500 and _cookies(resp) == []
-    with SessionLocal() as db:
-        assert db.query(User).filter(User.email == email).count() == 0
-        assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
-    assert _audit_trail(email) == []
-
-
-@pytest.mark.requires_db
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_an_oauth_first_sign_in_whose_handoff_commit_fails_leaves_no_account_and_no_register_row(
-    monkeypatch, server_errors, fail_the_handoff_insert, provider
+    monkeypatch, server_errors, fail_the_handoff_insert, provider, handoff
 ):
-    """The same for a start that asked for the session handoff (E29 (5)): the new account and link commit
-    with its handoff, and when that commit fails the callback answers 500 with no cookie and leaves no
-    account, no link and no audit row, whether or not the database enforces the handoff's foreign key."""
+    """A first sign-in's new account and link commit with its one-time session handoff, whether or not the start
+    asked for it, and its audit rows follow that commit (E29 (5)): when that commit fails the callback answers 500
+    with no cookie and leaves no account, no link and no audit row. A register row written before the commit would
+    commit the account, the link and itself, all kept behind the 500, whether or not the database enforces the
+    handoff's foreign key (SQLite here does not; PostgreSQL does)."""
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
     fail_the_handoff_insert["on"] = True
-    resp = _oauth_callback(server_errors, monkeypatch, provider, sub, email, handoff=True)
+    resp = _oauth_callback(server_errors, monkeypatch, provider, sub, email, handoff=handoff)
     assert fail_the_handoff_insert["fired"], "the commit failure was never injected"
     assert resp.status_code == 500 and _cookies(resp) == []
     with SessionLocal() as db:

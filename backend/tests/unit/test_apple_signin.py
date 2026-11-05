@@ -45,7 +45,8 @@ def _seed_state(
 ) -> str:
     """Insert a fresh OAuthState row, bind it to ``client`` (the HMAC cookie /apple sets, which the
     callback requires alongside the row), and return its state token. ``session_handoff`` is the
-    start's ask for the session handoff (E29 (5)); None, as a row from before the column, asks nothing."""
+    start's ask for the session handoff (E29 (5)), which the callback no longer reads; None, as a row from
+    before the column."""
     state = f"state_{uuid.uuid4().hex}"
     db = SessionLocal()
     try:
@@ -215,10 +216,10 @@ def test_callback_conflict_when_existing_account_unverified(client):
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 def test_callback_links_verified_account_and_stores_name(client, handoff):
-    """Verified local account + Apple-verified email → link, issue session, store first-auth name. For a start
-    that asked for the session handoff, the session goes to the landing page, whose exchange issues it (E29 (5))."""
+    """Verified local account + Apple-verified email → link, issue session, store first-auth name. Whether or not the
+    start asked for the session handoff, the session goes to the landing page, whose exchange issues it (E29 (5))."""
     email = f"verified_{uuid.uuid4().hex[:10]}@example.com"
     db = SessionLocal()
     try:
@@ -241,17 +242,12 @@ def test_callback_links_verified_account_and_stores_name(client, handoff):
             follow_redirects=False,
         )
 
-    if handoff:
-        handoff_code(resp)
-        # No session cookie on the callback's navigation: the landing page's exchange issues it.
-        assert "earningsnerd_access_token=" not in resp.headers.get("set-cookie", "")
-        exchange = complete_sign_in(client, resp)
-        assert exchange.status_code == 200, exchange.text
-        assert "earningsnerd_access_token=" in exchange.headers.get("set-cookie", "")
-    else:
-        assert resp.status_code == 302
-        # Session cookies are issued on success.
-        assert "earningsnerd_access_token=" in resp.headers.get("set-cookie", "")
+    handoff_code(resp)
+    # No session cookie on the callback's navigation: the landing page's exchange issues it.
+    assert "earningsnerd_access_token=" not in resp.headers.get("set-cookie", "")
+    exchange = complete_sign_in(client, resp)
+    assert exchange.status_code == 200, exchange.text
+    assert "earningsnerd_access_token=" in exchange.headers.get("set-cookie", "")
 
     db = SessionLocal()
     try:

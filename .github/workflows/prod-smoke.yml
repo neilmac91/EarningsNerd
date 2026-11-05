@@ -115,9 +115,11 @@ jobs:
 
           Inspect the failed or cancelled job and any retained API/browser artifacts. Artifacts may be
           unavailable after a timeout. The smoke checks API availability, the public filing summary
-          plus Ask this Filing launcher, and that checkout charges what the live pricing page shows
-          (docs/PRICING_OFFER.md, "Machine checks"); it does not generate a summary or send a
-          Copilot question. A missing cached example is a failed prerequisite.
+          plus Ask this Filing launcher, that the OAuth landing page /auth/complete is served (the
+          frontend's rollback floor, docs/DEPLOYMENT.md "OAuth session handoff"), and that
+          checkout charges what the live pricing page shows (docs/PRICING_OFFER.md, "Machine checks");
+          it does not generate a summary or send a Copilot question. A missing cached example is a
+          failed prerequisite.
           EOF_BODY
           EXISTING="$(gh issue list --state open --search '"Production smoke failed" in:title' --json number,title \
             --jq '[.[] | select(.title | startswith("Production smoke failed"))] | .[0].number // empty')"

@@ -451,25 +451,19 @@ compatible image. Preserve that reader and its dependencies when reverting the o
 `main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
 bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
-**OAuth session handoff (E29 (5), #1963): rollback.** The API hands an OAuth sign-in to the frontend's
-`/auth/complete` landing page only when the start asked for it (`handoff=1` on the login page's
-`GET /api/auth/{google,apple}` link, `"handoff": true` in the sign-up page's POST start); any other start takes the
-callback path that sets the session cookies on its redirect home. An older API ignores the ask, so an **API rollback**
-is safe at any time: a callback it serves sets the session cookies on its redirect home (a code already handed to the
-landing page within its two minutes finds no exchange route there, and that reader logs in again). A **frontend
-rollback** past this PR is safe for the pages the older frontend serves after it, whose starts do not ask. It
-strands two kinds of sign-in, each of which still lands on `/auth/complete`, which the older frontend does not
-serve, so the reader logs in again (the code lapses in two minutes): those started in the ten minutes before the
-rollback (the life of a state row), and those started later from a page of the newer frontend that loaded before
-the rollback and is still open (a tab left open, a page the browser restores from its back-forward cache), until
-that page reloads. The second kind has no time bound, but each such page loses at most one sign-in: the reader's
-next login page comes from the older frontend. For a clean cut, roll back to a build that keeps `/auth/complete`,
-or roll the API back with the frontend (an older API ignores the ask, so every start takes the callback path that
-sets the cookies); otherwise accept that those readers log in again. A state row from before the
-`oauth_states.session_handoff` column reads as no ask.
-The follow-up that retires the cookie-setting path (`tasks/todo.md` E29 (5)) changes this: from then on every
-sign-in hands off, so the frontend's `/auth/complete` becomes a floor for the backend, and the frontend ships first
-and never rolls back past it while that backend serves.
+**OAuth session handoff (E29 (5), #1963, #2014): the frontend floor.** Every Google or Apple sign-in hands its
+session to the frontend's `/auth/complete` landing page, whatever its start asked: the callback sets no session
+cookie, and only that page's exchange (`POST /api/auth/oauth/complete`) sets them. So while an API at or after #2014
+serves, **never roll the frontend back to, or promote, a deployment older than `c32af8f`** (#1963's merge, the first
+build with `/auth/complete`, serving since 2026-11-03). A frontend without the page leaves every Google and Apple
+sign-in without its exchange: the code lapses in two minutes, and an account with no password has no other way in.
+To go further back, first move the API's traffic to a revision before #2014. The frontend shipped first: `c32af8f`
+served before #2014 merged. An **API rollback** stays safe at any time. To a revision from #1963 up to #2014, the
+app's own starts still hand off (they still ask, `handoff=1` on the login page's `GET /api/auth/{google,apple}` link
+and `"handoff": true` in the sign-up page's POST start, and each state row records the ask), while a start that did
+not ask (a bookmark, a direct URL) takes the callback path that sets the session cookies on its redirect home again.
+Past #1963, every start takes that path, and a code handed to the landing page within its last two minutes finds no
+exchange route there, so that reader logs in again.
 
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
@@ -509,6 +503,10 @@ does not read the route.
 
 Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`
 (and creates preview deployments for PRs). CI does **not** deploy the frontend.
+
+> **Rollback floor.** A Vercel rollback or promotion never moves production to a deployment older than `c32af8f`
+> while an API at or after #2014 serves: every Google or Apple sign-in lands on `/auth/complete`
+> ("OAuth session handoff" under the backend's Rollback above).
 
 > **Single source of Vercel config.** The project's **Root Directory** is set to `frontend`, so
 > Vercel reads `frontend/vercel.json` (region `pdx1`, co-located with Cloud Run us-west1) — that is the only Vercel config file
