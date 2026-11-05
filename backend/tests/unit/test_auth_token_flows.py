@@ -9,7 +9,7 @@ reset whose account was deleted while it hashed (E121), the logout rows that nam
 register row a Google or Apple sign-in writes when it creates the account (D-054) pin deliberate
 changes made since, and fail on the code before them; the rows of signed-in logouts that revoke
 nothing, which E137 kept, the audit rows of the other sign-ins and of a password sign-up, and a
-first sign-in whose session mint fails are pinned beside them:
+first sign-in whose handoff commit fails are pinned beside them:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -23,8 +23,8 @@ first sign-in whose session mint fails are pinned beside them:
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
     login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews,
     after a replay of the same account's token too: the sweep ends only the replayed token's chain (E121, E96)
-  - the OAuth callbacks when the sign-in's commit loses a race (IntegrityError at its flush), on both
-    paths (the refresh token's mint, or the session handoff's commit for a start that asked for it):
+  - the OAuth callbacks when the sign-in's commit, which writes its session handoff, loses a race
+    (IntegrityError at its flush), whether or not the start asked for the handoff (E29 (5)):
     the conflict redirect, no cookie but the state's clear, nothing persisted; likewise when a first
     sign-in's new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
@@ -36,11 +36,10 @@ first sign-in whose session mint fails are pinned beside them:
     changes nothing; a password change whose mint fails changes nothing (one commit); a login or a
     change whose password changed while it hashed is refused, and a login whose account was
     deactivated meanwhile too; a registration that loses a concurrent create stays opaque
-  - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
-    token) with no audit row committing after it, and sets the session cookies on its redirect home, in
-    order; for a start that asked for the session handoff it commits its one-time handoff instead and
-    redirects to the landing page with the code in the fragment and its binding cookie, no session
-    cookie, and the landing page's exchange of that code sets the session cookies, in order (E29 (5));
+  - an OAuth callback commits its own sign-in (a new account, the link, last_login_at) with its
+    one-time handoff and no audit row committing after it, whatever its start asked, and redirects to
+    the landing page with the code in the fragment and its binding cookie, no session cookie; the
+    landing page's exchange of that code sets the session cookies, in order (E29 (5));
     the connections list; Apple's name fill-in on an existing link and its first sign-in without an email
   - the audit rows of a sign-up and an OAuth sign-in: /register writes register once, under the
     keyed hash of the address; an OAuth sign-in that creates the account, in public mode or by
@@ -48,7 +47,7 @@ first sign-in whose session mint fails are pinned beside them:
     under the same hash; a returning one oauth_login alone; a link to an existing verified account
     oauth_login and oauth_linked; a refused sign-in, a conflict, a lost create race and a new account
     whose commit loses its link write none and set no session cookie; and a first sign-in whose
-    session mint, or handoff commit, fails answers 500 and leaves no account, link or audit row
+    handoff commit fails answers 500 and leaves no account, link or audit row
   - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
@@ -57,8 +56,8 @@ at call time; with durable tasks off, as here, the reset and resend mails go out
 the test client runs before it returns). SQLite hands
 back ``DateTime(timezone=True)`` columns naive while PostgreSQL hands them back aware; the
 ``_postgres_shaped_expiries`` fixture gives the two token-expiry columns the production shape, so
-the expiry comparisons run as they do on PostgreSQL. The session-mint failures and the races are
-injected at the session's flush (SQLAlchemy events), so they hit the same write before and after
+the expiry comparisons run as they do on PostgreSQL. The session-mint and handoff-commit failures and the
+races are injected at the session's flush (SQLAlchemy events), so they hit the same write before and after
 the move, whichever module issues it.
 """
 import hashlib

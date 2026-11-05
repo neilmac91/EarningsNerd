@@ -35,8 +35,8 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - two first sign-ins of one OAuth identity, two links of one identity to an account, and two invited sign-ups
   with one invite: no lock serializes them, so the unique email, the unique provider link and the invite's
   guarded redemption decide, and the second is refused or loses at its commit with nothing of its own
-  committed (E121), each for both of a callback's commits: main's, with the session's refresh token, for a start
-  that did not ask for the session handoff, and the handoff's (E29 (5));
+  committed (E121), each through the callback's one commit, the session handoff's, whatever the start asked
+  (E29 (5));
 - one OAuth sign-in's one-time code exchanged twice at once (E29 (5)): the second redemption waits at the account's
   users row lock for the first's commit, then reads the handoff used, so one session is minted;
 - an OAuth sign-in's code exchange and a logout-all, a password reset or a password change of its account, in either

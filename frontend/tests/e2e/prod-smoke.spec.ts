@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Opt-in PRODUCTION smoke check for a cached summary and the research pane's "Source" launcher.
+ * Opt-in PRODUCTION smoke check for a cached summary, the research pane's "Source" launcher, and the OAuth
+ * landing page (`/auth/complete`), which every Google and Apple sign-in needs since #2014 (docs/DEPLOYMENT.md's
+ * frontend floor).
  *
  * Why this exists: the "Ask this Filing" Copilot (and other frontend work) merged to `main` but a
  * stale Vercel production deployment kept serving an older build, so the feature was invisible on

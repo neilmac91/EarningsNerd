@@ -647,8 +647,9 @@ def apple_callback():
     frontend_url = settings.FRONTEND_URL
     return _apple_redirect(frontend_url)
 '''
-    # A callback that landed a sign-in on the home page, the cookie-setting path E29 (5) retired, is a read the main
-    # test refuses: no callback is listed.
+    # A callback that answers with the bare frontend origin, as the cookie-setting path E29 (5) retired did, is a read
+    # the main test refuses: no callback is listed. A home landing written as `f"{frontend_url}/"` reads as a link to
+    # "/" and passes here; the handoff tests' `handoff_code` refuses it.
     scanned = scan_module(callbacks, "backend/app/routers/auth.py")
     assert scanned.bare == []
     assert sorted(function for _, function in scanned.unfollowed) == ["apple_callback", "google_callback"]
