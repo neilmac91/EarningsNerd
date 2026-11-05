@@ -1703,28 +1703,73 @@ def test_each_mail_lists_by_its_own_line(rendered):
     assert not named, f"a preheader names no one, since a phone's lock screen shows it: {named}"
 
 
-# The verification mail asks for what verifying gates, as the site's banner does (E46): checkout refuses an unverified
-# address (routers/subscriptions.py), and a Google or Apple login links to an existing account only once its address
-# is verified (services/oauth_account_service.py); reading waits on neither. So the mail names subscribing to Pro and
-# promises no reading, where it said "Verify your email address and you can start reading." The banner's line is
-# read from its source, so a change to either sentence is a change here. This holds the two to one ask; whether
-# that ask should follow checkout's state while new checkout is closed is F56's question.
+# The verification mail and the site's banner make one ask: that the reader confirm the address is theirs (#1965
+# Decision 4, the founder's word of 2026-11-04; F56 (b)). It replaces E46's ask, which named what verifying gates
+# (checkout, "Verify your email address to subscribe to Pro."): beta testers get Pro by grant and new checkout stays
+# closed, so a mail that named Pro, checkout or subscribing would send a tester toward a checkout they must not use.
+# The dialog that checkout's 403 opens still names subscribing (frontend/tests/unit/authPagesCopy.spec.tsx). The mail
+# still promises no reading, which no verification gates (E46). The banner's line is read from its source, its
+# entities unescaped, so a change to either sentence is a change here.
 VERIFICATION_BANNER = REPO / "frontend" / "features" / "auth" / "components" / "VerificationBanner.tsx"
-VERIFY_ASK = "Verify your email address to subscribe to Pro."
+VERIFY_ASK = "Verify your email address to confirm it's yours."
 _PROMISES_READING = re.compile(r"start reading|\bunlock|\bread (?:the|your|any|every) (?:filing|summar)", re.IGNORECASE)
+# What the mail must not name, word by word: Pro, checkout (spaced or hyphenated), subscribing, upgrading, a trial,
+# pricing, a paid plan, Premium, purchasing or buying. `\bsubscri` passes an unsubscribe line, which is no purchase.
+# frontend/tests/unit/authPagesCopy.spec.tsx holds the banner to the same pattern.
+_NAMES_A_PURCHASE = re.compile(
+    r"\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b"
+    r"|\bpurchas|\bbuy",
+    re.IGNORECASE,
+)
 
 
-def test_the_verification_mail_asks_for_what_verifying_gates_as_the_banner_does(rendered):
-    assert "Verify your email to subscribe." in VERIFICATION_BANNER.read_text(encoding="utf-8"), (
-        "the site's banner no longer names subscribing as what verifying gates: hold the verification mail's ask to "
-        "what the banner says now"
+def test_the_purchase_scan_reads_each_way_a_mail_could_name_one():
+    """Not vacuous: the scan the verification mail is held to finds each purchase word it names, in either case, and
+    passes the words a verification mail does carry, an unsubscribe line among them."""
+    for planted in (
+        "Verify your email address to subscribe to Pro.",
+        "Subscribing requires a verified email.",
+        "Verify to unlock checkout.",
+        "Verify, then check out.",
+        "Verify, then check-out.",
+        "Verify your email to upgrade.",
+        "Verify to start your PRO trial.",
+        "Verify to start your free trials.",
+        "Verify your email to see pricing.",
+        "Verify to choose a paid plan.",
+        "Verify to compare plans.",
+        "Verify to go Premium.",
+        "Verify to purchase.",
+        "Verify, then buy access.",
+    ):
+        assert _NAMES_A_PURCHASE.search(planted), f"the scan misses a purchase in {planted!r}"
+    for clean in (
+        VERIFY_ASK,
+        "If you didn't create an account, you can safely ignore this email.",
+        "Unsubscribe from these emails.",
+        "This email is about your EarningsNerd account or a request you made.",
+        "Filing data sourced from SEC EDGAR. Not investment advice.",
+        "The summary that shows its work.",
+    ):
+        assert not _NAMES_A_PURCHASE.search(clean), f"the scan flags a line that names no purchase: {clean!r}"
+
+
+def test_the_verification_mail_and_the_banner_ask_only_that_the_reader_confirm_the_address(rendered):
+    banner = html.unescape(VERIFICATION_BANNER.read_text(encoding="utf-8"))
+    assert VERIFY_ASK in banner, (
+        f"the site's banner no longer says {VERIFY_ASK!r}: the mail and the banner make one ask, so change both"
     )
     pairs = rendered["mails"]["send_verification_email"]
     assert pairs, "the verification mail is rendered"
     for page, text in pairs:
         words = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
         for part, body in (("page", words), ("text part", text)):
-            assert VERIFY_ASK in body, f"the verification mail's {part} asks for what verifying gates: {VERIFY_ASK!r}"
+            assert VERIFY_ASK in body, f"the verification mail's {part} makes the banner's one ask: {VERIFY_ASK!r}"
+            named = _NAMES_A_PURCHASE.findall(body)
+            assert not named, (
+                f"the verification mail's {part} names a purchase ({named}); it asks only that the reader confirm the "
+                "address"
+            )
             assert not _PROMISES_READING.search(body), (
                 f"the verification mail's {part} promises reading, which no verification gates"
             )

@@ -376,7 +376,7 @@ async def send_verification_email(
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
-    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address to subscribe to Pro.</p>
+    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Verify your email address to confirm it&apos;s yours.</p>
     <p style="margin:0 0 24px;">
       <a href="{verification_link}" style="display:inline-block;background-color:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;text-align:center;">Verify my email</a>
     </p>
@@ -385,7 +385,7 @@ async def send_verification_email(
     """
     text_body = (
         f"{_greeting_text(name)}\n\n"
-        "Thanks for creating an EarningsNerd account. Verify your email address to subscribe to Pro.\n\n"
+        "Thanks for creating an EarningsNerd account. Verify your email address to confirm it's yours.\n\n"
         f"Verify my email: {verification_link}\n\n"
         "This link expires in 24 hours. If you didn't create an account, you can safely ignore this email."
     )
