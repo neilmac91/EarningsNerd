@@ -146,8 +146,9 @@ or was suppressed by the provider on any mail EarningsNerd sends, which starts o
 `RESEND_WEBHOOK_SECRET` is bound (F46). A manual re-issue, which sends nothing, adds no row. It is not peppered with
 `SECRET_KEY`, because rotating that key would silently forget every opt-out; the cost is that the
 hash of a known address can be recomputed. It survives account deletion, since honouring an opt-out
-means recognizing the address again. Its retention, and its mention in the privacy notice, are the
-founder's decision.
+means recognizing the address again. The founder decided its retention and notice on 2026-11-04
+(#1965 Decision 2): it is kept for as long as the list exists, and `/privacy` names it under
+"Retention and deletion".
 
 **Unsubscribe.** Each invitation's footer links `/email/unsubscribe#token=…`. The token rides in the
 fragment, which no request carries, so no server or proxy log records it, and the page posts it only
@@ -174,7 +175,8 @@ its recovery.
 Operator steps, in order, each after the one before has passed. No deploy or workflow does any of
 them.
 
-1. Founder: approve the permission policy above, and the suppression list's retention and notice.
+1. Founder: approve the permission policy above, and the suppression list's retention and notice
+   (both approved on 2026-11-04: #1965 Decisions 1 and 2).
 2. Confirm collection is ready (`GET /api/legal/readiness`), or, for the invited cohort alone, that
    the admin banner reads "Registration is open to the invited cohort only", and that
    `REGISTRATION_MODE` is the intended mode (`invite_only` for the beta).
