@@ -1713,9 +1713,14 @@ def test_each_mail_lists_by_its_own_line(rendered):
 VERIFICATION_BANNER = REPO / "frontend" / "features" / "auth" / "components" / "VerificationBanner.tsx"
 VERIFY_ASK = "Verify your email address to confirm it's yours."
 _PROMISES_READING = re.compile(r"start reading|\bunlock|\bread (?:the|your|any|every) (?:filing|summar)", re.IGNORECASE)
-# What the mail must not name: Pro, checkout, subscribing, and the other ways to say buying or trying a plan.
-# `\bsubscri` passes an unsubscribe line, which is no purchase.
-_NAMES_A_PURCHASE = re.compile(r"\bpro\b|\bcheck ?out\b|\bsubscri|\bupgrade|\btrial\b", re.IGNORECASE)
+# What the mail must not name, word by word: Pro, checkout (spaced or hyphenated), subscribing, upgrading, a trial,
+# pricing, a paid plan, Premium, purchasing or buying. `\bsubscri` passes an unsubscribe line, which is no purchase.
+# frontend/tests/unit/authPagesCopy.spec.tsx holds the banner to the same pattern.
+_NAMES_A_PURCHASE = re.compile(
+    r"\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b"
+    r"|\bpurchas|\bbuy",
+    re.IGNORECASE,
+)
 
 
 def test_the_purchase_scan_reads_each_way_a_mail_could_name_one():
@@ -1726,8 +1731,16 @@ def test_the_purchase_scan_reads_each_way_a_mail_could_name_one():
         "Subscribing requires a verified email.",
         "Verify to unlock checkout.",
         "Verify, then check out.",
+        "Verify, then check-out.",
         "Verify your email to upgrade.",
         "Verify to start your PRO trial.",
+        "Verify to start your free trials.",
+        "Verify your email to see pricing.",
+        "Verify to choose a paid plan.",
+        "Verify to compare plans.",
+        "Verify to go Premium.",
+        "Verify to purchase.",
+        "Verify, then buy access.",
     ):
         assert _NAMES_A_PURCHASE.search(planted), f"the scan misses a purchase in {planted!r}"
     for clean in (

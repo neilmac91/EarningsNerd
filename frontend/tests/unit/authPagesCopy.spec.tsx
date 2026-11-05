@@ -560,8 +560,11 @@ describe('verification banner and dialog', () => {
     const { container } = withQueryClient(<VerificationBanner />)
     // backend/tests/unit/test_mail_rendered_addresses.py holds the mail to these same words.
     expect(await screen.findByText("Verify your email address to confirm it's yours.")).toBeInTheDocument()
-    // Beta testers get Pro by grant and checkout stays closed: the banner sends no one toward it.
-    expect(container.textContent).not.toMatch(/\bpro\b|\bcheck ?out\b|\bsubscri|\bupgrade|\btrial\b/i)
+    // Beta testers get Pro by grant and checkout stays closed: the banner sends no one toward it. The pattern is
+    // test_mail_rendered_addresses.py's _NAMES_A_PURCHASE, which the mail is held to and whose self-check plants each form.
+    expect(container.textContent).not.toMatch(
+      /\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b|\bpurchas|\bbuy/i,
+    )
     expect(screen.queryByText(/generate/i)).toBeNull()
   })
 
