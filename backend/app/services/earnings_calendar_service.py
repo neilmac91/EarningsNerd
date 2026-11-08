@@ -281,8 +281,7 @@ def ingest_alpha_vantage(
     rows = list(rows)
     # One chunked read of every existing event a row can key on, instead of one SELECT per row
     # (~6k a day), keyed by the same _ingest_key the loop reads rows through. The loop is unchanged
-    # otherwise: each insert still flushes at once, so what the EDGAR pass and the later steps can
-    # see, and where an error stops the pass, stay as before.
+    # otherwise: each insert still flushes at once, so where an error stops the pass stays as before.
     by_key = _events_by_key(db, rows, members=members, today=today)
     upserted = 0
     for row in rows:
@@ -316,10 +315,9 @@ def ingest_alpha_vantage(
             # A repeated (ticker, fpe) later in this run updates this row, as the per-row SELECT
             # found it once flushed.
             by_key[(ticker, fpe)] = created
-            # Flush so the later steps' queries in the SAME transaction see this row (SessionLocal
-            # is autoflush=False). The EDGAR pass's attach query would otherwise find no prior row
-            # for a 2.02 hit on it and skip the flip (it never inserts), and each flush also writes
-            # the updates pending before it, which the stale downgrade then reads (E306).
+            # Each insert is flushed at once, so a row that cannot be read stops the pass with the
+            # inserts before it, and the updates before them, written. An update after the file's
+            # last insert stays pending: each later step flushes before it reads (E306).
             db.flush()
         else:
             if existing.event_date != new_date:
@@ -351,6 +349,11 @@ def ingest_edgar_reported(
     now = datetime.now(timezone.utc)
     if stats is None:
         stats = RefreshStats()  # keeps the counter bumps unconditional; discarded for solo callers
+    # The attach queries below read rows, not this session's pending changes (autoflush is off): write
+    # them first. The Alpha Vantage pass leaves an update after the file's last insert pending, and the
+    # query would otherwise look for that row at its old date and skip its hit as having no prior row,
+    # also when the pass stopped at a row it could not read (E306).
+    db.flush()
     members = index_membership_service.active_member_filter()
     reported = 0
     for hit in hits:
@@ -444,6 +447,10 @@ def downgrade_stale_estimates(db: Session, *, today: date) -> int:
     the 8-K wasn't seen (strategy §3.5). Drop them to low confidence so the UI can frame the date
     as "may move" if the row resurfaces; they stay ``estimated`` and a later provider pass or 8-K
     still updates them. Bulk UPDATE; returns the number of rows downgraded."""
+    # The bulk UPDATE reads rows, not this session's pending changes (autoflush is off): write them
+    # first, so a row this run moved into the future or reported is not read, counted and set low as a
+    # stale estimate (E306).
+    db.flush()
     updated = (
         db.query(EarningsEvent)
         .filter(

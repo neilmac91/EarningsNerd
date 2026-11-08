@@ -32,6 +32,7 @@ HELD_CONTROLS = frozenset({
     "SEC_DISTRIBUTED_LIMIT_ENABLED", "SEC_DISTRIBUTED_WAIT_SECONDS",
     "SUMMARY_TASKS_QUEUE", "SUMMARY_TASKS_WORKER_URL", "SUMMARY_TASKS_INVOKER_EMAIL",
     "TASKS_WORKER_ROLE",
+    "FILING_SOURCE_ARTIFACTS_ENABLED", "FILING_SOURCE_ARTIFACTS_BUCKET",
 })
 DEPLOY_STEPS = frozenset({
     "Update configured private task worker",
@@ -142,6 +143,9 @@ def test_ordinary_deployments_preserve_summary_and_shared_sec_controls():
     "--update-env-vars=SUMMARY_TASKS_WORKER_URL=https://summary-worker-uw.a.run.app",
     "--update-env-vars=SUMMARY_TASKS_INVOKER_EMAIL=summary@project.iam.gserviceaccount.com",
     "--update-env-vars=TASKS_WORKER_ROLE=background",
+    "--update-env-vars=FILING_SOURCE_ARTIFACTS_ENABLED=false",
+    "--update-env-vars=FILING_SOURCE_ARTIFACTS_BUCKET=",
+    "--update-env-vars=FILING_SOURCE_ARTIFACTS_BUCKET=source-fixture",
     "--update-env-vars=${UNINSPECTED_MAP}",
 ])
 def test_every_reader_rejects_replacement_or_even_disabled_control_pins(name, replacement):
@@ -155,6 +159,12 @@ def test_every_reader_rejects_replacement_or_even_disabled_control_pins(name, re
     "--remove-env-vars SUMMARY_NEW_JOBS_PAUSED",
     "--remove-secrets=SEC_DISTRIBUTED_LIMIT_ENABLED",
     "--update-secrets=SUMMARY_DURABLE_GENERATION_ENABLED=resource:latest",
+    "--remove-env-vars FILING_SOURCE_ARTIFACTS_ENABLED",
+    "--remove-env-vars FILING_SOURCE_ARTIFACTS_BUCKET",
+    "--remove-secrets=FILING_SOURCE_ARTIFACTS_ENABLED",
+    "--remove-secrets=FILING_SOURCE_ARTIFACTS_BUCKET",
+    "--update-secrets=FILING_SOURCE_ARTIFACTS_ENABLED=resource:latest",
+    "--update-secrets=FILING_SOURCE_ARTIFACTS_BUCKET=resource:latest",
     "--clear-env-vars", "--clear-secrets", "--env-vars-file=config.yml",
     "--flags-file=deploy.yml",
 ])

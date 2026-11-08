@@ -287,11 +287,15 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
 
 def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_path):
     jobs = workflow()["jobs"]
-    for name in ("e2e-tests", "lighthouse"):
+    for name in ("e2e-shard", "lighthouse"):  # each browser shard carries the scope guard, not the job summing them
         job = jobs[name]
         assert job["needs"] == ["ci-scope"]
         assert job["if"] == "${{ always() && !cancelled() }}"
         guard, records, *steps = job["steps"]
+        # The guard alone fails a leg whose scope failed or is missing. With an `if:` of its own it would skip, every
+        # step after it would skip too, and the leg would pass; so would a `continue-on-error:` or a `shell:` that runs
+        # nothing (E312). The shard job's own keys are pinned in the shards test; lighthouse is advisory by design.
+        assert set(guard) == {"name", "env", "run"} and guard["name"] == "Require a valid browser scope"
         assert guard["env"] == {
             "SCOPE_RESULT": "${{ needs.ci-scope.result }}",
             "RECORDS_ONLY": "${{ needs.ci-scope.outputs.records_only }}",
@@ -318,15 +322,64 @@ def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_pa
     for name in ("backend-tests", "frontend-tests", "migrations-postgres", "secret-scan"):
         assert "if" not in jobs[name] and "needs" not in jobs[name]
         assert all("if" not in step for step in jobs[name]["steps"])
-    assert "continue-on-error" not in jobs["e2e-tests"]
+    assert not {"continue-on-error"} & (jobs["e2e-shard"].keys() | jobs["e2e-tests"].keys())
     for event in ("push", "pull_request"):
         assert not {"paths", "paths-ignore"} & (workflow()["on"][event] or {}).keys()
 
 
 def test_e2e_tests_keeps_the_founders_35_minute_limit():
     # F59, the founder's decision (2026-10-23): deploy-backend needs e2e-tests, so a run cancelled at the limit skips
-    # its deploy. The suite takes about 20 minutes, and a slow npm registry or apt mirror adds minutes to the installs.
-    assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
+    # its deploy, and a slow npm registry or apt mirror adds minutes to the installs. Since the founder chose shards
+    # (2026-11-04, #1990), each shard keeps the 35 minutes; the job summing them only reads their result.
+    jobs = workflow()["jobs"]
+    assert jobs["e2e-shard"]["timeout-minutes"] == "35"
+    assert jobs["e2e-tests"]["timeout-minutes"] == "5"
+
+
+def test_e2e_tests_passes_only_when_every_browser_shard_passed():
+    # e2e-tests is the required check and deploy-backend's need, so it must report on every run: GitHub counts a
+    # skipped job as passing a required check, and `!cancelled()` would skip it on a cancelled run
+    # (lessons/ops-a-required-check-that-sums-other-jobs-never-skips.md).
+    ci = workflow()
+    jobs = ci["jobs"]
+    summary = jobs["e2e-tests"]
+    assert summary["needs"] == ["e2e-shard"]
+    assert summary["if"] == "${{ always() }}"
+    # Every key is pinned: a step `if:` on the result, `continue-on-error:`, a `shell:` or a `defaults:` (the job's or
+    # the workflow's) would each pass the job with a shard red while its script still reads right.
+    assert set(summary) == {"needs", "if", "runs-on", "timeout-minutes", "steps"}
+    assert "defaults" not in ci
+    (step,) = summary["steps"]
+    assert set(step) == {"name", "env", "run"}
+    assert step["env"] == {"SHARDS": "${{ needs.e2e-shard.result }}"}
+    for result in ("success", "failure", "cancelled", "skipped", "", "successful"):
+        ran = subprocess.run(
+            ["bash", "-e", "-c", step["run"]], capture_output=True, text=True,
+            env={**os.environ, "SHARDS": result}, timeout=10, check=False,
+        )
+        assert (ran.returncode == 0) == (result == "success"), (result, ran.returncode)
+    # No other job reads a shard directly, so the shards reach the gate and the deploy only through this job.
+    assert [name for name, job in jobs.items() if "e2e-shard" in (job.get("needs") or [])] == ["e2e-tests"]
+
+
+def test_the_browser_shards_cover_the_suite_and_keep_their_evidence_apart():
+    # Playwright splits by test count and keeps a file whole unless it runs in parallel mode. At the pace measured on
+    # 2026-11-04 (one worker on a 2-vCPU runner), five shards need about 21 minutes each with the installs; two or
+    # three would need 28 to 29, too close to the 35-minute limit when a slow mirror adds minutes (#1990).
+    shard = workflow()["jobs"]["e2e-shard"]
+    assert shard["strategy"] == {"fail-fast": "false", "matrix": {"shard": ["1", "2", "3", "4", "5"]}}
+    # A leg must fail when its tests fail: no job `defaults:` and no step's `continue-on-error:` or `shell:`.
+    assert set(shard) == {"needs", "if", "runs-on", "timeout-minutes", "strategy", "steps"}
+    softened = [step.get("name") for step in shard["steps"] if {"continue-on-error", "shell"} & step.keys()]
+    assert softened == [], softened
+    run = next(each for each in shard["steps"] if each.get("name") == "Run E2E tests")
+    assert set(run) == {"name", "if", "run", "working-directory", "env"}
+    # The matrix numbers its shards 1 to N on its only axis, so job-total is N and every test runs in one shard.
+    assert run["env"]["SHARD"] == "${{ matrix.shard }}/${{ strategy.job-total }}"
+    uploads = [step for step in shard["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+    names = [step["with"]["name"] for step in uploads]
+    # A run holds one artifact per name, so a shard's failure evidence carries its number.
+    assert names == ["playwright-report-${{ matrix.shard }}", "playwright-videos-${{ matrix.shard }}"]
 
 
 def test_charts_run_in_the_standard_e2e_job_without_a_flag():
@@ -334,10 +387,12 @@ def test_charts_run_in_the_standard_e2e_job_without_a_flag():
     # every browser spec, including the gallery and D13; neither spec may retain the flag that used to skip it here.
     jobs = workflow()["jobs"]
     assert "e2e-charts-v2" not in jobs
-    run = next(each for each in jobs["e2e-tests"]["steps"] if each.get("name") == "Run E2E tests")
-    assert run["run"] == "npx playwright test"
+    run = next(each for each in jobs["e2e-shard"]["steps"] if each.get("name") == "Run E2E tests")
+    assert run["run"] == 'npx playwright test --shard="$SHARD"'
     assert run["working-directory"] == "frontend"
-    assert run["env"] == {"PLAYWRIGHT_BASE_URL": "http://localhost:3000"}
+    assert run["env"] == {
+        "PLAYWRIGHT_BASE_URL": "http://localhost:3000", "SHARD": "${{ matrix.shard }}/${{ strategy.job-total }}",
+    }
     assert "NEXT_PUBLIC_CHARTS_V2" not in (ROOT / ".github/workflows/ci.yml").read_text()
     flagged = sorted(path.name for path in (ROOT / "frontend/tests/e2e").glob("*.spec.ts") if "CHARTS_V2" in path.read_text())
     assert flagged == [], f"browser specs still read the retired chart flag: {flagged}"

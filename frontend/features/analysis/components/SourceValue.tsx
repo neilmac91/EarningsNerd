@@ -2,10 +2,10 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import { Modal, ModalBody, ModalHeader } from '@/components/ui'
-import { formatLocalDate } from '@/lib/format'
+import { formatLocalDate, inSentence } from '@/lib/format'
 import type { AnalysisPoint, FirstReported } from '@/features/analysis/api/analysis-api'
 import { FCF_DEFINITION, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
-import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
+import { compactFigure, conceptName, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { disagreementSentence, filingParts, firstReportedSentence } from '@/features/analysis/lib/laterFilings'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { dataNoteIssue, markedNote, noteMarksFigure, type DataNote } from '@/features/analysis/lib/dataNotes'
@@ -86,10 +86,11 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
   const provenance = input.provenance
   const href = sourceUrl(input.source_url) ?? sourceUrl(provenance?.source_url)
   const calculated = provenance?.method === 'calculated'
-  const name = `${input.concept.replaceAll('_', ' ')}, ${[input.period_start, input.period_end].filter(Boolean).join(' to ') || 'period not recorded'}`
+  const concept = conceptName(input.concept)
+  const name = `${inSentence(concept)}, ${[input.period_start, input.period_end].filter(Boolean).join(' to ') || 'period not recorded'}`
   return (
     <li className="min-w-0 space-y-1 border-t border-border-light pt-2 [overflow-wrap:anywhere] dark:border-white/10">
-      <p className="font-medium capitalize">{input.concept.replaceAll('_', ' ')}</p>
+      <p className="font-medium">{concept}</p>
       <p className="font-figure tabular-nums lining-nums">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
       <p>{[input.period_start, input.period_end].filter(Boolean).join(' to ')}</p>
       <p>{calculated ? (provenance?.inputs.length ? 'Calculated from recorded inputs.' : 'Calculated figure.') : provenance?.method === 'reported' ? 'Reported in the source filing.' : 'Source method is not recorded.'}</p>
@@ -136,7 +137,7 @@ function inheritedComparisonNote(comparison: SourceComparison) {
   if (!affected.size) return `${letter ? `Carries note ${letter}. ` : ''}The recorded inputs do not identify which input this note comes from.`
   const status = note.kind === 'review' ? 'needs review' : note.kind === 'unavailable' ? 'is unavailable' : 'has no validation record'
   const inputs = [...affected.values()].map(input => {
-    const label = input.concept.replaceAll('_', ' ')
+    const label = inSentence(conceptName(input.concept))
     const period = input.period_end ? ` (period ended ${formatLocalDate(input.period_end, 'd MMM yyyy')})` : ''
     return `${label}${period}, which ${status}`
   })

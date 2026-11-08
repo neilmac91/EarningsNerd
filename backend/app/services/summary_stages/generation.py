@@ -23,6 +23,13 @@ logger = logging.getLogger(pipeline.__name__)
 async def generate(run: GenerationRun) -> AsyncIterator[dict]:
     """Run the provider task with heartbeats, metering and the deterministic fallback."""
     filing_id = run.filing_id
+    try:
+        run.require_committed_source()
+    except pipeline.FilingSourceError as source_error:
+        source_failure = await pipeline.failure.source_failed(run, source_error)
+        yield {**source_failure, "type": "error", "message": "We could not generate this summary. Try again shortly."}
+        return
+
 
     # A5: when STREAM_SECTION_REVEAL is on, stream the extraction and push progressive section
     # previews onto a queue that the heartbeat loop drains below. The callback can't yield from

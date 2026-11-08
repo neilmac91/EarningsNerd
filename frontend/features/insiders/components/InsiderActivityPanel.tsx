@@ -207,7 +207,7 @@ export default function InsiderActivityPanel({
               (frontend/DESIGN_SYSTEM.md §3; lessons/frontend-variable-text-must-not-size-a-wrapping-row.md,
               lessons/frontend-check-brand-layouts-at-200-percent-text.md). */}
           <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(min(5.5rem,100%),1fr))] gap-3">
-            <div className="min-w-0 rounded-lg bg-gain-soft p-3 dark:bg-gain-soft-dark">
+            <div className="min-w-0 rounded-lg bg-background-light p-3 dark:bg-background-dark">
               <p className="text-xs font-medium text-gain-text dark:text-gain-dark">
                 Buys ({summary.buy_count})
               </p>
@@ -215,7 +215,7 @@ export default function InsiderActivityPanel({
                 {summary.buy_value != null ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
-            <div className="min-w-0 rounded-lg bg-loss-soft p-3 dark:bg-loss-soft-dark">
+            <div className="min-w-0 rounded-lg bg-background-light p-3 dark:bg-background-dark">
               <p className="text-xs font-medium text-loss-text dark:text-loss-dark">
                 Sells ({summary.sell_count})
               </p>

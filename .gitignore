@@ -14,6 +14,7 @@ out
 
 # Build / test artifacts (regenerated; never commit)
 *.tsbuildinfo
+.eslintcache
 .lighthouseci/
 playwright-report/
 test-results/
