@@ -623,12 +623,14 @@ creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
 `REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
 (`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
 shown once. Asking the mint to email it (`send_email: true`) answers 503 while invitation email
-is held (`legal_readiness_service.is_invitation_email_available()`: collection, the
-`LEGAL_INVITATION_EMAIL_ENABLED` switch, `RESEND_API_KEY` and a usable `RESEND_WEBHOOK_SECRET`),
-and 422 without the recipient's recorded request (`permission`); promotional mail stays closed
-either way (`is_marketing_available()`). The mint and signup both answer 503 while new
-collection is closed (`is_collection_available()`). `docs/LEGAL_READINESS.md` has the steps
-that turn invitation email on.
+is held (`legal_readiness_service.is_invitation_email_available()`: collection or the
+invited-cohort exception, the `LEGAL_INVITATION_EMAIL_ENABLED` switch, `RESEND_API_KEY` and a
+usable `RESEND_WEBHOOK_SECRET`), and 422 without the recipient's recorded request (`permission`);
+promotional mail stays closed either way (`is_marketing_available()`). The mint and signup both
+answer 503 while new collection is closed (`is_collection_available()`), unless the invited-cohort
+exception is open, which admits only an invitation bound to its address and in its cohort (the mint
+answers 422 for any other). `docs/LEGAL_READINESS.md` has the steps that turn invitation email
+and that exception on.
 
 New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
 returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
@@ -761,8 +763,10 @@ blocked; a pull request required with **zero** approvals and squash as the only 
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
 `lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app. The founder
 removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and gallery specs now run
-unconditionally in `e2e-tests`, and E195 deletes the duplicate job; no bypass actors, so the rules
-bind the administrator too. A required status check needs no approver, so this does not lock a
+unconditionally in the browser suite, and E195 deletes the duplicate job. Since 2026-11-04 (#1990)
+that suite runs as five `e2e-shard` jobs, and `e2e-tests`, which always runs, passes only when every
+shard passed. There are no bypass actors, so the rules bind the administrator too. A required status
+check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
 switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the

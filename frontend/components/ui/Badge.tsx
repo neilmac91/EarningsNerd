@@ -71,11 +71,9 @@
                      summary, not a state it moves through; "Superseded" and
                      the source check (SourceCheckBadge) keep their warning
                      tint too.
-     - beat / miss:  earnings surprise — gain/loss DATA colors (kept distinct
-                     from the brand accent), soft tint bg, auto ▲/▼. A
-                     direction only, never a status. Each label holds 4.5:1
-                     in its tint in both themes
-                     (tests/unit/directionChipContrast.spec.ts, E282).
+     - beat / miss: financial surprise, muted gain/loss ink on neutral stone grounds.
+                     Distinct from UI success/error; the direction glyph supplements colour.
+                     Contrast is measured by tests/unit/directionChipContrast.spec.ts.
      - new:          new-filing pulse — the brand tint (TINT, as brand) + a
                      calm pulsing dot in its sage ink (respects
                      prefers-reduced-motion). A new filing is news, not a
@@ -152,8 +150,8 @@ const VARIANT: Record<BadgeVariant, string> = {
   'warning-status': cx(STATUS, 'text-warning-light dark:text-warning-dark'),
   'neutral-status': cx(STATUS, 'text-text-tertiary-light dark:text-text-tertiary-dark'),
   tentative: cx(TENTATIVE, 'text-text-tertiary-light dark:text-text-tertiary-dark'),
-  beat: 'bg-gain-soft text-gain-text dark:bg-gain-soft-dark dark:text-gain-dark',
-  miss: 'bg-loss-soft text-loss-text dark:bg-loss-soft-dark dark:text-loss-dark',
+  beat: 'bg-background-light text-gain-text dark:bg-background-dark dark:text-gain-dark',
+  miss: 'bg-background-light text-loss-text dark:bg-background-dark dark:text-loss-dark',
   new: TINT,
 }
 

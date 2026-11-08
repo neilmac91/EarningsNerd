@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 BOOLEAN_FIELDS = (
     "SUMMARY_DURABLE_GENERATION_ENABLED", "SUMMARY_NEW_JOBS_PAUSED",
     "SEC_DISTRIBUTED_LIMIT_ENABLED", "DURABLE_TASKS_ENABLED", "TASKS_WORKER_PROCESS",
+    "FILING_SOURCE_ARTIFACTS_ENABLED",
 )
 INTEGER_FIELDS = {
     "SUMMARY_JOB_FAILED_RETRY_SECONDS": (15, 3600),
@@ -22,7 +23,9 @@ INTEGER_FIELDS = {
 }
 NUMBER_FIELDS = {"SEC_DISTRIBUTED_WAIT_SECONDS": (0, 30), "TASKS_WORK_TIMEOUT_SECONDS": (0, 480)}
 ENUM_FIELDS = {"TASKS_WORKER_ROLE": ("background", "summary")}
-CONFIG_FIELDS = (*BOOLEAN_FIELDS, *INTEGER_FIELDS, *NUMBER_FIELDS, *ENUM_FIELDS)
+# Presence is not validation: identifiers stay private even when malformed.
+PRESENCE_FIELDS = ("FILING_SOURCE_ARTIFACTS_BUCKET",)
+CONFIG_FIELDS = (*BOOLEAN_FIELDS, *INTEGER_FIELDS, *NUMBER_FIELDS, *ENUM_FIELDS, *PRESENCE_FIELDS)
 
 
 def number(value, minimum, maximum, *, integer=False, positive=False):
@@ -61,7 +64,9 @@ def runtime_configuration(entries):
     for name in CONFIG_FIELDS:
         raw, state = _entry(entries, name)
         result = {"state": state}
-        if state == "literal":
+        if state == "literal" and name in PRESENCE_FIELDS:
+            result = {"state": "literal_value_withheld", "nonempty_literal": bool(raw)}
+        elif state == "literal":
             if name in BOOLEAN_FIELDS:
                 normalized = raw.lower()
                 value = {"true": True, "false": False, "1": True, "0": False,
@@ -78,7 +83,8 @@ def runtime_configuration(entries):
         "fields": fields,
         "internal_job_token": {"state": token_state, "nonempty_literal": bool(token) if token_state == "literal" else None},
         "summary_task_isolation": summary_task_isolation(entries),
-        "limit": "Configured literals only; absent image defaults, authentication and runtime outcomes remain unverified.",
+        "limit": ("Configured literals only; absent image defaults, authentication and runtime outcomes remain unverified. "
+                  "Presence-only fields do not prove validity, resource existence, IAM, storage access or readiness."),
     }
 
 

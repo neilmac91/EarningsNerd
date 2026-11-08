@@ -5,8 +5,8 @@ import { render } from '@testing-library/react'
 import type { Config } from 'tailwindcss'
 import resolveConfig from 'tailwindcss/resolveConfig'
 import { describe, expect, it } from 'vitest'
-import { Badge } from '@/components/ui'
-import { directionChip } from '@/lib/financialTone'
+import { Badge, DeltaChip } from '@/components/ui'
+import { directionChip, type Direction } from '@/lib/financialTone'
 
 /**
  * A direction chip's label clears 4.5:1 in its tint, on the panel and on the page, in both themes (E282, D-074;
@@ -229,44 +229,54 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
     expect(recipes.flatMap(([name, cls]) => underTheFloor(name, cls))).toEqual([])
   })
 
+  it('measures the shared chip glyph and figure against its actual neutral shell', () => {
+    for (const tone of ['up', 'down', 'flat'] as Direction[]) {
+      const { container } = render(createElement(DeltaChip, { label: 'Revenue', direction: tone, tone, display: '+1.0%' }))
+      const shell = container.firstElementChild as HTMLElement
+      const ink = shell.querySelector('svg')!.parentElement!
+      const groundClasses = shell.className.split(' ').filter((c) => !/(^|:)text-/.test(c) && c !== '[overflow-wrap:anywhere]').join(' ')
+      expect(underTheFloor(tone, `${groundClasses} ${ink.className}`)).toEqual([])
+    }
+  })
+
   it('fails a faint label, an opacity, a missing or doubled colour, an unmeasured variant and a value or property it cannot read', () => {
-    const down = directionChip.down
+    const down = 'text-loss-text bg-loss-soft dark:text-[#FF96A1] dark:bg-[rgba(251,113,133,0.14)]'
     // rose-400, the dark loss ink before E282: 4.44:1 in its tint on the panel.
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB7185]'))).toEqual([
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[#FB7185]'))).toEqual([
       'plant (dark) on the panel: 4.44:1 in its tint, under 4.5:1',
     ])
-    for (const faded of ['dark:text-loss-dark/70', 'dark:text-loss-dark/[70%]', 'dark:text-loss-dark/[0.7]']) {
-      expect(underTheFloor('plant', down.replace('dark:text-loss-dark', faded))).toEqual([
+    for (const faded of ['dark:text-[#FF96A1]/70', 'dark:text-[#FF96A1]/[70%]', 'dark:text-[#FF96A1]/[0.7]']) {
+      expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', faded))).toEqual([
         'plant (dark) on the panel: 3.64:1 in its tint, under 4.5:1',
         'plant (dark) on the page: 4.45:1 in its tint, under 4.5:1',
       ])
     }
-    expect(underTheFloor('plant', 'text-loss-text dark:text-loss-dark')).toEqual(['plant (light): no tint', 'plant (dark): no tint'])
+    expect(underTheFloor('plant', 'text-loss-text dark:text-[#FF96A1]')).toEqual(['plant (light): no tint', 'plant (dark): no tint'])
     expect(underTheFloor('plant', `${down} dark:text-gain-dark`)).toEqual(['plant (dark): 2 inks'])
     expect(underTheFloor('plant', `${down} hover:text-loss-light`)).toEqual([
       'plant: hover:text-loss-light is an ink or tint under a variant this spec does not measure',
     ])
-    expect(underTheFloor('plant', down.replace('dark:bg-loss-soft-dark', 'dark:bg-loss-soft-dark/20'))).toEqual([
-      'plant: bg-loss-soft-dark/20 sets an opacity on a colour with its own alpha, which Tailwind replaces',
+    expect(underTheFloor('plant', down.replace('dark:bg-[rgba(251,113,133,0.14)]', 'dark:bg-[rgba(251,113,133,0.14)]/20'))).toEqual([
+      'plant: bg-[rgba(251,113,133,0.14)]/20 sets an opacity on a colour with its own alpha, which Tailwind replaces',
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB718]'))).toEqual([
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[#FB718]'))).toEqual([
       'plant: text-[#FB718] looks like a colour this spec cannot read',
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[var(--ink)]'))).toEqual([
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[var(--ink)]'))).toEqual([
       'plant: text-[var(--ink)] looks like a colour this spec cannot read',
     ])
     expect(underTheFloor('plant', `${down} text-[13px] text-[calc(1rem+1px)] text-[0.8cqw]`)).toEqual([])
     // Spellings the browser drops or clamps: refused, so the theme never falls back or reads past what is painted.
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/[1.]'))).toEqual([
-      "plant: text-loss-dark/[1.]'s opacity cannot be read as one between 0 and 1",
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[#FF96A1]/[1.]'))).toEqual([
+      "plant: text-[#FF96A1]/[1.]'s opacity cannot be read as one between 0 and 1",
     ])
     for (const [from, to] of [
-      ['dark:text-loss-dark', 'text-[rgba(255,150,161,1.)]'],
-      ['dark:text-loss-dark', 'text-[rgba(255,150,161,0.)]'],
-      ['dark:text-loss-dark', 'text-[rgba(251,113,133,.)]'],
-      ['dark:text-loss-dark', 'text-[rgba(251,113,133,2)]'],
-      ['dark:text-loss-dark', 'text-[rgb(300,113,133)]'],
-      ['dark:bg-loss-soft-dark', 'bg-[rgba(251,113,133,.)]'],
+      ['dark:text-[#FF96A1]', 'text-[rgba(255,150,161,1.)]'],
+      ['dark:text-[#FF96A1]', 'text-[rgba(255,150,161,0.)]'],
+      ['dark:text-[#FF96A1]', 'text-[rgba(251,113,133,.)]'],
+      ['dark:text-[#FF96A1]', 'text-[rgba(251,113,133,2)]'],
+      ['dark:text-[#FF96A1]', 'text-[rgb(300,113,133)]'],
+      ['dark:bg-[rgba(251,113,133,0.14)]', 'bg-[rgba(251,113,133,.)]'],
     ]) {
       expect(underTheFloor('plant', down.replace(from, `dark:${to}`))).toEqual([`plant: ${to} looks like a colour this spec cannot read`])
     }
@@ -277,13 +287,13 @@ describe("direction chips: the label clears 4.5:1 in its tint on the panel and t
       'plant (dark) on the panel: 1.00:1 in its tint, under 4.5:1',
       'plant (dark) on the page: 1.00:1 in its tint, under 4.5:1',
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-loss-dark/98'))).toEqual([
-      "plant: text-loss-dark/98's opacity is off Tailwind's scale, so it emits no CSS for it",
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[#FF96A1]/98'))).toEqual([
+      "plant: text-[#FF96A1]/98's opacity is off Tailwind's scale, so it emits no CSS for it",
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:text-[#FB7185]/[200%]'))).toEqual([
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:text-[#FB7185]/[200%]'))).toEqual([
       "plant: text-[#FB7185]/[200%]'s opacity cannot be read as one between 0 and 1",
     ])
-    expect(underTheFloor('plant', down.replace('dark:text-loss-dark', 'dark:!text-loss-dark'))).toEqual([
+    expect(underTheFloor('plant', down.replace('dark:text-[#FF96A1]', 'dark:!text-loss-dark'))).toEqual([
       'plant: dark:!text-loss-dark is an ink or tint marked important, which this spec does not rank against the others',
     ])
     // Tailwind emits an opacity utility after the ink, so it fades the label: refused, not measured.

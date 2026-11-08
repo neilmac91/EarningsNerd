@@ -6,7 +6,7 @@ provenance; they never recalculate or promote a legacy record to validated statu
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Context, Decimal
 import math
 import re
@@ -89,6 +89,14 @@ DERIVED_Q4_LEGEND = ("A Q4 header † means some flow figures are calculated fro
                      "months. It does not mark the column’s balance-sheet figures as calculated.")
 
 
+def display_date(value: date | None) -> str | None:
+    """A calendar day as the exports print it, "October 5, 2026", the day unpadded; None when absent. A datetime
+    prints its own calendar day, as stored."""
+    if value is None:
+        return None
+    return f"{value:%B} {value.day}, {value.year}"
+
+
 def display_instant(value: datetime | str | None) -> str | None:
     """An instant as the exports print it, "October 24, 2026, 20:26 UTC": the server cannot know the
     reader's zone, so the zone is named. None when absent or unreadable."""
@@ -98,7 +106,7 @@ def display_instant(value: datetime | str | None) -> str | None:
         moment = (ensure_utc(value) if isinstance(value, datetime) else utc_from_iso(str(value))).astimezone(timezone.utc)
     except ValueError:
         return None
-    return f"{moment:%B} {moment.day}, {moment.year}, {moment:%H:%M} UTC"
+    return f"{display_date(moment)}, {moment:%H:%M} UTC"
 
 
 def formula_text(formula: Any) -> str:

@@ -17,6 +17,13 @@ from app.services.summary_request_evidence import SummaryRequestEvidence
 from main import app
 from tests.support.summary_stream_harness import seed_company_filing
 
+# Seconds. Each wait below expects its work to finish, and fails only if it hangs. On a busy runner the requests take
+# well over a second, and a one-second bound failed main's CI on 2026-11-04 (a20c02079) with nothing wrong. So the
+# bound only breaks a hang and never times the work, as
+# lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md says of pool timeouts. A request the cap
+# admitted by mistake would still hang on the held pipeline, and fail here.
+HANG_GUARD = 30
+
 
 @pytest.fixture
 def boundary(monkeypatch):
@@ -76,8 +83,8 @@ async def test_live_stream_cap_keeps_ready_replay_and_get_available(boundary, mo
         route = f"/api/summaries/filing/{filing_id}/generate-stream"
         try:
             tasks = [asyncio.create_task(client.post(route)) for _ in range(4)]
-            await asyncio.wait_for(all_started.wait(), 3)
-            refused = await asyncio.wait_for(client.post(route), 1)
+            await asyncio.wait_for(all_started.wait(), HANG_GUARD)
+            refused = await asyncio.wait_for(client.post(route), HANG_GUARD)
             assert refused.status_code == 429
             assert refused.json()["code"] == "summary_rate_limited"
             assert refused.headers["Retry-After"] == "5"
@@ -91,7 +98,7 @@ async def test_live_stream_cap_keeps_ready_replay_and_get_available(boundary, mo
             assert not summaries.SUMMARY_LIMITER._hits
         finally:
             held.set()
-            await asyncio.wait_for(asyncio.gather(*tasks), 3)
+            await asyncio.wait_for(asyncio.gather(*tasks), HANG_GUARD)
     assert limiter._active == {}
 
 
@@ -149,19 +156,19 @@ async def test_response_owns_lease_through_unstarted_failure_disconnect_and_canc
     call = response({"type": "http", "asgi": {"spec_version": spec}}, receive, send)
     if stop == "cancel":
         task = asyncio.create_task(call)
-        await asyncio.wait_for(send_blocked.wait(), 2)
+        await asyncio.wait_for(send_blocked.wait(), HANG_GUARD)
         assert limiter._active == {"account": 1}
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
     elif stop == "unexpected_error":
         with pytest.raises(RuntimeError, match="offline send failure"):
-            await asyncio.wait_for(call, 2)
+            await asyncio.wait_for(call, HANG_GUARD)
     elif spec == "2.4" and stop != "complete":
         with pytest.raises(ClientDisconnect):
-            await asyncio.wait_for(call, 2)
+            await asyncio.wait_for(call, HANG_GUARD)
     else:
-        await asyncio.wait_for(call, 2)
+        await asyncio.wait_for(call, HANG_GUARD)
     assert entered == ([] if stop == "start" else [True])
     assert limiter._active == {}
     release()

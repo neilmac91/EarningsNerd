@@ -69,14 +69,14 @@ READ_STEPS = {
     "logs-probe": SHARED_STEPS + ["Logs read probe (safeguard-2 alert feasibility)"],
 }
 PREFLIGHT = "Refuse to run while a main push (deploy) is in flight"
-JOBS = {"approve-apply", "ops", "refuse-rerun"}
+JOBS = {"approve-apply", "approve-comment", "ops", "refuse-rerun"}
 # Each read dispatch runs in a group of its own run, so it never replaces, nor waits behind, a pending run.
 READ_GROUP = ("${{ (" + " || ".join(f"inputs.operation == '{operation}'" for operation in READ_OPERATIONS)
               + ") && format('ops-read-{0}', github.run_id) || 'ops' }}")
 # What each shared step a read runs is, whole, so a write cannot ride inside one under its name. A new version of
 # one of these actions (a Dependabot bump) fails here until someone checks it still only reads and updates this.
 SHARED_SHAPES = {
-    "actions/checkout@v7": {"uses": "actions/checkout@v7", "with": {"persist-credentials": "false"}},
+    "actions/checkout@v7": {"uses": "actions/checkout@v7", "with": {"persist-credentials": "false", "ref": "${{ github.sha }}"}},
     "Authenticate to Google Cloud": {
         "name": "Authenticate to Google Cloud", "uses": "google-github-actions/auth@v3",
         "with": {"workload_identity_provider": "${{ vars.GCP_WIF_PROVIDER }}", "service_account": "${{ vars.GCP_DEPLOYER_SA }}"}},
@@ -113,7 +113,7 @@ RESOLVE_LINES.extend(re.compile(re.escape(line)) for line in (
 WORKFLOW_KEYS = {"name", "on", "permissions", "env", "jobs"}
 WORKFLOW_ENV = {"REGION", "SERVICE", "JOBS_CHANNEL_JOB", "CLOUD_SQL_PROXY_VERSION", "CLOUD_SQL_PROXY_SHA256"}
 WORKFLOW_PERMISSIONS = {"contents": "read", "actions": "read", "id-token": "write"}
-OPS_JOB_KEYS = {"needs", "if", "concurrency", "runs-on", "steps"}
+OPS_JOB_KEYS = {"needs", "if", "concurrency", "runs-on", "steps", "permissions"}
 RUNNER = "ubuntu-latest"
 LAST_STEP_KEYS = {"describe-service": {"name", "if", "timeout-minutes", "run"}, "logs-probe": {"name", "if", "run"}}
 # A step a read runs may not change the environment of the steps after it (only the proxy step does, for writes).
@@ -244,6 +244,8 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
     ops = jobs.get("ops", {})
     if set(ops) != OPS_JOB_KEYS:
         problems.append(f"the ops job's keys changed: {sorted(set(ops) ^ OPS_JOB_KEYS)}")
+    if ops.get("permissions") != {**WORKFLOW_PERMISSIONS, "pull-requests": "read"}:
+        problems.append("the ops job's token differs from its fixed cloud and approval-read permissions")
     if ops.get("runs-on") != RUNNER:
         problems.append(f"the ops job runs on {ops.get('runs-on')!r}, not {RUNNER!r}: every read would run there")
     if ops.get("concurrency") != {"group": READ_GROUP, "cancel-in-progress": "false"}:

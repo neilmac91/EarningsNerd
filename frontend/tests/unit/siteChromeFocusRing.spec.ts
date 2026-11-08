@@ -149,7 +149,7 @@ const THIRD_PARTY: Record<string, string> = {
   'react Suspense': 'renders no control',
   '@vercel/analytics/next Analytics': 'renders no control',
   'posthog-js/react PHProvider': 'a provider: renders no control',
-  '@phosphor-icons/react IconContext.Provider': 'a provider: renders no control',
+  '@phosphor-icons/react/dist/lib/context IconContext.Provider': 'a provider: renders no control',
   '@tanstack/react-query QueryClientProvider': 'a provider: renders no control',
   'sonner Toaster': 'its focusable toasts and their buttons take the ring through toastOptions.classNames (pinned below)',
 }

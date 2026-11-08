@@ -51,14 +51,31 @@ _EXECUTION_KEY_TEXT = re.compile(
 # SEC.gov · " since, each followed by the address in a span. An export retained from an earlier run still
 # carries its version's line, so the blinding strips the generation date before any of them. Arms generated
 # from versions with different lines would tell a reviewer the arm by it, so every export in a packet set that
-# carries a line carries the same one, read up to the address's tag (build_blinded_packets). The builder
-# compares this line only: exports that differ elsewhere (the closing note's markup changed on 2026-10-20)
-# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py.
+# carries a line carries the same one, read up to the address's tag (build_blinded_packets).
+# The generation date before that line, as each version writes it: a zero-padded day until E210 ("Generated
+# September 21, 2026"), and since E210 the instant the analysis exports print, "Generated November 3, 2026, 06:45
+# UTC", with each of the meta line's clauses in a span that keeps it whole. The blinding strips either form and
+# then refuses an export that still carries a generation date of either form. Arms that wrote two forms would
+# tell the arm by them too. Arms on either side of E210 cannot run, since E210 changed this file and the executor
+# pins it across arms (MEASUREMENT_FILES), but a later version that drops the span or the time would not need to
+# change it, as the blinding reads both as optional. So every export in a packet set that carries the date writes
+# it in one form, read by its clause's span and its time (build_blinded_packets).
+# The builder compares these two only: exports that differ elsewhere (the closing note's markup changed on
+# 2026-10-20) are the custodian's to catch, by generating both arms from one version of each file that writes the
+# export: export_service.py and pdf_branding.py, and since E210 analysis_export_metadata.py (the meta line's days
+# and instant) and app/utils/company_names.py (the title's name).
 _EXPORT_SOURCE = "(?:" + "|".join(map(re.escape, ("<br>Original on SEC.gov", "<br>Source: SEC EDGAR"))) + ")"
+_GENERATED_DATE = r"Generated [A-Z][a-z]+ [0-9]{1,2}, [0-9]{4}"
 _EXPORT_GENERATED = re.compile(
-    r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=" + _EXPORT_SOURCE + ")"
+    r'((?:<span class="clause">)?Period End: [^<]+?(?:</span>)?) · (?P<span><span class="clause">)?'
+    + _GENERATED_DATE + r"(?P<time>, [0-9]{2}:[0-9]{2} UTC)?(?:</span>)?(?=" + _EXPORT_SOURCE + ")"
 )
 _EXPORT_SOURCE_LINE = re.compile(_EXPORT_SOURCE + "[^<]*")
+# Each font as pdf_branding.font_face_css writes it: an absolute file:// address under the checkout the export was
+# rendered in. Each arm renders its exports in its own checkout (acceptance_executor.frozen_checkout reads the
+# config's checkout_path), so two arms' addresses would name the arm (E303). The projection keeps each font's file
+# name alone, then refuses an export that still names a local file; the checkout path is also a marker.
+_EXPORT_FONT_ADDRESS = re.compile(r"url\('file://[^']*/backend/app/assets/fonts/([A-Za-z0-9._-]+)'\)")
 
 
 def _positive_price(value: Any) -> bool:
@@ -599,12 +616,29 @@ def _check_output_records(
     return checked
 
 
+def _checkout_markers(config: dict[str, Any]) -> set[str]:
+    """The arm's checkout in each form an artifact can carry it (E303): as the config spells it, without a trailing
+    slash; resolved, where it exists here, since frozen_checkout runs the worker in the resolved path and
+    pdf_branding resolves its own (a symlink or a relative spelling); and each of those as a file:// address, which
+    percent-encodes a space."""
+    raw = config.get("checkout_path")
+    if not raw:
+        return set()
+    spelled = str(raw).rstrip("/") or str(raw)
+    forms = {spelled}
+    if Path(spelled).exists():
+        forms.add(str(Path(spelled).resolve()))
+    forms |= {Path(form).as_uri() for form in list(forms) if Path(form).is_absolute()}
+    return {form for form in forms if len(form) > 1}
+
+
 def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
                        config: dict[str, Any], holdout_id: str) -> bytes:
     """Project known DB columns, then reject remaining execution identity markers.
 
-    Narrative bytes are never rewritten. The known export generation-date metadata
-    is omitted from the reviewer projection; any remaining execution marker stops it.
+    Narrative bytes are never rewritten. The known export generation-date metadata and
+    the fonts' checkout addresses are omitted from the reviewer projection; any remaining
+    execution marker, the checkout path among them, stops it.
     """
     if key == "canonical":
         value = _json(source)
@@ -622,12 +656,19 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
         # This exact header comes from ExportService.generate_pdf_html. Retain the filing
         # dates and all substantive content; the original export remains custodian-side.
         text = _EXPORT_GENERATED.sub(r"\1", text, count=1)
-        if re.search(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}", text):
+        # This reads the whole export, so a summary whose own words put "Generated" before a day in this form is
+        # refused too: the check fails closed rather than trust where the header ends.
+        if re.search(_GENERATED_DATE, text):
             raise ValueError("unrecognized export generation-date metadata")
+        # The shell's fonts name the checkout the arm rendered in: keep each font's file name alone. Any local
+        # address left (a font moved out of app/assets/fonts, an image) is refused rather than guessed at.
+        text = _EXPORT_FONT_ADDRESS.sub(r"url('fonts/\1')", text)
+        if "file://" in text:
+            raise ValueError("export names a local file the projection does not blind")
         data = text.encode("utf-8")
     markers = {str(row["config_sha256"]), str(config["content_stamp"]),
                str(config["source_commit"]), str(config["model"]), str(config["base_url"]),
-               f"{holdout_id}-{row['arm']}-{row['draw']}"}
+               *_checkout_markers(config), f"{holdout_id}-{row['arm']}-{row['draw']}"}
     if _EXECUTION_KEY_TEXT.search(text) or any(marker and marker in text for marker in markers):
         raise ValueError(f"reviewer artifact exposes execution identity: {key}")
     return data
@@ -699,10 +740,14 @@ def build_blinded_packets(
         if _utc(config["frozen_at"]) >= earliest_output:
             raise ValueError("configuration freeze must predate every output")
         configs[arm] = config
-    lines = {found.group(0) for item in checked
-             if (found := _EXPORT_SOURCE_LINE.search(item["paths"]["export"].read_bytes().decode("utf-8")))}
+    exports = [item["paths"]["export"].read_bytes().decode("utf-8") for item in checked]
+    lines = {found.group(0) for text in exports if (found := _EXPORT_SOURCE_LINE.search(text))}
     if len(lines) > 1:
         raise ValueError("exports carry more than one source line: generate every arm from one export version")
+    forms = {(found["span"] is not None, found["time"] is not None)
+             for text in exports if (found := _EXPORT_GENERATED.search(text))}
+    if len(forms) > 1:
+        raise ValueError("exports date themselves in more than one form: generate every arm from one export version")
 
     reviewer_root, custodian_root = Path(reviewer_root), Path(custodian_root)
     if (reviewer_root.exists() or custodian_root.exists() or reviewer_root.is_symlink() or

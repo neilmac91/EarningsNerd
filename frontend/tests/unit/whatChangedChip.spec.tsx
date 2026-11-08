@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
 import WhatChangedCard from '@/features/dashboard/components/WhatChangedCard'
-import { directionChip } from '@/lib/financialTone'
+import { directionChip, directionText } from '@/lib/financialTone'
 
 /**
  * The what-changed chip on the dashboard feed (audit DSW-08, filing/F03; D-030, DESIGN.md "Separate
@@ -77,6 +77,7 @@ describe('the what-changed chip', () => {
       for (const token of directionChip[tone].split(' ')) expect(chip.classList).toContain(token)
       expect(chip.className).not.toMatch(/(^|\s|:)(text|bg)-brand/)
       const icon = chip.querySelector('svg[data-glyph]')
+      for (const token of directionText[tone].split(' ')) expect(icon?.parentElement?.classList).toContain(token)
       expect(icon?.getAttribute('data-glyph')).toBe(glyph)
       expect(icon?.getAttribute('aria-hidden')).toBe('true')
     }
@@ -101,7 +102,7 @@ describe('the what-changed chip', () => {
     const label = screen.getByText('Noninterest income')
     const group = label.parentElement!
     // A word wider than the group breaks inside it, the house's last resort, rather than run into the chip's border.
-    expect(group).toHaveClass('flex', 'min-w-0', 'flex-wrap', '[overflow-wrap:anywhere]')
+    expect(group).toHaveClass('inline-flex', 'min-w-0', 'flex-wrap', '[overflow-wrap:anywhere]')
     expect(group).toContainElement(screen.getByText('+103.9%'))
     expect(chip.querySelector('svg[data-glyph]')).toHaveClass('flex-shrink-0')
   })
@@ -115,7 +116,7 @@ describe('the what-changed chip', () => {
     expect(chip.querySelector('.sr-only')).toBeNull()
   })
 
-  it('says the direction to a screen reader when no figure shows, and nothing for flat', () => {
+  it('says the direction to a screen reader when no figure shows, and unchanged for flat', () => {
     render(
       <WhatChangedCard
         item={feedItem([
@@ -127,7 +128,7 @@ describe('the what-changed chip', () => {
     )
     expect(chipOf('Revenue').querySelector('.sr-only')?.textContent?.trim()).toBe('up')
     expect(chipOf('Net income').querySelector('.sr-only')?.textContent?.trim()).toBe('down')
-    expect(chipOf('EPS').querySelector('.sr-only')).toBeNull()
+    expect(chipOf('EPS').querySelector('.sr-only')?.textContent?.trim()).toBe('unchanged')
     expect(chipOf('EPS').querySelector('.font-data')).toBeNull()
   })
 })

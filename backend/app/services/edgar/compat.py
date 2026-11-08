@@ -608,6 +608,28 @@ class SECEdgarServiceCompat:
         except Exception as e:
             raise EdgarError(f"Failed to fetch document: {e}", cause=e)
 
+    async def get_filing_primary_bytes(
+        self, cik: str, accession_number: str, filename: str, *, timeout: float,
+        max_bytes: int = MAX_SEC_ATTACHMENT_BYTES,
+    ) -> tuple[bytes, Dict[str, Any]]:
+        """Capture exact identity entity bytes through the existing SEC transport.
+
+        Enabled artifact mode intentionally refuses redirects/compression and caps
+        bytes. One total deadline covers pacing, retry waits and streaming reads.
+        The legacy decoded-document entrypoint retains its existing behavior.
+        """
+        import asyncio as aio
+
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be a positive finite number")
+        try:
+            async with aio.timeout(timeout):
+                return await self.get_filing_attachment_bytes(
+                    cik, accession_number, filename, timeout=timeout, max_retries=1, max_bytes=max_bytes,
+                )
+        except TimeoutError as exc:
+            raise EdgarTimeoutError(timeout_seconds=timeout, cause=exc) from exc
+
     async def get_company_tickers(
         self,
         force_refresh: bool = False,

@@ -18,6 +18,7 @@ import { Button, Checkbox, Input, Notice, cx, primaryUnavailableClass } from '@/
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE } from '@/lib/passwordRules'
 import { useLegalReadiness } from '@/features/legal/hooks/useLegalReadiness'
+import { useInvitedCohort } from '@/features/auth/hooks/useInvitedCohort'
 import { CollectionUnavailable } from '@/features/legal/components/CollectionGate'
 import { RegistrationLoading } from '@/features/legal/components/CollectionLoading'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
@@ -43,8 +44,25 @@ export interface RegisterFormProps {
 function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   const router = useRouter()
   const { readiness, loading: checkingReadiness, recheck } = useLegalReadiness()
-  const policyMismatch = readiness?.collection_available === true && !isAccountPolicyCurrent(readiness)
-  const collectionAvailable = readiness?.collection_available === true && !policyMismatch
+  const searchParams = useSearchParams()
+  // Closed-beta magic link: /register?invite=<token>. Present → open the email form straight away
+  // and pass the token through to every signup path: the register endpoint takes it in the body and
+  // the social buttons carry it to /api/auth/google|apple, which redeem it when they create the
+  // account. The backend enforces it either way. We capture it into state on mount so we can
+  // immediately strip it from the URL (keeping it out of history, shoulder-surfing, and copy-pasted
+  // addresses) without losing it for the submit.
+  const [inviteToken] = useState(() => searchParams.get('invite') ?? '')
+  const isInvited = inviteToken.length > 0
+  // While collection is held, the invited-cohort exception can still open the form, to an invitee alone, read afresh
+  // here and again before each sign-up (fail closed). It only decides what to offer: the server checks the invite on
+  // every path that creates an account, and an uninvited visitor meets the closure as before.
+  const cohort = useInvitedCohort(isInvited)
+  const collectionOpen = readiness?.collection_available === true
+  const invitedOpen = isInvited && !collectionOpen && readiness !== null && cohort.available
+  const registrationOpen = collectionOpen || invitedOpen
+  const checking = checkingReadiness || (isInvited && !collectionOpen && cohort.loading)
+  const policyMismatch = registrationOpen && !isAccountPolicyCurrent(readiness)
+  const registrationAvailable = registrationOpen && !policyMismatch
   const betaOfferAvailable = betaPromoActive && readiness?.checkout_available === true
   const [adultEligible, setAdultEligible] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -55,20 +73,11 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   const wasAvailable = useRef(false)
   const statusRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (wasAvailable.current && !collectionAvailable && document.activeElement === document.body) {
+    if (wasAvailable.current && !registrationAvailable && document.activeElement === document.body) {
       statusRef.current?.focus({ preventScroll: true })
     }
-    wasAvailable.current = collectionAvailable
-  }, [collectionAvailable])
-  const searchParams = useSearchParams()
-  // Closed-beta magic link: /register?invite=<token>. Present → open the email form straight away
-  // and pass the token through to every signup path: the register endpoint takes it in the body and
-  // the social buttons carry it to /api/auth/google|apple, which redeem it when they create the
-  // account. The backend enforces it either way. We capture it into state on mount so we can
-  // immediately strip it from the URL (keeping it out of history, shoulder-surfing, and copy-pasted
-  // addresses) without losing it for the submit.
-  const [inviteToken] = useState(() => searchParams.get('invite') ?? '')
-  const isInvited = inviteToken.length > 0
+    wasAvailable.current = registrationAvailable
+  }, [registrationAvailable])
   // Uninvited visitors in invite-only mode get no social buttons: that sign-in would only bounce
   // back to /login?error=invite_required.
   const socialSignupOffered = isInvited || !inviteOnly
@@ -124,9 +133,11 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
   }
 
   const prepareAgreement = async (): Promise<AccountAgreement | null> => {
-    if (!collectionAvailable || !readiness || !confirmRequirements()) return null
+    if (!registrationAvailable || !readiness || !confirmRequirements()) return null
     const fresh = await recheck()
-    if (!fresh?.collection_available) return null
+    // Collection, or for an invitee the invited-cohort exception, still open: each read afresh, the second only when
+    // collection answers held.
+    if (!fresh || !(fresh.collection_available || (isInvited && await cohort.recheck()))) return null
     if (!isAccountPolicyCurrent(fresh)) {
       setAdultEligible(false)
       setTermsAccepted(false)
@@ -140,7 +151,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
     // In flight: the submit stays focusable (DS Button `loading` sets aria-disabled, never native
     // disabled), so a repeat Enter must be ignored here. lessons/frontend-busy-controls-stay-focusable.md
     // The wait for a Turnstile token is aria-disabled too, so a press or Enter sends nothing until it comes.
-    if (loading || !collectionAvailable || !confirmRequirements() || tokenPending) return
+    if (loading || !registrationAvailable || !confirmRequirements() || tokenPending) return
     setError('')
     setLoading(true)
 
@@ -174,11 +185,11 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
       <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Create your account
       </h1>
-      {collectionAvailable && subhead && (
+      {registrationAvailable && subhead && (
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{subhead}</p>
       )}
 
-      {collectionAvailable && isInvited && (
+      {registrationAvailable && isInvited && (
         <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-bright-dark/25 dark:bg-brand-bright-dark/10">
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             You&apos;re invited to the private beta
@@ -189,7 +200,7 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
         </div>
       )}
 
-      {collectionAvailable && !isInvited && inviteOnly && (
+      {registrationAvailable && !isInvited && inviteOnly && (
         <div className="mt-6">
           <Notice
             variant="neutral"
@@ -216,9 +227,9 @@ function RegisterContent({ inviteOnly, betaPromoActive }: RegisterFormProps) {
         </div>
       )}
 
-      {checkingReadiness ? (
+      {checking ? (
         <RegistrationLoading invited={isInvited} emailVisible={showEmail} socialOffered={socialSignupOffered} />
-      ) : !collectionAvailable ? (
+      ) : !registrationAvailable ? (
         <div ref={statusRef} tabIndex={-1} className="mt-8 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
           <CollectionUnavailable
             title={policyMismatch ? 'Registration needs a refresh' : 'Registration is currently closed'}

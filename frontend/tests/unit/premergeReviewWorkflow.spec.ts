@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Behavioural gate for `.claude/workflows/premerge-review.js` (CLAUDE.md rule 12; AGENTS.md §5).
  *

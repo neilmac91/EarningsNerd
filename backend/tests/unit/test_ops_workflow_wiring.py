@@ -639,11 +639,13 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     assert set(approve) == {"if", "runs-on", "timeout-minutes", "environment", "permissions", "steps"}
     assert (approve["environment"], approve["permissions"]) == ("ops-apply", {})
     assert [step.get("uses") for step in approve["steps"]] == [None], "the approval job runs no action"
-    assert ops["needs"] == "approve-apply" and "environment" not in ops
+    assert ops["needs"] == ["approve-apply", "approve-comment"] and "environment" not in ops
     listed = re.search(r"contains\('([^']*)', inputs\.operation\)", ops["if"]).group(1)
     assert set(listed.split()) == applies
     assert ops["if"] == (
-        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((!inputs.beta_comment_approval "
+        "&& needs.approve-comment.result == 'skipped') || (inputs.beta_comment_approval "
+        "&& needs.approve-comment.result == 'success')) && ((needs.approve-apply.result == 'skipped' "
         f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
         "&& github.run_attempt == '1')) }}")
     assert "concurrency" not in OPS and set(ops["concurrency"]) == {"group", "cancel-in-progress"}

@@ -28,6 +28,9 @@ def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int |
     Never parse exception prose or expose URLs/response bodies. The transport owns classification;
     HTTPX's status is retained here for older workers whose outer EdgarError was unclassified.
     """
+    if isinstance(error, pipeline.FilingSourceError):
+        # Never inspect an SDK cause as a SEC response, even if it was HTTP 429.
+        return pipeline.ErrorCode.FILING_SOURCE_UNAVAILABLE, None, error.code, None
     status = None
     retry_after = None
     exception_class = type(error).__name__
@@ -68,6 +71,8 @@ def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int |
 
 def _source_retryable(error: Exception, status: int | None) -> bool:
     """Closed transient policy. Access denial/parse defects must not become retry storms."""
+    if isinstance(error, pipeline.FilingSourceError):
+        return error.retryable
     if status is not None:
         return status in {404, 408, 429, 500, 502, 503, 504}
     seen: set[int] = set()

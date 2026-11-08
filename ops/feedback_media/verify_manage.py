@@ -60,8 +60,8 @@ RECEIPT_DOMAIN = b"feedback-media-verification-receipt-v1\0"
 CONTROL_DOMAIN = b"feedback-media-verification-control-v1\0"
 RUN_PATTERN = re.compile(r"[1-9][0-9]{0,19}-1")
 IMAGE_PATTERN = re.compile(r"us-west1-docker\.pkg\.dev/earnings-nerd/earningsnerd/backend@sha256:[0-9a-f]{64}")
-# Project permissions every run uses. The identity, grant, secret and Cloud Run create/update writes depend on what
-# exists, so bootstrap_gaps tests each only when this run will make it: a founder-made identity, grant or secret in
+# Project permissions every run uses. The identity, grant and secret writes, and the Cloud Run and Scheduler creates and
+# updates, depend on what exists, so bootstrap_gaps tests each only when this run will make it: a founder-made identity, grant or secret in
 # the approved shape needs no create or setIamPolicy permission, and resourcemanager.projects.setIamPolicy (owner
 # equivalent) is never needed once the verifier's one Cloud SQL client grant exists.
 PROJECT_PERMISSIONS = {
@@ -837,6 +837,22 @@ def ensure_job(cloud: media.Cloud, spec: dict) -> None:
                method="PATCH" if current else "POST", body=schedule)
 
 
+def ensure_service(cloud: media.Cloud, spec: dict) -> None:
+    """Create or update the isolated service and grant its invoker, refusing one this feature does not own.
+
+    It re-reads the service at the write, so a service that changed after bootstrap_gaps planned is refused or
+    written under the etag read now.
+    """
+    current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
+    check_owned(current, "service")
+    if current:
+        cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
+                              body={**spec, "etag": current["etag"]}))
+    else:
+        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST", body=spec))
+    media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+
+
 def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="feedback-verify-") as directory:
         folder = Path(directory)
@@ -916,15 +932,7 @@ def provision(cloud: media.Cloud) -> None:
         if len(summaries) != 1:
             raise media.OperationError("Isolated migration runner did not produce its completion receipt")
         print("Isolated verification database: " + summaries[0])
-        spec = runtime_spec(production, run_id, image, hashes, versions, job=False)
-        current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
-        check_owned(current, "service")
-        if current:
-            cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
-                                  body={**spec, "etag": current["etag"]}))
-        else:
-            cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST", body=spec))
-        media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+        ensure_service(cloud, runtime_spec(production, run_id, image, hashes, versions, job=False))
         origin = assert_private_service(cloud, cloud.call("run", "v2/" + SERVICE))
         try:
             browser(cloud, origin, key, run_id, image, hashes)

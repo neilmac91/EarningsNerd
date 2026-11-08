@@ -180,7 +180,7 @@ COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
 # The invitation hands in two links, the invite's and the unsubscribe page's, each LINK's length as each line holds.
-INVITE = dict(to_email=TO, magic_link=LINK, unsubscribe_link=LINK, delivery_ref="0123456789abcdef" * 2)
+INVITE = dict(to_email=TO, magic_link=LINK, unsubscribe_link=LINK, delivery_ref="0123456789abcdef" * 2, cohort=None)
 WAITLIST = dict(name=NAME, position=3, referral_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
@@ -491,7 +491,7 @@ def _render(cases: dict, module=email_service) -> dict:
     mails: dict[str, list[tuple[str, object]]] = {}  # each mail a function sends or returns, as (page, text part)
     transport = resend_service.send_email
     marketing_readiness = legal_readiness_service.is_marketing_available
-    invitation_readiness = legal_readiness_service.is_invitation_email_available
+    invitation_readiness = legal_readiness_service.is_invitation_email_available_for
     sys.settrace(trace)
     try:
         resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
@@ -499,7 +499,7 @@ def _render(cases: dict, module=email_service) -> dict:
         if module is email_service:
             # Cover the no-mail refusal as well as the dormant template, without exempting lines.
             legal_readiness_service.is_marketing_available = lambda: False
-            legal_readiness_service.is_invitation_email_available = lambda: False
+            legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: False
             asyncio.run(module.send_referral_success_email(**cases["send_referral_success_email"][0]))
             try:
                 asyncio.run(module.send_invite_email(**cases["send_invite_email"][0]))
@@ -508,7 +508,7 @@ def _render(cases: dict, module=email_service) -> dict:
             else:
                 raise AssertionError("closed invitation delivery must refuse")
         legal_readiness_service.is_marketing_available = lambda: True
-        legal_readiness_service.is_invitation_email_available = lambda: True
+        legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: True
         for name, inputs in cases.items():
             for kwargs in inputs:
                 result = getattr(module, name)(**kwargs)
@@ -527,7 +527,7 @@ def _render(cases: dict, module=email_service) -> dict:
         sys.settrace(None)
         resend_service.send_email = transport
         legal_readiness_service.is_marketing_available = marketing_readiness
-        legal_readiness_service.is_invitation_email_available = invitation_readiness
+        legal_readiness_service.is_invitation_email_available_for = invitation_readiness
     source = Path(module.__file__).read_text(encoding="utf-8")
     values = _public_values(module, source)
     lines = _lines(compile(source, module.__file__, "exec"))
@@ -1703,28 +1703,73 @@ def test_each_mail_lists_by_its_own_line(rendered):
     assert not named, f"a preheader names no one, since a phone's lock screen shows it: {named}"
 
 
-# The verification mail asks for what verifying gates, as the site's banner does (E46): checkout refuses an unverified
-# address (routers/subscriptions.py), and a Google or Apple login links to an existing account only once its address
-# is verified (services/oauth_account_service.py); reading waits on neither. So the mail names subscribing to Pro and
-# promises no reading, where it said "Verify your email address and you can start reading." The banner's line is
-# read from its source, so a change to either sentence is a change here. This holds the two to one ask; whether
-# that ask should follow checkout's state while new checkout is closed is F56's question.
+# The verification mail and the site's banner make one ask: that the reader confirm the address is theirs (#1965
+# Decision 4, the founder's word of 2026-11-04; F56 (b)). It replaces E46's ask, which named what verifying gates
+# (checkout, "Verify your email address to subscribe to Pro."): beta testers get Pro by grant and new checkout stays
+# closed, so a mail that named Pro, checkout or subscribing would send a tester toward a checkout they must not use.
+# The dialog that checkout's 403 opens still names subscribing (frontend/tests/unit/authPagesCopy.spec.tsx). The mail
+# still promises no reading, which no verification gates (E46). The banner's line is read from its source, its
+# entities unescaped, so a change to either sentence is a change here.
 VERIFICATION_BANNER = REPO / "frontend" / "features" / "auth" / "components" / "VerificationBanner.tsx"
-VERIFY_ASK = "Verify your email address to subscribe to Pro."
+VERIFY_ASK = "Verify your email address to confirm it's yours."
 _PROMISES_READING = re.compile(r"start reading|\bunlock|\bread (?:the|your|any|every) (?:filing|summar)", re.IGNORECASE)
+# What the mail must not name, word by word: Pro, checkout (spaced or hyphenated), subscribing, upgrading, a trial,
+# pricing, a paid plan, Premium, purchasing or buying. `\bsubscri` passes an unsubscribe line, which is no purchase.
+# frontend/tests/unit/authPagesCopy.spec.tsx holds the banner to the same pattern.
+_NAMES_A_PURCHASE = re.compile(
+    r"\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b"
+    r"|\bpurchas|\bbuy",
+    re.IGNORECASE,
+)
 
 
-def test_the_verification_mail_asks_for_what_verifying_gates_as_the_banner_does(rendered):
-    assert "Verify your email to subscribe." in VERIFICATION_BANNER.read_text(encoding="utf-8"), (
-        "the site's banner no longer names subscribing as what verifying gates: hold the verification mail's ask to "
-        "what the banner says now"
+def test_the_purchase_scan_reads_each_way_a_mail_could_name_one():
+    """Not vacuous: the scan the verification mail is held to finds each purchase word it names, in either case, and
+    passes the words a verification mail does carry, an unsubscribe line among them."""
+    for planted in (
+        "Verify your email address to subscribe to Pro.",
+        "Subscribing requires a verified email.",
+        "Verify to unlock checkout.",
+        "Verify, then check out.",
+        "Verify, then check-out.",
+        "Verify your email to upgrade.",
+        "Verify to start your PRO trial.",
+        "Verify to start your free trials.",
+        "Verify your email to see pricing.",
+        "Verify to choose a paid plan.",
+        "Verify to compare plans.",
+        "Verify to go Premium.",
+        "Verify to purchase.",
+        "Verify, then buy access.",
+    ):
+        assert _NAMES_A_PURCHASE.search(planted), f"the scan misses a purchase in {planted!r}"
+    for clean in (
+        VERIFY_ASK,
+        "If you didn't create an account, you can safely ignore this email.",
+        "Unsubscribe from these emails.",
+        "This email is about your EarningsNerd account or a request you made.",
+        "Filing data sourced from SEC EDGAR. Not investment advice.",
+        "The summary that shows its work.",
+    ):
+        assert not _NAMES_A_PURCHASE.search(clean), f"the scan flags a line that names no purchase: {clean!r}"
+
+
+def test_the_verification_mail_and_the_banner_ask_only_that_the_reader_confirm_the_address(rendered):
+    banner = html.unescape(VERIFICATION_BANNER.read_text(encoding="utf-8"))
+    assert VERIFY_ASK in banner, (
+        f"the site's banner no longer says {VERIFY_ASK!r}: the mail and the banner make one ask, so change both"
     )
     pairs = rendered["mails"]["send_verification_email"]
     assert pairs, "the verification mail is rendered"
     for page, text in pairs:
         words = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
         for part, body in (("page", words), ("text part", text)):
-            assert VERIFY_ASK in body, f"the verification mail's {part} asks for what verifying gates: {VERIFY_ASK!r}"
+            assert VERIFY_ASK in body, f"the verification mail's {part} makes the banner's one ask: {VERIFY_ASK!r}"
+            named = _NAMES_A_PURCHASE.findall(body)
+            assert not named, (
+                f"the verification mail's {part} names a purchase ({named}); it asks only that the reader confirm the "
+                "address"
+            )
             assert not _PROMISES_READING.search(body), (
                 f"the verification mail's {part} promises reading, which no verification gates"
             )
