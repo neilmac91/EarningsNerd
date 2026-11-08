@@ -24,6 +24,8 @@ addressing."
   should-fix inside the done criteria.
 - Round 2 reviews only the fix diff, from round 1's head to the fix's head, with the tier's whole team: a smaller diff
   is no reason to cut agents (`ops-replace-a-redundant-review-stage-never-drop-it.md`).
+- Bring the base into the branch, by merge or rebase, before round 1 or after the last round, never between rounds: a
+  merge puts the base's changes into the fix diff, and a rebase leaves the previous round's head off the branch.
 - Fix a round-2 finding that lies in the fix diff and inside the done criteria without another round; the full gate and
   Codex's review of that head cover the change. Send one outside the diff or beyond the criteria to a follow-up row in
   `tasks/todo.md`, or name it as a limit in the pull request body, unless it is a blocker.
@@ -44,6 +46,6 @@ addressing."
 to gate the rounds in the same pull request as this lesson: the review workflow's `round` input, each refusal
 proven by `frontend/tests/unit/premergeReviewWorkflow.spec.ts`. The workflow takes the round and `fixBase` on the
 caller's word and checks only that a reason and a go are stated, so giving it the true round and the previous
-round's head, and what a reason or a go says, stay review-checked, as do writing the done criteria first, sending
-a finding to a follow-up row and weighing Codex's findings. The base comes into the branch before round 1 or after
-the last round: a merge between rounds puts the base's changes into the fix diff.
+round's head, and what a reason or a go says, stay review-checked, as do that `fixBase` is an ancestor of the head
+(a later round's prompt asks for one blocker when it is not), the base's timing, writing the done criteria first,
+sending a finding to a follow-up row and weighing Codex's findings.

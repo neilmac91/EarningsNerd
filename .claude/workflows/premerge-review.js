@@ -18,10 +18,12 @@ export const meta = {
 // founderGo (the founder's words). A round that is not a whole number from 1, a round without what it needs, a field
 // given before its round, or a round field set on the batch fails the run before any agent starts. The script checks
 // that a reason and a go are stated, not what they say, and takes the round and fixBase on the caller's word: it
-// checks their form, not that fixBase is the head the previous round reviewed or that no round is skipped or run
-// again, and it keeps nothing between runs. A merge of the base into the branch after fixBase puts the base's
-// changes into the fix diff though fixBase stays an ancestor, so the base comes in before round 1 or after the last
-// round. Each lens's summary, where a later round's lenses put their follow-up suggestions, reaches the result.
+// checks their form, not that fixBase is the head the previous round reviewed, that it is an ancestor of the head
+// (a later round's prompt asks for one blocker when it is not), or that no round is skipped or run again, and it
+// keeps nothing between runs. A merge of the base into the branch after fixBase puts the base's changes into the fix
+// diff though fixBase stays an ancestor, and a rebase leaves fixBase off the branch, so the base comes in, by merge
+// or rebase, before round 1 or after the last round. Each lens's summary, where a later round's lenses put their
+// follow-up suggestions, reaches the result.
 const PRS = args.prs
 const BATCH_TIER = args.tier === 'routine' || args.tier === 'high' ? args.tier : undefined
 if (args.tier && !BATCH_TIER) throw new Error(`args.tier may be routine or high, not "${args.tier}"; set records on the PR itself`)

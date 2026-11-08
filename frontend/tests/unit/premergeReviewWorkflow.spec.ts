@@ -81,17 +81,21 @@
  *     how it treats a verification that throws stays out of the case's reach (in the runtime an exhausted token
  *     budget, or a cap that other PRs in a batch filled, can still throw one);
  *   - review rounds (AGENTS.md §5): a PR's round is 1 unless set, and a PR set to round 1 is reviewed as one with no
- *     round, over the merge-base diff; from round 2 every lens and refuter is shown the fix diff from `fixBase`, every
- *     diff it is shown starts there, it is told to report a finding only in that diff and inside the done criteria (a
- *     blocker anywhere) and to report one blocker if `fixBase` is not an ancestor, all on the tier's whole team, and a
- *     refuter refutes a finding outside the diff or the criteria; round 3 or later shows every agent the reason, and
- *     round 4 or later the founder's go; the verdicts are round 1's, and at rounds 2, 3 and 4 one report of each
- *     verified severity is judged on its own refuters' answers for every combination of them; a round that is not a
- *     whole number from 1, a round without what it needs (a `fixBase` of 7 to 40 lowercase hex characters, a stated
- *     reason, a stated go, each from its round on), a field given before its round, or a round field set on the batch
- *     fails before any agent, for the whole batch; each lens's summary reaches the result under its lens. Out of
- *     reach: a change that acts only on a later round's review of more than one report, or only on judging at round 5
- *     or later, or that tells a stated reason or go from other text;
+ *     round, over the merge-base diff; from round 2 every lens and refuter is shown the fix diff: every `git diff`
+ *     in its prompt runs from `fixBase` to the branch head, and the prompt names the branch only as that diff's end,
+ *     in the ancestor check, in file reads and greps on the branch and in the PR's own line, so no diff or log of the
+ *     branch starts anywhere else, however its command is spelled; it is told to report a finding only in that diff
+ *     and inside the done criteria (a blocker anywhere) and, in a sentence pinned whole, to report one blocker if
+ *     `fixBase` is not an ancestor, all on the tier's whole team, and a refuter refutes a non-blocker outside the
+ *     diff or the criteria; round 3 or later shows every agent the reason, and round 4 or later the founder's go; the
+ *     verdicts are round 1's, and at rounds 2, 3 and 4 one report of each verified severity is judged on its own
+ *     refuters' answers for every combination of them; a round that is not a whole number from 1, a round without
+ *     what it needs (a `fixBase` of 7 to 40 lowercase hex characters, a stated reason, a stated go, each from its
+ *     round on, tried at its first round, the next one and round 7), a field given before its round, or a round
+ *     field set on the batch fails before any agent, for the whole batch; each lens's summary reaches the result
+ *     under its lens, at every round and whether or not the lens reports findings. Out of reach: a change that acts
+ *     only on a later round's review of more than one report, only on judging at round 5 or later, or only on a
+ *     refusal past round 7, or that tells a stated reason or go from other text;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
  * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
@@ -943,7 +947,12 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const GO = 'the founder allowed one more round'
     const OUTSIDE = 'it is not a blocker and lies outside the fix diff or beyond the done criteria the PR body (or brief) states'
     const SCOPE = 'Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.'
-    const NOT_AN_ANCESTOR = 'report one blocker saying so and nothing else'
+    // The whole sentence, so a later round's lenses report the blocker when the fix base is off the branch, not when it is on it.
+    const NOT_AN_ANCESTOR = 'If abc1234 is not an ancestor of the head (git merge-base --is-ancestor abc1234 origin/x exits 1), report one blocker saying so and nothing else: that diff would carry changes from outside the PR.'
+    // What may come right before a later round's mention of the branch: the fix base (the fix diff's end and the
+    // ancestor check), the PR's own line, a file read and a grep on the branch. Any other mention, a diff or log of the
+    // branch from anywhere else however its command is spelled, fails.
+    const BRANCH_AFTER = ['abc1234 ', 'branch ', 'git show ', '<symbol> ']
     const runOf = async (tier: string, extra: Record<string, unknown>) => {
       const { agent, calls } = stub()
       const [result] = (await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)) as RoundResult[]
@@ -973,7 +982,14 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
         expect(verdicts(later.result), where).toEqual(verdicts(none.result))
         for (const c of later.calls) {
           for (const line of FIX_LINES) expect(c.prompt, `${where} ${c.label}`).toContain(line)
-          for (const m of c.prompt.matchAll(/git diff (\S+)/g)) expect(m[1], `${where} ${c.label}: a diff from the fix base`).toBe('abc1234')
+          // Both ends of every git diff: from the fix base to the branch head, never to the base or the working tree.
+          for (const m of c.prompt.matchAll(/git diff (\S+)(?: (\S+))?/g)) {
+            expect([m[1], (m[2] ?? '').replace(/[).,]+$/, '')], `${where} ${c.label}: only the fix diff`).toEqual(['abc1234', 'origin/x'])
+          }
+          for (const m of c.prompt.matchAll(/origin\/x\b/g)) {
+            const before = c.prompt.slice(0, m.index ?? 0)
+            expect(BRANCH_AFTER.some((p) => before.endsWith(p)), `${where} ${c.label}: the branch named after "${before.slice(-16)}"`).toBe(true)
+          }
           expect(c.prompt, `${where} ${c.label}: the scope a later round reports in`).toContain(SCOPE)
           expect(c.prompt, `${where} ${c.label}: the blocker for a fix base off the branch`).toContain(NOT_AN_ANCESTOR)
           for (const whole of ['...origin/x', 'MERGE-BASE', 'two-dot diff']) expect(c.prompt, `${where} ${c.label}`).not.toContain(whole)
@@ -1021,6 +1037,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       ['round true', at(true), WHOLE],
       ['round 2 without fixBase', at(2), /needs fixBase/],
       ['round 3 without fixBase', at(3, { reason: 'r' }), /needs fixBase/],
+      ['round 7 without fixBase', at(7, { reason: 'r', founderGo: 'g' }), /needs fixBase/],
       ["fixBase ''", at(2, { fixBase: '' }), /needs fixBase/],
       ["fixBase 'main'", at(2, { fixBase: 'main' }), /needs fixBase/],
       ['fixBase of 6 characters', at(2, { fixBase: 'abc123' }), /needs fixBase/],
@@ -1032,6 +1049,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       ['fixBase of 7 lowercase letters, not all hex', at(2, { fixBase: 'release' }), /needs fixBase/],
       ['round 3 without a reason', fixed(3), /needs a reason/],
       ['round 4 without a reason', fixed(4, { founderGo: 'g' }), /needs a reason/],
+      ['round 7 without a reason', fixed(7, { founderGo: 'g' }), /needs a reason/],
       ["reason ''", fixed(3, { reason: '' }), /needs a reason/],
       ['reason of blanks', fixed(3, { reason: ' \t\n' }), /needs a reason/],
       ['reason a number', fixed(3, { reason: 3 }), /needs a reason/],
@@ -1073,11 +1091,13 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
   })
 
-  it("keeps each lens's summary in the result under its lens, where a later round's lenses put their follow-up suggestions, on every tier and round, and none for a lens that returns nothing", async () => {
-    const said = (label: string): Findings => ({ findings: [], summary: `follow-ups of ${label.split(':').pop()}` })
+  it("keeps each lens's summary in the result under its lens, where a later round's lenses put their follow-up suggestions, on every tier and round, whether or not the lens reports findings, and none for a lens that returns nothing", async () => {
+    // The first lens also reports a nit (a finding no refuter verifies), so a lens that reports keeps its summary too.
+    const NIT = FINDINGS.findings.filter((f) => f.severity === 'nit')
+    const said = (label: string): Findings => ({ findings: /:(correctness|combined)$/.test(label) ? NIT : [], summary: `follow-ups of ${label.split(':').pop()}` })
     for (const tier of ['records', 'routine', 'high']) {
       const lenses = tier === 'high' ? ['correctness', 'rules-and-brief', 'tests-and-gates'] : ['combined']
-      for (const extra of [{}, { round: 2, fixBase: 'abc1234' }, { round: 3, fixBase: 'abc1234', reason: 'r' }]) {
+      for (const extra of [{}, { round: 2, fixBase: 'abc1234' }, { round: 3, fixBase: 'abc1234', reason: 'r' }, { round: 4, fixBase: 'abc1234', reason: 'r', founderGo: 'g' }]) {
         const { agent } = stub(undefined, { findings: said })
         const [result] = (await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)) as RoundResult[]
         expect(result.summaries, `${tier} ${JSON.stringify(extra)}`).toEqual(Object.fromEntries(lenses.map((l) => [l, `follow-ups of ${l}`])))

@@ -145,8 +145,10 @@ round 4 `founderGo`, the founder's words. A round that is not a whole number fro
 without what it needs, a field given before its round, or a round field set on the batch fails
 before any agent starts. It takes the round and `fixBase` on the caller's word and checks only
 that a reason and a go are stated, so the true round, the previous round's head and what a
-reason or a go says stay review-checked; the base comes into the branch before round 1 or after
-the last round, since a merge between rounds puts the base's changes into the fix diff.
+reason or a go says stay review-checked, as does that `fixBase` is an ancestor of the head (a
+later round's prompt asks for one blocker when it is not). The base comes into the branch, by
+merge or rebase, before round 1 or after the last round: a merge between rounds puts the base's
+changes into the fix diff, and a rebase leaves `fixBase` off the branch.
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
