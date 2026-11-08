@@ -1,6 +1,6 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high; rounds 2+ review only the fix diff, round 3 needs a reason and round 4 a go from the founder',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high; rounds 2+ review only the fix diff, from round 3 with a reason and from round 4 with a go from the founder',
   phases: [
     { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
     { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker or should-fix' },
@@ -17,7 +17,11 @@ export const meta = {
 // round 3 or later also needs reason (the blocker, or the regression in the fix, it reviews), and round 4 or later
 // founderGo (the founder's words). A round that is not a whole number from 1, a round without what it needs, a field
 // given before its round, or a round field set on the batch fails the run before any agent starts. The script checks
-// that a reason and a go are stated, not what they say.
+// that a reason and a go are stated, not what they say, and takes the round and fixBase on the caller's word: it
+// checks their form, not that fixBase is the head the previous round reviewed or that no round is skipped or run
+// again, and it keeps nothing between runs. A merge of the base into the branch after fixBase puts the base's
+// changes into the fix diff though fixBase stays an ancestor, so the base comes in before round 1 or after the last
+// round. Each lens's summary, where a later round's lenses put their follow-up suggestions, reaches the result.
 const PRS = args.prs
 const BATCH_TIER = args.tier === 'routine' || args.tier === 'high' ? args.tier : undefined
 if (args.tier && !BATCH_TIER) throw new Error(`args.tier may be routine or high, not "${args.tier}"; set records on the PR itself`)
@@ -105,7 +109,7 @@ const FIX_DIFF = (pr) => { const round = roundOf(pr); return `This is review rou
   git diff ${pr.fixBase} origin/${pr.branch} --stat
   git diff ${pr.fixBase} origin/${pr.branch} -- <path>
 If ${pr.fixBase} is not an ancestor of the head (git merge-base --is-ancestor ${pr.fixBase} origin/${pr.branch} exits 1), report one blocker saying so and nothing else: that diff would carry changes from outside the PR.
-Report a finding only in the fix diff, or in code whose behaviour it changes, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.${round >= 3 ? `
+Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.${round >= 3 ? `
 Round 3 or later runs only for a blocker or a regression in the fix. The reason for this one: ${pr.reason}` : ''}${round >= 4 ? `
 A fourth or later round runs only on the founder's go. The founder's go for this one: ${pr.founderGo}` : ''}` }
 
@@ -152,13 +156,15 @@ const results = await pipeline(
     log(`PR #${pr.number}: ${tier} tier, round ${roundOf(pr)} — ${T.lenses.length} ${T.lensModel} lens(es)`)
     const per = await parallel(T.lenses.map((key) => () =>
       agent(lensPrompt(pr, key), { label: `review:${pr.number}:${key}`, phase: 'Review', schema: FINDINGS_SCHEMA, model: T.lensModel, ...(T.lensEffort ? { effort: T.lensEffort } : {}) })
-        .then((r) => (r ? r.findings.map((f) => ({ ...f, lens: key })) : null))
+        .then((r) => (r ? { findings: r.findings.map((f) => ({ ...f, lens: key })), summary: r.summary } : null))
     ))
     // A lens that returned nothing (skipped or died) is missing review output, never clearance.
     const missing = T.lenses.filter((_, i) => per[i] === null)
-    return { pr, tier, findings: per.filter(Boolean).flat(), missingLenses: missing }
+    // Each lens's summary, under its lens: a later round's lenses put their follow-up suggestions there.
+    const summaries = Object.fromEntries(T.lenses.flatMap((key, i) => (per[i] ? [[key, per[i].summary]] : [])))
+    return { pr, tier, findings: per.filter(Boolean).flatMap((p) => p.findings), missingLenses: missing, summaries }
   },
-  async ({ pr, tier, findings, missingLenses }) => {
+  async ({ pr, tier, findings, missingLenses, summaries }) => {
     const T = TIERS[tier]
     const nits = findings.filter((f) => f.severity === 'nit')
     const toVerify = findings.filter((f) => T.verify.includes(f.severity))
@@ -202,6 +208,7 @@ const results = await pipeline(
       refuted: refuted.map((r) => ({ title: r.title, file: r.file, reasons: r.votes.map((v) => v.reason) })),
       unverified: unverifiedAll,
       nits,
+      summaries,
       agents: T.lenses.length + toVerify.length * T.refuters,
     }
   },

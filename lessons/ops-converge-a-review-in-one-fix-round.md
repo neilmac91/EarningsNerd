@@ -10,7 +10,7 @@ kept the loop going. Each delta review read the whole change again, not only the
 agreement with an independent reference matcher over millions of generated texts, so each round found a further class
 of miss, often in code the previous fix had added. And every round's should-fixes were fixed and then reviewed again
 in full, though the repository's own review workflow (`.claude/workflows/premerge-review.js`) counts only blockers
-against a merge and has no second round; AGENTS.md §5 said how a review runs, but not when the reviewing ends. Gate
+against a merge and had no second round; AGENTS.md §5 said how a review runs, but not when the reviewing ends. Gate
 (c), the gh literal-path hook, was in its third review on the same course. The founder, the same day: "i'm getting
 concerned with the pattern of multiple review rounds that i'm seeing with your work. please ensure to avoid endless
 rounds of review where possible. after comments from the first round of review are addressed, it should be an
@@ -31,8 +31,9 @@ addressing."
   body under "Review"; round 3 reviews only its own fix diff. A fourth round needs the founder's go.
 - Give the review workflow (`.claude/workflows/premerge-review.js`) the round: `round` on each pull request, and
   from round 2 `fixBase` (the commit the previous round reviewed), from round 3 `reason`, from round 4 `founderGo`
-  (the founder's words). It refuses a round without them, or a field before its round, before any agent starts,
-  and shows a later round's lenses and refuters only the fix diff.
+  (the founder's words). It refuses a round that is not a whole number from 1, a round without them, a field before
+  its round, or a round field set on the batch, before any agent starts, and shows a later round's lenses and
+  refuters only the fix diff.
 - Codex's review of each head is not a round. Weigh each of its findings by the same test, and answer every thread
   with the fix, or with the row or limit the finding went to.
 - A records pull request's same-context delta checks follow the rule: each covers only its head's fix commit.
@@ -41,5 +42,8 @@ addressing."
 (`tasks/code-red-20261004/runtime/control/`) registers gate (d)'s review workflows round by round under its label
 `excluded-dir-output-hook-pr-01`, and gate (c)'s under `gh-literal-path-hook-pr-01`. The founder chose the same day
 to gate the rounds in the same pull request as this lesson: the review workflow's `round` input, each refusal
-proven by `frontend/tests/unit/premergeReviewWorkflow.spec.ts`. Writing the done criteria first, sending a finding
-to a follow-up row and weighing Codex's findings stay review-checked.
+proven by `frontend/tests/unit/premergeReviewWorkflow.spec.ts`. The workflow takes the round and `fixBase` on the
+caller's word and checks only that a reason and a go are stated, so giving it the true round and the previous
+round's head, and what a reason or a go says, stay review-checked, as do writing the done criteria first, sending
+a finding to a follow-up row and weighing Codex's findings. The base comes into the branch before round 1 or after
+the last round: a merge between rounds puts the base's changes into the fix diff.

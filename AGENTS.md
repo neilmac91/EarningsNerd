@@ -119,7 +119,7 @@ unclear or unset is reviewed as **high**.
 | **routine** | everything not listed in the other two tiers: application code and tests outside the high-risk paths, dependency bumps, `CLAUDE.md`, `AGENTS.md`, `README.md` | 1 combined lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
 | **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/services/complimentary_access_*.py` and `backend/scripts/complimentary_access.py` (a reviewed writer of the `is_pro` fallback), `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,account_mail_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/services/facts/**`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/hooks/**`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix, each report its own pair even when several lenses report one defect; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
 
-Lenses, for the by-hand version: *correctness* reads the merge-base diff file by file and applies
+Lenses, for the by-hand version: *correctness* reads the merge-base diff (from round 2, the fix diff) file by file and applies
 the §4 and §8 gates for the changed area; *rules-and-brief* checks each `CLAUDE.md` rule and the
 item's done criteria; *tests-and-gates* checks every new test has a mutation proof and locked
 tests are byte-identical. A refutation restates the finding without its rationale, then tries to
@@ -138,11 +138,15 @@ one outside the diff or beyond the criteria becomes a follow-up row in `tasks/to
 the body names, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
 its reason under "Review", and a fourth needs the founder's go. Codex's review of each head is not a
 round, and the records tier's same-context delta checks each cover only their head's fix commit.
-`/premerge-review` holds the rounds: each PR in `args.prs` takes `round` (1 when unset); from
-round 2 it needs `fixBase`, the commit the previous round reviewed, and shows every lens and
-refuter only `git diff <fixBase> origin/<branch>`; round 3 also needs `reason`, and round 4 or
-later `founderGo`, the founder's words. A round without them, a field given before its round, or a
-round field set on the batch fails before any agent starts.
+`/premerge-review` partly gates the rounds: each PR in `args.prs` takes `round` (1 when unset);
+from round 2 it needs `fixBase`, the commit the previous round reviewed, and shows every lens and
+refuter only `git diff <fixBase> origin/<branch>`; from round 3 it also needs `reason`, and from
+round 4 `founderGo`, the founder's words. A round that is not a whole number from 1, a round
+without what it needs, a field given before its round, or a round field set on the batch fails
+before any agent starts. It takes the round and `fixBase` on the caller's word and checks only
+that a reason and a go are stated, so the true round, the previous round's head and what a
+reason or a go says stay review-checked; the base comes into the branch before round 1 or after
+the last round, since a merge between rounds puts the base's changes into the fix diff.
 
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
