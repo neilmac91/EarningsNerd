@@ -84,8 +84,9 @@ file instead.
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`,
   `test_ops_readback_allow_rules.py` and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
-  `test_codex_mention_guard.py`, `test_secret_scan_guard.py`, `test_ops_approval_guard.py` and
-  `test_codex_review_overlap_guard.py` (the other three hooks reuse the first one's shell reader); a
+  `test_codex_mention_guard.py`, `test_secret_scan_guard.py`, `test_ops_approval_guard.py`,
+  `test_codex_review_overlap_guard.py` and `test_excluded_dir_output_guard.py` (the second, third and
+  fourth tests' hooks reuse the first hook's shell reader; the fifth gates the opt-in excluded-directory output guard); a
   `backend/scripts/review_gate.py` change also runs `test_codex_review_overlap_guard.py`, whose hook
   reads through the gate's functions; a `tasks/todo.md` change also runs
   `test_review_gate.py`, which reads its open rows' owners; a `tasks/todo.md`, `lessons/` or

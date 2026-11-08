@@ -25,6 +25,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-denied-reads-report-unverified.md — A denied optional read-back reports UNVERIFIED with a closed failure class; fail closed only on readable evidence
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation
+- ops-flag-excluded-directory-names-in-tool-output.md — In a CODE RED clone, turn on the excluded-directory output guard, record each flag as a lapse, and never read its silence as clearance (the detection is partly gated by `.claude/hooks/excluded_dir_output_guard.py` and `backend/tests/unit/test_excluded_dir_output_guard.py`; the three steps, a clone without the marker, a session that loads no repository hooks and a hook timeout are not)
 - ops-git-add-atomic-empty-status-gate.md — Require an empty git status after every completing commit; never chain add-path recovery
 - ops-grep-verify-negative-claims.md — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
