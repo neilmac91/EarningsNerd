@@ -19,15 +19,14 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * manager), and goes out without the lock only when the browser refuses it. A password change, whose answer revokes the
  * account's refresh token and gives the browser a new one, posts under the same hold, its lapsed access token renewed
  * after it, and at its limit refuses (SessionStillRenewing) rather than cancel its own tab's refresh or post beside
- * one. An OAuth sign-in's callback is a navigation no lock can hold, so for a start that asks for the handoff (as this
- * app's starts do) it sets no session cookie: the tab it lands in exchanges a one-time code in a post under the same
- * hold as a password login's (completeOAuthSignIn), and that post's answer sets the new session's cookies (E29 (5)).
+ * one. An OAuth sign-in's callback is a navigation no lock can hold, so it sets no session cookie, whether or not its
+ * start asks for the handoff: the tab it lands in exchanges a one-time code in a post under the same hold as a password
+ * login's (completeOAuthSignIn), and that post's answer sets the new session's cookies (E29 (5)).
  * The exchange posts only inside a granted lock: at its limit it posts nothing and refuses (SessionStillRenewing),
  * cancelling no refresh, and with no lock manager or a lock the browser refuses it posts nothing
- * (SessionLockUnavailable), so its landing page can post the same code again. A start that does not ask still takes
- * main's path until E29 (5)'s follow-up retires it: its callback sets the session cookies on its navigation. That path
- * stays here as the control the exchange is measured against (signInByNavigation), with the identity read's wait for
- * the refreshes queued before it.
+ * (SessionLockUnavailable), so its landing page can post the same code again. Only an API rolled back past the handoff
+ * sets the session cookies on its callback's navigation. That path stays here as the control the exchange is measured
+ * against (signInByNavigation), with the identity read's wait for the refreshes queued before it.
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
  * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
@@ -207,17 +206,17 @@ const unprocessable = (config: InternalAxiosRequestConfig) => Object.assign(new 
 const ACCOUNT_IDS: Record<Account, number> = { X: 1, Y: 2 }
 const withoutLocks = () => { delete (navigator as { locks?: unknown }).locks }
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-/** An OAuth sign-in as Y whose start did not ask for the handoff (main's path, until E29 (5)'s follow-up retires it):
- * its callback's answer is a navigation that sets Y's cookies outside the lock. A start that asks sets none there
- * (signInByHandoff); kept as the control the exchange under the lock is measured against. */
+/** An OAuth sign-in as Y on an API rolled back past the handoff (E29 (5)): its callback's answer is a navigation that
+ * sets Y's cookies outside the lock. The API sets none there (signInByHandoff); kept as the control the exchange under
+ * the lock is measured against. */
 function signInByNavigation(): void {
   const tip = browser.server.Y.tip + 1
   browser.server.Y = { tip, revoked: false, swept: false }
   browser.cookies = { session: 'Y', token: tip, fresh: true }
   browser.events.push('an OAuth callback signs the browser in as Y')
 }
-/** An OAuth sign-in as Y whose start asked for the handoff (E29 (5)): its callback's navigation sets no session cookie
- * and hands the tab it lands in a one-time code, which that tab's exchange posts (completeOAuthSignIn); the exchange's
+/** An OAuth sign-in as Y (E29 (5)), whatever its start asked: its callback's navigation sets no session cookie and
+ * hands the tab it lands in a one-time code, which that tab's exchange posts (completeOAuthSignIn); the exchange's
  * answer sets Y's cookies. */
 function signInByHandoff(): void {
   browser.events.push('an OAuth callback hands the landing tab a one-time code for Y')
@@ -1339,7 +1338,7 @@ describe("an OAuth sign-in's code exchange where it cannot hold the lock: it pos
   })
 })
 
-describe("the control: a callback that sets the session cookies on its navigation (a start without the handoff, main's path until E29 (5)'s follow-up), which no lock can hold, and another tab's silent refresh", () => {
+describe("the control: a callback that sets the session cookies on its navigation (an API rolled back past the handoff, E29 (5)), which no lock can hold, and another tab's silent refresh", () => {
   it("ends on the previous account when a refresh another tab sent before the navigation answers after it, the loss E29 (5) closes", async () => {
     const answer = hold()
     tabA.refreshAnswers.push(answer.promise)

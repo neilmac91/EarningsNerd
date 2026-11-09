@@ -95,14 +95,14 @@ cookie is host-only, so starting on `localhost` while returning to `dev.earnings
 Apple's cross-site callback requires that cookie to have both `SameSite=None` and `Secure`; the
 backend sets it `Secure` unconditionally (independent of `COOKIE_SECURE`), so the start request
 itself must be HTTPS or the browser discards the cookie and the callback ends in
-`oauth_state_mismatch`. `COOKIE_SECURE=true` above is for the session cookies the sign-in issues. This direct URL
-asks for no session handoff, so its callback sets the session cookies on its redirect home (main's path). Add
-`?handoff=1` (`https://dev.earningsnerd.io/api/auth/apple?handoff=1`), as the login page's link does, to test the
-handoff (E29 (5)): the callback then sets none of them itself, redirects to the frontend's `/auth/complete` with a
-one-time code in the URL fragment and sets `en_oauth_handoff` (SameSite=Lax, `COOKIE_SECURE`, two minutes, sent only
-to `/api/auth/oauth`), and that page's post to `/api/auth/oauth/complete` sets the session cookies, so the frontend
-must reach the API from the same site the cookie was set for. The `POST` start below asks with `"handoff": true` in
-its body.
+`oauth_state_mismatch`. `COOKIE_SECURE=true` above is for the session cookies the sign-in issues. Every start, this
+direct URL included, hands the session off (E29 (5)): the callback sets none of the session cookies itself,
+redirects to the frontend's `/auth/complete` (at `FRONTEND_URL`) with a one-time code in the URL fragment and sets
+`en_oauth_handoff` (SameSite=Lax, `COOKIE_SECURE`, two minutes, sent only to `/api/auth/oauth`), and that page's post
+to `/api/auth/oauth/complete` sets the session cookies. So the local test needs a frontend on the same site as this
+API host, reaching the API at this HTTPS origin (`NEXT_PUBLIC_API_BASE_URL`, with the frontend's origin in the
+API's `CORS_ORIGINS_STR`); from any other site the post carries no binding cookie and the sign-in ends at
+`/login?error=oauth_handoff_failed`.
 For invited sign-in, send the JSON `POST` to `https://dev.earningsnerd.io/api/auth/apple/start`
 from the browser with credentials enabled and the frontend origin allowed by CORS; keep the
 invite in the JSON body, never in a URL. Local UI testing must target this same HTTPS API

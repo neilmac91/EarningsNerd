@@ -131,9 +131,8 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
-        "links the account (db.add/flush) and commits it with the session's refresh token, or, for a "
-        "start that asked for it, with the sign-in's one-time session handoff, whose landing-page "
-        "exchange is a POST (E29 (5))"
+        "links the account (db.add/flush) and commits it with the sign-in's one-time session handoff, "
+        "whose landing-page exchange, a POST, mints the session's refresh token (E29 (5))"
     ),
     ("app/routers/companies.py", "search_companies"): (
         "read-through cache: persists Company rows discovered via the SEC ticker lookup "
@@ -197,10 +196,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/oauth_account_service.py::resolve_google_user": {"add": 1},
         "app/services/audit_service.py::create_audit_log": {"add": 1, "commit": 1},
         "app/services/invite_service.py::redeem_invite": {"commit": 1, "execute": 1},
-        "app/services/refresh_token_service.py::create_refresh_token": {"add": 1, "flush": 1},
-        "app/services/refresh_token_service.py::mint_refresh_token": {"commit": 1},
-        # For a start that asked for the handoff: the sign-in's commit with its one-time session handoff, and the
-        # expired handoffs' delete (E29 (5)); the refresh token is then minted by the landing page's exchange, a POST.
+        # The sign-in's commit with its one-time session handoff, and the expired handoffs' delete (E29 (5)); this GET
+        # mints no refresh token: the landing page's exchange, a POST, does.
         "app/services/oauth_account_service.py::commit_oauth_sign_in": {
             "add": 1, "commit": 1, "flush": 1, "query.delete": 1,
         },

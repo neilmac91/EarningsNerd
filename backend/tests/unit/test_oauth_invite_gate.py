@@ -116,7 +116,7 @@ def _state_from(resp) -> str:
 
 def _start(client: TestClient, provider: str, invite: str | None = None, *, handoff: bool = False) -> str:
     """Start signup with explicit synthetic assent and any invite in the POST body, and the ask for the session
-    handoff when ``handoff`` (E29 (5))."""
+    handoff when ``handoff``, which every start gets whatever it asks (E29 (5))."""
     resp = client.post(
         f"/api/auth/{provider}/start", json={**ACCOUNT_AGREEMENT, "invite": invite, **(HANDOFF_BODY if handoff else {})},
     )
@@ -220,16 +220,9 @@ def _assert_refused(resp, error_code: str, email: str) -> None:
     assert _links(email) == 0
 
 
-def _assert_signed_in(client: TestClient, resp, email: str, *, handoff: bool = False) -> None:
-    """The callback sets the session cookies on its redirect home; for a start that asked for the session handoff it
-    hands the landing page its one-time code and sets no session cookie, and the landing page's exchange sets the
-    session cookies (E29 (5))."""
-    if not handoff:
-        assert resp.status_code == 302, resp.text
-        assert resp.headers["location"] == auth_module.settings.FRONTEND_URL
-        assert f"{auth_module.settings.COOKIE_NAME}=" in resp.headers.get("set-cookie", "")
-        assert _links(email) == 1
-        return
+def _assert_signed_in(client: TestClient, resp, email: str) -> None:
+    """The callback hands the landing page its one-time code and sets no session cookie, and the landing page's
+    exchange sets the session cookies, whether or not the start asked for the session handoff (E29 (5))."""
     handoff_code(resp)
     assert f"{auth_module.settings.COOKIE_NAME}=" not in resp.headers.get("set-cookie", "")
     assert _links(email) == 1
@@ -250,7 +243,7 @@ def test_unknown_subject_is_refused_in_invite_only_mode(client, monkeypatch, inv
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_linking_an_existing_verified_account_still_works_in_invite_only_mode(
     client, monkeypatch, invite_only, provider, handoff
@@ -259,12 +252,12 @@ def test_linking_an_existing_verified_account_still_works_in_invite_only_mode(
     _seed_user(email, verified=True)
     state = _start(client, provider, handoff=handoff)
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
-    _assert_signed_in(client, resp, email, handoff=handoff)
+    _assert_signed_in(client, resp, email)
     assert _user(email).is_beta is False  # linking consumes no invite
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("audited", [True, False], ids=["audited", "audit-write-skipped"])
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_invited_social_sign_up_creates_a_beta_account_and_consumes_the_invite(
@@ -281,7 +274,7 @@ def test_invited_social_sign_up_creates_a_beta_account_and_consumes_the_invite(
     if not audited:
         monkeypatch.setattr("app.services.audit_service.create_audit_log", lambda *args, **kwargs: None)
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
-    _assert_signed_in(client, resp, email, handoff=handoff)
+    _assert_signed_in(client, resp, email)
     user = _user(email)
     assert user is not None and user.is_beta is True and user.email_verified is True
     invite = _invite(invite_id)

@@ -6,9 +6,10 @@
  *
  * `handoff=1` asks the API to hand the sign-in to this frontend's landing page (app/auth/complete/page.tsx, E29 (5)):
  * the callback then sets no session cookie on its redirect and passes a one-time code the page exchanges under the
- * session cookies' lock. An API that predates the handoff ignores the parameter and sets the cookies on the redirect,
- * as before, so the API can roll back alone at any time (the compatibility gate; startOAuthWithInvite sends the same
- * ask). A frontend rollback strands the sign-ins this page starts until it reloads (docs/DEPLOYMENT.md).
+ * session cookies' lock. The API hands every sign-in off, ask or no ask, and records the ask for an API rolled back to
+ * a revision that reads it; one that predates the handoff ignores it and sets the cookies on the redirect, as before,
+ * so the API can roll back alone at any time (startOAuthWithInvite sends the same ask). The frontend cannot: every
+ * Google or Apple sign-in lands on that page, so it is the frontend's rollback floor (docs/DEPLOYMENT.md).
  */
 export const oauthStartHref = (apiBase: string, provider: 'google' | 'apple'): string =>
   `${apiBase}/api/auth/${provider}?handoff=1`
