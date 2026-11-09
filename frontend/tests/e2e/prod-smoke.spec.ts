@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Opt-in PRODUCTION smoke check for a cached summary and the research pane's "Source" launcher.
+ * Opt-in PRODUCTION smoke check for a cached summary, the research pane's "Source" launcher, and the OAuth
+ * landing page (`/auth/complete`), which every Google and Apple sign-in needs since #2014 (docs/DEPLOYMENT.md's
+ * frontend floor).
  *
  * Why this exists: the "Ask this Filing" Copilot (and other frontend work) merged to `main` but a
  * stale Vercel production deployment kept serving an older build, so the feature was invisible on
@@ -37,5 +39,19 @@ test.describe('production smoke', () => {
     //    deployed commit identity or why a feature is missing.
     const launcher = page.getByRole('button', { name: 'Source', exact: true })
     await expect(launcher).toBeVisible({ timeout: 20000 })
+  })
+
+  test('the OAuth landing page is served, so the frontend is not behind its rollback floor', async ({ page }) => {
+    // Every Google or Apple sign-in lands on /auth/complete (E29 (5), #2014): a production frontend without that
+    // page, one rolled back or promoted past c32af8f, fails every OAuth sign-in (docs/DEPLOYMENT.md, "OAuth session
+    // handoff"). A landing with no code posts nothing and sends the reader to the login page's failure notice, so
+    // this proves the page was served and its script ran, without exchanging anything. An older build answers 404,
+    // or sends the reader to /waitlist.
+    const landing = await page.goto(new URL('/auth/complete', SMOKE_BASE_URL).toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: 45000,
+    })
+    expect(landing?.status()).toBe(200)
+    await expect(page).toHaveURL(/\/login\?error=oauth_handoff_failed$/, { timeout: 45000 })
   })
 })

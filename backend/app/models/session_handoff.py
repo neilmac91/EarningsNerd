@@ -1,14 +1,13 @@
 """The one-time handoff of an OAuth sign-in from its provider callback to the page it lands on (E29 (5)).
 
 A callback's answer is a navigation, which cannot hold the session cookies' Web Lock (``frontend/lib/api/client.ts``),
-so for a start that asked for the handoff (``OAuthState.session_handoff``: the login and sign-up pages ask) it sets no
-session cookie: a refresh another tab sent with the previous account's cookies could answer after it and set those
-back over the new session's. That callback commits the sign-in with one of these rows instead and redirects to the
-frontend's ``/auth/complete`` with the one-time code in the URL fragment, which no request log records; that page
-posts the code to ``POST /api/auth/oauth/complete`` under the lock, and that post's answer sets the session cookies
-(``oauth_account_service.commit_oauth_sign_in`` and ``redeem_session_handoff``). A start that did not ask takes main's
-path, which writes no row here: its callback commits the sign-in with its refresh token and sets the session cookies
-on its redirect home (``mint_oauth_refresh_token``), until E29 (5)'s follow-up retires it.
+so it sets no session cookie, whatever its start asked: a refresh another tab sent with the previous account's cookies
+could answer after it and set those back over the new session's. Every Google or Apple callback commits its sign-in
+with one of these rows instead and redirects to the frontend's ``/auth/complete`` with the one-time code in the URL
+fragment, which no request log records; that page posts the code to ``POST /api/auth/oauth/complete`` under the lock,
+and that post's answer sets the session cookies (``oauth_account_service.commit_oauth_sign_in`` and
+``redeem_session_handoff``). So a frontend without that page cannot finish any OAuth sign-in: it is the backend's
+rollback floor (docs/DEPLOYMENT.md, "OAuth session handoff").
 
 Only SHA-256 hashes are stored: of the code, and of the browser-binding value the callback sets as a cookie on the
 browser it answers (``binder_hash``), so a code minted in one browser is refused from another, which lacks that cookie

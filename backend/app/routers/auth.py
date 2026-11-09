@@ -108,10 +108,10 @@ _OAUTH_STATE_COOKIE = "oauth_state"
 # Apple: holds an HMAC of the state (SameSite=None; the callback is a cross-site form_post).
 _APPLE_STATE_COOKIE = "apple_oauth_state"
 _OAUTH_STATE_MAX_AGE = oauth_account_service.OAUTH_STATE_TTL_SECONDS  # 10 minutes, as the state row
-# A sign-in's session handoff (E29 (5)), for a start that asked for it (``handoff=1`` on a GET start, ``"handoff":
-# true`` on a POST start: only a frontend with the landing page asks): the callbacks answer with a redirect to the
-# frontend's landing page, the one-time code in its URL fragment (never a query string: request logs record those),
-# and set this cookie, which binds the code to the browser they answer. The landing page (frontend/app/auth/complete/page.tsx) posts the code to
+# Every Google or Apple sign-in's session handoff (E29 (5)): the callbacks answer with a redirect to the frontend's
+# landing page, the one-time code in its URL fragment (never a query string: request logs record those), and set
+# this cookie, which binds the code to the browser they answer; they set no session cookie. The landing page
+# (frontend/app/auth/complete/page.tsx) posts the code to
 # ``/api/auth/oauth/complete`` under the session cookies' lock, and that answer sets the session cookies. The cookie is
 # sent only to that path and lives as long as the handoff row. No exchange's answer touches it, a refusal or a success:
 # one browser's later sign-in may have set its own binder while this one's exchange was in flight, and it binds only
@@ -196,11 +196,10 @@ class OAuthStartRequest(BaseModel):
     terms_accepted: StrictBool | None = None
     terms_version: StrictStr | None = None
     eligibility_version: StrictStr | None = None
-    # The OAuth session handoff (E29 (5)), asked for only by a frontend with the /auth/complete landing page: JSON
-    # true alone turns it on (a string is refused). Omitted, the callback sets the session cookies on its redirect,
-    # main's path, so a frontend and an API of either age work together (rollback: docs/DEPLOYMENT.md, "OAuth session
-    # handoff": an API rollback is safe at any time; a frontend rollback strands the starts that asked, those made in
-    # the ten minutes before it and those made later from a page of the newer frontend still open).
+    # The ask for the OAuth session handoff (E29 (5)), which the sign-up page's buttons send: JSON true or false (a
+    # string is refused). Every sign-in hands off whatever it says; the ask is still recorded on the state row
+    # (``OAuthState.session_handoff``) for an API rolled back to a revision that reads it (docs/DEPLOYMENT.md,
+    # "OAuth session handoff").
     handoff: Optional[StrictBool] = None
 
     @model_validator(mode="after")
@@ -457,18 +456,15 @@ def issue_session(
 
     The single session-issue point for the login paths. By default a NEW refresh token is minted and
     committed through ``refresh_token_service.mint_refresh_token``, after the access token has read the
-    address: the password change, and the OAuth sign-in's exchange of its one-time code, whose redemption
-    commits with it, for a start that asked for the session handoff (E29 (5)); an ``IntegrityError`` there
-    propagates. Pass ``refresh_token=`` with ``commit=False`` when the caller already minted or rotated and
-    committed one: the password login, whose ``auth_account_service.record_password_login`` mints under the
-    account's lock, the ``/refresh`` endpoint, and an OAuth callback on main's path, a start that did not ask
-    for the handoff (``_commit_oauth_sign_in``, whose ``oauth_account_service.mint_oauth_refresh_token``
-    commits the sign-in with its token, until E29 (5)'s follow-up). Returns the raw access token (body
-    responses echo it). A caller that passes ``refresh_token=`` has committed, which expired ``user``, so it
-    must pass ``email=`` too,
-    the address it read before that commit (all three do): the access token then reads nothing
-    after the commit, so no failure there can turn a committed sign-in into an error (E121). Without it this
-    raises ``TypeError``, which every route test of such a caller then fails on.
+    address: the password change, and an OAuth sign-in's exchange of its one-time code, whose redemption
+    commits with it (E29 (5)); an ``IntegrityError`` there propagates. Pass ``refresh_token=`` with
+    ``commit=False`` when the caller already minted or rotated and committed one: the password login, whose
+    ``auth_account_service.record_password_login`` mints under the account's lock, and the ``/refresh``
+    endpoint. Returns the raw access token (body responses echo it). A caller that passes ``refresh_token=``
+    has committed, which expired ``user``, so it must pass ``email=`` too, the address it read before that
+    commit (both do): the access token then reads nothing after the commit, so no failure there can turn a
+    committed sign-in into an error (E121). Without it this raises ``TypeError``, which every route test of
+    such a caller then fails on.
     """
     if refresh_token is not None and email is None:
         raise TypeError("issue_session(refresh_token=...) needs email=, the address read before the commit")
@@ -679,48 +675,35 @@ class _Registered:
 @dataclass(frozen=True)
 class _SignedIn:
     """What an OAuth callback's sign-in unit leaves the route once it has released its session: the account's
-    address and name for the linked-account notice, read before the unit's commits expired them (E121), and, when
-    the start asked for the session handoff, its one-time code and binding value for the redirect (E29 (5)), kept
-    out of the repr; None when the unit set the session cookies on the redirect instead."""
+    address and name for the linked-account notice, read before the unit's commits expired them (E121), and the
+    session handoff's one-time code and binding value for the redirect (E29 (5)), kept out of the repr."""
 
     email: str
     full_name: Optional[str]
     linked_existing: bool
-    code: Optional[str] = field(default=None, repr=False)
-    binder: Optional[str] = field(default=None, repr=False)
+    code: str = field(repr=False)
+    binder: str = field(repr=False)
 
 
 def _commit_oauth_sign_in(
     db: Session,
-    request: Request,
     user: User,
     *,
     provider: str,
     created: bool,
     linked_existing: bool,
     hashed_ip: Optional[str],
-    session_redirect: Optional[RedirectResponse],
 ) -> _SignedIn:
-    """The part of a Google or Apple callback's sign-in unit after its resolve, shared by both providers and both paths
-    (E29 (5)): commit the sign-in, then write its audit rows. The paths differ only in how the session reaches the
-    browser. With ``session_redirect`` (a start that did not ask for the handoff: an older frontend, a bookmark, the
-    runbook's direct URL) the commit mints the refresh token and the session cookies go on that redirect, main's path.
-    Without it the commit writes the one-time handoff, whose code and binder the route puts on its redirect to the
-    landing page. Runs in the callback's thread-pool unit, whose ``finally`` releases the session (E121). The audit
-    rows, like ``last_login_at``, are written here on both paths, before the session reaches the browser: a handoff
-    whose exchange never happens leaves them in place."""
+    """The part of a Google or Apple callback's sign-in unit after its resolve, shared by both providers (E29 (5)):
+    commit the sign-in with its one-time session handoff, whose code and binder the route puts on its redirect to the
+    landing page, then write its audit rows. Every start takes this path, whether or not it asked for the handoff: the
+    callback sets no session cookie. Runs in the callback's thread-pool unit, whose ``finally`` releases the session
+    (E121). The audit rows, like ``last_login_at``, are written here, before the session reaches the browser: a
+    handoff whose exchange never happens leaves them in place."""
     # Read before the commit expires the user: nothing after that commit reads it.
     user_id, address, name = user.id, user.email, user.full_name
-    code = binder = None
-    if session_redirect is None:
-        # Commits the sign-in with its one-time session handoff; a lost first-sign-in race is rolled back.
-        code, binder = oauth_account_service.commit_oauth_sign_in(db, user)
-    else:
-        # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
-        refresh_token = oauth_account_service.mint_oauth_refresh_token(
-            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request)
-        )
-        issue_session(db, user, session_redirect, request, refresh_token=refresh_token, commit=False, email=address)
+    # Commits the sign-in with its one-time session handoff; a lost first-sign-in race is rolled back.
+    code, binder = oauth_account_service.commit_oauth_sign_in(db, user)
     if created:
         # A sign-up as well as a login: the register row a password sign-up writes, so the log tells this sign-up
         # from a later login (D-054). Written only now, after the sign-in committed.
@@ -732,15 +715,10 @@ def _commit_oauth_sign_in(
     return _SignedIn(address, name, linked_existing, code, binder)
 
 
-def _signed_in_redirect(
-    signed_in: _SignedIn, session_redirect: Optional[RedirectResponse], landing: Callable[[str], RedirectResponse],
-) -> RedirectResponse:
-    """A callback's answer once its sign-in committed: the redirect that carries the session cookies (main's path), or,
-    for a start that asked for the handoff, the landing page with the code in its URL fragment, which no request log
-    records, and the cookie that binds it to this browser, no session cookie (E29 (5)). ``landing`` builds the
-    provider's redirect, clearing its state cookie."""
-    if session_redirect is not None:
-        return session_redirect
+def _signed_in_redirect(signed_in: _SignedIn, landing: Callable[[str], RedirectResponse]) -> RedirectResponse:
+    """A callback's answer once its sign-in committed: the landing page with the code in its URL fragment, which no
+    request log records, and the cookie that binds it to this browser, no session cookie (E29 (5)). ``landing`` builds
+    the provider's redirect, clearing its state cookie."""
     redirect = landing(f"{settings.FRONTEND_URL}{_OAUTH_LANDING}#code={signed_in.code}")
     _set_handoff_cookie(redirect, signed_in.binder)
     return redirect
@@ -1064,7 +1042,7 @@ async def refresh(
 
     # A refusal sets no cookie, on purpose (E121). It cannot tell whether the cookies it refused are still the
     # browser's: the request carries the cookies of the moment it was sent, and a login in another tab, an OAuth
-    # sign-in (its callback's redirect on main's path, a start without the handoff, or its code exchange: E29 (5)) or
+    # sign-in's exchange of its one-time code (E29 (5): its callback sets no session cookie) or
     # another tab's refresh can have replaced them before this answer lands, so a deletion here could end that newer
     # session. With nothing newer set, the browser keeps the refused cookies, en_session included,
     # so the edge guard (frontend/middleware.ts) still lets it reach a protected page, whose /me read then finds no
@@ -1414,9 +1392,9 @@ async def google_login(
     """Redirect the browser to Google's consent screen (plain login: state, no signup assent).
 
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
-    token never appears in a request URL (request logs record query strings). ``handoff=1`` (that
-    string alone) asks for the session handoff (E29 (5)), as the login page's link does; without it
-    the callback sets the session cookies on its redirect.
+    token never appears in a request URL (request logs record query strings). Every sign-in hands
+    off its session through the landing page (E29 (5)); ``handoff=1`` (that string alone), which the
+    login page's link sends, is recorded as the start's ask for a rolled-back API that reads it.
     """
     url, state = _google_authorize_url(request)
     # Plain login consumes its state too, but needs no signup evidence for an existing account.
@@ -1433,14 +1411,15 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     up with Google under REGISTRATION_MODE=invite_only: its hash is stored against the ``state`` and
     the callback validates + redeems it when it creates the account. Only the hash is stored, and
     only for an invite that is live; the start is rate limited per IP because it writes a row.
-    ``"handoff": true`` asks for the session handoff (E29 (5)), as the sign-up page's buttons do.
+    ``"handoff"`` is recorded as for ``google_login``: every sign-in hands off (E29 (5)).
     """
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection(invited=bool(body.invite))
     url, state = _google_authorize_url(request)
-    # Signup assent, any live invite and the handoff's ask are bound to this single-use state. A sign-up start the
-    # invited-cohort exception does not admit while collection is held is refused before the state is written.
+    # Signup assent, any live invite and the handoff's ask (read by no callback of this revision) are bound to this
+    # single-use state. A sign-up start the invited-cohort exception does not admit while collection is held is
+    # refused before the state is written.
     try:
         await run_in_threadpool(
             oauth_account_service.save_google_state, db, state, body.invite, agreement, body.handoff is True,
@@ -1460,18 +1439,16 @@ async def google_callback(
     state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
 ):
-    """Exchange Google's auth code, upsert the user, link the provider, and issue the session.
+    """Exchange Google's auth code, upsert the user, link the provider, and hand the session off.
 
-    How the session reaches the browser depends on the start (E29 (5)). One that asked for the handoff (a frontend
-    with the landing page) gets no session cookie on this answer, a navigation, which cannot hold the session
-    cookies' Web Lock (frontend/lib/api/client.ts): a refresh another tab sent with the previous account's cookies
-    could answer after it and set those back over the new session's. It redirects to the landing page with a one-time
-    code in the URL fragment and sets the cookie that binds that code to this browser; the landing page's exchange
-    (``complete_oauth_sign_in``) sets the session cookies under the lock. Any other start (an older frontend, a
-    bookmark) takes main's path: the session cookies on the redirect home. Everything else is shared
-    (``_commit_oauth_sign_in``). On either path ``last_login_at``, a new account's registration row and the
-    ``oauth_login`` audit row are written here, at the callback, before the session reaches the browser, so a
-    handoff whose exchange never happens leaves them in place."""
+    Every sign-in hands its session off (E29 (5)), whatever its start asked: this answer is a navigation, which cannot
+    hold the session cookies' Web Lock (frontend/lib/api/client.ts), so it sets no session cookie, or a refresh
+    another tab sent with the previous account's cookies could answer after it and set those back over the new
+    session's. It redirects to the landing page with a one-time code in the URL fragment and sets the cookie that
+    binds that code to this browser; the landing page's exchange (``complete_oauth_sign_in``) sets the session cookies
+    under the lock. The commit is shared with Apple's (``_commit_oauth_sign_in``). ``last_login_at``, a new account's
+    registration row and the ``oauth_login`` audit row are written here, at the callback, before the session reaches
+    the browser, so a handoff whose exchange never happens leaves them in place."""
     frontend_url = settings.FRONTEND_URL
 
     if error:
@@ -1489,7 +1466,7 @@ async def google_callback(
     consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
     if consumed is None:
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
-    _, invite_code_hash, agreement, session_handoff = consumed
+    _, invite_code_hash, agreement = consumed
 
     # Exchange the authorization code for tokens, then cryptographically verify the id_token
     # (signature + audience + issuer) rather than trusting an access-token-authenticated
@@ -1523,8 +1500,6 @@ async def google_callback(
     if not google_sub or not email:
         return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
 
-    # Main's path (a start that did not ask for the handoff): the session cookies go on the redirect home.
-    session_redirect = None if session_handoff else _google_signed_in_redirect(frontend_url)
     hashed_ip = _hashed_client_ip(request)
 
     def sign_in() -> _SignedIn:
@@ -1542,8 +1517,7 @@ async def google_callback(
                 agreement=agreement,
             )
             return _commit_oauth_sign_in(
-                db, request, user, provider="google", created=created, linked_existing=linked_existing,
-                hashed_ip=hashed_ip, session_redirect=session_redirect,
+                db, user, provider="google", created=created, linked_existing=linked_existing, hashed_ip=hashed_ip,
             )
         finally:
             filing_list_service.release_request_session(db)
@@ -1557,7 +1531,7 @@ async def google_callback(
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-    redirect = _signed_in_redirect(signed_in, session_redirect, _google_signed_in_redirect)
+    redirect = _signed_in_redirect(signed_in, _google_signed_in_redirect)
     if signed_in.linked_existing:
         await _send_oauth_linked_email_safe(signed_in, "Google")
     return redirect
@@ -1612,7 +1586,7 @@ async def apple_login(
 ):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL.
-    ``handoff=1`` asks for the session handoff, as for ``google_login`` (E29 (5))."""
+    ``handoff=1`` is recorded as for ``google_login``: every sign-in hands off (E29 (5))."""
     url, state, raw_nonce = _apple_authorize_url(request)
     await run_in_threadpool(
         oauth_account_service.save_apple_state, db, state, raw_nonce, None, None, handoff == "1",
@@ -1651,12 +1625,11 @@ async def apple_callback(
     user: Optional[str] = Form(None),
     error: Optional[str] = Form(None),
 ):
-    """Handle Apple's form_post callback: verify id_token, upsert user, issue the session, by the start's path as
-    ``google_callback`` does (E29 (5)): for a start that asked for the handoff, its redirect sets no session cookie,
-    only the cookie that binds the one-time code in its URL fragment to this browser; otherwise the session cookies
-    go on the redirect home. As for Google, ``last_login_at``, a new account's registration row and the
-    ``oauth_login`` audit row are written at this callback, before the session reaches the browser, so a handoff
-    whose exchange never happens leaves them in place."""
+    """Handle Apple's form_post callback: verify id_token, upsert user, and hand the session off as
+    ``google_callback`` does (E29 (5)), for every start: its redirect sets no session cookie, only the cookie that
+    binds the one-time code in its URL fragment to this browser. As for Google, ``last_login_at``, a new account's
+    registration row and the ``oauth_login`` audit row are written at this callback, before the session reaches the
+    browser, so a handoff whose exchange never happens leaves them in place."""
     frontend_url = settings.FRONTEND_URL
 
     if error:
@@ -1674,7 +1647,7 @@ async def apple_callback(
     consumed = await run_in_threadpool(oauth_account_service.consume_oauth_state, db, state)
     if consumed is None:
         return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
-    raw_nonce, invite_code_hash, agreement, session_handoff = consumed
+    raw_nonce, invite_code_hash, agreement = consumed
 
     # Verify Apple's id_token
     try:
@@ -1702,8 +1675,6 @@ async def apple_callback(
         except (ValueError, AttributeError, KeyError):
             pass
 
-    # Main's path, as for Google: the session cookies go on the redirect home.
-    session_redirect = None if session_handoff else _apple_redirect(frontend_url)
     hashed_ip = _hashed_client_ip(request)
 
     def sign_in() -> _SignedIn:
@@ -1720,8 +1691,7 @@ async def apple_callback(
                 agreement=agreement,
             )
             return _commit_oauth_sign_in(
-                db, request, user_obj, provider="apple", created=created, linked_existing=linked_existing,
-                hashed_ip=hashed_ip, session_redirect=session_redirect,
+                db, user_obj, provider="apple", created=created, linked_existing=linked_existing, hashed_ip=hashed_ip,
             )
         finally:
             filing_list_service.release_request_session(db)
@@ -1735,7 +1705,7 @@ async def apple_callback(
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return _apple_redirect(f"{frontend_url}/login?error=apple_account_conflict")
-    redirect = _signed_in_redirect(signed_in, session_redirect, _apple_redirect)
+    redirect = _signed_in_redirect(signed_in, _apple_redirect)
     if signed_in.linked_existing:
         await _send_oauth_linked_email_safe(signed_in, "Apple")
     return redirect

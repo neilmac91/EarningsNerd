@@ -3,9 +3,8 @@
 Moved out of ``app.routers.auth`` so the router stays HTTP only
 (``tests/unit/test_router_orm_ceilings_allowlist.py``): the single-use OAuth state rows, the
 new-account gate and creation, resolving a provider identity to a User (existing link, linkable
-verified account, or new account), the commit that closes a sign-in (with its refresh token, or with
-its one-time session handoff when the start asked for one, and that handoff's redemption: E29 (5)),
-and listing or unlinking providers. The router keeps the HTTP
+verified account, or new account), the commit that closes a sign-in with its one-time session handoff
+and that handoff's redemption (E29 (5)), and listing or unlinking providers. The router keeps the HTTP
 side: rate limits, the state, handoff and session cookies and the state cookies' HMAC, the provider
 token exchange and id-token verification, redirects, mail and audit rows. Refusals reach it as the
 small exceptions below, carrying the ``/login?error=`` code where there is one.
@@ -123,8 +122,8 @@ def oauth_create_account(
 ) -> tuple[Optional[User], Optional[str]]:
     """Create the User for a first social sign-in, or say why not.
 
-    Returns ``(user, None)`` with the row flushed but not committed (``mint_oauth_refresh_token`` or
-    ``commit_oauth_sign_in`` commits it together with the provider link and the session), or ``(None, error_code)`` when the
+    Returns ``(user, None)`` with the row flushed but not committed (``commit_oauth_sign_in`` commits it
+    together with the provider link and the session handoff), or ``(None, error_code)`` when the
     gate refuses or (after rolling back) the invite's redemption is refused, the invite redeemed or
     revoked since it validated. When invite-only mode requires an invite it is consumed here, inside
     the same transaction, so a refused redemption never leaves an account behind. An insert that
@@ -163,9 +162,10 @@ def store_oauth_state(
 
     Both providers require one, even for a login without signup assent. The optional invite
     rides on the row as its hash so the callback can validate and redeem it. ``session_handoff``
-    records whether the start asked for the one-time session handoff (E29 (5)): only a frontend with
-    the ``/auth/complete`` landing page asks, and the callback hands off only then. Naive UTC for
-    expiry (see the OAuthState model) so the comparison is naive-vs-naive on both Postgres and SQLite.
+    records whether the start asked for the one-time session handoff (E29 (5)). Every callback of this
+    revision hands off and reads it no more; an API rolled back to a revision that reads it hands off
+    the starts that asked (docs/DEPLOYMENT.md, "OAuth session handoff"). Naive UTC for expiry (see the
+    OAuthState model) so the comparison is naive-vs-naive on both Postgres and SQLite.
     """
     now = datetime.utcnow()
     db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
@@ -183,12 +183,11 @@ def store_oauth_state(
 
 def consume_oauth_state(
     db: Session, state: str,
-) -> Optional[tuple[str, Optional[str], AcceptedAccountAgreement | None, bool]]:
+) -> Optional[tuple[str, Optional[str], AcceptedAccountAgreement | None]]:
     """Atomically consume state and its signup evidence; concurrent callbacks cannot share it.
 
-    Returns ``(nonce, invite_code_hash, agreement, session_handoff)``, or None. ``session_handoff`` is
-    True only when the start asked for the handoff; False or NULL (a row written before the column
-    existed) is False, and the callback then sets the session cookies on its redirect (E29 (5)).
+    Returns ``(nonce, invite_code_hash, agreement)``, or None. The row's ``session_handoff`` is not
+    read: every sign-in hands off, whatever its start asked (E29 (5)).
 
     DELETE RETURNING supplies the winning row in one statement on PostgreSQL and SQLite. Expired
     state is deleted too, but cannot authorize creation. The caller still verifies browser binding.
@@ -196,7 +195,7 @@ def consume_oauth_state(
     row = db.execute(delete(OAuthState).where(OAuthState.state == state).returning(
         OAuthState.nonce, OAuthState.invite_code_hash, OAuthState.expires_at,
         OAuthState.agreement_terms_version, OAuthState.agreement_eligibility_version,
-        OAuthState.agreement_accepted_at, OAuthState.session_handoff,
+        OAuthState.agreement_accepted_at,
     )).first()
     db.commit()
     if row is None or row.expires_at < datetime.utcnow():
@@ -206,7 +205,7 @@ def consume_oauth_state(
         agreement = AcceptedAccountAgreement(
             row.agreement_terms_version, row.agreement_eligibility_version, row.agreement_accepted_at,
         )
-    return row.nonce, row.invite_code_hash, agreement, row.session_handoff is True
+    return row.nonce, row.invite_code_hash, agreement
 
 
 def live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
@@ -259,7 +258,7 @@ def save_google_state(
     session_handoff: bool = False,
 ) -> None:
     """Commit one-time state for Google login/signup, with any live invite and explicit assent, and whether
-    the start asked for the session handoff. A sign-up start the invited-cohort exception does not admit while
+    the start asked for the session handoff (recorded only: ``store_oauth_state``). A sign-up start the invited-cohort exception does not admit while
     collection is held raises ``CollectionUnavailable`` before anything is written (``_signup_start_invite_hash``),
     its invitation's read rolled back first (``_refused_start_rolls_back``)."""
     invite_code_hash = _refused_start_rolls_back(db, invite, agreement)
@@ -296,8 +295,7 @@ def resolve_google_user(
     agreement: AcceptedAccountAgreement | None = None,
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Google identity, with the provider
-    link (if new) and ``last_login_at`` staged for ``mint_oauth_refresh_token`` or ``commit_oauth_sign_in``
-    to commit.
+    link (if new) and ``last_login_at`` staged for ``commit_oauth_sign_in`` to commit.
 
     Order: existing link → existing account (linked only when both sides verified the email; else
     ``google_account_conflict``, since a new insert would hit the UNIQUE constraint) → new account
@@ -360,7 +358,7 @@ def resolve_apple_user(
 ) -> tuple[User, bool, bool]:
     """Return ``(user, linked_existing, created)`` for a verified Apple identity, with the provider
     link (if new), a first-authorization name fill-in and ``last_login_at`` staged for
-    ``mint_oauth_refresh_token`` or ``commit_oauth_sign_in`` to commit.
+    ``commit_oauth_sign_in`` to commit.
 
     Order: existing link → existing verified account → new account (``created``, as for Google).
     Without an existing link Apple must supply an email (``apple_missing_claims``); an existing
@@ -418,32 +416,6 @@ def resolve_apple_user(
     return user_obj, linked_existing, created
 
 
-def mint_oauth_refresh_token(
-    db: Session, user: User, *, user_agent: Optional[str], ip: Optional[str]
-) -> str:
-    """Mint and commit the sign-in's refresh token, committing what the resolve staged with it (a
-    new account and redeemed invite, the provider link, ``last_login_at``). Returns the raw token.
-    Main's path, kept until E29 (5)'s follow-up retires it: the commit of a callback whose start did not
-    ask for the session handoff, which then sets the session cookies on its redirect home;
-    ``commit_oauth_sign_in`` is the commit of a start that asked.
-
-    A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
-    flush or the commit): the session is rolled back and :class:`OAuthAccountConflictError` raised.
-    No lock serializes two callbacks for one identity, or two sign-ups with one invite: they interleave in
-    their routes' thread-pool units on one instance, as they always could across the API's instances (E121).
-    The unique ``users.email``, the unique ``uq_oauth_provider_account`` and the invite's guarded redemption
-    decide. The loser is refused by the resolve (a new account's lost create race, ``invite_required``) or,
-    for a link to an existing account, loses here, with nothing of its own committed; the PostgreSQL races in
-    ``tests/integration/test_refresh_rotation_transactions.py`` pin each, for this commit and for
-    ``commit_oauth_sign_in``'s (their ``commit`` parameter).
-    """
-    try:
-        return refresh_token_service.mint_refresh_token(db, user, user_agent=user_agent, ip=ip)
-    except IntegrityError:
-        db.rollback()
-        raise OAuthAccountConflictError() from None
-
-
 def _hash_handoff_secret(raw: str) -> str:
     return hashlib.sha256(raw.encode("ascii")).hexdigest()
 
@@ -457,10 +429,9 @@ def _is_handoff_secret(raw: Optional[str]) -> bool:
 
 def commit_oauth_sign_in(db: Session, user: User) -> tuple[str, str]:
     """Commit what the resolve staged (a new account and redeemed invite, the provider link, ``last_login_at``)
-    together with a one-time session handoff for ``user``, for a start that asked for it (E29 (5)), and return its
-    raw ``(code, binder)``: the code the
-    callback puts in its redirect's URL fragment, and the value of the cookie that binds the handoff to the browser
-    the callback answers. Only their SHA-256 hashes are stored (``SessionHandoff``). The callback sets no session
+    together with a one-time session handoff for ``user``, every sign-in's (E29 (5)), and return its raw
+    ``(code, binder)``: the code the callback puts in its redirect's URL fragment, and the value of the cookie that
+    binds the handoff to the browser the callback answers. Only their SHA-256 hashes are stored (``SessionHandoff``). The callback sets no session
     cookie: the landing page's post exchanges the code under the session cookies' lock (``redeem_session_handoff``),
     and that post's answer sets them (E29 (5)). The same commit deletes the handoffs already expired, as a start
     deletes the expired states (``store_oauth_state``).
@@ -484,8 +455,8 @@ def commit_oauth_sign_in(db: Session, user: User) -> tuple[str, str]:
         created_at=now,
     ))
     try:
-        # The sign-in's own rows first, as the refresh token's flush sent them before the handoff (a lost race fails
-        # here, holding nothing else), then the expired handoffs, then the commit.
+        # The sign-in's own rows first (a lost race fails here, holding nothing else), then the expired handoffs, then
+        # the commit.
         db.flush()
         db.query(SessionHandoff).filter(SessionHandoff.expires_at < now).delete(synchronize_session=False)
         db.commit()

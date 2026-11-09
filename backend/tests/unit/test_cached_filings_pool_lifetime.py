@@ -2063,27 +2063,23 @@ _CALLBACK_AUDITS = {
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("case", list(_CALLBACK_AUDITS))
 @pytest.mark.parametrize("provider", ["google", "apple"])
 async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(
     monkeypatch, tmp_path, collection_ready, provider, case, handoff,
 ):
     """Each OAuth callback consumes its state in one thread-pool unit, waits for the provider with no connection
-    out, then resolves the account, mints and commits the sign-in, sets the session cookies and writes its audit
-    rows in a second, released before it sends the linked-account notice with no connection out (E121). On the
-    loop the base resolved, committed and audited there, and the session cookies refreshed the user the mint's
-    commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
-    slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
-    carries the session of its own account; a refusal or a lost race carries none and writes no account, link or
-    row, the lost race's rollback leaving nothing for the release.
-
-    With ``handoff`` the starts asked for the session handoff (E29 (5)): each sign-in commits its one-time handoff in
-    the token's place, and each answer redirects to the landing page with its own handoff's code and binding cookie
-    and carries no session cookie (a refusal or a lost race writes no handoff either). Then the landing pages' nine
-    exchanges at once, one thread-pool unit each (the redemption under the account's lock, the refresh token's mint
-    and its commit), make no checkout, statement or release on the loop either, and each answer carries the session
-    of its own account."""
+    out, then resolves the account, commits the sign-in with its one-time session handoff and writes its audit rows
+    in a second, released before it sends the linked-account notice with no connection out (E121). On the loop the
+    base resolved, committed and audited there. One callback alone first: no connection is out while it waits; then
+    eight more on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer.
+    Whether or not the starts asked for the handoff (``handoff``, E29 (5)), each answer redirects to the landing page
+    with its own handoff's code and binding cookie and carries no session cookie; a refusal or a lost race writes no
+    account, link, handoff or row, the lost race's rollback leaving nothing for the release. Then the landing pages'
+    nine exchanges at once, one thread-pool unit each (the redemption under the account's lock, the refresh token's
+    mint and its commit), make no checkout, statement or release on the loop either, and each answer carries the
+    session of its own account."""
     import hashlib
     from types import SimpleNamespace
 
@@ -2214,14 +2210,8 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(
         # The staged account, link and assent rows went out ahead of the handoff in the commit's flush.
         raise IntegrityError("INSERT INTO earningsnerd_session_handoffs", {}, Exception("another sign-in committed first"))
 
-    def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
-        db.flush()  # the staged link and assent rows, as the token's flush would send them
-        raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
-
-    if case == "lost_race" and handoff:
+    if case == "lost_race":
         event.listen(SessionHandoff, "before_insert", lose_at_the_commit)
-    elif case == "lost_race":
-        monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def send(i: int) -> httpx.Response:
@@ -2253,37 +2243,6 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(
         assert [response.status_code for response in responses] == [302] * 9
         refused = case in ("refused", "lost_race")
         error = "email_unverified" if case == "refused" else f"{provider}_account_conflict"
-        if not handoff:
-            landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
-            assert [response.headers["location"] for response in responses] == [landing] * 9
-            assert sorted(sent) == ([] if case != "link" else sorted(
-                (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
-            with sessions() as db:
-                account_ids = {user.email: user.id for user in db.query(User)}
-                links = sorted(
-                    (link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
-                live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
-                audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
-                assert db.query(OAuthState).count() == 0
-                assert db.query(SessionHandoff).count() == 0
-            if refused:
-                assert (account_ids, links, live, audits) == ({}, [], {}, [])
-                assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
-                return
-            assert sorted(account_ids) == sorted(emails)
-            assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
-            # Each answer's refresh cookie is its own account's only session.
-            assert [
-                live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
-                for response in responses
-            ] == [account_ids[email] for email in emails]
-            # And its access cookie names its own account.
-            assert [
-                jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})["sub"]
-                for response in responses
-            ] == emails
-            assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
-            return
         landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else f"{settings.FRONTEND_URL}/auth/complete"
         assert [response.headers["location"].split("#")[0] for response in responses] == [landing] * 9
         # No answer carries a session cookie: the landing page's exchange sets it (E29 (5)).
@@ -2363,26 +2322,23 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(
         with sessions() as db:
             assert db.query(RefreshToken).count() == 9
     finally:
-        if case == "lost_race" and handoff:
+        if case == "lost_race":
             event.remove(SessionHandoff, "before_insert", lose_at_the_commit)
         engine.dispose()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("handoff", [False, True], ids=["cookies-on-the-callback", "handoff"])
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
 async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
     monkeypatch, tmp_path, collection_ready, provider, handoff,
 ):
-    """A sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
-    timeout, the database gone. The account, its link and its session have committed, so the callback must still
-    answer with that session; only its best-effort audit rows are missing. The session cookies take the address
-    the unit read before the commit: reading it from the user that commit expired was a statement after it, and
-    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121).
-
-    With ``handoff`` (a start that asked for the session handoff, E29 (5)) the sign-in commits its handoff instead,
-    and the callback must still answer with that handoff: the redirect takes the code the unit minted before the
-    commit. With the database back, the landing page's exchange of that code signs the account in."""
+    """A sign-up whose every statement after its commit fails: the dropped connection, the pool timeout, the
+    database gone. The account, its link and its one-time session handoff have committed, whether or not the start
+    asked for the handoff (``handoff``, E29 (5)), so the callback must still answer with that handoff: the redirect
+    takes the code the unit minted before the commit; only its best-effort audit rows are missing. A statement
+    after the commit that failed would answer 500 for a committed sign-in (E121). With the database back, the
+    landing page's exchange of that code signs the account in."""
     from types import SimpleNamespace
 
     import jwt
@@ -2411,9 +2367,9 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
         )
         db.commit()
 
-    # Once a commit follows the session's insert (the handoff's, or the refresh token's), every statement fails.
+    # Once a commit follows the handoff's insert, every statement fails.
     minted, failing = threading.Event(), threading.Event()
-    session_insert = "INSERT INTO earningsnerd_session_handoffs" if handoff else "INSERT INTO refresh_tokens"
+    session_insert = "INSERT INTO earningsnerd_session_handoffs"
 
     def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
         if failing.is_set():
@@ -2484,21 +2440,6 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
         location = response.headers["location"]
         assert engine.pool.checkedout() == 0
         event.remove(engine, "before_cursor_execute", watch)
-        if not handoff:
-            assert location == settings.FRONTEND_URL
-            access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
-            assert access["sub"] == "after-commit@example.com"
-            with sessions() as db:
-                [user] = db.query(User).all()
-                assert user.email == "after-commit@example.com"
-                assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
-                    (provider, f"{provider}-subject-0")]
-                [token] = db.query(RefreshToken).all()
-                assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
-                # The audit writes failed and were swallowed; the sign-in stands without them.
-                assert db.query(AuditLog).count() == 0
-                assert db.query(OAuthState).count() == 0
-            return
         assert location.startswith(f"{settings.FRONTEND_URL}/auth/complete#code="), location
         assert settings.COOKIE_NAME not in response.cookies
         with sessions() as db:

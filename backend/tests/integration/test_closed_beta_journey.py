@@ -965,8 +965,8 @@ class _FakeGoogleExchange:
 
 
 def _google_round_trip(browser: TestClient, monkeypatch, claims: dict, invite: str | None = None):
-    # The start asks for the session handoff, as the sign-up page's buttons do (`"handoff": true`, E29 (5)); a start
-    # without it keeps main's cookie-setting callback, which #1963's own tests hold.
+    # The start asks for the session handoff, as the sign-up page's buttons do (`"handoff": true`, E29 (5)); since #2014
+    # every start hands off, whatever it asks, so the ask is recorded and nothing else.
     started = browser.post("/api/auth/google/start", json={**ACCOUNT_AGREEMENT, "invite": invite, "handoff": True})
     assert started.status_code == 200, started.text
     state = parse_qs(urlparse(started.json()["url"]).query)["state"][0]

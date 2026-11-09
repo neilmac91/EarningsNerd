@@ -35,8 +35,8 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - two first sign-ins of one OAuth identity, two links of one identity to an account, and two invited sign-ups
   with one invite: no lock serializes them, so the unique email, the unique provider link and the invite's
   guarded redemption decide, and the second is refused or loses at its commit with nothing of its own
-  committed (E121), each for both of a callback's commits: main's, with the session's refresh token, for a start
-  that did not ask for the session handoff, and the handoff's (E29 (5));
+  committed (E121), each through the callback's one commit, the session handoff's, whatever the start asked
+  (E29 (5));
 - one OAuth sign-in's one-time code exchanged twice at once (E29 (5)): the second redemption waits at the account's
   users row lock for the first's commit, then reads the handoff used, so one session is minted;
 - an OAuth sign-in's code exchange and a logout-all, a password reset or a password change of its account, in either
@@ -236,7 +236,7 @@ def test_overlapping_oauth_callbacks_consume_signup_state_once(postgres_engine, 
     assert not hung, f"waited out the {HANG_GUARD_S} s hang guard for {hung}"
     assert released == ["blocked"], "The consumers must actually overlap before the first commit"
     assert first_result is not None
-    assert first_result[1:] == (None, agreement, False)  # no invite, the assent, no session handoff asked
+    assert first_result[1:] == (None, agreement)  # no invite, the assent
     assert second_result is None
     with _session(postgres_engine) as db:
         assert db.query(OAuthState).filter_by(state=state).count() == 0
@@ -634,31 +634,26 @@ def test_an_unlink_that_waits_out_an_account_deletion_finds_no_link(postgres_eng
     )
 
 
-# A Google or Apple callback's two commits of its sign-in (E29 (5)): main's path, for a start that did not ask for the
-# session handoff, mints the session's refresh token with it (``mint_oauth_refresh_token``); a start that asked commits
-# its one-time handoff instead (``commit_oauth_sign_in``), whose exchange mints the token later. Each sign-in race runs
-# for both, and ``_SIGNED_IN`` is what one won sign-in leaves: (accounts, links, refresh tokens, handoffs).
-_COMMITS = {
-    "main-path": lambda db, user: oauth_account_service.mint_oauth_refresh_token(db, user, user_agent=None, ip=None),
-    "handoff": lambda db, user: oauth_account_service.commit_oauth_sign_in(db, user),
-}
-_SIGNED_IN = {"main-path": (1, 1, 1, 0), "handoff": (1, 1, 0, 1)}
+# A Google or Apple callback's commit of its sign-in (E29 (5)): with its one-time session handoff
+# (``commit_oauth_sign_in``), whose exchange mints the session's refresh token later. ``_SIGNED_IN`` is what one won
+# sign-in leaves: (accounts, links, refresh tokens, handoffs).
+_SIGNED_IN = (1, 1, 0, 1)
 
 
-def _oauth_sign_in(db: Session, commit: str, subject: str, email: str, invite_hash: Optional[str] = None):
-    """A Google callback's sign-in unit as far as its commit: the resolve, then ``commit`` (a ``_COMMITS`` key)."""
+def _oauth_sign_in(db: Session, subject: str, email: str, invite_hash: Optional[str] = None):
+    """A Google callback's sign-in unit as far as its commit: the resolve, then the commit with its handoff."""
     user, _linked, _created = oauth_account_service.resolve_google_user(
         db, subject=subject, email=email, email_verified=True, full_name=None,
         invite_code_hash=invite_hash, agreement=accept_current_agreement(),
     )
-    return _COMMITS[commit](db, user)
+    return oauth_account_service.commit_oauth_sign_in(db, user)
 
 
-def _second_sign_in_while_the_first_holds(engine, commit: str, first: tuple, second: tuple) -> tuple[object, str]:
+def _second_sign_in_while_the_first_holds(engine, first: tuple, second: tuple) -> tuple[object, str]:
     """Resolve ``first`` (subject, email, invite hash) in one session, run ``second``'s whole sign-in in another
-    thread until PostgreSQL shows it waiting on a lock, then commit ``first``. Both commit by ``commit`` (a
-    ``_COMMITS`` key). Returns what ``second`` returned or raised, and the statement it waited at ("" if it never
-    waited)."""
+    thread until PostgreSQL shows it waiting on a lock, then commit ``first``. Both commit with their handoffs
+    (``commit_oauth_sign_in``). Returns what ``second`` returned or raised, and the statement it waited at ("" if it
+    never waited)."""
     outcome: list[object] = []
     second_pid: list[int] = []
 
@@ -666,7 +661,7 @@ def _second_sign_in_while_the_first_holds(engine, commit: str, first: tuple, sec
         with _session(engine) as db:
             second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
             try:
-                outcome.append(_oauth_sign_in(db, commit, *second))
+                outcome.append(_oauth_sign_in(db, *second))
             except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
                 outcome.append(exc)
 
@@ -689,7 +684,7 @@ def _second_sign_in_while_the_first_holds(engine, commit: str, first: tuple, sec
                 if row is not None and row.wait_event_type == "Lock":
                     waited = row.query.strip()
             time.sleep(0.01)
-        _COMMITS[commit](db, user)
+        oauth_account_service.commit_oauth_sign_in(db, user)
     thread.join(HANG_GUARD_S)
     assert not thread.is_alive(), "the second sign-in outlasted the hang guard"
     return outcome[0], waited
@@ -704,49 +699,43 @@ def _accounts_links_tokens_handoffs(engine) -> tuple[int, int, int, int]:
         )
 
 
-@pytest.mark.parametrize("commit", list(_COMMITS))
-def test_two_first_sign_ins_of_one_identity_create_one_account(postgres_engine, collection_ready, monkeypatch, commit):
+def test_two_first_sign_ins_of_one_identity_create_one_account(postgres_engine, collection_ready, monkeypatch):
     """Two callbacks for one new Google identity, from two browsers. No lock serializes them, in the thread pool on
     one instance or across instances (E121): the second's account insert waits on the first's uncommitted row
     under the unique email, then fails, and the resolve refuses it as the lost create race, so the route redirects
-    to its conflict page with nothing of its own committed: one account, one link, and one session (its refresh
-    token on main's path, its handoff otherwise)."""
+    to its conflict page with nothing of its own committed: one account, one link, and one session handoff."""
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
     email = f"twice-{uuid.uuid4().hex}@example.com"
     second, waited = _second_sign_in_while_the_first_holds(
-        postgres_engine, commit, ("google-subject", email, None), ("google-subject", email, None),
+        postgres_engine, ("google-subject", email, None), ("google-subject", email, None),
     )
     assert isinstance(second, oauth_account_service.OAuthSignInRefused)
     assert (second.lost_create_race, second.error_code) == (True, "google_account_conflict")
     assert waited.startswith("INSERT INTO users"), waited
-    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN[commit]
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
 
 
-@pytest.mark.parametrize("commit", list(_COMMITS))
-def test_two_links_of_one_identity_to_an_account_link_it_once(postgres_engine, collection_ready, commit):
+def test_two_links_of_one_identity_to_an_account_link_it_once(postgres_engine, collection_ready):
     """Two callbacks for one Google identity whose address is a verified account's, from two browsers: both resolve
-    a link to that account. The second's commit (its refresh token's mint on main's path, its handoff's otherwise)
-    waits at the account's row for the first's, then its link insert meets the first's under
-    ``uq_oauth_provider_account``, and the commit rolls it back as the conflict: one link, one session, and the
-    second's redirect to the conflict page."""
+    a link to that account. The second's commit (with its handoff) waits at the account's row for the first's, then
+    its link insert meets the first's under ``uq_oauth_provider_account``, and the commit rolls it back as the
+    conflict: one link, one session handoff, and the second's redirect to the conflict page."""
     email = f"link-{uuid.uuid4().hex}@example.com"
     with _session(postgres_engine) as db:
         db.add(User(email=email, is_active=True, email_verified=True))
         db.commit()
     second, waited = _second_sign_in_while_the_first_holds(
-        postgres_engine, commit, ("google-subject", email, None), ("google-subject", email, None),
+        postgres_engine, ("google-subject", email, None), ("google-subject", email, None),
     )
     assert isinstance(second, oauth_account_service.OAuthAccountConflictError)
     assert waited.startswith("UPDATE users"), waited
-    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN[commit]
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
 
 
-@pytest.mark.parametrize("commit", list(_COMMITS))
-def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, collection_ready, monkeypatch, commit):
+def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, collection_ready, monkeypatch):
     """Two new identities signing up under invite_only with one invite: the second's guarded redemption waits on
     the first's uncommitted one, then matches no unused invite, and the resolve refuses it (``invite_required``).
-    One account, one link, one session (its refresh token on main's path, its handoff otherwise), the invite
-    redeemed once."""
+    One account, one link, one session handoff, the invite redeemed once."""
     from app.models.invite import InviteCode
     from app.services import invite_service
 
@@ -756,14 +745,13 @@ def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, co
     invite_hash = invite_service.hash_invite_token(raw)
     second, waited = _second_sign_in_while_the_first_holds(
         postgres_engine,
-        commit,
         ("google-first", f"first-{uuid.uuid4().hex}@example.com", invite_hash),
         ("google-second", f"second-{uuid.uuid4().hex}@example.com", invite_hash),
     )
     assert isinstance(second, oauth_account_service.OAuthSignInRefused)
     assert second.error_code == "invite_required"
     assert waited.startswith("UPDATE invite_codes"), waited
-    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN[commit]
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
     with _session(postgres_engine) as db:
         assert db.query(InviteCode).filter(InviteCode.used_at.isnot(None)).count() == 1
 

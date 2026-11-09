@@ -2,17 +2,18 @@
 
 A Google or Apple callback's answer is a navigation, which cannot hold the session cookies' Web Lock
 (frontend/lib/api/client.ts), so a refresh another tab sent with the previous account's cookies could answer after it
-and set those back over the new session's: the reader landed as the previous account. For a start that asks for the
-handoff, the callbacks set no session cookie. They commit the sign-in with a one-time session handoff and redirect to the frontend's landing page,
-/auth/complete, with its code in the URL fragment, which no request log records, and set a cookie that binds the code
-to the browser they answer. The landing page posts the code to ``POST /api/auth/oauth/complete`` holding the lock,
-and that answer sets the session cookies. Only a start that asks for it hands off (``handoff=1`` on a GET start,
-``"handoff": true`` on a POST start: a frontend with the landing page asks); any other takes main's path, the session
-cookies on the redirect home, so an API rollback is safe at any time, and a frontend rollback for every start a page
-of the older frontend makes (docs/DEPLOYMENT.md). Pinned here:
+and set those back over the new session's: the reader landed as the previous account. So the callbacks set no session
+cookie, for any start. They commit the sign-in with a one-time session handoff and redirect to the frontend's landing
+page, /auth/complete, with its code in the URL fragment, which no request log records, and set a cookie that binds the
+code to the browser they answer. The landing page posts the code to ``POST /api/auth/oauth/complete`` holding the
+lock, and that answer sets the session cookies. Every start hands off, whatever it asks: the start's ask (``handoff=1``
+on a GET start, ``"handoff": true`` on a POST start, which the login and sign-up pages send) is recorded on its state
+row for an API rolled back to a revision that reads it, and read by no callback here, so the frontend's landing page
+is the backend's rollback floor (docs/DEPLOYMENT.md). Pinned here:
 
-- the compatibility gate: each start that asks hands off, each that does not (no parameter or key, ``handoff=true``,
-  ``handoff=0``, a state row from before the column) takes main's path, and a JSON string is refused 422;
+- every start hands off: one that asks, one that does not (no parameter or key, ``handoff=true``, ``handoff=0``,
+  ``"handoff": false``) and a state row from before the column; each records its ask as before, and a JSON string is
+  refused 422;
 
 - the callback's redirect: the landing page with the code in its fragment alone (no query string), the binding
   cookie and no session cookie; the handoff row holds only the SHA-256 hashes of the code and the binder, for two
@@ -510,18 +511,9 @@ def _verified_account(email: str, password: Optional[str] = None) -> int:
         return user.id
 
 
-def _assert_main_path(client: TestClient, resp, provider: str, email: str) -> None:
-    """Main's path: the redirect home carrying the state's clear and the session cookies, no handoff row and no binding
-    cookie, the account signed in on this answer alone."""
-    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL, resp.headers.get("location")
-    assert _cookies(resp) == [STATE_CLEARED[provider], *SESSION_ISSUED]
-    _, handoffs, tokens = _account(email)
-    assert handoffs == [] and tokens == 1
-    assert client.get("/api/auth/me").json()["email"] == email
-
-
 def _assert_handed_off(client: TestClient, resp, provider: str, email: str) -> None:
-    """This PR's path: the landing page with the code and the binding cookie, no session cookie until the exchange."""
+    """Every sign-in's path: the landing page with the code and the binding cookie, no session cookie until the
+    exchange."""
     handoff_code(resp)
     assert _cookies(resp) == [STATE_CLEARED[provider], HANDOFF_SET]
     assert _account(email)[2] == 0
@@ -533,7 +525,7 @@ def _assert_handed_off(client: TestClient, resp, provider: str, email: str) -> N
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", PROVIDERS)
 @pytest.mark.parametrize(
-    "start, ask, hands_off",
+    "start, ask, recorded",
     [
         ("get", HANDOFF_QUERY, True),
         ("post", HANDOFF_BODY, True),
@@ -545,18 +537,19 @@ def _assert_handed_off(client: TestClient, resp, provider: str, email: str) -> N
     ],
     ids=["get-1", "post-true", "get-none", "post-none", "get-true-string", "get-0", "post-false"],
 )
-def test_only_a_start_that_asks_for_the_handoff_gets_it(client, monkeypatch, provider, start, ask, hands_off):
-    """The compatibility gate (E29 (5)): the login page's link asks with ``handoff=1`` and the sign-up page's buttons
-    with ``"handoff": true``; any other start (an older frontend, a bookmark, the runbook's direct URL) takes main's
-    path, so a new API serves an old frontend, and an old API, which ignores the ask, serves a start a new one makes
-    (a start that asked before a frontend rollback still lands on /auth/complete: docs/DEPLOYMENT.md)."""
+def test_every_start_hands_off_whatever_it_asks(client, monkeypatch, provider, start, ask, recorded):
+    """E29 (5)'s follow-up: the login page's link asks with ``handoff=1`` and the sign-up page's buttons with
+    ``"handoff": true``, but a start without the ask (a bookmark, the runbook's direct URL, a page of a frontend from
+    before the landing page) hands off too: no callback sets the session cookies on its redirect any more. Each start
+    still records its ask on its state row, as before, for an API rolled back to a revision that reads it (that API
+    hands off the rows that asked and sets the cookies on the others' redirects: docs/DEPLOYMENT.md)."""
     email = _email()
     _verified_account(email)
-    resp = _callback(client, monkeypatch, provider, email, start=start, ask=ask)
-    if hands_off:
-        _assert_handed_off(client, resp, provider, email)
-    else:
-        _assert_main_path(client, resp, provider, email)
+    state = _start(client, provider, start=start, ask=ask)
+    with SessionLocal() as db:
+        assert db.query(OAuthState).filter_by(state=state).one().session_handoff is recorded
+    resp = _callback(client, monkeypatch, provider, email, state=state)
+    _assert_handed_off(client, resp, provider, email)
 
 
 @pytest.mark.requires_db
@@ -574,9 +567,9 @@ def test_a_post_start_refuses_a_handoff_ask_that_is_not_json_true(client, provid
 
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", PROVIDERS)
-def test_a_state_row_from_before_the_column_takes_main_path(client, monkeypatch, provider):
-    """A start an API without the column wrote leaves ``session_handoff`` NULL; its callback, served by the new API
-    after the deploy, takes main's path, as the frontend that made that start expects."""
+def test_a_state_row_from_before_the_column_hands_off_too(client, monkeypatch, provider):
+    """A start an API without the column wrote leaves ``session_handoff`` NULL; its callback hands off like any other,
+    the column unread."""
     email = _email()
     _verified_account(email)
     state = _start(client, provider)
@@ -584,7 +577,7 @@ def test_a_state_row_from_before_the_column_takes_main_path(client, monkeypatch,
         assert db.query(OAuthState).filter_by(state=state).update({OAuthState.session_handoff: None}) == 1
         db.commit()
     resp = _callback(client, monkeypatch, provider, email, state=state)
-    _assert_main_path(client, resp, provider, email)
+    _assert_handed_off(client, resp, provider, email)
 
 
 def _reset_token(client: TestClient, monkeypatch, email: str) -> str:

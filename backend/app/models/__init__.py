@@ -154,9 +154,10 @@ class OAuthState(Base):
     agreement_accepted_at = Column(DateTime(timezone=True), nullable=True)
     # Whether the start asked for the OAuth session handoff (E29 (5)): True only from a frontend with the
     # /auth/complete landing page, which sends ``handoff=1`` on a GET start or ``"handoff": true`` on a POST start.
-    # False or NULL (a row written before the column existed among them) takes the cookie-setting callback path, so
-    # a new API serves an older frontend and an API rollback is safe at any time; a frontend rollback strands the
-    # starts that asked (docs/DEPLOYMENT.md). Additive: self-healed by database.ensure_additive_columns.
+    # Recorded only: every callback of this revision hands off, whatever the row says. An API rolled back to a
+    # revision that reads it hands off the rows that asked and sets the session cookies on the others' redirects,
+    # so it stays mapped (and written) while such a revision is a rollback target (docs/DEPLOYMENT.md, "OAuth
+    # session handoff"). Additive: self-healed by database.ensure_additive_columns.
     session_handoff = Column(Boolean, nullable=True)
 
 

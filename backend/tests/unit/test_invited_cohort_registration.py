@@ -50,6 +50,7 @@ from app.services.legal_readiness_service import COLLECTION_UNAVAILABLE_MESSAGE,
 from app.utils.datetimes import utcnow
 from main import app
 from tests.support.account_agreement import ACCOUNT_AGREEMENT
+from tests.support.oauth_handoff import handoff_code
 
 pytestmark = pytest.mark.requires_db
 
@@ -508,7 +509,7 @@ def test_an_invited_social_sign_up_in_the_cohort_opens_an_account(client, cohort
 
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state)
 
-    assert _error_of(resp) is None and resp.headers["location"] == settings.FRONTEND_URL
+    handoff_code(resp)  # signed in: the landing page's code, whatever the start asked (E29 (5))
     user = _user(email)
     assert user is not None and user.is_beta is True
     assert _invite(invite_id).used_at is not None and _invite(invite_id).user_id == user.id
