@@ -150,6 +150,7 @@ def test_a_statement_stored_with_crlf_line_endings_approves_as_its_lf_twin_does(
     state["comment"]["body"] = approval.approval_text(wanted).replace("\n", "\r\n") + "\r\n"
     approval.verify(wanted, "71")  # First, so a reader that refuses CRLF fails here and not after wait's 15 minutes.
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(approval.time, "sleep", lambda seconds: pytest.fail("the first poll did not match"))
     assert approval.wait(wanted) == "71"
 
 

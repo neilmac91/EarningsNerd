@@ -77,7 +77,8 @@ def approval_text(wanted: dict[str, str]) -> str:
 
 def statement(body: str) -> str:
     # A browser form stores CRLF line endings and the API stores what it is sent; the words are the approval.
-    # Only that pair is folded: a lone carriage return, a code fence or any other added character still differs.
+    # Only that pair is folded, and blank space around the whole statement is dropped as before: a lone carriage
+    # return, a code fence or any other added character inside it still differs.
     return body.replace("\r\n", "\n").strip()
 
 
