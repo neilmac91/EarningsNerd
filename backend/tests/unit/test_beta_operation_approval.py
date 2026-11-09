@@ -144,6 +144,28 @@ def test_another_author_thread_old_comment_or_edited_statement_is_not_approval(p
         approval.verify(wanted, "71")
 
 
+def test_a_statement_stored_with_crlf_line_endings_approves_as_its_lf_twin_does(monkeypatch, provider):
+    # The founder's 2026-11-04 comment was stored with CRLF and matched nothing (#1954, 6638014487).
+    wanted, state = provider
+    state["comment"]["body"] = approval.approval_text(wanted).replace("\n", "\r\n") + "\r\n"
+    approval.verify(wanted, "71")  # First, so a reader that refuses CRLF fails here and not after wait's 15 minutes.
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    assert approval.wait(wanted) == "71"
+
+
+@pytest.mark.parametrize("damage", [
+    lambda text: text.replace("\n", "\r"), lambda text: text.replace("\n", "\r\r\n", 1),
+    lambda text: text.replace("\n", "\n\n", 1), lambda text: text.replace("\n", " \n", 1),
+    lambda text: "```text\n" + text + "\n```", lambda text: text + "\nconfirm_digest: none",
+    lambda text: text.replace("\n", "\r\n").replace("run: 12345", "run: 12346"),
+])
+def test_only_the_line_ending_pair_is_folded_and_every_other_difference_is_refused(provider, damage):
+    wanted, state = provider
+    state["comment"]["body"] = damage(approval.approval_text(wanted))
+    with pytest.raises(approval.Refused):
+        approval.verify(wanted, "71")
+
+
 @pytest.mark.parametrize("field,value", [("run", "12346"), ("attempt", "2"), ("sha", "b" * 40),
                                          ("operation", "feedback-media-enable-apply"), ("confirm_digest", "c" * 64)])
 def test_statement_cannot_be_replayed_for_another_run_source_action_or_manifest(provider, field, value):
