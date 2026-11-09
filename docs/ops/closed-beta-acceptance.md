@@ -22,7 +22,7 @@ depend on it.
 | --- | --- | --- |
 | Source | `main`'s commit, and each open pull request's head | Record full SHAs. |
 | Backend release | The `deploy-backend` job log of the newest commit that deployed: `apply_migrations: applied=N skipped=M`, `revision [earningsnerd-backend-…] … serving 100 percent`, the task worker's revision, `Deployed <sha> and verified healthy` | A job that finds no deployable backend change, or skips as superseded, concludes success and deployed nothing ([deploy discipline](../../AGENTS.md#6-deploy-discipline)). |
-| Backend runtime | Ops `describe-service` (read-only; [F51](../OPERATIONS.md#agent-production-readbacks-f51)): serving revision, image digest, `SENTRY_RELEASE`, `REGISTRATION_MODE`, sizing lines, worker invoker verdict | It prints only the names of the `LEGAL_*` and `FEEDBACK_MEDIA_*` settings, when set, and withholds `REVERSE_TRIAL_ENABLED`, `PRO_TRIAL_DAYS` and `STRIPE_BETA_PROMO_CODE_ID`. The founder reads those values on the service; the live answers below show only their effect. |
+| Backend runtime | Ops `describe-service` (read-only; [F51](../OPERATIONS.md#agent-production-readbacks-f51)): serving revision, image reference (the deploy's short-SHA tag, not a digest), `SENTRY_RELEASE`, `REGISTRATION_MODE`, sizing lines, worker invoker verdict | It prints only the names of the `LEGAL_*` and `FEEDBACK_MEDIA_*` settings, when set, and withholds `REVERSE_TRIAL_ENABLED`, `PRO_TRIAL_DAYS` and `STRIPE_BETA_PROMO_CODE_ID`. The founder reads those values on the service; the live answers below show only their effect. |
 | Frontend release | The GitHub deployment named `Production` for the commit, and the `www` alias it serves where the Vercel dashboard shows it | Record `NEXT_PUBLIC_ENABLE_CALENDAR` and `NEXT_PUBLIC_ENABLE_ANALYSIS` too: the earnings-day alert bells and Multi-Period Analysis exist only while they are on. |
 | Live answers | `GET /health/detailed`; `GET /api/legal/readiness` (collection, checkout and marketing availability, the two agreement versions, the operator notice); `GET /api/auth/registration` (`mode`, which reads `invite_only`; `beta_promo_enabled`; `invited_cohort_available`); `GET /api/admin/invites/readiness` (what holds collection, the invited-cohort exception and invitation email, as reason codes; the `/admin/invites` banner shows the same) | Public reads, no account needed, except the invitation readiness, which needs the administrator account. |
 | Screenshots | `GET /api/feedback/capabilities` signed in: `attachments_enabled` is true only while `FEEDBACK_MEDIA_ENABLED` is on and a bucket is set; no Ops read prints either value. The newest `feedback-media-inspect` and `feedback-media-verify-*` receipts | Enabling needs `feedback-media-provision-apply`, `-verify-apply` and `-enable-apply`. At the enable, the provision's storage probe, the latest scheduled cleanup and the verify receipt must each be at most two hours old, and the cleanup heartbeat must have been seen in the last two hours. Both bind the serving backend image, and the receipt also binds `main`'s `frontend/` tree and the verification sources. So land every `frontend/` and `ops/feedback_media/` change the window needs first; then, from the provision dispatch until the enable completes, merge nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`. Dispatch each of the three only when no CI run for a push to `main` is in flight: the Ops pre-flight refuses them while one is, so even a docs-only merge in the window can cost an approval and part of the two hours. |
@@ -77,19 +77,30 @@ Run in order at the founder rehearsal ([section 6](#6-staged-admission)), on a p
 with two founder-controlled tester accounts (one password, one Google), a third, disposable one that registers at
 step 22 and deletes itself at step 23, and the administrator account. Step 22 also needs an expired link bound to
 the disposable account's address: mint it 48 hours ahead (the admin page's shortest expiry), as a link to share by
-hand since invitation email is not on yet, or an hour ahead through the API with `expires_in_hours` set to 1. A step
+hand, or an hour ahead through the API with `expires_in_hours` set to 1. A step
 passes only on what the tester's own screen and inbox show; a badge, a provider's acceptance or a mocked response is
 not a pass.
 
 The rehearsal begins with #1965's controlled-inbox canary (its Decision 3; "Enabling invitation email" in
-`docs/LEGAL_READINESS.md`), on the password tester's inbox, once collection is open and the founder has taken
-#1965's Decisions 1 and 2 (section 8). No other invitation is emailed until it passes:
+`docs/LEGAL_READINESS.md`), on the password tester's inbox, once the founder has taken #1965's Decisions 1 and 2
+(section 8) and new accounts can open: collection is open, or the invited-cohort exception is on, which needs no
+open collection (`test_invitation_email_waits_for_a_redeemable_link_not_for_collection`). No other invitation is
+emailed until it passes.
 
-1. In the Resend dashboard, add one webhook for the API's `/api/webhooks/resend` with the events
-   [the activation checklist](../integrations/resend-webhooks.md#production-activation-checklist-f46) lists. Bind its
-   signing secret as `RESEND_WEBHOOK_SECRET` on the API service and confirm the service lists that name (F46 in
-   `tasks/todo.md`). Then set `LEGAL_INVITATION_EMAIL_ENABLED=true` on the API service.
-2. `/admin/invites` shows no "Invitation email is on hold" banner, and "Email invites" can be ticked.
+While collection stays closed under that exception, every rehearsal invitation (the canary's, each tester's and
+step 22's expired link) is bound to its recipient's address, the Google tester's to the address Google verifies,
+and carries the configured `LEGAL_INVITED_COHORT` in its Cohort field. An unbound mint or another label answers
+422 and writes nothing, and every mint answers 503 while the exception is closed
+(`test_a_mint_under_the_exception_makes_only_a_link_it_admits`).
+
+1. Read first what exists: the Resend dashboard's webhooks, and the names the API service binds. Where one webhook
+   for the API's `/api/webhooks/resend` exists and the service lists `RESEND_WEBHOOK_SECRET`, add nothing: a second
+   webhook for one URL delivers every event twice. Otherwise add one webhook with the events
+   [the activation checklist](../integrations/resend-webhooks.md#production-activation-checklist-f46) lists and bind
+   its signing secret as `RESEND_WEBHOOK_SECRET` on the API service (F46 in `tasks/todo.md`). Then confirm
+   `LEGAL_INVITATION_EMAIL_ENABLED=true` on the API service, setting it if it is not.
+2. `/admin/invites` shows no "Invitation email is on hold" banner, and "Email invites" can be ticked. Under the
+   invited-cohort exception it also shows "Registration is open to the invited cohort only", as expected.
 3. Run steps 1 to 6 and 19 below for the password tester. The invitation's headers show EarningsNerd's From and
    Reply-To and a pass for SPF, DKIM and DMARC, and within a minute its row moves from "Accepted by the email
    provider" to "Delivered to the recipient's mail server", which shows the webhook is authenticated and recorded.
@@ -106,7 +117,7 @@ The Google tester then starts at step 1, and both testers go on from step 7; the
 | 4 | Register | Both agreement boxes start unchecked; registration answers with the check-your-email notice | onboarding test; `frontend/tests/e2e/legal-readiness.spec.ts` (both boxes start unchecked) |
 | 5 | Verification mail | The mail arrives in the tester's inbox within the founder's mail window and its link verifies the account. A mail scanner that runs scripts can open the link first: the page then reports a failure although the account is verified; record it. The tester recovers by signing in, which finds the account verified (E296 in `tasks/todo.md`; step 22 exercises it) | onboarding test (capture only) |
 | 6 | Sign in | Password and Google sign-in return to the home page signed in, and the account menu shows the tester's own address. If the build offers Sign in with Apple (`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN`), one Apple sign-in in Safari does the same | onboarding and Google tests |
-| 7 | Complimentary Pro | The account shows Pro on the dashboard, in Settings and in usage, and Settings offers no upgrade or checkout | matrix and grant tests (the plan through `/api/auth/me` and usage; nothing tests Settings' billing control) |
+| 7 | Complimentary Pro | First the grant, which no earlier step makes: once both testers have verified (step 5), the complimentary-access dry run, then its apply under the founder's approval of that run ([its runbook](complimentary-access.md)). Until then both show Free, by design. Then the account shows Pro on the dashboard, in Settings and in usage, and Settings offers no upgrade or checkout | matrix and grant tests (the plan through `/api/auth/me` and usage); `frontend/tests/unit/BillingPanel.spec.tsx` (Settings' billing control for a complimentary account) |
 | 8 | Search and filing | A covered company's filing page loads | — |
 | 9 | Cached summary | A filing with a stored summary renders it at once | matrix test (cached read) |
 | 10 | Fresh summary | A filing without one generates to completion | matrix test |
@@ -124,8 +135,8 @@ The Google tester then starts at step 1, and both testers go on from step 7; the
 | 22 | Unusable links | The password tester's used link and the expired link are each refused, with the same answer. The used link's tester signs in instead. Resend on the expired link's row gives a replacement, emailed or to share by hand, and revokes the expired link, which is still refused; the replacement registers the disposable account with a password. Open that account's verification link first in another browser, as a mail scanner that runs scripts would: the tester's own browser then reports a failure, and the tester signs in to find the account verified, with no banner asking them to verify | onboarding test (used) and invalid-invitation test (revoked, expired), refusal only; #1965's `test_a_manual_resend_of_a_bound_invite_sends_nothing` and `test_an_emailed_resend_reuses_the_first_request_and_replaces_the_link` (the replacement) |
 | 23 | Deletion | A disposable tester account deletes itself and its session ends. With screenshots enabled, its screenshot cannot be opened at once and its object is gone after the next hourly cleanup run | feedback test |
 
-Step 7 cannot pass with today's code: Settings offers Upgrade to Pro to an account with no Stripe customer. It passes
-only after the complimentary-access work's Billing fix, which makes that fix a precondition of the rehearsal. Step 22
+Step 7 has no unmet code precondition since the complimentary-access work's Billing fix (#1955): a granted account
+sees no upgrade or checkout. Each wave needs the same grant before its exit check (section 6). Step 22
 needs #1965's Resend, which replaces an address-bound link, and nothing more: registration answers a used, a revoked
 and an expired link with one refusal, and telling them apart (E298 in `tasks/todo.md`) is a deferred follow-up, not a
 launch condition.
@@ -207,9 +218,17 @@ isolated environment, needs its own approved budget.
    identities of section 1. Any failed step stops the programme until it is fixed and re-run.
 2. **First wave: three testers.** Email three address-bound invitations under one cohort label, each with that
    tester's request recorded (#1965's Decision 1); a link shared by hand is only the fallback (section 3, step 2).
+   Grant each tester Pro once they have verified (section 3, step 7).
    Observe for 24 to 48 hours, reading section 5 at least twice a day and the feedback inbox daily.
 3. **Second wave: the remaining testers,** only once the first wave meets every exit condition below, under a new
-   cohort label.
+   cohort label where collection is open.
+
+While collection stays closed, the invited-cohort exception admits one cohort, so both waves carry the configured
+label. Changing `LEGAL_INVITED_COHORT` for a new wave leaves the earlier label's unredeemed links pending but
+unredeemable until that label returns or collection opens
+(`test_an_invitation_the_exception_does_not_admit_is_refused_and_writes_nothing`), so change it only once every
+first-wave link is redeemed or revoked. Admitted accounts keep their access, and the complimentary grant's label
+is separate.
 
 Each wave exits when no stop condition has occurred, every tester in that wave has signed in and holds Pro, and
 the feedback and support inboxes are answered. Stop admitting, and use section 7, on any of these:
@@ -257,11 +276,14 @@ so an incident rollback does not wait.
 | Close all new accounts | `LEGAL_COLLECTION_ENABLED=false` on the API service, with `LEGAL_INVITED_COHORT_ENABLED=false` too while the invited-cohort exception is on | Every mint, re-send and registration answers 503, and so do the contact form and waitlist joins | Existing accounts, sessions, sign-in, linking, Pro, export and deletion; waiting invitations stay usable for a reopening until they expire (seven days after minting by default) | `test_closing_collection_stops_new_accounts_and_keeps_admitted_testers`; `tests/unit/test_account_agreement.py` (closed collection keeps password and social sign-in) |
 | Close the invited-cohort exception | `LEGAL_INVITED_COHORT_ENABLED=false` on the API service ([LEGAL_READINESS.md](../LEGAL_READINESS.md#invited-cohort-registration)) | While collection is held, every new account through the exception: a mint or re-send answers 503 and writes nothing, the sender refuses on its own, a registration or sign-up start answers 503, and a sign-in started before the switch ends `registration_unavailable` at its callback | Accounts it admitted, their sessions, rights and data; links already issued, unredeemable while it is off and redeemable again if it reopens before they expire | `tests/unit/test_invited_cohort_registration.py`: `test_with_the_exception_held_a_cohort_invitation_meets_the_closure`, `test_an_exception_closed_during_a_social_sign_up_admits_no_account`, `test_the_sender_refuses_when_the_exception_closes_after_the_route_checked` |
 | Pause new summaries | `SUMMARY_NEW_JOBS_PAUSED=true` on the API service, the task worker and the pregenerate job | New summary generation | Stored summaries, sign-in, feedback. It does not stop Ask this Filing or Multi-Period Analysis: `COPILOT_MONTHLY_QUESTION_CAP=0` on the API service refuses every Pro question as a fair-use refusal, and `NEXT_PUBLIC_ENABLE_ANALYSIS=false` on Vercel, then a redeploy, hides the analysis page while its API still answers | `test_pausing_new_summaries_keeps_stored_ones_and_the_rest_of_the_account` |
-| Revoke one tester's Pro | The complimentary-access revoke (a revoke manifest with its own fresh salt, section 8; its dry run, then its apply), once that code is deployed and its Ops operations exist; until then only a direct database write revokes Pro | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
+| Revoke one tester's Pro | The complimentary-access revoke (#1955's code, #1971's Ops operations): a revoke manifest with its own fresh salt (section 8), its dry run, then its apply under the founder's approval. Prepare the manifest ahead; it is the route, not a database write | That account's Pro surfaces | The account, its session, its beta tag and its data | `test_a_grant_and_its_revocation_reach_only_the_account_they_name` |
 | Switch screenshots off | Ops `feedback-media-disable-apply`, approved for that run. It is refused while a `main` push run is in progress or queued, and it waits in the shared `ops` queue, where a later pending dispatch replaces it, so dispatch nothing else until it runs | New screenshot uploads | Text feedback, reading and cleaning up existing screenshots | `test_switching_screenshots_off_keeps_text_feedback_and_cleanup`; for an open draft, `frontend/tests/unit/feedback-media-disabled-recovery.spec.tsx` (#1973, at Send) and `busyControls.forms.spec.tsx`'s switch-off case (#1960, before Send) |
 | Hide the feedback launcher | `NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET=false` on Vercel, then a redeploy | The whole launcher, text feedback included | Everything else | — |
 | Suspend one tester | No route exists; a direct database write of `users.is_active=false` | That account's sign-in | Its data | — |
 | Roll back the API | Ops `rollback-traffic`, then a revert, after the account-mail queue drains ([account mail](../OPERATIONS.md#account-mail-f60)) | The current revision | The database | — |
+
+The screenshot lever and the notice below apply only once uploads have been enabled: before that no tester can
+hold a screenshot draft, and a disable would only roll a new revision with uploads still off.
 
 Switching screenshots off while a tester has a screenshot draft open no longer strands the note (#1973). At Send
 the upload answers 503; the form then re-reads the switch, and when uploads are confirmed off it returns the draft to
@@ -284,25 +306,32 @@ before E97, whose Argon2id hashes an older reader cannot verify, and never move 
 `earningsnerd-backend-00661-zr9`; a rollback past E110 parks pending alert batches unsent. An API-only rollback past
 #1965 stops invitation email, and `/admin/invites` can neither make nor resend a link until the frontend is rolled
 back too (the API itself still mints one to share by hand); the unsubscribe link in each invitation already sent then
-records nothing, and links already issued stay valid. Applied migrations stay applied, so the older revision must
-still run against the newer schema.
+records nothing, and links already issued stay valid. That "still mints" holds only while collection is open. While
+collection stays closed, #1985 is a floor too: before it, a mint, a re-send and a registration each need open
+collection and answer 503, so an API rollback past #1985 (and one past #1965 is past it as well) ends all
+new-account admission, while existing accounts keep their sessions, rights and data. Applied migrations stay
+applied, so the older revision must still run against the newer schema.
 
 ## 8. Operator inputs
 
 Before the founder rehearsal the founder supplies, outside this repository where private:
 
-- the public operator notice (`LEGAL_OPERATOR_*`) and the decision to publish it and open collection;
+- the public operator notice (`LEGAL_OPERATOR_*`) and the decision to publish it and open collection, or the
+  alternative: the invited-cohort exception with its label, collection staying closed, and the notice delivered
+  to each tester privately;
 - #1965's invitation-mail decisions: the recipient-request policy (Decision 1), each tester's request kept outside
   this repository before they are emailed; the suppression list's retention, which covers a hash of every address an
   invitation was emailed to, suppressed or not, and whether `/privacy` names the list (Decision 2), decided before
   `RESEND_WEBHOOK_SECRET` is bound, since binding it starts the list recording bounces, complaints and provider
   suppressions from any mail EarningsNerd sends, even with invitation email off; and whether the verification mail
-  and banner keep asking testers to verify "to subscribe" (F56 (b), Decision 4);
+  and banner keep asking testers to verify "to subscribe" (F56 (b), Decision 4). The founder took all three on
+  2026-11-04: the request record as written; the list kept as long as it exists and named on `/privacy` (#2013);
+  and the confirm-only wording (#2012);
 - what testers are told and agree to: the beta's duration, that feedback text (and its hashed network address) is
   kept without the account after deletion while screenshots are deleted, screenshot retention (180 days at most),
   and the support channel;
-- the roster, which stays private, and the cohort labels: one per invitation wave and one for the complimentary
-  grant. Each label is an opaque code, such as `private-beta-2026-11`, and appears in public reports: every
+- the roster, which stays private, and the cohort labels: one per invitation wave (one for both waves while the
+  invited-cohort exception admits them, section 6) and one for the complimentary grant. Each label is an opaque code, such as `private-beta-2026-11`, and appears in public reports: every
   complimentary-access report prints the grant's label, and the Ops run's log is public. No name, address,
   workplace or private description belongs in a label; the mapping from labels to people stays with the roster;
 - each grant's and each revoke's manifest, kept with the roster: the accounts' ids, their address fingerprints and a
