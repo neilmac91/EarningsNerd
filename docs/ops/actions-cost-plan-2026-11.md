@@ -159,11 +159,15 @@ month it holds only with a self-hosted server, whose own cost is on another bill
 
 ## What to change in GitHub settings now
 
-1. **Decide what happens at USD 40.** The Actions budget stood at 93% on 10 November and the last
-   two days cost about USD 9 each. If the budget stops usage when it is reached, every workflow
-   stops: no CI, so no merge; no backend deploy; no daily production smoke test. If it does not,
-   spending has no cap. Set the amount and the stop on purpose (Settings → Billing and licensing →
-   Budgets and alerts).
+1. **The budget has stopped all usage; decide its amount.** The Actions budget reached USD 40 on
+   10 November at about 23:21 UTC, and it is set to stop usage. Since then GitHub starts no job
+   in this account ("The job was not started because an Actions budget is preventing further
+   use"). That stops CI on every pull request, so nothing can merge; `deploy-backend` (it did not
+   start on `main`'s run 42918680435, whose commit had nothing to deploy); the review gate; and
+   the daily production smoke test. It lasts until the budget is raised or the month ends. Set
+   an amount you mean, with alerts, in Settings → Billing and licensing → Budgets and alerts.
+   This pull request's own CI run (42924151172) did not start for the same reason, so its
+   checks need a re-run once jobs start again.
 2. **Approve deleting the old `copilot-fidelity-*` artifacts** (step 1 above).
 3. **Set the repository's artifact and log retention to 30 days** (repository Settings → Actions →
    General). It covers every upload that names no retention of its own.
