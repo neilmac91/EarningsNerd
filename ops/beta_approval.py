@@ -75,6 +75,13 @@ def approval_text(wanted: dict[str, str]) -> str:
     return "APPROVE EARNINGSNERD BETA OPERATION\n" + "\n".join(f"{key}: {value}" for key, value in wanted.items())
 
 
+def statement(body: str) -> str:
+    # A browser form stores CRLF line endings and the API stores what it is sent; the words are the approval.
+    # Only that pair is folded, and blank space around the whole statement is dropped as before: a lone carriage
+    # return, a code fence or any other added character inside it still differs.
+    return body.replace("\r\n", "\n").strip()
+
+
 def run_context(wanted: dict[str, str]) -> datetime:
     try:
         checkout = subprocess.run(["git", "rev-parse", "HEAD"], check=True, text=True,
@@ -101,7 +108,7 @@ def matches(comment: dict, wanted: dict[str, str], created: datetime) -> bool:
     if (comment.get("user", {}).get("id") != OWNER_ID or comment.get("user", {}).get("type") != "User"
             or comment.get("author_association") != "OWNER" or comment.get("performed_via_github_app") is not None
             or comment.get("issue_url") != f"https://api.github.com/repos/{REPOSITORY}/issues/{APPROVAL_ISSUE}"
-            or not isinstance(comment.get("body"), str) or comment["body"].strip() != approval_text(wanted)
+            or not isinstance(comment.get("body"), str) or statement(comment["body"]) != approval_text(wanted)
             or type(comment.get("id")) is not int or comment["id"] < 1):
         return False
     posted = timestamp(comment.get("created_at"))

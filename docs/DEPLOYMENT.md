@@ -973,7 +973,9 @@ never reuse or invent a run ID. This route changes no live flags, IAM grants or 
 The founder's decision to enable this approval route is separate from each operation's approval.
 When preparing an operation, include `-f beta_comment_approval=true` with its existing dispatch inputs,
 open that run's **Wait for the founder's exact beta approval** summary, and copy only the statement shown
-there. Do not pre-post a guessed statement. Normal dispatches that omit this input retain the existing
+there: its seven lines, without the code fence around them, as a new comment that is never edited. Either
+line ending matches (a browser stores CRLF), and blank space before or after the statement is ignored; any
+other difference does not. Do not pre-post a guessed statement. Normal dispatches that omit this input retain the existing
 `ops-apply` approval check. Keep the release freeze and two-hour verification sequence below.
 
 Merge and verify the backend deployment, then merge the screenshot frontend and every other change to

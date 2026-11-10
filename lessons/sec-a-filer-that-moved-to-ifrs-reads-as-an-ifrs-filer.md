@@ -45,6 +45,6 @@ after the rule deploys, force-sync each filer it reads as IFRS that may hold a s
 `backend/app/services/facts/companyfacts.py` (`normalize_companyfacts`' first branch);
 `backend/app/services/facts/ingest.py` (`_persist_companyfacts_payload`);
 `backend/tests/unit/test_companyfacts_reporting_basis.py` (23 tests, sixteen mutants killed, the
-company-lock order pinned by a statement spy); F61 in
-`tasks/todo.md`; the peers endpoint read of 2026-11-01 (TM: JPY revenue for the year ended 2020-03-31;
+company-lock order pinned by a statement spy); F61 call (3), #1583 and #1931, a row
+the founder closed on 2026-11-09; the peers endpoint read of 2026-11-01 (TM: JPY revenue for the year ended 2020-03-31;
 ITUB: BRL net interest income for FY2010), and the readback after #1931's deploy and its forced sync of 2026-11-02. There, the peers endpoint serves no figure for either, and `detection-sql` (Ops 41389344425) finds no current companyfacts row for them. Count current rows when you read back a retire: a column that counts every row, current or not (set 3's `cf_native`), stays where it was.

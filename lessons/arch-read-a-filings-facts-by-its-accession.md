@@ -125,7 +125,8 @@ the sync's candidate shares its identity (`docs/quarterly-data-repair.md`). That
 newest report's own-year rows, so its lines return once the repair runs, and not for an older
 report's, whose native own-year ratio sits under the later report's accession, so its current ratio
 does not. The repair runs only as the Ops `repair-quarterly-apply` the founder approves for named
-tickers; nothing schedules it, and whether it has run is unknown (`tasks/todo.md` F61 (2)). Few
+tickers; nothing schedules it, and the non-USD cohort's preview planned nothing after its forced sync
+of 2026-11-01 (#1903; F61 (2), a row the founder closed on 2026-11-09). Few
 filings can be in that state: only summarized filings are processed, and F61 (1)'s count of
 2026-10-23 found one classified CNY summary and 5 with no recorded currency. WP5b's own-report rows
 are the reports' own figures, so they stand in like any row: REGN's FY2018 10-K charts the 6,710.8M
