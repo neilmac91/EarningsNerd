@@ -774,6 +774,9 @@ class IdentityCloud(BootstrapCloud):
 
     def call(self, api, path, *, method="GET", body=None, missing_ok=False, step=None):
         if method != "GET" and not path.endswith(":getIamPolicy") and ":getIamPolicy?" not in path:
+            # As Cloud Run v2 does: "job.name must be empty on CreateJobRequest" (provision run 42888895423).
+            assert not (method == "POST" and ("?jobId=" in path or "?serviceId=" in path) and "name" in body), (
+                "a Cloud Run v2 create leaves the resource's name to its jobId or serviceId")
             self.calls.append((api, path, method, body))
             self.writes.append((api, path, body))
             return {}
@@ -1092,3 +1095,17 @@ def test_ensure_service_grants_its_invoker_exactly_when_it_is_missing(invoker):
     if grants:
         assert verify.media.bound(grants[0], "roles/run.invoker", "serviceAccount:" + verify.IDENTITY)
         assert grants[0]["etag"] == "BwYrun"
+
+
+@pytest.mark.parametrize("resource", ["job", "service"])
+def test_a_create_leaves_the_resource_name_to_cloud_run(resource):
+    """Cloud Run v2 refuses a create whose body names the resource ("job.name must be empty on CreateJobRequest",
+    provision run 42888895423); the create's jobId or serviceId names it. The verifier's specs carry the name for
+    their updates, so each create sends the rest of the spec unchanged and only the name dropped."""
+    cloud = rerun_identity_cloud()
+    path = "v2/" + (verify.JOB if resource == "job" else verify.SERVICE)
+    del cloud.run[path]  # absent, so the step creates it
+    spec = {"name": path.removeprefix("v2/"), "labels": {"purpose": verify.PURPOSE}, "template": {"marker": resource}}
+    (verify.ensure_job if resource == "job" else verify.ensure_service)(cloud, spec)
+    creates = [body for api, write, body in cloud.writes if api == "run" and ("?jobId=" in write or "?serviceId=" in write)]
+    assert creates == [{"labels": {"purpose": verify.PURPOSE}, "template": {"marker": resource}}]
