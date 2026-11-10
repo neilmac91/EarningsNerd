@@ -251,7 +251,7 @@ Three pieces:
 |---|---|
 | `baseline_scores.json` | The pinned bar to protect — the `baseline` candidate's summary stats from a full verified-set run, committed to git. |
 | `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline, plus an absolute check of the attempts' native-section provenance. Exits non-zero on a HARD regression. |
-| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness, native-section provenance and quality against the pin. A ready mark runs a copy of the job from `.github/workflows/eval-baseline-ready.yml` ("Eval baseline (ready mark)"), so that draw's run and its `eval-report-<run_id>` artifact are listed under that workflow, not under CI. |
+| `eval-baseline` CI job | Advisory workflow job in `.github/workflows/ci.yml` that runs the live pipeline over the full verified golden set twice per AI-relevant PR, then checks completeness, native-section provenance and quality against the pin. |
 
 ### Running the gate locally
 ```bash
