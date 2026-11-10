@@ -550,6 +550,29 @@ def require_anonymous_denial(origin: str) -> None:
     raise media.OperationError("Verification endpoint must reject anonymous health reads with HTTP 403")
 
 
+CONTROL_WAIT_SECONDS = 600
+CONTROL_POLL_SECONDS = 15
+
+
+def await_control(cloud: media.Cloud, origin: str, key: str, run_id: str) -> None:
+    """Wait until the service answers the verifier identity, before the browser's first call.
+
+    ensure_service has just written the identity's invoker grant, and an IAM allow-policy change typically takes two
+    minutes to apply and can take seven or more (https://cloud.google.com/iam/docs/access-change-propagation). The
+    browser treats a refusal as fatal after the run has seeded its two-hour lease, so it starts only once the
+    receipt read, which changes nothing, succeeds.
+    """
+    deadline = time.monotonic() + CONTROL_WAIT_SECONDS
+    while True:
+        try:
+            control(cloud, origin, key, run_id, "receipt")
+            return
+        except media.OperationError:
+            if time.monotonic() >= deadline:
+                raise media.OperationError("Verification service did not answer the verifier identity within ten minutes") from None
+            time.sleep(CONTROL_POLL_SECONDS)
+
+
 def control(cloud: media.Cloud, origin: str, key: str, run_id: str, path: str, payload: dict | None = None) -> dict:
     authentication = hmac.new(key.encode(), CONTROL_DOMAIN + run_id.encode(), hashlib.sha256).hexdigest()
     request = Request(origin + "/__feedback_verify/" + path,
@@ -744,7 +767,8 @@ def contains_spec(actual, expected) -> bool:
             return False  # An unexpected secret reference must never masquerade as an omitted empty env value.
         if set(expected) == {"cpu", "memory"} and set(actual) != set(expected):
             return False  # Additional accelerators are not server-added resource defaults.
-        defaults = {"invokerIamDisabled": False, "minInstanceCount": 0, "value": ""}
+        # AUTOMATIC is ServiceScaling's documented default, so a read-back may omit it; MANUAL is still refused.
+        defaults = {"invokerIamDisabled": False, "minInstanceCount": 0, "scalingMode": "AUTOMATIC", "value": ""}
         return all((key in actual and contains_spec(actual[key], value))
                    or (key not in actual and key in defaults and value == defaults[key]) for key, value in expected.items())
     if isinstance(expected, list):
@@ -936,6 +960,7 @@ def provision(cloud: media.Cloud) -> None:
         print("Isolated verification database: " + summaries[0])
         ensure_service(cloud, runtime_spec(production, run_id, image, hashes, versions, job=False))
         origin = assert_private_service(cloud, cloud.call("run", "v2/" + SERVICE))
+        await_control(cloud, origin, key, run_id)
         try:
             browser(cloud, origin, key, run_id, image, hashes)
         finally:

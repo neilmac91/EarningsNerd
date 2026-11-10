@@ -1005,6 +1005,32 @@ def test_every_permission_a_step_label_names_can_be_named_in_a_refusal():
     assert named <= ops.KNOWN_PERMISSIONS, sorted(named - ops.KNOWN_PERMISSIONS)
 
 
+@pytest.mark.parametrize("method, failures, outcome", [
+    ("GET", 2, "answered"), ("GET", 3, "refused"), ("POST", 1, "refused"), ("PATCH", 1, "refused")])
+def test_a_read_retries_a_transient_503_and_a_write_is_sent_once(monkeypatch, method, failures, outcome):
+    """Google calls UNAVAILABLE transient (AIP-194), and one 503 already stopped a live read (Ops run 42888000950):
+    a read retries a 503 twice before it refuses, labelled; a write is never retried, so it is sent at most once."""
+    cloud = object.__new__(ops.Cloud)
+    cloud.token = "synthetic-token"
+    sent, sleeps = [], []
+
+    def urlopen(request, timeout):
+        sent.append(request.get_method())
+        if len(sent) <= failures:
+            raise HTTPError(request.full_url, 503, "unavailable", {}, io.BytesIO(b'{"error": {"status": "UNAVAILABLE"}}'))
+        return io.BytesIO(b'{"answer": 1}')
+    monkeypatch.setattr(ops, "urlopen", urlopen)
+    monkeypatch.setattr(ops, "time", types.SimpleNamespace(sleep=sleeps.append))
+    body = None if method == "GET" else {}
+    if outcome == "answered":
+        assert cloud.call("run", "v2/" + ops.JOB, method=method, body=body, step=ops.JOB_READ) == {"answer": 1}
+    else:
+        with pytest.raises(ops.ProviderError, match=r"failed \(HTTP 503; UNAVAILABLE\)$"):
+            cloud.call("run", "v2/" + ops.JOB, method=method, body=body, step=ops.JOB_READ)
+    assert sent == [method] * (min(failures + 1, ops.READ_ATTEMPTS) if method == "GET" else 1)
+    assert sleeps == [2, 4][:len(sent) - 1]
+
+
 @pytest.mark.parametrize("code", [400, 403, 409, 429, 500])
 def test_only_a_404_reads_as_absent(monkeypatch, code):
     """A read that may find its resource absent takes only a 404 as absent: any other refusal stops it, labelled, so a

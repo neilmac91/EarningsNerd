@@ -6,6 +6,7 @@ import copy
 import hashlib
 import hmac
 import importlib.util
+import inspect
 import json
 import base64
 import re
@@ -368,6 +369,53 @@ def test_live_inspection_accepts_only_the_exact_private_runtime_and_never_repair
     else:
         assert verify.require_receipt(Cloud(), production)["payload"]["run_id"] == RUN_ID
     assert calls and all(method == "GET" for _, _, method in calls)
+
+
+def test_a_read_back_may_omit_the_default_automatic_scaling_mode():
+    """ServiceScaling defaults to AUTOMATIC, so a read-back that leaves the mode out still matches; MANUAL never does."""
+    expected = {"scaling": {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1}}
+    assert verify.contains_spec({"scaling": {"maxInstanceCount": 1}}, expected)
+    assert not verify.contains_spec({"scaling": {"scalingMode": "MANUAL", "maxInstanceCount": 1}}, expected)
+
+
+def fake_clock(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(verify, "time", types.SimpleNamespace(
+        monotonic=lambda: clock[0], sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds)))
+    return clock
+
+
+def test_the_browser_waits_until_the_service_answers_the_verifier(monkeypatch):
+    """ensure_service writes the verifier's invoker grant moments before the browser's first call, and an IAM change
+    takes minutes to apply: refused reads are retried until the receipt read, which changes nothing, answers."""
+    answers = [verify.media.OperationError("refused"), verify.media.OperationError("refused"), {"receipt": None}]
+
+    def control(cloud, origin, key, run_id, path, payload=None):
+        assert path == "receipt" and payload is None
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    verify.await_control(None, "https://verify.example", KEY, RUN_ID)
+    assert answers == [] and clock[0] == 2 * verify.CONTROL_POLL_SECONDS
+
+
+def test_the_browser_wait_gives_up_after_ten_minutes(monkeypatch):
+    def control(*_args, **_kwargs):
+        raise verify.media.OperationError("refused")
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    with pytest.raises(verify.media.OperationError, match="did not answer the verifier identity within ten minutes"):
+        verify.await_control(None, "https://verify.example", KEY, RUN_ID)
+    assert verify.CONTROL_WAIT_SECONDS <= clock[0] < verify.CONTROL_WAIT_SECONDS + verify.CONTROL_POLL_SECONDS
+
+
+def test_provision_waits_for_the_service_before_the_browser():
+    """The wait sits between the service deploy and the browser, whose first refusal would fail the seeded run."""
+    source = inspect.getsource(verify.provision)
+    assert source.index("ensure_service(") < source.index("await_control(") < source.index("browser(")
 
 
 def test_browser_suite_fingerprint_is_identical_in_python_and_the_actual_node_runner():
