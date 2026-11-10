@@ -155,6 +155,9 @@ def error_class(raw: bytes) -> str:
     return "".join(f"; {value}" for value in values)
 
 
+READ_ATTEMPTS = 3
+
+
 class Cloud:
     def __init__(self) -> None:
         try:
@@ -174,25 +177,33 @@ class Cloud:
         request = Request(f"https://{api}.googleapis.com/{path}", data=payload, method=method,
                           headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
         label = step or f"{api} operation"
-        try:
-            with urlopen(request, timeout=60) as response:  # fixed Google APIs, TLS/proxy defaults preserved
-                content = response.read(2 * 1024 * 1024)
-            decoded = json.loads(content) if content else {}
-            if not isinstance(decoded, dict):
-                raise ValueError("Expected an API object")
-            return decoded
-        except HTTPError as exc:
-            if exc.code == 404 and missing_ok:
-                return None
+        # A read retries a 503, which Google calls transient (AIP-194) and which once stopped a live read here; a
+        # write is never retried, so it is sent at most once.
+        attempts = READ_ATTEMPTS if method == "GET" else 1
+        for attempt in range(1, attempts + 1):
             try:
-                detail = error_class(exc.read(64 * 1024))
-            except Exception:  # an unreadable error body yields no class; the labelled refusal itself stands
-                detail = ""
-            raise ProviderError(f"{label} failed (HTTP {exc.code}{detail})") from None
-        # URLError and timeouts are OSErrors; so is a connection dropped before a response, which urllib raises
-        # outside its URLError wrapper. HTTPException covers a response cut short.
-        except (OSError, ValueError, HTTPException):
-            raise ProviderError(f"{label} unavailable or unreadable") from None
+                with urlopen(request, timeout=60) as response:  # fixed Google APIs, TLS/proxy defaults preserved
+                    content = response.read(2 * 1024 * 1024)
+                decoded = json.loads(content) if content else {}
+                if not isinstance(decoded, dict):
+                    raise ValueError("Expected an API object")
+                return decoded
+            except HTTPError as exc:
+                if exc.code == 404 and missing_ok:
+                    return None
+                if exc.code == 503 and attempt < attempts:
+                    time.sleep(2 ** attempt)
+                    continue
+                try:
+                    detail = error_class(exc.read(64 * 1024))
+                except Exception:  # an unreadable error body yields no class; the labelled refusal itself stands
+                    detail = ""
+                raise ProviderError(f"{label} failed (HTTP {exc.code}{detail})") from None
+            # URLError and timeouts are OSErrors; so is a connection dropped before a response, which urllib raises
+            # outside its URLError wrapper. HTTPException covers a response cut short.
+            except (OSError, ValueError, HTTPException):
+                raise ProviderError(f"{label} unavailable or unreadable") from None
+        raise AssertionError("unreachable: the last attempt returns or raises")
 
     def wait(self, operation: dict, step: str | None = None) -> dict:
         """Poll a long-running operation; a failure names the step that started it (unlabelled callers keep the old wording)."""
