@@ -180,7 +180,9 @@ class CloudFixture:
                 return copy.deepcopy(body["policy"])
             if api == "run" and "/jobs?jobId=" in path:
                 assert self.job is None
-                self.job = copy.deepcopy(body)
+                # As Cloud Run v2 does: "job.name must be empty on CreateJobRequest" (provision run 42888895423).
+                assert "name" not in body, "a Cloud Run v2 create leaves the job's name to its jobId"
+                self.job = {**copy.deepcopy(body), "name": ops.JOB}
                 return self.operation(self.job)
             if api == "cloudscheduler" and method == "POST":
                 assert self.schedule is None

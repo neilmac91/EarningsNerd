@@ -553,6 +553,12 @@ def inspect_heartbeat(cloud: Cloud) -> bool:
     return heartbeat_seen
 
 
+def create_body(spec: dict) -> dict:
+    """The body of a Cloud Run v2 create. The create's jobId or serviceId names the resource, and Cloud Run refuses
+    a body that names it ("job.name must be empty on CreateJobRequest"); an update keeps the name."""
+    return {key: value for key, value in spec.items() if key != "name"}
+
+
 def job_spec(service: dict) -> dict:
     template = service["template"]
     containers = template.get("containers", [])
@@ -703,8 +709,8 @@ def provision(cloud: Cloud, service: dict) -> None:
     ensure_buckets(cloud, runtime)
     current = cloud.call("run", "v2/" + JOB, missing_ok=True, step=JOB_READ)
     if current is None:
-        cloud.wait(cloud.call("run", f"v2/{PARENT}/jobs?jobId=earningsnerd-feedback-media-cleanup", method="POST", body=spec,
-                              step=JOB_CREATE), JOB_CREATE)
+        cloud.wait(cloud.call("run", f"v2/{PARENT}/jobs?jobId=earningsnerd-feedback-media-cleanup", method="POST",
+                              body=create_body(spec), step=JOB_CREATE), JOB_CREATE)
     else:
         check_owned_job(current)
         spec["etag"] = current["etag"]

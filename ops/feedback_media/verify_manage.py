@@ -823,7 +823,8 @@ def ensure_job(cloud: media.Cloud, spec: dict) -> None:
     if current:
         cloud.wait(cloud.call("run", "v2/" + JOB, method="PATCH", body={**spec, "etag": current["etag"]}))
     else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST", body=spec))
+        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST",
+                              body=media.create_body(spec)))
     media.bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + IDENTITY)
     schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": "41 * * * *", "timeZone": "Etc/UTC",
                 "attemptDeadline": "60s", "retryConfig": {"retryCount": 0}, "httpTarget": {
@@ -849,7 +850,8 @@ def ensure_service(cloud: media.Cloud, spec: dict) -> None:
         cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
                               body={**spec, "etag": current["etag"]}))
     else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST", body=spec))
+        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST",
+                              body=media.create_body(spec)))
     media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
 
 
