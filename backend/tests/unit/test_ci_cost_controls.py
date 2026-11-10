@@ -345,29 +345,81 @@ def test_a_backend_or_ops_change_with_an_unknown_scope_runs_the_browser_jobs(his
     assert result.returncode != 0 and NOTHING_SKIPPED(output)
 
 
-def outside_frontend_references():
-    """Files outside frontend/ that the frontend's build or browser specs name by a relative path literal.
+SCANNED_SUFFIXES = {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs", ".css"}
+
+
+def outside_frontend_references(frontend=None):
+    """Files outside frontend/ that the frontend's build or browser specs name in a path literal.
 
     The browser jobs build frontend/ and run tests/e2e against it. Turbopack's root is the repository
     (frontend/next.config.js), so an import can leave frontend/, and a spec can read any file. Each quoted literal
-    that starts with ``../`` is resolved against its file. tests/unit runs in frontend-tests, which no scope skips,
-    and scripts/ holds tools no CI browser job runs, so neither is read. A path built from separate segments
-    (``path.join(dir, '..', 'backend')``) is outside this check: write such a path as one literal.
+    that holds ``../`` is resolved two ways: against its file's directory, as an import or a ``__dirname`` join
+    reads it, and against frontend/, the directory the jobs run in, as a bare ``readFileSync('../backend/x')`` reads
+    it (kept only when the file exists, since most literals are meant the first way). A literal under the ``@/``
+    alias is resolved against frontend/ alone. tests/unit runs in frontend-tests, which no scope skips, so it is
+    read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs. A path built from
+    separate segments (``path.join(dir, '..', 'backend')``) is outside this check: write such a path as one literal.
     """
-    frontend = ROOT / "frontend"
-    literal = re.compile(r"""['"`]((?:\.\./)+[^'"`\n]*)['"`]""")
+    frontend = frontend or ROOT / "frontend"
+    root = frontend.parent
+    literal = re.compile(r"""['"`]([^'"`\n]*\.\./[^'"`\n]*)['"`]""")
     found = {}
-    for source in sorted(frontend.rglob("*")):
-        relative = source.relative_to(frontend)
-        if source.suffix not in {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs"} or not source.is_file():
-            continue
-        if relative.parts[0] in {"node_modules", ".next", "scripts"} or relative.parts[:2] == ("tests", "unit"):
-            continue
+
+    def scanned(path):
+        relative = path.relative_to(frontend)
+        return (path.is_file() and path.suffix in SCANNED_SUFFIXES
+                and relative.parts[0] not in {"node_modules", ".next", "scripts"})
+
+    queue = [path for path in sorted(frontend.rglob("*"))
+             if scanned(path) and path.relative_to(frontend).parts[:2] != ("tests", "unit")]
+    seen = set(queue)
+    while queue:
+        source = queue.pop()
+        relative = source.relative_to(frontend).as_posix()
         for match in literal.finditer(source.read_text(encoding="utf-8")):
-            target = Path(os.path.normpath(source.parent / match.group(1)))
-            if target != frontend and frontend not in target.parents:
-                found.setdefault(target, relative.as_posix())
+            text = match.group(1).removeprefix("${__dirname}/")
+            aliased = text.startswith("@/")
+            for base in ([frontend] if aliased else [source.parent, frontend]):
+                target = Path(os.path.normpath(base / text.removeprefix("@/")))
+                if target == frontend or frontend in target.parents:
+                    # A unit-test module or fixture that a scanned file imports is read by the browser jobs too.
+                    for module in (target, *(target.with_name(target.name + suffix) for suffix in SCANNED_SUFFIXES)):
+                        if module not in seen and frontend / "tests" / "unit" in module.parents and scanned(module):
+                            seen.add(module)
+                            queue.append(module)
+                elif base == source.parent and not aliased or root in target.parents and target.exists():
+                    found.setdefault(target, relative)
     return found
+
+
+def test_the_scan_reads_each_way_a_frontend_file_names_a_file_outside_frontend(tmp_path):
+    frontend = tmp_path / "frontend"
+    planted = {
+        "tests/e2e/dirname.spec.ts": "readFileSync(path.join(__dirname, '../../../backend/a.json'))",
+        "tests/e2e/cwd.spec.ts": "readFileSync('../backend/b.json')",
+        "tests/e2e/template.spec.ts": "readFileSync(`${__dirname}/../../../backend/c.json`)",
+        "lib/alias.ts": "import x from '@/../backend/d.json'",
+        "tests/e2e/through-unit.spec.ts": "import { helper } from '../unit/helper'",
+        "tests/unit/helper.ts": "export const helper = readFileSync('../backend/e.json')",
+        "app/page.css": "@import '../../backend/f.css';",
+        # Not references: a unit spec nothing scanned imports, a tool under scripts/, and paths that stay inside.
+        "tests/unit/alone.spec.ts": "readFileSync('../backend/unit-only.json')",
+        "scripts/tool.mjs": "readFileSync('../backend/tool-only.json')",
+        "tests/e2e/inside.spec.ts": "import y from '../../lib/alias'; import z from '../unit/missing'",
+    }
+    for name, text in planted.items():
+        (frontend / name).parent.mkdir(parents=True, exist_ok=True)
+        (frontend / name).write_text(text + "\n", encoding="utf-8")
+    backend = tmp_path / "backend"
+    backend.mkdir()
+    for name in ("a.json", "b.json", "c.json", "d.json", "e.json", "f.css", "unit-only.json", "tool-only.json"):
+        (backend / name).write_text("{}\n", encoding="utf-8")
+    found = outside_frontend_references(frontend)
+    assert {path.relative_to(tmp_path).as_posix() for path in found} == {
+        "backend/a.json", "backend/b.json", "backend/c.json", "backend/d.json", "backend/e.json", "backend/f.css"}
+    # A literal that leaves frontend/ for a file that is not there is kept, so the gate below fails on it.
+    (frontend / "tests/e2e/gone.spec.ts").write_text("readFileSync(path.join(__dirname, '../../../backend/gone.json'))\n")
+    assert tmp_path / "backend/gone.json" in outside_frontend_references(frontend)
 
 
 def test_every_file_a_browser_check_reads_outside_frontend_runs_the_browser_jobs(history, tmp_path):
@@ -529,7 +581,8 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     ci = workflow()
     # Unique run_id fallbacks prevent queued main/manual runs replacing each other,
     # which cancel-in-progress:false alone would NOT prevent. Neither this group nor eval-baseline's reads the
-    # event's action or draft state, so a pull request's ready-mark run and its draft runs supersede one another (F55).
+    # event's action or draft state, so a pull request's runs supersede one another, draft or ready; the ready
+    # mark's eval-baseline job supersedes, and is superseded, through that job's own group alone (F55).
     assert ci["concurrency"] == {
         "group": "ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",

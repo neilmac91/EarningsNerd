@@ -1,4 +1,4 @@
-# A ready mark runs CI on the merge commit GitHub stored at the head's last push; to bring a change on main to an unchanged head, push a merge of main
+# A ready mark's eval and a re-run build on the merge commit GitHub stored at the head's last push; to bring a change on main to an unchanged head, push a merge of main
 
 Date: 2026-11-04 · Area: ops / CI
 
