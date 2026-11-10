@@ -886,7 +886,11 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     probe_succeeded = recent_success(latest.get("probe"), expected, PROBE_ARGS)
     print("Cleanup last execution: " + ("succeeded" if succeeded else "unverified"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else "unverified"))
-    print("Runtime enumerated storage permission audit: " + ("verified by the successful probe" if probe_succeeded else "unverified"))
+    # The probe refuses missing create/get/delete and records broader storage access, without refusing it, while the
+    # backend identity holds project-wide storage.admin (founder, 10 November; the follow-up recorded on #2027).
+    print("Runtime storage permission audit: " + ("create/get/delete verified by the successful probe; broader access "
+                                                  "is reported in its permissions_excess counter, not refused"
+                                                  if probe_succeeded else "unverified"))
     return succeeded and probe_succeeded
 
 

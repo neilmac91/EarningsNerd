@@ -72,12 +72,13 @@ def test_provider_errors_never_expose_provider_payload(boundary):
 
 
 @pytest.mark.parametrize("grant_change,expected", [(None, None), ("missing", "storage_permissions_missing"),
-                                                  ("inherited", "storage_permissions_excess")])
+                                                  ("inherited", "storage_permissions_excess"),
+                                                  ("missing-and-inherited", "storage_permissions_missing")])
 def test_effective_runtime_permissions_require_narrow_grants_and_reject_inherited_excess(boundary, grant_change, expected):
     grants = set(storage.REQUIRED_STORAGE_PERMISSIONS)
-    if grant_change == "missing":
-        grants.remove("storage.objects.delete")
-    if grant_change == "inherited":
+    if grant_change in ("missing", "missing-and-inherited"):  # missing is reported first: the probe treats only
+        grants.remove("storage.objects.delete")              # excess, which implies every required grant, as a warning
+    if grant_change in ("inherited", "missing-and-inherited"):
         grants.add("storage.buckets.setIamPolicy")
     bucket = boundary.client.bucket.return_value
     bucket.test_iam_permissions.return_value = sorted(grants)

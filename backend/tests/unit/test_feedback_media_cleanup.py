@@ -218,7 +218,7 @@ def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cl
         assert row.state == ("purge_pending" if fail_delete else "deleted")
 
 
-def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(database):
+def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(database, caplog):
     class Storage:
         def verify_permissions(self):
             pass
@@ -226,8 +226,12 @@ def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(
             raise FeedbackStorageError()
         def delete(self, key, generation):
             assert generation is None
-            raise FeedbackStorageError()
-    assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
+            raise FeedbackStorageError("generation_conflict")
+    with caplog.at_level(logging.WARNING, logger=cleanup.__name__):
+        stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
+    assert "object round trip failed (storage_unavailable)" in caplog.text
+    assert "object delete failed (generation_conflict)" in caplog.text
+    assert stats == {
         "permissions_verified": 1, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 2,
         "pending_verification": 0,
     }
@@ -236,14 +240,24 @@ def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(
         assert row.object_key and row.object_generation is None and row.state == "purge_pending"
 
 
-@pytest.mark.parametrize("code", ["storage_permissions_missing", "storage_unavailable", "storage_timeout"])
-def test_permission_audit_failure_stops_probe_before_object_or_database_writes(database, code):
+@pytest.mark.parametrize("failure, logged", [
+    (FeedbackStorageError("storage_permissions_missing"), "storage_permissions_missing"),
+    (FeedbackStorageError("storage_unavailable"), "storage_unavailable"),
+    (FeedbackStorageError("storage_timeout"), "storage_timeout"),
+    (RuntimeError("private provider detail"), "RuntimeError"),
+])
+def test_permission_audit_failure_stops_probe_before_object_or_database_writes(database, caplog, failure, logged):
+    """Every audit failure but excess stops the probe before any write, and its log names only the closed code or the
+    exception's type, so the job's own logs say why, never what the provider or a payload said."""
     class Storage:
         def verify_permissions(self):
-            raise FeedbackStorageError(code)
+            raise failure
         def upload(self, *_):
             pytest.fail("probe uploaded without a verified permission audit")
-    assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
+    with caplog.at_level(logging.WARNING, logger=cleanup.__name__):
+        stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
+    assert f"permission audit failed ({logged})" in caplog.text and "private" not in caplog.text
+    assert stats == {
         "permissions_verified": 0, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 1,
         "pending_verification": 0,
     }
