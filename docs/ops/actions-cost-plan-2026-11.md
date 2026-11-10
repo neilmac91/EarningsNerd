@@ -8,6 +8,18 @@ runner, USD 0.005 for the arm64 runner, USD 0.25 a GB-month for artifact storage
 GitHub bills each job rounded up to a whole minute. "Billed minutes" below are computed that way
 from each job's start and end time.
 
+## Update: the repository is public again
+
+Late on 10 November the Actions budget reached USD 40 and GitHub stopped starting jobs. The
+founder then made the repository public (about 23:35 UTC). A public repository's standard runners
+and artifact storage are free, and its runners have 4 CPUs, so jobs start again and the bill stops
+growing while it stays public. Everything below measures the private week and applies again the
+day the repository returns to private. Two things change while it is public:
+
+- The pull request's changes save runner time, not money. They cost nothing to keep.
+- Step 3's self-hosted server is not an option: on a public repository a pull request from a fork
+  can run code on it.
+
 ## Summary
 
 - The bill is real and matches the history: 43,665 billed minutes, USD 261.99, against GitHub's
@@ -159,15 +171,15 @@ month it holds only with a self-hosted server, whose own cost is on another bill
 
 ## What to change in GitHub settings now
 
-1. **The budget has stopped all usage; decide its amount.** The Actions budget reached USD 40 on
-   10 November at about 23:21 UTC, and it is set to stop usage. Since then GitHub starts no job
-   in this account ("The job was not started because an Actions budget is preventing further
-   use"). That stops CI on every pull request, so nothing can merge; `deploy-backend` (it did not
-   start on `main`'s run 42918680435, whose commit had nothing to deploy); the review gate; and
-   the daily production smoke test. It lasts until the budget is raised or the month ends. Set
-   an amount you mean, with alerts, in Settings → Billing and licensing → Budgets and alerts.
-   This pull request's own CI run (42924151172) did not start for the same reason, so its
-   checks need a re-run once jobs start again.
+1. **Decide the budget's amount before the repository returns to private.** The Actions budget
+   reached USD 40 on 10 November at about 23:21 UTC, and it is set to stop usage. For about a
+   quarter of an hour GitHub started no job in the account ("The job was not started because an
+   Actions budget is preventing further use"): no CI, so no merge; no `deploy-backend` (it did
+   not start on `main`'s run 42918680435, whose commit had nothing to deploy); no review gate.
+   Making the repository public ended that, because a public repository's usage is free. A
+   return to private in November stops every job again, the daily production smoke test
+   included, unless the budget is raised first (Settings → Billing and licensing → Budgets and
+   alerts).
 2. **Approve deleting the old `copilot-fidelity-*` artifacts** (step 1 above).
 3. **Set the repository's artifact and log retention to 30 days** (repository Settings → Actions →
    General). It covers every upload that names no retention of its own.
