@@ -208,7 +208,7 @@ def verify_feedback_media_storage(
             return stats
         # The audit reports excess only after create/get/delete are confirmed. While the backend runs with
         # project-wide storage.admin, broader access is recorded and logged, not refused (founder, 10 November;
-        # tasks/todo.md E319 narrows the identity and restores the refusal).
+        # the follow-up recorded on #2027 narrows the identity and restores the refusal).
         stats["permissions_excess"] = 1
         logger.warning("Feedback media storage probe: the serving identity holds storage permissions beyond "
                        "object create/get/delete")

@@ -254,7 +254,7 @@ def test_permission_audit_failure_stops_probe_before_object_or_database_writes(d
 
 def test_excess_permissions_are_recorded_and_logged_and_the_probe_still_runs(database, caplog):
     """The founder's decision of 10 November: while the backend runs with project-wide storage.admin, broader storage
-    access is a recorded warning, not a refusal (tasks/todo.md E319). The audit reports it only after create, get and
+    access is a recorded warning, not a refusal (follow-up recorded on #2027). The audit reports it only after create, get and
     delete are confirmed, and missing access still stops the probe (above)."""
     class Storage:
         data = None
