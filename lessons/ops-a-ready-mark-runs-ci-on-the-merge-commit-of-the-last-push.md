@@ -25,6 +25,11 @@ Operations and Issues"; its 09:50 update added Actions):
 - #2005's merge to main (`28c8eb1ec`, 10:15 UTC) got no `ci.yml` push run, and a merge call for #1998 answered 502
   and did not merge.
 
+**Since 2026-11-10** a ready mark starts no CI run at all: it starts only `eval-baseline`, from
+`.github/workflows/eval-baseline-ready.yml` (`docs/ops/actions-cost-plan-2026-11.md`). That job builds on the
+same stored merge commit, so the rule below holds for it and for every re-run. A head's required checks are
+the ones its last push ran.
+
 **Rule.**
 1. Before a ready mark or a re-run whose CI should carry something main gained after the head's last push (a
    workflow, a fixed test, a gate), read the pull request's merge commit: `git fetch origin refs/pull/N/merge` and its

@@ -3,10 +3,13 @@ name: CI
 on:
   push:
     branches: [main]
-  # The three default types keep every required check reporting on each head, drafts included;
-  # ready_for_review starts eval-baseline's paid draw, which drafts never make (F55).
+  # The three default types keep every required check reporting on each head, drafts included.
+  # A ready mark starts no run here: it changes no file, so a run on it repeated the head's last
+  # run, job for job (127 such runs on 1-10 November 2026, docs/ops/actions-cost-plan-2026-11.md).
+  # Drafts never make eval-baseline's paid draw (F55), so the ready mark starts that one job from
+  # .github/workflows/eval-baseline-ready.yml, which holds a copy of the job below.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       limit:
@@ -28,12 +31,16 @@ concurrency:
 
 jobs:
   ci-scope:
-    runs-on: ubuntu-latest
+    # GitHub bills the 1-core runner at a third of the standard one's rate. It stops a job at 15
+    # minutes and runs no service container (gate: backend/tests/unit/test_ci_cost_controls.py).
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       contents: read
     outputs:
       records_only: ${{ steps.scope.outputs.records_only }}
+      # true unless every changed path is one no browser check reads. The browser jobs read this.
+      browser: ${{ steps.scope.outputs.browser }}
       # Written only when the diff was computed, so an unknown scope never skips price-agreement.
       prices_changed: ${{ steps.scope.outputs.prices_changed }}
     steps:
@@ -49,7 +56,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          full_suite() { echo 'records_only=false' >> "$GITHUB_OUTPUT"; }
+          full_suite() { printf 'records_only=false\nbrowser=true\n' >> "$GITHUB_OUTPUT"; }
           CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
           if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
             echo '::error::Checked source does not match the workflow commit.'
@@ -78,8 +85,9 @@ jobs:
           # Both sides of a rename matter, and filenames are NUL-delimited.
           git diff --no-renames --name-only -z "$BASE" HEAD > "$CHANGED_PATHS"
           RECORDS_ONLY=true
+          BROWSER=false
           PRICES_CHANGED=false
-          [ -s "$CHANGED_PATHS" ] || RECORDS_ONLY=false
+          [ -s "$CHANGED_PATHS" ] || { RECORDS_ONLY=false; BROWSER=true; }
           while IFS= read -r -d '' CHANGED_PATH; do
             case "$CHANGED_PATH" in
               tasks/*.md|lessons/*.md|docs/*.md) ;;
@@ -90,15 +98,37 @@ jobs:
                 [[ "$CHANGED_PATH" =~ ^tasks/code-red-20261004/runtime/control/source-context-exclusion-[0123456789]+\.json$ ]] || RECORDS_ONLY=false
                 ;;
             esac
+            # The browser jobs build the frontend and run it with no backend, so a change runs them
+            # unless every path in it is a record, or a backend/ or ops/ file that neither the build
+            # nor a browser spec reads. The three files named first are the ones they do read; a
+            # frontend file that reaches another file outside frontend/ fails
+            # backend/tests/unit/test_ci_cost_controls.py until that file is named here too. Any
+            # other path runs them: the workflows, root files and everything under frontend/.
+            case "$CHANGED_PATH" in
+              backend/app/public_email_addresses.json) BROWSER=true ;;
+              backend/tests/fixtures/analysis_later_filings.json) BROWSER=true ;;
+              backend/tests/fixtures/analysis_first_reports_produced.json) BROWSER=true ;;
+              backend/*|ops/*) ;;
+              tasks/*.md|lessons/*.md|docs/*.md) ;;
+              tasks/code-red-20261004/runtime/control/APPOINTMENTS.json) ;;
+              *)
+                [[ "$CHANGED_PATH" =~ ^tasks/code-red-20261004/runtime/control/source-context-exclusion-[0123456789]+\.json$ ]] || BROWSER=true
+                ;;
+            esac
             case "$CHANGED_PATH" in
               frontend/app/pricing/prices.ts) PRICES_CHANGED=true ;;
             esac
           done < "$CHANGED_PATHS"
           echo "records_only=$RECORDS_ONLY" >> "$GITHUB_OUTPUT"
           echo "prices_changed=$PRICES_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "browser=$BROWSER" >> "$GITHUB_OUTPUT"
 
   backend-tests:
     runs-on: ubuntu-latest
+    # Without a limit a hung job runs for GitHub's 6-hour default, 360 billed minutes. On the
+    # private repository's 2-vCPU runners this job takes 23 minutes at the median and 28 at the
+    # 90th percentile (5-10 November 2026), so 50 leaves a slow runner twice the usual time.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -151,7 +181,7 @@ jobs:
   # release. Tag refs are curated by hand and are outside this scan (--branches --remotes), so the
   # gate's verdict follows the branches a pull request can change.
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim  # the 1-core runner; see ci-scope
     timeout-minutes: 10
     permissions:
       contents: read
@@ -350,6 +380,8 @@ jobs:
 
   frontend-tests:
     runs-on: ubuntu-latest
+    # Median 14 minutes, 90th percentile 18 (5-10 November 2026); see backend-tests.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - name: Set up Node.js
@@ -457,35 +489,37 @@ jobs:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
+    # Median 3 minutes; see backend-tests. The job is advisory, so the limit fails nothing.
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - name: Require a valid browser scope
         env:
           SCOPE_RESULT: ${{ needs.ci-scope.result }}
-          RECORDS_ONLY: ${{ needs.ci-scope.outputs.records_only }}
+          BROWSER: ${{ needs.ci-scope.outputs.browser }}
         run: |
-          [ "$SCOPE_RESULT" = success ] && [[ "$RECORDS_ONLY" = true || "$RECORDS_ONLY" = false ]]
-      - name: Records-only browser check outcome
-        if: needs.ci-scope.outputs.records_only == 'true'
-        run: echo 'Records only; browser build and Lighthouse are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
+          [ "$SCOPE_RESULT" = success ] && [[ "$BROWSER" = true || "$BROWSER" = false ]]
+      - name: No browser input changed
+        if: needs.ci-scope.outputs.browser == 'false'
+        run: echo 'This change touches no file the browser checks read (records, backend/ and ops/ only); the browser build and Lighthouse are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
       - name: Set up Node.js
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '22.23.4'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npm ci
         working-directory: frontend
       - name: Install Chrome
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         uses: browser-actions/setup-chrome@v2
       - name: Cache Next.js build
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         uses: actions/cache@v6
         with:
           path: frontend/.next/cache
@@ -495,14 +529,14 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-
       - name: Build
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npm run build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
           WAITLIST_MODE: 'false'
       - name: Lighthouse CI (advisory)
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npx lhci autorun
         working-directory: frontend
         env:
@@ -526,10 +560,14 @@ jobs:
   # A pull request draws only while it is ready (the ready mark and each push after it) or on a
   # dispatch; a draft's run says whether its head would draw and spends nothing (F55). Unlike
   # copilot-eval, nothing limits a head to one draw: a second ready mark, a reopen or a re-run
-  # while ready draws again.
+  # while ready draws again. The ready mark's draw runs from
+  # .github/workflows/eval-baseline-ready.yml, whose job is a copy of this one: change both
+  # together (gate: backend/tests/unit/test_ci_cost_controls.py).
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # A measurement takes 11 to 20 minutes (1-10 November 2026); see backend-tests.
+    timeout-minutes: 45
     continue-on-error: true
     # The scope step reads the pull request's live draft flag; no step needs a write scope.
     permissions:
@@ -715,27 +753,27 @@ jobs:
       - name: Require a valid browser scope
         env:
           SCOPE_RESULT: ${{ needs.ci-scope.result }}
-          RECORDS_ONLY: ${{ needs.ci-scope.outputs.records_only }}
+          BROWSER: ${{ needs.ci-scope.outputs.browser }}
         run: |
-          [ "$SCOPE_RESULT" = success ] && [[ "$RECORDS_ONLY" = true || "$RECORDS_ONLY" = false ]]
-      - name: Records-only browser check outcome
-        if: needs.ci-scope.outputs.records_only == 'true'
-        run: echo 'Records only; browser build and E2E are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
+          [ "$SCOPE_RESULT" = success ] && [[ "$BROWSER" = true || "$BROWSER" = false ]]
+      - name: No browser input changed
+        if: needs.ci-scope.outputs.browser == 'false'
+        run: echo 'This change touches no file the browser checks read (records, backend/ and ops/ only); the browser build and E2E are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
       - name: Set up Node.js
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '22.23.4'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npm ci
         working-directory: frontend
       - name: Drop flaky packages.microsoft.com apt source
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         # GitHub-hosted runners ship a packages.microsoft.com apt repo (azure-cli + prod)
         # that intermittently returns 403. That aborts the `apt-get update` inside the next
         # step's `playwright install --with-deps`, failing e2e for reasons unrelated to our
@@ -746,7 +784,7 @@ jobs:
           grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS/errors
         # (mirror outage) — it has hung this job ~9 min and failed it across several runs, blocking
         # deploy-backend (which gates on e2e). Try the full install once, bounded; on failure fall
@@ -758,7 +796,7 @@ jobs:
           npx playwright install chromium
         working-directory: frontend
       - name: Cache Next.js build
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         uses: actions/cache@v6
         with:
           path: frontend/.next/cache
@@ -768,7 +806,7 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ runner.arch }}-node22.23.4-${{ github.job }}-v1-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json', 'frontend/next.config.js', 'frontend/tsconfig*.json', 'frontend/postcss.config.js', 'frontend/tailwind.config.js', '.github/workflows/ci.yml') }}-
       - name: Build frontend
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npm run build
         working-directory: frontend
         env:
@@ -790,7 +828,7 @@ jobs:
           # which holds its mount, fails on a build without it (E195 D).
           NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
       - name: Start frontend server
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npm run start &
         working-directory: frontend
         env:
@@ -803,11 +841,11 @@ jobs:
           NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
           NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
       - name: Wait for frontend server
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npx wait-on http://localhost:3000 --timeout 60000
         working-directory: frontend
       - name: Run E2E tests
-        if: needs.ci-scope.outputs.records_only == 'false'
+        if: needs.ci-scope.outputs.browser == 'true'
         run: npx playwright test --shard="$SHARD"
         working-directory: frontend
         env:
@@ -835,7 +873,7 @@ jobs:
   e2e-tests:
     needs: [e2e-shard]
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim  # the 1-core runner; see ci-scope
     timeout-minutes: 5
     steps:
       - name: Require every browser shard to pass

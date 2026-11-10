@@ -122,3 +122,8 @@ jobs:
           name: copilot-fidelity-${{ github.run_id }}
           path: backend/evals/reports/copilot/
           if-no-files-found: warn
+          # Without this an artifact is kept for GitHub's default, 90 days. Each is about 77 MB, and
+          # on 2026-11-10 the repository held 818 of them, 63 GB: the whole of its artifact storage
+          # bill of about USD 15 a month (docs/ops/actions-cost-plan-2026-11.md). Download an
+          # artifact an audit will need for longer.
+          retention-days: 30

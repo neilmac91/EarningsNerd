@@ -79,7 +79,13 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
 `frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
 charts and gallery, run as five `e2e-shard` jobs; it passes when every shard passes), `lighthouse` and
-`secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
+`secret-scan` (gitleaks). The browser jobs (`e2e-shard`, `lighthouse`) skip their steps, and pass, when
+a change touches no file they read: records, and `backend/` or `ops/` files other than the three the
+frontend reads (`ci-scope` in `ci.yml` names them). Marking a pull request ready starts no CI run; it
+starts only the paid `eval-baseline` job, from `.github/workflows/eval-baseline-ready.yml`. What each
+workflow costs, and the plan to cut it, is in
+[`docs/ops/actions-cost-plan-2026-11.md`](./docs/ops/actions-cost-plan-2026-11.md).
+Required PR checks also include `review-gate`. After the applicable CI gates
 pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
