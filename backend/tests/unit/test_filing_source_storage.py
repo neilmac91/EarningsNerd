@@ -25,6 +25,8 @@ IDENTITY = "a" * 64
 CONTENT = b"<html>REGN fixed offline source fixture</html>"
 SHA = hashlib.sha256(CONTENT).hexdigest()
 BACKEND = str(Path(storage.__file__).resolve().parents[2])
+# Below the lock-admission case's 30 s caller deadline, which a put that dropped its operation cap would wait out.
+ADMISSION_GUARD_S = 20.0
 
 
 def request(operation="put", **changes):
@@ -365,8 +367,8 @@ async def test_operation_cap_expires_during_lock_admission_without_starting_chil
     store = storage.BoundedFilingSourceStorage(BUCKET)
     async with storage._execution_lock:
         with pytest.raises(FilingSourceError, match="^artifact_storage_timeout$"):
-            # The external guard makes a disabled operation cap fail promptly as TimeoutError.
-            await asyncio.wait_for(store.put(IDENTITY, CONTENT, deadline=time.monotonic() + 30), 2)
+            # The external guard makes a disabled operation cap fail as TimeoutError, before the caller deadline.
+            await asyncio.wait_for(store.put(IDENTITY, CONTENT, deadline=time.monotonic() + 30), ADMISSION_GUARD_S)
         assert storage._execution_lock.locked()
     assert not storage._execution_lock.locked()
 

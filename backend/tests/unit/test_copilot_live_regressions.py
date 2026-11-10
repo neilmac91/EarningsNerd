@@ -12,6 +12,7 @@ from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 from evals.copilot_schema import CopilotQACase
 from evals.copilot_scorers import score_copilot_answer, score_numeric_recall
 from evals.schema import GroundTruthFact
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_copilot_provenance import filing
 
 
@@ -36,7 +37,7 @@ def test_logged_workflow_propagates_actual_python_failure(tmp_path, step_prefix,
         env = {**os.environ, 'PATH': str(tmp_path) + os.pathsep + os.environ['PATH'],
                'PROBE_EXIT': str(code), 'RUNNER_TEMP': str(tmp_path)}
         result = subprocess.run([*command, str(script)], cwd=tmp_path, env=env,
-                                capture_output=True, text=True, timeout=5)
+                                capture_output=True, text=True, timeout=HANG_GUARD_S)
         assert result.returncode == code, (step_prefix, code, result.stdout, result.stderr)
         assert (tmp_path / 'evals/reports/copilot' / log_name).read_text() == 'retained-public-evidence\n'
 

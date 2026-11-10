@@ -40,6 +40,7 @@ from app.services import complimentary_access_service as access
 from app.services.complimentary_access_manifest import email_fingerprint, load_manifest
 from app.services.legal_readiness_service import ELIGIBILITY_VERSION, TERMS_VERSION
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 TABLES = [
@@ -235,7 +236,7 @@ async def test_cancelled_request_leaves_cleanup_with_running_worker(sqlite_engin
 
     def blocked(*args):
         entered.set()
-        assert release.wait(5), "test did not release webhook worker"
+        assert release.wait(HANG_GUARD_S), "test did not release webhook worker"
         return original(*args)
 
     monkeypatch.setattr(service, "_apply_event", blocked)
@@ -249,7 +250,7 @@ async def test_cancelled_request_leaves_cleanup_with_running_worker(sqlite_engin
     monkeypatch.setattr(subscriptions, "process_stripe_event", finish_worker)
     task = asyncio.create_task(_deliver(_event(user_id)))
     try:
-        assert await asyncio.to_thread(entered.wait, 5)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
         task.cancel()
         await asyncio.sleep(0)
         assert not closed.is_set(), "request cancellation closed the running worker's session"
@@ -257,7 +258,7 @@ async def test_cancelled_request_leaves_cleanup_with_running_worker(sqlite_engin
         release.set()
         with pytest.raises(asyncio.CancelledError):
             await task
-        assert await asyncio.to_thread(finished.wait, 5)
+        assert await asyncio.to_thread(finished.wait, HANG_GUARD_S)
         assert closed.is_set()
     assert [name for name, _ in operations] == ["construct", "commit", "close"]
     assert len({thread for _, thread in operations}) == 1
@@ -303,13 +304,13 @@ async def test_postgres_concurrent_first_subscription_retries_without_duplicate_
     def hold_first(*args):
         if not entered.is_set():
             entered.set()
-            assert release.wait(5), "test did not release first delivery"
+            assert release.wait(HANG_GUARD_S), "test did not release first delivery"
         return original(*args)
 
     monkeypatch.setattr(service, "_apply_event", hold_first)
     first = asyncio.create_task(_deliver(first_payload))
     try:
-        assert await asyncio.to_thread(entered.wait, 5)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
         assert _billing(postgres_engine, user_id) == (False, None, 0, 0)
         with pytest.raises(HTTPException) as error:
             await _deliver(second_payload)
@@ -367,7 +368,7 @@ async def test_postgres_provider_read_holds_lock_through_completion_and_retry(po
     def read_current(subscription_id, customer_id):
         reads.append((subscription_id, customer_id))
         entered.set()
-        assert release.wait(5), "test did not release provider read"
+        assert release.wait(HANG_GUARD_S), "test did not release provider read"
         return {"id": subscription_id, "customer": customer_id, "status": "past_due"}
 
     def finish_worker(event):
@@ -382,7 +383,7 @@ async def test_postgres_provider_read_holds_lock_through_completion_and_retry(po
     monkeypatch.setattr(subscriptions, "process_stripe_event", finish_worker)
     first = asyncio.create_task(_deliver(payload))
     try:
-        assert await asyncio.to_thread(entered.wait, 5)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
         with pytest.raises(HTTPException) as error:
             await _deliver(payload)
         assert error.value.status_code == 503
@@ -398,7 +399,7 @@ async def test_postgres_provider_read_holds_lock_through_completion_and_retry(po
                 await first
         else:
             assert await first == {"status": "success"}
-        assert await asyncio.to_thread(finished.wait, 5)
+        assert await asyncio.to_thread(finished.wait, HANG_GUARD_S)
     assert _billing(postgres_engine, user_id) == (False, "past_due", 1, 2)
     assert await _deliver(payload) == {"status": "success", "idempotent": True}
     assert reads == [("sub_test", "cus_test")]
@@ -426,7 +427,7 @@ async def test_postgres_cross_subscription_reads_hold_the_lock_and_fail_without_
         reads.append((subscription_id, customer_id, require_created))
         if subscription_id == "sub_test":
             entered.set()
-            assert release.wait(5), "test did not release the bound read"
+            assert release.wait(HANG_GUARD_S), "test did not release the bound read"
             return {"id": "sub_test", "customer": "cus_test", "status": "active", "created": 2000}
         if fail_second:
             raise service.SubscriptionReconciliationUnavailable("Current Stripe subscription state is unavailable")
@@ -444,7 +445,7 @@ async def test_postgres_cross_subscription_reads_hold_the_lock_and_fail_without_
     monkeypatch.setattr(subscriptions, "process_stripe_event", finish_worker)
     first = asyncio.create_task(_deliver(payload))
     try:
-        assert await asyncio.to_thread(entered.wait, 5)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
         with pytest.raises(HTTPException) as error:
             await _deliver(payload)
         assert error.value.status_code == 503
@@ -464,7 +465,7 @@ async def test_postgres_cross_subscription_reads_hold_the_lock_and_fail_without_
             assert error.value.status_code == 503
         else:
             assert await first == {"status": "success"}
-        assert await asyncio.to_thread(finished.wait, 5)
+        assert await asyncio.to_thread(finished.wait, HANG_GUARD_S)
     assert _billing(postgres_engine, user_id) == (True, "active", 1, 1 if fail_second else 2)
     with _session(postgres_engine) as db:
         assert db.get(User, user_id).stripe_subscription_id == "sub_test"
@@ -560,13 +561,13 @@ async def test_postgres_duplicate_payment_distinct_events_count_once(postgres_en
     def hold_first(*args):
         if not entered.is_set():
             entered.set()
-            assert release.wait(5), "test did not release payment worker"
+            assert release.wait(HANG_GUARD_S), "test did not release payment worker"
         return original(*args)
 
     monkeypatch.setattr(service.billing_revenue_service, "record_payment", hold_first)
     first = asyncio.create_task(_deliver(_payment_event()))
     try:
-        assert await asyncio.to_thread(entered.wait, 5)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
         with pytest.raises(HTTPException) as error:
             await _deliver(_payment_event("evt_another_payment_delivery"))
         assert error.value.status_code == 503
@@ -687,6 +688,8 @@ _PB02_CONSTRAINTS = text(
     " JOIN pg_namespace n ON n.oid = t.relnamespace"
     " WHERE n.nspname = :schema AND t.relname = 'earningsnerd_complimentary_access_grants' ORDER BY 1, 2"
 )
+# A held unit outlasts _pb02_waits_for_a_lock's poll, which the case runs while it holds, so the poll ends first.
+PB02_HOLD_S = HANG_GUARD_S + 10
 
 def _pb02_account(engine, *, admin=False):
     """An admin operator, or an invited tester who verified and confirmed their own signup."""
@@ -730,8 +733,8 @@ def _pb02_apply(engine, manifest_and_digest, pid=None):
 
 
 def _pb02_waits_for_a_lock(engine, pid):
-    """Whether, within 5 s, the session whose pid ``pid`` will hold waits for a heavyweight lock."""
-    deadline = time.monotonic() + 5
+    """Whether, within HANG_GUARD_S, the session whose pid ``pid`` will hold waits for a heavyweight lock."""
+    deadline = time.monotonic() + HANG_GUARD_S
     with engine.connect() as watcher:
         while time.monotonic() < deadline:
             if pid:
@@ -764,7 +767,7 @@ def test_postgres_a_grant_and_a_revoke_of_one_account_run_one_at_a_time(postgres
         account = real_read(db, account_id, lock=lock)
         if lock and threading.current_thread() in holders:
             locked.set()  # the grant's unit holds the grants' lock and the account's row
-            assert release.wait(10), "the case never released the grant"
+            assert release.wait(PB02_HOLD_S), "the case never released the grant"
         return account
 
     monkeypatch.setattr(access, "_read_account", read_then_hold)
@@ -806,7 +809,7 @@ def test_postgres_two_applies_racing_at_the_cap_grant_one_between_them(postgres_
             calls.append(active)
             if len(calls) == 2:  # the unit's count (its dry run counted first): 19, the grant not committed yet
                 counted.set()
-                assert release.wait(10), "the case never released the first apply"
+                assert release.wait(PB02_HOLD_S), "the case never released the first apply"
         return active
 
     monkeypatch.setattr(access, "_active_grant_count", count_then_hold)

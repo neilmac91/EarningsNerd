@@ -35,16 +35,16 @@ from app.models.financial_fact import FinancialFact
 from app.services import copilot_service, copilot_tools
 from app.services.ai import copilot_chat
 from app.services.openai_service import openai_service
+from tests.support.hang_guard import HANG_GUARD_S
 
 ACC = "0000999999-24-000042"
 COMPANY_ID = 7
 # Generous: the fixed path gets its slot as soon as the loop runs one callback. Only the on-loop
 # checkout this test guards against ever waits this long, and it then fails the assertions below.
 POOL_TIMEOUT = 2.0
-# Hang guards only: a passing run never waits for one. The stalled query and the pool wait outlast the
-# guard, so a question left waiting on a stalled lookup fails on the guard.
-HANG_GUARD_S = 5.0
-STALL_S = 30.0
+# The stalled query and the pool wait outlast the hang guard, so a question left waiting on a stalled lookup
+# fails on the guard.
+STALL_S = 2 * HANG_GUARD_S
 FOLLOWUPS = '\n===CITATIONS===\n[]\n===FOLLOWUPS===\n["What drove revenue?", "What are the main risks?"]'
 
 # The model calls the numeric tool, then cites the figure it returned.
@@ -154,7 +154,7 @@ async def test_waiting_copilot_lookup_lets_the_slot_holder_finish(monkeypatch, t
     hold = asyncio.create_task(holder())
     try:
         events = await asyncio.wait_for(_collect(_viewed_filing()), timeout=30)
-        await asyncio.wait_for(hold, timeout=5)
+        await asyncio.wait_for(hold, timeout=HANG_GUARD_S)
     finally:
         release_holder.set()
         await hold

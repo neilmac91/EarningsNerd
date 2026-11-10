@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.services import summary_pipeline
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -86,7 +87,7 @@ async def test_waiter_serves_leader_result_without_regenerating(monkeypatch):
     task = asyncio.create_task(finish_leader())
     events = []
     try:
-        async with asyncio.timeout(2):
+        async with asyncio.timeout(HANG_GUARD_S):
             async for ev in summary_pipeline.stream_filing_summary(
                 filing_id=fid,
                 current_user=None,
@@ -171,14 +172,14 @@ async def test_failed_leader_elects_one_replacement_after_concurrent_reads(monke
         patch.setattr(summary_pipeline.openai_service, "summarize_filing", provider)
         tasks = [asyncio.create_task(consume()) for _ in range(3)]
         try:
-            await asyncio.wait_for(joined.wait(), 2)
+            await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
             summary_pipeline._release_inflight(fid, old_leader)  # failed without persisting
-            await asyncio.wait_for(provider_started.wait(), 2)
-            await asyncio.wait_for(competition_observed.wait(), 2)
+            await asyncio.wait_for(provider_started.wait(), HANG_GUARD_S)
+            await asyncio.wait_for(competition_observed.wait(), HANG_GUARD_S)
             assert calls == 1, "failed leader followers started duplicate provider work"
             assert replacement_joins == 2
             finish.set()
-            results = await asyncio.wait_for(asyncio.gather(*tasks), 2)
+            results = await asyncio.wait_for(asyncio.gather(*tasks), HANG_GUARD_S)
             completions = [next(frame for frame in frames if frame["type"] == "complete") for frames in results]
             assert len({frame["summary_id"] for frame in completions}) == 1
             assert fid not in summary_pipeline._inflight_generations
@@ -255,14 +256,14 @@ async def test_delayed_empty_snapshot_after_replacement_completes_is_reread(monk
         delayed = asyncio.create_task(consume(), name="delayed-follower")
         replacement = asyncio.create_task(consume(), name="replacement-follower")
         try:
-            await asyncio.wait_for(joined.wait(), 2)
+            await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
             summary_pipeline._release_inflight(fid, leader)
-            await asyncio.wait_for(delayed_read.wait(), 2)
-            completed = await asyncio.wait_for(replacement, 2)
+            await asyncio.wait_for(delayed_read.wait(), HANG_GUARD_S)
+            completed = await asyncio.wait_for(replacement, HANG_GUARD_S)
             assert fid not in summary_pipeline._inflight_generations
             generate.assert_awaited_once()
             return_delayed.set()  # now return the obsolete empty snapshot
-            resumed = await asyncio.wait_for(delayed, 2)
+            resumed = await asyncio.wait_for(delayed, HANG_GUARD_S)
             generate.assert_awaited_once()
             assert next(f["summary_id"] for f in completed if f["type"] == "complete") == next(
                 f["summary_id"] for f in resumed if f["type"] == "complete")

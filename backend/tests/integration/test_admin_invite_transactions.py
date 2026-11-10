@@ -47,6 +47,7 @@ from app.models import InviteCode, User
 from app.models.invite_mail import InviteDelivery, MailRecipient
 from app.services import invite_delivery_service, invite_service, mail_suppression_service
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 # The case's other sessions waiting for a row another transaction has written ("transactionid") or locked ("tuple").
 # The checking connection is the case's own, so its application_name is the case's schema.
@@ -55,6 +56,8 @@ WAITING = text(
     " AND application_name = current_setting('application_name') AND pid <> pg_backend_pid()"
 ).bindparams(bindparam("events", expanding=True))
 ROW = ("transactionid", "tuple")
+# A held transaction outlasts the hang-guarded poll (_waiting) the case makes while it holds.
+HOLD_S = HANG_GUARD_S + 10
 
 
 @pytest.fixture
@@ -146,15 +149,20 @@ def _run(engine, write):
         return None, exc
 
 
-def _waiting(engine, sessions: int) -> bool:
-    """Whether, within 5 s, at least ``sessions`` of the case's other sessions wait for a row's lock."""
-    deadline = time.monotonic() + 5
+def _waiting(engine, sessions: int, *writes) -> bool:
+    """Whether at least ``sessions`` of the case's other sessions wait for a row's lock. It polls until they do, until
+    one of ``writes`` (the writes that should be waiting) has finished, or until the hang guard. A write the lock holds
+    cannot finish, so a finished one never waited: a missing lock fails the case at once, and only a hang waits out
+    the guard, which keeps a defect in every case inside the PostgreSQL step's time."""
+    deadline = time.monotonic() + HANG_GUARD_S
     with engine.connect() as conn:
         while time.monotonic() < deadline:
             waiting = conn.execute(WAITING, {"events": list(ROW)}).scalar()
             conn.rollback()  # PostgreSQL reads pg_stat_activity once a transaction: each poll reads it afresh
             if waiting >= sessions:
                 return True
+            if any(write.done() for write in writes):
+                return False
             time.sleep(0.002)
     return False
 
@@ -179,12 +187,12 @@ class _Redemption:
             self.redeemed = invite_service.redeem_invite(db, db.get(InviteCode, self.invite_id),
                                                          db.get(User, self.user_id), commit=False)
             self.attempted.set()
-            self.committing.wait(timeout=30)
+            self.committing.wait(timeout=HOLD_S)
             db.commit()
 
     def __enter__(self) -> "_Redemption":
         self.thread.start()
-        if not (self.attempted.wait(timeout=5) and self.redeemed):
+        if not (self.attempted.wait(timeout=HANG_GUARD_S) and self.redeemed):
             self.commit()
             pytest.fail("the registration must redeem the invite")
         return self
@@ -203,7 +211,7 @@ def _write_beside_a_redemption(engine, write) -> tuple[object, Exception | None]
     invite_id, user_id = _ids(engine)
     with ThreadPoolExecutor(max_workers=1) as pool, _Redemption(engine, invite_id, user_id) as redemption:
         future = pool.submit(_run, engine, write(invite_id))
-        waited = _waiting(engine, 1)
+        waited = _waiting(engine, 1, future)
         redemption.commit()
         result, error = future.result(timeout=60)
     assert waited, "the write must wait for the row the uncommitted redemption wrote"
@@ -241,7 +249,7 @@ def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
     def first(db: Session) -> InviteCode:
         invite = invite_service._unused_invite_locked(db, invite_id)
         first_read.set()
-        release.wait(timeout=30)
+        release.wait(timeout=HOLD_S)
         invite.is_revoked = True
         db.commit()
         return invite
@@ -249,11 +257,11 @@ def test_two_writes_of_one_invite_take_turns(postgres_engine, write):
     with ThreadPoolExecutor(max_workers=2) as pool:
         held = pool.submit(_run, postgres_engine, first)
         try:
-            if not first_read.wait(timeout=5):
+            if not first_read.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the first write must read the invite under its lock"
                             + (f": it raised {held.result()[1]!r}" if held.done() else ""))
             second = pool.submit(_run, postgres_engine, WRITES[write](invite_id))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, second)
         finally:
             release.set()
         results = [held.result(timeout=60), second.result(timeout=60)]
@@ -283,7 +291,7 @@ def _redemption_behind_a_write(engine, monkeypatch, write: str) -> tuple[bool, E
     def held(db: Session, invite_id: int) -> InviteCode:
         invite = read(db, invite_id)
         locked.set()
-        release.wait(timeout=30)
+        release.wait(timeout=HOLD_S)
         return invite
 
     monkeypatch.setattr(invite_service, "_unused_invite_locked", held)
@@ -298,11 +306,11 @@ def _redemption_behind_a_write(engine, monkeypatch, write: str) -> tuple[bool, E
     with ThreadPoolExecutor(max_workers=2) as pool:
         admin = pool.submit(_run, engine, WRITES[write](invite_id))
         try:
-            if not locked.wait(timeout=5):
+            if not locked.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the write must read the invite under its lock"
                             + (f": it raised {admin.result()[1]!r}" if admin.done() else ""))
             redemption = pool.submit(redeem)
-            waited = _waiting(engine, 1)
+            waited = _waiting(engine, 1, redemption)
         finally:
             release.set()
         _, error = admin.result(timeout=60)
@@ -378,7 +386,7 @@ def _held_after_its_checks(monkeypatch):
     def held(*args, **kwargs):
         made = new_delivery(*args, **kwargs)
         reached.set()
-        release.wait(timeout=30)
+        release.wait(timeout=HOLD_S)
         return made
     monkeypatch.setattr(invite_delivery_service, "_new_delivery", held)
     return reached, release
@@ -423,16 +431,16 @@ def test_an_opt_out_that_commits_first_stops_the_send(postgres_engine):
         recipient = mail_suppression_service.lock_recipient(db, mail_suppression_service.recipient_hash(email))
         mail_suppression_service.suppress_locked(recipient, "unsubscribed", "unsubscribe:case")
         locked.set()
-        release.wait(timeout=30)
+        release.wait(timeout=HOLD_S)
         db.commit()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         holder = pool.submit(_run, postgres_engine, opt_out)
         try:
-            if not locked.wait(timeout=5):
+            if not locked.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the opt-out must hold the address's lock")
             send = pool.submit(_run, postgres_engine, _prepare(email))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, send)
         finally:
             release.set()
         assert holder.result(timeout=60)[1] is None
@@ -452,10 +460,10 @@ def test_an_opt_out_waits_for_a_send_authorised_first_and_applies_after_it(postg
     with ThreadPoolExecutor(max_workers=2) as pool:
         send = pool.submit(_run, postgres_engine, _prepare(email))
         try:
-            if not reached.wait(timeout=5):
+            if not reached.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the send must pass its checks" + (f": {send.result()[1]!r}" if send.done() else ""))
             opt_out = pool.submit(_run, postgres_engine, _unsubscribe(token))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, opt_out)
         finally:
             release.set()
         prepared, send_error = send.result(timeout=60)
@@ -485,7 +493,7 @@ def test_without_the_lock_an_opt_out_commits_inside_a_send_it_should_have_stoppe
     with ThreadPoolExecutor(max_workers=2) as pool:
         send = pool.submit(_run, postgres_engine, _prepare(email))
         try:
-            if not reached.wait(timeout=5):
+            if not reached.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the send must pass its checks" + (f": {send.result()[1]!r}" if send.done() else ""))
             unsubscribed, opt_out_error = _run(postgres_engine, _unsubscribe(token))  # does not wait
         finally:
@@ -506,10 +514,10 @@ def test_two_emailed_mints_for_one_address_make_one_link(postgres_engine, monkey
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(_run, postgres_engine, _prepare(email))
         try:
-            if not reached.wait(timeout=5):
+            if not reached.wait(timeout=HANG_GUARD_S):
                 pytest.fail("the first send must pass its checks" + (f": {first.result()[1]!r}" if first.done() else ""))
             second = pool.submit(_run, postgres_engine, _prepare(email))
-            waited = _waiting(postgres_engine, 1)
+            waited = _waiting(postgres_engine, 1, second)
         finally:
             release.set()
         prepared, first_error = first.result(timeout=60)

@@ -27,6 +27,10 @@ from app.services.feedback_storage_service import FeedbackStorageError
 from app.services.user_account_service import delete_user
 from app.utils.datetimes import ensure_utc, utcnow
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
+
+# The held publication outlasts every bounded wait the test makes before it releases the worker.
+PUBLICATION_HOLD_S = HANG_GUARD_S + 10
 
 
 @pytest.fixture
@@ -421,7 +425,7 @@ async def test_request_deadline_closes_partial_multipart_files(media, monkeypatc
         await asyncio.Event().wait()
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
-        async with real_timeout(5):
+        async with real_timeout(HANG_GUARD_S):  # below the middleware's 60 s deadline, which also answers 504
             response = await client.post('/api/feedback/with-attachments', headers=request_headers, content=body())
     assert body_waiting.is_set() and temporary_files
     assert response.status_code == 504, response.text
@@ -465,7 +469,7 @@ async def test_cancelled_provider_is_settled_before_attempt_becomes_retryable(me
         sending = asyncio.create_task(client.post('/api/feedback/with-attachments', headers=headers(key),
                                                    data={'message': 'A useful note'},
                                                    files=[('files', ('private.png', b'image', 'image/png'))]))
-        await asyncio.wait_for(entered.wait(), timeout=5)
+        await asyncio.wait_for(entered.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
         with pytest.raises(asyncio.CancelledError):
             await sending
@@ -526,7 +530,7 @@ async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_
         db.query(User.id).filter(User.id == 1).one()
         loop.call_soon_threadsafe(started.set)
         try:
-            assert release.wait(5)
+            assert release.wait(PUBLICATION_HOLD_S)
             return original_publish(db, *args)
         finally:
             finished.set()
@@ -559,9 +563,9 @@ async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_
     db = media.sessions()
     sending = asyncio.create_task(router.submit_feedback_with_attachments(request, Response(), media.actor, db))
     try:
-        await asyncio.wait_for(started.wait(), timeout=5)
+        await asyncio.wait_for(started.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
-        await asyncio.wait_for(draining.wait(), timeout=5)
+        await asyncio.wait_for(draining.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
         # Drain's gather cancellation runs through a few event-loop callbacks. No worker
         # release or elapsed-time assertion is used to make the race pass.

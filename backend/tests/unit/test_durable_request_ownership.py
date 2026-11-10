@@ -10,7 +10,13 @@ import pytest
 from app.config import settings
 from app.routers import analysis
 from app.services import summary_pipeline as pipeline
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
+
+# A controlled worker's hold outlasts every bounded wait the test makes before it releases the worker.
+WORKER_HOLD_S = HANG_GUARD_S + 10
+# Below EDGAR_DEFAULT_TIMEOUT_SECONDS (15 s): a dropped timeout= would end the wait there, and the case would pass.
+TIMED_OUT_WAIT_S = 10.0
 
 
 @pytest.fixture(autouse=True)
@@ -207,7 +213,7 @@ async def test_summary_stops_enrichment_before_releasing_leadership(monkeypatch,
         task = asyncio.create_task(consume())
         try:
             if stop == "disconnect":
-                await asyncio.wait_for(asyncio.gather(*(event.wait() for event in entered.values())), 5)
+                await asyncio.wait_for(asyncio.gather(*(event.wait() for event in entered.values())), HANG_GUARD_S)
                 task.cancel()
                 with pytest.raises(asyncio.CancelledError):
                     await task
@@ -269,7 +275,7 @@ async def test_summary_disconnect_joins_actual_worker_before_releasing_leadershi
     def real_worker():
         entered.set()
         try:
-            assert finish.wait(5), "test did not release its controlled synchronous worker"
+            assert finish.wait(WORKER_HOLD_S), "test did not release its controlled synchronous worker"
             return None
         finally:
             closed.set()
@@ -304,16 +310,16 @@ async def test_summary_disconnect_joins_actual_worker_before_releasing_leadershi
         patch.setattr(pipeline, "_release_inflight", checked_release)
         task = asyncio.create_task(consume())
         try:
-            assert await asyncio.to_thread(entered.wait, 2)
+            assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
             task.cancel()
-            await asyncio.wait_for(draining.wait(), 2)
+            await asyncio.wait_for(draining.wait(), HANG_GUARD_S)
             # Cleanup that skipped the thread would finish within a few loop turns; give it time.
             done, _ = await asyncio.wait({task}, timeout=0.3)
             assert not done, "the request ended while its actual worker was still running"
             assert not closed.is_set()
             finish.set()
             with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(task, 2)
+                await asyncio.wait_for(task, HANG_GUARD_S)
             assert filing_id not in pipeline._inflight_generations
         finally:
             finish.set()
@@ -343,7 +349,7 @@ async def test_summary_disconnect_joins_the_section_parse_worker_before_releasin
         parsed.append((html, base_form))
         entered.set()
         try:
-            assert finish.wait(5), "test did not release its controlled section parse"
+            assert finish.wait(WORKER_HOLD_S), "test did not release its controlled section parse"
             return None
         finally:
             closed.set()
@@ -373,17 +379,17 @@ async def test_summary_disconnect_joins_the_section_parse_worker_before_releasin
         patch.setattr(pipeline, "_release_inflight", checked_release)
         task = asyncio.create_task(consume())
         try:
-            assert await asyncio.to_thread(entered.wait, 2)
+            assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
             assert parsed == [(document_text, "10-K")]
             task.cancel()
-            await asyncio.wait_for(draining.wait(), 2)
+            await asyncio.wait_for(draining.wait(), HANG_GUARD_S)
             # Cleanup that skipped the thread would finish within a few loop turns; give it time.
             done, _ = await asyncio.wait({task}, timeout=0.3)
             assert not done, "the request ended while its section parse was still running"
             assert not closed.is_set()
             finish.set()
             with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(task, 2)
+                await asyncio.wait_for(task, HANG_GUARD_S)
             assert filing_id not in pipeline._inflight_generations
         finally:
             finish.set()
@@ -403,7 +409,7 @@ async def test_edgar_timeout_is_visible_before_owned_worker_drain():
     def real_worker():
         entered.set()
         try:
-            assert finish.wait(5), "test did not release its controlled synchronous worker"
+            assert finish.wait(WORKER_HOLD_S), "test did not release its controlled synchronous worker"
         finally:
             closed.set()
 
@@ -415,12 +421,12 @@ async def test_edgar_timeout_is_visible_before_owned_worker_drain():
 
     task = asyncio.create_task(request())
     try:
-        assert await asyncio.to_thread(entered.wait, 2)
-        await asyncio.wait_for(timed_out.wait(), 2)
+        assert await asyncio.to_thread(entered.wait, HANG_GUARD_S)
+        await asyncio.wait_for(timed_out.wait(), TIMED_OUT_WAIT_S)
         assert not closed.is_set()
         assert not task.done(), "a timed-out waiter hid a still-running worker from scope cleanup"
         finish.set()
-        await asyncio.wait_for(task, 2)
+        await asyncio.wait_for(task, HANG_GUARD_S)
         assert closed.is_set()
     finally:
         finish.set()

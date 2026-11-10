@@ -21,6 +21,7 @@ import httpx
 from app.config import settings
 from app.services import task_process_service as service
 from app.services.durable_tasks import TaskEnvelope
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.worker_logging import preserved_logging
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -55,7 +56,7 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
         # Start the tested work deadline only once the controlled native thread is running.
         # OS/Python startup under load is not the behavior this cleanup test measures.
         try:
-            async with asyncio.timeout(2):
+            async with asyncio.timeout(HANG_GUARD_S):
                 while not ready.exists():
                     await asyncio.sleep(0.005)
         except BaseException:
@@ -68,7 +69,7 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
 
     monkeypatch.setattr(service.asyncio, "create_subprocess_exec", record)
     task = asyncio.create_task(service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 7})))
-    async with asyncio.timeout(2):
+    async with asyncio.timeout(HANG_GUARD_S + 10):  # above record()'s guard on the ready file, so that one fires first
         # The child's ready file can precede the parent recording its process handle.
         await registered_and_ready.wait()
     assert children[0].returncode is None
@@ -83,7 +84,7 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
     assert await children[0].wait() == children[0].returncode
     # The next delivery is admitted after cleanup; neither deadline nor cancellation strands
     # the sole child permit. Use a real fast child rather than reading the lock's internal state.
-    monkeypatch.setattr(settings, "TASKS_WORK_TIMEOUT_SECONDS", 2)
+    monkeypatch.setattr(settings, "TASKS_WORK_TIMEOUT_SECONDS", HANG_GUARD_S)  # bounds a real child's start and exit
     monkeypatch.setattr(service, "_command", lambda: (sys.executable, "-c", "import sys; sys.stdin.read()"))
     await service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 9}))
     assert len(children) == 2 and children[1].returncode == 0

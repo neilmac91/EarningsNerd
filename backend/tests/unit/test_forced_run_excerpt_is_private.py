@@ -22,6 +22,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 from app.services.precompute_service import precompute_one
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_precompute_service import (
     FRESH_EXCERPT,
     STORED_EXCERPT,
@@ -286,6 +287,10 @@ def test_a_replacing_forced_run_stores_its_excerpt_over_a_save_committed_while_i
         1, summary_id, CANONICAL_PAYLOAD["business_overview"], STORED_EXCERPT if with_cache else FRESH_B)
 
 
+# Below production's CONTEXT_ENRICHMENT_TIMEOUT_SECONDS (18 s), which the "join-dropped" case patches to 0.05 s.
+EXCERPT_RELEASE_GUARD_S = 15.0
+
+
 @contextmanager
 def _the_run_ends_with_no_excerpt(how, late_excerpt):
     """Build no excerpt, or keep its worker pending until the real enrichment join cancels it."""
@@ -298,7 +303,7 @@ def _the_run_ends_with_no_excerpt(how, late_excerpt):
     def late(*_a, **_k):
         started.set()
         try:
-            assert release.wait(5), "excerpt worker was never released"
+            assert release.wait(EXCERPT_RELEASE_GUARD_S), "excerpt worker was never released"
             return late_excerpt
         finally:
             finished.set()
@@ -331,7 +336,7 @@ def _the_run_ends_with_no_excerpt(how, late_excerpt):
         finally:
             release.set()  # Always unblock a started worker, including on an earlier test failure.
             if started.is_set():
-                assert finished.wait(5)
+                assert finished.wait(HANG_GUARD_S)
         if how == "join-dropped":
             assert join_cancelled.is_set(), "excerpt did not outlast the enrichment join"
 

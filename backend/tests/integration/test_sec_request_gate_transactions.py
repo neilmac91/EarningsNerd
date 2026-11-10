@@ -21,6 +21,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.services.sec_request_gate import PostgresRequestGate, SECAdmissionUnavailable
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 MIGRATION = Path(__file__).resolve().parents[2] / "migrations" / "20261030_earningsnerd_sec_request_gate.sql"
@@ -125,7 +126,7 @@ def _run_processes(engine, *, workers=4, count=3, single_probe=False):
             if process.is_alive():
                 process.terminate()
             if process.pid is not None:
-                process.join(timeout=5)
+                process.join(timeout=HANG_GUARD_S)
         ready.close()
         answers.close()
         ready.join_thread()
@@ -329,7 +330,7 @@ def _run_feedback_processes(engine, jobs):
             if process.is_alive():
                 process.terminate()
             if process.pid is not None:
-                process.join(timeout=5)
+                process.join(timeout=HANG_GUARD_S)
         ready.close()
         answers.close()
         ready.join_thread()

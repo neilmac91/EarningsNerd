@@ -33,6 +33,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
+from tests.support.hang_guard import HANG_GUARD_S
+
 ROOT = Path(__file__).resolve().parents[3]
 SETTINGS = ROOT / ".claude" / "settings.json"
 HOOK = ROOT / ".claude" / "hooks" / "codex_review_overlap_guard.py"
@@ -972,9 +974,9 @@ def test_the_session_token_is_gh_token_then_github_token(monkeypatch: pytest.Mon
     module = _load_hook()
     monkeypatch.setenv("GH_TOKEN", "first")
     monkeypatch.setenv("GITHUB_TOKEN", "second")
-    assert module._token(time.monotonic() + 1) == "first"
+    assert module._token(time.monotonic() + HANG_GUARD_S) == "first"
     monkeypatch.setenv("GH_TOKEN", " ")
-    assert module._token(time.monotonic() + 2) == "second"
+    assert module._token(time.monotonic() + HANG_GUARD_S) == "second"
 
 
 # --- shape and registration ----------------------------------------------------------------------------------

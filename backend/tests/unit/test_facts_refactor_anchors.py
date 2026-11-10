@@ -31,6 +31,7 @@ from app.services.edgar import compat
 from app.services.sec_rate_limiter import sec_rate_limiter
 from app.utils.datetimes import utcnow
 from app.utils.sec_urls import companyfacts_url
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -58,7 +59,7 @@ def app_loop(monkeypatch):
     monkeypatch.setattr(event_loop, "_app_loop", loop)
     yield loop
     loop.call_soon_threadsafe(loop.stop)
-    thread.join(timeout=5)
+    thread.join(timeout=HANG_GUARD_S)
     loop.close()
 
 

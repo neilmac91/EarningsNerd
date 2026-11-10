@@ -20,6 +20,8 @@ from urllib.request import urlopen
 
 import pytest
 
+from tests.support.hang_guard import HANG_GUARD_S
+
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from ops.summary_delivery import instance, manage, runtime, spec  # noqa: E402
@@ -549,7 +551,7 @@ def test_whole_http_deadline_interrupts_real_header_and_body_trickles(monkeypatc
         finally:
             stop.set()
             server.shutdown()
-            thread.join(timeout=1)
+            thread.join(timeout=HANG_GUARD_S)
             assert not thread.is_alive()
 
 
@@ -562,7 +564,7 @@ def test_request_timer_refuses_takeover_and_restores_success_and_error_paths(mon
     try:
         for fail in (False, True):
             try:
-                with manage.request_deadline(time.monotonic() + 1):
+                with manage.request_deadline(time.monotonic() + HANG_GUARD_S):
                     assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
                     if fail:
                         raise ValueError("fixed-test-error")
@@ -572,11 +574,13 @@ def test_request_timer_refuses_takeover_and_restores_success_and_error_paths(mon
             assert signal.getsignal(signal.SIGALRM) == previous
         with monkeypatch.context() as patch:
             patch.setattr(signal, "getitimer", lambda *a: (1.0, 0.0))
-            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), \
+                    manage.request_deadline(time.monotonic() + HANG_GUARD_S):
                 pytest.fail("must not take over existing timer")
         with monkeypatch.context() as patch:
             patch.setattr(threading, "current_thread", lambda: object())
-            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), manage.request_deadline(time.monotonic() + 1):
+            with pytest.raises(spec.Refused, match="request_deadline_unavailable"), \
+                    manage.request_deadline(time.monotonic() + HANG_GUARD_S):
                 pytest.fail("must not run timer outside main thread")
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
@@ -674,10 +678,10 @@ def test_network_guard_permits_real_event_loop_uvicorn_and_task_child_startup(tm
         finally:
             process.terminate()
             try:
-                process.wait(timeout=5)
+                process.wait(timeout=HANG_GUARD_S)
             except subprocess.TimeoutExpired:
                 process.kill()
-                process.wait(timeout=5)
+                process.wait(timeout=HANG_GUARD_S)
 
 
 @pytest.mark.parametrize("failure", ["headroom", "admin_startup", "create_ambiguous"])

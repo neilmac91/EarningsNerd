@@ -37,12 +37,17 @@ from sqlalchemy.pool import QueuePool
 from app.models import Base, Company
 from app.services import facts_service, logging_service
 from app.services.facts import ingest, sync_threads
+from tests.support.hang_guard import HANG_GUARD_S
 
 SYNC_THREAD = "companyfacts_sync"
-# Generous: the sync gets its slot as soon as the loop runs the holder. Only a sync waiting in the
-# default executor ever waits this long, and it then fails on the pool's timeout.
-POOL_TIMEOUT = 2.0
-HANG_GUARD_S = 5.0  # a passing run never waits for it
+# Generous: the sync gets its slot as soon as the loop runs the holder, which a starved runner can stretch past a
+# second. Only a sync waiting in the default executor ever waits this long, and it then fails on the pool's timeout,
+# below the hang guards.
+POOL_TIMEOUT = 10.0
+# Below ingest's COMPANYFACTS_INFLIGHT_WAIT_SECONDS (25 s), when a follower its leader never woke returns and passes.
+# A follower's 25 s can start before the case starts this guard (while its leader still runs), so 15 s leaves the
+# leader 10 s of that before production's wait would end first.
+FOLLOWER_GUARD_S = 15.0
 
 
 def _payload() -> dict:
@@ -104,7 +109,7 @@ def engine(tmp_path):
     # The sync keeps to two threads (test_the_sync_keeps_to_two_threads), so it holds at most two of these four slots
     # and no checkout here waits: the timeout checks nothing, as a burst pool's does
     # (lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md). It is POOL_TIMEOUT, below the
-    # tests' 5 s hang guards, so a regression that made a checkout wait would fail on the pool's own error.
+    # tests' hang guards, so a regression that made a checkout wait would fail on the pool's own error.
     engine = _engine(tmp_path, pool_size=4, pool_timeout=POOL_TIMEOUT)
     yield engine
     engine.dispose()
@@ -141,11 +146,11 @@ async def test_a_sync_and_its_follower_work_every_session_on_the_syncs_threads(e
         return _payload()
 
     leader = asyncio.create_task(_sync(engine, fetch))
-    await asyncio.wait_for(fetching.wait(), timeout=2.0)
+    await asyncio.wait_for(fetching.wait(), timeout=HANG_GUARD_S)
     follower = asyncio.create_task(_sync(engine, fetch))
     await asyncio.sleep(0.05)  # the follower's first step: it finds the claim and waits on it
     release.set()
-    led, followed = await asyncio.wait_for(asyncio.gather(leader, follower), timeout=5.0)
+    led, followed = await asyncio.wait_for(asyncio.gather(leader, follower), timeout=FOLLOWER_GUARD_S)
 
     assert (led["synced"], led["refreshed"], led["inserted"]) == (True, True, 1)
     assert (followed["synced"], followed.get("waited"), fetches) == (True, True, 1)
@@ -170,7 +175,8 @@ async def test_two_first_touches_started_together_fetch_once(engine, inflight):
         await asyncio.sleep(0.05)
         return _payload()
 
-    first, second = await asyncio.wait_for(asyncio.gather(_sync(engine, fetch), _sync(engine, fetch)), timeout=5.0)
+    first, second = await asyncio.wait_for(
+        asyncio.gather(_sync(engine, fetch), _sync(engine, fetch)), timeout=FOLLOWER_GUARD_S)
     assert (first["refreshed"], second["synced"], second.get("waited"), fetches) == (True, True, True, 1)
 
 
@@ -187,11 +193,11 @@ async def test_a_follower_of_a_failed_fetch_reports_no_sync(engine, inflight):
         return None
 
     leader = asyncio.create_task(_sync(engine, failing_fetch))
-    await asyncio.wait_for(fetching.wait(), timeout=2.0)
+    await asyncio.wait_for(fetching.wait(), timeout=HANG_GUARD_S)
     follower = asyncio.create_task(_sync(engine, failing_fetch))
     await asyncio.sleep(0.05)  # the follower's first step: it finds the claim and waits on it
     release.set()
-    led, followed = await asyncio.wait_for(asyncio.gather(leader, follower), timeout=5.0)
+    led, followed = await asyncio.wait_for(asyncio.gather(leader, follower), timeout=FOLLOWER_GUARD_S)
 
     assert (led["synced"], led.get("error")) == (False, "fetch_failed")
     assert (followed["synced"], followed.get("waited")) == (False, True)
@@ -263,7 +269,7 @@ async def test_a_request_arriving_during_the_leaders_sync_follows_it(engine, inf
         nonlocal fresh_checks
         fresh_checks += 1
         if fresh_checks > 1:
-            leader_done.wait(5)
+            leader_done.wait(HANG_GUARD_S)
         return real_fresh_check(*args, **kwargs)
 
     monkeypatch.setattr(ingest, "_companyfacts_fresh_result", fresh_check)
@@ -279,13 +285,13 @@ async def test_a_request_arriving_during_the_leaders_sync_follows_it(engine, inf
         return _payload()
 
     leader = asyncio.create_task(_sync(engine, fetch))
-    await asyncio.wait_for(fetching.wait(), timeout=2.0)
+    await asyncio.wait_for(fetching.wait(), timeout=HANG_GUARD_S)
     second = asyncio.create_task(_sync(engine, fetch))
     await asyncio.sleep(0.05)
     release.set()
-    led = await asyncio.wait_for(leader, timeout=5.0)
+    led = await asyncio.wait_for(leader, timeout=HANG_GUARD_S)
     leader_done.set()
-    followed = await asyncio.wait_for(second, timeout=5.0)
+    followed = await asyncio.wait_for(second, timeout=FOLLOWER_GUARD_S)
 
     assert led["refreshed"] is True
     assert (followed["synced"], followed.get("waited"), fetches, fresh_checks) == (True, True, 1, 1)
@@ -296,7 +302,7 @@ def _persist_held_until(finish: threading.Event, persisting: threading.Event, *,
 
     def held_persist(db, company, payload):
         persisting.set()
-        finish.wait(5)
+        finish.wait(HANG_GUARD_S)
         if fail:
             raise RuntimeError("the bulk upsert failed")
         return real_persist(db, company, payload)
@@ -322,7 +328,7 @@ async def test_a_cancelled_leader_keeps_its_claim_until_its_persist_finishes(eng
             return await _sync(engine, fetch)
 
     leader = asyncio.create_task(lead_in_scope() if cancel == "cancel_scope" else _sync(engine, fetch))
-    assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, 5), timeout=6.0)
+    assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, HANG_GUARD_S), timeout=HANG_GUARD_S + 10)
     claim = inflight[1]
     if cancel == "cancel_scope":
         scope.cancel()
@@ -334,10 +340,10 @@ async def test_a_cancelled_leader_keeps_its_claim_until_its_persist_finishes(eng
 
     finish.set()
     if cancel == "cancel_scope":
-        assert await asyncio.wait_for(leader, timeout=5.0) is None  # the scope took its cancellation
+        assert await asyncio.wait_for(leader, timeout=HANG_GUARD_S) is None  # the scope took its cancellation
     else:
         with pytest.raises(asyncio.CancelledError):
-            await asyncio.wait_for(leader, timeout=5.0)
+            await asyncio.wait_for(leader, timeout=HANG_GUARD_S)
     assert claim.is_set() and 1 not in inflight
     with sessionmaker(bind=engine)() as db:
         assert db.get(Company, 1).facts_synced_at is not None  # the persist committed
@@ -353,13 +359,13 @@ async def test_a_persist_failing_after_its_leader_was_cancelled_is_logged(engine
         return _payload()
 
     leader = asyncio.create_task(_sync(engine, fetch))
-    assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, 5), timeout=6.0)
+    assert await asyncio.wait_for(asyncio.to_thread(persisting.wait, HANG_GUARD_S), timeout=HANG_GUARD_S + 10)
     leader.cancel()
     await asyncio.sleep(0.05)
     finish.set()
     with caplog.at_level(logging.ERROR, logger="app.services.facts_service"):
         with pytest.raises(asyncio.CancelledError):
-            await asyncio.wait_for(leader, timeout=5.0)
+            await asyncio.wait_for(leader, timeout=HANG_GUARD_S)
 
     failures = [record for record in caplog.records if "after its caller was cancelled" in record.getMessage()]
     assert [type(record.exc_info[1]) for record in failures] == [RuntimeError]

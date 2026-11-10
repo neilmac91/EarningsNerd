@@ -31,6 +31,7 @@ from app.models import Base, Filing, Summary, SummaryGenerationProgress, User, U
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import generate_summary_background
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     reset_inflight,
@@ -378,9 +379,9 @@ async def test_a_follower_of_a_failed_unready_refresh_generates_instead_of_servi
     with stream_boundaries() as summarize:
         follower = asyncio.create_task(follow())
         try:
-            await asyncio.wait_for(joined.wait(), 2)
+            await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
             pipeline._release_inflight(filing_id, leader)  # the first run failed: nothing saved
-            events = await asyncio.wait_for(follower, 5)
+            events = await asyncio.wait_for(follower, HANG_GUARD_S)
         finally:
             follower.cancel()
             await asyncio.gather(follower, return_exceptions=True)
@@ -418,10 +419,10 @@ async def test_a_follower_of_a_refresh_that_succeeds_is_served_its_summary():
     with stream_boundaries() as summarize:
         follower = asyncio.create_task(follow())
         try:
-            await asyncio.wait_for(joined.wait(), 2)
+            await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
             _make_ready(filing_id)  # the first run saves its summary
             pipeline._release_inflight(filing_id, leader)
-            events = await asyncio.wait_for(follower, 5)
+            events = await asyncio.wait_for(follower, HANG_GUARD_S)
         finally:
             follower.cancel()
             await asyncio.gather(follower, return_exceptions=True)

@@ -79,6 +79,7 @@ from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -3869,7 +3870,7 @@ async def test_first_time_narratives_race_for_one_cache_row_off_the_loop(monkeyp
         row = real_read(*args, **kwargs)
         if getattr(write, "first_read", False):  # only a write's first read; a thread that never wrote has no flag
             write.first_read = False
-            first_reads.wait(timeout=5.0)  # a hang guard; a passing run never waits for it
+            first_reads.wait(timeout=HANG_GUARD_S)  # a hang guard; a passing run never waits for it
         return row
 
     monkeypatch.setattr(narrative, "_persist_analysis", persist)

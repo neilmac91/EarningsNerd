@@ -23,6 +23,7 @@ from app.services import summary_pipeline
 from app.services.ai.provider_requests import signal_provider_start
 from app.services.subscription_service import get_current_month
 from app.services.summary_pipeline import GenerationUserSnapshot, stream_filing_summary
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     reset_inflight,
@@ -475,7 +476,7 @@ async def test_pipeline_timeout_during_the_charge_write_still_refunds_the_commit
         summarize.side_effect = blocking_provider
         controller = asyncio.create_task(expire_the_deadline_during_the_write())
         events = await asyncio.wait_for(_run(filing_id, user_id), 30)  # hang guards only
-        await asyncio.wait_for(controller, 5)
+        await asyncio.wait_for(controller, HANG_GUARD_S)
         assert write_done.is_set()
     assert events[-1]["type"] == "error" and "timed out" in events[-1]["message"]
     assert _state(user_id) == (0, 0)  # the committed unit was found and refunded; no lease left

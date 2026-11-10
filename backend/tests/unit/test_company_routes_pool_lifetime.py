@@ -10,6 +10,7 @@ from sqlalchemy.pool import QueuePool
 
 from app.models import Company, Filing
 from app.routers import companies
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 class _Stall:
@@ -38,7 +39,10 @@ def _assert_competing_checkout(sessions, company_id):
 
 
 async def _wait_for_released_pool(stall, engine, sessions, company_id):
-    await asyncio.wait_for(stall.started.wait(), timeout=1.0)
+    await asyncio.wait_for(stall.started.wait(), timeout=HANG_GUARD_S)
+    # Short on purpose, with no wall-clock wait: each unit releases its session in a finally the route awaits before it
+    # reaches the stall, so the pool is empty once the stall starts. A wait would let production's 4 s quote timeout
+    # end the stall and give back a session held through the quote fan-out, and that defect would pass.
     for _ in range(20):
         if engine.pool.checkedout() == 0:
             break

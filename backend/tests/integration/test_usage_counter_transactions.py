@@ -24,6 +24,7 @@ from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
 from app.database import Base, SessionLocal
 from app.models import Summary, UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 # Never the wall-clock month: a case whose outcome depends on the admission month fails at once
@@ -34,6 +35,8 @@ ROLLOVER_MONTH = "2000-02"
 WRITERS = [(usage.increment_user_usage, "summary_count"),
            (usage.increment_user_qa, "qa_count"), (usage.increment_user_analysis, "analysis_count")]
 TABLES = [User.__table__, UserUsage.__table__, UsageReservation.__table__]
+# A worker's result is awaited above its barrier's guard, so a barrier left unfilled breaks first.
+WORKER_GUARD_S = HANG_GUARD_S + 10
 
 
 @pytest.fixture
@@ -104,7 +107,7 @@ def test_lock_timeout_requires_positive_whole_bounded_milliseconds(value):
 @pytest.mark.parametrize("writer,column", WRITERS)
 def test_postgres_existing_bucket_retains_parallel_increments_with_stale_sessions(postgres_engine, writer, column):
     uid = _seed(postgres_engine, (5, 7, 11))
-    ready = threading.Barrier(2, timeout=5)
+    ready = threading.Barrier(2, timeout=HANG_GUARD_S)
 
     def complete():
         with _session(postgres_engine) as db:
@@ -116,7 +119,7 @@ def test_postgres_existing_bucket_retains_parallel_increments_with_stale_session
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(complete) for _ in range(2)]
         for future in futures:
-            future.result(timeout=6)
+            future.result(timeout=WORKER_GUARD_S)
     expected = dict(summary_count=5, qa_count=7, analysis_count=11)
     expected[column] += 2
     rows = _rows(postgres_engine, uid)
@@ -126,7 +129,7 @@ def test_postgres_existing_bucket_retains_parallel_increments_with_stale_session
 
 def test_postgres_parallel_first_use_creates_one_bucket_across_resources(postgres_engine):
     uid = _seed(postgres_engine)
-    first_reads = threading.Barrier(3, timeout=5)
+    first_reads = threading.Barrier(3, timeout=HANG_GUARD_S)
     local = threading.local()
 
     def after_read(conn, cursor, statement, parameters, context, executemany):
@@ -144,7 +147,7 @@ def test_postgres_parallel_first_use_creates_one_bucket_across_resources(postgre
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [pool.submit(complete, writer) for writer, _ in WRITERS]
             for future in futures:
-                future.result(timeout=6)
+                future.result(timeout=WORKER_GUARD_S)
     finally:
         event.remove(postgres_engine, "after_cursor_execute", after_read)
     rows = _rows(postgres_engine, uid)
@@ -179,7 +182,7 @@ def test_postgres_counter_lock_wait_is_bounded_and_failure_does_not_increment(po
             holder.close()
             # A broken timeout must still leave a bounded mutation experiment.
             if not future.done():
-                future.result(timeout=6)
+                future.result(timeout=HANG_GUARD_S)
     assert _rows(postgres_engine, uid) == before
     with _session(postgres_engine) as db:
         usage.increment_user_usage(uid, MONTH, db)
@@ -293,7 +296,7 @@ def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgr
     _pin_month(monkeypatch)
     _free_limit(monkeypatch, 2)
     uid = _seed(postgres_engine, (0, 0, 0))
-    ready = threading.Barrier(3, timeout=5)
+    ready = threading.Barrier(3, timeout=HANG_GUARD_S)
 
     def reserve():
         with _session(postgres_engine) as db:
@@ -302,7 +305,7 @@ def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgr
             return usage.reserve_summary_use(user, db)
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        outcomes = [f.result(timeout=8) for f in [pool.submit(reserve) for _ in range(3)]]
+        outcomes = [f.result(timeout=WORKER_GUARD_S) for f in [pool.submit(reserve) for _ in range(3)]]
     admitted = [o for o in outcomes if o[0]]
     blocked = [o for o in outcomes if not o[0]]
     assert len(admitted) == 2 and len(blocked) == 1
@@ -449,7 +452,7 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
 # it converts into, and the lifetime scope that must survive a month rollover.
 
 def _parallel(engine, uid, reserve, workers=3):
-    ready = threading.Barrier(workers, timeout=5)
+    ready = threading.Barrier(workers, timeout=HANG_GUARD_S)
 
     def run():
         with _session(engine) as db:
@@ -458,7 +461,7 @@ def _parallel(engine, uid, reserve, workers=3):
             return reserve(user, db)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        return [f.result(timeout=8) for f in [pool.submit(run) for _ in range(workers)]]
+        return [f.result(timeout=WORKER_GUARD_S) for f in [pool.submit(run) for _ in range(workers)]]
 
 
 @pytest.mark.parametrize("reserve,owner,cap,kind,column", [
@@ -524,8 +527,8 @@ def test_postgres_taste_completion_racing_admission_never_over_admits(postgres_e
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         completion, admission = pool.submit(complete), pool.submit(admit)
-        completion.result(timeout=8)
-        outcome = admission.result(timeout=8)
+        completion.result(timeout=HANG_GUARD_S)
+        outcome = admission.result(timeout=HANG_GUARD_S)
     assert outcome in ((False, 0, 1, None), (False, 1, 1, None))  # lease seen, or completed use seen
     with _session(postgres_engine) as db:
         assert db.query(User.copilot_free_taste_used).filter(User.id == uid).scalar() == 1
