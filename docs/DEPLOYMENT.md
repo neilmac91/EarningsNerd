@@ -848,10 +848,12 @@ The custom `earningsnerdFeedbackObjects` role contains only object create/get/de
 buckets to the runtime identity. Inspection rejects any additional direct runtime bucket grant,
 including objectAdmin or a conditional grant. The storage probe also queries the actual runtime
 identity's effective permissions on the production bucket, so an inherited broad role cannot be
-assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
+assumed away. It requires object create/get/delete and flags the other thirteen enumerated bucket/
 object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
-every future permission or project-level bucket listing. Broader inherited access blocks rollout;
-adding the narrow binding does not remove it. For whatever does not yet exist (below), the provisioning identity needs permissions to create those buckets,
+every future permission or project-level bucket listing. Broader inherited access is recorded as
+`permissions_excess` and logged, not refused, while the backend runs with project-wide `roles/storage.admin`
+(the founder's decision, 10 November; narrowing it is the follow-up recorded on #2027). Missing access still blocks rollout, and adding
+the narrow binding does not remove the broader access. For whatever does not yet exist (below), the provisioning identity needs permissions to create those buckets,
 create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.

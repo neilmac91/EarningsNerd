@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import hashlib
+import logging
 import struct
 from time import monotonic
 from uuid import uuid4
@@ -22,6 +23,7 @@ from app.models.feedback import Feedback, FeedbackAttachment, FeedbackSubmission
 from app.services.feedback_storage_service import FeedbackStorage, FeedbackStorageError, make_feedback_object_key
 from app.utils.datetimes import ensure_utc, utcnow
 
+logger = logging.getLogger(__name__)
 
 CLAIM_DURATION = timedelta(minutes=15)
 REMOVAL_TARGET = timedelta(hours=24)
@@ -196,13 +198,24 @@ def verify_feedback_media_storage(
     and no screenshot is readable through the user/admin API because it has no owner.
     """
     now = ensure_utc(now or utcnow())
-    stats = {"permissions_verified": 0, "storage_verified": 0, "deleted": 0, "errors": 0, "pending_verification": 0}
+    stats = {"permissions_verified": 0, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 0,
+             "pending_verification": 0}
     try:
         storage.verify_permissions()
-        stats["permissions_verified"] = 1
+    except FeedbackStorageError as exc:
+        if exc.code != "storage_permissions_excess":
+            stats["errors"] = 1
+            return stats
+        # The audit reports excess only after create/get/delete are confirmed. While the backend runs with
+        # project-wide storage.admin, broader access is recorded and logged, not refused (founder, 10 November;
+        # the follow-up recorded on #2027 narrows the identity and restores the refusal).
+        stats["permissions_excess"] = 1
+        logger.warning("Feedback media storage probe: the serving identity holds storage permissions beyond "
+                       "object create/get/delete")
     except Exception:
         stats["errors"] = 1
         return stats
+    stats["permissions_verified"] = 1
     data = _probe_png()
     submission_id, attempt_token, attachment_id = (str(uuid4()) for _ in range(3))
     object_key = make_feedback_object_key(attempt_token, attachment_id)
