@@ -770,8 +770,8 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab' })
     act(() => element.focus())
   }
-  /** A colour as the browser reads it back from a style. */
-  const css = (property: 'color' | 'background', value: string) => {
+  /** A value as the browser reads it back from a style, including CSSOM's pixel rounding. */
+  const css = (property: 'color' | 'background' | 'left' | 'width' | 'height', value: string) => {
     const probe = document.createElement('div')
     probe.style[property] = value
     return probe.style[property]
@@ -865,11 +865,11 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect([...tooltip()!.querySelectorAll('li')].map((row) => row.textContent)).toEqual(readouts[last].rows.map((row) => `${row.label}${row.text}`))
     expect(wash()).toHaveAttribute('aria-hidden', 'true')
     expect([wash()!.style.left, wash()!.style.width, wash()!.style.height])
-      .toEqual([`${layout.x(model.periods[last].key) - layout.slot / 2}px`, `${layout.slot}px`, `${layout.height}px`])
+      .toEqual([css('left', `${layout.x(model.periods[last].key) - layout.slot / 2}px`), css('width', `${layout.slot}px`), css('height', `${layout.height}px`)])
     expect(wash()!.style.background).toBe(css('background', CHART_TOKENS.light.cursor))
     fireEvent.keyDown(stop, { key: 'Home' })
     expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[0].header)
-    expect(wash()!.style.left).toBe(`${layout.x(model.periods[0].key) - layout.slot / 2}px`)
+    expect(wash()!.style.left).toBe(css('left', `${layout.x(model.periods[0].key) - layout.slot / 2}px`))
     // Focus leaving hides the keyboard's tooltip and keeps its period.
     act(() => stop.blur())
     expect(tooltip()).toBeNull()

@@ -313,9 +313,20 @@ describe('AskCopilotRail conversation controls replaced by the turn they start',
     const user = userEvent.setup()
     const { textarea } = await renderProRail()
     textarea.blur()
-    await user.click(screen.getByRole('button', { name: 'Any changes to guidance?' }))
-    expect(api.askFilingStream).toHaveBeenCalledTimes(1)
-    expect(document.activeElement).not.toBe(textarea)
+    const starter = screen.getByRole('button', { name: 'Any changes to guidance?' })
+    // Supply the browser's pointer modality: jsdom 31 implements :focus-visible as :focus, with no modality.
+    // Keep the actual pointer sequence and focus handoff; only this button's modality query is stubbed.
+    const nativeMatches = starter.matches.bind(starter)
+    const matches = vi.spyOn(starter, 'matches').mockImplementation(selector =>
+      selector === ':focus-visible' ? false : nativeMatches(selector),
+    )
+    try {
+      await user.click(starter)
+      expect(api.askFilingStream).toHaveBeenCalledTimes(1)
+      expect(document.activeElement).not.toBe(textarea)
+    } finally {
+      matches.mockRestore()
+    }
   })
 
   it('an Ask next chip pressed from the keyboard hands focus to the composer and asks once', async () => {

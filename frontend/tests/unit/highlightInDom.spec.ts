@@ -301,7 +301,7 @@ describe('highlightExcerptInDom', () => {
   // The `::highlight(copilot-citation)` paint lives in a constructed stylesheet adopted on first use
   // (lightningcss in Next 16.3 does not know the pseudo-element: it emits a SelectorError warning and,
   // with error recovery, keeps the rule, but Next's build surfaces that as "Parsing CSS source code
-  // failed"). jsdom has neither the Highlight API nor constructable stylesheets, so stub both and
+  // failed"). Stub the Highlight API and the entire constructed-sheet surface together, and
   // check the wiring: the rule is adopted exactly once, before the highlight is registered.
   describe('with a stubbed Highlight API', () => {
     const replaceSync = vi.fn()
@@ -315,14 +315,14 @@ describe('highlightExcerptInDom', () => {
       CSS: { highlights?: Map<string, unknown> }
     }
     const doc = document as unknown as { adoptedStyleSheets?: unknown[] }
-    let saved: { CSSStyleSheet: unknown; Highlight: unknown; highlights: unknown; adopted: unknown[] | undefined }
+    let saved: { CSSStyleSheet: unknown; Highlight: unknown; highlights: unknown; adopted?: PropertyDescriptor }
 
     beforeEach(() => {
       saved = {
         CSSStyleSheet: g.CSSStyleSheet,
         Highlight: g.Highlight,
         highlights: g.CSS.highlights,
-        adopted: doc.adoptedStyleSheets,
+        adopted: Object.getOwnPropertyDescriptor(document, 'adoptedStyleSheets'),
       }
       replaceSync.mockClear()
       highlights.clear()
@@ -331,7 +331,8 @@ describe('highlightExcerptInDom', () => {
         constructor(public range: Range) {}
       }
       g.CSS.highlights = highlights
-      doc.adoptedStyleSheets = []
+      // jsdom 31's native setter correctly rejects FakeSheet. Shadow it only within this fake-API suite.
+      Object.defineProperty(document, 'adoptedStyleSheets', { configurable: true, writable: true, value: [] })
     })
 
     afterEach(() => {
@@ -339,7 +340,7 @@ describe('highlightExcerptInDom', () => {
       g.Highlight = saved.Highlight
       g.CSS.highlights = saved.highlights as Map<string, unknown> | undefined
       if (saved.adopted === undefined) delete doc.adoptedStyleSheets
-      else doc.adoptedStyleSheets = saved.adopted
+      else Object.defineProperty(document, 'adoptedStyleSheets', saved.adopted)
     })
 
     it.each(['following paragraph', 'empty boundary nodes', 'document end'] as const)(

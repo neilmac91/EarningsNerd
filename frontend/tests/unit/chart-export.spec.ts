@@ -766,6 +766,12 @@ describe('exportPanelPng header', () => {
     const sourceMarkup = svg.outerHTML
     const originalComputedStyle = window.getComputedStyle.bind(window)
     const families = ['"Geist Mono", ui-monospace, monospace', '"Geist Mono", Menlo, monospace']
+    // CSSOM may omit optional family-name quotes; compare the same CSS values after serialization.
+    const serializedFamilies = families.map(family => {
+      const probe = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      probe.style.fontFamily = family
+      return probe.style.fontFamily
+    })
     const sourceText = [...svg.querySelectorAll('text, tspan')]
     // jsdom does not resolve custom-property inheritance. Supply the browser's computed
     // result, then inspect what the real export passes across the isolated-image boundary.
@@ -779,7 +785,7 @@ describe('exportPanelPng header', () => {
     const markup = decodeURIComponent(imageSources[0].split(',').slice(1).join(','))
     const isolated = new DOMParser().parseFromString(markup, 'image/svg+xml')
     expect(isolated.querySelector('parsererror')?.textContent).toBeUndefined()
-    expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(families)
+    expect([...isolated.querySelectorAll('text, tspan')].map(text => (text as SVGTextContentElement).style.fontFamily)).toEqual(serializedFamilies)
     expect([...isolated.querySelectorAll('text, tspan')].map(text => text.getAttribute('font-family'))).toEqual(families)
     expect(markup).not.toContain('var(')
     expect(isolated.documentElement.textContent).toBe('$10Baa')
