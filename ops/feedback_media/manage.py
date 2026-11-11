@@ -130,7 +130,8 @@ ERROR_REASONS = frozenset({
 KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, IMAGE_READ, "run.services.update"}
 # A BadRequest names the request fields it refuses. A field path is schema, not data, so it is named only in a closed
 # shape: dotted lowercase words in snake or camel case, each with at most a three-digit index. That shape cannot carry
-# an address, a URL, a number, a hyphenated or uppercase-led name, or any other value. At most three are named.
+# an address, a URL, a number beyond an index, a separator, or a hyphenated or uppercase-led name; FIELD_NAMES below
+# masks any word that is not a Cloud Run field name. At most three are named.
 BAD_REQUEST = "type.googleapis.com/google.rpc.BadRequest"
 FIELD_SEGMENT = r"[a-z]{1,24}(?:_[a-z]{1,24}|[A-Z][a-z]{1,24}){0,6}(?:\[[0-9]{1,3}\])?"
 FIELD_PATH = re.compile(rf"{FIELD_SEGMENT}(?:\.{FIELD_SEGMENT}){{0,11}}")

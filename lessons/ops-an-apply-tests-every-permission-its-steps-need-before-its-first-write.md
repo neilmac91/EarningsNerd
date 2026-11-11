@@ -82,7 +82,9 @@ switch's enable or disable, fails at its one write with nothing partial):
   a bucket without its runtime grant included.
 - `test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload`,
   `test_a_failed_cloud_run_operation_names_only_its_step_and_closed_status` and
-  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output, and
+  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output;
+  `test_a_refused_field_is_named_only_in_its_closed_path_shape` and
+  `test_a_cloud_run_field_is_named_by_its_path_after_the_request_type` pin which field paths it may name; and
   `test_every_permission_a_step_label_names_can_be_named_in_a_refusal` keeps each label's permissions nameable.
 - `test_an_unreadable_component_is_unverified_and_never_masks_readable_drift`,
   `test_a_failed_read_never_stops_another_resources_drift_check` and

@@ -1425,13 +1425,25 @@ def test_a_create_leaves_the_resource_name_to_cloud_run(resource):
     assert creates == [{"labels": {"purpose": verify.PURPOSE}, "template": {"marker": resource}}]
 
 
-@pytest.mark.parametrize("state", ["absent", "present"])
-def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
+# The exact requests, spelled out: the module's own constants would accept a wrong jobId or serviceId.
+JOB_CREATE = "v2/projects/earnings-nerd/locations/us-west1/jobs?jobId=earningsnerd-feedback-verify-cleanup"
+JOB_UPDATE = "v2/projects/earnings-nerd/locations/us-west1/jobs/earningsnerd-feedback-verify-cleanup"
+SERVICE_CREATE = "v2/projects/earnings-nerd/locations/us-west1/services?serviceId=earningsnerd-feedback-verify"
+SERVICE_UPDATE = ("v2/projects/earnings-nerd/locations/us-west1/services/earningsnerd-feedback-verify"
+                  "?updateMask=template,ingress,invokerIamDisabled,scaling")
+
+
+@pytest.mark.parametrize("job_present, service_present", [(False, False), (True, True), (True, False), (False, True)])
+def test_cloud_run_validates_each_write_in_the_form_it_will_take(job_present, service_present):
     """validateOnly runs Cloud Run's own validation of the exact write ensure_job and ensure_service then send, and
-    persists nothing: the first live create's refused Cloud SQL volume name would have failed before the lease."""
+    persists nothing: the first live create's refused Cloud SQL volume name would have failed before the lease. Each
+    resource's state and etag are its own (a run stopped at the service create leaves the job alone)."""
     cloud = rerun_identity_cloud()
-    if state == "absent":
-        for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+    for path, present, etag in (("v2/" + verify.JOB, job_present, "job-version"),
+                                ("v2/" + verify.SERVICE, service_present, "service-version")):
+        if present:
+            cloud.run[path]["etag"] = etag
+        else:
             del cloud.run[path]
     specs = {kind: {"name": path, "labels": {"purpose": verify.PURPOSE}, "template": {"marker": kind}}
              for kind, path in (("job", verify.JOB), ("service", verify.SERVICE))}
@@ -1442,11 +1454,11 @@ def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
     verify.ensure_service(cloud, specs["service"])
     written = [(path, method, body) for api, path, method, body in cloud.calls
                if api == "run" and method != "GET" and "IamPolicy" not in path]
-    assert [method for _, method, _ in validated] == ["POST" if state == "absent" else "PATCH"] * 2
-    assert [path for path, _, _ in validated] == (
-        [verify.JOB_WRITES[0] + "&validateOnly=true", verify.SERVICE_WRITES[0] + "&validateOnly=true"] if state == "absent"
-        else ["v2/" + verify.JOB + "?validateOnly=true",
-              "v2/" + verify.SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling&validateOnly=true"])
+    assert [(path, method) for path, method, _ in validated] == [
+        (JOB_UPDATE + "?validateOnly=true", "PATCH") if job_present else (JOB_CREATE + "&validateOnly=true", "POST"),
+        (SERVICE_UPDATE + "&validateOnly=true", "PATCH") if service_present else (SERVICE_CREATE + "&validateOnly=true", "POST")]
+    assert [body.get("etag") for _, _, body in validated] == [
+        "job-version" if job_present else None, "service-version" if service_present else None]
     assert [(re.sub(r"[?&]validateOnly=true$", "", path), method, body) for path, method, body in validated] == written
 
 
@@ -1506,6 +1518,26 @@ def test_a_refused_validation_of_either_write_in_either_form_stops_there(state, 
         verify.validate_writes(cloud, *specs)
     assert len(validations) == refused + 1
 
+
+def test_the_cleanup_run_overrides_the_container_the_job_spec_names():
+    """execute_cleanup overrides one container by name; a name the job's spec does not hold would be refused only after
+    the seed, so the two are tied here."""
+    spec = verify.runtime_spec({"template": {}}, RUN_ID, IMAGE, HASHES, VERSIONS, job=True)
+    bodies = []
+
+    class Cloud:
+        def call(self, api, path, *, method="GET", body=None, **_):
+            bodies.append((path, method, body))
+            return {"name": "operation"}
+
+        def wait(self, operation, step=None):
+            return {"succeededCount": 1, "taskCount": 1}
+    verify.execute_cleanup(Cloud(), initialize=True)
+    [(path, method, body)] = bodies
+    assert (path, method) == (JOB_UPDATE + ":run", "POST")
+    assert [row["name"] for row in body["overrides"]["containerOverrides"]] == [
+        row["name"] for row in spec["template"]["template"]["containers"]]
+
 def test_provision_validates_both_writes_once_its_identity_exists_and_before_the_seed():
     """Validation needs the identity the specs run as, and must come before the lease a refused write would strand."""
     source = inspect.getsource(verify.provision)
@@ -1537,4 +1569,4 @@ def test_a_refused_validation_names_its_step_and_field_and_goes_no_further(monke
     assert str(refused.value) == ("Cloud Run validation of the verification cleanup job failed "
                                   "(HTTP 400; INVALID_ARGUMENT; field job.template.template.volumes[0].name)")
     assert [method for method, _ in sent] == ["GET", "POST"]
-    assert sent[1][1] == f"https://run.googleapis.com/{verify.JOB_WRITES[0]}&validateOnly=true"
+    assert sent[1][1] == f"https://run.googleapis.com/{JOB_CREATE}&validateOnly=true"
