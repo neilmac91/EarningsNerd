@@ -455,11 +455,21 @@ def test_the_difference_line_describes_the_newest_finished_execution_not_a_runni
     output = capsys.readouterr().out
     assert "Cleanup last execution: unverified (not succeeded)\n" in output
     assert "Cleanup job newest finished execution, against the job's own task: not succeeded\n" in output
+    # With every execution still running, there is no finished execution to describe.
+    cloud.executions = [running]
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "1 still running" in output and "against the job's own task" not in output
 
 
 # An execution's arguments and container count decide its mode, so the inspection counts those differences instead
 # (test_inspection_counts_the_executions_it_cannot_classify). The volume and its mount are the job's alone to hold.
 EXECUTION_DIFFERENCES = sorted(set(TASK_DIFFERENCES) - {"arguments", "container count", "volumes", "volume mounts"})
+
+
+def test_only_the_volume_and_its_mount_are_exempt_on_an_execution():
+    """Environment gap names are built per variable, beyond TASK_DIFFERENCES' cases, so the exemption itself is pinned."""
+    assert ops.EXECUTION_RECORD_FIELDS == ("volumes", "volume mounts")
 
 
 @pytest.mark.parametrize("field", EXECUTION_DIFFERENCES)

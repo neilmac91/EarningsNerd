@@ -480,7 +480,8 @@ def test_a_failed_control_request_is_a_closed_refusal_the_receipt_read_retries(m
     with pytest.raises(verify.media.OperationError) as refusal:
         verify.control(None, "https://verify.example", KEY, RUN_ID, "receipt")
     assert str(refusal.value) == "Private verification control request failed; response withheld"
-    assert refusal.value.__cause__ is None  # raised from None: no provider detail is chained into a traceback
+    # Raised from None: the provider's exception is neither the cause nor a context a traceback would show.
+    assert refusal.value.__suppress_context__ and refusal.value.__cause__ is None
     clock = fake_clock(monkeypatch)
     assert verify.read_receipt(None, "https://verify.example", KEY, RUN_ID) == {"receipt": None}
     assert len(attempts) == 3 and clock[0] == verify.CONTROL_POLL_SECONDS
