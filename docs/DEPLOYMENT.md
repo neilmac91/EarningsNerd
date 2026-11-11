@@ -886,7 +886,8 @@ unverified line never masks: a failed read never stops another resource's checks
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
 error class (status, reason, a denied permission that one of these steps names, and up to three request fields
 a `BadRequest` refuses, each named only as a dotted path of lowercase snake- or camel-case words with indices of at
-most three digits, so a refused Cloud Run create says which field it objects to); a dropped connection
+most three digits, and only through Cloud Run's own field names, any other word printed as `?`, so a refused Cloud
+Run create says which field it objects to); a dropped connection
 reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
 Provider messages, resources and principals stay withheld. The check reads the identity's own
 project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled

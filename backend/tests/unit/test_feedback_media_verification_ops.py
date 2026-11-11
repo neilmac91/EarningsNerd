@@ -1450,6 +1450,28 @@ def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
     assert [(re.sub(r"[?&]validateOnly=true$", "", path), method, body) for path, method, body in validated] == written
 
 
+
+def test_every_field_the_verifier_sends_cloud_run_can_be_named_in_a_refusal():
+    """A refusal names a field only through Cloud Run's field names (media.FIELD_NAMES), so each field the verifier's
+    job and service specs send must be one: else a refusal of it would print "?". Map keys (labels, limits) are data."""
+    fields = set()
+
+    def walk(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                fields.add(key)
+                if key not in {"labels", "limits"}:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+    for job in (True, False):
+        walk(verify.runtime_spec({"template": {"vpcAccess": {"connector": "c", "egress": "ALL_TRAFFIC"}}},
+                                 RUN_ID, IMAGE, HASHES, VERSIONS, job=job))
+    snake = {re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower() for name in fields}
+    assert {"volume_mounts", "cloud_sql_instance", "secret_key_ref", "vpc_access"} <= snake
+    assert snake <= verify.media.FIELD_NAMES, sorted(snake - verify.media.FIELD_NAMES)
+
 @pytest.mark.parametrize("resource", ["cleanup job", "service"])
 def test_validation_refuses_a_resource_this_feature_does_not_own_before_validating_it(resource):
     cloud = rerun_identity_cloud()

@@ -1342,6 +1342,14 @@ def test_a_refused_field_is_named_only_in_its_closed_path_shape(path, named):
     ("Violation in RequestRequest", None), ("Violation in Request.job.name", None),
     ("violation in createJobRequest.job.name", None), ("Violation in CreateJobRequest.", None),
     ("Violation in CreateJobRequest." + ".".join(["template"] * 30), None),
+    # A word outside Cloud Run's field names is never printed: a value shaped like one reads as "?", and a path with
+    # no field name at all is not named.
+    ("invite_only", None), ("earningsnerd_feedback_verify", None),
+    ("job.template.earningsnerd_feedback_verify", "job.template.?"),
+    ("job.containers[0].unknownWord[3]", "job.containers[0].?[3]"),
+    ("template.template.serviceAccount", "template.template.serviceAccount"),
+    ("Violation in CreateServiceRequest.service.template.containers[0].env[2].valueSource.secretKeyRef.version",
+     "service.template.containers[0].env[2].valueSource.secretKeyRef.version"),
 ])
 def test_a_cloud_run_field_is_named_by_its_path_after_the_request_type(field, path):
     """Cloud Run v2 writes a refused field as "Violation in <request type>.<path>"; only that path is named."""
