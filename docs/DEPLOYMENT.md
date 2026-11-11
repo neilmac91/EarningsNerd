@@ -1100,7 +1100,10 @@ closed failure code in the Ops log (`Live browser verification failed at <stage>
 run shows where it stopped; a browser wait or action that fails without its own code names the step
 it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
 failure also fails, it is reported beside the browser's failure, not in its place. The run's last
-receipt check reads production as it serves at the end of the run.
+receipt check reads production as it serves at the end of the run. Known limit: the lost-response check
+drops the response before any header reaches the browser, and Chromium can resend such a POST on a
+reused connection by itself, so the composer's own receipt recovery may not run; losing the response
+after its headers would prove it, and needs a fresh live verification.
 
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend

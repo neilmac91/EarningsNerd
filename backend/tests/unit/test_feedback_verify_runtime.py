@@ -462,7 +462,7 @@ def _process(root, pid, cmdline, state="S", children=(), high_water_kib=150000, 
     (folder / "cmdline").write_bytes(cmdline)
     (folder / "stat").write_bytes(b"%d (%s) %s 1 1 1 0 -1\n" % (pid, name, state.encode()))
     # A process without an address space (exiting, or a zombie) reports no high-water mark.
-    (folder / "status").write_text(f"Name:\tpython\nVmPeak:\t  999999 kB\n" +
+    (folder / "status").write_text("Name:\tpython\nVmPeak:\t  999999 kB\n" +
                                    (f"VmHWM:\t  {high_water_kib} kB\n" if high_water_kib is not None else ""))
     (folder / "task" / str(pid) / "children").write_text("".join(f"{child} " for child in children))
 

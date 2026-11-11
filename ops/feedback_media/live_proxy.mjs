@@ -175,6 +175,9 @@ export function proxyHandler(config, { cloudRequest = https.request, frontendReq
           output.on('error', () => end('response-size'))
           answer.on('error', () => end())
           if (loseResponse) {
+            // Known limit (#2032's first-run dry-run): destroying the socket before any response header lets Chromium
+            // resend the POST on a reused connection, so the composer's own receipt recovery may never run. Losing the
+            // response after its headers would stop that; a change here needs a fresh live verification.
             check(answer.statusCode >= 200 && answer.statusCode < 300, 'lost-response-not-saved')
             output.resume()
             output.on('end', () => {
