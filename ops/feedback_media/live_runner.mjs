@@ -56,13 +56,13 @@ export function receiptEnvelope(value, config) {
   check(observed.cleanup.dry_run === false, 'receipt-cleanup')
   for (const [key, value] of Object.entries(observed.cleanup)) if (key !== 'dry_run') count(value)
   const memory = observed.resources
-  fields(memory, 'sample_count rss_peak_bytes cgroup_sample_peak_bytes cgroup_kernel_peak_bytes cgroup_memory_limit_bytes configured_memory_limit_bytes self_high_water_rss_bytes reaped_child_high_water_rss_bytes worker_limits unexplained_children last_process_count method sample_age_seconds acceptance_passed conservative_process_bound_bytes evidence_basis')
-  for (const name of ['sample_count', 'rss_peak_bytes', 'configured_memory_limit_bytes', 'self_high_water_rss_bytes', 'reaped_child_high_water_rss_bytes', 'last_process_count', 'conservative_process_bound_bytes']) count(memory[name])
+  fields(memory, 'sample_count rss_peak_bytes cgroup_sample_peak_bytes cgroup_kernel_peak_bytes cgroup_memory_limit_bytes configured_memory_limit_bytes self_high_water_rss_bytes worker_high_water_rss_bytes worker_limits unexplained_children last_process_count method sample_age_seconds acceptance_passed conservative_process_bound_bytes evidence_basis')
+  for (const name of ['sample_count', 'rss_peak_bytes', 'configured_memory_limit_bytes', 'self_high_water_rss_bytes', 'worker_high_water_rss_bytes', 'last_process_count', 'conservative_process_bound_bytes']) count(memory[name])
   for (const name of ['cgroup_sample_peak_bytes', 'cgroup_kernel_peak_bytes', 'cgroup_memory_limit_bytes']) if (memory[name] !== null) count(memory[name])
   fields(memory.worker_limits, 'feedback_image_service feedback_storage_worker_service')
   check(memory.worker_limits.feedback_image_service === 1 && memory.worker_limits.feedback_storage_worker_service === 2
     && memory.unexplained_children === false && memory.last_process_count === 1 && memory.acceptance_passed === true
-    && memory.conservative_process_bound_bytes === memory.self_high_water_rss_bytes + 3 * memory.reaped_child_high_water_rss_bytes
+    && memory.conservative_process_bound_bytes === memory.self_high_water_rss_bytes + 3 * memory.worker_high_water_rss_bytes
     && memory.evidence_basis === (memory.cgroup_kernel_peak_bytes === null
       ? 'kernel peak unavailable; conservative process-bound evidence' : 'kernel cgroup high-water peak')
     && memory.sample_count >= 5 && memory.configured_memory_limit_bytes === 1073741824

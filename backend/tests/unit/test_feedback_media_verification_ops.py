@@ -42,7 +42,7 @@ def envelope(**changes):
         "notifications": {"accepted": 1, "rejected": 0, "attachment_counts": [3], "admin_link_valid": True, "no_image_payload": True},
         "resources": {**dict.fromkeys(("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
                                        "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
-                                       "reaped_child_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"), 1),
+                                       "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"), 1),
                       "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only",
                       "worker_limits": {"feedback_image_service": 1, "feedback_storage_worker_service": 2},
                       "unexplained_children": False, "acceptance_passed": True, "sample_age_seconds": 0.01,
@@ -155,8 +155,16 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
         if job:
             assert spec["template"]["taskCount"] == spec["template"]["parallelism"] == 1
             assert task["maxRetries"] == 1
+            assert "executionEnvironment" not in task and "startupCpuBoost" not in task["containers"][0]["resources"]
         else:
             assert task["maxInstanceRequestConcurrency"] == 4 and task["scaling"]["maxInstanceCount"] == 1
+            # Memory acceptance reads cgroup v2 files, which only the second generation exposes.
+            assert task["executionEnvironment"] == "EXECUTION_ENVIRONMENT_GEN2"
+            # Its cold starts (the first, and enable's receipt read after scale-to-zero) get Cloud Run's startup boost.
+            assert task["containers"][0]["resources"]["startupCpuBoost"] is True
+            unpinned = copy.deepcopy(spec)
+            del unpinned["template"]["executionEnvironment"]
+            assert verify.contains_spec(spec, spec) and not verify.contains_spec(unpinned, spec)
             assert spec["scaling"] == {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1}
     # ProtoJSON may omit empty values, but a hidden secret reference is never equivalent to empty.
     assert verify.contains_spec({"name": "RESEND_API_KEY"}, {"name": "RESEND_API_KEY", "value": ""})
@@ -386,6 +394,156 @@ def fake_clock(monkeypatch):
     return clock
 
 
+def test_a_failed_command_keeps_what_it_printed_behind_the_closed_refusal():
+    command = [sys.executable, "-c", "print('closed-line'); raise SystemExit(1)"]
+    with pytest.raises(verify.CommandFailed, match="^Verification command failed; diagnostics withheld$") as failed:
+        verify.run(command)
+    assert failed.value.output == "closed-line\n" and isinstance(failed.value, verify.media.OperationError)
+    assert failed.value.__suppress_context__  # raised from None: the subprocess error is not chained
+    assert verify.run([sys.executable, "-c", "print('passed-line')"]) == "passed-line\n"
+
+
+@pytest.mark.parametrize("answer, exit_status, refusal", [
+    ({"status": "failed", "stage": "measurement", "reason": "resource-acceptance"}, 1,
+     "Live browser verification failed at measurement (resource-acceptance)"),
+    ({"status": "failed", "stage": "shutdown", "reason": "verification-unavailable"}, 1,
+     "Live browser verification failed at shutdown (verification-unavailable)"),
+    # Anything outside the closed stages and kebab-case codes stays withheld: Ops logs are public.
+    ({"status": "failed", "stage": "browser", "reason": "owner@example.invalid"}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": "Private-Value"}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": "code-7"}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": "a" * 41}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "private-stage", "reason": "receipt-binding"}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": "receipt-binding", "detail": "x"}, 1,
+     "Verification command failed; diagnostics withheld"),
+    ("not json", 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": 5}, 1, "Verification command failed; diagnostics withheld"),
+    # The exit status still decides: a passed line from a runner that exited non-zero is a failure, and a failure line
+    # from one that exited zero never passes.
+    ({"status": "passed", "checks": 11, "feedback": 5, "deleted_attachments": 15}, 1, "Verification command failed; diagnostics withheld"),
+    ({"status": "failed", "stage": "browser", "reason": "receipt-binding"}, 0, "Live browser verification did not pass"),
+])
+def test_a_failed_browser_run_names_only_its_closed_stage_and_code(monkeypatch, answer, exit_status, refusal):
+    def run(command, **options):
+        assert "check" not in options
+        if command[0] == "openssl":
+            for flag in ("-keyout", "-out"):
+                Path(command[command.index(flag) + 1]).write_text("fixture")
+            return ""
+        line = (answer if isinstance(answer, str) else json.dumps(answer)) + "\n"
+        if exit_status:
+            raise verify.CommandFailed(line)
+        return line
+    monkeypatch.setattr(verify, "run", run)
+    monkeypatch.setattr(verify, "token", lambda *_: "header.payload.signature")
+    monkeypatch.setattr(verify, "retain_artifacts", lambda *_: None)
+    with pytest.raises(verify.media.OperationError) as failure:
+        verify.browser(None, "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert str(failure.value) == refusal and failure.value.__suppress_context__ == bool(exit_status)
+
+
+@pytest.mark.parametrize("browser_fails, cleanup_fails", [(False, False), (True, False), (True, True), (False, True)])
+def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_failure(monkeypatch, capsys, browser_fails,
+                                                                                       cleanup_fails):
+    cleanups = []
+
+    def browser(*_args):
+        if browser_fails:
+            raise verify.media.OperationError("Live browser verification failed at measurement (resource-acceptance)")
+
+    def execute_cleanup(cloud):
+        cleanups.append(cloud)
+        if cleanup_fails:
+            raise verify.media.OperationError("Verification initialization/cleanup did not complete successfully")
+    monkeypatch.setattr(verify, "browser", browser)
+    monkeypatch.setattr(verify, "execute_cleanup", execute_cleanup)
+    if browser_fails or cleanup_fails:
+        with pytest.raises(verify.media.OperationError) as failure:
+            verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+        # The browser's failure is the run's; a cleanup that also failed is reported beside it.
+        assert str(failure.value) == ("Live browser verification failed at measurement (resource-acceptance)" if browser_fails
+                                      else "Verification initialization/cleanup did not complete successfully")
+    else:
+        verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert cleanups == ["cloud"]
+    assert (("Verification cleanup after that failure: Verification initialization/cleanup did not complete successfully"
+             in capsys.readouterr().out) == (browser_fails and cleanup_fails))
+
+
+def test_the_enable_deadline_is_the_run_lease_taken_before_the_seed():
+    """The verifier scales to zero and its api mode starts only within the run's lease, which the seed sets."""
+    line = verify.enable_deadline(datetime(2026, 11, 11, 9, 41, 59, tzinfo=timezone.utc))
+    assert line.startswith("Enable before 2026-11-11T09:41Z: ") and "two-hour lease" in line
+    source = inspect.getsource(verify.provision)
+    assert source.index("lease_end = datetime.now(UTC) + timedelta(hours=2)") < source.index("seed_marker(")
+    assert source.rstrip().endswith("print(enable_deadline(lease_end))")
+
+
+def test_provision_schedules_cleanup_only_once_initialize_made_its_schema_and_rechecks_production_at_the_end():
+    source = inspect.getsource(verify.provision)
+    assert (source.index("ensure_job(") < source.index("execute_cleanup(cloud, initialize=True)")
+            < source.index("ensure_schedule(cloud)") < source.index("ensure_service("))
+    assert "cloudscheduler" not in inspect.getsource(verify.ensure_job)
+    # The last receipt check reads production as it serves at the end of the run, not the start's read.
+    assert "require_receipt(cloud, production)" not in source
+    assert 'require_receipt(cloud, cloud.call("run", "v2/" + media.SERVICE))' in source
+
+
+def _call_arguments(text, start):
+    """The text inside the call whose "(" is at start, skipping strings and regular expressions, which may hold ';' or ')'."""
+    depth, index, previous = 0, start, ""
+    while index < len(text):
+        char = text[index]
+        if char in "'\"`":
+            index += 1
+            while text[index] != char:
+                index += 2 if text[index] == "\\" else 1
+        elif char == "/" and previous in "(,=:[!&|?{};" and text[index + 1] not in "/*":
+            index, in_class = index + 1, False
+            while in_class or text[index] != "/":
+                in_class = (in_class or text[index] == "[") and text[index] != "]"
+                index += 2 if text[index] == "\\" else 1
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if not depth:
+                return text[start + 1:index]
+        if not char.isspace():
+            previous = char
+        index += 1
+    raise AssertionError("an unbalanced call")
+
+
+def runner_failure_codes():
+    """Every code a runner failure line can carry: each literal last argument of check(), byteLimit() and
+    VerificationError(), each browser step's timeout and error codes, and the two the runner names itself."""
+    codes = {"verification-unavailable", "verification-deadline"}
+    for source in (ROOT / "ops/feedback_media").glob("*.mjs"):
+        text = source.read_text()
+        for call in re.finditer(r"(?<![\w.])(?:check|byteLimit|VerificationError)\(", text):
+            literal = re.search(r"(?:^|,)\s*'([^'\\]*)'\s*$", _call_arguments(text, call.end() - 1))
+            if literal:
+                codes.add(literal[1])
+        for step in re.findall(r"\bstep = '([^']*)'", text):
+            codes |= {"timeout-" + step, "error-" + step}
+    return codes
+
+
+def test_every_stage_and_code_the_runner_reports_is_one_the_failure_line_can_name():
+    """live_runner.mjs's stages are BROWSER_STAGES, and browser()'s own filter names every failure code the suite has."""
+    runner = (ROOT / "ops/feedback_media/live_runner.mjs").read_text()
+    stages = set(re.findall(r"stage = '([^']*)'", runner)) | set(re.findall(r"safeFailure\('([^']*)'", runner))
+    assert stages == set(verify.BROWSER_STAGES)
+    codes = runner_failure_codes()
+    # Codes whose check() condition holds ';' (a string and a regular expression) and the browser's step codes.
+    assert {"receipt-resources", "upstream-cookie-domain", "admin-safe-link", "timeout-admin-link"} <= codes
+    named = {code: str(verify.browser_failure(json.dumps({"status": "failed", "stage": "browser", "reason": code})))
+             for code in codes}
+    assert {code: line for code, line in named.items()
+            if line != f"Live browser verification failed at browser ({code})"} == {}
+
+
 def test_the_browser_waits_until_the_service_answers_the_verifier(monkeypatch):
     """ensure_service writes the verifier's invoker grant moments before the browser's first call, and an IAM change
     takes minutes to apply: refused reads are retried until the receipt read, which changes nothing, answers."""
@@ -495,7 +653,7 @@ def test_the_enable_receipt_check_reads_through_the_retrying_read():
 def test_provision_waits_for_the_service_before_the_browser():
     """The wait sits between the service deploy and the browser, whose first refusal would fail the seeded run."""
     source = inspect.getsource(verify.provision)
-    assert source.index("ensure_service(") < source.index("await_control(") < source.index("browser(")
+    assert source.index("ensure_service(") < source.index("await_control(") < source.index("browse_then_clean(")
 
 
 def test_browser_suite_fingerprint_is_identical_in_python_and_the_actual_node_runner():
@@ -548,6 +706,8 @@ def test_a_new_apply_cannot_finalize_an_active_or_unknown_previous_lease(expired
             return operation["response"]
     class Sql:
         def query(self, statement, *, env):
+            if statement.startswith("SELECT (to_regclass('public.users')"):
+                return "1"
             assert statement.startswith("SELECT (expires_at<=CURRENT_TIMESTAMP)") and RUN_ID in statement
             return expired
     if expired == "1":
@@ -558,6 +718,25 @@ def test_a_new_apply_cannot_finalize_an_active_or_unknown_previous_lease(expired
         with pytest.raises(verify.media.OperationError, match="lease"):
             verify.settle_previous_run(Cloud(), Sql(), {}, {"template": {}})
         assert calls == [("GET", None)]
+
+
+def test_a_previous_run_that_never_made_its_schema_has_nothing_to_settle():
+    """Initialize creates the whole schema in one transaction, and only the service after it makes fixtures or objects:
+    an expired run that stopped before it is settled without a cleanup execution, which could not run without tables."""
+    calls, statements = [], []
+    previous = verify.runtime_spec({"template": {}}, RUN_ID, IMAGE, HASHES, VERSIONS, job=True)
+
+    class Cloud:
+        def call(self, api, path, *, method="GET", body=None, **_):
+            calls.append(method)
+            return previous
+
+    class Sql:
+        def query(self, statement, *, env):
+            statements.append(statement)
+            return "1" if statement.startswith("SELECT (expires_at") else "0"
+    verify.settle_previous_run(Cloud(), Sql(), {}, {"template": {}})
+    assert calls == ["GET"] and len(statements) == 2
 
 
 @pytest.mark.parametrize("answer, admitted", [
@@ -1177,8 +1356,10 @@ def test_each_verifier_write_step_rechecks_what_it_writes_after_the_plan(change,
     else:
         cloud.run[service]["etag"] = "run-version-2"
     step = (verify.ensure_identity if kind.startswith(("identity", "project", "role", "bucket")) else
-            verify.ensure_service if kind.startswith("service") else verify.ensure_job)
-    args = (cloud, DEPLOYER) if step is verify.ensure_identity else (cloud, {"labels": {"purpose": verify.PURPOSE}})
+            verify.ensure_service if kind.startswith("service") else
+            verify.ensure_schedule if kind.startswith("schedule") else verify.ensure_job)
+    args = ((cloud, DEPLOYER) if step is verify.ensure_identity else (cloud,) if step is verify.ensure_schedule
+            else (cloud, {"labels": {"purpose": verify.PURPOSE}}))
     if refusal is None:
         step(*args)
         if kind == "bucket-grant-to-make":  # the step completes with its one grant, under the etag it read

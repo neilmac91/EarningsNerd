@@ -10,7 +10,8 @@ import {
   audienceToken, browserRoute, forwardedHeaders, responseHeaders, privateFile,
   validateManifest, proxyHandler, MAX_BODY_BYTES, DEADLINE_MS, LOCAL_ORIGIN,
 } from '../../../ops/feedback_media/live_proxy.mjs'
-import { ASSERTIONS, validateFixtures, boundaryUploadWorkload } from '../../../ops/feedback_media/live_browser.mjs'
+import { ASSERTIONS, validateFixtures, boundaryUploadWorkload, runBrowser } from '../../../ops/feedback_media/live_browser.mjs'
+import { VerificationError } from '../../../ops/feedback_media/live_proxy.mjs'
 import { run, receiptEnvelope, safeFailure } from '../../../ops/feedback_media/live_runner.mjs'
 
 const temporary: string[] = []
@@ -42,7 +43,7 @@ function receipt(config = manifest()) {
       cleanup: { dry_run: false, eligible: 15, deleted: 15, errors: 0, overdue: 0, pending_verification: 0 },
       resources: { sample_count: 6, rss_peak_bytes: 100, cgroup_sample_peak_bytes: 100,
         cgroup_kernel_peak_bytes: null, cgroup_memory_limit_bytes: null, configured_memory_limit_bytes: 1073741824,
-        self_high_water_rss_bytes: 100, reaped_child_high_water_rss_bytes: 100,
+        self_high_water_rss_bytes: 100, worker_high_water_rss_bytes: 100,
         worker_limits: { feedback_image_service: 1, feedback_storage_worker_service: 2 }, unexplained_children: false,
         last_process_count: 1, sample_age_seconds: 0.05, acceptance_passed: true, conservative_process_bound_bytes: 400,
         evidence_basis: 'kernel peak unavailable; conservative process-bound evidence',
@@ -247,5 +248,49 @@ describe('disposable feedback verification trust boundaries', () => {
     expect(() => validateFixtures(fixtures, '999-1')).toThrow('fixture-run')
     fixtures.accounts.owner.email = 'real-user@example.com'
     expect(() => validateFixtures(fixtures, config.run_id)).toThrow('fixture-account')
+  })
+})
+
+// A fake frontend whose Playwright fails the first page action as each case says, and whose sharp makes a fixture PNG.
+function fakeFrontend() {
+  const dir = directory()
+  fs.writeFileSync(path.join(dir, 'package.json'), '{"name": "fake-frontend"}')
+  for (const [name, source] of Object.entries({
+    playwright: `const page = { setDefaultTimeout() {}, async goto() { throw globalThis.__browserFailure } }
+const context = { async grantPermissions() {}, async addInitScript() {}, async route() {}, async newPage() { return page },
+  async close() {} }
+module.exports = { chromium: { async launch() { return { async newContext() { return context }, async close() {} } } } }`,
+    sharp: `const image = { png: () => image, withMetadata: () => image, toBuffer: async () => Buffer.from('png') }
+module.exports = () => image`,
+  })) {
+    fs.mkdirSync(path.join(dir, 'node_modules', name), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'node_modules', name, 'index.js'), source)
+  }
+  return dir
+}
+
+describe('a failed browser step names itself in a closed code', () => {
+  const config = { run_id: '123-1', output_dir: '/tmp/unused' }
+  const fixtures = { schema: 1, run_id: '123-1', accounts: Object.fromEntries(['owner', 'other', 'admin'].map((role, i) =>
+    [role, { id: i + 1, email: `feedback-verify+123-1-${role}@example.com`, password: 'fixture-password-' + role }])) }
+  afterEach(() => { delete (globalThis as Record<string, unknown>).__browserFailure })
+
+  it.each([
+    ['a Playwright wait that times out', Object.assign(new Error('Timeout 15000ms exceeded'), { name: 'TimeoutError' }), 'timeout-owner-login'],
+    ['any other Playwright failure', new Error('Target page, context or browser has been closed'), 'error-owner-login'],
+    ['a closed code of its own', new VerificationError('browser-path'), 'browser-path'],
+  ])('%s', async (_case, failure, code) => {
+    (globalThis as Record<string, unknown>).__browserFailure = failure
+    const thrown = await runBrowser(config, fixtures, {}, fakeFrontend()).catch(error => error)
+    expect(thrown).toBeInstanceOf(VerificationError)
+    expect(thrown.message).toBe(code)
+  })
+
+  it('names the run deadline when the runner aborted the browser', async () => {
+    (globalThis as Record<string, unknown>).__browserFailure = new Error('Target page, context or browser has been closed')
+    const controller = new AbortController()
+    controller.abort()
+    const thrown = await runBrowser(config, fixtures, {}, fakeFrontend(), controller.signal).catch(error => error)
+    expect(thrown.message).toBe('verification-deadline')
   })
 })
