@@ -573,6 +573,26 @@ def await_control(cloud: media.Cloud, origin: str, key: str, run_id: str) -> Non
             time.sleep(CONTROL_POLL_SECONDS)
 
 
+RECEIPT_WAIT_SECONDS = 240
+
+
+def read_receipt(cloud: media.Cloud, origin: str, key: str, run_id: str) -> dict:
+    """The receipt read, retried for four minutes while the request itself fails.
+
+    The verifier scales to zero between verify-apply and enable-apply, and its cold start (application import and
+    startup audit) can outlast one 60 s request. The read changes nothing. An answer that arrives is returned as it is:
+    one without a receipt is refused by the caller at once.
+    """
+    deadline = time.monotonic() + RECEIPT_WAIT_SECONDS
+    while True:
+        try:
+            return control(cloud, origin, key, run_id, "receipt")
+        except media.OperationError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(CONTROL_POLL_SECONDS)
+
+
 def control(cloud: media.Cloud, origin: str, key: str, run_id: str, path: str, payload: dict | None = None) -> dict:
     authentication = hmac.new(key.encode(), CONTROL_DOMAIN + run_id.encode(), hashlib.sha256).hexdigest()
     request = Request(origin + "/__feedback_verify/" + path,
@@ -751,7 +771,7 @@ def require_receipt(cloud: media.Cloud, production: dict) -> dict:
         raise media.OperationError("Verification service no longer matches the reviewed isolated runtime")
     if current_image(cloud, service) != image:
         raise media.OperationError("Verification service is not serving the current backend digest")
-    receipt = control(cloud, origin, key, run_id, "receipt").get("receipt")
+    receipt = read_receipt(cloud, origin, key, run_id).get("receipt")
     if not isinstance(receipt, dict):
         raise media.OperationError("A completed live verification receipt is required")
     verify_receipt(receipt, key, run_id, image, hashes)

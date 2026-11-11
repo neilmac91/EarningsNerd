@@ -916,8 +916,12 @@ commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact byte
 deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
 report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
 uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
-heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest attempt of each mode to have succeeded on the serving
-image; an older success cannot conceal a recent failure.
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest completed attempt of each mode to have succeeded,
+within two hours, on the serving image; an older success cannot conceal a recent failure, and a run still in progress
+counts only once it ends, so the hourly cleanup running at :17 does not refuse an enable. Cloud Run records an
+execution's image by the digest its tag resolved to, so an execution counts only when that digest is the one
+production's serving revision reports (`run.revisions.get`). An execution need not restate the job's Cloud SQL volume
+and mount, which no run's overrides can change and which the job itself must carry.
 
 Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
 completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
@@ -1084,7 +1088,8 @@ combination of warmed filing traffic.
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
 tree. Upload enablement now requires that receipt to be less than two hours old, in addition to the
-production cleanup/probe/monitoring prerequisites. Production request handlers never query the
+production cleanup/probe/monitoring prerequisites. The verifier scales to zero between verify and enable, so the
+receipt read is retried for up to four minutes while its requests fail; an answer without a receipt refuses at once. Production request handlers never query the
 verification database. A subsequent backend image or frontend/source change requires fresh live
 verification. Confirm that Vercel serves the receipt's frontend tree and inspect the artifact before
 the separately approved enable operation.

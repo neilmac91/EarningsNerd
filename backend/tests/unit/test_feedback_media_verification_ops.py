@@ -412,6 +412,38 @@ def test_the_browser_wait_gives_up_after_ten_minutes(monkeypatch):
     assert verify.CONTROL_WAIT_SECONDS <= clock[0] < verify.CONTROL_WAIT_SECONDS + verify.CONTROL_POLL_SECONDS
 
 
+def test_the_receipt_read_outlasts_a_cold_verifier(monkeypatch):
+    """The verifier scales to zero between verify-apply and enable-apply; a read that fails while it starts is retried,
+    and the answer that arrives is returned as it is (one without a receipt is refused by require_receipt)."""
+    answers = [verify.media.OperationError("timed out"), verify.media.OperationError("timed out"), {"receipt": None}]
+
+    def control(cloud, origin, key, run_id, path, payload=None):
+        assert path == "receipt" and payload is None
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    assert verify.read_receipt(None, "https://verify.example", KEY, RUN_ID) == {"receipt": None}
+    assert answers == [] and clock[0] == 2 * verify.CONTROL_POLL_SECONDS
+
+
+def test_the_receipt_read_gives_up_after_four_minutes(monkeypatch):
+    def control(*_args, **_kwargs):
+        raise verify.media.OperationError("Private verification control request failed; response withheld")
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    with pytest.raises(verify.media.OperationError, match="control request failed; response withheld"):
+        verify.read_receipt(None, "https://verify.example", KEY, RUN_ID)
+    assert verify.RECEIPT_WAIT_SECONDS <= clock[0] < verify.RECEIPT_WAIT_SECONDS + verify.CONTROL_POLL_SECONDS
+
+
+def test_the_enable_receipt_check_reads_through_the_retrying_read():
+    assert "read_receipt(" in inspect.getsource(verify.require_receipt)
+    assert "control(" not in inspect.getsource(verify.require_receipt).replace("read_receipt(", "")
+
+
 def test_provision_waits_for_the_service_before_the_browser():
     """The wait sits between the service deploy and the browser, whose first refusal would fail the seeded run."""
     source = inspect.getsource(verify.provision)

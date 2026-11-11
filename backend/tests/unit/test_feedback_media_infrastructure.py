@@ -47,7 +47,15 @@ def service():
             ], "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}]}],
             "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": ["project:region:database"]}}],
         },
+        # One ready revision serves all traffic, as after ci.yml's deploy (update-traffic --to-latest --clear-tags).
+        "latestReadyRevision": f"{ops.SERVICE}/revisions/earningsnerd-backend-00001-abc",
+        "trafficStatuses": [{"type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "percent": 100,
+                             "revision": "earningsnerd-backend-00001-abc"}],
     }
+
+
+# The digest Cloud Run resolved the API image's tag to (production's revision status, a job execution's image).
+SERVING_DIGEST = "sha256:" + "d" * 64
 
 
 def bucket(environment):
@@ -68,6 +76,8 @@ class CloudFixture:
         self.operations = {}
         self.omit_zero_threshold = omit_zero_threshold
         self.service = service()
+        self.serving_digest = SERVING_DIGEST
+        self.revision_image = None  # the serving revision's status.imageDigest, when a test replaces it
         self.job = ops.job_spec(self.service)
         self.job["etag"] = "job-version"
         self.role = {"includedPermissions": ops.PERMISSIONS.copy(), "stage": "GA"}
@@ -125,8 +135,13 @@ class CloudFixture:
         return result
 
     def execution(self, args):
+        # Cloud Run's own record of the task an execution ran (live read-back, 11 November): the run's arguments, the
+        # image by the digest its tag resolved to, and not the job's Cloud SQL volume and mount as the job states them.
         task = copy.deepcopy(self.job["template"]["template"])
         task["containers"][0]["args"] = args.copy()
+        task["containers"][0]["image"] = API_IMAGE + "@" + SERVING_DIGEST
+        task["volumes"] = []
+        task["containers"][0].pop("volumeMounts", None)
         return {"template": task, "taskCount": 1, "succeededCount": 1,
                 "completionTime": datetime.now(timezone.utc).isoformat()}
 
@@ -247,6 +262,9 @@ class CloudFixture:
             raise AssertionError(path)
         if path == "v2/" + ops.SERVICE:
             return self.service
+        if api == f"{ops.REGION}-run":
+            assert path.startswith(f"apis/serving.knative.dev/v1/namespaces/{ops.PROJECT}/revisions/")
+            return {"status": {"imageDigest": self.revision_image or API_IMAGE + "@" + self.serving_digest}}
         if path == "v2/" + ops.JOB:
             return self.job
         # An absent job's policy and execution list read as 404, like the job's own.
@@ -383,7 +401,7 @@ def test_inspection_counts_the_executions_it_cannot_classify(capsys):
 
 @pytest.mark.parametrize("defect, label", [
     ("failed", "not succeeded"), ("cancelled", "not succeeded"), ("tasks", "task count"),
-    ("old", "not completed within two hours"), ("unfinished", "no completion time"),
+    ("old", "not completed within two hours"), ("completed without a time", "no completion time"),
 ])
 def test_inspection_names_why_the_newest_cleanup_execution_is_not_current(capsys, defect, label):
     cloud = CloudFixture()
@@ -396,13 +414,90 @@ def test_inspection_names_why_the_newest_cleanup_execution_is_not_current(capsys
         newest.update(taskCount=2)
     elif defect == "old":
         newest["completionTime"] = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
-    else:
-        del newest["completionTime"]
+    else:  # a completion time present but unreadable: the run ended, and its time cannot be checked
+        newest["completionTime"] = "not a time"
     cloud.executions.insert(0, newest)
     assert not ops.inspect(cloud)
     output = capsys.readouterr().out
     assert f"Cleanup last execution: unverified ({label})" in output
     assert f"Cleanup job newest execution, against the job's own task: {label}" in output
+
+
+@pytest.mark.parametrize("mode", ["cleanup", "probe"])
+def test_a_running_execution_leaves_the_newest_completed_attempt_of_its_mode_standing(capsys, mode):
+    """A scheduled cleanup still running at :17 must not refuse an enable; it has no result yet."""
+    cloud = CloudFixture()
+    running = cloud.execution(ops.CLEANUP_ARGS if mode == "cleanup" else ops.PROBE_ARGS)
+    running.update(succeededCount=0)
+    del running["completionTime"]
+    cloud.executions.insert(0, running)
+    assert ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "1 still running" in output and "Cleanup last execution: succeeded" in output
+    assert "Private storage probe: succeeded" in output
+    ops.set_enabled(cloud, cloud.service, True)
+    assert cloud.service["template"]["containers"][0]["env"][-1] == {"name": "FEEDBACK_MEDIA_ENABLED", "value": "true"}
+
+
+@pytest.mark.parametrize("case", ["other digest", "other tag", "approved tag", "unknown repository", "by tag"])
+def test_an_execution_counts_only_for_the_image_production_serves(capsys, case):
+    cloud = CloudFixture()
+    image = {"other digest": API_IMAGE + "@sha256:" + "e" * 64,
+             "other tag": API_IMAGE + ":retired@" + SERVING_DIGEST,
+             "approved tag": API_IMAGE + ":verified@" + SERVING_DIGEST,
+             "unknown repository": "us-west1-docker.pkg.dev/earnings-nerd/other/backend@" + SERVING_DIGEST,
+             "by tag": API_IMAGE + ":verified"}[case]
+    for execution in cloud.executions:
+        execution["template"]["containers"][0]["image"] = image
+    current = case in ("approved tag", "by tag")
+    assert ops.inspect(cloud) is current
+    output = capsys.readouterr().out
+    assert ("Cleanup last execution: succeeded" in output) is current
+    if not current:
+        assert "Cleanup last execution: unverified (image recorded by digest)" in output
+        assert "Private storage probe: unverified (image recorded by digest)" in output
+        with pytest.raises(ops.OperationError, match="required before enabling"):
+            ops.set_enabled(cloud, cloud.service, True)
+        assert cloud.writes == []
+
+
+@pytest.mark.parametrize("instability", ["two revisions", "tagged", "reconciling", "no ready revision", "tag digest"])
+def test_without_one_serving_digest_no_execution_recorded_by_digest_counts(capsys, instability):
+    cloud = CloudFixture()
+    if instability == "two revisions":
+        cloud.service["trafficStatuses"] = [{"percent": 50, "revision": "earningsnerd-backend-00001-abc"},
+                                            {"percent": 50, "revision": "earningsnerd-backend-00002-def"}]
+    elif instability == "tagged":
+        cloud.service["trafficStatuses"].append({"percent": 0, "revision": "earningsnerd-backend-00002-def", "tag": "x"})
+    elif instability == "reconciling":
+        cloud.service["reconciling"] = True
+    elif instability == "no ready revision":
+        del cloud.service["latestReadyRevision"]
+    else:  # a revision status naming a tag is not a resolved digest
+        cloud.revision_image = API_IMAGE + ":verified@" + SERVING_DIGEST
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Serving image digest: unverified (production is not one stable revision serving all traffic, " \
+           "or its revision reports no digest)" in output
+    revision_reads = [call for call in cloud.calls if call[0] == f"{ops.REGION}-run"]
+    assert len(revision_reads) == (1 if instability == "tag digest" else 0)
+    assert "Cleanup last execution: unverified (image recorded by digest)" in output
+
+
+@pytest.mark.parametrize("volumes", ["none", "renamed"])
+def test_an_execution_need_not_restate_the_jobs_volume_but_the_job_must(capsys, volumes):
+    cloud = CloudFixture()
+    for execution in cloud.executions:
+        task = execution["template"]
+        if volumes == "renamed":
+            task["volumes"] = [{"name": "cloudsql", "cloudSqlInstance": {"instances": ["project:region:database"]}}]
+            task["containers"][0]["volumeMounts"] = [{"name": "cloudsql", "mountPath": "/cloudsql"}]
+    assert ops.inspect(cloud)
+    assert "Cleanup last execution: succeeded" in capsys.readouterr().out
+    cloud.job["template"]["template"]["volumes"] = []
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup job") + "$"):
+        ops.inspect(cloud)
+    assert "differs from the approved runtime, image or bounded configuration (volumes)" in capsys.readouterr().out
 
 
 def test_a_current_execution_prints_no_difference_line(capsys):
