@@ -231,11 +231,11 @@ the debug payload panel).
   link sits inside running text, where an `aria-label` names it already, or where its text must stay
   as written (the footer's Logo.dev attribution, a feedback message read literally), its label ends in
   " (opens in a new tab)" instead. The square, and a text arrow (↗) where a link draws one, is
-  `aria-hidden`. The terms page's "SEC EDGAR" link, inside running text, stays silent until the
-  founder's go-ahead on the legal pages' text, then takes the label form. Gate:
+  `aria-hidden`. The terms page's "SEC EDGAR" link, inside running text, takes the label form
+  (E281, 2026-11-11). Gate:
   `tests/unit/newTabCue.spec.ts` (every element written with `target="_blank"` says so by the tail or
   by its label, a tail with words after it in its parent fails as inline, any other `_blank` fails as
-  unread, and the terms page's link is its one residue).
+  unread, and no link is left as residue).
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
   as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
