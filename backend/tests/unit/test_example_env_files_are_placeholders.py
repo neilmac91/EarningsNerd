@@ -36,9 +36,12 @@ FREE_TEXT_SEPARATORS = re.compile(r"[\s/?&=:@#;,.()\[\]{}<>\"']+")  # URL delimi
 PLACEHOLDER_MARKERS = ("your", "example", "change", "placeholder", "xxx", "...", "<", "replace", "here", "dummy", "mock", "test", "local", "optional")
 
 
-# Dotenv-style example files only (`.env.example`, `.env.local.example`, ...). Matching on the
-# words "env" and "example" anywhere in a name also selects this test module once it is tracked.
-EXAMPLE_ENV_NAME = re.compile(r"^\.env(\.[\w-]+)*\.(example|sample|template)$", re.IGNORECASE)
+# Dotenv-style example files only (`.env.example`, `.env.local.example`, ...), with or without the
+# leading dot and with a `.txt` suffix: a closed pull request's `backend/env.example.txt` published a
+# real OpenRouter key and a Supabase secret key (secret-scanning alerts 1 and 2), and the earlier
+# selector read neither spelling. Matching on the words "env" and "example" anywhere in a name also
+# selects this test module once it is tracked.
+EXAMPLE_ENV_NAME = re.compile(r"^\.?env(\.[\w-]+)*\.(example|sample|template)(\.txt)?$", re.IGNORECASE)
 
 
 def _is_example_env_name(name: str) -> bool:
@@ -107,7 +110,11 @@ def test_selector_picks_dotenv_example_files_only():
     assert all(_is_example_env_name(path.name) for path in selected)
     assert _is_example_env_name(".env.example")
     assert _is_example_env_name(".env.local.example")
+    assert _is_example_env_name("env.example.txt")  # the leaked file's name
+    assert _is_example_env_name("env.example")
+    assert _is_example_env_name(".env.sample.txt")
     assert not _is_example_env_name("test_example_env_files_are_placeholders.py")
+    assert not _is_example_env_name("environment.example")
     assert not _is_example_env_name("example_env_notes.md")
     assert not _is_example_env_name(".env")
 
