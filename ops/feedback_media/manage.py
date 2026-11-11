@@ -128,6 +128,25 @@ ERROR_REASONS = frozenset({
 })
 # A denied permission is named only when it is one these operations' steps name; any other reads as unlisted.
 KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, IMAGE_READ, "run.services.update"}
+# A BadRequest names the request fields it refuses. A field path is schema, not data, so it is named only in a closed
+# shape: dotted lowercase words in snake or camel case, each with at most a three-digit index. That shape cannot carry
+# an address, a URL, a number, a hyphenated or uppercase-led name, or any other value. At most three are named.
+BAD_REQUEST = "type.googleapis.com/google.rpc.BadRequest"
+FIELD_SEGMENT = r"[a-z]{1,24}(?:_[a-z]{1,24}|[A-Z][a-z]{1,24}){0,6}(?:\[[0-9]{1,3}\])?"
+FIELD_PATH = re.compile(rf"{FIELD_SEGMENT}(?:\.{FIELD_SEGMENT}){{0,11}}")
+# Cloud Run v2 writes the field as "Violation in <request type>.<path>", for example "Violation in
+# CreateJobRequest.job.template.template.volumes[0].name"; the path after a request type of this shape is named.
+REQUEST_FIELD = re.compile(r"Violation in (?:[A-Z][a-z]{1,24}){2,4}Request\.(.+)")
+NAMED_FIELDS = 3
+
+
+def field_path(field: str) -> str | None:
+    """A refused field's path in its closed shape, or None: never any other text the provider wrote."""
+    if len(field) > 256:
+        return None
+    request = REQUEST_FIELD.fullmatch(field)
+    path = request[1] if request else field
+    return path if FIELD_PATH.fullmatch(path) else None
 
 
 class OperationError(RuntimeError):
@@ -142,7 +161,8 @@ class ProviderError(OperationError):
 
 
 def error_class(raw: bytes) -> str:
-    """Reduce a provider error body to closed values: its status, ErrorInfo reasons and a known denied permission."""
+    """Reduce a provider error body to closed values: its status, ErrorInfo reasons, a known denied permission and
+    the closed-shape paths of the request fields a BadRequest refuses."""
     try:
         error = json.loads(raw)["error"]
         details = [item for item in error.get("details", []) if isinstance(item, dict)]
@@ -154,6 +174,10 @@ def error_class(raw: bytes) -> str:
                  if isinstance(item.get("metadata"), dict) and isinstance(item["metadata"].get("permission"), str)}
         values += sorted({f"denied {name}" if name in KNOWN_PERMISSIONS else "denied an unlisted permission"
                           for name in named})
+        refused = {field_path(row["field"]) for item in details
+                   if item.get("@type") == BAD_REQUEST and isinstance(item.get("fieldViolations"), list)
+                   for row in item["fieldViolations"] if isinstance(row, dict) and isinstance(row.get("field"), str)}
+        values += [f"field {path}" for path in sorted(refused - {None})[:NAMED_FIELDS]]
     except Exception:  # a malformed body yields no class; the labelled refusal itself stands
         return ""
     return "".join(f"; {value}" for value in values)

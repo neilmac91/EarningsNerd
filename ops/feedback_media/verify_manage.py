@@ -46,6 +46,9 @@ IDENTITY = f"{NAME}@{PROJECT}.iam.gserviceaccount.com"
 SA_PATH = f"projects/{PROJECT}/serviceAccounts/{IDENTITY}"
 DATABASE = "earningsnerd_feedback_verify"
 INSTANCE = f"{PROJECT}:{REGION}:earningsnerd-db"
+# Cloud Run refuses a create whose Cloud SQL volume has any other name, and reserves this name for one: "Cloud SQL
+# volume must be named 'cloudsql', and 'cloudsql' is reserved for Cloud SQL volumes" (the first live verify-apply).
+SQL_VOLUME = "cloudsql"
 DB_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_DATABASE_URL"
 KEY_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_SECRET_KEY"
 BUCKET = media.BUCKETS["preview"]
@@ -504,14 +507,14 @@ def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versio
         raise media.OperationError("Verification runtime changed after its fingerprint was recorded")
     container = {"name": "verification", "image": image, "command": ["python"], "args": ["-c", source],
                  "env": runtime_env(run_id, image, hashes, versions, "cleanup" if job else "api"),
-                 "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}],
+                 "volumeMounts": [{"name": SQL_VOLUME, "mountPath": "/cloudsql"}],
                  "resources": {"limits": {"cpu": "1", "memory": "512Mi" if job else "1Gi"}}}
     if not job:
         # Its cold starts (its first start, and enable's receipt read after it scales to zero) must fit Cloud Run's
         # startup window and the 180 s operation wait.
         container["resources"]["startupCpuBoost"] = True
     task = {"serviceAccount": IDENTITY, "timeout": "600s" if job else "60s", "containers": [container],
-            "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [INSTANCE]}}]}
+            "volumes": [{"name": SQL_VOLUME, "cloudSqlInstance": {"instances": [INSTANCE]}}]}
     if production["template"].get("vpcAccess"):
         task["vpcAccess"] = copy.deepcopy(production["template"]["vpcAccess"])
     if job:
@@ -888,14 +891,42 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     execute_cleanup(cloud)  # Keep the old run marker until all its durable objects have settled.
 
 
+# Each Cloud Run write's two forms: the create, which leaves the name to its ID, and the update of the one present.
+JOB_WRITES = (f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", "v2/" + JOB)
+SERVICE_WRITES = (f"v2/{media.PARENT}/services?serviceId={NAME}",
+                  "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling")
+
+
+def run_write(current: dict | None, spec: dict, writes: tuple[str, str]) -> tuple[str, str, dict]:
+    """The write ensure_job or ensure_service sends: a create while the resource is absent, else an update of the one
+    just read, under its etag."""
+    create, update = writes
+    if current:
+        return update, "PATCH", {**spec, "etag": current["etag"]}
+    return create, "POST", media.create_body(spec)
+
+
+def validate_writes(cloud: media.Cloud, job: dict, service: dict) -> None:
+    """Cloud Run's own validation of this run's job and service writes, before the run seeds its lease.
+
+    Each request is the write ensure_job or ensure_service would send for the state read now, with validateOnly, so
+    Cloud Run validates it and persists nothing. A field it refuses, as it refused the first live create's Cloud SQL
+    volume name, then fails here, where a retry can follow at once; after the seed, the lease holds every retry for
+    two hours. The refusal names the field (media.error_class).
+    """
+    for kind, path, spec, writes in (("cleanup job", JOB, job, JOB_WRITES), ("service", SERVICE, service, SERVICE_WRITES)):
+        current = cloud.call("run", "v2/" + path, missing_ok=True)
+        check_owned(current, kind)
+        write, method, body = run_write(current, spec, writes)
+        cloud.call("run", write + ("&" if "?" in write else "?") + "validateOnly=true", method=method, body=body,
+                   step=f"Cloud Run validation of the verification {kind}")
+
+
 def ensure_job(cloud: media.Cloud, spec: dict) -> None:
     current = cloud.call("run", "v2/" + JOB, missing_ok=True)
     check_owned(current, "cleanup job")
-    if current:
-        cloud.wait(cloud.call("run", "v2/" + JOB, method="PATCH", body={**spec, "etag": current["etag"]}))
-    else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST",
-                              body=media.create_body(spec)))
+    write, method, body = run_write(current, spec, JOB_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
     media.bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + IDENTITY)
 
 
@@ -921,12 +952,8 @@ def ensure_service(cloud: media.Cloud, spec: dict) -> None:
     """
     current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
     check_owned(current, "service")
-    if current:
-        cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
-                              body={**spec, "etag": current["etag"]}))
-    else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST",
-                              body=media.create_body(spec)))
+    write, method, body = run_write(current, spec, SERVICE_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
     media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
 
 
@@ -1019,6 +1046,9 @@ def provision(cloud: media.Cloud) -> None:
         sql.provision(password, test_env)
         ensure_identity(cloud, deployer)
         versions = {KEY_SECRET: key_version, DB_SECRET: db_version}
+        # Cloud Run validates both writes before the seed, so a refused field never leaves a two-hour lease behind.
+        validate_writes(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True),
+                        runtime_spec(production, run_id, image, hashes, versions, job=False))
         settle_previous_run(cloud, sql, test_env, production)
         lease_end = datetime.now(UTC) + timedelta(hours=2)  # taken before the seed, so never later than the lease
         seed_marker(sql, test_env, run_id, image, hashes)

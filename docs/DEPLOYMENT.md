@@ -884,7 +884,9 @@ alert channel, the alert policies and the heartbeat metric. Each is verified, ab
 (incomplete), `UNVERIFIED` with a closed class when its read fails, or refused for readable drift, which an
 unverified line never masks: a failed read never stops another resource's checks. One read shows what a
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
-error class (status, reason, and a denied permission that one of these steps names); a dropped connection
+error class (status, reason, a denied permission that one of these steps names, and up to three request fields
+a `BadRequest` refuses, each named only as a dotted path of lowercase snake- or camel-case words with indices of at
+most three digits, so a refused Cloud Run create says which field it objects to); a dropped connection
 reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
 Provider messages, resources and principals stay withheld. The check reads the identity's own
 project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled
@@ -1002,7 +1004,11 @@ provision's probe and the receipt each under two hours old, so run provision, ve
 sitting. The verifier scales to zero and starts only within its run's two-hour lease, which begins when
 verify seeds its run, so enable's receipt read must also come before that lease ends: verify-apply prints
 the deadline (`Enable before <time>`). A verify that fails after seeding its run holds a two-hour lease,
-by which time the probe has expired, so recovery is a fresh provision and then a fresh verify.
+by which time the probe has expired, so recovery is a fresh provision and then a fresh verify. So before
+the seed, once its identity exists, verify-apply has Cloud Run validate its job and service writes exactly as
+it will send them (`validateOnly`, which persists nothing): a field Cloud Run refuses fails there, naming the
+field, and a retry can follow at once. The first live verify-apply was refused that way, before any job
+existed: Cloud Run requires a Cloud SQL volume to be named `cloudsql`.
 The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
 verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
 The wrapper is never installed as a production route or added to the backend image. The unchanged
