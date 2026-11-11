@@ -72,7 +72,12 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         trigger = workflow["on"][event] or {}
         assert "paths" not in trigger and "paths-ignore" not in trigger
     tests = workflow["jobs"]["backend-tests"]
-    assert "if" not in tests, "Changes confined to backend/tests/ must still run the backend CI job"
+    # The job skips only where ci-scope succeeded and says the run tests nothing: a draft's push, and a push to main
+    # that deploys nothing, which its pull request tested. A ready pull request confined to backend/tests/ runs it:
+    # test_ci_cost_controls.py runs the scope on `backend/tests/unit/test_contract.py` and holds it to tests=true.
+    assert tests["if"] == ("${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && "
+                           "needs.ci-scope.outputs.tests == 'false') }}"), (
+        "Changes confined to backend/tests/ must still run the backend CI job on their pull request")
     pytest_step = next(step for step in tests["steps"] if step.get("name") == "Run pytest")
     assert "if" not in pytest_step
     assert "python -m pytest" in pytest_step["run"], "The backend CI job must run the whole suite"

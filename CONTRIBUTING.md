@@ -74,12 +74,23 @@ python3 ../ops/dev/verify.py -- npm run build    # production build
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
+GitHub Actions (`.github/workflows/ci.yml`) runs these jobs on a pull request that is ready for
+review, on a push to `main` that deploys the backend, and once a night on `main`:
 `backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
 `frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
 charts and gallery, run as five `e2e-shard` jobs; it passes when every shard passes), `lighthouse` and
-`secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
+`secret-scan` (gitleaks). The browser jobs (`e2e-shard`, `lighthouse`) skip their steps, and pass, when
+a change touches no file they read: records, and `backend/` or `ops/` files other than the three the
+frontend reads (`ci-scope` in `ci.yml` names them). A push to a draft pull request runs no test job
+(`secret-scan` still runs): run the suites locally before each push, and mark the pull request ready to
+have CI run them.
+`e2e-tests` fails on a draft on purpose, so a draft never shows every required check green. A merge
+that deploys nothing runs no test job on `main`; the nightly run tests `main`'s tip unless a completed
+run already did, and opens an issue when a job fails (`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`). What each
+workflow costs, and the plan to cut it, is in
+[`docs/ops/actions-cost-plan-2026-11.md`](./docs/ops/actions-cost-plan-2026-11.md).
+Required PR checks also include `review-gate`. After the applicable CI gates
 pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
@@ -118,7 +129,7 @@ still reads every branch after the push.
 1. Branch off `main`.
 2. Keep changes surgical — touch only what the change requires; match surrounding style.
 3. Add/extend tests for the behavior you change.
-4. Open a draft PR; complete the required CI and reviews before merging. Deployable backend changes
+4. Open a draft PR, mark it ready once the local gates pass, and complete the required CI and reviews before merging. Deployable backend changes
    follow the serialized release and health-verification requirements in [AGENTS.md §6](AGENTS.md#6-deploy-discipline).
 
 ## Where things live
