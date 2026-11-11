@@ -565,6 +565,38 @@ def test_more_than_three_children_at_once_is_unexplained_even_if_each_is_a_worke
     assert verifier.resources["unexplained_children"] is True and verifier.resources["last_process_count"] == 5
 
 
+def test_three_workers_at_once_are_explained(verifier, fake_proc):
+    """The legitimate peak is the application plus one image and two storage workers: the cap must still accept it."""
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    workers = [b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                           os.fsencode(Path(f"app/services/{name}.py").resolve()), b""))
+               for name in ("feedback_image_service", "feedback_storage_worker_service", "feedback_storage_worker_service")]
+    _process(fake_proc, parent, own, children=[parent + child for child in range(1, 4)])
+    for child, argv in enumerate(workers, start=1):
+        _process(fake_proc, parent + child, argv, high_water_kib=50000 * child)
+    verifier.sample()
+    assert verifier.resources["unexplained_children"] is False and verifier.resources["last_process_count"] == 4
+    # Every worker of the sample is read: the bound keeps the highest, whatever order the sampler visits them in.
+    assert verifier.resources["worker_high_water_rss_bytes"] == 150000 * 1024
+
+
+def test_the_application_bound_is_its_own_peak_and_never_its_childrens(verifier, fake_proc, monkeypatch):
+    peaks = {runtime.resource.RUSAGE_SELF: 300000, runtime.resource.RUSAGE_CHILDREN: 999999}
+    monkeypatch.setattr(runtime.resource, "getrusage", lambda who: SimpleNamespace(ru_maxrss=peaks[who]))
+    _process(fake_proc, os.getpid(), b"python\0-c\0verification-source\0")
+    verifier.sample()
+    assert verifier.resources["self_high_water_rss_bytes"] == 300000 * 1024
+
+
+@pytest.mark.parametrize("worker, accepted", [(100_000_000, True), (100_000_200, False)])
+def test_the_fallback_bound_is_the_application_and_three_workers_at_their_peaks(worker, accepted):
+    """0.85 GiB is 912,680,550 bytes: the application's 612,680,000 and three workers of 100,000,000 fit by 550 bytes."""
+    evidence = memory()
+    evidence.update(cgroup_kernel_peak_bytes=None, cgroup_sample_peak_bytes=400_000_000,
+                    self_high_water_rss_bytes=612_680_000, worker_high_water_rss_bytes=worker)
+    assert runtime.resource_acceptance(evidence) is accepted
+
+
 def test_every_refusal_is_a_fixed_code():
     """A refused start prints the refusal's text in the Cloud Run log: every Refused(...) takes one snake_case literal."""
     tree = ast.parse((ROOT / "ops/feedback_media/verify_runtime.py").read_text())

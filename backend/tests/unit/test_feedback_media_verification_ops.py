@@ -445,6 +445,28 @@ def test_a_failed_browser_run_names_only_its_closed_stage_and_code(monkeypatch, 
     assert str(failure.value) == refusal and failure.value.__suppress_context__ == bool(exit_status)
 
 
+def test_the_in_run_cleanup_runs_after_a_failure_of_any_kind(monkeypatch):
+    """A crash or an interrupt in the browser still leaves its cleanup run, then the original error stands."""
+    cleanups = []
+    for failure in (RuntimeError("unexpected"), KeyboardInterrupt()):
+        def browser(*_args, failure=failure):
+            raise failure
+        monkeypatch.setattr(verify, "browser", browser)
+        monkeypatch.setattr(verify, "execute_cleanup", cleanups.append)
+        with pytest.raises(type(failure)):
+            verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert cleanups == ["cloud", "cloud"]
+
+
+def test_only_the_browser_reads_a_failed_commands_output():
+    """A failed command's output can carry any text: only browser(), through browser_failure's closed codes, reads it."""
+    tree = ast.parse((ROOT / "ops/feedback_media/verify_manage.py").read_text())
+    readers = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+               for inner in ast.walk(node) if isinstance(inner, ast.Attribute) and inner.attr == "output"
+               and isinstance(inner.ctx, ast.Load)}
+    assert readers == {"browser"}
+
+
 @pytest.mark.parametrize("browser_fails, cleanup_fails", [(False, False), (True, False), (True, True), (False, True)])
 def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_failure(monkeypatch, capsys, browser_fails,
                                                                                        cleanup_fails):
