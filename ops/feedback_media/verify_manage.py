@@ -90,11 +90,20 @@ CONNECTION_LIMIT = 4
 OPERATIONAL_RESERVE = 5
 
 
-def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60,
-        check: bool = True) -> str:
+class CommandFailed(media.OperationError):
+    """A command that exited non-zero; its standard output is kept for a caller that reads only closed codes from it."""
+
+    def __init__(self, output: str) -> None:
+        super().__init__("Verification command failed; diagnostics withheld")
+        self.output = output
+
+
+def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60) -> str:
     try:
         result = subprocess.run(command, input=input_text, text=True, env=env, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, timeout=timeout, check=check)
+                                stderr=subprocess.DEVNULL, timeout=timeout, check=True)
+    except subprocess.CalledProcessError as failed:
+        raise CommandFailed(failed.stdout if isinstance(failed.stdout, str) else "") from None
     except (subprocess.SubprocessError, OSError):
         raise media.OperationError("Verification command failed; diagnostics withheld") from None
     return result.stdout
@@ -494,6 +503,10 @@ def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versio
                  "env": runtime_env(run_id, image, hashes, versions, "cleanup" if job else "api"),
                  "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}],
                  "resources": {"limits": {"cpu": "1", "memory": "512Mi" if job else "1Gi"}}}
+    if not job:
+        # Its cold starts (its first start, and enable's receipt read after it scales to zero) must fit Cloud Run's
+        # startup window and the 180 s operation wait.
+        container["resources"]["startupCpuBoost"] = True
     task = {"serviceAccount": IDENTITY, "timeout": "600s" if job else "60s", "containers": [container],
             "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [INSTANCE]}}]}
     if production["template"].get("vpcAccess"):
@@ -651,7 +664,7 @@ def counts_only_receipt(receipt: dict) -> bool:
     resources = observed["resources"]
     numeric = {"sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
                "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
-               "reaped_child_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
+               "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
     if (not isinstance(resources, dict) or set(resources) != numeric | {"method", "worker_limits", "unexplained_children", "acceptance_passed", "sample_age_seconds", "evidence_basis"}
             or not numbers({name: resources[name] for name in numeric}, numeric,
                            nullable={"cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes"})
@@ -841,6 +854,10 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     expired = sql.query(f"SELECT (expires_at<=CURRENT_TIMESTAMP)::int FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
     if expired != "1":
         raise media.OperationError("Previous verification lease is still active or unreadable; inspect and wait for expiry before a new apply")
+    # Initialize creates the whole schema in one transaction, and only the service it precedes makes fixtures or
+    # objects. A run that stopped before it left nothing to settle, and its cleanup could not run without the schema.
+    if sql.query("SELECT (to_regclass('public.users') IS NOT NULL)::int;", env=test_env) != "1":
+        return
     execute_cleanup(cloud)  # Keep the old run marker until all its durable objects have settled.
 
 
@@ -853,6 +870,10 @@ def ensure_job(cloud: media.Cloud, spec: dict) -> None:
         cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST",
                               body=media.create_body(spec)))
     media.bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+
+
+def ensure_schedule(cloud: media.Cloud) -> None:
+    """The hourly expiry cleanup, created once initialize has made the schema it cleans."""
     schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": "41 * * * *", "timeZone": "Etc/UTC",
                 "attemptDeadline": "60s", "retryConfig": {"retryCount": 0}, "httpTarget": {
                     "uri": f"https://run.googleapis.com/v2/{JOB}:run", "httpMethod": "POST", "body": "e30=",
@@ -886,6 +907,19 @@ def ensure_service(cloud: media.Cloud, spec: dict) -> None:
 BROWSER_STAGES = ("manifest", "fixtures", "frontend", "browser", "cleanup", "measurement", "completion", "shutdown")
 
 
+def browser_failure(output: str) -> media.OperationError:
+    """The refusal for a runner that exited non-zero: its closed stage and code only (Ops logs are public)."""
+    try:
+        result = json.loads(output)
+    except ValueError:
+        result = None
+    if (isinstance(result, dict) and set(result) == {"status", "stage", "reason"} and result["status"] == "failed"
+            and result["stage"] in BROWSER_STAGES and isinstance(result["reason"], str)
+            and re.fullmatch(r"[a-z][a-z-]{0,39}", result["reason"])):
+        return media.OperationError(f"Live browser verification failed at {result['stage']} ({result['reason']})")
+    return media.OperationError("Verification command failed; diagnostics withheld")
+
+
 def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="feedback-verify-") as directory:
         folder = Path(directory)
@@ -915,18 +949,15 @@ def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, 
         environment.update({"NODE_ENV": "production", "NEXT_PUBLIC_API_BASE_URL": "https://localhost:8443"})
         try:
             output = run(["node", str(Path(__file__).with_name("live_runner.mjs")), "--manifest", manifest_path,
-                          "--frontend", str(ROOT / "frontend")], env=environment, timeout=900, check=False)
+                          "--frontend", str(ROOT / "frontend")], env=environment, timeout=900)
+        except CommandFailed as failed:
+            raise browser_failure(failed.output) from None
         finally:
             retain_artifacts(folder / "output", key, run_id, image, hashes)
         try:
             result = json.loads(output)
         except ValueError:
             raise media.OperationError("Browser verification did not return its counts-only completion") from None
-        if (isinstance(result, dict) and set(result) == {"status", "stage", "reason"} and result["status"] == "failed"
-                and result["stage"] in BROWSER_STAGES and isinstance(result["reason"], str)
-                and re.fullmatch(r"[a-z][a-z-]{0,39}", result["reason"])):
-            # The runner's closed stage and failure codes only (Ops logs are public), so one failed run says where.
-            raise media.OperationError(f"Live browser verification failed at {result['stage']} ({result['reason']})")
         if (not isinstance(result, dict) or set(result) != {"status", "checks", "feedback", "deleted_attachments"} or result.get("status") != "passed"
                 or result.get("checks") != 11 or any(type(result.get(name)) is not int or result[name] < 0
                                                       for name in ("feedback", "deleted_attachments"))):
@@ -962,9 +993,11 @@ def provision(cloud: media.Cloud) -> None:
         ensure_identity(cloud, deployer)
         versions = {KEY_SECRET: key_version, DB_SECRET: db_version}
         settle_previous_run(cloud, sql, test_env, production)
+        lease_end = datetime.now(UTC) + timedelta(hours=2)  # taken before the seed, so never later than the lease
         seed_marker(sql, test_env, run_id, image, hashes)
         ensure_job(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True))
         execute_cleanup(cloud, initialize=True)
+        ensure_schedule(cloud)
         migration_output = run(["bash", str(ROOT / "backend/scripts/apply_migrations.sh")], env=test_env, timeout=900)
         summaries = re.findall(r"^apply_migrations: applied=\d+ skipped=\d+$", migration_output, re.MULTILINE)
         if len(summaries) != 1:
@@ -973,14 +1006,32 @@ def provision(cloud: media.Cloud) -> None:
         ensure_service(cloud, runtime_spec(production, run_id, image, hashes, versions, job=False))
         origin = assert_private_service(cloud, cloud.call("run", "v2/" + SERVICE))
         await_control(cloud, origin, key, run_id)
-        try:
-            browser(cloud, origin, key, run_id, image, hashes)
-        finally:
-            # A failed browser must leave a runnable cleanup path and durable manifests. This
-            # bounded attempt supplements the retained hourly job; it never drops either one.
-            execute_cleanup(cloud)
-        require_receipt(cloud, production)
+        browse_then_clean(cloud, origin, key, run_id, image, hashes)
+        # Production as it serves now: a deploy during the run must not leave this check on the revision it started on.
+        require_receipt(cloud, cloud.call("run", "v2/" + media.SERVICE))
     print("Isolated live verification completed; production uploads remain unchanged")
+    print(enable_deadline(lease_end))
+
+
+def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
+    """The browser, then the bounded in-run cleanup, which runs whether or not the browser passed."""
+    try:
+        browser(cloud, origin, key, run_id, image, hashes)
+    except BaseException:
+        # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt supplements
+        # the retained hourly job; a failure of its own is reported beside the browser's, never in its place.
+        try:
+            execute_cleanup(cloud)
+        except media.OperationError as cleanup_failure:
+            print(f"Verification cleanup after that failure: {cleanup_failure}")
+        raise
+    execute_cleanup(cloud)
+
+
+def enable_deadline(lease_end: datetime) -> str:
+    """The verifier scales to zero and starts only within its run's lease, so enable's receipt read must come before."""
+    return (f"Enable before {lease_end:%Y-%m-%dT%H:%MZ}: the verifier answers its receipt read only within this "
+            "run's two-hour lease, as well as within two hours of the receipt")
 
 
 def main() -> None:

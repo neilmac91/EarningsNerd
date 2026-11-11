@@ -990,8 +990,10 @@ progress or queued, so even a records-only merge in the window can cost an appro
 1). Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
 the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
 provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
-sitting. A verify that fails after seeding its run holds a two-hour lease, by which time the probe has
-expired, so recovery is a fresh provision and then a fresh verify.
+sitting. The verifier scales to zero and starts only within its run's two-hour lease, which begins when
+verify seeds its run, so enable's receipt read must also come before that lease ends: verify-apply prints
+the deadline (`Enable before <time>`). A verify that fails after seeding its run holds a two-hour lease,
+by which time the probe has expired, so recovery is a fresh provision and then a fresh verify.
 The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
 verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
 The wrapper is never installed as a production route or added to the backend image. The unchanged
@@ -1042,7 +1044,10 @@ The provisioner addresses only these feature resources:
   Scheduled cleanup skips an unexpired verification lease, so it cannot erase a browser's active
   fixtures. The protected operation uses execution-scoped `cleanup_now` for its final cleanup.
   A new apply waits for the prior two-hour lease to expire, even after an early failure or completed
-  run; absence of an active browser is not inferred from a timeout. A changed runtime source also
+  run; absence of an active browser is not inferred from a timeout. A prior run that stopped before
+  initialize created its schema left no fixture or object (only the service started after it makes them),
+  so it is settled without a cleanup execution, which could not run without tables; the hourly schedule is
+  created only once initialize has made the schema it cleans. A changed runtime source also
   refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
   through a separately reviewed operation before retrying the new source.
 
@@ -1083,12 +1088,19 @@ links, lost-response retry, export, account deletion and cleanup. Runtime eviden
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
 combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
-execution environment, which exposes the cgroup v2 memory files the measurement reads. Only the two
-isolated workers may run beside the application. A worker that has exited and awaits its reap holds
-no memory, and one spawned but not yet exec'd still shows the application's arguments; a child
-still unexec'd a second later counts as unexplained, and so does any other program. A failed browser
-run names its stage and closed failure code in the Ops log (`Live browser verification failed at
-<stage> (<code>)`), so one run shows where it stopped; anything else stays withheld.
+execution environment, which exposes the cgroup v2 memory files the measurement reads, with startup
+CPU boost for its cold starts. Only the two isolated workers may run beside the application. A child
+shows the application's arguments until it execs, and no arguments while it execs or exits, so in
+either state it counts as unexplained only if it still does a second later; a zombie awaiting its
+reap holds no memory and is not checked, though it still counts as a process. Any other program
+counts as unexplained at once. Without the kernel's peak, the bound adds three times the highest high-water mark a worker
+reports for its own image, read while it runs: a child's `ru_maxrss` also counts the application's
+image from before it exec'd, so it cannot bound a worker. A failed browser run names its stage and
+closed failure code in the Ops log (`Live browser verification failed at <stage> (<code>)`), so one
+run shows where it stopped; a browser wait or action that fails without its own code names the step
+it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
+failure also fails, it is reported beside the browser's failure, not in its place. The run's last
+receipt check reads production as it serves at the end of the run.
 
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend

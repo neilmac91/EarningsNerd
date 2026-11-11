@@ -102,8 +102,8 @@ def resource_acceptance(memory):
         return 0 < peak < cap * .85 and (sample is None or sample < cap * .85)
     if memory["worker_limits"] != {"feedback_image_service": 1, "feedback_storage_worker_service": 2}:
         return False
-    bound = memory["self_high_water_rss_bytes"] + 3 * memory["reaped_child_high_water_rss_bytes"]
-    return (memory["self_high_water_rss_bytes"] > 0 and memory["reaped_child_high_water_rss_bytes"] > 0
+    bound = memory["self_high_water_rss_bytes"] + 3 * memory["worker_high_water_rss_bytes"]
+    return (memory["self_high_water_rss_bytes"] > 0 and memory["worker_high_water_rss_bytes"] > 0
             and sample is not None and 0 < sample < cap * .85 and bound < cap * .85)
 
 
@@ -172,7 +172,7 @@ class Runtime:
         self.resources = {"sample_count": 0, "rss_peak_bytes": 0, "cgroup_sample_peak_bytes": None,
                           "cgroup_kernel_peak_bytes": None, "cgroup_memory_limit_bytes": None,
                           "configured_memory_limit_bytes": 1073741824,
-                          "self_high_water_rss_bytes": 0, "reaped_child_high_water_rss_bytes": 0,
+                          "self_high_water_rss_bytes": 0, "worker_high_water_rss_bytes": 0,
                           "worker_limits": {}, "unexplained_children": False, "last_process_count": 1,
                           "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"}
         self.permission_audited = False
@@ -289,7 +289,7 @@ class Runtime:
             saved = marker["receipt"]
         with self.lock:
             resources = {**self.resources, "sample_age_seconds": time.monotonic() - self.last_sample if self.last_sample else None}
-            resources["conservative_process_bound_bytes"] = resources["self_high_water_rss_bytes"] + 3 * resources["reaped_child_high_water_rss_bytes"]
+            resources["conservative_process_bound_bytes"] = resources["self_high_water_rss_bytes"] + 3 * resources["worker_high_water_rss_bytes"]
             resources["evidence_basis"] = ("kernel cgroup high-water peak" if resources["cgroup_kernel_peak_bytes"] is not None
                                            else "kernel peak unavailable; conservative process-bound evidence")
             resources["acceptance_passed"] = resource_acceptance(resources)
@@ -378,7 +378,7 @@ class Runtime:
             except OSError:
                 return None
         parent, todo, seen, rss = os.getpid(), [os.getpid()], set(), 0
-        unexplained, spawning, own = False, {}, Path(f"/proc/{parent}/cmdline").read_bytes()
+        unexplained, spawning, own, worker = False, {}, Path(f"/proc/{parent}/cmdline").read_bytes(), 0
         workers = [b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
                                os.fsencode(Path("app/services/" + worker + ".py").resolve()), b""))
                    for worker in ("feedback_image_service", "feedback_storage_worker_service")]
@@ -391,15 +391,17 @@ class Runtime:
                 rss += int(Path(f"/proc/{pid}/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
                 if pid != parent:
                     argv = Path(f"/proc/{pid}/cmdline").read_bytes()
-                    if Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z":
-                        pass  # a zombie awaiting its reap: no memory, no argv; still counted
-                    elif argv == own:  # not yet exec'd; still so a second later, a fork
+                    if Path(f"/proc/{pid}/stat").read_bytes().rsplit(b")", 1)[1].split()[0] == b"Z":
+                        pass  # a zombie: no memory, awaiting its reap; still counted
+                    elif argv in (own, b""):  # mid-exec or mid-exit; still so a second later, unexplained
                         spawning[pid] = self.spawning.get(pid, time.monotonic())
                         unexplained |= time.monotonic() - spawning[pid] > 1
+                    elif argv in workers:  # own peak: a child's ru_maxrss holds its parent's
+                        worker = max(worker, int(re.search(rb"VmHWM:\s+(\d+)", Path(f"/proc/{pid}/status").read_bytes())[1]) * 1024)
                     else:
-                        unexplained |= argv not in workers
+                        unexplained = True
                 todo.extend(int(child) for path in Path(f"/proc/{pid}/task").glob("*/children") for child in path.read_text().split())
-            except (OSError, ValueError, IndexError):
+            except (OSError, ValueError, IndexError, TypeError):
                 continue
         self.spawning = spawning
         with self.lock:
@@ -413,7 +415,7 @@ class Runtime:
             self.last_sample = time.monotonic()
             self.resources["unexplained_children"] |= unexplained or len(seen) > 4 or bool(todo)
             self.resources["self_high_water_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
-            self.resources["reaped_child_high_water_rss_bytes"] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * 1024
+            self.resources["worker_high_water_rss_bytes"] = max(worker, self.resources["worker_high_water_rss_bytes"])
 
     def sampler(self):
         deadline = time.monotonic() + 7200
@@ -516,7 +518,7 @@ def main():
     os.environ.update(RESEND_API_KEY=digest(runtime.key, "sink", runtime.run), RESEND_BASE_URL="http://127.0.0.1:8091",
                       FEEDBACK_NOTIFICATION_EMAIL="feedback-verify-notify@example.com",
                       RESEND_FROM_EMAIL="Feedback verification <feedback-verify@example.com>")
-    # openai 3.x refuses an empty key when the app imports; no verified route calls a model, and none leaves.
+    # openai 3.x refuses an empty key at app import; no verified route calls a model.
     os.environ.update(OPENAI_API_KEY="feedback-verification-no-model", OPENAI_BASE_URL="http://127.0.0.1:9/v1")
     if mode == "initialize":
         import app.models
@@ -551,6 +553,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
-        # A closed code or a class name only, in the private Cloud Run log
         raise SystemExit("Feedback verification runtime refused ("
                          + (str(error) if isinstance(error, Refused) else type(error).__name__) + ")") from None
