@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryKeys } from '@/lib/queryKeys'
 import { ApiError, SessionLockUnavailable, SessionStillRenewing } from '@/lib/api/client'
+import { consumePostAuthRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 
 /**
  * The landing page of a Google or Apple login (app/auth/complete/page.tsx, E29 (5)). The callback's navigation sets no
@@ -58,6 +59,7 @@ function land(url: string) {
 
 beforeEach(() => {
   flags.apple = false
+  localStorage.clear()
   replace.mockReset()
   completeOAuthSignIn.mockReset()
   getCurrentUserSafe.mockReset()
@@ -122,6 +124,55 @@ describe('the OAuth login landing page (E29 (5))', () => {
     expect(status).toContainElement(screen.getByRole('heading', { level: 1 }))
     expect(status.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     await waitFor(() => expect(completeOAuthSignIn).toHaveBeenCalledTimes(1))
+  })
+})
+
+/**
+ * E29 (7): a Google or Apple login goes where the reader was headed, as a password login does. The signup gate, and
+ * the login page's `?redirect=` as the sign-in leaves for the provider (oauthStartKeepsDestination.spec.tsx), stash
+ * that destination (lib/postAuthRedirect.ts); this page consumes it once the exchange took, and only then.
+ */
+describe('where the OAuth login landing page goes (E29 (7))', () => {
+  const STASH = 'en_post_auth_redirect'
+
+  it('returns the reader to the stashed destination, and consumes it', async () => {
+    stashPostAuthRedirect('/filing/123')
+    completeOAuthSignIn.mockResolvedValue({ status: 'signed_in' })
+    land('/auth/complete#code=one-time-code')
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/filing/123'))
+    expect(replace.mock.calls).toEqual([['/filing/123']])
+    // Consumed: a later login finds nothing waiting.
+    expect(consumePostAuthRedirect()).toBeNull()
+  })
+
+  it.each([
+    ['a path on another site', { path: '//evil.example/filing/1', at: Date.now() }],
+    ['a backslash path a browser reads as another site', { path: '/\\evil.example', at: Date.now() }],
+    ['a destination older than an hour', { path: '/filing/123', at: Date.now() - 61 * 60 * 1000 }],
+  ])('goes home on %s, and still clears it', async (_name, stored) => {
+    localStorage.setItem(STASH, JSON.stringify(stored))
+    completeOAuthSignIn.mockResolvedValue({ status: 'signed_in' })
+    land('/auth/complete#code=one-time-code')
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'))
+    expect(replace.mock.calls).toEqual([['/']])
+    expect(localStorage.getItem(STASH)).toBeNull()
+  })
+
+  it('leaves the destination for the login that follows when the code is refused or the exchange does not finish', async () => {
+    stashPostAuthRedirect('/filing/123')
+    completeOAuthSignIn.mockRejectedValue(Object.assign(new Error('Request failed with status code 400'), { status: 400 }))
+    land('/auth/complete#code=used-code')
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(FAILED))
+    expect(localStorage.getItem(STASH)).not.toBeNull()
+
+    // An exchange that posted nothing keeps it too, and its Try again then takes the reader there.
+    replace.mockReset()
+    completeOAuthSignIn.mockReset()
+    completeOAuthSignIn.mockRejectedValueOnce(new SessionStillRenewing()).mockResolvedValueOnce({ status: 'signed_in' })
+    land('/auth/complete#code=one-time-code')
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/filing/123'))
+    expect(consumePostAuthRedirect()).toBeNull()
   })
 })
 

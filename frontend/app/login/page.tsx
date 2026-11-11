@@ -179,7 +179,8 @@ function LoginContent() {
       )}
 
       <div className="mt-8">
-        <SocialAuthButtons apiBase={apiBase} />
+        {/* A Google or Apple login keeps `?redirect=` across the provider's round trip (OAuthStartControl, E29 (7)). */}
+        <SocialAuthButtons apiBase={apiBase} returnTo={searchParams.get('redirect')} />
 
         <AuthDivider />
 
