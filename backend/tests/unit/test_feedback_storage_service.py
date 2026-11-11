@@ -90,6 +90,8 @@ def test_effective_runtime_permissions_require_narrow_grants_and_reject_inherite
     args, kwargs = bucket.test_iam_permissions.call_args
     assert set(args[0]) == storage.REQUIRED_STORAGE_PERMISSIONS | storage.EXCESS_STORAGE_PERMISSIONS
     assert not {"storage.buckets.list", "storage.buckets.create"} & set(args[0])
+    # A uniform bucket-level access bucket refuses the whole test (HTTP 400) when it names object IAM.
+    assert not {"storage.objects.getIamPolicy", "storage.objects.setIamPolicy"} & set(args[0])
     assert not any(permission.startswith("storage.multipartUploads.") for permission in args[0])
     assert kwargs["retry"] is None and kwargs["timeout"] == (2.0, 8.0)
     bucket.blob.assert_not_called()

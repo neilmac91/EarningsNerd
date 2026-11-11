@@ -267,7 +267,7 @@ def test_permission_audit_failure_stops_probe_before_object_or_database_writes(d
 
 
 def test_excess_permissions_are_recorded_and_logged_and_the_probe_still_runs(database, caplog):
-    """The founder's decision of 10 November: while the backend runs with project-wide storage.admin, broader storage
+    """The founder's decision of 10 November: while the backend identity holds broader storage access than the feature needs, that
     access is a recorded warning, not a refusal (follow-up recorded on #2027). The audit reports it only after create, get and
     delete are confirmed, and missing access still stops the probe (above)."""
     class Storage:
