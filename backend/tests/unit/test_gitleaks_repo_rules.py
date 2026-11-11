@@ -29,8 +29,10 @@ RULES = {rule["id"]: rule for rule in CONFIG["rules"]}
 # Read from gitleaks v8.24.3's config/gitleaks.toml, as are the rule ids the repository rules avoid.
 VERIFIED_AGAINST = "8.24.3"
 BUILT_IN_STOPWORDS = {string.ascii_lowercase, "014df517-39d1-4453-b7b3-9930c563627c"}
-# gitleaks reads keys case-insensitively. A rule's `path` and the deprecated singular `[rules.allowlist]`,
-# which 8.24.3 still honours, would each silence a rule while every vector below still passed.
+# A rule's `path` and the deprecated singular `[rules.allowlist]`, which 8.24.3 still honours, would each
+# silence a rule while every vector below still passed. gitleaks reads keys case-insensitively and lets a
+# capitalised spelling (`[Allowlist]`, `Entropy`) override the one this file's checks read, so keys are
+# compared exactly as written: every allowed key is lower case, and any other spelling is refused.
 TOP_KEYS = {"title", "extend", "allowlist", "rules"}
 RULE_KEYS = {"id", "description", "regex", "entropy", "keywords", "allowlists"}
 BASE62 = string.ascii_letters + string.digits
@@ -86,9 +88,10 @@ def test_the_file_restates_the_built_in_global_stopwords():
 
 
 def test_the_file_holds_no_key_that_narrows_a_rule():
-    assert {key.lower() for key in CONFIG} <= TOP_KEYS, sorted(CONFIG)
+    assert set(CONFIG) <= TOP_KEYS, sorted(CONFIG)
+    assert set(CONFIG["extend"]) == {"useDefault"}  # the one key gitleaks spells in camel case
     for rule in RULES.values():
-        assert {key.lower() for key in rule} <= RULE_KEYS, f"{rule['id']}: {sorted(rule)}"
+        assert set(rule) <= RULE_KEYS, f"{rule['id']}: {sorted(rule)}"
 
 
 def test_the_restated_built_ins_belong_to_ci_s_pinned_gitleaks():
