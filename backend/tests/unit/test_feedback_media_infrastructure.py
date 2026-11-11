@@ -1276,8 +1276,31 @@ def provider(body, code=403):
     (b'{"error": ' + b"[" * 100000 + b"]" * 100000 + b"}", ""),
     ({"error": "PRINCIPAL_SENTINEL"}, ""),
     (CutShortBody, ""),
+    ({"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "PRINCIPAL_SENTINEL refused",
+                "details": [{"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": [
+                    # The first live verify-apply's refusal, in Cloud Run v2's own form.
+                    {"field": "Violation in CreateJobRequest.job.template.template.volumes[0].name",
+                     "description": "Cloud SQL volume must be named PRINCIPAL_SENTINEL"},
+                    {"field": "template.template.containers[0].env[41].value_source.secret_key_ref"},
+                    {"field": "PRINCIPAL_SENTINEL"}, {"field": "principal@example.invalid"},
+                    {"field": "projects/RESOURCE_SENTINEL"}, {"field": "env[1234]"}, {"field": "secret-name"},
+                    {"field": "sENTINEL"}, {"field": ".".join(["abcdefghijklmnopqrstuvwx"] * 12)}, {"field": 7},
+                    {"field": "Violation in CreateJobRequest.PRINCIPAL_SENTINEL"},
+                    {"field": "Violation in RESOURCE_SENTINEL.job.name"}, "PRINCIPAL_SENTINEL"]}]}},
+     "; INVALID_ARGUMENT; field job.template.template.volumes[0].name; "
+     "field template.template.containers[0].env[41].value_source.secret_key_ref"),
+    ({"error": {"status": "INVALID_ARGUMENT", "details": [{"@type": "type.googleapis.com/google.rpc.BadRequest",
+                                                          "fieldViolations": [{"field": name} for name in (
+                                                              "job.labels", "job.name", "job.template", "job.annotations")]}]}},
+     "; INVALID_ARGUMENT; field job.annotations; field job.labels; field job.name"),
+    ({"error": {"status": "INVALID_ARGUMENT", "details": [
+        {"@type": "type.googleapis.com/google.rpc.ErrorInfo", "fieldViolations": [{"field": "job.name"}]},
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": {"field": "job.name"}},
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": "job.name"}]}},
+     "; INVALID_ARGUMENT"),
 ], ids=["iam-denial", "api-disabled", "unknown-values", "not-json", "unhashable-values", "unlisted-permission",
-        "nested-beyond-recursion", "non-object-error", "body-cut-short"])
+        "nested-beyond-recursion", "non-object-error", "body-cut-short", "refused-fields-closed-shape",
+        "refused-fields-capped", "fields-only-from-a-bad-request-list"])
 def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload(monkeypatch, body, detail):
     cloud, refuse = provider(body)
     monkeypatch.setattr(ops, "urlopen", refuse)
@@ -1289,6 +1312,40 @@ def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its
         cloud.call("logging", "v2/projects/earnings-nerd/metrics")  # unlabelled callers keep the old wording
     monkeypatch.setattr(ops, "urlopen", provider(body, code=404)[1])
     assert cloud.call("iam", "v1/" + ops.ROLE, missing_ok=True, step=ops.ROLE_READ) is None
+
+
+@pytest.mark.parametrize("path, named", [
+    ("job.name", True),
+    ("template.template.containers[0].env[41].value_source.secret_key_ref.secret", True),
+    ("template.template.serviceAccount", True),
+    ("template.template.containers[0].resources.limits", True),
+    (".".join(["template"] * 12), True),
+    ("PRINCIPAL_SENTINEL", False), ("Job.name", False), ("principal@example.invalid", False),
+    ("projects/project/secrets/secret", False), ("secret-name", False), ("env[1234]", False), ("sENTINEL", False),
+    ("sECRET", False),
+    ("value1", False), ("job..name", False), (".job", False), ("job.", False), ("job[0][1]", False),
+    ("job name", False), ("job.name\n", False), (".".join(["template"] * 13), False),
+])
+def test_a_refused_field_is_named_only_in_its_closed_path_shape(path, named):
+    """A field path is printed in a public log, so its shape alone must exclude every value a provider could hold."""
+    assert bool(ops.FIELD_PATH.fullmatch(path)) is named
+
+
+@pytest.mark.parametrize("field, path", [
+    ("Violation in CreateJobRequest.job.template.template.volumes[0].name", "job.template.template.volumes[0].name"),
+    ("Violation in UpdateServiceRequest.service.template.vpc_access.connector", "service.template.vpc_access.connector"),
+    ("Violation in CreateWorkerPoolRequest.worker_pool.labels", "worker_pool.labels"),
+    ("job.name", "job.name"),
+    ("Violation in CreateJobRequest.job.name: PRINCIPAL_SENTINEL", None),
+    ("Violation in CreateJobRequest.PRINCIPAL_SENTINEL", None),
+    ("Violation in principal@example.invalid.job.name", None),
+    ("Violation in RequestRequest", None), ("Violation in Request.job.name", None),
+    ("violation in createJobRequest.job.name", None), ("Violation in CreateJobRequest.", None),
+    ("Violation in CreateJobRequest." + ".".join(["template"] * 30), None),
+])
+def test_a_cloud_run_field_is_named_by_its_path_after_the_request_type(field, path):
+    """Cloud Run v2 writes a refused field as "Violation in <request type>.<path>"; only that path is named."""
+    assert ops.field_path(field) == path
 
 
 def test_every_permission_a_step_label_names_can_be_named_in_a_refusal():
