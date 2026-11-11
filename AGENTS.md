@@ -12,8 +12,10 @@ this task; open those lessons rather than the whole collection, and skip its "En
 machine gate" section.
 
 - Continuing the master plan or a release: read `tasks/todo.md`, the short open-items file (one
-  line per open item, newest first, holds by pointer). The historical ledger is
-  `tasks/archive/todo-ledger-through-2026-10-07.md`; its unchecked rows are not a to-do list.
+  short line per open item, most urgent first, holds by pointer). The historical ledgers are
+  `tasks/archive/todo-ledger-through-2026-10-07.md` and
+  `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`; their unchecked rows are not a
+  to-do list.
   Handovers (`tasks/handover-astra-2026-09-19.md` and the September 28 checkpoint in
   `tasks/continuation-plan-2026-09-26.md`) are dated evidence; open them only when an open item
   points there.
@@ -56,9 +58,9 @@ examples under a frozen legacy allowlist; treat those examples as illustrative o
 ## 3. Bias to action
 
 Infer intent and scope from `tasks/todo.md`, the September 28 checkpoint it points to, and the
-conversation. Every open item the founder placed under *Engineering* there is pre-authorized
-(an agent may add an item there only with the founder's words or a merged PR behind it): carry it to completion and make the result reviewable
-before asking anything. Complete the work that is already authorized before raising a question.
+conversation. Every open row there whose owner is engineering is pre-authorized (an agent may add
+a row only where §7's admission rule lets it in, with the founder's words or a merged PR behind
+it): carry it to completion and make the result reviewable before asking anything. Complete the work that is already authorized before raising a question.
 
 Pause and ask only for these: editing a locked contract test (rule 6); a baseline re-pin outside
 a listed RUNBOOK trigger; flipping a production flag; any row marked *founder*; deleting data or
@@ -135,8 +137,8 @@ Review rounds converge in one fix round (`lessons/ops-converge-a-review-in-one-f
 Write the done criteria in the PR body before round 1, the tier's full review, and fix its findings
 once. Round 2 reviews only that fix's diff, from round 1's head to the fix's head, with the tier's
 whole team. A round-2 finding in that diff and inside the criteria is fixed without another round;
-one outside the diff or beyond the criteria becomes a follow-up row in `tasks/todo.md`, or a limit
-the body names, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
+one outside the diff or beyond the criteria becomes a limit the body names, or a follow-up row in
+`tasks/todo.md` only where §7's admission rule lets it in, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
 its reason under "Review", and a fourth needs the founder's go. Codex's review of each head is not a
 round, and the records tier's same-context delta checks each cover only their head's fix commit.
 `/premerge-review` partly gates the rounds: each PR in `args.prs` takes `round` (1 when unset);
@@ -234,9 +236,21 @@ this PR / Review (tier, lenses, refutations). Write clear, concise paragraphs, e
 idea. State the action directly; no filler phrases. Messages and PR bodies are read by a human.
 
 Handover: one page, written as the top block of `tasks/todo.md`, never a new file. It holds, in
-this order: the date and author; where things stand (at most five lines: production revision,
-balance, open PRs, holds by pointer); the open items, one line each with owner and next step; and
-what to doubt first. An open item reads `- [ ] <id> — <DISPOSITION> (<owner>): <text>`. An owner
+this order: the date; where things stand (at most five lines: the reader numbers, the product's
+state, how to read production, spend, holds by pointer); the open items, most urgent first, one
+short line each with owner and next step; and what to doubt first.
+
+Admission (`lessons/ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md`). A row
+enters `tasks/todo.md` only if a reader, tester or customer hit it, it blocks admitting testers or
+taking payment, or it is a security or legal exposure today. A finding that meets none of these is
+a limit its pull request's body names, and gets no row. A row that waits on an event rather than on
+work is parked: one line under "Parked" naming the event, not an open row. The page holds at most
+30 open rows, 70 words on any line and 80 lines
+(`backend/tests/unit/test_agent_workflow_rules.py`); at the cap, close, merge or park a row before
+adding one. A production state, a deploy history or a review's evidence never goes in a row: read
+production live, and keep evidence in the pull request that produced it.
+
+An open item reads `- [ ] <id> — <DISPOSITION> (<owner>): <text>`. An owner
 segment that names a next change and a path in backticks ("the next writer of `routers/auth.py`")
 holds that path's next pull request in `review-gate` until it names the row.
 `backend/tests/unit/test_review_gate.py` fails a span there that names no tracked file (a call,

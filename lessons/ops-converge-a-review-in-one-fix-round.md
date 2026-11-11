@@ -27,8 +27,9 @@ addressing."
 - Bring the base into the branch, by merge or rebase, before round 1 or after the last round, never between rounds: a
   merge puts the base's changes into the fix diff, and a rebase leaves the previous round's head off the branch.
 - Fix a round-2 finding that lies in the fix diff and inside the done criteria without another round; the full gate and
-  Codex's review of that head cover the change. Send one outside the diff or beyond the criteria to a follow-up row in
-  `tasks/todo.md`, or name it as a limit in the pull request body, unless it is a blocker.
+  Codex's review of that head cover the change. Name one outside the diff or beyond the criteria as a limit in the
+  pull request body, or send it to a follow-up row in `tasks/todo.md` only where `AGENTS.md` §7 admits one
+  (`ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md`), unless it is a blocker.
 - Run round 3 only for a blocker, or a regression round 2 found in the fix, and give the reason in the pull request
   body under "Review"; round 3 reviews only its own fix diff. A fourth round needs the founder's go.
 - Give the review workflow (`.claude/workflows/premerge-review.js`) the round: `round` on each pull request, and

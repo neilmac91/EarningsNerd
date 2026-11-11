@@ -106,7 +106,9 @@ sibling plans have landed:
    4. The exports, split by file; the siblings they waited for (#1601, #1609) have merged.
    5. Surfaces and the results header, last.
 
-   E206 in `tasks/todo.md` tracks them in this order. The proxy-statement fix the census found
+   E206 tracked them in this order until the triage of 2026-11-11 merged its open data steps into
+   F49 (`tasks/todo.md`); E206's own text is in
+   `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`. The proxy-statement fix the census found
    (§1.6) went first: it merged as #1622, and its repair of the rows stored before it, E211, is
    E206's first item.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
@@ -1416,8 +1418,10 @@ so it can start today.
 
 What WP3 and WP4 leave is in E206.
 
-**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order. The
-proxy-statement fix went first and merged as #1622; what it left leads the row:
+**Tracking.** One row, E206, held this report's work in order. The triage of 2026-11-11 merged its
+open data steps (E211's repair, WP0's apply) into F49 in `tasks/todo.md` and closed the rest; the
+row as it stood is in `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`. The
+proxy-statement fix went first and merged as #1622; what it left led the row:
 1. E211, the journaled repair of the proxy rows stored before #1622 (§1.6, high tier);
 2. WP0–WP5 in the order above (WP5 also commits a rerunnable restatement census);
 3. the concept-selection decision for REGN's change of scope (§1.6);

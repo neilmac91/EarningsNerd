@@ -3,7 +3,10 @@
 Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
 
 - ``tasks/todo.md`` is one page of open items, never a dated ledger again (§7). The old file grew
-  to 6,406 lines because every session prepended a ``## <date> — …`` section.
+  to 6,406 lines because every session prepended a ``## <date> — …`` section. A cap on lines alone
+  then held the page at 120 lines while it grew to 173 KB: 102 rows, one of 2,614 words, and a
+  2,058-word status bullet (``lessons/ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md``).
+  So the page has three budgets: its lines, its open rows, and the words on any one line.
 - Every ``agent(`` call in ``.claude/workflows/*.js`` names its ``model`` in its options object
   with one of the aliases ``sonnet``, ``opus`` or ``haiku`` or a tier key the script defines (§5),
   and every tier of the review script names a lens model and, when it refutes, a refuter model, so
@@ -37,7 +40,11 @@ WORKFLOWS = ROOT / ".claude" / "workflows"
 LESSONS = ROOT / "lessons"
 TRANSCRIPTS = ".claude/council-transcripts/"
 
-TODO_MAX_LINES = 120
+TODO_MAX_LINES = 80
+# Budgets, not allowlist caps: a row leaves when it closes, and nothing here is a list to shrink.
+TODO_MAX_OPEN_ROWS = 30
+TODO_MAX_LINE_WORDS = 70
+TODO_OPEN_ROW = re.compile(r"^- \[ \] ")
 TODO_TITLE = "# Open items — EarningsNerd"
 # The only sections the open-items file may carry, each exactly once (AGENTS.md §7). The first
 # one carries the date of the last refresh; a second copy is a ledger entry, not a refresh.
@@ -109,11 +116,36 @@ def _headings(lines: list[str]) -> list[str]:
     return headings
 
 
+def _todo_budget_problems(lines: list[str]) -> list[str]:
+    """What an open-items page spends past its row and word budgets (AGENTS.md §7)."""
+    problems = []
+    open_rows = sum(1 for line in lines if TODO_OPEN_ROW.match(line))
+    if open_rows > TODO_MAX_OPEN_ROWS:
+        problems.append(f"{open_rows} open rows, over {TODO_MAX_OPEN_ROWS}: close, merge or park one before adding one")
+    problems += [
+        f"{len(line.split())} words on one line, over {TODO_MAX_LINE_WORDS}: {line[:50]}…"
+        for line in lines
+        if len(line.split()) > TODO_MAX_LINE_WORDS
+    ]
+    return problems
+
+
 def test_todo_is_one_page_of_open_items():
     lines = TODO.read_text(encoding="utf-8").splitlines()
     assert len(lines) <= TODO_MAX_LINES, (
         f"tasks/todo.md has {len(lines)} lines; it is the open-items page, not the ledger "
         "(AGENTS.md §7 — closed items leave the file, history goes to tasks/archive/)"
+    )
+    # The budgets read the page as written: a row past the count and a line past its words each fail,
+    # and a page inside both passes, however its rows are worded.
+    row = "- [ ] E1 — DO (engineering): " + "word " * (TODO_MAX_LINE_WORDS - 7)  # exactly at the budget
+    assert _todo_budget_problems([row.strip()] * TODO_MAX_OPEN_ROWS) == []
+    assert len(_todo_budget_problems([row.strip()] * (TODO_MAX_OPEN_ROWS + 1))) == 1
+    assert len(_todo_budget_problems(["- a status bullet " + "word " * TODO_MAX_LINE_WORDS])) == 1
+    problems = _todo_budget_problems(lines)
+    assert not problems, (
+        "tasks/todo.md is past its budget (AGENTS.md §7: a row needs a reader, a launch blocker or an "
+        f"exposure, and its evidence belongs in the pull request that produced it): {problems}"
     )
     assert _headings(["# T", "```inline``` code", "## 2026-10-08 — x"]) == ["# T", "## 2026-10-08 — x"]
     assert _headings(["# T", "```", "## hidden", "```", "## shown", "Setext", "---"]) == ["# T", "## shown", "## Setext"]
