@@ -278,3 +278,7 @@ The full frontend gate above already includes that step; a focused selection doe
 Run heavyweight local verification in the foreground through the [launcher](ops/dev/README.md),
 wrapping each stage separately. Focused checks remain direct and may run concurrently. CI commands
 stay unchanged. `git status` must be empty after each commit. Open every PR as a draft first.
+CI tests a pull request once it is ready, not while it is a draft: a draft's push runs no test job
+and leaves `e2e-tests` red, so the local gates above are the only test of a draft. Mark it ready
+when they pass; that starts CI's suites, and each push while ready runs them again, so put a review
+round's fixes in one push (`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`).

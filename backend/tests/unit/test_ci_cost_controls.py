@@ -3,8 +3,12 @@
 Markdown records under tasks/, lessons/ and docs/, plus the two named CODE RED
 JSON families, omit browser builds. So does a change confined to backend/ and ops/
 files that neither the frontend build nor a browser spec reads: the browser jobs run
-the built frontend with no backend. All application, contract, record-validation,
-policy and migration suites retain their existing coverage.
+the built frontend with no backend. A run that tests nothing skips the test jobs: a
+draft pull request's push (the ready mark starts the run that tests the head), a push
+to main that deploys nothing (its pull request tested it; a nightly run tests such
+merges together) and a nightly run with no new commit. Wherever a run tests a change,
+the application, contract, record-validation, policy and migration suites keep their
+coverage, and a draft's required checks are never all green.
 A computed scope also says whether the change touches the offer (``prices_changed``,
 read by the price-agreement job); a scope that falls back to the full suite says
 nothing about it, so an unknown scope can never skip that job.
@@ -32,20 +36,27 @@ BROWSER_INPUTS_OUTSIDE_FRONTEND = (
     "backend/tests/fixtures/analysis_first_reports_produced.json",
     "docs/brand/templates/email-header.html",
 )
-FULL_SUITE = "records_only=false\nbrowser=true"  # what an unknown scope writes: nothing about the offer
+FULL_SUITE = "records_only=false\nbrowser=true\ntests=true\ndraft=false"  # an unknown scope: nothing about the offer
+IDLE_NIGHT = "records_only=false\nbrowser=false\ntests=false\ndraft=false"
+# The job conditions: a job skips only where ci-scope succeeded AND wrote the exact value. A scope that failed, was
+# skipped, or wrote nothing or anything else runs the job (GitHub's `==` on a missing output is false).
+TESTS_IF = "${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}"
+SHARD_IF = "${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.draft == 'true') }}"
+BROWSER_RUNNER = "${{ needs.ci-scope.outputs.browser == 'false' && 'ubuntu-slim' || 'ubuntu-latest' }}"
 
 
 def NOTHING_SKIPPED(output):
     """A scope that failed must write no value a job skips work on."""
-    return not {"records_only=true", "prices_changed=false", "browser=false"} & set(output.splitlines())
+    return not {"records_only=true", "prices_changed=false", "browser=false", "tests=false", "draft=true"} & set(output.splitlines())
 
 
-def scoped(records, prices=False, browser=None):
+def scoped(records, prices=False, browser=None, tests=True, draft=False):
     """What a computed scope writes, one line per output. Records never run the browser jobs; any other change
-    runs them unless the case says it is confined to backend/ and ops/ files they do not read."""
+    runs them unless the case says it is confined to backend/ and ops/ files they do not read. `tests` is false where
+    the run tests nothing, and `draft` true on a draft pull request alone."""
     browser = (not records) if browser is None else browser
-    return (f"records_only={str(records).lower()}\nprices_changed={str(prices).lower()}"
-            f"\nbrowser={str(browser).lower()}")
+    return "\n".join(f"{name}={str(value).lower()}" for name, value in (
+        ("records_only", records), ("prices_changed", prices), ("browser", browser), ("tests", tests), ("draft", draft)))
 
 
 def workflow():
@@ -83,13 +94,41 @@ def history(tmp_path):
     return repo, env, git, write
 
 
+# The stub `gh` the scope step meets: it records each call, then answers the three reads the step makes. The runs on
+# main's tip (the nightly run) come from RUNS_ANSWER, a run's backend-tests conclusions from JOBS_ANSWER_<run id> or
+# JOBS_ANSWER, and anything else, the pull request's draft flag, from DRAFT_ANSWER.
+GH_STUB = r"""#!/bin/sh
+printf '%s\n' "$*" >> "$GH_CALLS"
+case "$2" in
+  */actions/workflows/ci.yml/runs*) printf '%s\n' "$RUNS_ANSWER"; exit "$RUNS_EXIT" ;;
+  */actions/runs/*/jobs*)
+    run=${2#*/actions/runs/}
+    printenv "JOBS_ANSWER_${run%%/*}" || printf '%s\n' "$JOBS_ANSWER"
+    exit "$JOBS_EXIT" ;;
+esac
+printf '%s\n' "$DRAFT_ANSWER"
+exit "$GH_EXIT"
+"""
+
+
 def classify(history, tmp_path, event="push", **overrides):
+    """Run ci-scope's step. On a pull request it reads the live draft flag through `gh`; a stub answers with
+    DRAFT_ANSWER (a ready pull request unless the case says otherwise) and exits with GH_EXIT, and records its
+    arguments so a case can check which pull request was read."""
     repo, env, git, _ = history
     output = tmp_path / "output"
     output.unlink(missing_ok=True)
+    stub = tmp_path / "stub-bin"
+    stub.mkdir(exist_ok=True)
+    (stub / "gh").write_text(GH_STUB, encoding="utf-8")
+    (stub / "gh").chmod(0o755)
+    (tmp_path / "gh-calls").write_text("", encoding="utf-8")
     env = {
         **env, "EVENT_NAME": event, "GITHUB_SHA": git("rev-parse", "HEAD"),
-        "BEFORE_SHA": git("rev-parse", "HEAD^"), "PR_HEAD_SHA": "",
+        "BEFORE_SHA": git("rev-parse", "HEAD^"), "PR_HEAD_SHA": "", "PR_NUMBER": "7",
+        "GITHUB_REPOSITORY": "owner/repo", "GH_TOKEN": "stub", "DRAFT_ANSWER": "false", "GH_EXIT": "0",
+        "RUNS_ANSWER": "", "RUNS_EXIT": "0", "JOBS_ANSWER": "", "JOBS_EXIT": "0",
+        "GH_CALLS": str(tmp_path / "gh-calls"), "PATH": f"{stub}{os.pathsep}{env['PATH']}",
         "RUNNER_TEMP": str(tmp_path), "GITHUB_OUTPUT": str(output), **overrides,
     }
     scope = workflow()["jobs"]["ci-scope"]["steps"][-1]
@@ -98,6 +137,21 @@ def classify(history, tmp_path, event="push", **overrides):
         capture_output=True, text=True, timeout=20, check=False,
     )
     return result, output.read_text().strip() if output.exists() else ""
+
+
+def merge_as_pull_request(history, *paths, content="record\n"):
+    """Commit the paths on a branch off main and merge it as GitHub's test merge does; returns the branch's head."""
+    _, _, git, write = history
+    branch = f"feature-{git('rev-list', '--count', 'HEAD')}"
+    git("switch", "-qc", branch)
+    for path in paths:
+        write(path, content)
+    git("add", ".")
+    git("commit", "-qm", "change")
+    head = git("rev-parse", "HEAD")
+    git("switch", "-q", "main")
+    git("merge", "--no-ff", "-qm", "checked merge", branch)
+    return head
 
 
 @pytest.mark.parametrize("path,records,browser", [
@@ -178,11 +232,10 @@ def classify(history, tmp_path, event="push", **overrides):
     ("README.md", False, True),
 ])
 def test_scope_classifies_real_changes(history, tmp_path, path, records, browser):
-    _, _, git, write = history
-    write(path)
-    git("add", ".")
-    git("commit", "-qm", "change")
-    result, output = classify(history, tmp_path)
+    # As a ready pull request, where every job that applies runs: a push to main runs the browser jobs for no
+    # change that deploys nothing, so it cannot show which paths they read.
+    head = merge_as_pull_request(history, path)
+    result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head)
     assert result.returncode == 0, result.stderr
     assert output == scoped(records, prices=path == PRICES, browser=browser)
 
@@ -192,60 +245,55 @@ def test_scope_classifies_real_changes(history, tmp_path, path, records, browser
     *BROWSER_INPUTS_OUTSIDE_FRONTEND[:3],
 ])
 def test_scope_classifies_record_bundles_and_mixed_changes(history, tmp_path, extra_path):
-    _, _, git, write = history
-    for path in RECORD_PATHS:
-        write(path)
-    if extra_path:
-        write(extra_path)
-    git("add", ".")
-    git("commit", "-qm", "record bundle with optional application change")
-    result, output = classify(history, tmp_path)
+    head = merge_as_pull_request(history, *RECORD_PATHS, *([extra_path] if extra_path else []))
+    result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head)
     assert result.returncode == 0, result.stderr
     # One path the browser jobs read runs them, whatever else the change holds.
     browser = extra_path not in (None, "backend/app/config.py", "ops/dev/verify.py")
     assert output == scoped(extra_path is None, prices=extra_path == PRICES, browser=browser)
 
 
-@pytest.mark.parametrize("runtime_path,browser", [("backend/app/runtime.md", False), ("frontend/app/runtime.md", True)])
 @pytest.mark.parametrize("record_path,renamed_record_path", [
     ("tasks/todo.md", "tasks/runtime.md"),
     (APPOINTMENTS, EXCLUSION),
     (EXCLUSION, APPOINTMENTS),
 ])
 def test_scope_uses_whole_push_and_preserves_both_rename_sides(
-    history, tmp_path, record_path, renamed_record_path, runtime_path, browser,
+    history, tmp_path, record_path, renamed_record_path,
 ):
+    # The runtime file deploys, so each push that touches it runs the test jobs, and a push that touches it by a
+    # rename alone must too: `tests=false` here would mean the rename hid the backend side.
     repo, _, git, write = history
     before = git("rev-parse", "HEAD")
-    write(runtime_path)
+    write("backend/app/runtime.md")
     git("add", ".")
     git("commit", "-qm", "runtime")
     write(record_path)
     git("add", ".")
     git("commit", "-qm", "records tail")
     result, output = classify(history, tmp_path, BEFORE_SHA=before)
-    assert result.returncode == 0 and output == scoped(False, browser=browser)
+    assert result.returncode == 0 and output == scoped(False, browser=False)
 
     # Moving an identical runtime file into records must not hide its deletion.
-    git("mv", runtime_path, renamed_record_path)
+    git("mv", "backend/app/runtime.md", renamed_record_path)
     git("commit", "-qm", "rename into records")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(False, browser=browser)
+    assert result.returncode == 0 and output == scoped(False, browser=False)
 
-    git("mv", renamed_record_path, runtime_path)
+    git("mv", renamed_record_path, "backend/app/runtime.md")
     git("commit", "-qm", "rename out of records")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(False, browser=browser)
+    assert result.returncode == 0 and output == scoped(False, browser=False)
 
-    (repo / runtime_path).unlink()
+    (repo / "backend/app/runtime.md").unlink()
     git("commit", "-qam", "delete runtime")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(False, browser=browser)
+    assert result.returncode == 0 and output == scoped(False, browser=False)
 
     (repo / record_path).unlink()
     git("commit", "-qam", "delete record")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(True)
+    assert result.returncode == 0 and output == scoped(True, tests=False)
 
 
 @pytest.mark.parametrize("record_path", RECORD_PATHS)
@@ -258,14 +306,15 @@ def test_scope_finds_an_offer_change_anywhere_in_the_change(history, tmp_path, r
     write(record_path)
     git("add", ".")
     git("commit", "-qm", "records tail")
+    # A push of the offer deploys nothing, so it tests nothing; the scope still reports the offer's change.
     result, output = classify(history, tmp_path, BEFORE_SHA=before)
-    assert result.returncode == 0 and output == scoped(False, prices=True)
+    assert result.returncode == 0 and output == scoped(False, prices=True, browser=False, tests=False)
 
     # Deleting or renaming the module changes the offer too.
     git("mv", PRICES, "frontend/app/pricing/offer.ts")
     git("commit", "-qm", "rename the offer")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(False, prices=True)
+    assert result.returncode == 0 and output == scoped(False, prices=True, browser=False, tests=False)
 
 
 @pytest.mark.parametrize("record_path", RECORD_PATHS)
@@ -327,14 +376,14 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
         assert result.returncode != 0 and NOTHING_SKIPPED(output)
 
 
-@pytest.mark.parametrize("path", ["backend/app/config.py", "ops/dev/verify.py"])
-def test_a_backend_or_ops_change_with_an_unknown_scope_runs_the_browser_jobs(history, tmp_path, path):
+@pytest.mark.parametrize("path,deploys", [("backend/app/config.py", True), ("ops/dev/verify.py", False)])
+def test_a_backend_or_ops_change_with_an_unknown_scope_runs_every_job(history, tmp_path, path, deploys):
     _, _, git, write = history
     write(path)
     git("add", ".")
     git("commit", "-qm", "backend")
     result, output = classify(history, tmp_path)
-    assert result.returncode == 0 and output == scoped(False, browser=False)
+    assert result.returncode == 0 and output == scoped(False, browser=False, tests=deploys)
     for overrides in ({"BEFORE_SHA": "0" * 40}, {"BEFORE_SHA": ""}):
         result, output = classify(history, tmp_path, **overrides)
         assert result.returncode == 0 and output == FULL_SUITE
@@ -343,6 +392,147 @@ def test_a_backend_or_ops_change_with_an_unknown_scope_runs_the_browser_jobs(his
         assert result.returncode == 0 and output == FULL_SUITE
     result, output = classify(history, tmp_path, GITHUB_SHA="a" * 40)
     assert result.returncode != 0 and NOTHING_SKIPPED(output)
+
+
+@pytest.mark.parametrize("paths,records,browser", [
+    (("frontend/app/page.tsx",), False, True),
+    (("backend/app/config.py",), False, False),
+    (("backend/app/config.py", "frontend/app/page.tsx", "tasks/todo.md"), False, True),
+    (("tasks/todo.md",), True, False),
+    ((PRICES,), False, True),
+])
+def test_a_draft_runs_no_test_job_and_the_ready_pull_request_runs_them(history, tmp_path, paths, records, browser):
+    # The draft flag is the one `gh` reads now, never the event's: a payload can still say draft after the ready
+    # mark (#1315). Only its exact "true" skips the test jobs.
+    head = merge_as_pull_request(history, *paths)
+    prices = PRICES in paths
+    result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head, DRAFT_ANSWER="true")
+    assert result.returncode == 0, result.stderr
+    assert output == scoped(records, prices=prices, browser=browser, tests=False, draft=True)
+    assert "::notice title=Draft: the test jobs did not run::" in result.stdout
+    assert (tmp_path / "gh-calls").read_text() == "api repos/owner/repo/pulls/7 --jq .draft\n"
+    result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head, DRAFT_ANSWER="false")
+    assert result.returncode == 0 and output == scoped(records, prices=prices, browser=browser)
+    assert "::" not in result.stdout
+    # A read that fails, or answers anything else, runs every job the change calls for, and says so.
+    for unreadable in ({"DRAFT_ANSWER": ""}, {"DRAFT_ANSWER": "null"}, {"DRAFT_ANSWER": "True"}, {"DRAFT_ANSWER": "true\ntrue"},
+                       {"DRAFT_ANSWER": "true", "GH_EXIT": "1"}, {"DRAFT_ANSWER": "true", "PR_NUMBER": ""},
+                       {"DRAFT_ANSWER": "true", "PR_NUMBER": "7/../8"}, {"DRAFT_ANSWER": "true", "PR_NUMBER": "0"}):
+        result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head, **unreadable)
+        assert result.returncode == 0 and output == scoped(records, prices=prices, browser=browser), unreadable
+        assert "::warning::Cannot read whether this pull request is a draft; running every job." in result.stdout
+
+
+def deploy_detector():
+    """deploy-backend's own rule for a path that deploys, as its "Detect backend changes" step defines it."""
+    step = next(each for each in workflow()["jobs"]["deploy-backend"]["steps"] if each.get("id") == "changes")
+    (rule,) = [line.strip() for line in step["run"].splitlines() if line.strip().startswith("deployable() {")]
+    return rule
+
+
+@pytest.mark.parametrize("path,deploys", [
+    ("backend/app/config.py", True),
+    ("backend/migrations/new.sql", True),
+    ("backend/requirements.txt", True),
+    ("backend/Dockerfile", True),
+    ("backend/scripts/apply_migrations.sh", True),
+    ("backend/prompts/summary.md", True),
+    ("backend/testsuite/x.py", True),
+    ("backend/tests", True),
+    ("backend/tests/unit/test_contract.py", False),
+    ("backend/tests/fixtures/analysis_later_filings.json", False),
+    ("backendish/app/config.py", False),
+    ("other/backend/app/config.py", False),
+    ("frontend/app/page.tsx", False),
+    ("frontend/package-lock.json", False),
+    (".github/workflows/ci.yml", False),
+    ("ops/dev/verify.py", False),
+    ("tasks/todo.md", False),
+    ("CLAUDE.md", False),
+])
+def test_a_push_to_main_runs_the_test_jobs_exactly_when_it_deploys(history, tmp_path, path, deploys):
+    # deploy-backend needs the test jobs, so a push it would deploy must run them: a skipped job skips the deploy.
+    # The scope's rule is held to the deploy job's own, run here on the same path.
+    _, _, git, write = history
+    write(path)
+    git("add", ".")
+    git("commit", "-qm", "merge")
+    detector = subprocess.run(
+        ["bash", "-c", f"{deploy_detector()}; printf '%s\\n' \"$1\" | deployable", "detector", path],
+        capture_output=True, text=True, timeout=10, check=False)
+    assert (detector.returncode == 0) == deploys, "this case's `deploys` disagrees with deploy-backend's rule"
+    result, output = classify(history, tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert f"tests={str(deploys).lower()}" in output.splitlines()
+    if not deploys:
+        # It tests nothing, so the browser legs run with their steps skipped and e2e-tests passes: main stays green.
+        assert {"browser=false", "draft=false"} <= set(output.splitlines())
+        assert "This push deploys nothing" in result.stdout
+
+
+def test_a_push_runs_the_test_jobs_when_any_commit_range_deploys(history, tmp_path):
+    # deploy-backend reads HEAD^..HEAD; the scope reads the whole push. A push whose last commit deploys must run
+    # the test jobs even where the push's net change does not (a file added, then removed).
+    repo, _, git, write = history
+    before = git("rev-parse", "HEAD")
+    write("backend/app/added.py")
+    git("add", ".")
+    git("commit", "-qm", "add")
+    (repo / "backend/app/added.py").unlink()
+    write("tasks/todo.md")
+    git("add", "-A")
+    git("commit", "-qm", "remove, and a record")
+    result, output = classify(history, tmp_path, BEFORE_SHA=before)
+    assert result.returncode == 0 and "tests=true" in output.splitlines()
+    # The reverse: the last commit is a record, the push's first deploys.
+    before = git("rev-parse", "HEAD")
+    write("backend/app/kept.py")
+    git("add", ".")
+    git("commit", "-qm", "deploys")
+    write("lessons/ops-new.md")
+    git("add", ".")
+    git("commit", "-qm", "record")
+    result, output = classify(history, tmp_path, BEFORE_SHA=before)
+    assert result.returncode == 0 and "tests=true" in output.splitlines()
+    result, output = classify(history, tmp_path)  # that record alone, as its own push
+    assert result.returncode == 0 and output == scoped(True, tests=False)
+
+
+def test_the_nightly_run_tests_main_unless_a_run_already_tested_its_tip(history, tmp_path):
+    # Whether main's tip is tested is read from the runs made on it, never from its age or its paths: GitHub can drop
+    # a scheduled run, and a push can get no run at all (#2005). Only a completed push or nightly run whose
+    # backend-tests ran, passed or failed, makes this run idle; an idle run's own backend-tests is skipped.
+    _, _, git, write = history
+    write("frontend/app/page.tsx")
+    git("add", ".")
+    git("commit", "-qm", "a merge")
+    tip = git("rev-parse", "HEAD")
+    result, output = classify(history, tmp_path, "schedule")
+    assert result.returncode == 0 and output == FULL_SUITE and "::" not in result.stdout  # no run on the tip yet
+    assert (tmp_path / "gh-calls").read_text().startswith(
+        f"api repos/owner/repo/actions/workflows/ci.yml/runs?head_sha={tip}&status=completed&per_page=50 --jq ")
+    for conclusions, expected in (("success", IDLE_NIGHT), ("failure", IDLE_NIGHT), ("skipped", FULL_SUITE),
+                                  ("cancelled", FULL_SUITE), ("", FULL_SUITE), ("skipped success", IDLE_NIGHT),
+                                  ("successful", FULL_SUITE)):
+        result, output = classify(history, tmp_path, "schedule", RUNS_ANSWER="101", JOBS_ANSWER=conclusions)
+        assert result.returncode == 0 and output == expected, (conclusions, output)
+        assert ("already tested main's tip" in result.stdout) == (expected == IDLE_NIGHT)
+    # Several runs on the tip: last night's idle one, and the one before it that ran the suites.
+    result, output = classify(history, tmp_path, "schedule", RUNS_ANSWER="101\n102",
+                              JOBS_ANSWER_101="skipped", JOBS_ANSWER_102="success")
+    assert result.returncode == 0 and output == IDLE_NIGHT
+    assert [call.split(" --jq ")[0] for call in (tmp_path / "gh-calls").read_text().splitlines()[1:]] == [
+        "api repos/owner/repo/actions/runs/101/jobs?per_page=100", "api repos/owner/repo/actions/runs/102/jobs?per_page=100"]
+    result, output = classify(history, tmp_path, "schedule", RUNS_ANSWER="101\n102",
+                              JOBS_ANSWER_101="skipped", JOBS_ANSWER_102="cancelled")
+    assert result.returncode == 0 and output == FULL_SUITE
+    # A read that fails, or answers something that is not a run, runs every job and says so.
+    for unreadable in ({"RUNS_EXIT": "1"}, {"RUNS_ANSWER": "101", "JOBS_EXIT": "1", "JOBS_ANSWER": "success"},
+                       {"RUNS_ANSWER": "not-a-run", "JOBS_ANSWER": "success"},
+                       {"RUNS_ANSWER": "101/../102", "JOBS_ANSWER": "success"}):
+        result, output = classify(history, tmp_path, "schedule", **unreadable)
+        assert result.returncode == 0 and output == FULL_SUITE, unreadable
+        assert "::warning::Cannot read whether main's tip is already tested; running every job." in result.stdout
 
 
 SCANNED_SUFFIXES = {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs", ".css"}
@@ -437,12 +627,9 @@ def test_every_file_a_browser_check_reads_outside_frontend_runs_the_browser_jobs
     assert targets == set(BROWSER_INPUTS_OUTSIDE_FRONTEND), (
         "the files browser checks read outside frontend/ changed: update BROWSER_INPUTS_OUTSIDE_FRONTEND, and name "
         "each new backend/ or ops/ file in ci-scope's browser case in .github/workflows/ci.yml")
-    _, _, git, write = history
     for path in sorted(targets):
-        write(path, f"changed {path}\n")
-        git("add", ".")
-        git("commit", "-qm", f"change {path}")
-        result, output = classify(history, tmp_path)
+        head = merge_as_pull_request(history, path, content=f"changed {path}\n")
+        result, output = classify(history, tmp_path, "pull_request", PR_HEAD_SHA=head)
         assert result.returncode == 0 and "browser=true" in output.splitlines(), (path, output)
 
 
@@ -451,7 +638,11 @@ def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_pa
     for name in ("e2e-shard", "lighthouse"):  # each browser shard carries the scope guard, not the job summing them
         job = jobs[name]
         assert job["needs"] == ["ci-scope"]
-        assert job["if"] == "${{ always() && !cancelled() }}"
+        # Either condition runs the job whenever the scope failed, so the guard below then fails it.
+        assert job["if"] == (SHARD_IF if name == "e2e-shard" else TESTS_IF)
+        # A leg with no browser input runs the guard and the notice alone, on the 1-core runner; a scope that
+        # wrote nothing takes the standard one, where the guard fails.
+        assert job["runs-on"] == BROWSER_RUNNER
         guard, records, *steps = job["steps"]
         # The guard alone fails a leg whose scope failed or is missing. With an `if:` of its own it would skip, every
         # step after it would skip too, and the leg would pass; so would a `continue-on-error:` or a `shell:` that runs
@@ -480,10 +671,15 @@ def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_pa
                 assert step["if"] == "needs.ci-scope.outputs.browser == 'true'"
     assert jobs["ci-scope"]["outputs"]["browser"] == "${{ steps.scope.outputs.browser }}"
 
-    # Keep actual suites and secret scanning on records; don't skip required workflows.
+    # Keep actual suites and secret scanning on records; don't skip required workflows. The suites skip as whole
+    # jobs, and only where the scope says the run tests nothing; no step of theirs skips, and nothing skips the scan.
+    assert "if" not in jobs["secret-scan"] and "needs" not in jobs["secret-scan"]
+    for name in ("backend-tests", "frontend-tests", "migrations-postgres"):
+        assert jobs[name]["needs"] == ["ci-scope"] and jobs[name]["if"] == TESTS_IF
+        assert jobs[name]["runs-on"] == "ubuntu-latest"
     for name in ("backend-tests", "frontend-tests", "migrations-postgres", "secret-scan"):
-        assert "if" not in jobs[name] and "needs" not in jobs[name]
         assert all("if" not in step for step in jobs[name]["steps"])
+        assert not {"continue-on-error", "defaults"} & jobs[name].keys()
     assert not {"continue-on-error"} & (jobs["e2e-shard"].keys() | jobs["e2e-tests"].keys())
     for event in ("push", "pull_request"):
         assert not {"paths", "paths-ignore"} & (workflow()["on"][event] or {}).keys()
@@ -581,8 +777,7 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     ci = workflow()
     # Unique run_id fallbacks prevent queued main/manual runs replacing each other,
     # which cancel-in-progress:false alone would NOT prevent. Neither this group nor eval-baseline's reads the
-    # event's action or draft state, so a pull request's runs supersede one another, draft or ready; the ready
-    # mark's eval-baseline job supersedes, and is superseded, through that job's own group alone (F55).
+    # event's action or draft state, so a pull request's ready-mark run and its draft runs supersede one another (F55).
     assert ci["concurrency"] == {
         "group": "ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
@@ -598,42 +793,108 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     }
 
 
-def test_each_head_reports_required_checks_and_the_ready_mark_starts_only_the_paid_eval():
-    # F55: drafts draw no eval-baseline (test_eval_parity.py runs its scope shell against the live draft flag), so the
-    # ready mark must start that job on the head the pull request already has. It starts nothing else: a ready mark
-    # changes no file, and a CI run on it repeated the head's last run job for job (127 runs on 1-10 November 2026,
-    # docs/ops/actions-cost-plan-2026-11.md). So CI keeps the three default types, which report every required check
-    # on each head, drafts included, and the ready mark runs a copy of the job from a workflow of its own.
+def test_the_ready_mark_starts_the_run_that_tests_the_head_and_the_paid_eval():
+    # A draft's pushes run no test job, and drafts draw no eval-baseline (F55; test_eval_parity.py runs its scope
+    # shell against the live draft flag), so the ready mark must start a run of its own: the first to test the head.
+    # The three default types still start a run on each head, which scans it for secrets and, when the pull request
+    # is ready, tests it. The eval job runs on a pull request or a dispatch, never on a push or the nightly run.
     ci = workflow()
-    assert ci["on"]["pull_request"]["types"] == ["opened", "synchronize", "reopened"]
+    assert ci["on"]["pull_request"]["types"] == ["opened", "synchronize", "reopened", "ready_for_review"]
     assert ci["jobs"]["eval-baseline"]["if"] == (
         "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'")
-    ready = yaml.load((ROOT / ".github/workflows/eval-baseline-ready.yml").read_text(), Loader=yaml.BaseLoader)
-    # Nothing but the ready mark starts it, and it holds nothing but the job: a required check's name here would
-    # report on the head beside CI's own, and a workflow-level concurrency, env or defaults would change the copy.
-    assert set(ready) == {"name", "on", "jobs"}
-    assert ready["on"] == {"pull_request": {"types": ["ready_for_review"]}}
-    assert set(ready["jobs"]) == {"eval-baseline"}
-    # The copy is the job itself, key for key, so the measurement a ready mark starts is the one a push starts.
-    assert ready["jobs"]["eval-baseline"] == ci["jobs"]["eval-baseline"]
     assert not {"env", "defaults"} & ci.keys()
+
+
+def test_a_draft_never_shows_every_required_check_green():
+    # GitHub counts a skipped job as passing a required check, and a draft's push skips the test jobs. A ready mark
+    # whose run GitHub never starts (2026-11-04: lessons/ops-a-ready-mark-runs-ci-on-the-merge-commit-of-the-last-push.md)
+    # would then leave a ready pull request with every check green and nothing tested. So on a draft e2e-shard skips
+    # as a whole job, and e2e-tests, a required check that always runs, fails on any shard result but success.
+    jobs = workflow()["jobs"]
+    scope = jobs["ci-scope"]
+    assert scope["outputs"]["tests"] == "${{ steps.scope.outputs.tests }}"
+    assert scope["outputs"]["draft"] == "${{ steps.scope.outputs.draft }}"
+    assert scope["permissions"] == {"contents": "read", "pull-requests": "read", "actions": "read"}
+    # The scope reads history (HEAD^ and a pull request's merge parents) and GitHub (the draft flag, the tip's
+    # runs). Without either it fails, or reads every draft as unreadable and tests it: safe, and the whole saving gone.
+    checkout, step = scope["steps"]
+    assert checkout["with"] == {"fetch-depth": "2", "persist-credentials": "false"}
+    assert step["env"] == {
+        "EVENT_NAME": "${{ github.event_name }}", "PR_HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
+        "PR_NUMBER": "${{ github.event.pull_request.number }}", "BEFORE_SHA": "${{ github.event.before }}",
+        "GH_TOKEN": "${{ github.token }}",
+    }
+    assert jobs["e2e-shard"]["if"] == SHARD_IF
+    summary = jobs["e2e-tests"]
+    assert summary["needs"] == ["e2e-shard"] and summary["if"] == "${{ always() }}"
+    ran = subprocess.run(["bash", "-e", "-c", summary["steps"][0]["run"]], capture_output=True, text=True,
+                         env={**os.environ, "SHARDS": "skipped"}, timeout=10, check=False)
+    assert ran.returncode != 0
+    # The draft output is true only with tests=false, so no run skips the shards while it runs the suites.
+    text = scope["steps"][-1]["run"]
+    assert text.count("DRAFT=true") == 1 and re.search(r"TESTS=false\n\s*DRAFT=true\n", text)
+    # deploy-backend needs every test job and e2e-tests, so a push that skipped them skips the deploy too; the
+    # scope never skips them on a push that deploys (test_a_push_to_main_runs_the_test_jobs_exactly_when_it_deploys).
+    # Its condition names no status function (always, cancelled, failure, success), so a skipped need skips it.
+    assert jobs["deploy-backend"]["if"] == (
+        "github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_WIF_PROVIDER != ''")
+
+
+def test_the_nightly_run_reports_a_failed_job_in_an_issue():
+    # A merge that deploys nothing runs no test job on main; the nightly run tests those merges together, and
+    # nobody watches a scheduled run, so its failure must leave an issue (test_scheduled_workflows_fail_loud.py
+    # holds the other scheduled workflows to the same).
+    ci = workflow()
+    assert [entry["cron"] for entry in ci["on"]["schedule"]] == ["17 4 * * *"]
+    reporter = ci["jobs"]["report-failure"]
+    assert set(reporter) == {"needs", "if", "runs-on", "timeout-minutes", "permissions", "steps"}
+    assert set(reporter["needs"]) == set(ci["jobs"]["deploy-backend"]["needs"])
+    assert reporter["if"] == ("${{ always() && github.event_name == 'schedule' && "
+                              "(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}")
+    assert reporter["permissions"] == {"issues": "write"}
+    (step,) = reporter["steps"]
+    assert "if" not in step and step["env"]["GH_TOKEN"] and step["env"]["GH_REPO"] == "${{ github.repository }}"
+    executable = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
+    assert "gh issue create " in executable and "gh issue comment " in executable
+    # Run the step with a stub `gh`: no open issue creates one, an open one takes a comment, and both carry the
+    # run's link and each job's result.
+    for existing, expected in (("", "issue create"), ("41", "issue comment 41")):
+        import tempfile
+        with tempfile.TemporaryDirectory() as scratch:
+            stub = Path(scratch) / "gh"
+            stub.write_text(
+                '#!/bin/sh\ncase "$2" in list) printf \'%s\' "$EXISTING" ;; *) printf \'%s\\n\' "$*" >> "$CALLS"; '
+                'for a in "$@"; do p="$n"; n="$a"; [ "$p" = --body-file ] && cat "$a" >> "$CALLS"; done ;; esac\n')
+            stub.chmod(0o755)
+            calls = Path(scratch) / "calls"
+            ran = subprocess.run(
+                ["bash", "-e", "-c", step["run"]], capture_output=True, text=True, timeout=20, check=False,
+                env={**os.environ, "PATH": f"{scratch}{os.pathsep}{os.environ['PATH']}", "EXISTING": existing,
+                     "CALLS": str(calls), "RUN_URL": "https://example.invalid/run/1", "TIP": "0123456789abcdef",
+                     "RESULTS": '{"backend-tests": {"result": "failure"}, "e2e-tests": {"result": "success"}}'})
+            assert ran.returncode == 0, ran.stderr
+            said = calls.read_text()
+            assert expected in said and "https://example.invalid/run/1" in said and "(0123456)" in said
+            assert "- backend-tests: failure" in said and "- e2e-tests: success" in said
 
 
 def test_no_ci_job_can_run_for_the_six_hour_default_and_one_core_jobs_fit_their_runner():
     # A job with no limit runs until GitHub's 6-hour default when it hangs: 360 billed minutes for one push.
-    slim = {}
-    for name in ("ci.yml", "eval-baseline-ready.yml"):
-        for job_name, job in yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)["jobs"].items():
-            assert job.get("timeout-minutes", "").isdigit() and 1 <= int(job["timeout-minutes"]) <= 60, (name, job_name)
-            if job["runs-on"] == "ubuntu-slim":
-                slim[job_name] = job
+    jobs = workflow()["jobs"]
+    for job_name, job in jobs.items():
+        assert job.get("timeout-minutes", "").isdigit() and 1 <= int(job["timeout-minutes"]) <= 60, job_name
     # GitHub bills the 1-core runner at a third of the standard rate, stops its jobs at 15 minutes, and runs it in
     # an unprivileged container: no service containers and no Docker. Only jobs that run seconds of shell use it.
-    assert set(slim) == {"ci-scope", "secret-scan", "e2e-tests"}
+    slim = {job_name: job for job_name, job in jobs.items() if job["runs-on"] == "ubuntu-slim"}
+    assert set(slim) == {"ci-scope", "secret-scan", "e2e-tests", "report-failure"}
     for job_name, job in slim.items():
         assert int(job["timeout-minutes"]) <= 15, job_name
         assert not {"services", "container"} & job.keys(), job_name
         assert not [step for step in job["steps"] if step.get("uses", "").startswith("docker/")], job_name
+    # The browser jobs take it only for a leg with no browser input, whose steps past the guard and the notice all
+    # skip (test_browser_checks_report_records_and_reject_failed_or_missing_scope pins each step's condition).
+    assert {job_name for job_name, job in jobs.items() if "ubuntu-slim" in job["runs-on"]} - set(slim) == {"e2e-shard", "lighthouse"}
+    assert jobs["e2e-shard"]["runs-on"] == jobs["lighthouse"]["runs-on"] == BROWSER_RUNNER
 
 
 def test_pip_caches_downloads_keyed_by_the_installed_pins_not_environments():

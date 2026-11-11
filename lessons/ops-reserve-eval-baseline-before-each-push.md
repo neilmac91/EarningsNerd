@@ -27,10 +27,6 @@ payload can still say draft after the mark (#1315). A draft's run still classifi
 nothing; its notice says when the ready mark would draw. Unlike `copilot-eval`, nothing limits a head to
 one draw.
 
-Since 2026-11-10 the mark's run is `.github/workflows/eval-baseline-ready.yml`, which holds a copy of
-the job and nothing else. CI no longer runs on a ready mark: its other jobs repeated the head's last
-run on an unchanged commit (`docs/ops/actions-cost-plan-2026-11.md`). The draws below are the same.
-
 **Rule**:
 - **The ready mark.** If the diff touches those paths, read the balance first (`deepseek-balance.yml`,
   which makes no inference call). Then state the reservation in the body before you mark it ready:
@@ -47,17 +43,16 @@ run on an unchanged commit (`docs/ops/actions-cost-plan-2026-11.md`). The draws 
   original run saw), or a second ready mark on an unchanged head after a return to draft:
   `eval-baseline` has no once-per-head gate, as `copilot-eval` has. Reserve again before any run beyond
   the count you reserved. Put a review round's fixes in one push.
-- **A superseding push or ready mark.** Either cancels an `eval-baseline` job still in progress (the
-  job's `cancel-in-progress` group, which CI's copy and the ready mark's share by name), a push made
-  after a return to draft included; converting to draft alone cancels nothing. A run
+- **A superseding push or ready mark.** Either cancels a run still in progress (`cancel-in-progress`),
+  a push made after a return to draft included; converting to draft alone cancels nothing. A run
   cancelled after its `Run baseline eval` step started has drawn for the minutes that step ran: count
   it. One cancelled before that step drew nothing. When its log does not show which, count it in full.
 - **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
   links, so the reading is not taken for one draw's cost.
 
 **Evidence**:
-- `.github/workflows/ci.yml`, `on:`: `pull_request`'s three default types and the dispatch;
-  `.github/workflows/eval-baseline-ready.yml`, `on:`: `ready_for_review`.
+- `.github/workflows/ci.yml`, `on:`: `pull_request`'s types, the default three and
+  `ready_for_review`, and the dispatch.
 - `.github/workflows/ci.yml`, job `eval-baseline`: its `if:` and its `concurrency:` group; its
   `Detect AI-relevant changes` step, with the paths that start it on a pull request and the live
   draft read (only an exact `false` draws; a failed read fails closed).
@@ -82,7 +77,7 @@ run on an unchanged commit (`docs/ops/actions-cost-plan-2026-11.md`). The draws 
 **Gate**: partly gated since F55. `backend/tests/unit/test_eval_parity.py` runs the scope step against a
 stubbed live draft flag and fails if a draft, a failed read or any answer but `true` or `false` would
 draw, or if a paid step stops waiting on the key check; `backend/tests/unit/test_ci_cost_controls.py`
-fails if the ready mark's workflow stops starting on the mark or its job stops being CI's copy, and
-its cancellation test pins the groups that let one pull request's runs supersede one another. The reservation itself is review-checked: a hook on
+fails if the ready mark stops starting a run, and its cancellation test pins the groups that let one
+pull request's runs supersede one another. The reservation itself is review-checked: a hook on
 the GitHub write that marks a pull request ready could look for one in its body, but it would miss
 each later push, a dispatch of CI, and a session that loads no repository hooks.

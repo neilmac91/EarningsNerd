@@ -203,7 +203,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 CI (`.github/workflows/ci.yml`): ruff + bandit + pytest; eslint + tsc + vitest; Playwright with NO
 backend; `eval-baseline` compares AI output against `backend/evals/baseline_scores.json` (advisory:
-`continue-on-error`, not a required check).
+`continue-on-error`, not a required check). The test jobs run on a ready pull request, on a push to
+main that deploys the backend, and nightly on main; a draft's push runs no test job and shows
+`e2e-tests` red, so run the local gates and mark the pull request ready to test it
+(`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`).
 `deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/` (migrations
 through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-nerd`/us-west1, job
 images), and skips a commit main has since moved past with deployable backend changes, so a guarded

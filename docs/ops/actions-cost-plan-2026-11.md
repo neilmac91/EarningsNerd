@@ -8,17 +8,18 @@ runner, USD 0.005 for the arm64 runner, USD 0.25 a GB-month for artifact storage
 GitHub bills each job rounded up to a whole minute. "Billed minutes" below are computed that way
 from each job's start and end time.
 
-## Update: the repository is public again
+## Update, 11 November: public again, and the founder's brief
 
 Late on 10 November the Actions budget reached USD 40 and GitHub stopped starting jobs. The
 founder then made the repository public (about 23:35 UTC). A public repository's standard runners
 and artifact storage are free, and its runners have 4 CPUs, so jobs start again and the bill stops
 growing while it stays public. Everything below measures the private week and applies again the
-day the repository returns to private. Two things change while it is public:
+day the repository returns to private.
 
-- The pull request's changes save runner time, not money. They cost nothing to keep.
-- Step 3's self-hosted server is not an option: on a public repository a pull request from a fork
-  can run code on it.
+The founder's brief of that night: make CI as economical as it can be on GitHub's own runners;
+machines outside GitHub are not an option for now. The pull request that adds this file was
+reworked to that brief. It now holds every step of the plan that needs no outside machine and no
+change to the site, and "The plan" lists what is left.
 
 ## Summary
 
@@ -28,16 +29,15 @@ day the repository returns to private. Two things change while it is public:
   and costs about 112 since it went private on 3 November, because a private repository's runners
   have 2 CPUs where a public one's have 4. A run still takes about 25 minutes of waiting, so the
   change shows only on the bill.
-- A pull request runs CI about 3.6 times before it merges and once more on `main` after. At
-  today's prices a merged pull request costs about USD 2.95 of Actions.
-- At the pace of 1–3 November (182 CI runs a day, 36 merges a day), a month costs about
-  USD 3,300 at today's runner speed. The pull request that adds this file cuts that by about a
-  third, to about USD 2,200. That is still far above the USD 40 budget.
-- No tuning of the workflow files reaches USD 40 at that pace. USD 40 buys 6,667 minutes, which
-  is 6 billed minutes for the whole life of each pull request; the backend tests alone take 23
-  for one run. Reaching the budget needs cheaper compute (a
-  runner service or a self-hosted runner), fewer full runs for each pull request, or both. Those
-  are decisions for the founder, listed under "The plan".
+- A pull request ran CI about 3.6 times before it merged and once more on `main` after. At
+  private-repository prices a merged pull request cost about USD 2.95 of Actions.
+- At the pace of 1–3 November (182 CI runs a day, 36 merges a day), a private month costs about
+  USD 3,300. The pull request cuts that by about two thirds, to about USD 1,100, and a merged
+  pull request to about USD 0.91.
+- That is still far above a USD 40 budget. USD 40 buys 6,667 minutes, which is 6 billed minutes
+  for the whole life of each pull request; the backend tests alone take 23 for one run. On
+  GitHub's runners a private repository reaches USD 40 only in a month with few pull requests.
+  While the repository is public, Actions cost nothing.
 
 ## Where the minutes go
 
@@ -119,57 +119,69 @@ spend is not on the GitHub bill.
 
 ## What the pull request with this file changes
 
-Each change is one revert away from undone. Savings are for a month at the 1–3 November pace.
+Each change is one revert away from undone. Savings are for a private month at the 1–3 November
+pace. No required check is removed, and none changes what it tests when it runs.
 
 | Change | Saves a month | Risk it adds | What still catches a problem | Undo |
 |---|---:|---|---|---|
-| Browser jobs skip their steps when a change touches no file they read: records (as before), and now `backend/` and `ops/` files other than the three the frontend reads | 107,000 min, USD 640 | A browser check starts to read a backend file that is not on the list | `test_ci_cost_controls.py` scans the frontend for every path that leaves `frontend/` and fails until the scope runs the browser jobs for it; an unknown scope runs everything | Revert the `ci-scope` case in `ci.yml` |
-| A ready mark starts only the paid `eval-baseline` job (`eval-baseline-ready.yml`), not a whole CI run | 79,000 min, USD 470 | None for the required checks: they are the ones the head's last push ran. A ready mark no longer works as a free re-run | The last push's run; a test holds the copy of the job equal to CI's | Add `ready_for_review` back to `ci.yml` and delete the new workflow |
-| `ci-scope`, `secret-scan` and `e2e-tests` run on the 1-core runner | 8,700 min-equivalent, USD 50 | The runner stops a job at 15 minutes and runs no containers | A test holds those limits; the jobs fail closed | Change the three `runs-on` lines |
-| Time limits on the four CI jobs that had none (50, 40, 20 and 45 minutes) | Caps a hang at USD 0.30, not 2.16 | A very slow runner could hit a limit | Limits are about twice the usual time; re-run | Remove the lines |
-| `copilot-eval` artifacts kept 30 days, not 90 | About USD 8 of storage | Evidence older than 30 days is gone unless downloaded | The run page keeps the readable report | Remove the line |
+| **A draft's push runs no test job.** `ci-scope` reads the pull request's live draft flag. The ready mark starts the run that tests the head, and each push while ready runs it again | 258,000 min, USD 1,550 | CI no longer tests a draft. A failure the local gates miss shows only after the ready mark, where a second push also repeats the paid evaluation | The full suite runs on the ready pull request before any merge. `e2e-tests` fails on a draft on purpose, so a draft never shows every required check green and a ready mark whose run GitHub never started cannot merge untested | Remove the three test jobs' `if:` and `e2e-shard`'s draft condition |
+| **A merge that deploys nothing runs no test job on `main`.** A push that changes `backend/` outside `backend/tests/` still runs every job, and they still gate `deploy-backend`. A nightly run tests `main`'s tip unless a completed run already tested that commit, and opens an issue when a job fails | 60,000 min, USD 360; the nightly run costs up to USD 20 back | A break that only shows when two merges meet is found by the next pull request's run or the nightly run, not within the half hour. Vercel had deployed such a frontend merge either way | The pull request's own run on its merge with `main`; the nightly run; the daily production smoke test. The scope's rule for a push that deploys is held to `deploy-backend`'s own by a test | Drop the `push)` case in `ci-scope` and the `schedule:` trigger |
+| **Browser jobs skip a change that cannot affect them**: records (as before), and `backend/` and `ops/` files other than the three the frontend reads | 45,000 min, USD 270 on the runs that still test | A browser check starts to read a backend file that is not on the list | A test scans the frontend for every path that leaves `frontend/` and fails until the scope runs the browser jobs for it; an unknown scope runs everything | Revert the browser case in `ci-scope` |
+| **Jobs that run seconds of shell use the 1-core runner**, a third of the price: `ci-scope`, `secret-scan`, `e2e-tests`, the nightly report, and a browser leg that has nothing to run | About USD 50 | The runner stops a job at 15 minutes and runs no containers | A test holds those limits; the jobs fail closed. All three fixed jobs passed on it in run 42924687021 | Change the `runs-on` lines |
+| **Time limits** on the four CI jobs that had none (50, 40, 20 and 45 minutes) | Caps a hang at USD 0.30, not 2.16 | A very slow runner could hit a limit | Limits are about twice the usual time; re-run | Remove the lines |
+| **`copilot-eval` artifacts kept 30 days**, not 90 | About USD 8 of storage | Evidence older than 30 days is gone unless downloaded | The run page keeps the readable report | Remove the line |
 
-Modelled together, the first three changes take an active month from about 549,000 billed
-minutes (USD 3,300) to about 370,000 (USD 2,220).
+An earlier version of the pull request stopped the ready mark from starting a CI run. That is
+gone: with drafts untested, the ready mark's run is the one that tests the head.
 
-## The plan beyond this pull request
+Modelled together, the changes take an active private month from about 549,000 billed minutes
+(USD 3,300) to about 182,000 (USD 1,100). The model keeps each pull request's pushes as they
+were; it cannot know how many more pushes a ready pull request will need now that drafts are
+untested.
 
-Ordered by saving against risk. Dollar figures are for an active month after this pull request,
-at GitHub's price unless the row says otherwise. They overlap, so they do not add up.
+What a run costs after the pull request, in standard-runner minutes:
+
+| Run | Before | After |
+|---|---:|---:|
+| A push to a draft | 112 | 2 |
+| A ready pull request that changes the frontend | 112 | 110 |
+| A ready pull request that changes only backend, `ops/` or records | 112 | 47 |
+| A merge to `main` that deploys the backend | 112 | 47 to 110 |
+| A merge to `main` that deploys nothing | 112 | 3 |
+
+## The plan: what is left
+
+Ordered by saving against risk. Dollar figures are for an active private month after the pull
+request, at GitHub's price. They overlap, so they do not add up.
 
 | # | Step | Saves a month | Risk | What still catches a problem | Effort | Undo |
 |---|---|---:|---|---|---|---|
-| 1 | **Delete the stored `copilot-fidelity-*` artifacts older than 30 days.** Founder approval. | USD 10–13, at once | Old evaluation evidence is gone | Download first what an open audit needs | Minutes | Not possible |
-| 2 | **Push in batches.** One push for each unit of work; no push while a run that will pass is in progress; put a review round's fixes in one push. | Up to 38,000 min, USD 230 | None | Unchanged | An agent rule | Drop the rule |
-| 3 | **Run the heavy jobs on cheaper machines.** Founder decision. Either a runner service (Ubicloud lists a 2-CPU runner at USD 0.00125 a minute, about a fifth of GitHub's price; Blacksmith about USD 0.004) or one self-hosted server. Keep `deploy-backend`, the paid evaluation jobs and `review-gate` on GitHub's runners, so no production or provider credential leaves them. | USD 1,600 with a service at Ubicloud's price; nearly all of the bill with a self-hosted server, which costs about USD 50–100 a month itself | The code, and the test jobs, run on a third party's machines, or on a server you must patch and keep clean. GitHub postponed a USD 0.002-a-minute fee on such runners; it may return | Checks are unchanged; only where they run changes | Service: an hour. Server: a day, then upkeep | Change `runs-on` back |
-| 4 | **Run only quick checks on drafts; run everything when a pull request is marked ready and on each push after.** Founder decision: it changes what a green draft means. The safe form makes the required checks fail on a draft, as `review-gate` already does, and needs the ready mark to start CI again. | About 109,000 min, USD 650 | A draft's CI no longer proves the full suite passes; agents rely on the local gate until the ready mark | The full suite runs before any merge, on the ready mark and on `main` | 1–2 days, high review tier | Revert |
-| 5 | **If the jobs stay on GitHub: try the arm64 runner** (17% cheaper) on `frontend-tests` and the browser jobs, then `backend-tests`. Measure speed first. | Up to 58,000 min-equivalent, USD 340 | Tests run on a different CPU type than production (amd64) | `deploy-backend` still builds and health-checks the amd64 image | Half a day | Change `runs-on` back |
-| 6 | **Batch the `main` run for merges that deploy nothing.** A merge that changes deployable backend code keeps its own full run, which gates the deploy. Other merges share one run every hour or two. | About 33,000 min, USD 200 | A break between two frontend merges shows up to two hours later. Vercel has deployed it either way, as today | The pull request's own run; the batched run; the daily production smoke test | 1 day, high tier | Revert |
-| 7 | **Make the suites faster.** Browser: six chart specs take 22 of the 48 minutes. Backend: about 40 tests each scan the whole repository (5–24 seconds each); share one parsed copy. Frontend: vitest reports 31% of its time importing the same modules again for each of 362 files and 21% starting a browser-like environment for each. | Unknown until profiled; 20% would be 70,000 min, USD 420 | Low if the tests' assertions stay | The same tests | Days | Revert |
-| 8 | **Review gate.** Stop a runner waiting up to 20 minutes for Codex: fail fast and re-run when the review arrives, on the 1-core runner. | About 8,000 min, USD 50 | A re-run that does not start leaves the gate red, never green | The gate still fails closed | 1 day, high tier | Revert |
-| 9 | **Dependabot version updates monthly, not weekly.** Founder decision, because the public `/security` page says the dependencies are checked every week, and `legalTruth.spec.tsx` holds `dependabot.yml` to that sentence. The change is the schedule and the sentence together. | About 4,300 min, USD 26 | Non-security updates arrive up to a month later | Security updates do not follow the schedule | An hour | Revert both |
+| 1 | **Delete the stored `copilot-fidelity-*` artifacts older than 30 days.** Founder approval. Free while the repository is public; do it before a return to private. | USD 10–13 | Old evaluation evidence is gone | Download first what an open audit needs | Minutes | Not possible |
+| 2 | **Dependabot version updates monthly, not weekly.** The public `/security` page says the dependencies are checked every week, `legalTruth.spec.tsx` holds `dependabot.yml` to that sentence, and a change to the page's text needs a dated row in the legal ledger on the day it merges. So it is a small pull request of its own. | About USD 15 | Non-security updates arrive up to a month later | Security updates do not follow the schedule | An hour | Revert both |
+| 3 | **Try the arm64 runner** (17% cheaper) on `frontend-tests` and the browser jobs. Measure speed and a week of results first; keep `backend-tests` on the CPU type production runs. | Up to USD 110 | Browser tests that measure layout may differ with the runner image's fonts | The same tests; `deploy-backend` still builds and health-checks the amd64 image | Half a day, then a week's watch | Change `runs-on` back |
+| 4 | **Make the suites faster.** Browser: six chart specs take 22 of the 48 minutes. Backend: about 40 tests each scan the whole repository (5–24 seconds each); share one parsed copy. Frontend: vitest reports 31% of its time importing the same modules again for each of 362 files and 21% starting a browser-like environment for each. | Unknown until profiled; 20% would be about USD 180 | Low if the tests' assertions stay; sharing state between test files can hide a failure | The same tests | Days | Revert |
+| 5 | **Review gate.** Stop a runner waiting up to 20 minutes for Codex: fail fast and re-run when the review arrives, on the 1-core runner. The gate's workflow runs from `main`, so a pull request cannot test a change to it, and a mistake there blocks every merge, its own repair included. | About USD 50 | A broken gate needs the founder to lift the ruleset | The gate fails closed | 1 day, high tier, with the founder present | Revert |
+| 6 | **Machines outside GitHub**, when they become an option. A runner service lists a 2-CPU runner at about a fifth of GitHub's price (Ubicloud, USD 0.00125 a minute). A self-hosted server suits a private repository only: on a public one a pull request from a fork can run code on it. | Most of what is left | The code and the test jobs run on a third party's machines. GitHub postponed a USD 0.002-a-minute fee on such runners; it may return | Checks are unchanged; only where they run changes | An hour for a service | Change `runs-on` back |
 
 Smaller items, not worth a step of their own: `eval-baseline` bills one minute on every pull
-request to find that it has nothing to do (about 1% of CI); `data-quality-weekly.yml`'s `report`
-job and `refresh-index-membership.yml` have no time limit; Lighthouse uploads its reports of this
-private repository's build to public temporary storage.
+request to find that it has nothing to do; `data-quality-weekly.yml`'s `report` job and
+`refresh-index-membership.yml` have no time limit; Lighthouse uploads its reports to public
+temporary storage.
 
 ## Projected cost of a month
 
 | | Active month (1–3 November pace) | Quiet month (5–10 November pace) |
 |---|---:|---:|
-| Today | USD 3,300 | USD 160 |
-| After this pull request | USD 2,200 | about USD 110 |
-| After the full plan, on GitHub's runners | about USD 1,100 | about USD 55 |
-| After the full plan, heavy jobs on a runner service at Ubicloud's price | about USD 280 | about USD 20 |
-| After the full plan, heavy jobs on a self-hosted server | about USD 60, plus the server | about USD 10, plus the server |
+| Public repository | USD 0 | USD 0 |
+| Private, before the pull request | USD 3,300 | USD 160 |
+| Private, after the pull request | about USD 1,100 | about USD 90 |
+| Private, after steps 1 to 5 as well | about USD 800 | about USD 65 |
 
-The quiet month is the bill's own USD 5.34 a day for 5–10 November, storage included.
+The quiet month before the pull request is the bill's own USD 5.34 a day for 5–10 November,
+storage included; after it, the same six days' runs re-priced under the new rules. A private repository on GitHub's runners meets a USD 40 budget only in a month
+quieter than that one.
 
-The USD 40 budget holds in a quiet month once the heavy jobs leave GitHub's meter. In an active
-month it holds only with a self-hosted server, whose own cost is on another bill.
-
-## What to change in GitHub settings now
+## What to change in GitHub settings
 
 1. **Decide the budget's amount before the repository returns to private.** The Actions budget
    reached USD 40 on 10 November at about 23:21 UTC, and it is set to stop usage. For about a
@@ -183,9 +195,13 @@ month it holds only with a self-hosted server, whose own cost is on another bill
 2. **Approve deleting the old `copilot-fidelity-*` artifacts** (step 1 above).
 3. **Set the repository's artifact and log retention to 30 days** (repository Settings → Actions →
    General). It covers every upload that names no retention of its own.
-4. **Merge or close the four open Dependabot pull requests together.** Each one costs two runs.
-5. **To read billing through the API**, a session needs a token with the account permission
-   "Plan: read" (`GET /users/{username}/settings/billing/usage`). This session's token is bound
+4. **While the repository is public**: keep "Require approval for all outside collaborators" on
+   for workflows from forks (Settings → Actions → General), and turn on secret scanning and push
+   protection, which are free for a public repository (Settings → Code security).
+5. **Merge or close the open Dependabot pull requests together.** On a private repository each
+   one costs two runs.
+6. **To read billing through the API**, a session needs a token with the account permission
+   "Plan: read" (`GET /users/{username}/settings/billing/usage`). The review's token was bound
    to the repository and could not read it.
 
 ## How the numbers were made

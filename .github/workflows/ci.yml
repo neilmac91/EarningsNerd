@@ -3,13 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
-  # The three default types keep every required check reporting on each head, drafts included.
-  # A ready mark starts no run here: it changes no file, so a run on it repeated the head's last
-  # run, job for job (127 such runs on 1-10 November 2026, docs/ops/actions-cost-plan-2026-11.md).
-  # Drafts never make eval-baseline's paid draw (F55), so the ready mark starts that one job from
-  # .github/workflows/eval-baseline-ready.yml, which holds a copy of the job below.
+  # A draft's pushes run no test job (ci-scope's `tests` output), so the ready mark starts the run
+  # that tests the head, and eval-baseline's paid draw, which drafts never make (F55).
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
+  # A merge that deploys nothing runs no test job on main, so once a night every job runs on
+  # main's tip, if main gained a commit that day; report-failure opens an issue when one fails.
+  schedule:
+    - cron: '17 4 * * *'
   workflow_dispatch:
     inputs:
       limit:
@@ -35,12 +36,22 @@ jobs:
     # minutes and runs no service container (gate: backend/tests/unit/test_ci_cost_controls.py).
     runs-on: ubuntu-slim
     timeout-minutes: 5
+    # The scope step reads the pull request's live draft flag and, on the nightly run, the runs
+    # already made on main's tip; no step needs a write scope.
     permissions:
       contents: read
+      pull-requests: read
+      actions: read
     outputs:
       records_only: ${{ steps.scope.outputs.records_only }}
       # true unless every changed path is one no browser check reads. The browser jobs read this.
       browser: ${{ steps.scope.outputs.browser }}
+      # false where this run tests nothing: a draft pull request's push, a push to main that
+      # deploys nothing, and the nightly run when main gained no commit. The test jobs read it.
+      tests: ${{ steps.scope.outputs.tests }}
+      # true on a draft pull request only. e2e-shard reads it and skips, so e2e-tests fails:
+      # a draft's required checks are never all green (docs/ops/actions-cost-plan-2026-11.md).
+      draft: ${{ steps.scope.outputs.draft }}
       # Written only when the diff was computed, so an unknown scope never skips price-agreement.
       prices_changed: ${{ steps.scope.outputs.prices_changed }}
     steps:
@@ -53,10 +64,24 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          full_suite() { printf 'records_only=false\nbrowser=true\n' >> "$GITHUB_OUTPUT"; }
+          full_suite() { printf 'records_only=false\nbrowser=true\ntests=true\ndraft=false\n' >> "$GITHUB_OUTPUT"; }
+          # Whether a NUL-delimited list of paths holds one deploy-backend deploys: a path under
+          # backend/ outside backend/tests/, its "Detect backend changes" step's own rule.
+          deploys() {
+            local path
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                backend/tests/*) ;;
+                backend/*) return 0 ;;
+              esac
+            done < "$1"
+            return 1
+          }
           CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
           if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
             echo '::error::Checked source does not match the workflow commit.'
@@ -79,6 +104,37 @@ jobs:
               fi
               BASE=$BEFORE_SHA
               ;;
+            schedule)
+              # The nightly run tests the merges that ran no test job on main. It has nothing to
+              # test only when a completed push or nightly run already ran backend-tests on this
+              # very commit, passed or failed: the tip's own push, when it deployed, or an earlier
+              # night's run. That is read from the runs themselves, never inferred from the commit's
+              # age or paths: GitHub can drop a scheduled run, and a push can get no run at all
+              # (#2005). A read that fails, or answers anything unexpected, runs every job.
+              TESTED=unknown
+              RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&status=completed&per_page=50" \
+                --jq '.workflow_runs[] | select(.event == "push" or .event == "schedule") | .id') || RUNS=unreadable
+              if [ "$RUNS" != unreadable ]; then
+                TESTED=false
+                for RUN in $RUNS; do
+                  if ! [[ "$RUN" =~ ^[1-9][0-9]*$ ]]; then TESTED=unknown; break; fi
+                  RAN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?per_page=100" \
+                    --jq '[.jobs[] | select(.name == "backend-tests") | .conclusion] | join(" ")') || { TESTED=unknown; break; }
+                  case " $RAN " in
+                    *" success "*|*" failure "*) TESTED=true; break ;;
+                  esac
+                done
+              fi
+              if [ "$TESTED" = true ]; then
+                echo "::notice::A completed run already tested main's tip; no test job runs tonight."
+                printf 'records_only=false\nbrowser=false\ntests=false\ndraft=false\n' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              if [ "$TESTED" = unknown ]; then
+                echo "::warning::Cannot read whether main's tip is already tested; running every job."
+              fi
+              full_suite; exit 0
+              ;;
             *) full_suite; exit 0 ;;
           esac
           CHANGED_PATHS="$RUNNER_TEMP/browser-changed-paths"
@@ -87,7 +143,9 @@ jobs:
           RECORDS_ONLY=true
           BROWSER=false
           PRICES_CHANGED=false
-          [ -s "$CHANGED_PATHS" ] || { RECORDS_ONLY=false; BROWSER=true; }
+          DEPLOYS=false
+          EMPTY=false
+          [ -s "$CHANGED_PATHS" ] || { RECORDS_ONLY=false; BROWSER=true; EMPTY=true; }
           while IFS= read -r -d '' CHANGED_PATH; do
             case "$CHANGED_PATH" in
               tasks/*.md|lessons/*.md|docs/*.md) ;;
@@ -119,11 +177,59 @@ jobs:
               frontend/app/pricing/prices.ts) PRICES_CHANGED=true ;;
             esac
           done < "$CHANGED_PATHS"
+          TESTS=true
+          DRAFT=false
+          case "$EVENT_NAME" in
+            pull_request)
+              # A draft cannot merge, and its author runs the suites locally before each push, so a
+              # draft's push runs no test job; the ready mark starts the run that tests the head.
+              # The flag is read live: an event's payload can still say draft after the ready mark,
+              # and a re-run keeps its payload (#1315, backend/scripts/review_gate.py). Only an
+              # exact "true" skips the tests; a failed read runs them.
+              STATE=unreadable
+              if [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+                STATE=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .draft) || STATE=unreadable
+              fi
+              case "$STATE" in
+                true)
+                  TESTS=false
+                  DRAFT=true
+                  echo '::notice title=Draft: the test jobs did not run::Marking the pull request ready starts them. e2e-tests fails on a draft on purpose, so a draft never shows every required check green.'
+                  ;;
+                false) ;;
+                *) echo '::warning::Cannot read whether this pull request is a draft; running every job.' ;;
+              esac
+              ;;
+            push)
+              # deploy-backend deploys a push that changes backend/ outside backend/tests/ (its
+              # "Detect backend changes" step reads HEAD^..HEAD; both ranges are read here, so this
+              # never says less than it does). Such a push runs every job, since they gate the
+              # deploy. Any other push to main was tested as its pull request's merge commit and
+              # deploys nothing, so it runs no test job; the nightly run tests those merges together.
+              LAST_COMMIT_PATHS="$RUNNER_TEMP/last-commit-changed-paths"
+              git diff --no-renames --name-only -z HEAD^ HEAD > "$LAST_COMMIT_PATHS"
+              if deploys "$CHANGED_PATHS" || deploys "$LAST_COMMIT_PATHS"; then DEPLOYS=true; fi
+              if [ "$EMPTY" = false ] && [ "$DEPLOYS" = false ]; then
+                TESTS=false
+                BROWSER=false
+                echo '::notice::This push deploys nothing; its pull request tested it, so no test job runs here.'
+              fi
+              ;;
+          esac
           echo "records_only=$RECORDS_ONLY" >> "$GITHUB_OUTPUT"
           echo "prices_changed=$PRICES_CHANGED" >> "$GITHUB_OUTPUT"
           echo "browser=$BROWSER" >> "$GITHUB_OUTPUT"
+          echo "tests=$TESTS" >> "$GITHUB_OUTPUT"
+          echo "draft=$DRAFT" >> "$GITHUB_OUTPUT"
 
+  # The three test jobs and lighthouse skip only where ci-scope succeeded and wrote tests=false: a
+  # draft's push, a push to main that deploys nothing, a nightly run with nothing new. A scope that
+  # failed, or wrote anything else, runs them. GitHub counts a skipped job as passing a required
+  # check, so on a draft e2e-shard skips too and e2e-tests, which always runs, fails: a head shows
+  # every required check green only after a run that tested it.
   backend-tests:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
     runs-on: ubuntu-latest
     # Without a limit a hung job runs for GitHub's 6-hour default, 360 billed minutes. On the
     # private repository's 2-vCPU runners this job takes 23 minutes at the median and 28 at the
@@ -216,6 +322,8 @@ jobs:
   # must live in `migration_ledger` and never read or write the legacy name.
   # Any psql error fails the job (ON_ERROR_STOP inside the script); deploy-backend needs: this job.
   migrations-postgres:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -379,6 +487,8 @@ jobs:
         run: python -m pytest tests/integration/test_sec_request_gate_transactions.py
 
   frontend-tests:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
     runs-on: ubuntu-latest
     # Median 14 minutes, 90th percentile 18 (5-10 November 2026); see backend-tests.
     timeout-minutes: 40
@@ -487,8 +597,9 @@ jobs:
   # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
   lighthouse:
     needs: [ci-scope]
-    if: ${{ always() && !cancelled() }}
-    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
+    # A leg with no browser input runs two lines of shell, so it takes the 1-core runner (see ci-scope).
+    runs-on: ${{ needs.ci-scope.outputs.browser == 'false' && 'ubuntu-slim' || 'ubuntu-latest' }}
     # Median 3 minutes; see backend-tests. The job is advisory, so the limit fails nothing.
     timeout-minutes: 20
     continue-on-error: true
@@ -501,7 +612,7 @@ jobs:
           [ "$SCOPE_RESULT" = success ] && [[ "$BROWSER" = true || "$BROWSER" = false ]]
       - name: No browser input changed
         if: needs.ci-scope.outputs.browser == 'false'
-        run: echo 'This change touches no file the browser checks read (records, backend/ and ops/ only); the browser build and Lighthouse are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Browser checks are not applicable here; this change touches no file they read (records, backend/ and ops/ only), or this run tests nothing (see ci-scope).' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
         if: needs.ci-scope.outputs.browser == 'true'
       - name: Set up Node.js
@@ -560,9 +671,7 @@ jobs:
   # A pull request draws only while it is ready (the ready mark and each push after it) or on a
   # dispatch; a draft's run says whether its head would draw and spends nothing (F55). Unlike
   # copilot-eval, nothing limits a head to one draw: a second ready mark, a reopen or a re-run
-  # while ready draws again. The ready mark's draw runs from
-  # .github/workflows/eval-baseline-ready.yml, whose job is a copy of this one: change both
-  # together (gate: backend/tests/unit/test_ci_cost_controls.py).
+  # while ready draws again.
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -736,8 +845,12 @@ jobs:
 
   e2e-shard:
     needs: [ci-scope]
-    if: ${{ always() && !cancelled() }}
-    runs-on: ubuntu-latest
+    # Skipped on a draft alone, which fails e2e-tests there (see backend-tests). Where a tested
+    # change has no browser input, and on a push or nightly run that tests nothing, the legs run
+    # with their steps skipped and pass, so e2e-tests passes.
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.draft == 'true') }}
+    # A leg with no browser input runs two lines of shell, so it takes the 1-core runner (see ci-scope).
+    runs-on: ${{ needs.ci-scope.outputs.browser == 'false' && 'ubuntu-slim' || 'ubuntu-latest' }}
     # F59 (the founder, 2026-10-23): a slow npm registry or apt mirror adds minutes to the installs. At 25 such runs
     # were cancelled, and deploy-backend, which needs e2e-tests, skipped its deploy. Each shard keeps that 35 minutes.
     # The founder chose shards on 2026-11-04 (#1990). Since 2026-11-03 the runners have had 2 vCPUs, so Playwright runs
@@ -758,7 +871,7 @@ jobs:
           [ "$SCOPE_RESULT" = success ] && [[ "$BROWSER" = true || "$BROWSER" = false ]]
       - name: No browser input changed
         if: needs.ci-scope.outputs.browser == 'false'
-        run: echo 'This change touches no file the browser checks read (records, backend/ and ops/ only); the browser build and E2E are not applicable. Backend, frontend, migration and secret checks still run.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Browser checks are not applicable here; this change touches no file they read (records, backend/ and ops/ only), or this run tests nothing (see ci-scope).' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
         if: needs.ci-scope.outputs.browser == 'true'
       - name: Set up Node.js
@@ -902,8 +1015,9 @@ jobs:
     concurrency:
       group: deploy-backend
       cancel-in-progress: false
-      # Keep waiting releases: the default single pending slot lets a later records-only
-      # run replace a backend deploy before its own change detector skips deployment.
+      # Keep waiting releases: the default single pending slot lets a later run replace a backend
+      # deploy that is waiting. A push that deploys nothing no longer reaches this job (its test
+      # jobs skip, so this job skips), but two backend merges in a row still wait here.
       queue: max
     permissions:
       contents: read
@@ -1217,3 +1331,42 @@ jobs:
           echo "$body"
           echo "$body" | grep -qE '"status": ?"unhealthy"' && { echo "Deploy unhealthy — DB unreachable"; exit 1; } || true
           echo "Deployed ${GITHUB_SHA::7} and verified healthy."
+
+  # The nightly run is the only run that tests a merge which deployed nothing together with the
+  # merges around it, and nobody watches it, so a failed job opens an issue, or adds to the open one.
+  report-failure:
+    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests, secret-scan]
+    if: ${{ always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+    runs-on: ubuntu-slim  # the 1-core runner; see ci-scope
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update a failure issue
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TIP: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          TITLE="Nightly CI on main failed $(date -u +%F)"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$BODY_FILE"' EXIT
+          {
+            echo "The nightly CI run on main (${TIP::7}) finished with a failed or cancelled job: $RUN_URL"
+            echo
+            echo "A merge that deploys nothing runs no test job on main, so this run is the first to test the"
+            echo "day's merges together. Read the failed job, find the merge that broke it, and repair main"
+            echo "before the next backend deploy. Job results:"
+            echo
+            jq -r 'to_entries[] | "- \(.key): \(.value.result)"' <<< "$RESULTS"
+          } > "$BODY_FILE"
+          EXISTING="$(gh issue list --state open --search '"Nightly CI on main failed" in:title' --json number,title \
+            --jq '[.[] | select(.title | startswith("Nightly CI on main failed"))] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi

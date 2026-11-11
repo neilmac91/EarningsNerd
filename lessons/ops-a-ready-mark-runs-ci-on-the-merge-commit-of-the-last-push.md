@@ -1,4 +1,4 @@
-# A ready mark's eval and a re-run build on the merge commit GitHub stored at the head's last push; to bring a change on main to an unchanged head, push a merge of main
+# A ready mark runs CI on the merge commit GitHub stored at the head's last push; to bring a change on main to an unchanged head, push a merge of main
 
 Date: 2026-11-04 · Area: ops / CI
 
@@ -24,11 +24,6 @@ Operations and Issues"; its 09:50 update added Actions):
 - A gated merge of main, pushed at 10:25 UTC after another 500 and a retry, registered at once, and CI ran.
 - #2005's merge to main (`28c8eb1ec`, 10:15 UTC) got no `ci.yml` push run, and a merge call for #1998 answered 502
   and did not merge.
-
-**Since 2026-11-10** a ready mark starts no CI run at all: it starts only `eval-baseline`, from
-`.github/workflows/eval-baseline-ready.yml` (`docs/ops/actions-cost-plan-2026-11.md`). That job builds on the
-same stored merge commit, so the rule below holds for it and for every re-run. A head's required checks are
-the ones its last push ran.
 
 **Rule.**
 1. Before a ready mark or a re-run whose CI should carry something main gained after the head's last push (a

@@ -48,7 +48,9 @@ an unverified release, and older workflow runs can still replace pending work du
   job or workflow will take its place" (GitHub's concurrency documentation).
   - **Every push to main queues a `deploy-backend` job,** a frontend-only or docs-only push included. The
     job has no path filter: it skips its steps only after "Detect backend changes", which reads the pushed
-    commit's own diff (`git diff HEAD^ HEAD`).
+    commit's own diff (`git diff HEAD^ HEAD`). (Since 2026-11-11 a push that deploys nothing runs no test
+    job, so `deploy-backend`, which needs them, skips without queueing; two backend merges still queue:
+    `lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`.)
   - **So a later push can cancel a pending backend deploy,** backend-changing or not. If the later push
     changes no backend file, its own job deploys nothing. The cancelled change then stays undeployed
     until its job is re-run, and its run reads as cancelled.
