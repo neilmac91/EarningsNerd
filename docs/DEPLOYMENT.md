@@ -1064,7 +1064,8 @@ Before any write, the provisioner requires the object role and preview bucket th
 creates, and admits itself only while the shared production instance has room: active client backends,
 the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
 summary rehearsal's rule, applied here to `earningsnerd-db`; a session the administrator cannot see in full
-counts as a client backend). It prints the counts and refuses otherwise;
+counts as a client backend, and the admission query's own session does not, since the cap already holds that
+one serial connection). It prints the counts and refuses otherwise;
 that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
 pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
 connection at :41 to the job budget above.
