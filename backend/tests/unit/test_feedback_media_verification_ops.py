@@ -5,6 +5,7 @@ import ast
 import copy
 import hashlib
 import hmac
+import http.client
 import importlib.util
 import inspect
 import json
@@ -410,6 +411,85 @@ def test_the_browser_wait_gives_up_after_ten_minutes(monkeypatch):
     with pytest.raises(verify.media.OperationError, match="did not answer the verifier identity within ten minutes"):
         verify.await_control(None, "https://verify.example", KEY, RUN_ID)
     assert verify.CONTROL_WAIT_SECONDS <= clock[0] < verify.CONTROL_WAIT_SECONDS + verify.CONTROL_POLL_SECONDS
+
+
+def test_the_receipt_read_outlasts_a_cold_verifier(monkeypatch):
+    """The verifier scales to zero between verify-apply and enable-apply; a read that fails while it starts is retried,
+    and the answer that arrives is returned as it is (one without a receipt is refused by require_receipt)."""
+    answers = [verify.media.OperationError("timed out"), verify.media.OperationError("timed out"), {"receipt": None}]
+
+    def control(cloud, origin, key, run_id, path, payload=None):
+        assert path == "receipt" and payload is None
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    assert verify.read_receipt(None, "https://verify.example", KEY, RUN_ID) == {"receipt": None}
+    assert answers == [] and clock[0] == 2 * verify.CONTROL_POLL_SECONDS
+
+
+def test_the_receipt_read_gives_up_after_four_minutes(monkeypatch):
+    def control(*_args, **_kwargs):
+        raise verify.media.OperationError("Private verification control request failed; response withheld")
+    monkeypatch.setattr(verify, "control", control)
+    clock = fake_clock(monkeypatch)
+    with pytest.raises(verify.media.OperationError, match="control request failed; response withheld"):
+        verify.read_receipt(None, "https://verify.example", KEY, RUN_ID)
+    # Four minutes, as DEPLOYMENT.md states; the Ops step's 15-minute timeout must also cover it.
+    assert verify.RECEIPT_WAIT_SECONDS == 240
+    assert verify.RECEIPT_WAIT_SECONDS <= clock[0] < verify.RECEIPT_WAIT_SECONDS + verify.CONTROL_POLL_SECONDS
+
+
+@pytest.mark.parametrize("failure", ["dropped", "reset", "cut short", "HTTP 503", "unreachable", "timeout"])
+def test_a_failed_control_request_is_a_closed_refusal_the_receipt_read_retries(monkeypatch, failure):
+    """A connection dropped before a response, or a response cut short, raises outside urllib's URLError wrapper."""
+    attempts = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+        def read(self, _limit):
+            if failure == "cut short" and len(attempts) < 3:
+                raise http.client.IncompleteRead(b"PRIVATE_PROVIDER_ERROR_SENTINEL")
+            return b'{"receipt": null}'
+
+    class Opener:
+        def open(self, request, *, timeout):
+            attempts.append(timeout)
+            if len(attempts) < 3:  # the direct call, then the receipt read's first attempt
+                if failure == "dropped":
+                    raise http.client.RemoteDisconnected("PRIVATE_PROVIDER_ERROR_SENTINEL")
+                if failure == "reset":
+                    raise ConnectionResetError("PRIVATE_PROVIDER_ERROR_SENTINEL")
+                if failure == "HTTP 503":
+                    raise HTTPError(request.full_url, 503, "PRIVATE_PROVIDER_ERROR_SENTINEL", {}, None)
+                if failure == "unreachable":
+                    raise URLError("PRIVATE_PROVIDER_ERROR_SENTINEL")
+                if failure == "timeout":
+                    raise TimeoutError("PRIVATE_PROVIDER_ERROR_SENTINEL")
+            return Response()
+
+    monkeypatch.setattr(verify, "build_opener", lambda *_: Opener())
+    monkeypatch.setattr(verify, "token", lambda *_: "header.payload.signature")
+    with pytest.raises(verify.media.OperationError) as refusal:
+        verify.control(None, "https://verify.example", KEY, RUN_ID, "receipt")
+    assert str(refusal.value) == "Private verification control request failed; response withheld"
+    # Raised from None: the provider's exception is neither the cause nor a context a traceback would show.
+    assert refusal.value.__suppress_context__ and refusal.value.__cause__ is None
+    clock = fake_clock(monkeypatch)
+    assert verify.read_receipt(None, "https://verify.example", KEY, RUN_ID) == {"receipt": None}
+    assert len(attempts) == 3 and clock[0] == verify.CONTROL_POLL_SECONDS
+
+
+def test_the_enable_receipt_check_reads_through_the_retrying_read():
+    assert "read_receipt(" in inspect.getsource(verify.require_receipt)
+    assert "control(" not in inspect.getsource(verify.require_receipt).replace("read_receipt(", "")
 
 
 def test_provision_waits_for_the_service_before_the_browser():

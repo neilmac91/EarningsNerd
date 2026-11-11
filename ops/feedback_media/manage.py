@@ -58,6 +58,9 @@ IMAGE_READ = "artifactregistry.repositories.downloadArtifacts"
 IMAGE_REPOSITORY = f"projects/{PROJECT}/locations/{REGION}/repositories/earningsnerd"
 API_IMAGE = re.compile(rf"{REGION}-docker\.pkg\.dev/{PROJECT}/earningsnerd/backend"
                        r"(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?")
+# The same shape with its parts named: a job execution records its image by digest (live read-back, 11 November).
+IMAGE_PARTS = re.compile(rf"{REGION}-docker\.pkg\.dev/{PROJECT}/earningsnerd/backend"
+                         r"(?::(?P<tag>[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}))?(?:@(?P<digest>sha256:[0-9a-f]{64}))?")
 
 
 def step(name: str, *permissions: str) -> str:
@@ -67,6 +70,7 @@ def step(name: str, *permissions: str) -> str:
 
 SERVICE_READ = step("API service read", "run.services.get")
 SERVICE_UPDATE = step("API service update", "run.services.update", ACT_AS, IMAGE_READ)
+REVISION_READ = step("Serving revision read", "run.revisions.get")
 ROLE_READ = step("Object role read", "iam.roles.get")
 ROLE_CREATE = step("Object role create", "iam.roles.create")
 BUCKET_READ = step("Bucket read", "storage.buckets.get")
@@ -99,7 +103,7 @@ CAPABILITY_READ = "Capability preflight (needs no permission)"
 PROVISION_READS = frozenset({
     "run.services.get", "monitoring.notificationChannels.get", "logging.logMetrics.get", "monitoring.alertPolicies.list",
     "monitoring.timeSeries.list", "iam.roles.get", "storage.buckets.get", "storage.buckets.getIamPolicy", "run.jobs.get",
-    "run.jobs.getIamPolicy", "run.executions.list", "run.operations.get", "cloudscheduler.jobs.get",
+    "run.jobs.getIamPolicy", "run.executions.list", "run.operations.get", "cloudscheduler.jobs.get", "run.revisions.get",
 })
 EVERY_RUN_WRITES = frozenset({"run.jobs.run", "run.jobs.runWithOverrides"})
 CONDITIONAL_WRITES = frozenset({
@@ -821,8 +825,47 @@ def matches_task(task: dict, expected: dict, args: list[str]) -> bool:
     return not task_differences(task, expected, args)
 
 
-def execution_gaps(execution: dict | None, expected: dict, args: list[str]) -> list[str]:
-    """Name each reason an execution is not recent, successful evidence of the approved task; none when it is."""
+def serving_digest(cloud: Cloud, service: dict) -> str | None:
+    """The image digest Cloud Run resolved for production's revision, or None unless one revision serves all traffic.
+
+    The cleanup job runs the API's own image reference (job_spec), and a job execution records the digest that
+    reference resolved to, not the reference (live read-back, 11 November). So an execution ran the release
+    production serves exactly when it records this digest.
+    """
+    revision = service.get("latestReadyRevision", "").rsplit("/", 1)[-1]
+    traffic = [row for row in service.get("trafficStatuses", []) if row.get("percent", 0)]
+    if (not revision or service.get("reconciling") or len(traffic) != 1 or traffic[0].get("percent") != 100
+            or traffic[0].get("revision", "").rsplit("/", 1)[-1] != revision
+            or any(row.get("tag") for row in service.get("trafficStatuses", []))):
+        return None
+    resolved = cloud.call(f"{REGION}-run", f"apis/serving.knative.dev/v1/namespaces/{PROJECT}/revisions/{revision}",
+                          step=REVISION_READ)
+    parts = IMAGE_PARTS.fullmatch(resolved.get("status", {}).get("imageDigest", ""))
+    return parts["digest"] if parts and parts["digest"] and parts["tag"] is None else None
+
+
+def recorded_digest(task: dict, expected: dict) -> str | None:
+    """The digest an execution's task records, if it names the approved repository and no tag but the approved one."""
+    recorded = IMAGE_PARTS.fullmatch(task["containers"][0]["image"])
+    approved = IMAGE_PARTS.fullmatch(expected["containers"][0]["image"])
+    if not recorded or not approved or not recorded["digest"]:
+        return None
+    return recorded["digest"] if recorded["tag"] in (None, approved["tag"]) else None
+
+
+# An execution is Cloud Run's own record of the task it ran, and it differs from the job's in two ways that do not
+# change what ran (live read-back, 11 November): it pins the image by digest, and it does not repeat the job's Cloud
+# SQL volume and mount as the job states them. A run's overrides carry only arguments, environment, task count and
+# timeout, so an execution cannot differ from its job in either; inspect_job holds the job itself to both, and an
+# execution's digest must be the one production serves.
+EXECUTION_RECORD_FIELDS = ("volumes", "volume mounts")
+
+
+def execution_gaps(execution: dict | None, expected: dict, args: list[str], digest: str | None = None) -> list[str]:
+    """Name each reason an execution is not recent, successful evidence of the approved task; none when it is.
+
+    digest is the image digest production serves (serving_digest); without it, an image recorded by digest is a gap.
+    """
     if not execution:
         return ["no execution with these arguments among the newest read"]
     gaps = []
@@ -831,7 +874,12 @@ def execution_gaps(execution: dict | None, expected: dict, args: list[str]) -> l
         gaps.append("not succeeded")
     if execution.get("taskCount") != 1:
         gaps.append("task count")
-    gaps += task_differences(execution.get("template", {}), expected, args)
+    task = execution.get("template", {})
+    differences = [name for name in task_differences(task, expected, args) if name not in EXECUTION_RECORD_FIELDS]
+    if ("image recorded by digest" in differences and digest is not None
+            and recorded_digest(task, expected) == digest):
+        differences.remove("image recorded by digest")
+    gaps += differences
     try:
         completed = datetime.fromisoformat(execution["completionTime"].replace("Z", "+00:00"))
         if not timedelta(0) <= datetime.now(timezone.utc) - completed <= timedelta(hours=2):
@@ -929,9 +977,18 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     # API sorts creation time descending. Keep the latest attempt for each mode, including failures;
     # an older success must not hide a failed current attempt. Fifty bounds a noisy retry history.
     executions = cloud.call("run", f"v2/{JOB}/executions?pageSize=50", step=EXECUTIONS_READ).get("executions", [])
-    latest = {}
-    seen = {"cleanup": 0, "probe": 0, "other arguments": 0, "no arguments": 0, "no single container": 0}
+    latest, newest = {}, None
+    seen = {"cleanup": 0, "probe": 0, "other arguments": 0, "no arguments": 0, "no single container": 0,
+            "still running": 0}
     for execution in executions:
+        if not (execution.get("completionTime") or execution.get("failedCount") or execution.get("cancelledCount")):
+            # A run in progress has no result yet, so the newest finished attempt of its mode stands until it ends: a
+            # scheduled cleanup running at :17 must not refuse an enable. A run reporting a failed or cancelled task has
+            # its result even before its completion time is recorded, and a finished failure still counts, below.
+            seen["still running"] += 1
+            continue
+        if newest is None:
+            newest = execution
         containers = execution.get("template", {}).get("containers", [])
         if len(containers) != 1:
             seen["no single container"] += 1
@@ -941,18 +998,23 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
         seen[mode or ("other arguments" if args else "no arguments")] += 1
         if mode is not None:
             latest.setdefault(mode, execution)
-    cleanup_gaps = execution_gaps(latest.get("cleanup"), expected, CLEANUP_ARGS)
-    probe_gaps = execution_gaps(latest.get("probe"), expected, PROBE_ARGS)
+    digest = serving_digest(cloud, service) if executions else None
+    cleanup_gaps = execution_gaps(latest.get("cleanup"), expected, CLEANUP_ARGS, digest)
+    probe_gaps = execution_gaps(latest.get("probe"), expected, PROBE_ARGS, digest)
     succeeded, probe_succeeded = not cleanup_gaps, not probe_gaps
     # Counts and closed field names only (Ops logs are public): why no execution of a mode is current evidence.
     print(f"Cleanup job executions read: {len(executions)}; by arguments: "
           + ", ".join(f"{count} {kind}" for kind, count in seen.items()))
+    if executions and digest is None:
+        print("Serving image digest: unverified (production is not one stable revision serving all traffic, "
+              "or its revision reports no digest)")
     print("Cleanup last execution: " + ("succeeded" if succeeded else f"unverified ({', '.join(cleanup_gaps)})"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else f"unverified ({', '.join(probe_gaps)})"))
-    if executions and not succeeded:
-        # Never empty here: a newest execution with no gap against the job's own task is the current cleanup evidence.
-        print("Cleanup job newest execution, against the job's own task: "
-              + ", ".join(execution_gaps(executions[0], expected, CLEANUP_ARGS)))
+    if newest is not None and not succeeded:
+        # Never empty here: a newest finished execution with no gap against the job's own task is the current cleanup
+        # evidence. A run still in progress is not described; it has no result yet.
+        print("Cleanup job newest finished execution, against the job's own task: "
+              + ", ".join(execution_gaps(newest, expected, CLEANUP_ARGS, digest)))
     # The probe refuses missing create/get/delete and records broader storage access, without refusing it, while the
     # backend identity holds broader storage access than the feature needs (founder, 10 November; the follow-up recorded on #2027).
     print("Runtime storage permission audit: " + ("create/get/delete verified by the successful probe; broader access "
