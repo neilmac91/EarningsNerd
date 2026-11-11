@@ -293,6 +293,106 @@ def test_inspection_is_read_only_and_requires_both_current_successful_execution_
             assert cloud.writes == [], (mode, defect)
 
 
+def _environment_item(task, name):
+    return next(item for item in task["containers"][0]["env"] if item["name"] == name)
+
+
+def _drop_environment_item(task, name):
+    task["containers"][0]["env"].remove(_environment_item(task, name))
+
+
+TASK_DIFFERENCES = {
+    "container count": (lambda t: t["containers"].append(copy.deepcopy(t["containers"][0])), ["container count"]),
+    "service account": (lambda t: t.update(serviceAccount="other@example.invalid"), ["service account"]),
+    "timeout": (lambda t: t.update(timeout="3600s"), ["timeout"]),
+    "retries": (lambda t: t.update(maxRetries=3), ["retries"]),
+    "volumes": (lambda t: t.update(volumes=[]), ["volumes"]),
+    "network access": (lambda t: t.update(vpcAccess={"egress": "ALL_TRAFFIC"}), ["network access"]),
+    "container name": (lambda t: t["containers"][0].update(name="other"), ["container name"]),
+    "command": (lambda t: t["containers"][0].update(command=["sh"]), ["command"]),
+    "arguments": (lambda t: t["containers"][0].update(args=["scripts/other.py"]), ["arguments"]),
+    "volume mounts": (lambda t: t["containers"][0].update(volumeMounts=[]), ["volume mounts"]),
+    "resource limits": (lambda t: t["containers"][0]["resources"]["limits"].update(memory="4Gi"), ["resource limits"]),
+    "image by digest": (lambda t: t["containers"][0].update(image=API_IMAGE + "@sha256:" + "a" * 64),
+                        ["image recorded by digest"]),
+    "image by tag": (lambda t: t["containers"][0].update(image=API_IMAGE + ":retired"), ["image"]),
+    "secret version": (lambda t: _environment_item(t, "DATABASE_URL")["valueSource"]["secretKeyRef"].update(
+        version="7"), ["environment DATABASE_URL secret version"]),
+    "secret name": (lambda t: _environment_item(t, "DATABASE_URL")["valueSource"]["secretKeyRef"].update(
+        secret="other"), ["environment DATABASE_URL value"]),
+    "plain value": (lambda t: _environment_item(t, "DB_POOL_SIZE").update(value="4"), ["environment DB_POOL_SIZE value"]),
+    "missing variable": (lambda t: _drop_environment_item(t, "FEEDBACK_MEDIA_ENABLED"),
+                         ["environment FEEDBACK_MEDIA_ENABLED missing"]),
+    "other variables": (lambda t: t["containers"][0]["env"].extend(
+        [{"name": "UNLISTED_ONE", "value": "x"}, {"name": "UNLISTED_TWO", "value": "y"}]), ["environment has 2 other names"]),
+    "repeated variable": (lambda t: t["containers"][0]["env"].append(copy.deepcopy(_environment_item(t, "SECRET_KEY"))),
+                          ["environment repeats a name"]),
+}
+
+
+@pytest.mark.parametrize("field", sorted(TASK_DIFFERENCES))
+def test_a_task_difference_is_named_by_its_field_alone(field):
+    """The decision and its explanation are one function: a task matches exactly when no field is named."""
+    mutate, named = TASK_DIFFERENCES[field]
+    expected = ops.job_spec(service())["template"]["template"]
+    assert ops.task_differences(copy.deepcopy(expected), expected, ops.CLEANUP_ARGS) == []
+    task = copy.deepcopy(expected)
+    mutate(task)
+    assert ops.task_differences(task, expected, ops.CLEANUP_ARGS) == named
+    assert not ops.matches_task(task, expected, ops.CLEANUP_ARGS)
+
+
+def test_inspection_names_why_no_execution_is_current_evidence_and_shows_no_value(capsys):
+    cloud = CloudFixture()
+    for execution in cloud.executions:
+        container = execution["template"]["containers"][0]
+        container["image"] = API_IMAGE + "@sha256:" + "b" * 64
+        _environment_item(execution["template"], "DATABASE_URL")["valueSource"]["secretKeyRef"]["version"] = "PRIVATE_SENTINEL"
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert ("Cleanup job executions read: 2; by arguments: 1 cleanup, 1 probe, 0 other arguments, 0 no arguments, "
+            "0 no single container") in output
+    gaps = "image recorded by digest, environment DATABASE_URL secret version"
+    assert f"Cleanup last execution: unverified ({gaps})" in output
+    assert f"Private storage probe: unverified ({gaps})" in output
+    # The newest execution is the probe, so against the job's own task its arguments differ as well.
+    assert f"Cleanup job newest execution, against the job's own task: arguments, {gaps}" in output
+    assert "sha256" not in output and "SENTINEL" not in output and "runtime@example.invalid" not in output
+    assert cloud.writes == []
+
+
+def test_inspection_counts_the_executions_it_cannot_classify(capsys):
+    cloud = CloudFixture()
+    no_template, no_arguments = cloud.execution(ops.CLEANUP_ARGS), cloud.execution(ops.CLEANUP_ARGS)
+    del no_template["template"]
+    del no_arguments["template"]["containers"][0]["args"]
+    cloud.executions = [no_template, no_arguments, cloud.execution(["scripts/unlisted.py"])]
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert ("Cleanup job executions read: 3; by arguments: 0 cleanup, 0 probe, 1 other arguments, 1 no arguments, "
+            "1 no single container") in output
+    assert "Cleanup last execution: unverified (no execution with these arguments among the newest read)" in output
+    assert "Cleanup job newest execution, against the job's own task: container count" in output
+    assert "unlisted" not in output
+
+
+def test_a_current_execution_prints_no_difference_line(capsys):
+    cloud = CloudFixture()
+    assert ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup last execution: succeeded" in output and "Private storage probe: succeeded" in output
+    assert "newest execution" not in output
+
+
+def test_a_drifted_job_is_refused_with_the_fields_that_differ(capsys):
+    cloud = CloudFixture()
+    cloud.job["template"]["template"]["containers"][0]["image"] = API_IMAGE + "@sha256:" + "c" * 64
+    with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup job") + "$"):
+        ops.inspect(cloud)
+    assert ("Cleanup job: refused (Cleanup job differs from the approved runtime, image or bounded configuration "
+            "(image recorded by digest))") in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("defect", ["wrong-owner", "public", "soft-delete", "versioning", "retention",
                                   "broader-role", "disabled-role", "extra-runtime-grant", "conditional-runtime-grant",
                                   "missing-invoker", "schedule-overrides", "foreign-schedule", "paused-schedule"])

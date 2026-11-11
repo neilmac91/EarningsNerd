@@ -759,36 +759,84 @@ def provision(cloud: Cloud, service: dict) -> None:
     print("Private storage probe and cleanup succeeded; uploads remain unchanged")
 
 
-def matches_task(task: dict, expected: dict, args: list[str]) -> bool:
+def environment_differences(env: list, wanted: dict[str, dict]) -> list[str]:
+    """Name each approved variable that is missing or differs, and count any other names; never print a value.
+
+    The approved names are fixed in job_spec, so naming them shows nothing a reader of this file cannot; a name
+    outside them is only counted.
+    """
+    actual = {item.get("name"): item for item in env}
+    differences = ["environment repeats a name"] if len(actual) != len(env) else []
+    for name, item in wanted.items():
+        if name not in actual:
+            differences.append(f"environment {name} missing")
+        elif actual[name] != item:
+            reference, approved = (entry.get("valueSource", {}).get("secretKeyRef") for entry in (actual[name], item))
+            same_secret = (isinstance(reference, dict) and isinstance(approved, dict)
+                           and {**reference, "version": None} == {**approved, "version": None})
+            differences.append(f"environment {name} " + ("secret version" if same_secret else "value"))
+    others = len(set(actual) - set(wanted))
+    if others:
+        differences.append(f"environment has {others} other name" + ("s" if others > 1 else ""))
+    return differences
+
+
+def task_differences(task: dict, expected: dict, args: list[str]) -> list[str]:
+    """Name, from a closed set, each field of a task that differs from the approved task; none when it matches.
+
+    Ops logs are public, so a difference is named and never shown: the field, and for an image whether the
+    provider recorded it by digest. A provider answer of another shape still raises (closed_shape, inspect).
+    """
     containers = task.get("containers", [])
     if len(containers) != 1:
-        return False
+        return ["container count"]
     container = containers[0]
     wanted = expected["containers"][0]
-    env = container.get("env", [])
-    wanted_env = {item["name"]: item for item in wanted["env"]}
-    return (task.get("serviceAccount") == expected["serviceAccount"]
-            and task.get("timeout") == expected["timeout"] and task.get("maxRetries") == expected["maxRetries"]
-            and task.get("volumes", []) == expected.get("volumes", [])
-            and task.get("vpcAccess") == expected.get("vpcAccess")
-            and container.get("name") == "cleanup" and container.get("image") == wanted["image"]
-            and container.get("command") == ["python"] and container.get("args") == args
-            and container.get("volumeMounts", []) == wanted.get("volumeMounts", [])
-            and container.get("resources", {}).get("limits") == wanted["resources"]["limits"]
-            and len(env) == len(wanted_env) and {item.get("name"): item for item in env} == wanted_env)
+    differences = [name for name, same in (
+        ("service account", task.get("serviceAccount") == expected["serviceAccount"]),
+        ("timeout", task.get("timeout") == expected["timeout"]),
+        ("retries", task.get("maxRetries") == expected["maxRetries"]),
+        ("volumes", task.get("volumes", []) == expected.get("volumes", [])),
+        ("network access", task.get("vpcAccess") == expected.get("vpcAccess")),
+        ("container name", container.get("name") == "cleanup"),
+        ("command", container.get("command") == ["python"]),
+        ("arguments", container.get("args") == args),
+        ("volume mounts", container.get("volumeMounts", []) == wanted.get("volumeMounts", [])),
+        ("resource limits", container.get("resources", {}).get("limits") == wanted["resources"]["limits"]),
+    ) if not same]
+    image = container.get("image")
+    if image != wanted["image"]:
+        differences.append("image recorded by digest" if isinstance(image, str) and "@sha256:" in image else "image")
+    return differences + environment_differences(container.get("env", []),
+                                                 {item["name"]: item for item in wanted["env"]})
+
+
+def matches_task(task: dict, expected: dict, args: list[str]) -> bool:
+    return not task_differences(task, expected, args)
+
+
+def execution_gaps(execution: dict | None, expected: dict, args: list[str]) -> list[str]:
+    """Name each reason an execution is not recent, successful evidence of the approved task; none when it is."""
+    if not execution:
+        return ["no execution with these arguments among the newest read"]
+    gaps = []
+    if (execution.get("succeededCount") != 1 or execution.get("failedCount", 0)
+            or execution.get("cancelledCount", 0)):
+        gaps.append("not succeeded")
+    if execution.get("taskCount") != 1:
+        gaps.append("task count")
+    gaps += task_differences(execution.get("template", {}), expected, args)
+    try:
+        completed = datetime.fromisoformat(execution["completionTime"].replace("Z", "+00:00"))
+        if not timedelta(0) <= datetime.now(timezone.utc) - completed <= timedelta(hours=2):
+            gaps.append("not completed within two hours")
+    except (KeyError, ValueError, TypeError):
+        gaps.append("no completion time")
+    return gaps
 
 
 def recent_success(execution: dict | None, expected: dict, args: list[str]) -> bool:
-    if (not execution or execution.get("succeededCount") != 1 or execution.get("failedCount", 0)
-            or execution.get("cancelledCount", 0) or execution.get("taskCount") != 1
-            or not matches_task(execution.get("template", {}), expected, args)):
-        return False
-    try:
-        completed = datetime.fromisoformat(execution["completionTime"].replace("Z", "+00:00"))
-        age = datetime.now(timezone.utc) - completed
-        return timedelta(0) <= age <= timedelta(hours=2)
-    except (KeyError, ValueError, TypeError):
-        return False
+    return not execution_gaps(execution, expected, args)
 
 
 def inspect_role(cloud: Cloud) -> bool:
@@ -862,11 +910,12 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
         return False
     expected = job_spec(service)["template"]["template"]
     task = job.get("template", {}).get("template", {})
+    differences = task_differences(task, expected, CLEANUP_ARGS)
     if (job.get("labels", {}).get("purpose") != "feedback-media"
             or job.get("template", {}).get("taskCount") != 1
-            or job.get("template", {}).get("parallelism") != 1
-            or not matches_task(task, expected, CLEANUP_ARGS)):
-        raise OperationError("Cleanup job differs from the approved runtime, image or bounded configuration")
+            or job.get("template", {}).get("parallelism") != 1 or differences):
+        raise OperationError("Cleanup job differs from the approved runtime, image or bounded configuration"
+                             + (f" ({', '.join(differences)})" if differences else ""))
     job_policy = cloud.call("run", policy_path("v2/" + JOB), step=JOB_POLICY_READ)
     check_private_policy(job_policy)
     if not bound(job_policy, "roles/run.invoker", "serviceAccount:" + runtime):  # the test the planner and bind() use
@@ -875,17 +924,28 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     # an older success must not hide a failed current attempt. Fifty bounds a noisy retry history.
     executions = cloud.call("run", f"v2/{JOB}/executions?pageSize=50", step=EXECUTIONS_READ).get("executions", [])
     latest = {}
+    seen = {"cleanup": 0, "probe": 0, "other arguments": 0, "no arguments": 0, "no single container": 0}
     for execution in executions:
         containers = execution.get("template", {}).get("containers", [])
-        if len(containers) == 1:
-            args = containers[0].get("args")
-            mode = "cleanup" if args == CLEANUP_ARGS else "probe" if args == PROBE_ARGS else None
-            if mode is not None:
-                latest.setdefault(mode, execution)
-    succeeded = recent_success(latest.get("cleanup"), expected, CLEANUP_ARGS)
-    probe_succeeded = recent_success(latest.get("probe"), expected, PROBE_ARGS)
-    print("Cleanup last execution: " + ("succeeded" if succeeded else "unverified"))
-    print("Private storage probe: " + ("succeeded" if probe_succeeded else "unverified"))
+        if len(containers) != 1:
+            seen["no single container"] += 1
+            continue
+        args = containers[0].get("args")
+        mode = "cleanup" if args == CLEANUP_ARGS else "probe" if args == PROBE_ARGS else None
+        seen[mode or ("other arguments" if args else "no arguments")] += 1
+        if mode is not None:
+            latest.setdefault(mode, execution)
+    cleanup_gaps = execution_gaps(latest.get("cleanup"), expected, CLEANUP_ARGS)
+    probe_gaps = execution_gaps(latest.get("probe"), expected, PROBE_ARGS)
+    succeeded, probe_succeeded = not cleanup_gaps, not probe_gaps
+    # Counts and closed field names only (Ops logs are public): why no execution of a mode is current evidence.
+    print(f"Cleanup job executions read: {len(executions)}; by arguments: "
+          + ", ".join(f"{count} {kind}" for kind, count in seen.items()))
+    print("Cleanup last execution: " + ("succeeded" if succeeded else f"unverified ({', '.join(cleanup_gaps)})"))
+    print("Private storage probe: " + ("succeeded" if probe_succeeded else f"unverified ({', '.join(probe_gaps)})"))
+    if executions and not succeeded:
+        print("Cleanup job newest execution, against the job's own task: "
+              + (", ".join(execution_gaps(executions[0], expected, CLEANUP_ARGS)) or "no difference"))
     # The probe refuses missing create/get/delete and records broader storage access, without refusing it, while the
     # backend identity holds broader storage access than the feature needs (founder, 10 November; the follow-up recorded on #2027).
     print("Runtime storage permission audit: " + ("create/get/delete verified by the successful probe; broader access "
