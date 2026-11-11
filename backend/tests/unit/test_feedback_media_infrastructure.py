@@ -379,7 +379,7 @@ def test_inspection_names_why_no_execution_is_current_evidence_and_shows_no_valu
     assert f"Cleanup last execution: unverified ({gaps})" in output
     assert f"Private storage probe: unverified ({gaps})" in output
     # The newest execution is the probe, so against the job's own task its arguments differ as well.
-    assert f"Cleanup job newest execution, against the job's own task: arguments, {gaps}" in output
+    assert f"Cleanup job newest finished execution, against the job's own task: arguments, {gaps}" in output
     assert "sha256" not in output and "SENTINEL" not in output and "runtime@example.invalid" not in output
     assert cloud.writes == []
 
@@ -395,32 +395,37 @@ def test_inspection_counts_the_executions_it_cannot_classify(capsys):
     assert ("Cleanup job executions read: 3; by arguments: 0 cleanup, 0 probe, 1 other arguments, 1 no arguments, "
             "1 no single container") in output
     assert "Cleanup last execution: unverified (no execution with these arguments among the newest read)" in output
-    assert "Cleanup job newest execution, against the job's own task: container count" in output
+    assert "Cleanup job newest finished execution, against the job's own task: container count" in output
     assert "unlisted" not in output
 
 
 @pytest.mark.parametrize("defect, label", [
     ("failed", "not succeeded"), ("cancelled", "not succeeded"), ("tasks", "task count"),
     ("old", "not completed within two hours"), ("completed without a time", "no completion time"),
+    # A failed or cancelled task is a result even before Cloud Run records the completion time: not a run in progress.
+    ("failed before its time", "not succeeded, no completion time"),
+    ("cancelled before its time", "not succeeded, no completion time"),
 ])
 def test_inspection_names_why_the_newest_cleanup_execution_is_not_current(capsys, defect, label):
     cloud = CloudFixture()
     newest = cloud.execution(ops.CLEANUP_ARGS)
-    if defect == "failed":
+    if defect in ("failed", "failed before its time"):
         newest.update(succeededCount=0, failedCount=1)
-    elif defect == "cancelled":
+    elif defect in ("cancelled", "cancelled before its time"):
         newest.update(cancelledCount=1)
     elif defect == "tasks":
         newest.update(taskCount=2)
     elif defect == "old":
         newest["completionTime"] = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
-    else:  # a completion time present but unreadable: the run ended, and its time cannot be checked
+    elif defect == "completed without a time":  # present but unreadable: the run ended, and its time cannot be checked
         newest["completionTime"] = "not a time"
+    if defect.endswith("before its time"):
+        del newest["completionTime"]
     cloud.executions.insert(0, newest)
     assert not ops.inspect(cloud)
     output = capsys.readouterr().out
     assert f"Cleanup last execution: unverified ({label})" in output
-    assert f"Cleanup job newest execution, against the job's own task: {label}" in output
+    assert f"Cleanup job newest finished execution, against the job's own task: {label}" in output
 
 
 @pytest.mark.parametrize("mode", ["cleanup", "probe"])
@@ -437,6 +442,39 @@ def test_a_running_execution_leaves_the_newest_completed_attempt_of_its_mode_sta
     assert "Private storage probe: succeeded" in output
     ops.set_enabled(cloud, cloud.service, True)
     assert cloud.service["template"]["containers"][0]["env"][-1] == {"name": "FEEDBACK_MEDIA_ENABLED", "value": "true"}
+
+
+def test_the_difference_line_describes_the_newest_finished_execution_not_a_running_one(capsys):
+    cloud = CloudFixture()
+    running, failed = cloud.execution(ops.CLEANUP_ARGS), cloud.execution(ops.CLEANUP_ARGS)
+    running.update(succeededCount=0)
+    del running["completionTime"]
+    failed.update(succeededCount=0, failedCount=1)
+    cloud.executions[:0] = [running, failed]
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup last execution: unverified (not succeeded)\n" in output
+    assert "Cleanup job newest finished execution, against the job's own task: not succeeded\n" in output
+
+
+# An execution's arguments and container count decide its mode, so the inspection counts those differences instead
+# (test_inspection_counts_the_executions_it_cannot_classify). The volume and its mount are the job's alone to hold.
+EXECUTION_DIFFERENCES = sorted(set(TASK_DIFFERENCES) - {"arguments", "container count", "volumes", "volume mounts"})
+
+
+@pytest.mark.parametrize("field", EXECUTION_DIFFERENCES)
+def test_an_execution_is_still_held_to_every_other_field_of_the_approved_task(capsys, field):
+    mutate, named = TASK_DIFFERENCES[field]
+    cloud = CloudFixture()
+    for execution in cloud.executions:
+        mutate(execution["template"])
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert f"Cleanup last execution: unverified ({', '.join(named)})\n" in output
+    assert f"Private storage probe: unverified ({', '.join(named)})\n" in output
+    with pytest.raises(ops.OperationError, match="required before enabling"):
+        ops.set_enabled(cloud, cloud.service, True)
+    assert cloud.writes == []
 
 
 @pytest.mark.parametrize("case", ["other digest", "other tag", "approved tag", "unknown repository", "by tag"])
@@ -461,7 +499,8 @@ def test_an_execution_counts_only_for_the_image_production_serves(capsys, case):
         assert cloud.writes == []
 
 
-@pytest.mark.parametrize("instability", ["two revisions", "tagged", "reconciling", "no ready revision", "tag digest"])
+@pytest.mark.parametrize("instability", ["two revisions", "tagged", "reconciling", "no ready revision", "older revision",
+                                         "tag digest"])
 def test_without_one_serving_digest_no_execution_recorded_by_digest_counts(capsys, instability):
     cloud = CloudFixture()
     if instability == "two revisions":
@@ -473,6 +512,9 @@ def test_without_one_serving_digest_no_execution_recorded_by_digest_counts(capsy
         cloud.service["reconciling"] = True
     elif instability == "no ready revision":
         del cloud.service["latestReadyRevision"]
+    elif instability == "older revision":
+        # All traffic stays on an older revision while a newer one is ready, as ops.yml's rollback leaves production.
+        cloud.service["latestReadyRevision"] = f"{ops.SERVICE}/revisions/earningsnerd-backend-00002-def"
     else:  # a revision status naming a tag is not a resolved digest
         cloud.revision_image = API_IMAGE + ":verified@" + SERVING_DIGEST
     assert not ops.inspect(cloud)
@@ -484,8 +526,24 @@ def test_without_one_serving_digest_no_execution_recorded_by_digest_counts(capsy
     assert "Cleanup last execution: unverified (image recorded by digest)" in output
 
 
+@pytest.mark.parametrize("image", ["other tag", "unknown repository"])
+def test_without_one_serving_digest_an_unapproved_image_never_counts(capsys, image):
+    """With no serving digest, an image of which no approved digest can be read is still a gap: none never matches none."""
+    cloud = CloudFixture()
+    cloud.service["reconciling"] = True
+    recorded = {"other tag": API_IMAGE + ":retired@" + SERVING_DIGEST,
+                "unknown repository": "us-west1-docker.pkg.dev/earnings-nerd/other/backend@" + SERVING_DIGEST}[image]
+    for execution in cloud.executions:
+        execution["template"]["containers"][0]["image"] = recorded
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert "Cleanup last execution: unverified (image recorded by digest)\n" in output
+    assert "Private storage probe: unverified (image recorded by digest)\n" in output
+
+
 @pytest.mark.parametrize("volumes", ["none", "renamed"])
-def test_an_execution_need_not_restate_the_jobs_volume_but_the_job_must(capsys, volumes):
+@pytest.mark.parametrize("job_field", ["volumes", "volume mounts"])
+def test_an_execution_need_not_restate_the_jobs_volume_but_the_job_must(capsys, volumes, job_field):
     cloud = CloudFixture()
     for execution in cloud.executions:
         task = execution["template"]
@@ -494,10 +552,11 @@ def test_an_execution_need_not_restate_the_jobs_volume_but_the_job_must(capsys, 
             task["containers"][0]["volumeMounts"] = [{"name": "cloudsql", "mountPath": "/cloudsql"}]
     assert ops.inspect(cloud)
     assert "Cleanup last execution: succeeded" in capsys.readouterr().out
-    cloud.job["template"]["template"]["volumes"] = []
+    TASK_DIFFERENCES[job_field][0](cloud.job["template"]["template"])
     with pytest.raises(ops.OperationError, match=re.escape("prerequisites refused: Cleanup job") + "$"):
         ops.inspect(cloud)
-    assert "differs from the approved runtime, image or bounded configuration (volumes)" in capsys.readouterr().out
+    assert (f"differs from the approved runtime, image or bounded configuration ({job_field}))"
+            in capsys.readouterr().out)
 
 
 def test_a_current_execution_prints_no_difference_line(capsys):
@@ -505,7 +564,7 @@ def test_a_current_execution_prints_no_difference_line(capsys):
     assert ops.inspect(cloud)
     output = capsys.readouterr().out
     assert "Cleanup last execution: succeeded" in output and "Private storage probe: succeeded" in output
-    assert "newest execution" not in output
+    assert "against the job's own task" not in output
 
 
 def test_a_drifted_job_is_refused_with_the_fields_that_differ(capsys):

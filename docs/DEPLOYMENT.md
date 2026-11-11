@@ -916,12 +916,17 @@ commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact byte
 deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
 report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
 uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
-heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest completed attempt of each mode to have succeeded,
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest finished attempt of each mode to have succeeded,
 within two hours, on the serving image; an older success cannot conceal a recent failure, and a run still in progress
-counts only once it ends, so the hourly cleanup running at :17 does not refuse an enable. Cloud Run records an
-execution's image by the digest its tag resolved to, so an execution counts only when that digest is the one
-production's serving revision reports (`run.revisions.get`). An execution need not restate the job's Cloud SQL volume
-and mount, which no run's overrides can change and which the job itself must carry.
+counts only once it ends or reports a failed or cancelled task, so the hourly cleanup running at :17 does not refuse
+an enable. Cloud Run records an execution's image by the digest its tag resolved to. An execution recorded by digest
+counts only when that digest is the one production's serving revision reports (`run.revisions.get`) and any tag it
+names is the approved one; an execution recorded by the approved tag alone also counts. The serving digest is read only
+while production is one ready, untagged revision serving all traffic and not reconciling. During a rollout, or with
+traffic held on an older revision, inspection prints `Serving image digest: unverified` and no execution recorded by
+digest counts, so provision's readiness check cannot pass and enable refuses until it settles. An execution need not
+restate the job's Cloud SQL volume and mount, which no run's overrides can change and which the job itself must carry;
+every other field of the approved task is still compared.
 
 Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
 completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
@@ -1088,8 +1093,10 @@ combination of warmed filing traffic.
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
 tree. Upload enablement now requires that receipt to be less than two hours old, in addition to the
-production cleanup/probe/monitoring prerequisites. The verifier scales to zero between verify and enable, so the
-receipt read is retried for up to four minutes while its requests fail; an answer without a receipt refuses at once. Production request handlers never query the
+production cleanup/probe/monitoring prerequisites. The verifier scales to zero between verify and enable, so every
+receipt read (verify's last step, the read-only verify inspection and enable) starts a new attempt every 15 seconds for
+four minutes while its requests fail, including a dropped connection; each attempt keeps its own request timeouts, so a
+read that never succeeds ends within about six minutes. An answer without a receipt refuses at once. Production request handlers never query the
 verification database. A subsequent backend image or frontend/source change requires fresh live
 verification. Confirm that Vercel serves the receipt's frontend tree and inspect the artifact before
 the separately approved enable operation.

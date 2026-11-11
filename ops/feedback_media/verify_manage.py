@@ -24,6 +24,7 @@ import time
 import zlib
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -577,11 +578,13 @@ RECEIPT_WAIT_SECONDS = 240
 
 
 def read_receipt(cloud: media.Cloud, origin: str, key: str, run_id: str) -> dict:
-    """The receipt read, retried for four minutes while the request itself fails.
+    """The receipt read, with a new attempt every 15 s for four minutes while the request itself fails.
 
     The verifier scales to zero between verify-apply and enable-apply, and its cold start (application import and
-    startup audit) can outlast one 60 s request. The read changes nothing. An answer that arrives is returned as it is:
-    one without a receipt is refused by the caller at once.
+    startup audit) can outlast one 60 s request. Each attempt keeps its own request timeouts, so a read that never
+    succeeds ends within about six minutes. The read changes nothing, and every receipt check uses it (verify-apply's
+    last step, the read-only verify-inspect and enable). An answer that arrives is returned as it is: one without a
+    receipt is refused by the caller at once.
     """
     deadline = time.monotonic() + RECEIPT_WAIT_SECONDS
     while True:
@@ -608,7 +611,9 @@ def control(cloud: media.Cloud, origin: str, key: str, run_id: str, path: str, p
         if not isinstance(result, dict):
             raise TypeError("shape")
         return result
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError):
+    # URLError and timeouts are OSErrors; so is a connection dropped before a response, which urllib raises outside its
+    # URLError wrapper. HTTPException covers a response cut short (manage.Cloud.call reads the same way).
+    except (OSError, HTTPException, ValueError, TypeError):
         raise media.OperationError("Private verification control request failed; response withheld") from None
 
 

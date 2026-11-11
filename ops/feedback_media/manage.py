@@ -977,15 +977,18 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     # API sorts creation time descending. Keep the latest attempt for each mode, including failures;
     # an older success must not hide a failed current attempt. Fifty bounds a noisy retry history.
     executions = cloud.call("run", f"v2/{JOB}/executions?pageSize=50", step=EXECUTIONS_READ).get("executions", [])
-    latest = {}
+    latest, newest = {}, None
     seen = {"cleanup": 0, "probe": 0, "other arguments": 0, "no arguments": 0, "no single container": 0,
             "still running": 0}
     for execution in executions:
-        if not execution.get("completionTime"):
-            # A run in progress has no result yet, so the newest completed attempt of its mode stands until it ends: a
-            # scheduled cleanup running at :17 must not refuse an enable. A completed failure still counts, below.
+        if not (execution.get("completionTime") or execution.get("failedCount") or execution.get("cancelledCount")):
+            # A run in progress has no result yet, so the newest finished attempt of its mode stands until it ends: a
+            # scheduled cleanup running at :17 must not refuse an enable. A run reporting a failed or cancelled task has
+            # its result even before its completion time is recorded, and a finished failure still counts, below.
             seen["still running"] += 1
             continue
+        if newest is None:
+            newest = execution
         containers = execution.get("template", {}).get("containers", [])
         if len(containers) != 1:
             seen["no single container"] += 1
@@ -1007,10 +1010,11 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
               "or its revision reports no digest)")
     print("Cleanup last execution: " + ("succeeded" if succeeded else f"unverified ({', '.join(cleanup_gaps)})"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else f"unverified ({', '.join(probe_gaps)})"))
-    if executions and not succeeded:
-        # Never empty here: a newest execution with no gap against the job's own task is the current cleanup evidence.
-        print("Cleanup job newest execution, against the job's own task: "
-              + ", ".join(execution_gaps(executions[0], expected, CLEANUP_ARGS, digest)))
+    if newest is not None and not succeeded:
+        # Never empty here: a newest finished execution with no gap against the job's own task is the current cleanup
+        # evidence. A run still in progress is not described; it has no result yet.
+        print("Cleanup job newest finished execution, against the job's own task: "
+              + ", ".join(execution_gaps(newest, expected, CLEANUP_ARGS, digest)))
     # The probe refuses missing create/get/delete and records broader storage access, without refusing it, while the
     # backend identity holds broader storage access than the feature needs (founder, 10 November; the follow-up recorded on #2027).
     print("Runtime storage permission audit: " + ("create/get/delete verified by the successful probe; broader access "
