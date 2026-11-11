@@ -46,8 +46,10 @@ Clause 3's rotation, the provider usage review and the alert dispositions are th
 **Evidence**: `git for-each-ref --contains 222424317` lists only `refs/tags/archive/2025-11-18-supabase-rag`
 (tag object `ee2eff971`) and `refs/pull/17/head`. Main's CI run 42986073465 (job 130407432442) logged
 `* [new tag] archive/2025-11-18-supabase-rag` at checkout and then `no leaks found` over
-`--branches --remotes`. With the new rules, an emulation of gitleaks over `--branches --remotes --tags`
-finds exactly the two keys at `222424317:backend/env.example.txt` lines 16 and 20, so CI's scan is red
-until the tag is deleted, and nothing else. The values never reached `main`. The current AI provider
+`--branches --remotes`. The pinned gitleaks 8.24.3 with the new rules finds nothing over `--branches --remotes`. Over
+`--branches --remotes --tags` it finds four findings, all in `222424317`, and nothing else: the two keys
+(`backend/env.example.txt` 20, `openrouter-api-key`, and 16, `supabase-secret-key`) and the anon JWT
+under the built-in `jwt` rule (`backend/env.example.txt` 15, `frontend/env.example.txt` 9). So CI's scan
+is red until the tag is deleted. The values never reached `main`. The current AI provider
 is DeepSeek (`.github/ai-model.env`), and no code on `main` reads a Supabase or OpenRouter setting, so
 revoking both keys cannot break production.

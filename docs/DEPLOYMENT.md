@@ -29,7 +29,7 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
   nothing deploys. A deploy that skips as superseded concludes success, with a "Superseded deploy
   skipped" notice and no migration line (`lessons/ops-a-superseded-commit-never-deploys.md`), **and**
 - all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed, **and**
-- `secret-scan` (gitleaks over every branch's history) found no committed credential.
+- `secret-scan` (gitleaks over every branch's and tag's history, with the repository rules in `.gitleaks.toml`) found no committed credential.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every not-yet-recorded

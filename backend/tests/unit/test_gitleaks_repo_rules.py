@@ -21,11 +21,18 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG = tomllib.loads((ROOT / ".gitleaks.toml").read_text(encoding="utf-8"))
 RULES = {rule["id"]: rule for rule in CONFIG["rules"]}
+# Read from gitleaks v8.24.3's config/gitleaks.toml, as are the rule ids the repository rules avoid.
+VERIFIED_AGAINST = "8.24.3"
 BUILT_IN_STOPWORDS = {string.ascii_lowercase, "014df517-39d1-4453-b7b3-9930c563627c"}
+# gitleaks reads keys case-insensitively. A rule's `path` and the deprecated singular `[rules.allowlist]`,
+# which 8.24.3 still honours, would each silence a rule while every vector below still passed.
+TOP_KEYS = {"title", "extend", "allowlist", "rules"}
+RULE_KEYS = {"id", "description", "regex", "entropy", "keywords", "allowlists"}
 BASE62 = string.ascii_letters + string.digits
 
 
@@ -76,6 +83,19 @@ def test_the_file_extends_the_built_in_rules():
 def test_the_file_restates_the_built_in_global_stopwords():
     assert set(CONFIG["allowlist"]["stopwords"]) == BUILT_IN_STOPWORDS
     assert set(CONFIG["allowlist"]) <= {"description", "stopwords"}  # no allowlist that could hide a finding
+
+
+def test_the_file_holds_no_key_that_narrows_a_rule():
+    assert {key.lower() for key in CONFIG} <= TOP_KEYS, sorted(CONFIG)
+    for rule in RULES.values():
+        assert {key.lower() for key in rule} <= RULE_KEYS, f"{rule['id']}: {sorted(rule)}"
+
+
+def test_the_restated_built_ins_belong_to_ci_s_pinned_gitleaks():
+    # A pin bump must re-read the new release's built-in stopwords and rule ids: [extend] drops the
+    # former, and a built-in rule sharing a repository rule's id would merge with it.
+    job = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))["jobs"]["secret-scan"]
+    assert str(job["env"]["GITLEAKS_VERSION"]) == VERIFIED_AGAINST
 
 
 def test_a_rule_allowlist_holds_placeholder_stopwords_only():

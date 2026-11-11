@@ -36,17 +36,18 @@ It needs git 2.43 or later, the first to read `attr.tree`:
 
 ```bash
 pins=$(mktemp) && git --no-replace-objects show refs/remotes/origin/main:.gitleaksignore > "$pins" &&
+rules=$(mktemp) && git --no-replace-objects show refs/remotes/origin/main:.gitleaks.toml > "$rules" &&
 env -i PATH="$PATH" HOME=/nonexistent GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1 GIT_NO_REPLACE_OBJECTS=1 \
   GIT_CONFIG_COUNT=4 GIT_CONFIG_KEY_0=attr.tree GIT_CONFIG_VALUE_0=4b825dc642cb6eb9a060e54bf8d69288fbee4904 \
   GIT_CONFIG_KEY_1=safe.directory GIT_CONFIG_VALUE_1='*' \
   GIT_CONFIG_KEY_2=core.attributesFile GIT_CONFIG_VALUE_2=/dev/null \
   GIT_CONFIG_KEY_3=advice.graftFileDeprecated GIT_CONFIG_VALUE_3=true \
-  gitleaks git "$(git rev-parse --git-common-dir)" --redact --gitleaks-ignore-path "$pins" \
+  gitleaks git "$(git rev-parse --git-common-dir)" --redact --gitleaks-ignore-path "$pins" --config "$rules" \
   --log-opts="refs/remotes/origin/main..$(git rev-parse HEAD)"
 ```
 
 Here `gitleaks` is the job's pinned binary, which `--install` (see **Gate**) puts under
-`~/.cache/earningsnerd/gitleaks/`. Were main to carry a `.gitleaks.toml`, name it too, with `--config`.
+`~/.cache/earningsnerd/gitleaks/`. Main's `.gitleaks.toml` (the repository rules, since 2026-11-11) is named with `--config`, as the hook names it; without it the scan runs the built-in rules alone and misses the bare key shapes they lack.
 
 If a flagged commit is already pushed, rewrite it out of the branch at once (amend and `--force-with-lease`
 on a branch you created), then re-run the `secret-scan` jobs it failed on other pull requests. A pin

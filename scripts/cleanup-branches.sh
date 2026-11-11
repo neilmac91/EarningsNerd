@@ -20,9 +20,9 @@ DELETED_COUNT=0
 FAILED_COUNT=0
 
 echo "This script will:"
-echo "  2. Delete 6 merged feature branches"
-echo "  3. Delete 10 merged codex branches"
-echo "  4. Delete 3 stale experimental branches"
+echo "  1. Delete 6 merged feature branches"
+echo "  2. Delete 10 merged codex branches"
+echo "  3. Delete 3 stale experimental branches"
 echo "  Total: 19 branches to be removed"
 echo ""
 
@@ -33,14 +33,14 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-# Step 1 (archiving the RAG/Supabase branch as a tag) was removed on 2026-11-11: the tag it pushed,
+# The former step 1 (archiving the RAG/Supabase branch as a tag) was removed on 2026-11-11: the tag it pushed,
 # archive/2025-11-18-supabase-rag, published a commit holding a real OpenRouter key and a Supabase
 # secret key (secret-scanning alerts 1 and 2). Never archive a branch as a tag without scanning it;
 # lessons/ops-a-tag-publishes-the-commit-it-names.md.
 
 echo ""
 echo "========================================="
-echo "Step 2: Deleting Merged Feature Branches"
+echo "Step 1: Deleting Merged Feature Branches"
 echo "========================================="
 
 MERGED_BRANCHES=(
@@ -65,7 +65,7 @@ done
 
 echo ""
 echo "========================================="
-echo "Step 3: Deleting Merged Codex Branches"
+echo "Step 2: Deleting Merged Codex Branches"
 echo "========================================="
 
 CODEX_BRANCHES=(
@@ -94,7 +94,7 @@ done
 
 echo ""
 echo "========================================="
-echo "Step 4: Deleting Stale Experimental Branches"
+echo "Step 3: Deleting Stale Experimental Branches"
 echo "========================================="
 
 STALE_BRANCHES=(
@@ -116,7 +116,7 @@ done
 
 echo ""
 echo "========================================="
-echo "Step 5: Cleaning Up Local References"
+echo "Step 4: Cleaning Up Local References"
 echo "========================================="
 
 echo -n "Pruning deleted remote branches... "
@@ -147,8 +147,5 @@ fi
 echo ""
 echo "Remaining branches:"
 git branch -a | grep -v "HEAD"
-echo ""
-echo "Archive tags:"
-git tag -l "archive/*"
 echo ""
 echo "✨ Your repository is now clean!"

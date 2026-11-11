@@ -19,13 +19,20 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 EVERY_REF = ({"--all"}, {"--branches", "--remotes", "--tags"})
 
 
+def _workflow() -> dict:
+    return yaml.safe_load(CI.read_text(encoding="utf-8"))
+
+
 def _job() -> dict:
-    return yaml.safe_load(CI.read_text(encoding="utf-8"))["jobs"]["secret-scan"]
+    return _workflow()["jobs"]["secret-scan"]
+
+
+def _scan_step() -> dict:
+    return next(step for step in _job()["steps"] if "gitleaks git" in step.get("run", ""))
 
 
 def _scan_command() -> list[str]:
-    run = next(step["run"] for step in _job()["steps"] if "gitleaks git" in step.get("run", ""))
-    commands = [line.strip() for line in run.splitlines() if "gitleaks git" in line]
+    commands = [line.strip() for line in _scan_step()["run"].splitlines() if "gitleaks git" in line]
     assert len(commands) == 1, f"one gitleaks scan expected, found {commands}"
     return shlex.split(commands[0])
 
@@ -49,8 +56,13 @@ def test_the_scan_walks_every_branch_and_every_tag():
 def test_the_scan_reads_the_repository_rules_from_the_checkout():
     words = _scan_command()
     assert words[words.index("git") + 1] == ".", "gitleaks reads ./.gitleaks.toml only when it scans the checkout"
-    assert not any(word.startswith(("--config", "-c")) for word in words)
-    assert not any(name.startswith("GITLEAKS_CONFIG") for name in _job().get("env", {}))
+    # --config replaces the rules and --enable-rule narrows them to the ids it names.
+    assert not any(word.startswith(("--config", "-c", "--enable-rule")) for word in words)
+    # GITLEAKS_CONFIG and GITLEAKS_CONFIG_TOML outrank ./.gitleaks.toml (gitleaks 8.24.3 cmd/root.go), wherever
+    # the step's environment gets them: the workflow's env, the job's, the step's, or the run script itself.
+    for env in (_workflow().get("env") or {}, _job().get("env") or {}, _scan_step().get("env") or {}):
+        assert not [name for name in env if name.upper().startswith("GITLEAKS_CONFIG")]
+    assert "GITLEAKS_CONFIG" not in _scan_step()["run"].upper()
     assert (ROOT / ".gitleaks.toml").is_file()
 
 
