@@ -1780,8 +1780,8 @@ Spinner          <CircleNotchIcon aria-hidden="true" className="… animate-spin
                  banner; the alert settings show theirs beside their heading while a switch saves, the switches
                  busy). A wait whose answer decides which layout shows, so it has no shape to bone: brand-strong, in
                  a role="status" region whose aria-label and sr-only words name the wait (the filing summary's, h-8,
-                 while its generation is decided) or over the heading that names it (/verify-email's, h-10,
-                 "Verifying your email…"). A page never swaps itself for a full-page spinner (§11 › Loading): a new
+                 while its generation is decided) or over the heading that names it (/auth/complete's, h-10,
+                 "Logging you in…"). A page never swaps itself for a full-page spinner (§11 › Loading): a new
                  page draws its frame over bones. The company, filing and ticker-filings loaders are that rule's
                  shrink-only exceptions, which fullPageSpinnerGate pins until bones replace them, each a status
                  region named for its wait; they are not a form to copy. The glyph is aria-hidden: the control's

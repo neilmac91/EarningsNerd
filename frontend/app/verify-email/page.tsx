@@ -1,59 +1,109 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
-import { verifyEmailFailureMessage } from '@/features/auth/lib/verifyEmailFailure'
+import {
+  readVerifyEmailFailure,
+  VERIFY_UNANSWERED_DESCRIPTION,
+  VERIFY_UNANSWERED_TITLE,
+} from '@/features/auth/lib/verifyEmailFailure'
 import Link from 'next/link'
-import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
+import { CheckCircleIcon, XCircleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
+import { Button, cx, Notice, primaryUnavailableClass } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
-function VerifyEmailContent() {
-  const searchParams = useSearchParams()
+const NO_TOKEN = 'No verification token found. Please use the link from your email.'
+/** The answer that replaces the button takes focus from it, so it can show the ring a keyboard user expects. */
+const ANSWER = 'rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+
+/** The token in a location's query (`?token=…`, the form the email's link uses) or fragment (`#token=…`), or null. */
+function verificationTokenFrom(search: string, hash: string): string | null {
+  for (const part of [search, hash]) {
+    const token = new URLSearchParams(part.replace(/^[?#]/, '')).get('token')?.trim()
+    if (token) return token
+  }
+  return null
+}
+
+/**
+ * The page a verification email's link opens: {FRONTEND_URL}/verify-email?token=<token> (a `#token=` fragment works
+ * too). It is safe for a link scanner: loading it sends nothing. A mail scanner that runs the page's script would
+ * otherwise spend the single-use token before its reader clicks, who would then see "Verification failed". The token
+ * is read after mount and taken out of the address bar at once; only a press of Verify email posts it
+ * (POST /api/auth/verify-email), once per press. No login: the token is the email's own. A refused link (a 400) ends
+ * on the failure state, since its token is spent or bad. A press that got no answer about the link (no connection, a
+ * timeout, a server error, a rate limit) leaves the token unspent in this page's state, so the page stays as it is,
+ * says so in an error notice above the button, and the next press posts the same token again.
+ */
+export default function VerifyEmailPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const token = searchParams.get('token') ?? ''
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [errorMessage, setErrorMessage] = useState('')
+  // The email's token: undefined until the address is read after mount (the server renders none), null when the
+  // address held none.
+  const [token, setToken] = useState<string | null | undefined>(undefined)
+  const [verifying, setVerifying] = useState(false)
+  // What the server answered about the link: null until it answers, then success or the refusal's sentence.
+  const [outcome, setOutcome] = useState<{ verified: true } | { verified: false; message: string } | null>(null)
+  // The last press got no answer about the link: the button stays, under the notice that says so.
+  const [unanswered, setUnanswered] = useState(false)
+  // One post per press: a second press, or a double click before the busy render lands, sends nothing while a post is
+  // out, and nothing after an answer about the link. A press that got no such answer frees it for the next press.
+  const sent = useRef(false)
+  const answerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time guard that sets error state before kicking off async email verification
-      setStatus('error')
-      setErrorMessage('No verification token found. Please use the link from your email.')
-      return
+    const found = verificationTokenFrom(window.location.search, window.location.hash)
+    // Out of the address bar and this history entry: from here the token lives in this page's state alone, so no
+    // bookmark, copied address or later visit carries it. Next's own history state is kept.
+    if (window.location.search || window.location.hash) {
+      window.history.replaceState(window.history.state, '', window.location.pathname)
     }
+    // Development's StrictMode runs this twice, and the second run finds the address cleared: it keeps the first read.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is the browser's alone, read once after mount
+    setToken((read) => read ?? found)
+  }, [])
 
-    verifyEmail(token)
-      .then(() => {
-        setStatus('success')
-        // Refresh cached identity so the banner/avatar dot clear immediately
-        queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-        queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-        setTimeout(() => router.push('/'), 3000)
-      })
-      .catch((err: unknown) => {
-        setStatus('error')
-        setErrorMessage(verifyEmailFailureMessage(err))
-      })
-  }, [token, router, queryClient])
+  // The answer takes the button away, so focus goes to the answer rather than falling to the page. A press with no
+  // answer about the link keeps the button, and focus stays on it.
+  const answered = outcome !== null
+  useEffect(() => {
+    if (answered) answerRef.current?.focus({ preventScroll: true })
+  }, [answered])
 
+  const verify = async () => {
+    if (!token || sent.current) return
+    sent.current = true
+    setVerifying(true)
+    setUnanswered(false)
+    try {
+      await verifyEmail(token)
+      setOutcome({ verified: true })
+      // Refresh cached identity so the banner and the avatar dot clear at once.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+      setTimeout(() => router.push('/'), 3000)
+    } catch (err: unknown) {
+      const read = readVerifyEmailFailure(err)
+      if (read.retryable) {
+        sent.current = false
+        setUnanswered(true)
+      } else {
+        setOutcome({ verified: false, message: read.message })
+      }
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const failure = token === null ? NO_TOKEN : outcome && !outcome.verified ? outcome.message : null
+  const unavailable = !token
   return (
     <AuthShell>
       <div className="text-center">
-        {status === 'loading' && (
-          <>
-            <CircleNotchIcon aria-hidden="true" className="mx-auto mb-4 h-10 w-10 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
-            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Verifying your email…
-            </h1>
-          </>
-        )}
-
-        {status === 'success' && (
-          <>
+        {outcome?.verified ? (
+          <div ref={answerRef} tabIndex={-1} className={ANSWER}>
             <div className="mb-4 flex justify-center">
               <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
             </div>
@@ -66,11 +116,9 @@ function VerifyEmailContent() {
             <Link href="/" className="mt-6 inline-block rounded-sm focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
               Continue to EarningsNerd
             </Link>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
+          </div>
+        ) : failure !== null ? (
+          <div ref={answerRef} tabIndex={-1} className={ANSWER}>
             <div className="mb-4 flex justify-center">
               <XCircleIcon className="h-12 w-12 text-error-light dark:text-error-dark" />
             </div>
@@ -78,7 +126,7 @@ function VerifyEmailContent() {
               Verification failed
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              {errorMessage}
+              {failure}
             </p>
             <div className="mt-6 space-y-2 text-sm">
               <p>
@@ -94,17 +142,36 @@ function VerifyEmailContent() {
                 </Link>
               </p>
             </div>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+              Verify your email address
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Press Verify email to confirm this address is yours.
+            </p>
+            {unanswered && (
+              <div className="mt-4">
+                <Notice variant="error" title={VERIFY_UNANSWERED_TITLE} description={VERIFY_UNANSWERED_DESCRIPTION} />
+              </div>
+            )}
+            <div className="mt-6">
+              {/* Unavailable only until the address is read after mount: aria-disabled and an early return. */}
+              <Button
+                onClick={verify}
+                loading={verifying}
+                loadingText="Verifying…"
+                // Busy keeps Button's own aria-disabled: a value here replaces it, so it names `verifying` too.
+                aria-disabled={unavailable || verifying || undefined}
+                className={cx('w-full', unavailable && !verifying && primaryUnavailableClass)}
+              >
+                Verify email
+              </Button>
+            </div>
           </>
         )}
       </div>
     </AuthShell>
-  )
-}
-
-export default function VerifyEmailPage() {
-  return (
-    <Suspense>
-      <VerifyEmailContent />
-    </Suspense>
   )
 }

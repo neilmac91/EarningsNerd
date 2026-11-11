@@ -58,8 +58,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   account menu and choose Verify your email.". /verify-email shows the endpoint's own reason for a
   refused link (its two 400 details, listed in `features/auth/lib/verifyEmailFailure.ts` and held to
   `backend/app/routers/auth.py`), "The link has expired, or a newer one replaced it." for a 400
-  without one, and "We couldn't check the link just now. Reload this page to try again." for a lost
-  connection, a timeout or a server error, never the API client's own text; on success, "Your email
+  without one, and, for a lost connection, a timeout or a server error, the notice "We couldn't check
+  the link just now" with "Try again in a minute." above its button, which the reader presses again
+  (the page posts only on a press of Verify email, E296), never the API client's own text; on success, "Your email
   address is confirmed. Taking you to the home page…" (reading and a password sign-in never waited on
   it). The verification banner says "Verify your email address to confirm it's yours.", the
   verification mail's own ask (#1965 Decision 4: beta testers get Pro by grant and checkout stays
