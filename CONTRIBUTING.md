@@ -122,7 +122,7 @@ remote has another name, every push that adds commits has its whole history scan
 pins, and is refused. The hook stops a push on a finding and whenever it cannot scan (it needs the
 binary above, git 2.43 or later and `python3`), naming why; `git push --no-verify` skips it, as do
 `git send-pack`, `git http-push` and a program pushing through a git library, and CI's `secret-scan`
-still reads every branch after the push.
+still reads every branch and tag after the push.
 
 ## Workflow
 

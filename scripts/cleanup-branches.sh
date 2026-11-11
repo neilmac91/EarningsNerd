@@ -1,6 +1,6 @@
 #!/bin/bash
 # Branch Cleanup Script for EarningsNerd
-# This script removes 19 stale/merged branches and archives the RAG/Supabase work
+# This script removes 19 stale/merged branches
 
 set -e  # Exit on error
 
@@ -20,7 +20,6 @@ DELETED_COUNT=0
 FAILED_COUNT=0
 
 echo "This script will:"
-echo "  1. Archive the RAG/Supabase branch as a tag"
 echo "  2. Delete 6 merged feature branches"
 echo "  3. Delete 10 merged codex branches"
 echo "  4. Delete 3 stale experimental branches"
@@ -34,29 +33,10 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-echo ""
-echo "========================================="
-echo "Step 1: Archiving RAG/Supabase Branch"
-echo "========================================="
-
-# Create archive tag for RAG branch
-echo -n "Creating archive tag for 2025-11-18-qpw4-40e1b... "
-if git tag -a archive/2025-11-18-supabase-rag $(git rev-parse origin/2025-11-18-qpw4-40e1b) -m "Archive: Supabase RAG integration feature branch - Complete Supabase backend, RAG for AI summarization, Watchlist & alerts, Database schema reorganization" 2>/dev/null; then
-    echo -e "${GREEN}✓${NC}"
-
-    # Push the tag
-    echo -n "Pushing archive tag to remote... "
-    if git push origin archive/2025-11-18-supabase-rag 2>/dev/null; then
-        echo -e "${GREEN}✓${NC}"
-        echo -e "${GREEN}Archive tag created successfully!${NC}"
-        echo "You can restore this work later with: git checkout -b new-branch archive/2025-11-18-supabase-rag"
-    else
-        echo -e "${YELLOW}⚠ Tag created locally but failed to push to remote${NC}"
-        echo "  You can manually push it later with: git push origin archive/2025-11-18-supabase-rag"
-    fi
-else
-    echo -e "${YELLOW}⚠ Tag may already exist${NC}"
-fi
+# Step 1 (archiving the RAG/Supabase branch as a tag) was removed on 2026-11-11: the tag it pushed,
+# archive/2025-11-18-supabase-rag, published a commit holding a real OpenRouter key and a Supabase
+# secret key (secret-scanning alerts 1 and 2). Never archive a branch as a tag without scanning it;
+# lessons/ops-a-tag-publishes-the-commit-it-names.md.
 
 echo ""
 echo "========================================="

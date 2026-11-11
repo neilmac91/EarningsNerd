@@ -1,5 +1,12 @@
 # Branch Cleanup Guide
 
+> **2026-11-11: do not archive a branch as a tag.** The tag this guide created,
+> `archive/2025-11-18-supabase-rag`, published a commit whose `backend/env.example.txt` held a real
+> OpenRouter key and a Supabase secret key (GitHub secret-scanning alerts 1 and 2), outside CI's
+> branches-only secret scan. The keys are to be revoked and the tag deleted (`tasks/todo.md` F73), and the
+> script's archive step is gone. The tag steps below are struck; see
+> `lessons/ops-a-tag-publishes-the-commit-it-names.md`.
+
 ## Overview
 
 Your repository has accumulated 19 stale branches (plus main) from previous development work. This guide will help you clean them up safely.
@@ -8,7 +15,7 @@ Your repository has accumulated 19 stale branches (plus main) from previous deve
 
 - **Total branches to delete**: 19
 - **Branches to keep**: 1 (main)
-- **Archive preserved**: RAG/Supabase work saved as git tag
+- ~~**Archive preserved**: RAG/Supabase work saved as git tag~~ (the tag published real keys; see the note above)
 
 ## What Gets Deleted
 
@@ -40,7 +47,7 @@ All were merged via PRs #1-11:
 **Dated Branches:**
 - `2025-11-09-yptw-D3nRL` - Vitest config fixes (likely superseded)
 - `2025-11-10-p6z3-1dfbe` - Node.js + XBRL improvements (likely superseded)
-- `2025-11-18-qpw4-40e1b` - **RAG/Supabase integration (archived as tag)**
+- `2025-11-18-qpw4-40e1b` - **RAG/Supabase integration** (was archived as a tag that published real keys; see the note above)
 
 ## Automated Cleanup
 
@@ -55,7 +62,7 @@ cd /home/user/EarningsNerd
 ```
 
 The script will:
-1. ✅ Create archive tag `archive/2025-11-18-supabase-rag`
+1. ~~Create archive tag `archive/2025-11-18-supabase-rag`~~ (removed 2026-11-11)
 2. ✅ Delete all 19 branches
 3. ✅ Clean up local references
 4. ✅ Show summary of results
@@ -64,12 +71,8 @@ The script will:
 
 If the script fails, run these commands manually:
 
-#### Step 1: Archive RAG Branch
-```bash
-git tag -a archive/2025-11-18-supabase-rag $(git rev-parse origin/2025-11-18-qpw4-40e1b) \
-  -m "Archive: Supabase RAG integration feature branch"
-git push origin archive/2025-11-18-supabase-rag
-```
+#### Step 1: (removed 2026-11-11)
+The archive tag published a commit holding real keys; never push a tag of an unscanned branch.
 
 #### Step 2: Delete Merged Branches
 ```bash
@@ -113,18 +116,8 @@ git branch -vv | grep ': gone]' | awk '{print $1}' | xargs git branch -D
 
 ## Restoring Archived Work
 
-If you ever need the RAG/Supabase work:
-
-```bash
-# Check available archives
-git tag -l "archive/*"
-
-# Restore to a new branch
-git checkout -b feature/rag-integration archive/2025-11-18-supabase-rag
-
-# Or view the archive
-git show archive/2025-11-18-supabase-rag
-```
+The archive tag is to be deleted from GitHub (`tasks/todo.md` F73): it published real keys. Keep any
+copy of the RAG/Supabase work offline (a `git bundle` on your own machine), never as a pushed ref.
 
 ## What the RAG Archive Contains
 
@@ -144,7 +137,7 @@ After cleanup, verify:
 # Should show only 'main' (or very few branches)
 git branch -a
 
-# Should show the archive tag
+# Should show no archive tag
 git tag -l "archive/*"
 
 # Should show ~20 fewer branches
@@ -154,17 +147,13 @@ git branch -r | wc -l
 ## Expected Result
 
 **Before:** 20 branches (19 + main)
-**After:** 1 branch (main) + 1 archive tag
+**After:** 1 branch (main)
 
 ## Troubleshooting
 
 ### Script Fails with 403 Error
 - You may need to run from a properly authenticated environment
 - Use the manual commands instead
-
-### Tag Already Exists
-- No problem! The archive already exists
-- Verify with: `git tag -l "archive/*"`
 
 ### Can't Delete a Specific Branch
 - Check if it has open PRs: `gh pr list --head <branch-name>`
@@ -176,8 +165,5 @@ git branch -r | wc -l
 ✅ All branches to be deleted are either:
 - Merged to main (code is preserved)
 - Stale experimental work
-- Archived as tags (can be restored)
 
-✅ No data loss - everything is in main or archived
-
-✅ Reversible - you can restore from archive tags
+✅ Merged work is in main

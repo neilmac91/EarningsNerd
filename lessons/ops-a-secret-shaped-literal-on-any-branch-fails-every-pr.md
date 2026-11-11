@@ -5,7 +5,7 @@ Date: 2026-10-16   Area: ops
 **Context**: The E20 branch committed Svix's published example secret (`whsec_…`) as a test
 vector, without the `# gitleaks:allow` marker the repository's test fixtures carry. CI's
 `secret-scan` job checks out every branch (`fetch-depth: 0`) and runs gitleaks with
-`--log-opts="--branches --remotes"`, so after the push it failed on another session's pull request
+`--log-opts="--branches --remotes"` (`--tags` too since 2026-11-11, lessons/ops-a-tag-publishes-the-commit-it-names.md), so after the push it failed on another session's pull request
 (#1310's run 38881925266), and it would have blocked any `deploy-backend` that ran in that window.
 A follow-up commit cannot clear it, because the scan reads every commit on every branch.
 
@@ -198,7 +198,9 @@ that SHA-256 and another platform's against the release's checksums file once th
   - a GitHub MCP server named without "github", and an MCP write in a session that loads no repository
     hooks.
 
-  CI's `secret-scan` still reads each of them that reaches this repository, after the push.
+  CI's `secret-scan` still reads each of them that reaches a branch or a tag of this repository, after the push
+  (tags only since 2026-11-11: an archive tag's commit went unread for ten months before,
+  lessons/ops-a-tag-publishes-the-commit-it-names.md).
 
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
 #1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the literal, but only
