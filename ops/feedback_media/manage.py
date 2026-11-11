@@ -765,16 +765,22 @@ def environment_differences(env: list, wanted: dict[str, dict]) -> list[str]:
     The approved names are fixed in job_spec, so naming them shows nothing a reader of this file cannot; a name
     outside them is only counted.
     """
+    def without_version(entry: dict) -> dict | None:
+        reference = entry.get("valueSource", {}).get("secretKeyRef")
+        if not isinstance(reference, dict):
+            return None
+        return {**entry, "valueSource": {**entry["valueSource"], "secretKeyRef": {**reference, "version": None}}}
+
     actual = {item.get("name"): item for item in env}
     differences = ["environment repeats a name"] if len(actual) != len(env) else []
     for name, item in wanted.items():
         if name not in actual:
             differences.append(f"environment {name} missing")
         elif actual[name] != item:
-            reference, approved = (entry.get("valueSource", {}).get("secretKeyRef") for entry in (actual[name], item))
-            same_secret = (isinstance(reference, dict) and isinstance(approved, dict)
-                           and {**reference, "version": None} == {**approved, "version": None})
-            differences.append(f"environment {name} " + ("secret version" if same_secret else "value"))
+            # Only the version differs exactly when the two are equal once both versions are set aside.
+            stripped = without_version(actual[name])
+            version_only = stripped is not None and stripped == without_version(item)
+            differences.append(f"environment {name} " + ("secret version" if version_only else "value"))
     others = len(set(actual) - set(wanted))
     if others:
         differences.append(f"environment has {others} other name" + ("s" if others > 1 else ""))
@@ -944,8 +950,9 @@ def inspect_job(cloud: Cloud, service: dict, runtime: str) -> bool:
     print("Cleanup last execution: " + ("succeeded" if succeeded else f"unverified ({', '.join(cleanup_gaps)})"))
     print("Private storage probe: " + ("succeeded" if probe_succeeded else f"unverified ({', '.join(probe_gaps)})"))
     if executions and not succeeded:
+        # Never empty here: a newest execution with no gap against the job's own task is the current cleanup evidence.
         print("Cleanup job newest execution, against the job's own task: "
-              + (", ".join(execution_gaps(executions[0], expected, CLEANUP_ARGS)) or "no difference"))
+              + ", ".join(execution_gaps(executions[0], expected, CLEANUP_ARGS)))
     # The probe refuses missing create/get/delete and records broader storage access, without refusing it, while the
     # backend identity holds broader storage access than the feature needs (founder, 10 November; the follow-up recorded on #2027).
     print("Runtime storage permission audit: " + ("create/get/delete verified by the successful probe; broader access "

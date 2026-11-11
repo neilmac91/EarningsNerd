@@ -320,6 +320,11 @@ TASK_DIFFERENCES = {
         version="7"), ["environment DATABASE_URL secret version"]),
     "secret name": (lambda t: _environment_item(t, "DATABASE_URL")["valueSource"]["secretKeyRef"].update(
         secret="other"), ["environment DATABASE_URL value"]),
+    # The same reference, version included, beside another difference is not a version difference.
+    "value beside the same secret": (lambda t: _environment_item(t, "DATABASE_URL").update(value=""),
+                                     ["environment DATABASE_URL value"]),
+    "version and another key": (lambda t: _environment_item(t, "DATABASE_URL")["valueSource"].update(
+        secretKeyRef={"secret": "db", "version": "7"}, other={}), ["environment DATABASE_URL value"]),
     "plain value": (lambda t: _environment_item(t, "DB_POOL_SIZE").update(value="4"), ["environment DB_POOL_SIZE value"]),
     "missing variable": (lambda t: _drop_environment_item(t, "FEEDBACK_MEDIA_ENABLED"),
                          ["environment FEEDBACK_MEDIA_ENABLED missing"]),
@@ -374,6 +379,30 @@ def test_inspection_counts_the_executions_it_cannot_classify(capsys):
     assert "Cleanup last execution: unverified (no execution with these arguments among the newest read)" in output
     assert "Cleanup job newest execution, against the job's own task: container count" in output
     assert "unlisted" not in output
+
+
+@pytest.mark.parametrize("defect, label", [
+    ("failed", "not succeeded"), ("cancelled", "not succeeded"), ("tasks", "task count"),
+    ("old", "not completed within two hours"), ("unfinished", "no completion time"),
+])
+def test_inspection_names_why_the_newest_cleanup_execution_is_not_current(capsys, defect, label):
+    cloud = CloudFixture()
+    newest = cloud.execution(ops.CLEANUP_ARGS)
+    if defect == "failed":
+        newest.update(succeededCount=0, failedCount=1)
+    elif defect == "cancelled":
+        newest.update(cancelledCount=1)
+    elif defect == "tasks":
+        newest.update(taskCount=2)
+    elif defect == "old":
+        newest["completionTime"] = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    else:
+        del newest["completionTime"]
+    cloud.executions.insert(0, newest)
+    assert not ops.inspect(cloud)
+    output = capsys.readouterr().out
+    assert f"Cleanup last execution: unverified ({label})" in output
+    assert f"Cleanup job newest execution, against the job's own task: {label}" in output
 
 
 def test_a_current_execution_prints_no_difference_line(capsys):
