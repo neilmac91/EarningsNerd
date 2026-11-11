@@ -1482,6 +1482,30 @@ def test_validation_refuses_a_resource_this_feature_does_not_own_before_validati
     assert not [path for api, path, method, body in cloud.calls if method != "GET" and path.startswith(foreign)]
 
 
+
+@pytest.mark.parametrize("state, refused, kind", [("absent", 1, "service"), ("present", 0, "cleanup job"),
+                                                   ("present", 1, "service")])
+def test_a_refused_validation_of_either_write_in_either_form_stops_there(state, refused, kind):
+    """A refusal of the service's validation, or of an update's, is never swallowed: it stops the step, named."""
+    cloud, validations = rerun_identity_cloud(), []
+    if state == "absent":
+        for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+            del cloud.run[path]
+    answer = cloud.call
+
+    def call(api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        if "validateOnly=true" in path:
+            validations.append(path)
+            if len(validations) - 1 == refused:
+                raise verify.media.ProviderError(f"{step} failed (HTTP 400; INVALID_ARGUMENT)")
+        return answer(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
+    cloud.call = call
+    specs = [{"name": path, "labels": {"purpose": verify.PURPOSE}} for path in (verify.JOB, verify.SERVICE)]
+    with pytest.raises(verify.media.ProviderError,
+                       match=f"^Cloud Run validation of the verification {kind} failed \\(HTTP 400; INVALID_ARGUMENT\\)$"):
+        verify.validate_writes(cloud, *specs)
+    assert len(validations) == refused + 1
+
 def test_provision_validates_both_writes_once_its_identity_exists_and_before_the_seed():
     """Validation needs the identity the specs run as, and must come before the lease a refused write would strand."""
     source = inspect.getsource(verify.provision)

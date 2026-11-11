@@ -33,8 +33,10 @@ switch's enable or disable, fails at its one write with nothing partial):
    Each refusal changes nothing; the write steps keep their own ownership and etag checks, and a policy read
    without an etag is refused, because its write-back would not be conditional.
 3. **Closed failures.** Print a refused provider call as its label and a closed error class:
-   `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>)`. The permission is named
-   only when one of the steps names it, otherwise "an unlisted permission". An operation that fails after
+   `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>; field <path>)`. The permission
+   is named only when one of the steps names it, otherwise "an unlisted permission". A field is a path a
+   `BadRequest` refuses, at most three, named only in a closed shape through Cloud Run's own field names (any
+   other word prints as `?`), so a refused create says which field it objects to. An operation that fails after
    Cloud Run accepted it prints `<step> [<permission>]: Cloud Run operation failed (<status>)`, and a dropped
    connection prints `<step> [<permission>] unavailable or unreadable`. Never print provider text.
 4. **Inspect reads everything.** Read every component before failing, as an independent inventory
