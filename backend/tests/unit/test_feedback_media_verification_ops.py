@@ -763,6 +763,8 @@ def test_production_sql_admission_refuses_the_verifier_without_room(monkeypatch,
     assert len(statements) == 1 and statements[0].lstrip().startswith("SELECT")
     # A session another role owns shows backend_type NULL to a role without pg_read_all_stats; it still counts.
     assert "backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL)" in " ".join(statements[0].split())
+    # The query's own session is the one serial connection the cap already holds, so it is not counted twice.
+    assert "AND pid <> pg_backend_pid()" in " ".join(statements[0].split())
     assert "PRINCIPAL" not in capsys.readouterr().out
 
 
