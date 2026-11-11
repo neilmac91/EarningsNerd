@@ -154,8 +154,11 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
         if job:
             assert spec["template"]["taskCount"] == spec["template"]["parallelism"] == 1
             assert task["maxRetries"] == 1
+            assert "executionEnvironment" not in task
         else:
             assert task["maxInstanceRequestConcurrency"] == 4 and task["scaling"]["maxInstanceCount"] == 1
+            # Memory acceptance reads cgroup v2 files, which only the second generation exposes.
+            assert task["executionEnvironment"] == "EXECUTION_ENVIRONMENT_GEN2"
             assert spec["scaling"] == {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1}
     # ProtoJSON may omit empty values, but a hidden secret reference is never equivalent to empty.
     assert verify.contains_spec({"name": "RESEND_API_KEY"}, {"name": "RESEND_API_KEY", "value": ""})
@@ -383,6 +386,61 @@ def fake_clock(monkeypatch):
     monkeypatch.setattr(verify, "time", types.SimpleNamespace(
         monotonic=lambda: clock[0], sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds)))
     return clock
+
+
+def test_a_command_run_without_its_exit_check_returns_what_it_printed():
+    command = [sys.executable, "-c", "print('closed-line'); raise SystemExit(1)"]
+    assert verify.run(command, check=False) == "closed-line\n"
+    with pytest.raises(verify.media.OperationError, match="^Verification command failed; diagnostics withheld$"):
+        verify.run(command)
+
+
+@pytest.mark.parametrize("answer, refusal", [
+    ({"status": "failed", "stage": "measurement", "reason": "resource-acceptance"},
+     "Live browser verification failed at measurement (resource-acceptance)"),
+    ({"status": "failed", "stage": "shutdown", "reason": "verification-unavailable"},
+     "Live browser verification failed at shutdown (verification-unavailable)"),
+    # Anything outside the closed stages and kebab-case codes stays withheld: Ops logs are public.
+    ({"status": "failed", "stage": "browser", "reason": "owner@example.invalid"}, "Live browser verification did not pass"),
+    ({"status": "failed", "stage": "browser", "reason": "Private-Value"}, "Live browser verification did not pass"),
+    ({"status": "failed", "stage": "browser", "reason": "code-7"}, "Live browser verification did not pass"),
+    ({"status": "failed", "stage": "browser", "reason": "a" * 41}, "Live browser verification did not pass"),
+    ({"status": "failed", "stage": "private-stage", "reason": "receipt-binding"}, "Live browser verification did not pass"),
+    ({"status": "failed", "stage": "browser", "reason": "receipt-binding", "detail": "x"},
+     "Live browser verification did not pass"),
+    ({"status": "passed", "stage": "browser", "reason": "receipt-binding"}, "Live browser verification did not pass"),
+])
+def test_a_failed_browser_run_names_only_its_closed_stage_and_code(monkeypatch, answer, refusal):
+    calls = []
+
+    def run(command, **options):
+        calls.append((Path(command[0]).name, options.get("check", True)))
+        if command[0] == "openssl":
+            for flag in ("-keyout", "-out"):
+                Path(command[command.index(flag) + 1]).write_text("fixture")
+            return ""
+        return json.dumps(answer) + "\n"
+    monkeypatch.setattr(verify, "run", run)
+    monkeypatch.setattr(verify, "token", lambda *_: "header.payload.signature")
+    monkeypatch.setattr(verify, "retain_artifacts", lambda *_: None)
+    with pytest.raises(verify.media.OperationError) as failure:
+        verify.browser(None, "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert str(failure.value) == refusal
+    assert ("node", False) in calls  # the runner's failure line is read, not discarded with its exit status
+
+
+def test_every_stage_and_code_the_runner_reports_is_one_the_failure_line_can_name():
+    """live_runner.mjs's stages are BROWSER_STAGES, and each failure code is a kebab-case literal the line names."""
+    runner = (ROOT / "ops/feedback_media/live_runner.mjs").read_text()
+    stages = set(re.findall(r"stage = '([^']*)'", runner)) | set(re.findall(r"safeFailure\('([^']*)'", runner))
+    assert stages == set(verify.BROWSER_STAGES)
+    codes = {"verification-unavailable"}
+    for source in (ROOT / "ops/feedback_media").glob("*.mjs"):
+        text = source.read_text()
+        codes |= set(re.findall(r"\bcheck\([^;]*?,\s*'([^']*)'\s*\)", text, re.S))
+        codes |= set(re.findall(r"(?:VerificationError\(|byteLimit\([^,]*,\s*)'([^']*)'\)", text))
+    assert len(codes) > 50
+    assert [code for code in sorted(codes) if not re.fullmatch(r"[a-z][a-z-]{0,39}", code)] == []
 
 
 def test_the_browser_waits_until_the_service_answers_the_verifier(monkeypatch):

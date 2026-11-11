@@ -90,10 +90,11 @@ CONNECTION_LIMIT = 4
 OPERATIONAL_RESERVE = 5
 
 
-def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60) -> str:
+def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60,
+        check: bool = True) -> str:
     try:
         result = subprocess.run(command, input=input_text, text=True, env=env, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, timeout=timeout, check=True)
+                                stderr=subprocess.DEVNULL, timeout=timeout, check=check)
     except (subprocess.SubprocessError, OSError):
         raise media.OperationError("Verification command failed; diagnostics withheld") from None
     return result.stdout
@@ -501,7 +502,9 @@ def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versio
         task["maxRetries"] = 1
         return {"name": JOB, "labels": {"purpose": PURPOSE},
                 "template": {"taskCount": 1, "parallelism": 1, "template": task}}
-    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1}})
+    # Memory acceptance reads cgroup v2 files, which only the second generation exposes (Cloud Run may pick either).
+    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1},
+                 "executionEnvironment": "EXECUTION_ENVIRONMENT_GEN2"})
     return {"name": SERVICE, "labels": {"purpose": PURPOSE}, "ingress": "INGRESS_TRAFFIC_ALL",
             "invokerIamDisabled": False, "scaling": {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1},
             "template": task}
@@ -879,6 +882,10 @@ def ensure_service(cloud: media.Cloud, spec: dict) -> None:
     media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
 
 
+# live_runner.mjs's stages; a failure reports one with a kebab-case code from a VerificationError or check() literal.
+BROWSER_STAGES = ("manifest", "fixtures", "frontend", "browser", "cleanup", "measurement", "completion", "shutdown")
+
+
 def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="feedback-verify-") as directory:
         folder = Path(directory)
@@ -908,13 +915,18 @@ def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, 
         environment.update({"NODE_ENV": "production", "NEXT_PUBLIC_API_BASE_URL": "https://localhost:8443"})
         try:
             output = run(["node", str(Path(__file__).with_name("live_runner.mjs")), "--manifest", manifest_path,
-                          "--frontend", str(ROOT / "frontend")], env=environment, timeout=900)
+                          "--frontend", str(ROOT / "frontend")], env=environment, timeout=900, check=False)
         finally:
             retain_artifacts(folder / "output", key, run_id, image, hashes)
         try:
             result = json.loads(output)
         except ValueError:
             raise media.OperationError("Browser verification did not return its counts-only completion") from None
+        if (isinstance(result, dict) and set(result) == {"status", "stage", "reason"} and result["status"] == "failed"
+                and result["stage"] in BROWSER_STAGES and isinstance(result["reason"], str)
+                and re.fullmatch(r"[a-z][a-z-]{0,39}", result["reason"])):
+            # The runner's closed stage and failure codes only (Ops logs are public), so one failed run says where.
+            raise media.OperationError(f"Live browser verification failed at {result['stage']} ({result['reason']})")
         if (not isinstance(result, dict) or set(result) != {"status", "checks", "feedback", "deleted_attachments"} or result.get("status") != "passed"
                 or result.get("checks") != 11 or any(type(result.get(name)) is not int or result[name] < 0
                                                       for name in ("feedback", "deleted_attachments"))):

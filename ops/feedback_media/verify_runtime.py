@@ -177,7 +177,7 @@ class Runtime:
                           "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"}
         self.permission_audited = False
         self.last_cleanup = None
-        self.last_sample = None
+        self.last_sample, self.spawning = None, {}
         self.expires = 0
 
     def authority(self, *, expired=False):
@@ -378,7 +378,10 @@ class Runtime:
             except OSError:
                 return None
         parent, todo, seen, rss = os.getpid(), [os.getpid()], set(), 0
-        unexplained = False
+        unexplained, spawning, own = False, {}, Path(f"/proc/{parent}/cmdline").read_bytes()
+        workers = [b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                               os.fsencode(Path("app/services/" + worker + ".py").resolve()), b""))
+                   for worker in ("feedback_image_service", "feedback_storage_worker_service")]
         while todo and len(seen) < 128:
             pid = todo.pop()
             if pid in seen:
@@ -387,13 +390,18 @@ class Runtime:
             try:
                 rss += int(Path(f"/proc/{pid}/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
                 if pid != parent:
-                    argv = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-                    unexplained |= not any(argv == [os.fsencode(sys.executable), b"-I", b"-B",
-                        os.fsencode(Path("app/services/" + worker + ".py").resolve()), b""]
-                        for worker in ("feedback_image_service", "feedback_storage_worker_service"))
+                    argv = Path(f"/proc/{pid}/cmdline").read_bytes()
+                    if Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z":
+                        pass  # a zombie awaiting its reap: no memory, no argv; still counted
+                    elif argv == own:  # not yet exec'd; still so a second later, a fork
+                        spawning[pid] = self.spawning.get(pid, time.monotonic())
+                        unexplained |= time.monotonic() - spawning[pid] > 1
+                    else:
+                        unexplained |= argv not in workers
                 todo.extend(int(child) for path in Path(f"/proc/{pid}/task").glob("*/children") for child in path.read_text().split())
             except (OSError, ValueError, IndexError):
                 continue
+        self.spawning = spawning
         with self.lock:
             self.resources["sample_count"] += 1
             self.resources["rss_peak_bytes"] = max(rss, self.resources["rss_peak_bytes"])
@@ -508,6 +516,8 @@ def main():
     os.environ.update(RESEND_API_KEY=digest(runtime.key, "sink", runtime.run), RESEND_BASE_URL="http://127.0.0.1:8091",
                       FEEDBACK_NOTIFICATION_EMAIL="feedback-verify-notify@example.com",
                       RESEND_FROM_EMAIL="Feedback verification <feedback-verify@example.com>")
+    # openai 3.x refuses an empty key when the app imports; no verified route calls a model, and none leaves.
+    os.environ.update(OPENAI_API_KEY="feedback-verification-no-model", OPENAI_BASE_URL="http://127.0.0.1:9/v1")
     if mode == "initialize":
         import app.models
         from app.database import Base, engine
@@ -540,5 +550,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
-        raise SystemExit("Feedback verification runtime refused") from None
+    except Exception as error:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+        # A closed code or a class name only, in the private Cloud Run log
+        raise SystemExit("Feedback verification runtime refused ("
+                         + (str(error) if isinstance(error, Refused) else type(error).__name__) + ")") from None

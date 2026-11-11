@@ -5,9 +5,11 @@ import hashlib
 import hmac
 import importlib.util
 import json
+import os
 from datetime import timedelta
 from pathlib import Path
 import subprocess
+import sys
 import time
 from types import SimpleNamespace
 from uuid import uuid4
@@ -436,3 +438,100 @@ receiptEnvelope(receipt,config);
 def test_inline_source_is_bounded_and_real_child_limits_remain_explainable():
     assert (ROOT / "ops/feedback_media/verify_runtime.py").stat().st_size <= 32768
     assert runtime.worker_limits() == {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
+
+
+def _process(root, pid, cmdline, state="S", children=()):
+    folder = root / "proc" / str(pid)
+    (folder / "task" / str(pid)).mkdir(parents=True, exist_ok=True)
+    (folder / "statm").write_text("100 10 0 0 0 0 0\n")
+    (folder / "cmdline").write_bytes(cmdline)
+    (folder / "stat").write_text(f"{pid} (python) {state} 1 1 1 0 -1\n")
+    (folder / "task" / str(pid) / "children").write_text("".join(f"{child} " for child in children))
+
+
+@pytest.fixture
+def fake_proc(tmp_path, monkeypatch):
+    """sample() reads /proc and /sys through Path: serve those from a temporary tree, every other path as it is."""
+    monkeypatch.setattr(runtime, "Path", lambda value: Path(f"{tmp_path}{value}")
+                        if str(value).startswith(("/proc/", "/sys/")) else Path(value))
+    return tmp_path
+
+
+@pytest.mark.parametrize("child, unexplained", [
+    ("worker", False),
+    ("zombie", False),  # exited and awaiting its reap: no memory, and no argv left to read
+    ("not yet exec'd", False),  # spawned: until exec, a child shows its parent's argv
+    ("not exec'd a second later", True),  # a fork, not a worker
+    ("exec'd as a worker", False),
+    ("another program", True),
+])
+def test_the_sampler_explains_a_worker_at_every_moment_of_its_life(verifier, fake_proc, child, unexplained):
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    worker = b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                         os.fsencode(Path("app/services/feedback_image_service.py").resolve()), b""))
+    first, state = {"worker": (worker, "S"), "zombie": (b"", "Z"),
+                    "another program": (b"/bin/sh\0-c\0true\0", "S")}.get(child, (own, "R"))
+    _process(fake_proc, parent, own, children=[parent + 1])
+    _process(fake_proc, parent + 1, first, state)
+    verifier.sample()
+    if child == "not exec'd a second later":
+        verifier.spawning[parent + 1] -= 2  # first seen two seconds ago, and still not exec'd
+        verifier.sample()
+    elif child == "exec'd as a worker":
+        _process(fake_proc, parent + 1, worker)
+        verifier.sample()
+    assert verifier.resources["sample_count"] >= 1 and verifier.resources["last_process_count"] == 2
+    assert verifier.resources["unexplained_children"] is unexplained
+
+
+def _service_environment(tmp_path):
+    """The environment the verification service runs with: runtime_env's values, its secrets and Cloud Run's name."""
+    spec = importlib.util.spec_from_file_location("feedback_verify_start_ops", ROOT / "ops/feedback_media/verify_manage.py")
+    manage = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / "ops/feedback_media"))
+    try:
+        spec.loader.exec_module(manage)
+    finally:
+        sys.path.remove(str(ROOT / "ops/feedback_media"))
+    fixture = env()
+    hashes = {name: fixture[variable] for name, variable in runtime.HASH_ENV.items() if name != "image_digest"}
+    image = "registry.invalid/backend@" + fixture["FEEDBACK_VERIFY_IMAGE_DIGEST"]
+    service = {row["name"]: row["value"] for row in manage.runtime_env(
+        fixture["FEEDBACK_VERIFY_RUN_ID"], image, hashes, {manage.KEY_SECRET: "1", manage.DB_SECRET: "1"}, "api")
+        if "value" in row}
+    assert service["OPENAI_API_KEY"] == ""  # every integration key is empty where the service starts
+    return {**service, **{name: fixture[name] for name in ("DATABASE_URL", "SECRET_KEY", "K_SERVICE")},
+            "PATH": os.environ["PATH"], "HOME": str(tmp_path)}
+
+
+def test_the_service_imports_the_application_in_the_environment_it_runs_with(tmp_path):
+    """openai 3.x refuses an empty key when the application imports its AI facade, and main() must still start it."""
+    script = """import sys, types, uvicorn
+verification = types.ModuleType("verification")
+exec(compile(open(sys.argv[1]).read(), sys.argv[1], "exec"), verification.__dict__)
+verification.Runtime.authority = lambda self, expired=False: None
+verification.Runtime.audit_permissions = lambda self: None
+verification.sink = lambda runtime: types.SimpleNamespace(serve_forever=lambda: None, shutdown=lambda: None,
+                                                          server_close=lambda: None)
+uvicorn.run = lambda application, **options: print("application imported:", type(application).__name__)
+verification.main()
+"""
+    result = subprocess.run([sys.executable, "-B", "-c", script, str(ROOT / "ops/feedback_media/verify_runtime.py")],
+                            cwd=ROOT / "backend", env=_service_environment(tmp_path), capture_output=True, text=True,
+                            timeout=300)
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "application imported: Controls" in result.stdout
+
+
+@pytest.mark.parametrize("case, refusal", [
+    ("misrouted database", "database_configuration"),  # a closed refusal code
+    ("unreachable database", "OperationalError"),  # any other failure: its class name, never its message
+])
+def test_a_refused_start_names_only_a_closed_code_or_class(tmp_path, case, refusal):
+    environment = _service_environment(tmp_path)
+    if case == "misrouted database":
+        environment["DATABASE_URL"] = "postgresql://owner:PRIVATE_SENTINEL@/production"
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", (ROOT / "ops/feedback_media/verify_runtime.py").read_text()],
+                            cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 1 and result.stdout == ""
+    assert result.stderr.strip() == f"Feedback verification runtime refused ({refusal})"

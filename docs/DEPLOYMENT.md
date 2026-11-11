@@ -997,8 +997,11 @@ verification wrapper (at most 32 KiB) to the **exact immutable image digest serv
 The wrapper is never installed as a production route or added to the backend image. The unchanged
 application handles the browser's requests; only the private verifier has the fixture controls and
 the local notification sink. Email, Stripe, model, analytics and error-reporting credentials are
-absent from this runtime. The sink validates the application's real feedback notifications without
-sending email.
+absent from this runtime. The application's AI client still needs a key when it is imported (openai
+3.x refuses an empty one), so the wrapper gives it a fixed non-credential key and a closed loopback
+endpoint; no verified route calls a model. The sink validates the application's real feedback
+notifications without sending email. A refused verifier start names only its closed refusal code, or
+the failing exception's class, in the service's private Cloud Run log.
 
 ```bash
 gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
@@ -1079,7 +1082,13 @@ key. The browser exercises real upload, clipboard, private owner/admin reads, ot
 links, lost-response retry, export, account deletion and cleanup. Runtime evidence also records
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
-combination of warmed filing traffic.
+combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
+execution environment, which exposes the cgroup v2 memory files the measurement reads. Only the two
+isolated workers may run beside the application. A worker that has exited and awaits its reap holds
+no memory, and one spawned but not yet exec'd still shows the application's arguments; a child
+still unexec'd a second later counts as unexplained, and so does any other program. A failed browser
+run names its stage and closed failure code in the Ops log (`Live browser verification failed at
+<stage> (<code>)`), so one run shows where it stopped; anything else stays withheld.
 
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
