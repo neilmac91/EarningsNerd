@@ -167,6 +167,14 @@ def test_child_protocol_rejects_extra_or_truncated_bytes():
             service._read_request(io.BytesIO(header + data))
 
 
+@pytest.mark.parametrize("code", ["storage_permissions_excess", "storage_permissions_missing"])
+def test_a_permission_audit_code_survives_the_worker_boundary(code):
+    """The probe tells broader access (a recorded warning) from missing access (a failure) only by this code."""
+    with pytest.raises(service.FeedbackStorageError) as error:
+        service._read_response(service._json_header({"error": code, "body_bytes": 0}), "verify_permissions")
+    assert error.value.code == code
+
+
 @pytest.mark.parametrize("header,body", [
     ({"error": "private provider message", "body_bytes": 0}, b""),
     ({"error": "object_missing", "body_bytes": 0}, b""),
