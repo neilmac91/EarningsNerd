@@ -1063,9 +1063,12 @@ The provisioner addresses only these feature resources:
   run; absence of an active browser is not inferred from a timeout. A prior run that stopped before
   initialize created its schema left no fixture or object (only the service started after it makes them),
   so it is settled without a cleanup execution, which could not run without tables; the hourly schedule is
-  created only once initialize has made the schema it cleans. A changed runtime source also
-  refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
-  through a separately reviewed operation before retrying the new source.
+  created only once initialize has made the schema it cleans. After main's runtime source changes, an
+  apply never executes the prior run's cleanup job, which still holds that run's own source: it reads the
+  job back, holds its source to the hash the run's marker recorded, and counts the run as settled only when the job's
+  latest execution succeeded and was created a minute or more after the lease expired. Only the hourly
+  schedule starts it then, and its scheduled mode cleans an expired lease. Otherwise the apply refuses
+  before the seed and any Cloud Run write; retry after the next run at minute 41.
 
 Before any write, the provisioner requires the object role and preview bucket that media provisioning
 creates, and admits itself only while the shared production instance has room: active client backends,
@@ -1105,8 +1108,15 @@ links, lost-response retry, export, account deletion and cleanup. Runtime eviden
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
 combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
-execution environment, which exposes the cgroup v2 memory files the measurement reads, with startup
-CPU boost for its cold starts. Only the two isolated workers may run beside the application. A child
+execution environment, with startup CPU boost for its cold starts. The measurement reads the cgroup v2
+memory files at `/sys/fs/cgroup` where they read, but the live inspect of 12 November (Ops 43138110953)
+read none of them there. Where `memory.current` does not read, the sample is the instance's memory in use
+from `/proc/meminfo`: MemTotal minus MemAvailable, which counts the in-memory filesystem too. The record
+then names that basis, and the resource line marks the figure as meminfo's. With no kernel peak,
+acceptance needs both the sample and the process bound under 85% of 1 GiB. The measurement never reads
+cgroup v1's files: from inside, `/sys/fs/cgroup/memory/` may be the instance's own cgroup or a root, whose
+peak counts only its children's charges and could pass acceptance on a fraction of the memory in use.
+Only the two isolated workers may run beside the application. A child
 shows the application's arguments until it execs, and no arguments while it execs or exits, so in
 either state it counts as unexplained only if it still does a second later; a zombie awaiting its
 reap holds no memory and is not checked, though it still counts as a process. Any other program
@@ -1116,8 +1126,18 @@ image from before it exec'd, so it cannot bound a worker. A failed browser run n
 closed failure code in the Ops log (`Live browser verification failed at <stage> (<code>)`), so one
 run shows where it stopped; a browser wait or action that fails without its own code names the step
 it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
-failure also fails, it is reported beside the browser's failure, not in its place. The run's last
-receipt check reads production as it serves at the end of the run. Known limit: the lost-response check
+failure also fails, it is reported beside the browser's failure, not in its place. After a browser failure the runner
+reports, one read (no retry) prints the verifier's resource line, `Verifier resources (<whose>): …`, for the instance
+that answers: the run's own unless the verifier restarted. If that read or its line fails, the log says `Verifier
+resources: unavailable (receipt read failed)` and the browser's failure stays the run's. A receipt check (verify-apply's
+last step, `feedback-media-verify-inspect` and enable) prints the run's own record from its signed receipt once that
+receipt verifies, and no line for a receipt that fails verification. Without a receipt it prints the answering
+instance's record since its start, which after a scale-to-zero is a new instance, not the run measured. A receipt read
+that fails stops the check as before, with no line. The line gives its acceptance verdict, the conditions that fail by
+closed name (`configured-limit`, `samples`, `unexplained-child`, `process-count`, `sample-age`, `cgroup-limit`,
+`kernel-peak`, `sampled-peak`, `high-water-unread`, `process-bound`) and its figures in bytes, numbers only, or
+`unavailable` when its record has another shape. The run's last receipt check reads production as it serves at the end
+of the run. Known limit: the lost-response check
 drops the response before any header reaches the browser, and Chromium can resend such a POST on a
 reused connection by itself, so the composer's own receipt recovery may not run; losing the response
 after its headers would prove it, and needs a fresh live verification.

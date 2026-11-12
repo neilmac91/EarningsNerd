@@ -1,6 +1,6 @@
-# Never cut review agents to save model tokens, neither a stage nor a report's own refuter pair: when a stage can no longer change what ships, spend it on a fresh review of the fix
+# Never cut review agents to save model tokens, neither a stage nor a report's own refuter pair; a review of the fix is a second round, run only after a round-1 blocker
 
-Date: 2026-10-23, updated 2026-11-01 (#1855)   Area: ops, review
+Date: 2026-10-23, updated 2026-11-01 (#1855) and 2026-11-12 (#2041)   Area: ops, review
 
 **Context**: #1530's high-tier pre-merge review (three Opus lenses, two Opus refuters per finding) found 17 should-fix
 findings and queued 34 refuters. Seven had reported, each finding standing, when the session stopped the workflow to
@@ -25,10 +25,12 @@ and keep its severity fix.
   several, since each pair is an independent chance for a real defect to stand (partly gated by
   `frontend/tests/unit/premergeReviewWorkflow.spec.ts`, whose header lists the reviews it runs and what stays out of
   its reach).
-- When a stage can no longer change what ships (its findings are reproduced and fixed), replace it with one that can: an
-  independent review of the fix diff, briefed with the code and not your conclusions, before the push.
-- Where a push draws a paid eval run (`ops-reserve-eval-baseline-before-each-push.md`), review the fix commit before
-  pushing it, so the findings ride the same push.
+- When a stage can no longer change what ships (its findings are reproduced and fixed), let it finish. An independent
+  review of the fix diff, briefed with the code and not your conclusions, is a second round: run it before the push only
+  when round 1 found a blocker (`ops-converge-a-review-in-one-fix-round.md`, the founder's rule of 2026-11-12).
+  Otherwise the full gate and Codex's review of the fix's head cover the fix.
+- Where a push draws a paid eval run (`ops-reserve-eval-baseline-before-each-push.md`) and a blocker's fix gets that
+  second round, review the fix commit before pushing it, so the findings ride the same push.
 - State a cut stage's numbers from the workflow's record, not from memory: how many agents were queued, how many
   reported, and which lenses lost theirs.
 

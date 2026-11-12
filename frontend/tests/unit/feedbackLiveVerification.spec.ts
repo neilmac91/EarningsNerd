@@ -47,7 +47,7 @@ function receipt(config = manifest()) {
         worker_limits: { feedback_image_service: 1, feedback_storage_worker_service: 2 }, unexplained_children: false,
         last_process_count: 1, sample_age_seconds: 0.05, acceptance_passed: true, conservative_process_bound_bytes: 400,
         evidence_basis: 'kernel peak unavailable; conservative process-bound evidence',
-        method: 'kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only' },
+        method: 'kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only' },
     },
   } }
 }
@@ -248,6 +248,26 @@ describe('disposable feedback verification trust boundaries', () => {
     expect(() => validateFixtures(fixtures, '999-1')).toThrow('fixture-run')
     fixtures.accounts.owner.email = 'real-user@example.com'
     expect(() => validateFixtures(fixtures, config.run_id)).toThrow('fixture-account')
+  })
+
+  it('admits the /proc/meminfo evidence basis only beside an unread kernel peak', () => {
+    // Cloud Run's second generation reads no root cgroup v2 memory file, so the verifier names its sample as meminfo's.
+    const config = manifest()
+    const MEMINFO = 'kernel peak unavailable; conservative process bound plus /proc/meminfo in use'
+    const KERNEL = 'kernel cgroup high-water peak', PROCESS = 'kernel peak unavailable; conservative process-bound evidence'
+    const withBasis = (basis: string, peak: number | null) => {
+      const value = receipt(config)
+      Object.assign(value.payload.observed.resources, { evidence_basis: basis, cgroup_kernel_peak_bytes: peak })
+      return value
+    }
+    for (const [basis, peak] of [[MEMINFO, null], [PROCESS, null], [KERNEL, 100]] as const) {
+      const value = withBasis(basis, peak)
+      expect(receiptEnvelope(value, config)).toBe(value)
+    }
+    const NEAR = 'kernel peak unavailable; conservative process bound plus sampled cgroup'  // a near miss, never admitted
+    for (const [basis, peak] of [[MEMINFO, 100], [PROCESS, 100], [KERNEL, null], [NEAR, null]] as const) {
+      expect(() => receiptEnvelope(withBasis(basis, peak), config)).toThrow('receipt-resources')
+    }
   })
 })
 
