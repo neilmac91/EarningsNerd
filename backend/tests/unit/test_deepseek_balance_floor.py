@@ -4,7 +4,9 @@ Nothing in the app caps model spend, and the provider balance is prepaid: when i
 Filing answers and analysis narratives stop for every reader (docs/ops/closed-beta-acceptance.md, section 5). Until
 2026-11-11 the balance was read only by hand. ``.github/workflows/deepseek-balance.yml`` now also runs daily, fails
 below a floor (the ``DEEPSEEK_BALANCE_FLOOR_USD`` repository variable, USD 5 when unset) and reports that as an issue,
-while a dispatch still succeeds on any readable balance, so a readback before paid work is not refused.
+while a dispatch still succeeds on any readable balance and only warns, so a readback before paid work is not refused.
+A scheduled run also fails when the provider reports the balance unavailable, whatever its rows say, and when the
+floor variable is not a number, which its error names.
 
 No workflow is dispatched and nothing is fetched: the step's own script runs here against a stand-in for the provider's
 answer. What this cannot see: that GitHub starts the schedule, the secret's value, and the issue the report step opens.
@@ -83,20 +85,36 @@ def test_a_scheduled_run_passes_above_the_floor_and_prints_the_balance(monkeypat
     assert "::error::" not in out and "::warning::" not in out
 
 
-@pytest.mark.parametrize(
-    ("payload", "floor"),
-    [(_balance("4.99"), "5"), (_balance("15.14"), "20"), (_balance("0"), "5"), (_balance("15.14", available=False), "5")],
-)
-def test_a_scheduled_run_fails_below_the_floor_or_when_the_provider_says_unavailable(monkeypatch, capsys, payload, floor):
-    code, out, _ = _check(monkeypatch, capsys, payload, "schedule", floor)
+@pytest.mark.parametrize(("usd", "floor"), [("4.99", "5"), ("15.14", "20"), ("0", "5")])
+def test_a_scheduled_run_fails_below_the_floor(monkeypatch, capsys, usd, floor):
+    code, out, _ = _check(monkeypatch, capsys, _balance(usd), "schedule", floor)
     assert code == 1
-    assert "::error::DeepSeek balance USD" in out and "top up" in out
+    assert f"::error::DeepSeek balance USD {usd} is below the floor of USD {floor}: top up" in out
 
 
-def test_a_dispatch_only_warns_below_the_floor_so_a_readback_still_succeeds(monkeypatch, capsys):
-    code, out, _ = _check(monkeypatch, capsys, _balance("4.99"), "workflow_dispatch")
+@pytest.mark.parametrize("usd", ["15.14", None])
+def test_a_scheduled_run_fails_when_the_provider_says_unavailable_with_or_without_a_usd_row(monkeypatch, capsys, usd):
+    # Whatever the rows say: a balance above the floor, and an account with no USD row at all, whose floor is unchecked.
+    code, out, _ = _check(monkeypatch, capsys, _balance(usd, available=False), "schedule")
+    assert code == 1
+    assert "::error::DeepSeek reports the balance unavailable for API calls: top up" in out
+    assert "below the floor" not in out
+
+
+@pytest.mark.parametrize(
+    ("payload", "floor", "warning"),
+    [
+        (_balance("4.99"), "5", "::warning::DeepSeek balance USD 4.99 is below the floor of USD 5"),
+        (_balance("15.14", available=False), "5", "::warning::DeepSeek reports the balance unavailable"),
+        (_balance(None, available=False), "5", "::warning::DeepSeek reports the balance unavailable"),
+        (_balance("30"), "5 USD", "::warning::The balance floor is not a non-negative number"),
+    ],
+)
+def test_a_dispatch_only_warns_so_a_readback_succeeds_on_any_readable_balance(monkeypatch, capsys, payload, floor, warning):
+    code, out, _ = _check(monkeypatch, capsys, payload, "workflow_dispatch", floor)
     assert code == 0
-    assert "::warning::DeepSeek balance USD 4.99 is below the floor of USD 5" in out and "::error::" not in out
+    assert json.loads(out.splitlines()[0])["balance_infos"]  # the readback itself is printed first, as before
+    assert warning in out and "::error::" not in out
 
 
 def test_a_balance_with_no_usd_row_says_the_floor_is_unchecked(monkeypatch, capsys):
@@ -105,11 +123,13 @@ def test_a_balance_with_no_usd_row_says_the_floor_is_unchecked(monkeypatch, caps
     assert "::notice::No USD balance row" in out
 
 
-@pytest.mark.parametrize("floor", ["", "five", "-1", "nan", "inf"])
-def test_a_floor_that_is_not_a_non_negative_number_fails_the_run(monkeypatch, capsys, floor):
-    code, _, err = _check(monkeypatch, capsys, _balance("15.14"), "schedule", floor)
+@pytest.mark.parametrize("floor", ["", "five", "5 USD", "$5", "-1", "nan", "inf"])
+def test_a_floor_that_is_not_a_non_negative_number_fails_the_scheduled_run_and_names_the_variable(monkeypatch, capsys, floor):
+    code, out, _ = _check(monkeypatch, capsys, _balance("15.14"), "schedule", floor)
     assert code == 1
-    assert "Balance floor is not a non-negative number" in err
+    assert "::error::The balance floor is not a non-negative number" in out and "DEEPSEEK_BALANCE_FLOOR_USD" in out
+    # The floor is unchecked, not guessed: nothing claims the balance is below it.
+    assert "below the floor" not in out
 
 
 def test_the_schedule_runs_daily_and_only_its_failure_opens_an_issue():
