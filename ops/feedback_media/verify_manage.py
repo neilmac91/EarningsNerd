@@ -12,7 +12,6 @@ import copy
 import hashlib
 import hmac
 import json
-import math
 import os
 import re
 import secrets
@@ -687,8 +686,7 @@ def valid_resources(resources) -> bool:
             and resources["method"] == RESOURCE_METHOD
             and resources["evidence_basis"] in EVIDENCE_BASES
             and resources["worker_limits"] == WORKER_LIMITS
-            and type(resources["sample_age_seconds"]) in {float, int} and math.isfinite(resources["sample_age_seconds"])
-            and 0 <= resources["sample_age_seconds"] <= 7200
+            and type(resources["sample_age_seconds"]) in {float, int} and 0 <= resources["sample_age_seconds"] <= 7200
             and type(resources["unexplained_children"]) is bool and type(resources["acceptance_passed"]) is bool)
 
 
@@ -728,13 +726,26 @@ def resource_refusals(resources: dict) -> list[str]:
     return refused
 
 
-def resources_line(resources) -> str:
-    """One public line from the verifier's resource record: its verdict, the failing conditions and the figures in bytes."""
+BOOT_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
+SIGNED_SOURCE = "the run's signed receipt"
+
+
+def instance_source(answer: dict) -> str:
+    """Whose record a live receipt answer carries: the instance that answered, since it started (a uuid4 boot id).
+
+    The verifier scales to zero, so after a scale-to-zero this is a new instance's record, not the measured run's."""
+    boot = answer.get("boot_id")
+    return ("the answering instance since its start" + (f", boot {boot[:8]}" if isinstance(boot, str)
+                                                         and BOOT_PATTERN.fullmatch(boot) else ""))
+
+
+def resources_line(resources, source: str) -> str:
+    """One public line from a resource record, naming whose it is: its verdict, the failing conditions, its bytes."""
     if not valid_resources(resources):
-        return "Verifier resources: unavailable (no counts-only resource record)"
+        return f"Verifier resources ({source}): unavailable (no counts-only resource record)"
     def size(name: str, absent: str) -> str:
         return absent if resources[name] is None else f"{resources[name]} bytes"
-    return (f"Verifier resources: acceptance {'passed' if resources['acceptance_passed'] else 'refused'}; "
+    return (f"Verifier resources ({source}): acceptance {'passed' if resources['acceptance_passed'] else 'refused'}; "
             f"conditions failed: {', '.join(resource_refusals(resources)) or 'none'}; "
             f"samples {resources['sample_count']}; processes at the last sample {resources['last_process_count']}; "
             f"unexplained child {'seen' if resources['unexplained_children'] else 'none'}; "
@@ -871,11 +882,13 @@ def require_receipt(cloud: media.Cloud, production: dict) -> dict:
     if current_image(cloud, service) != image:
         raise media.OperationError("Verification service is not serving the current backend digest")
     answer = read_receipt(cloud, origin, key, run_id)
-    print(resources_line(answer.get("resources")))
     receipt = answer.get("receipt")
     if not isinstance(receipt, dict):
+        # No run's record exists: the line is the answering instance's, which names itself as such.
+        print(resources_line(answer.get("resources"), instance_source(answer)))
         raise media.OperationError("A completed live verification receipt is required")
     verify_receipt(receipt, key, run_id, image, hashes)
+    print(resources_line(receipt["payload"]["observed"]["resources"], SIGNED_SOURCE))
     print("Live isolated feedback verification receipt: current image and sources verified")
     return receipt
 
@@ -1150,28 +1163,34 @@ def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, im
     try:
         browser(cloud, origin, key, run_id, image, hashes)
     except BaseException as failure:
-        if isinstance(failure, media.OperationError):
-            report_resources(cloud, origin, key, run_id)
-        # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt supplements
-        # the retained hourly job; a failure of its own is reported beside the browser's, never in its place.
         try:
-            execute_cleanup(cloud)
-        except media.OperationError as cleanup_failure:
-            print(f"Verification cleanup after that failure: {cleanup_failure}")
+            if isinstance(failure, media.OperationError):
+                report_resources(cloud, origin, key, run_id)
+        finally:
+            # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt
+            # supplements the retained hourly job; a failure of its own is reported beside the browser's, never in its
+            # place. It runs whatever the diagnostic read above does, an interrupt included.
+            try:
+                execute_cleanup(cloud)
+            except media.OperationError as cleanup_failure:
+                print(f"Verification cleanup after that failure: {cleanup_failure}")
         raise
     execute_cleanup(cloud)
 
 
 def report_resources(cloud: media.Cloud, origin: str, key: str, run_id: str) -> None:
-    """After a failed browser run, one receipt read (no retry) prints the verifier's resource line, or says it failed.
+    """After a failed browser run, one receipt read (no retry) prints the answering instance's resource line.
 
-    Best effort: whatever this read raises, the browser's failure stays the run's, so its own error is withheld."""
+    That instance is the run's own unless the verifier restarted, which the runner reports as runtime-restarted. Best
+    effort: whatever this read or its line raises, the browser's failure stays the run's and its own error is withheld;
+    the caller's cleanup runs in a finally."""
     try:
         answer = control(cloud, origin, key, run_id, "receipt")
+        line = resources_line(answer.get("resources"), instance_source(answer))
     except Exception:  # noqa: BLE001 — a diagnostic read never replaces the browser's failure
         print("Verifier resources: unavailable (receipt read failed)")
         return
-    print(resources_line(answer.get("resources")))
+    print(line)
 
 
 def enable_deadline(lease_end: datetime) -> str:

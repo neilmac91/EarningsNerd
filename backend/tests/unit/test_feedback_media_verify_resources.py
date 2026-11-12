@@ -3,8 +3,9 @@
 A live verify-apply (Ops 43124458892) passed its browser stage and live cleanup, then stopped at
 `measurement (resource-acceptance)`, one closed code for several conditions. These tests hold the line that now
 explains such a refusal: it agrees with verify_runtime.resource_acceptance, which decides, on every input tried; it
-prints only bounded numbers and closed names; a failed browser run prints it before the cleanup, and its own read can
-never replace the browser's failure; every receipt read prints it before the receipt check.
+prints only bounded numbers and closed names, and says whose record it is; a failed browser run prints the answering
+instance's line, its cleanup runs whatever that read does, and the read never replaces the browser's failure; a receipt
+check prints the run's signed record once it verifies, or the answering instance's when there is no receipt.
 """
 from __future__ import annotations
 
@@ -31,7 +32,9 @@ CAP = 1073741824
 MIB = 1024 * 1024
 BOUND = int(CAP * .85)  # 912680550; the acceptance compares against 912680550.4
 FAILURE = "Live browser verification failed at measurement (resource-acceptance)"
-UNAVAILABLE = "Verifier resources: unavailable (no counts-only resource record)"
+BOOT = "1a2b3c4d-5e6f-4a1b-8c2d-0123456789ab"
+INSTANCE = "the answering instance since its start, boot 1a2b3c4d"
+SIGNED = "the run's signed receipt"
 
 
 def record(**changes):
@@ -58,8 +61,9 @@ def test_the_constants_match_the_runtime_that_writes_the_record():
 
 
 def test_a_passing_record_prints_its_figures_and_names_no_condition():
-    assert verify.resources_line(record()) == (
-        "Verifier resources: acceptance passed; conditions failed: none; samples 4000; processes at the last sample 1; "
+    assert verify.resources_line(record(), SIGNED) == (
+        "Verifier resources (the run's signed receipt): acceptance passed; conditions failed: none; samples 4000; "
+        "processes at the last sample 1; "
         "unexplained child none; last sample 0.02 s old; cgroup limit 1073741824 bytes; kernel peak 734003200 bytes; "
         "sampled peak 639631360 bytes; process-tree peak 545259520 bytes; own high-water 314572800 bytes; "
         "worker high-water 94371840 bytes; bound 912680550 bytes")
@@ -82,12 +86,12 @@ def test_a_passing_record_prints_its_figures_and_names_no_condition():
      "process-bound"),
 ])
 def test_a_refused_record_names_every_failing_condition(changes, names):
-    line = verify.resources_line(record(acceptance_passed=False, **changes))
-    assert line.startswith(f"Verifier resources: acceptance refused; conditions failed: {names}; samples ")
+    line = verify.resources_line(record(acceptance_passed=False, **changes), INSTANCE)
+    assert line.startswith(f"Verifier resources ({INSTANCE}): acceptance refused; conditions failed: {names}; samples ")
 
 
 def test_without_a_kernel_peak_the_line_says_so():
-    line = verify.resources_line(record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None))
+    line = verify.resources_line(record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None), SIGNED)
     assert "; cgroup limit unread; kernel peak unexposed; sampled peak 639631360 bytes;" in line
     assert "conditions failed: none;" in line
 
@@ -116,10 +120,24 @@ def test_the_named_conditions_agree_with_the_runtime_acceptance_on_every_combina
     record(worker_limits={"feedback_image_service": 2, "feedback_storage_worker_service": 2}),
     record(sample_age_seconds=math.nan), record(sample_age_seconds=math.inf), record(sample_age_seconds=-0.5),
     record(sample_age_seconds=7201), record(sample_age_seconds=None), record(sample_age_seconds=True),
+    record(sample_age_seconds=10**400), record(sample_age_seconds=-(10**400)),
     record(unexplained_children=1), record(acceptance_passed="yes"),
 ])
 def test_any_other_shape_is_unavailable_and_prints_nothing_it_carries(shape):
-    assert verify.resources_line(shape) == UNAVAILABLE
+    """Never an exception either: an integer beyond float range once overflowed the age check's isfinite."""
+    assert verify.resources_line(shape, INSTANCE) == f"Verifier resources ({INSTANCE}): unavailable (no counts-only resource record)"
+
+
+@pytest.mark.parametrize("answer, source", [
+    ({"boot_id": BOOT}, INSTANCE),
+    ({"boot_id": BOOT.upper()}, "the answering instance since its start"),
+    ({"boot_id": "1a2b3c4d-5e6f-1a1b-8c2d-0123456789ab"}, "the answering instance since its start"),
+    ({"boot_id": BOOT + "\nwithheld"}, "the answering instance since its start"),
+    ({"boot_id": 7}, "the answering instance since its start"),
+    ({}, "the answering instance since its start"),
+])
+def test_a_live_record_names_the_instance_that_answered_and_only_a_uuid4_boot(answer, source):
+    assert verify.instance_source(answer) == source
 
 
 def test_a_failed_browser_run_prints_the_resource_line_before_its_cleanup(monkeypatch, capsys):
@@ -130,7 +148,8 @@ def test_a_failed_browser_run_prints_the_resource_line_before_its_cleanup(monkey
 
     def control(cloud, origin, key, run_id, path, payload=None):
         events.append(("control", cloud, origin, key, run_id, path, payload))
-        return {"resources": record(cgroup_kernel_peak_bytes=950 * MIB, acceptance_passed=False), "receipt": None}
+        return {"resources": record(cgroup_kernel_peak_bytes=950 * MIB, acceptance_passed=False), "receipt": None,
+                "boot_id": BOOT}
 
     monkeypatch.setattr(verify, "browser", browser)
     monkeypatch.setattr(verify, "control", control)
@@ -141,18 +160,21 @@ def test_a_failed_browser_run_prints_the_resource_line_before_its_cleanup(monkey
     assert events == [("control", "cloud", "https://verify.example", "key", "40210191699-1", "receipt", None),
                       ("cleanup", "cloud")]
     assert capsys.readouterr().out.startswith(
-        "Verifier resources: acceptance refused; conditions failed: kernel-peak; samples 4000;")
+        f"Verifier resources ({INSTANCE}): acceptance refused; conditions failed: kernel-peak; samples 4000;")
 
 
 @pytest.mark.parametrize("error", [verify.media.OperationError("Private verification control request failed; response withheld"),
-                                   AttributeError("withheld detail"), RuntimeError("withheld detail")])
+                                   AttributeError("withheld detail"), RuntimeError("withheld detail"), None])
 def test_a_failed_resource_read_says_so_and_never_replaces_the_browser_failure(monkeypatch, capsys, error):
+    """A raising read, and an answer whose line cannot be formed (a list has no .get), both say unavailable."""
     cleanups = []
 
     def browser(*_args):
         raise verify.media.OperationError(FAILURE)
 
     def control(*_args, **_kwargs):
+        if error is None:
+            return ["withheld detail"]
         raise error
 
     monkeypatch.setattr(verify, "browser", browser)
@@ -181,7 +203,24 @@ def test_a_passing_or_interrupted_browser_run_makes_no_extra_read(monkeypatch, c
     assert reads == [] and cleanups == ["cloud", "cloud"] and capsys.readouterr().out == ""
 
 
-def test_every_receipt_read_prints_the_resource_line_before_the_receipt_check(monkeypatch, capsys):
+def test_an_interrupted_resource_read_still_runs_the_in_run_cleanup(monkeypatch):
+    cleanups = []
+
+    def browser(*_args):
+        raise verify.media.OperationError(FAILURE)
+
+    def control(*_args, **_kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(verify, "browser", browser)
+    monkeypatch.setattr(verify, "control", control)
+    monkeypatch.setattr(verify, "execute_cleanup", cleanups.append)
+    with pytest.raises(KeyboardInterrupt):
+        verify.browse_then_clean("cloud", "https://verify.example", "key", "40210191699-1", "image", {})
+    assert cleanups == ["cloud"]
+
+
+def test_a_receipt_check_without_a_receipt_prints_the_answering_instance_line(monkeypatch, capsys):
     service = {"template": {"containers": [{"env": [{"name": "FEEDBACK_VERIFY_RUN_ID", "value": "40210191699-1"}]}]}}
 
     class Cloud:
@@ -195,7 +234,57 @@ def test_every_receipt_read_prints_the_resource_line_before_the_receipt_check(mo
     monkeypatch.setattr(verify, "secret", lambda *_args, **_kwargs: ("key", "1"))
     monkeypatch.setattr(verify, "runtime_spec", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(verify, "contains_spec", lambda *_args: True)
-    monkeypatch.setattr(verify, "read_receipt", lambda *_args: {"resources": record(), "receipt": None})
+    monkeypatch.setattr(verify, "read_receipt", lambda *_args: {"resources": record(), "receipt": None, "boot_id": BOOT})
     with pytest.raises(verify.media.OperationError, match="A completed live verification receipt is required"):
         verify.require_receipt(Cloud(), {})
-    assert capsys.readouterr().out == verify.resources_line(record()) + "\n"
+    assert capsys.readouterr().out == verify.resources_line(record(), INSTANCE) + "\n"
+
+
+def test_a_receipt_check_with_a_verified_receipt_prints_the_run_record_not_the_instance(monkeypatch, capsys):
+    """The run's own measured record, from its signed receipt, and only after the receipt verifies."""
+    service = {"template": {"containers": [{"env": [{"name": "FEEDBACK_VERIFY_RUN_ID", "value": "40210191699-1"}]}]}}
+    run_record = record(cgroup_kernel_peak_bytes=800 * MIB)
+    receipt = {"payload": {"observed": {"resources": run_record}}, "signature": "f" * 64}
+    verified = []
+
+    class Cloud:
+        def call(self, api, path, **_kwargs):
+            return service
+
+    monkeypatch.setattr(verify, "current_image", lambda *_args: "image")
+    monkeypatch.setattr(verify, "fingerprints", dict)
+    monkeypatch.setattr(verify, "assert_private_service", lambda *_args: "https://verify.example")
+    monkeypatch.setattr(verify, "secret", lambda *_args, **_kwargs: ("key", "1"))
+    monkeypatch.setattr(verify, "runtime_spec", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(verify, "contains_spec", lambda *_args: True)
+    monkeypatch.setattr(verify, "read_receipt", lambda *_args: {"resources": record(sample_count=6), "receipt": receipt,
+                                                                 "boot_id": BOOT})
+    monkeypatch.setattr(verify, "verify_receipt", lambda *args: verified.append(args[0]))
+    assert verify.require_receipt(Cloud(), {}) is receipt and verified == [receipt]
+    assert capsys.readouterr().out.splitlines() == [
+        verify.resources_line(run_record, SIGNED),
+        "Live isolated feedback verification receipt: current image and sources verified"]
+
+
+def test_a_receipt_that_fails_verification_prints_no_resource_line(monkeypatch, capsys):
+    service = {"template": {"containers": [{"env": [{"name": "FEEDBACK_VERIFY_RUN_ID", "value": "40210191699-1"}]}]}}
+
+    class Cloud:
+        def call(self, api, path, **_kwargs):
+            return service
+
+    def refuse(*_args):
+        raise verify.media.OperationError("Live verification receipt is invalid")
+
+    monkeypatch.setattr(verify, "current_image", lambda *_args: "image")
+    monkeypatch.setattr(verify, "fingerprints", dict)
+    monkeypatch.setattr(verify, "assert_private_service", lambda *_args: "https://verify.example")
+    monkeypatch.setattr(verify, "secret", lambda *_args, **_kwargs: ("key", "1"))
+    monkeypatch.setattr(verify, "runtime_spec", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(verify, "contains_spec", lambda *_args: True)
+    monkeypatch.setattr(verify, "read_receipt", lambda *_args: {"resources": record(), "receipt": {"payload": {}},
+                                                                 "boot_id": BOOT})
+    monkeypatch.setattr(verify, "verify_receipt", refuse)
+    with pytest.raises(verify.media.OperationError, match="invalid"):
+        verify.require_receipt(Cloud(), {})
+    assert capsys.readouterr().out == ""

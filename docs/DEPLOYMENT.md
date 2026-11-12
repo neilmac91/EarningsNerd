@@ -1115,12 +1115,15 @@ image from before it exec'd, so it cannot bound a worker. A failed browser run n
 closed failure code in the Ops log (`Live browser verification failed at <stage> (<code>)`), so one
 run shows where it stopped; a browser wait or action that fails without its own code names the step
 it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
-failure also fails, it is reported beside the browser's failure, not in its place. After a browser failure, and at
-every receipt read (verify-apply's last step, `feedback-media-verify-inspect` and enable), the log prints the verifier's
-resource line, `Verifier resources: …`: its acceptance verdict, the conditions that fail by closed name (`samples`,
-`unexplained-child`, `process-count`, `sample-age`, `cgroup-limit`, `kernel-peak`, `sampled-peak`, `high-water-unread`,
-`process-bound`) and its figures in bytes, numbers only, or `unavailable` when no such record can be read. The run's last
-receipt check reads production as it serves at the end of the run. Known limit: the lost-response check
+failure also fails, it is reported beside the browser's failure, not in its place. After a browser failure the runner
+reports, one read (no retry) prints the verifier's resource line, `Verifier resources (<whose>): …`, for the instance
+that answers: the run's own unless the verifier restarted. A receipt check (verify-apply's last step,
+`feedback-media-verify-inspect` and enable) prints it from the run's signed receipt when one exists, and otherwise for the
+answering instance since its start, which after a scale-to-zero is a new instance, not the run measured. The line gives
+its acceptance verdict, the conditions that fail by closed name (`samples`, `unexplained-child`, `process-count`,
+`sample-age`, `cgroup-limit`, `kernel-peak`, `sampled-peak`, `high-water-unread`, `process-bound`) and its figures in
+bytes, numbers only, or `unavailable` when that read fails or its record has another shape. The run's last receipt check
+reads production as it serves at the end of the run. Known limit: the lost-response check
 drops the response before any header reaches the browser, and Chromium can resend such a POST on a
 reused connection by itself, so the composer's own receipt recovery may not run; losing the response
 after its headers would prove it, and needs a fresh live verification.
