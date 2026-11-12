@@ -64,6 +64,8 @@ describe('an OAuth start keeps where the reader was headed (E29 (7))', () => {
     ['an empty one', ''],
     ['a path on another site', '//evil.example/filing/1'],
     ['a backslash path a browser reads as another site', '/\\evil.example'],
+    ['a tab path a browser reads as another site', '/\t/evil.example'],
+    ['a line-feed path a browser reads as another site', '/\n/evil.example'],
     ['an absolute address', 'https://evil.example/'],
   ])('stashes nothing for %s', (_name, returnTo) => {
     render(<SocialAuthButtons apiBase="https://api.test" returnTo={returnTo} />)

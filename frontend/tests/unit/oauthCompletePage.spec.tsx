@@ -148,6 +148,7 @@ describe('where the OAuth login landing page goes (E29 (7))', () => {
   it.each([
     ['a path on another site', { path: '//evil.example/filing/1', at: Date.now() }],
     ['a backslash path a browser reads as another site', { path: '/\\evil.example', at: Date.now() }],
+    ['a tab path a browser reads as another site', { path: '/\t/evil.example', at: Date.now() }],
     ['a destination older than an hour', { path: '/filing/123', at: Date.now() - 61 * 60 * 1000 }],
   ])('goes home on %s, and still clears it', async (_name, stored) => {
     localStorage.setItem(STASH, JSON.stringify(stored))
