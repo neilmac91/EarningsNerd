@@ -5,6 +5,7 @@ Runs against a fresh in-memory SQLite engine (all models registered via `import 
 needs no Postgres and no running app.
 """
 
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -77,6 +78,36 @@ def test_invite_revoked_after_it_validated_is_not_redeemed(db):
     assert invite_service.redeem_invite(db, validated, SimpleNamespace(id=42)) is False
     db.refresh(invite)
     assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None
+
+
+def test_invite_that_expires_after_it_validated_is_not_redeemed(db):
+    """The password registration validates the invite, then checks the new password against breaches and hashes it,
+    seconds an invite can expire in (EN-BETA PB-01). The guarded UPDATE carries the expiry, so an invite that expired
+    in that window is refused: nothing is stamped, and it lists as expired, not used."""
+    invite, raw, _ = invite_service.mint_invite(db, created_by=None, email=None)
+    validated = invite_service.validate_invite(db, raw, "a@b.com")
+    assert validated is not None
+    # It expires while the registration works: its expiry passes in another session's commit, as time passing would.
+    other = sessionmaker(bind=db.get_bind())()
+    try:
+        row = other.get(InviteCode, invite.id)
+        row.expires_at = invite_service._now() - timedelta(seconds=1)
+        other.commit()
+    finally:
+        other.close()
+    assert invite_service.redeem_invite(db, validated, SimpleNamespace(id=42)) is False
+    db.refresh(invite)
+    assert invite.used_at is None and invite.user_id is None
+    assert invite_service.invite_status(invite) == "expired"
+
+
+def test_invite_redeems_until_its_expiry(db):
+    """The guard refuses only an expired invite: one with time left redeems, as validation accepts it."""
+    invite, raw, _ = invite_service.mint_invite(db, created_by=None, email=None)
+    validated = invite_service.validate_invite(db, raw, "a@b.com")
+    invite.expires_at = invite_service._now() + timedelta(seconds=30)
+    db.commit()
+    assert invite_service.redeem_invite(db, validated, SimpleNamespace(id=42)) is True
 
 
 def test_email_bound_invite_enforces_match(db):

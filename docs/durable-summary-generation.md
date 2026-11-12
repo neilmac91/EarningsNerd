@@ -203,3 +203,7 @@ require their own reviewed operational approval; an offline test authorizes none
 `tests/unit/test_summary_durable_route.py` exercises the authenticated route through real persisted jobs, queue acknowledgment failures and repair, ready recovery, explicit failed-job retry, stale progress, observer disconnect/deadline and both disabled-flag fallbacks. The frontend recovery flow and queued-state tests keep Retry separate from refresh and prevent a queued job from claiming that SEC retrieval has begun.
 
 `tests/unit/test_summary_task_isolation.py` covers distinct routing, existing background envelopes, role-selected signed identities and kind restrictions. `tests/unit/test_summary_worker_http_isolation.py` holds a synthetic summary child while synthetic mail completes through another loopback worker's real supervisor. `tests/unit/test_summary_worker_deploy.py` executes the optional CI step against a fake `gcloud` boundary. These prove offline behavior, not production delivery or mail latency. `tests/unit/test_summary_recovery_bound.py` covers the recovery budget and drain behavior; the PostgreSQL transaction suite exercises recovery ownership across independent sessions and crash/disconnection.
+
+## Optional verified source reuse
+
+[Verified filing source artifacts](filing-source-artifacts.md) describes the separate default-off primary/exhibit store and pre-provider commit barrier. It uses this same orchestrator and does not enable jobs, prewarming, ready notifications or new resources.

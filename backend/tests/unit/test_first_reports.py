@@ -24,6 +24,7 @@ from app.services.trend_analysis.first_reports import (
 )
 from app.services.trend_analysis.source_documents import FilingDates
 from app.utils.sec_urls import build_sec_archive_url
+from tests.support.sync_eras import usd_syncs_before_e198
 from tests.unit.test_companyfacts_own_report_history import (
     K18, K19, K20, K21, REV_TAG, _K, _NET_INCOME, _REVENUE, _item, _items, _payload, _shapes,
 )
@@ -282,22 +283,45 @@ class TestTheEvidenceOnReportedFigures:
         evidence = _evidence(_build(db, company))
         assert (("revenue", "FY2018") in evidence) is kept and (("total_assets", "FY2018") in evidence) is kept
 
-    def test_the_figure_shown_ranks_with_the_years_own_reports(self, db):
+    def test_the_figure_shown_ranks_with_the_years_own_reports(self, db, monkeypatch):
         # The FY2021 10-K's filing row is stored; a 10-K/A restating its revenue is filed later, and the next sync runs
-        # before its filing row lands, so the bulk writer keeps the original current and stores the amendment's value
-        # non-current. The original is the year's own report (an original before an amendment) and is the figure
-        # shown: no evidence, no n/m, as ingest stores no history row for it.
+        # before its filing row lands. A sync before E198 (the upsert alone) keeps the original current and stores the
+        # amendment's value non-current, a state production holds until the company's next sync. The original is the
+        # year's own report (an original before an amendment) and is the figure shown: no evidence, no n/m, as ingest
+        # stores no history row for it. A sync since E198 shows the amendment (the test below).
         company = _company(db)
         _filing(db, company, K21, "2022-02-07", period_end=date(2021, 12, 31))
-        svc._persist_companyfacts_payload(db, company, _payload())
-        amended = "0001804220-22-000099"
-        svc._persist_companyfacts_payload(db, company, _payload(_items(_REVENUE) + [
-            _item(16_500.0e6, 2021, 2021, accn=amended, form="10-K/A", filed="2022-05-01")]))
+        with monkeypatch.context() as before_e198:
+            usd_syncs_before_e198(before_e198)
+            svc._persist_companyfacts_payload(db, company, _payload())
+            svc._persist_companyfacts_payload(db, company, _amended(_REVENUE, [_K21A_ITEM]))
         rows = {(row.accession, row.is_latest) for row in _rows(db, company, concept="revenue", period_end=date(2021, 12, 31))}
-        assert rows == {(K21, True), (amended, False)}
+        assert rows == {(K21, True), (_K21A, False)}
         dataset = _build(db, company)
         assert ("revenue", "FY2021") not in _evidence(dataset)
         assert _yoy(dataset, "revenue")["FY2021"] == (pytest.approx(16_071.7 / 8_497.1 - 1), "absent")
+
+    def test_a_sync_since_e198_shows_the_amendment_with_the_years_own_report_as_evidence(self, db, monkeypatch):
+        # The state above, then one sync as it runs now (E198): the 10-K/A's row is the batch's own row there and no
+        # row of a later filing is current, so the sync makes it current and demotes the original's. The figure shown
+        # is the amendment's 16,500, its own report's 16,071.7 its evidence (first reported in the 10-K, filed before
+        # the 10-K/A), and its growth reads n/m beside the first-reported growth (D3's crossing rule).
+        company = _company(db)
+        _filing(db, company, K21, "2022-02-07", period_end=date(2021, 12, 31))
+        with monkeypatch.context() as before_e198:
+            usd_syncs_before_e198(before_e198)
+            svc._persist_companyfacts_payload(db, company, _payload())
+            svc._persist_companyfacts_payload(db, company, _amended(_REVENUE, [_K21A_ITEM]))
+        result = svc._persist_companyfacts_payload(db, company, _amended(_REVENUE, [_K21A_ITEM]))
+        assert (result["inserted"], result["demoted"]) == (0, 1)
+        rows = {(row.accession, row.is_latest) for row in _rows(db, company, concept="revenue", period_end=date(2021, 12, 31))}
+        assert rows == {(K21, False), (_K21A, True)}
+        dataset = _build(db, company)
+        evidence = _evidence(dataset)[("revenue", "FY2021")]
+        assert (evidence["value"], evidence["form"], evidence["accession"], evidence["later_filed_at"]) == (
+            16_071.7e6, "10-K", K21, "2022-05-01")
+        assert _point(dataset, "revenue", "FY2021")["value"] == 16_500.0e6
+        assert _yoy(dataset, "revenue")["FY2021"] == ("nm", pytest.approx(16_071.7 / 8_497.1 - 1))
 
     def test_a_flow_of_unknown_duration_matches_nothing(self, db):
         # The per-filing writer stored durations without a start before #831 ("duration unknown"): a flow whose start
@@ -389,6 +413,7 @@ class TestReads:
 
 
 _K18A, _K18B, _K21A = "0001532176-19-000050", "0001532176-19-000060", "0001804220-22-000099"
+_K21A_ITEM = (16_500.0e6, 2021, 2021, _K21A, "10-K/A", "2022-05-01")  # restates FY2021 revenue
 
 
 def _amended(base, amendments):
@@ -410,9 +435,9 @@ def _sequences():
         "after-each-10-K": [((), _up_to(2018)), ((), _up_to(2019)), ((), _up_to(2020)), ((), _payload())],
         "a-later-filings-demoted-comparative": [((), _up_to(2019, without_k18)), ((), _payload(_items(without_k18)))],
         # The review's shape: the FY2021 10-K's filing row stored, a 10-K/A for FY2021 filed later and synced before
-        # its row lands, so the original stays current and the amendment's value is stored non-current.
-        "an-amendment-kept-non-current": [((K21,), _payload()), ((), _amended(_REVENUE, [
-            (16_500.0e6, 2021, 2021, _K21A, "10-K/A", "2022-05-01")]))],
+        # its row lands: a sync before E198 keeps the original current and stores the amendment's value non-current,
+        # and one since makes the amendment current, the original its evidence.
+        "an-amendment-kept-non-current": [((K21,), _payload()), ((), _amended(_REVENUE, [_K21A_ITEM]))],
         # A 10-K/A for FY2018 filed after the original wins FY2018 until the FY2020 10-K: the original, its history,
         # and the demoted amendment all hold FY2018 cells.
         "an-amendment-filed-after-the-original": [
@@ -450,13 +475,18 @@ class TestOneOwnReport:
     accession, and none anywhere else, a year whose own report is the figure shown included."""
 
     @pytest.mark.requires_db
+    @pytest.mark.parametrize("era", ["before-e198", "since-e198"])
     @pytest.mark.parametrize("sequence", list(_sequences()))
-    def test_the_reader_reads_the_own_report_ingest_picks(self, db, sequence):
+    def test_the_reader_reads_the_own_report_ingest_picks(self, db, monkeypatch, sequence, era):
+        # Each sequence's syncs run as before E198 (the upsert alone, the states production holds) and as they run
+        # now (the currency step's convergence in USD alone too): the reader's evidence is ingest's own report in both.
         from app.services.facts.concepts import NON_NEGATIVE_CONCEPTS
         from scripts import restatement_census
 
         steps = _sequences()[sequence]
         company = _company(db)
+        if era == "before-e198":
+            usd_syncs_before_e198(monkeypatch)
         for filings, payload in steps:
             for accession in filings:
                 year = next(year for year, (number, _filed) in _K.items() if number == accession)

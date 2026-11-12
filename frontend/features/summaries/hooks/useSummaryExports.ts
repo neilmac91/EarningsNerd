@@ -11,10 +11,18 @@ import { downloadBlob } from '@/lib/downloadBlob'
 
 type ExportKind = 'pdf' | 'csv'
 
+/**
+ * The summary's download name: the ticker, the form and the filed day ("BIIB_10-K_20260206.pdf"). It leads with the
+ * ticker as the analysis PDF's name does, so two companies' filings of one form and day never share a name (E305); a
+ * filing without a ticker keeps the form and the day. The backend's export routes send the same name
+ * (summary_export_filename in backend/app/services/export_service.py), and both run one case table,
+ * backend/tests/fixtures/summary_export_filenames.json.
+ */
 export function buildFilename(filing: Filing, kind: ExportKind): string {
-  const base = sanitizeFilename(filing.filing_type, 'filing')
+  const ticker = sanitizeFilename(filing.company?.ticker, '')
+  const form = sanitizeFilename(filing.filing_type, 'filing')
   const date = formatLocalDate(filing.filing_date, 'yyyyMMdd', 'summary')
-  return `${base}_${date}.${kind}`
+  return `${ticker ? `${ticker}_` : ''}${form}_${date}.${kind}`
 }
 
 /**

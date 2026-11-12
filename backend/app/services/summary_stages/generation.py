@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING, AsyncIterator, Optional
 
 from app.services import summary_pipeline as pipeline
+from app.services.summary_stages import enrichment
 
 if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstring on import order
     from app.services.summary_stages.generation_run import GenerationRun
@@ -22,6 +23,13 @@ logger = logging.getLogger(pipeline.__name__)
 async def generate(run: GenerationRun) -> AsyncIterator[dict]:
     """Run the provider task with heartbeats, metering and the deterministic fallback."""
     filing_id = run.filing_id
+    try:
+        run.require_committed_source()
+    except pipeline.FilingSourceError as source_error:
+        source_failure = await pipeline.failure.source_failed(run, source_error)
+        yield {**source_failure, "type": "error", "message": "We could not generate this summary. Try again shortly."}
+        return
+
 
     # A5: when STREAM_SECTION_REVEAL is on, stream the extraction and push progressive section
     # previews onto a queue that the heartbeat loop drains below. The callback can't yield from
@@ -36,15 +44,16 @@ async def generate(run: GenerationRun) -> AsyncIterator[dict]:
 
     # Now run AI summarization (with excerpt/XBRL if available)
     # Wrap in task to enable heartbeat loop while waiting
+    # Started after the excerpt build (enrichment.start_statement_context) so the parse overlapped
+    # the enrichment join's wait on XBRL; awaited here, where it used to run, so an error still ends
+    # the run before the provider request. A task whose excerpt was cancelled (the join's timeout)
+    # did not parse, and the parse runs here, as it always did.
     statement_source = None
-    report_period = run.filing_fields.get("report_period")
-    if run.filing_text and report_period is not None:
-        with run.worker_owner.activate():
-            statement_source = await pipeline.run_in_threadpool(
-                pipeline.acquire_statement_context, run.filing_text, accession=run.filing_accession_number,
-                document_url=run.filing_document_url, form=run.filing_type,
-                report_period=report_period.date().isoformat(),
-            )
+    if run.statement_task is not None:
+        statement_source = await run.statement_task
+        if statement_source is enrichment.STATEMENT_DEFERRED:
+            with run.worker_owner.activate():
+                statement_source = await enrichment.parse_statement_context(run)
     if run.is_six_k:
         # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
         # variant and is recorded on the stored summary for audit. Placed after every grounding

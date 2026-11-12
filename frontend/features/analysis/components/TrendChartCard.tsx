@@ -162,8 +162,9 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* The PNG takes the page's theme, where the PDF and the workbook print light (coherence §5): its hint says so. */}
           {exportEnabled && layout && (
-            <ChartControl label="Download chart as PNG" disabled={!fontReady} loading={exporting} onClick={() => void exportPng()}>
+            <ChartControl label="Download chart as PNG" hint="Image matches your theme." disabled={!fontReady} loading={exporting} onClick={() => void exportPng()}>
               <ImageSquareIcon className="h-5 w-5" aria-hidden="true" />
             </ChartControl>
           )}

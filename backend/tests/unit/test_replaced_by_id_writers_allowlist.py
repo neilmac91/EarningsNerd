@@ -148,10 +148,15 @@ ALLOWED_MENTIONS = {
     # link (test_retention_purge.py pins the order).
     ("backend/app/services/retention_service.py", "_purge", "delete"): 1,
     # Modules that import refresh_token_service are in scope (it could hand them a token row to delete);
-    # these deletes remove OAuth rows: expired OAuthState rows, a consumed OAuthState, an OAuthAccount.
+    # these deletes remove OAuth rows: expired OAuthState rows, a consumed OAuthState, an OAuthAccount, and
+    # expired SessionHandoff rows (E29 (5)).
     ("backend/app/services/oauth_account_service.py", "store_oauth_state", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "consume_oauth_state", "delete"): 1,
     ("backend/app/services/oauth_account_service.py", "unlink_oauth_provider", "delete"): 1,
+    ("backend/app/services/oauth_account_service.py", "commit_oauth_sign_in", "delete"): 1,
+    # An account-wide revocation (logout-all, a password change or reset) deletes the account's SessionHandoff rows,
+    # the OAuth sign-ins whose landing page has not yet exchanged its code (E29 (5)); it removes no refresh token.
+    ("backend/app/services/refresh_token_service.py", "revoke_all_for_user", "delete"): 1,
     # The table's migration defines the column, with that ON DELETE SET NULL.
     ("backend/migrations/20260613_create_refresh_tokens.sql", "<file>", "text"): 1,
 }
@@ -775,11 +780,12 @@ def _text_mention_counts(text: str, *, sql: bool = True) -> Counter[tuple[str, s
     return +counts  # drop the zero counts
 
 
-# What never reaches the production database: the browser app (it holds no database credentials), git
-# itself, and tool caches. The records folders are scanned: tasks/ holds SQL written to be run against
-# production by hand.
-_UNSCANNED_ROOTS = {"frontend"}
-_UNSCANNED_PARTS = {"tests", ".git", "node_modules", "__pycache__", "venv", ".venv", ".pytest_cache", ".ruff_cache",
+# What never reaches the production database, skipped by its path: the browser app (it holds no database
+# credentials) and the backend's test homes. A folder named tests anywhere else, tasks/fable-e8-repin-2026-09-22/tests/
+# for one, is no test home and is read. Skipped by name: git itself and tool caches. The records folders are scanned:
+# tasks/ holds SQL written to be run against production by hand.
+_UNSCANNED_PATHS = {"frontend", "backend/tests"}
+_UNSCANNED_NAMES = {".git", "node_modules", "__pycache__", "venv", ".venv", ".pytest_cache", ".ruff_cache",
                     ".mypy_cache"}
 
 
@@ -793,8 +799,8 @@ def _scanned_files(root: Path = REPO_DIR) -> list[Path]:
     files = []
     for folder, subfolders, names in os.walk(root):
         here = Path(folder)
-        subfolders[:] = [name for name in subfolders if name not in _UNSCANNED_PARTS
-                         and not (here == root and name in _UNSCANNED_ROOTS)
+        subfolders[:] = [name for name in subfolders if name not in _UNSCANNED_NAMES
+                         and (here / name).relative_to(root).as_posix() not in _UNSCANNED_PATHS
                          and not (here / name / ".git").exists()]
         files += [here / name for name in names
                   if Path(name).suffix in (".py", ".sql", ".sh", ".yml", ".yaml") and (here / name).is_file()]
@@ -1227,7 +1233,9 @@ def test_the_text_scan_gaps_stay_out_of_reach(text):
 
 def test_the_scan_reads_every_tree_that_can_reach_the_database(tmp_path):
     scanned_paths = {"backend/app/a.py", "backend/migrations/m.sql", "ops/detection/d.sql", "scripts/s.sh", "tasks/x/t.sql",
-                     "docs/runbooks/r.sh", ".claude/skills/k/k.sh", ".github/workflows/w.yml", "main.yaml"}
+                     "docs/runbooks/r.sh", ".claude/skills/k/k.sh", ".github/workflows/w.yml", "main.yaml",
+                     # a folder named tests outside the test homes is no test home, so it is read
+                     "ops/tool/tests/t.py", "tasks/x/tests/t.sql", "backend/scripts/tests/s.sh"}
     skipped = {"frontend/f.py", "backend/tests/unit/t.py", "frontend/tests/e2e/e.py", ".claude/worktrees/agent/backend/app/a.py",
                ".worktrees/other/ops/d.sql", "backend/app/__pycache__/c.py", "ops/node_modules/n.sh", "docs/runbook.md"}
     for rel in scanned_paths | skipped:

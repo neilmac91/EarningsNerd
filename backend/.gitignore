@@ -17,3 +17,8 @@ evals/reports/
 # Default output of the copilot-eval replay tools under tasks/review-evidence/ when run from backend/
 # (f_attribution.py writes f-attribution.json to the working directory); evidence lives in their folders.
 /f-attribution.json
+
+# PB-02's private operator files, saved here by mistake (docs/ops/complimentary-access.md keeps them in the
+# founder's private store, outside the repository): raw tester addresses and a manifest of fingerprints.
+/addresses.txt
+/manifest*.json

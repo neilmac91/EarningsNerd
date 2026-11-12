@@ -2,14 +2,13 @@
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
-import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { FeedItem, WhatChangedItem, WordingChangesSummary } from '@/features/dashboard/api/dashboard-api'
 import { plural } from '@/features/filings/lib/sectionChanges'
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Badge, Card, TrailingArrowLabel } from '@/components/ui'
-import { directionChip, type Direction } from '@/lib/financialTone'
+import { Badge, Card, DeltaChip, TrailingArrowLabel } from '@/components/ui'
+import { type Direction } from '@/lib/financialTone'
 
 // A filing counts as "New" for up to two weeks. Because the feed now always shows each company's
 // latest filing regardless of age, this badge is what distinguishes "fresh this week" from "their
@@ -30,13 +29,6 @@ function isRecentFiling(value: string | null, withinDays = 14): boolean {
   return diffDays >= 0 && diffDays <= withinDays
 }
 
-// A metric chip is a figure's change, so it takes the direction chip of lib/financialTone: the 700-level
-// gain and loss inks on their soft grounds (flat in the secondary ink), never sage (D-030, DESIGN.md
-// Separate Signals). The colour follows the tone the server computed with the signed display string;
-// the glyph follows its direction and is decorative, since the sign (or, with no figure, the sr-only
-// word) says the direction. Gates: eslint's earningsnerd/direction-text-tokens reads `<Icon />` through
-// GLYPH and bans sage on it; tests/unit/whatChangedChip.spec.tsx holds its colour to the tone.
-const GLYPH = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
 const TONE: Record<WhatChangedItem['tone'], Direction> = { gain: 'up', loss: 'down', flat: 'flat' }
 
 function ctaLabel(status: string): string {
@@ -62,30 +54,14 @@ export function wordingLine(wording: WordingChangesSummary | null | undefined): 
 }
 
 function MetricChip({ item }: { item: WhatChangedItem }) {
-  const Icon = GLYPH[item.direction] ?? GLYPH.flat
-  const tone = TONE[item.tone] ?? item.direction ?? 'flat'
-  const shown = item.direction !== 'flat' && item.display
-  // Under 200% text a chip's label and figure can need two lines ("Noninterest income +103.9%" on a bank's card at 320px):
-  // the figure moves under its label, and a word still wider than the group breaks inside it, the house's last resort
-  // ([overflow-wrap:anywhere], as on the legal pages: "Noninterest" in the two-column feed at 640 and 1024px), so the chip
-  // shrinks to its row instead of passing it (E268, chief design on #1877). It takes the 16px radius of a chip that can
-  // wrap (DESIGN.md's radius scale): a pill on one line, a rounded box once it wraps. The glyph stays beside the group,
-  // centred, as the other wrapping chips keep theirs.
   return (
-    <span
+    <DeltaChip
       data-what-changed-chip
-      className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-medium ${directionChip[tone]}`}
-    >
-      <Icon aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0" />
-      <span className="flex min-w-0 flex-wrap items-center gap-x-1 [overflow-wrap:anywhere]">
-        <span>{item.label}</span>
-        {shown ? (
-          <span className="font-data font-semibold">{item.display}</span>
-        ) : item.direction !== 'flat' ? (
-          <span className="sr-only">{item.direction === 'up' ? ' up' : ' down'}</span>
-        ) : null}
-      </span>
-    </span>
+      label={item.label}
+      direction={item.direction ?? 'flat'}
+      tone={TONE[item.tone] ?? item.direction ?? 'flat'}
+      display={item.direction !== 'flat' ? item.display : null}
+    />
   )
 }
 

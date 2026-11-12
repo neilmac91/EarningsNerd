@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
 }))
 vi.mock('@/lib/analytics', () => ({ default: { loginCompleted: vi.fn() } }))
-vi.mock('@/lib/featureFlags', () => ({ TURNSTILE_ENABLED: false }))
+vi.mock('@/lib/featureFlags', () => ({ TURNSTILE_ENABLED: false, ENABLE_APPLE_SIGNIN: false }))
 vi.mock('@/features/auth/components/AuthShell', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))

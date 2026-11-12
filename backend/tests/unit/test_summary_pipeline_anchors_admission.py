@@ -25,6 +25,7 @@ from app.services.summary_pipeline import (
     GenerationUserSnapshot,
 )
 from app.services.summary_request_evidence import SummaryRequestEvidence
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     reset_inflight,
@@ -273,14 +274,14 @@ async def test_late_claim_fresh_reread_marks_evidence_coalesced_without_generati
         delayed = asyncio.create_task(consume(request_evidence=evidence), name="delayed-follower")
         replacement = asyncio.create_task(consume(), name="replacement-follower")
         try:
-            await asyncio.wait_for(joined.wait(), 2)
+            await asyncio.wait_for(joined.wait(), HANG_GUARD_S)
             summary_pipeline._release_inflight(filing_id, leader)  # the leader failed without persisting
-            await asyncio.wait_for(delayed_read.wait(), 2)
-            completed = await asyncio.wait_for(replacement, 2)
+            await asyncio.wait_for(delayed_read.wait(), HANG_GUARD_S)
+            completed = await asyncio.wait_for(replacement, HANG_GUARD_S)
             assert filing_id not in summary_pipeline._inflight_generations
             generate.assert_awaited_once()
             return_delayed.set()  # now return the obsolete empty snapshot
-            resumed = await asyncio.wait_for(delayed, 2)
+            resumed = await asyncio.wait_for(delayed, HANG_GUARD_S)
         finally:
             return_delayed.set()
             for task in (delayed, replacement):

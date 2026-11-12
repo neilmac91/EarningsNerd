@@ -34,6 +34,7 @@ from app.services import account_mail_service, auth_account_service, invite_serv
 from app.services.account_agreement_service import AcceptedAccountAgreement, AgreementRequired
 from app.services.legal_readiness_service import CollectionUnavailable
 from main import app
+from tests.support.oauth_handoff import HANDOFF_BODY, complete_sign_in, handoff_code
 
 pytestmark = pytest.mark.requires_db
 
@@ -134,6 +135,14 @@ def _assert_no_signup_effects(effects):
     effects.capture.assert_not_called()
 
 
+def _assert_session_issued(client, response):
+    """The sign-in's session, on the landing page's exchange of the code the callback's redirect carries, whether or
+    not the start asked for the session handoff (E29 (5))."""
+    handoff_code(response)
+    _assert_no_session(response)  # the landing page's exchange sets it
+    assert settings.COOKIE_NAME in complete_sign_in(client, response).cookies
+
+
 def _assert_refused(response, code):
     assert response.status_code == 302, response.text
     assert parse_qs(urlparse(response.headers["location"]).query) == {"error": [code]}
@@ -170,10 +179,12 @@ class _ProviderClient:
         return _TokenResponse()
 
 
-def _start(client, provider, *, assent=True, invite=None):
+def _start(client, provider, *, assent=True, invite=None, handoff=False):
     body = dict(ASSENT) if assent else {}
     if invite:
         body["invite"] = invite
+    if handoff:
+        body.update(HANDOFF_BODY)  # the sign-up page's ask for the session handoff, recorded only (E29 (5))
     response = client.post(f"/api/auth/{provider}/start", json=body)
     assert response.status_code == 200, response.text
     url = response.json()["url"]
@@ -399,13 +410,14 @@ def test_query_parameters_cannot_supply_oauth_assent(client, monkeypatch, effect
     assert _counts() == before
 
 
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_oauth_stored_assent_creates_one_agreement_and_state_cannot_be_replayed(
-    client, monkeypatch, effects, provider,
+    client, monkeypatch, effects, provider, handoff,
 ):
     address = _email()
     claims = _claims(provider, address)
-    state = _start(client, provider)
+    state = _start(client, provider, handoff=handoff)
     with SessionLocal() as db:
         stored = db.query(OAuthState).filter_by(state=state).one()
         accepted_at = stored.agreement_accepted_at
@@ -413,9 +425,7 @@ def test_oauth_stored_assent_creates_one_agreement_and_state_cannot_be_replayed(
         assert stored.agreement_eligibility_version == VERSION
         assert accepted_at is not None
     response = _callback(client, monkeypatch, provider, claims, state)
-    assert response.status_code == 302
-    assert response.headers["location"] == settings.FRONTEND_URL
-    assert settings.COOKIE_NAME in response.cookies
+    _assert_session_issued(client, response)
     with SessionLocal() as db:
         user = db.query(User).filter_by(email=address).one()
         agreement = db.query(AccountAgreement).filter_by(user_id=user.id).one()
@@ -453,10 +463,11 @@ def test_oauth_expired_or_stale_stored_assent_creates_nothing(
     _assert_no_signup_effects(effects)
 
 
+@pytest.mark.parametrize("handoff", [False, True], ids=["no-ask", "asked"])
 @pytest.mark.parametrize("provider", PROVIDERS)
 @pytest.mark.parametrize("already_linked", [False, True])
 def test_closed_collection_preserves_legacy_oauth_login_and_verified_linking_without_assent(
-    client, monkeypatch, effects, provider, already_linked,
+    client, monkeypatch, effects, provider, already_linked, handoff,
 ):
     address = _email()
     claims = _claims(provider, address)
@@ -464,11 +475,9 @@ def test_closed_collection_preserves_legacy_oauth_login_and_verified_linking_wit
         address, provider=provider if already_linked else None, subject=claims["sub"],
     )
     monkeypatch.setattr(settings, "LEGAL_COLLECTION_ENABLED", False)
-    state = _start(client, provider, assent=False)
+    state = _start(client, provider, assent=False, handoff=handoff)
     response = _callback(client, monkeypatch, provider, claims, state)
-    assert response.status_code == 302
-    assert response.headers["location"] == settings.FRONTEND_URL
-    assert settings.COOKIE_NAME in response.cookies
+    _assert_session_issued(client, response)
     with SessionLocal() as db:
         assert db.query(AccountAgreement).filter_by(user_id=user_id).count() == 0
         assert db.query(OAuthAccount).filter_by(user_id=user_id, provider=provider).count() == 1

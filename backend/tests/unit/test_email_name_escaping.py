@@ -22,6 +22,7 @@ from app.services import email_service, legal_readiness_service
 from app.services.email_service import (
     _greeting,
     _greeting_text,
+    render_contact_confirmation,
     render_referral_success_email,
     render_welcome_email,
     send_account_exists_email,
@@ -44,7 +45,8 @@ SENDERS = [
     (send_waitlist_welcome_email, dict(position=3, referral_link="https://e.test/r/abc")),
     (send_referral_success_email, dict(new_position=2, referral_link="https://e.test/r/abc")),
     (send_verification_email, dict(verification_link="https://e.test/v/t")),
-    (send_invite_email, dict(magic_link="https://e.test/i/t")),
+    (send_invite_email, dict(magic_link="https://e.test/i/t", unsubscribe_link="https://e.test/u#token=t",
+                             delivery_ref="0" * 32, cohort=None)),
     (send_password_reset_email, dict(reset_link="https://e.test/p/t")),
     (send_oauth_linked_email, dict(provider="Google")),
     (send_account_exists_email, dict(login_link="https://e.test/login", reset_link="https://e.test/forgot")),
@@ -103,8 +105,10 @@ def sent(monkeypatch):
         return {"id": "msg_test"}
 
     monkeypatch.setattr(email_service, "send_email", _record)
-    # Render dormant promotional templates too; the readiness suite proves they cannot dispatch.
+    # Render dormant promotional and invitation templates too; the readiness suite proves they cannot dispatch.
     monkeypatch.setattr(legal_readiness_service, "is_marketing_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available", lambda: True)
+    monkeypatch.setattr(legal_readiness_service, "is_invitation_email_available_for", lambda cohort, email: True)
     return mails
 
 
@@ -131,10 +135,11 @@ def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent)
 @pytest.mark.parametrize(
     "render, kwargs",
     [
+        (render_contact_confirmation, {}),
         (render_welcome_email, dict(position=1, referral_link="https://e.test/r")),
         (render_referral_success_email, dict(new_position=1, referral_link="https://e.test/r")),
     ],
-    ids=["welcome", "referral_success"],
+    ids=["contact_confirmation", "welcome", "referral_success"],
 )
 def test_render_functions_keep_the_name_on_one_line_escaped_in_the_page_and_as_typed_in_the_text(render, kwargs):
     html_doc, text = render(name="Eve\r\n<b>Bcc</b>:\u2029x", **kwargs)

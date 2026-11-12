@@ -10,7 +10,8 @@ always across the API's two instances, two of them can interleave inside those s
 two of them on one user's token, each in a session made with production's ``SessionLocal`` settings
 (autoflush off), so their statements reach the database in production's order. The first holds its
 COMMIT until the second is blocked on a lock or has finished, so the second makes its first read, and
-its check if nothing stops it, while the first's writes are uncommitted:
+its check if nothing stops it, while the first's writes are uncommitted; a first that commits or finishes
+before the point the second starts at fails the case at once:
 - two refreshes with one cookie: one rotates, and the other meets the replay sweep, as the second of
   two did when refresh ran on the event loop, so no live token is left;
 - a refresh and a logout-all, in either order: no live token is left;
@@ -34,8 +35,15 @@ its check if nothing stops it, while the first's writes are uncommitted:
   account keeps a sign-in method, the double unlink finds no link, and the new password counts;
 - two first sign-ins of one OAuth identity, two links of one identity to an account, and two invited sign-ups
   with one invite: no lock serializes them, so the unique email, the unique provider link and the invite's
-  guarded redemption decide, and the second is refused or loses at its mint with nothing of its own
-  committed (E121);
+  guarded redemption decide, and the second is refused or loses at its commit with nothing of its own
+  committed (E121), each through the callback's one commit, the session handoff's, whatever the start asked
+  (E29 (5));
+- one OAuth sign-in's one-time code exchanged twice at once (E29 (5)): the second redemption waits at the account's
+  users row lock for the first's commit, then reads the handoff used, so one session is minted;
+- an OAuth sign-in's code exchange and a logout-all, a password reset or a password change of its account, in either
+  order and wherever the second starts: the exchange takes the users row lock first, so it signs in before the
+  revocation, which then revokes the session it minted, or waits it out and finds its handoff deleted and is refused,
+  so no session the exchange minted outlives the revocation (the change keeps only the changer's new session);
 - one verification link posted twice at once: the second waits at the account's row, which the first's token
   read locked, finds the link burnt and is refused as an unknown link (E121).
 Without the users-row lock each writer takes first, the second request writes on what it read before
@@ -69,13 +77,13 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.config import settings
 from app.database import Base, SessionLocal
-from app.models import AuditLog, OAuthAccount, OAuthState, RefreshToken, User
+from app.models import AuditLog, OAuthAccount, OAuthState, RefreshToken, SessionHandoff, User
 from app.routers import auth as auth_module
 from app.services import auth_account_service, oauth_account_service, user_account_service
 from app.services.account_agreement_service import accept_current_agreement
 from app.services import refresh_token_service as tokens
+from tests.support.hang_guard import HANG_GUARD_S
 
-HANG_GUARD_S = 5.0  # a passing case never waits for it
 OLD_PASSWORD_HASH = "the old password's hash"
 
 
@@ -229,7 +237,7 @@ def test_overlapping_oauth_callbacks_consume_signup_state_once(postgres_engine, 
     assert not hung, f"waited out the {HANG_GUARD_S} s hang guard for {hung}"
     assert released == ["blocked"], "The consumers must actually overlap before the first commit"
     assert first_result is not None
-    assert first_result[1:] == (None, agreement)
+    assert first_result[1:] == (None, agreement)  # no invite, the assent
     assert second_result is None
     with _session(postgres_engine) as db:
         assert db.query(OAuthState).filter_by(state=state).count() == 0
@@ -277,8 +285,19 @@ _OPERATIONS = {
     "unlink_google": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "google"),
     "unlink_apple": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "apple"),
     "unlink_google_loaded": lambda db, user_id, raw: _unlink_loaded(db, user_id, "google"),
+    "oauth_exchange": lambda db, user_id, raw: _oauth_exchange(db, *raw),
 }
-_WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens", "DELETE FROM oauth_accounts")
+_WRITES = (
+    "INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens", "DELETE FROM oauth_accounts",
+    "UPDATE earningsnerd_session_handoffs", "DELETE FROM earningsnerd_session_handoffs",
+)
+
+
+def _oauth_exchange(db: Session, code: str, binder: str) -> Optional[str]:
+    """The OAuth code exchange route's unit (E29 (5)): the redemption, then the session's refresh token minted and
+    committed with it; the token, or None when the redemption is refused."""
+    user = oauth_account_service.redeem_session_handoff(db, code, binder)
+    return None if user is None else tokens.mint_refresh_token(db, user)
 
 
 def _delete_loaded_account(db: Session, user_id: int) -> None:
@@ -345,7 +364,8 @@ def _race(
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
-    records itself instead, and the race fails once both requests have ended."""
+    records itself instead, and the race fails once both requests have ended. So does a ``first`` that
+    commits, or finishes, before the point ``second`` starts at, and ``second`` then does not start."""
     user_id, raw = _signed_in(engine, password_hash)
     if links:
         with _session(engine) as db:
@@ -357,21 +377,35 @@ def _race(
     if other_chain is not None:
         with _session(engine) as db:
             other_chain.append(tokens.mint_refresh_token(db, db.get(User, user_id)))
+    handoff: Optional[tuple[str, str]] = None
+    if "oauth_exchange" in (first, second):
+        # A Google or Apple callback committed the account's sign-in with its one-time handoff; its landing page's
+        # exchange is the operation, carrying the code and the binding cookie in place of a refresh cookie.
+        with _session(engine) as db:
+            handoff = oauth_account_service.commit_oauth_sign_in(db, db.get(User, user_id))
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
     request_session = sessionmaker(**{**SessionLocal.kw, "bind": engine})
     cookies = {"first": raw, "second": raw}
+    for name, operation in (("first", first), ("second", second)):
+        if operation == "oauth_exchange":
+            cookies[name] = handoff
     if second_cookie_behind:
         with request_session() as db:
             cookies["first"] = tokens.rotate_and_commit(db, raw)[1]
     role = threading.local()
     first_ready = threading.Event()
+    # Set with first_ready, or when the first finishes without reaching that point: the second's start can no longer
+    # come then, so the second stops at once instead of waiting out the guard (rule 6 of
+    # lessons/test-a-wait-bound-only-breaks-a-hang.md: a defect makes each case of this file wait the same way).
+    second_may_start = threading.Event()
     second_wrote = threading.Event()
     second_done = threading.Event()
     second_pid: list[int] = []
     released: list[str] = []
     hung: list[str] = []
+    unstaged: list[str] = []
 
     def wait_until(condition, waiting_for: str) -> None:
         deadline = time.monotonic() + HANG_GUARD_S
@@ -389,9 +423,13 @@ def _race(
             return
         if second_starts == "after_first_write" and statement.startswith(_WRITES):
             first_ready.set()
+            second_may_start.set()
         elif second_starts == "after_first_lock" and statement.startswith("SELECT users.id") and " FOR " in statement:
             first_ready.set()
-            wait_until(lambda: second_wrote.is_set() or second_blocked(), "the second request to block or write")
+            second_may_start.set()
+            # A second that has finished can no longer block or write, so the first stops waiting then too.
+            wait_until(lambda: second_wrote.is_set() or second_done.is_set() or second_blocked(),
+                       "the second request to block or write")
 
     def second_blocked() -> bool:
         if not second_pid:
@@ -410,16 +448,27 @@ def _race(
         return bool(released)
 
     def before_commit(conn):
-        if getattr(role, "name", None) == "first":
-            wait_until(released_by_second, "the second request to block or finish")
+        if getattr(role, "name", None) != "first":
+            return
+        if not first_ready.is_set():
+            # A first that commits before the point the second starts at gives the second nothing to block on, and
+            # what it committed is outside the race: the case fails as unstaged, and the second stops at once.
+            unstaged.append(f"{first} committed before reaching the point {second} starts at")
+            second_may_start.set()
+            return
+        wait_until(released_by_second, "the second request to block or finish")
 
     def run(name: str, operation: str):
         role.name = name
         try:
             with request_session() as db:
                 if name == "second":
-                    if not first_ready.wait(HANG_GUARD_S):
+                    if not second_may_start.wait(HANG_GUARD_S):
                         hung.append("the first request to reach the point the second starts at")
+                        return None
+                    if not first_ready.is_set():
+                        if not unstaged:
+                            unstaged.append(f"{first} finished without reaching the point {second} starts at")
                         return None
                     second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
                 return _OPERATIONS[operation](db, user_id, cookies[name])
@@ -428,6 +477,8 @@ def _race(
         finally:
             if name == "second":
                 second_done.set()
+            else:
+                second_may_start.set()
 
     event.listen(engine, "after_cursor_execute", after_statement)
     event.listen(engine, "commit", before_commit)
@@ -438,6 +489,7 @@ def _race(
     finally:
         event.remove(engine, "after_cursor_execute", after_statement)
         event.remove(engine, "commit", before_commit)
+    assert not unstaged, f"the race never ran as staged: {unstaged}"
     assert not hung, f"waited out the {HANG_GUARD_S} s hang guard for {hung}"
     return first_outcome, second_outcome, _live_tokens(engine, user_id), released[0] if released else "never"
 
@@ -607,19 +659,26 @@ def test_an_unlink_that_waits_out_an_account_deletion_finds_no_link(postgres_eng
     )
 
 
+# A Google or Apple callback's commit of its sign-in (E29 (5)): with its one-time session handoff
+# (``commit_oauth_sign_in``), whose exchange mints the session's refresh token later. ``_SIGNED_IN`` is what one won
+# sign-in leaves: (accounts, links, refresh tokens, handoffs).
+_SIGNED_IN = (1, 1, 0, 1)
+
+
 def _oauth_sign_in(db: Session, subject: str, email: str, invite_hash: Optional[str] = None):
-    """A Google callback's sign-in unit as far as its commit: the resolve, then the mint."""
+    """A Google callback's sign-in unit as far as its commit: the resolve, then the commit with its handoff."""
     user, _linked, _created = oauth_account_service.resolve_google_user(
         db, subject=subject, email=email, email_verified=True, full_name=None,
         invite_code_hash=invite_hash, agreement=accept_current_agreement(),
     )
-    return oauth_account_service.mint_oauth_refresh_token(db, user, user_agent=None, ip=None)
+    return oauth_account_service.commit_oauth_sign_in(db, user)
 
 
 def _second_sign_in_while_the_first_holds(engine, first: tuple, second: tuple) -> tuple[object, str]:
     """Resolve ``first`` (subject, email, invite hash) in one session, run ``second``'s whole sign-in in another
-    thread until PostgreSQL shows it waiting on a lock, then mint and commit ``first``. Returns what ``second``
-    returned or raised, and the statement it waited at ("" if it never waited)."""
+    thread until PostgreSQL shows it waiting on a lock, then commit ``first``. Both commit with their handoffs
+    (``commit_oauth_sign_in``). Returns what ``second`` returned or raised, and the statement it waited at ("" if it
+    never waited)."""
     outcome: list[object] = []
     second_pid: list[int] = []
 
@@ -636,7 +695,7 @@ def _second_sign_in_while_the_first_holds(engine, first: tuple, second: tuple) -
             db, subject=first[0], email=first[1], email_verified=True, full_name=None,
             invite_code_hash=first[2], agreement=accept_current_agreement(),
         )
-        db.flush()  # the staged link, assent and last_login_at, uncommitted, as the mint's own flush would send them
+        db.flush()  # the staged link, assent and last_login_at, uncommitted, as the commit's own flush would send them
         thread = threading.Thread(target=run_second)
         thread.start()
         deadline, waited = time.monotonic() + HANG_GUARD_S, ""
@@ -650,22 +709,26 @@ def _second_sign_in_while_the_first_holds(engine, first: tuple, second: tuple) -
                 if row is not None and row.wait_event_type == "Lock":
                     waited = row.query.strip()
             time.sleep(0.01)
-        oauth_account_service.mint_oauth_refresh_token(db, user, user_agent=None, ip=None)
+        oauth_account_service.commit_oauth_sign_in(db, user)
     thread.join(HANG_GUARD_S)
     assert not thread.is_alive(), "the second sign-in outlasted the hang guard"
     return outcome[0], waited
 
 
-def _accounts_links_tokens(engine) -> tuple[int, int, int]:
+def _accounts_links_tokens_handoffs(engine) -> tuple[int, int, int, int]:
+    """How many accounts, provider links, refresh tokens and session handoffs a case's schema holds."""
     with _session(engine) as db:
-        return db.query(User).count(), db.query(OAuthAccount).count(), db.query(RefreshToken).count()
+        return (
+            db.query(User).count(), db.query(OAuthAccount).count(), db.query(RefreshToken).count(),
+            db.query(SessionHandoff).count(),
+        )
 
 
 def test_two_first_sign_ins_of_one_identity_create_one_account(postgres_engine, collection_ready, monkeypatch):
     """Two callbacks for one new Google identity, from two browsers. No lock serializes them, in the thread pool on
     one instance or across instances (E121): the second's account insert waits on the first's uncommitted row
     under the unique email, then fails, and the resolve refuses it as the lost create race, so the route redirects
-    to its conflict page with nothing of its own committed: one account, one link, one session."""
+    to its conflict page with nothing of its own committed: one account, one link, and one session handoff."""
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
     email = f"twice-{uuid.uuid4().hex}@example.com"
     second, waited = _second_sign_in_while_the_first_holds(
@@ -674,14 +737,14 @@ def test_two_first_sign_ins_of_one_identity_create_one_account(postgres_engine, 
     assert isinstance(second, oauth_account_service.OAuthSignInRefused)
     assert (second.lost_create_race, second.error_code) == (True, "google_account_conflict")
     assert waited.startswith("INSERT INTO users"), waited
-    assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
 
 
 def test_two_links_of_one_identity_to_an_account_link_it_once(postgres_engine, collection_ready):
     """Two callbacks for one Google identity whose address is a verified account's, from two browsers: both resolve
-    a link to that account. The second's mint waits at the account's row for the first's commit, then its link
-    insert meets the first's under ``uq_oauth_provider_account``, and the mint rolls it back as the conflict: one
-    link, one session, and the second's redirect to the conflict page."""
+    a link to that account. The second's commit (with its handoff) waits at the account's row for the first's, then
+    its link insert meets the first's under ``uq_oauth_provider_account``, and the commit rolls it back as the
+    conflict: one link, one session handoff, and the second's redirect to the conflict page."""
     email = f"link-{uuid.uuid4().hex}@example.com"
     with _session(postgres_engine) as db:
         db.add(User(email=email, is_active=True, email_verified=True))
@@ -691,13 +754,13 @@ def test_two_links_of_one_identity_to_an_account_link_it_once(postgres_engine, c
     )
     assert isinstance(second, oauth_account_service.OAuthAccountConflictError)
     assert waited.startswith("UPDATE users"), waited
-    assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
 
 
 def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, collection_ready, monkeypatch):
     """Two new identities signing up under invite_only with one invite: the second's guarded redemption waits on
     the first's uncommitted one, then matches no unused invite, and the resolve refuses it (``invite_required``).
-    One account, one link, one session, the invite redeemed once."""
+    One account, one link, one session handoff, the invite redeemed once."""
     from app.models.invite import InviteCode
     from app.services import invite_service
 
@@ -713,7 +776,7 @@ def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, co
     assert isinstance(second, oauth_account_service.OAuthSignInRefused)
     assert second.error_code == "invite_required"
     assert waited.startswith("UPDATE invite_codes"), waited
-    assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
+    assert _accounts_links_tokens_handoffs(postgres_engine) == _SIGNED_IN
     with _session(postgres_engine) as db:
         assert db.query(InviteCode).filter(InviteCode.used_at.isnot(None)).count() == 1
 
@@ -794,6 +857,125 @@ def test_two_verifications_of_one_link_verify_it_once(postgres_engine):
     with _session(postgres_engine) as db:
         verified = db.get(User, user_id)
         assert (verified.email_verified, verified.email_verification_token) == (True, None)
+
+
+def _handoffs(engine) -> int:
+    """The session handoffs left in a case's schema, which holds the one account its race made."""
+    with _session(engine) as db:
+        return db.query(SessionHandoff).count()
+
+
+@pytest.mark.parametrize("second_starts", ["after_first_write", "after_first_lock"])
+@pytest.mark.parametrize("revocation", ["logout_all", "reset", "change_password"])
+@pytest.mark.parametrize("exchange_first", [True, False], ids=["exchange-first", "revocation-first"])
+def test_an_oauth_code_exchange_and_an_account_wide_revocation_leave_no_session_from_the_exchange(
+    postgres_engine, exchange_first, revocation, second_starts,
+):
+    """A Google or Apple sign-in's landing page exchanges its code while the account's owner signs out everywhere,
+    resets the password or changes it (E29 (5)). Both take the account's users row lock before they write, so the
+    second waits for the first's commit: an exchange that holds it first mints its session and commits, and the
+    revocation that waited then revokes that session with the rest; a revocation that holds it first deletes the
+    handoff with the tokens, and the exchange that waited finds it gone and is refused, writing nothing. Either way
+    no session the exchange minted outlives the revocation: no live token after a logout-all or a reset, the
+    changer's new session alone after a change, and no handoff left. Without the exchange's lock (mutation-checked on
+    #1963), an exchange-first case's revocation takes the lock at once and its bulk UPDATE runs before the exchange's
+    token commits, leaving that token live; a revocation-first case started at the revocation's lock lets the
+    exchange redeem before the revocation's delete reaches the handoff, with the same result; and the exchange-first
+    cases started at a lock never reach one. Only a revocation-first case started after its first write passes
+    without the lock: its delete reaches the handoff's row before the exchange's guarded UPDATE, which then waits
+    there and finds the row gone."""
+    first, second = ("oauth_exchange", revocation) if exchange_first else (revocation, "oauth_exchange")
+    first_outcome, second_outcome, live, released = _race(postgres_engine, first, second, second_starts=second_starts)
+    exchange, revoked = (first_outcome, second_outcome) if exchange_first else (second_outcome, first_outcome)
+    # The exchange signs in before the revocation (a token) or is refused after it (None); it never raises.
+    assert _kind(exchange) == ("str" if exchange_first else "NoneType"), exchange
+    expected = {
+        # logout-all revokes the session from before the race, and the exchange's when it signed in first.
+        "logout_all": 2 if exchange_first else 1,
+        "reset": None,
+        "change_password": "str",  # the changer's new session's token
+    }[revocation]
+    assert (_result(revoked) if revocation != "change_password" else _kind(revoked)) == expected
+    assert (live, released) == (1 if revocation == "change_password" else 0, "blocked")
+    assert _handoffs(postgres_engine) == 0
+
+
+def test_two_exchanges_of_one_sign_ins_code_mint_one_session(postgres_engine):
+    """One OAuth sign-in's one-time code posted twice at once from the browser that holds its binding cookie (a double
+    submit, or React's development double effect, E29 (5)): the second's redemption waits at the account's users row
+    lock, which the first's redemption took before it updated the handoff, until the first commits it with its
+    session's refresh token, then its guarded UPDATE reads the handoff used and it is refused, so the route answers
+    its 400 and mints nothing. Without the lock the second would wait at the handoff's row instead, and without the
+    guard both would read the row unused, and both mint a session."""
+    with _session(postgres_engine) as db:
+        account = User(email=f"handoff-{uuid.uuid4().hex}@example.com", is_active=True)
+        db.add(account)
+        db.flush()
+        user_id = account.id
+        code, binder = oauth_account_service.commit_oauth_sign_in(db, account)
+    role = threading.local()
+    first_redeemed = threading.Event()
+    second_pid: list[int] = []
+    second_statements: list[str] = []
+    waited: list[str] = []
+
+    def before_statement(conn, cursor, statement, parameters, context, executemany):
+        if getattr(role, "name", None) == "second":
+            second_statements.append(statement)
+
+    def after_statement(conn, cursor, statement, parameters, context, executemany):
+        if getattr(role, "name", None) == "first" and statement.startswith("UPDATE earningsnerd_session_handoffs"):
+            first_redeemed.set()
+
+    def before_commit(conn):
+        # The first commits only once PostgreSQL shows the second waiting on a lock, or at the hang guard.
+        if getattr(role, "name", None) != "first":
+            return
+        deadline = time.monotonic() + HANG_GUARD_S
+        while not waited and time.monotonic() < deadline:
+            with postgres_engine.connect() as probe:
+                row = probe.execute(
+                    text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
+                    {"pid": second_pid[0]},
+                ).first() if second_pid else None
+            if row is not None and row.wait_event_type == "Lock":
+                waited.append(second_statements[-1])  # the statement it waits at, whole, as it started
+            else:
+                time.sleep(0.01)
+
+    def run(name: str) -> object:
+        # The exchange route's unit: the redemption, then the session's refresh token minted and committed with it.
+        role.name = name
+        with _session(postgres_engine) as db:
+            if name == "second":
+                first_redeemed.wait(HANG_GUARD_S)
+                second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
+            try:
+                user = oauth_account_service.redeem_session_handoff(db, code, binder)
+                return None if user is None else tokens.mint_refresh_token(db, user)
+            except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
+                return exc
+
+    event.listen(postgres_engine, "before_cursor_execute", before_statement)
+    event.listen(postgres_engine, "after_cursor_execute", after_statement)
+    event.listen(postgres_engine, "commit", before_commit)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(run, "first"), pool.submit(run, "second")]
+            first, second = (future.result(timeout=3 * HANG_GUARD_S) for future in futures)
+    finally:
+        event.remove(postgres_engine, "before_cursor_execute", before_statement)
+        event.remove(postgres_engine, "after_cursor_execute", after_statement)
+        event.remove(postgres_engine, "commit", before_commit)
+    assert isinstance(first, str), first
+    assert second is None, second
+    # The second waited at the account's users row lock, its redemption's first lock (recorded whole as it started).
+    assert waited and waited[0].startswith("SELECT users.id"), waited
+    assert waited[0].rstrip().endswith("FOR NO KEY UPDATE"), waited
+    assert _live_tokens(postgres_engine, user_id) == 1
+    with _session(postgres_engine) as db:
+        (handoff,) = db.query(SessionHandoff).filter_by(user_id=user_id).all()
+        assert handoff.used_at is not None
 
 
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])

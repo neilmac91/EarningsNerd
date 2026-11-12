@@ -44,7 +44,7 @@ def session_factory():
 
 
 class _EmailRecorder(list):
-    """Recorded ``(to, subject)`` pairs (``bodies`` keeps each ``html`` in send order); set
+    """Recorded ``(to, subject)`` pairs (``bodies`` and ``text_parts`` keep send order); set
     ``raise_with`` to make every send fail."""
 
     raise_with: Exception | None = None
@@ -52,6 +52,7 @@ class _EmailRecorder(list):
     def __init__(self) -> None:
         super().__init__()
         self.bodies: list[str] = []
+        self.text_parts: list[str | None] = []
         self.reply_addresses: list[str | None] = []
 
 
@@ -62,6 +63,7 @@ def sent_emails(monkeypatch):
     async def _fake_send_email(to, subject, html, *args, **kwargs):
         recorder.append((list(to), subject))
         recorder.bodies.append(html)
+        recorder.text_parts.append(kwargs.get("text"))
         recorder.reply_addresses.append(kwargs.get("reply_to"))
         if recorder.raise_with is not None:
             raise recorder.raise_with
@@ -128,6 +130,16 @@ def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries
     assert message not in user_html
     assert "Your message" not in user_html
     assert PAYLOAD["name"] in user_html  # the greeting is still personal
+    # E56: the real route sends the shell's page and matching plain-text alternative.
+    assert "/assets/earningsnerd-appicon.png" in user_html
+    assert "Filing data sourced from SEC EDGAR. Not investment advice." in user_html
+    assert "<style>" not in user_html
+    user_text = sent_emails.text_parts[1]
+    assert isinstance(user_text, str) and PAYLOAD["name"] in user_text
+    assert message not in user_text
+    assert "Filing data sourced from SEC EDGAR. Not investment advice." in user_text
+    assert sent_emails[1] == ([PAYLOAD["email"]], "Message received - EarningsNerd")
+    assert sent_emails.reply_addresses == [PAYLOAD["email"], "help@example.com"]
 
 
 @pytest.mark.parametrize("is_pro,status,plan_line", [

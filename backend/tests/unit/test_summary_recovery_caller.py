@@ -49,6 +49,7 @@ class Cloud:
         self.fail_at = None
         self.omit_zeros = False
         self.project = {"projectId": "earnings-nerd", "projectNumber": "123456789012"}
+        self.alias_metadata = {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": "ENABLED"}
         self.service = {"uri": URL, "latestReadyRevision": REVISION, "latestCreatedRevision": REVISION,
                         "trafficStatuses": [{"revision": REVISION, "percent": 100}]}
         self.revision = {"status": {"imageDigest": IMAGE}, "spec": {"containers": [{"env": [
@@ -67,9 +68,14 @@ class Cloud:
             assert path == "v1/projects/earnings-nerd" and method == "GET" and body is None
             return copy.deepcopy(self.project)
         if api == "secretmanager":
+            if path.endswith("/versions/latest"):
+                return copy.deepcopy(self.alias_metadata)
             if path.endswith(":access"):
                 assert self.job and self.job["state"] == "PAUSED", "secret access before pause"
-                return {"name": path[3:-7], "payload": {"data": base64.b64encode(self.secret.encode()).decode()}}
+                return {"name": getattr(self, "access_name", path[3:-7]),
+                        "payload": {"data": base64.b64encode(self.secret.encode()).decode()}}
+            if hasattr(self, "pinned_metadata"):
+                return copy.deepcopy(self.pinned_metadata)
             return {"name": path[3:], "state": "ENABLED"}
         assert api == "cloudscheduler"
         if method == "GET":
@@ -342,6 +348,315 @@ def test_floating_or_malformed_secret_version_cannot_plan(version):
     with pytest.raises(caller.Refused, match="internal_token_version_not_pinned"):
         plan(cloud)
     assert not accesses(cloud) and not mutations(cloud)
+
+
+def floating_binding(cloud, selector="latest", secret="INTERNAL_JOB_TOKEN"):
+    ref = cloud.revision["spec"]["containers"][0]["env"][0]["valueFrom"]["secretKeyRef"]
+    ref.update(name=secret, key=selector)
+
+
+def diagnostic_cli(cloud, monkeypatch, capsys):
+    monkeypatch.setattr(caller, "Cloud", lambda: cloud)
+    assert caller.main(["plan"]) == 1
+    captured = capsys.readouterr()
+    assert not captured.err and PRIVATE not in captured.out
+    result = json.loads(captured.out)
+    assert set(result) == {"state", "reason", "diagnostics"}
+    assert result["state"] == "UNVERIFIED" and result["reason"] == "internal_token_version_not_pinned"
+    assert not accesses(cloud) and not mutations(cloud)
+    assert not any(row[0] == "cloudscheduler" for row in cloud.calls)
+    return result
+
+
+@pytest.mark.parametrize("project", ["earnings-nerd", "123456789012"])
+@pytest.mark.parametrize("revision", [REVISION_FORMS[0], REVISION_FORMS[2]])
+def test_latest_metadata_is_revision_bound_unapproved_refusal_not_a_plan(monkeypatch, capsys, project, revision):
+    cloud = Cloud()
+    floating_binding(cloud, secret=caller.SECRET_PARENT + "existing-token")
+    cloud.service.update(latestReadyRevision=revision, latestCreatedRevision=revision)
+    cloud.service["trafficStatuses"][0]["revision"] = revision
+    cloud.alias_metadata = {"name": f"projects/{project}/secrets/existing-token/versions/42",
+                            "state": "ENABLED", "payload": PRIVATE, "other": PRIVATE}
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"] == {
+        "status": "UNAPPROVED_UNAPPLIED", "selector_form": "latest_alias",
+        "api_revision": REVISION, "image_digest": IMAGE,
+        "metadata_status": "enabled_numeric_candidate",
+        "candidate_secret_version": "projects/earnings-nerd/secrets/existing-token/versions/42",
+    }
+    assert [row for row in cloud.calls if row[0] == "secretmanager"] == [
+        ("secretmanager", "v1/projects/earnings-nerd/secrets/existing-token/versions/latest", "GET", None)]
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == (
+        1 if project == "123456789012" or revision == REVISION_FORMS[2] else 0)
+
+
+@pytest.mark.parametrize("revision", [REVISION_FORMS[0], REVISION_FORMS[2]])
+def test_candidate_then_numeric_pin_retains_canonical_approval(monkeypatch, capsys, revision):
+    cloud = Cloud()
+    expected = plan(cloud)
+    cloud.calls.clear()
+    floating_binding(cloud)
+    cloud.service.update(latestReadyRevision=revision, latestCreatedRevision=revision)
+    cloud.service["trafficStatuses"][0]["revision"] = revision
+    cloud.alias_metadata["name"] = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["candidate_secret_version"] == expected["manifest"]["snapshot"]["api"]["secret_version"]
+    floating_binding(cloud, "3")
+    cloud.pinned_metadata = copy.deepcopy(cloud.alias_metadata)
+    cloud.calls.clear()
+    assert plan(cloud) == expected
+    assert [row for row in cloud.calls if row[0] == "secretmanager"] == [
+        ("secretmanager", "v1/projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/3", "GET", None)]
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 1
+    assert not accesses(cloud) and not mutations(cloud)
+
+
+@pytest.mark.parametrize("metadata", [
+    None, [], {}, {"name": None, "state": "ENABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": "DISABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": True},
+    *({"name": name, "state": "ENABLED"} for name in (
+        "projects/other-project/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/999999999999/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/earnings-nerd/secrets/other-secret/versions/3",
+        "projects/123456789012/secrets/other-secret/versions/3",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/4",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/4",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/latest",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/03",
+        "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3\n",
+    )),
+])
+def test_pinned_metadata_preserves_exact_version_secret_project_and_state(metadata):
+    cloud = Cloud()
+    cloud.pinned_metadata = metadata
+    with pytest.raises(caller.Refused, match="internal_token_version_unavailable"):
+        plan(cloud)
+    assert not accesses(cloud) and not mutations(cloud)
+    assert not any(row[0] == "cloudscheduler" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("project", [None, [], {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": 123456789012},
+                                     {"projectId": "earnings-nerd", "projectNumber": "999999999999"}])
+def test_pinned_numeric_metadata_fails_closed_on_project_metadata_drift(project):
+    cloud = Cloud()
+    cloud.project = project
+    cloud.pinned_metadata = {"name": "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3", "state": "ENABLED"}
+    with pytest.raises(caller.Refused, match="internal_token_version_unavailable"):
+        plan(cloud)
+    assert [row for row in cloud.calls if row[0] == "cloudresourcemanager"] == [
+        ("cloudresourcemanager", "v1/projects/earnings-nerd", "GET", None)]
+    assert not accesses(cloud) and not mutations(cloud)
+
+
+@pytest.mark.parametrize("revision", [REVISION_FORMS[0], REVISION_FORMS[2]])
+def test_numeric_resource_names_preserve_actual_protected_apply_order(revision):
+    cloud = Cloud()
+    expected = plan(cloud)
+    cloud.service.update(latestReadyRevision=revision, latestCreatedRevision=revision)
+    cloud.service["trafficStatuses"][0]["revision"] = revision
+    cloud.pinned_metadata = {"name": "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3", "state": "ENABLED"}
+    cloud.access_name = cloud.pinned_metadata["name"]
+    manifest = plan(cloud)
+    assert manifest == expected
+    cloud.calls.clear()
+    result = apply(cloud, manifest)
+    assert result["state"] == "PAUSED" and result["activation_performed"] is False
+    assert PRIVATE not in json.dumps(result)
+    assert len(accesses(cloud)) == 1
+    pause = next(i for i, row in enumerate(cloud.calls) if row[1].endswith(":pause"))
+    access = next(i for i, row in enumerate(cloud.calls) if row[1].endswith(":access"))
+    authenticated_patch = next(i for i, row in enumerate(cloud.calls) if row[2] == "PATCH")
+    assert pause < access < authenticated_patch
+    assert cloud.job["state"] == "PAUSED"
+    assert cloud.job["httpTarget"]["headers"]["X-Internal-Token"] == PRIVATE
+    # One fixed lookup for each snapshot and one for the protected access read.
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 3
+    assert not any(row[1].endswith(("/latest", ":run", ":resume")) for row in cloud.calls)
+
+
+@pytest.mark.parametrize("name", [
+    None, [], PRIVATE,
+    "projects/other-project/secrets/INTERNAL_JOB_TOKEN/versions/3",
+    "projects/999999999999/secrets/INTERNAL_JOB_TOKEN/versions/3",
+    "projects/earnings-nerd/secrets/other-secret/versions/3",
+    "projects/123456789012/secrets/other-secret/versions/3",
+    "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/4",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/4",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/latest",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/03",
+    "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3\n",
+])
+def test_protected_access_rejects_foreign_or_unverified_exact_resource(name):
+    cloud = Cloud()
+    cloud.access_name = name
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert len(accesses(cloud)) == 1
+    assert cloud.job["state"] == "PAUSED"
+    assert "X-Internal-Token" not in cloud.job["httpTarget"]["headers"]
+    assert all(row[2] != "PATCH" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("project", [None, {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": "999999999999"}])
+def test_protected_access_requires_fixed_project_proof(project):
+    cloud = Cloud()
+    cloud.project = project
+    cloud.access_name = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert len([row for row in cloud.calls if row[0] == "cloudresourcemanager"]) == 1
+    assert len(accesses(cloud)) == 1 and all(row[2] != "PATCH" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("token", ["short", "x" * 513, "x" * 32 + "\r\nInjected: yes", "x" * 32 + "é"])
+def test_numeric_access_name_does_not_relax_header_value_validation(token):
+    cloud = Cloud()
+    cloud.secret = token
+    cloud.access_name = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    with pytest.raises(caller.Refused, match="internal_token_value_unavailable"):
+        apply(cloud, plan(cloud))
+    assert cloud.job["state"] == "PAUSED"
+    assert all(row[2] != "PATCH" for row in cloud.calls)
+
+
+@pytest.mark.parametrize("selector,form", [
+    (None, "missing"), ("", "missing"), (3, "invalid_type"), (True, "invalid_type"),
+    ([], "invalid_type"), ({"private": PRIVATE}, "invalid_type"),
+    ("other-alias", "other_string"), ("latest\n", "other_string"), ("LATEST", "other_string"),
+    ("0", "other_string"), ("01", "other_string"), ("1234567890", "other_string"),
+    ("3/../../latest", "other_string"), (PRIVATE, "other_string"),
+])
+def test_non_latest_selectors_never_guess_or_request_metadata(monkeypatch, capsys, selector, form):
+    cloud = Cloud()
+    floating_binding(cloud, selector)
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"] == {"status": "UNAPPROVED_UNAPPLIED", "selector_form": form,
+                                     "api_revision": REVISION, "image_digest": IMAGE,
+                                     "metadata_status": "not_requested"}
+    assert [row[0] for row in cloud.calls] == ["run", "us-west1-run"]
+
+
+def test_absent_selector_is_not_defaulted_to_latest(monkeypatch, capsys):
+    cloud = Cloud()
+    del cloud.revision["spec"]["containers"][0]["env"][0]["valueFrom"]["secretKeyRef"]["key"]
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["selector_form"] == "missing"
+    assert result["diagnostics"]["metadata_status"] == "not_requested"
+    assert [row[0] for row in cloud.calls] == ["run", "us-west1-run"]
+
+
+@pytest.mark.parametrize("metadata", [
+    None, [], PRIVATE, {}, {"name": PRIVATE, "state": "ENABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": "DISABLED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": "DESTROYED"},
+    {"name": caller.SECRET_PARENT + "INTERNAL_JOB_TOKEN/versions/3", "state": True},
+    {"name": None, "state": "ENABLED"}, {"name": {}, "state": "ENABLED"},
+    *({"name": name, "state": "ENABLED"} for name in (
+        "projects/other-project/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/999999999999/secrets/INTERNAL_JOB_TOKEN/versions/3",
+        "projects/earnings-nerd/secrets/other-secret/versions/3",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/latest",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/0",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/03",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/1234567890",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/3\n",
+        "projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/3:access",
+        "https://secretmanager.googleapis.com/v1/projects/earnings-nerd/secrets/INTERNAL_JOB_TOKEN/versions/3",
+    )),
+])
+def test_unverified_alias_metadata_cannot_supply_candidate(monkeypatch, capsys, metadata):
+    cloud = Cloud()
+    floating_binding(cloud)
+    cloud.alias_metadata = metadata
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["metadata_status"] == "metadata_response_unverified"
+    assert "candidate_secret_version" not in result["diagnostics"]
+    assert len([row for row in cloud.calls if row[0] == "secretmanager"]) == 1
+
+
+@pytest.mark.parametrize("project", [None, [], {}, {"projectId": "other", "projectNumber": "123456789012"},
+                                     {"projectId": "earnings-nerd", "projectNumber": 123456789012},
+                                     {"projectId": "earnings-nerd", "projectNumber": "123456789012\n"}])
+def test_alias_numeric_scope_needs_verified_fixed_project(monkeypatch, capsys, project):
+    cloud = Cloud()
+    floating_binding(cloud)
+    cloud.project = project
+    cloud.alias_metadata["name"] = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["metadata_status"] == "project_metadata_unverified"
+    assert "candidate_secret_version" not in result["diagnostics"]
+    assert [row for row in cloud.calls if row[0] == "cloudresourcemanager"] == [
+        ("cloudresourcemanager", "v1/projects/earnings-nerd", "GET", None)]
+
+
+@pytest.mark.parametrize("failed_api,status", [("secretmanager", "metadata_read_unavailable"),
+                                              ("cloudresourcemanager", "project_metadata_unverified")])
+def test_alias_metadata_denial_withholds_provider_values(monkeypatch, capsys, failed_api, status):
+    cloud = Cloud()
+    floating_binding(cloud)
+    cloud.alias_metadata["name"] = "projects/123456789012/secrets/INTERNAL_JOB_TOKEN/versions/3"
+    real_call = cloud.call
+
+    def denied(api, path, **kwargs):
+        if api == failed_api:
+            raise caller.OperationError(PRIVATE)
+        return real_call(api, path, **kwargs)
+
+    monkeypatch.setattr(cloud, "call", denied)
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    assert result["diagnostics"]["metadata_status"] == status
+    assert "candidate_secret_version" not in result["diagnostics"]
+
+
+@pytest.mark.parametrize("boundary", ["revision", "image", "foreign_secret", "invalid_secret"])
+def test_alias_diagnostic_never_precedes_existing_source_guards(boundary):
+    cloud = Cloud()
+    floating_binding(cloud)
+    if boundary == "revision":
+        cloud.service["latestCreatedRevision"] = "earningsnerd-backend-00002-other"
+    elif boundary == "image":
+        cloud.revision["status"]["imageDigest"] = PRIVATE
+    else:
+        floating_binding(cloud, secret=("projects/other/secrets/INTERNAL_JOB_TOKEN"
+                                       if boundary == "foreign_secret" else PRIVATE + "/latest"))
+    with pytest.raises(caller.Refused):
+        plan(cloud)
+    assert all(row[0] in {"run", "us-west1-run"} for row in cloud.calls)
+
+
+@pytest.mark.parametrize("entry", ["snapshot", "api_snapshot", "apply", "database_snapshot"])
+def test_alias_diagnostic_is_exclusive_to_refused_recovery_plan(entry):
+    cloud = Cloud()
+    manifest = plan(cloud)
+    floating_binding(cloud)
+    cloud.calls.clear()
+    with pytest.raises(caller.Refused, match="internal_token_version_not_pinned") as error:
+        if entry == "apply":
+            apply(cloud, manifest)
+        elif entry == "database_snapshot":
+            cloud.revision["spec"]["containers"][0]["env"][0]["name"] = "DATABASE_URL"
+            caller.api_snapshot(cloud, binding_name="DATABASE_URL", plan_diagnostics=True)
+        else:
+            getattr(caller, entry)(cloud)
+    assert error.value.diagnostics is None
+    assert [row[0] for row in cloud.calls] == ["run", "us-west1-run"]
+
+
+def test_candidate_diagnostic_cannot_be_applied_as_approval(monkeypatch, capsys, tmp_path):
+    cloud = Cloud()
+    floating_binding(cloud)
+    result = diagnostic_cli(cloud, monkeypatch, capsys)
+    source = tmp_path / "diagnostic.json"
+    source.write_text(json.dumps(result))
+    cloud.calls.clear()
+    monkeypatch.setattr(caller, "Cloud", lambda: pytest.fail("Diagnostic must refuse before authentication"))
+    assert caller.main(["apply-paused", "--plan", str(source), "--expected-plan-sha256", "a" * 64,
+                        "--approval-nonce", NONCE]) == 1
+    assert json.loads(capsys.readouterr().out) == {"state": "UNVERIFIED", "reason": "invalid_plan"}
+    assert not cloud.calls
 
 
 @pytest.mark.parametrize("binding", [

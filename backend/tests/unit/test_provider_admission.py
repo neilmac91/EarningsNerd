@@ -15,6 +15,7 @@ import pytest
 
 from app.config import settings
 from app.services.ai import copilot_chat, provider_admission, provider_requests as requests
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.unit.test_provider_resilience import KW, chunk, completion, event, service_for
 
 MESSAGES = [{"role": "user", "content": "hi"}]
@@ -58,7 +59,7 @@ def _handler(calls, streams):
 
 
 async def _first(chat):
-    return await asyncio.wait_for(chat.__anext__(), timeout=2.0)
+    return await asyncio.wait_for(chat.__anext__(), timeout=HANG_GUARD_S)
 
 
 @pytest.mark.asyncio
@@ -86,7 +87,7 @@ async def test_chat_limit_holds_the_second_stream_off_the_wire_until_the_first_c
         assert (snap["chat_in_flight"], snap["waiting"], snap["admitted"], snap["rejected"]) == (1, 1, 1, 0)
         closing = asyncio.create_task(first.aclose())  # consumer walks away mid-stream
         try:
-            await asyncio.wait_for(holder.closing.wait(), timeout=2.0)
+            await asyncio.wait_for(holder.closing.wait(), timeout=HANG_GUARD_S)
             assert not holder.closed
             snap = provider_admission.snapshot()
             assert (snap["chat_in_flight"], snap["waiting"], snap["admitted"]) == (1, 1, 1), (
@@ -115,7 +116,7 @@ async def test_summary_path_is_counted_but_never_queues_behind_chat():
     async with service_for(_handler(calls, [Trickle(), completion()])) as service:
         chat = service.stream_chat(MESSAGES)
         assert await _first(chat) == "first"
-        assert await asyncio.wait_for(service._request_content(KW), timeout=2.0) == '{"fresh":true}'
+        assert await asyncio.wait_for(service._request_content(KW), timeout=HANG_GUARD_S) == '{"fresh":true}'
         assert len(calls) == 2, "a summary attempt reaches the wire while chat holds the only slot"
         snap = provider_admission.snapshot()
         assert (snap["in_flight"], snap["chat_in_flight"], snap["waiting"], snap["admitted"]) == (1, 1, 0, 2)
@@ -132,14 +133,15 @@ async def test_chat_wait_is_bounded_by_its_own_deadline_and_leaks_no_slot(monkey
         assert await _first(holder) == "first"
         monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 0.05)  # the waiter's budget only
         waiter = service.stream_chat(MESSAGES)
-        assert (await _first(waiter)).startswith(copilot_chat.STREAM_ERROR_SENTINEL)
+        # Short on purpose: only the waiter's own 0.05 s budget rejects it this soon; a longer fixed limit times out.
+        assert (await asyncio.wait_for(waiter.__anext__(), timeout=2.0)).startswith(copilot_chat.STREAM_ERROR_SENTINEL)
         await waiter.aclose()
         assert len(calls) == 1, "a rejected wait never touches the wire"
         snap = provider_admission.snapshot()
         assert snap["rejected"] == 1 and snap["waiting"] == 0 and snap["chat_in_flight"] == 1
         await holder.aclose()
         assert provider_admission.snapshot()["chat_in_flight"] == 0
-        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", 5.0)
+        monkeypatch.setattr(copilot_chat, "_CHAT_SECONDS", HANG_GUARD_S + 10)  # above the guard on its first chunk
         third = service.stream_chat(MESSAGES)
         assert await _first(third) == "first"
         await third.aclose()
@@ -239,7 +241,7 @@ async def test_explicit_chat_cleanup_failure_is_not_retried(monkeypatch):
     async with service_for(lambda req: pytest.fail("unexpected wire request")) as service:
         monkeypatch.setattr(service.client.chat.completions, "create", create)
         monkeypatch.setattr(copilot_chat, "retry_delay", lambda *args: 0)
-        deadline = asyncio.get_running_loop().time() + 2.0
+        deadline = asyncio.get_running_loop().time() + HANG_GUARD_S
         with pytest.raises(httpx2.ReadError, match="offline explicit cleanup failed"):
             async for _ in service._chat_chunks({}, None, deadline):
                 pytest.fail("empty stream yielded a chunk")

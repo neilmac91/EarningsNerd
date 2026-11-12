@@ -6,6 +6,7 @@ from datetime import date
 import pytest
 
 from app.services import facts_service as svc
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 class TestNormalize:
@@ -1246,7 +1247,7 @@ class TestCompanyfactsSyncBridge:
             assert ran_on["loop"] is loop
         finally:
             loop.call_soon_threadsafe(loop.stop)
-            thread.join(timeout=5)
+            thread.join(timeout=HANG_GUARD_S)
             loop.close()
 
     def test_sync_fetch_falls_back_to_a_private_loop_when_none_is_registered(self, monkeypatch):

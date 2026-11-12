@@ -26,6 +26,7 @@ from app.models.notification_delivery import (
     DeliveryItem,
 )
 from app.services import notification_delivery_service as delivery
+from tests.support.hang_guard import HANG_GUARD_S
 
 NOW = datetime(2026, 6, 17, 12, tzinfo=timezone.utc)
 TABLES = [User.__table__, Company.__table__, Filing.__table__, Watchlist.__table__,
@@ -77,7 +78,7 @@ def _seed_batch(engine) -> tuple[int, int, int]:
 
 def test_postgres_competing_claims_admit_exactly_one_owner(postgres_engine):
     _, _, batch_id = _seed_batch(postgres_engine)
-    ready = threading.Barrier(4, timeout=5)
+    ready = threading.Barrier(4, timeout=HANG_GUARD_S)
 
     def try_claim(token):
         with _session(postgres_engine) as db:
@@ -85,7 +86,9 @@ def test_postgres_competing_claims_admit_exactly_one_owner(postgres_engine):
             return delivery.claim(db, batch_id, token, NOW)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        outcomes = [f.result(timeout=8) for f in [pool.submit(try_claim, f"worker-{i}") for i in range(4)]]
+        # Above the barrier's guard, so a claim that never reaches the barrier fails there first.
+        outcomes = [f.result(timeout=HANG_GUARD_S + 10)
+                    for f in [pool.submit(try_claim, f"worker-{i}") for i in range(4)]]
     assert outcomes.count(True) == 1
     with _session(postgres_engine) as db:
         row = db.get(DeliveryBatch, batch_id)

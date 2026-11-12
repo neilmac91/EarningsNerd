@@ -8,12 +8,16 @@ const ALLOWED_PATHS = new Set([
   '/verify-email',
   '/forgot-password',
   '/reset-password',
+  // A Google or Apple login lands here to exchange its one-time code (E29 (5)), so it completes in the rollback state.
+  '/auth/complete',
   '/pricing',
   '/privacy',
   '/terms',
   '/security',
   '/.well-known/security.txt',
   '/contact',
+  // An invitation email's opt-out works in either mode: the link in a sent email must never land on /waitlist.
+  '/email/unsubscribe',
   '/robots.txt',
   '/sitemap.xml',
   '/favicon.ico',

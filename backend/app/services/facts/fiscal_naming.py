@@ -5,8 +5,9 @@ The companyfacts writer (``facts/calendar``, ``facts/companyfacts``) and the per
 (``lessons/sec-fact-writers-name-a-period-alike.md``). Both count whole fiscal years back from a period
 whose year is known (``years_back``), and both trust a late or lone annual report's own focus only for
 the year its period ends in or mostly lies in (``focus_years``). It also holds the form rules: the annual
-reports (``ANNUAL_FORMS``), and the proxy and information statements (``is_proxy_form``) whose figures the
-companyfacts collector and the backfill's cross-check never take.
+reports (``ANNUAL_FORMS``), and what the companyfacts collector, the backfill's cross-check and the per-filing
+fallback never take: a proxy's or information statement's figures (``is_proxy_form``), and a quarterly report's
+year that holds only part of one (``without_partial_years``).
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from datetime import date, timedelta
 from typing import Any
 
 ANNUAL_FORMS = frozenset({"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A"})
+QUARTERLY_FORMS = frozenset({"10-Q", "10-Q/A", "10-QT", "10-QT/A"})
 # A 52/53-week calendar drifts a few days from whole quarters and years; transition periods do not.
 DRIFT_DAYS = 18
 
@@ -37,6 +39,64 @@ def is_proxy_form(form: Any) -> bool:
     amendments, including a 10-K/A that adds Part III late and carries the same table.
     """
     return isinstance(form, str) and _PROXY_FORM.fullmatch(" ".join(form.split()).upper()) is not None
+
+
+def without_partial_years(items: list) -> list:
+    """One tag's companyfacts items in one unit, less each quarterly report's year that holds part of one (E291, E292).
+
+    A 10-Q can tag a shorter figure with a full-year span: CBAN's and FIX's Q1 2026 10-Qs tag Q1 2025's figures as
+    2025-01-01 to 2025-12-31, HP's tagged a first half so, and WAL's Q2 and Q3 2015 10-Qs tag their own six and nine
+    months' EPS as calendar 2012. Filed after the 10-K, such an item would win the year wherever the latest filed item
+    wins. So a quarterly report's (``QUARTERLY_FORMS``) item spanning a year is dropped where its value, not zero,
+    equals that of a shorter item under the same tag (a quarter, or six or nine months to date): one from the same
+    start in any filing, or one from any start in the same filing (STT's Q1 2019 10-Q tags its first quarters of 2018
+    and 2019 as FY2017 and FY2018). A year whose quarter sits under a sibling tag of its concept is kept (OSPN's Q1
+    2018 10-Q; E292). Equals exactly: a real year can sit near its nine months (Estee Lauder's FY2023 operating
+    income, 0.3% below), and where the rest of a year nets to exactly nothing (BMY's FY2011 investing cash flow) the
+    annual report's own item still gives the year. A 10-Q's recast of a prior year (Macy's FY2021) matches no shorter
+    item and stays, as does every annual report's item and every zero (UEC's FY2018 revenue, which no 10-K tags).
+    Another filing's item only exposes the mis-tag: a reader still reads each value from the item it read it from.
+    Sized on the collector's duration concepts, where it drops no real year on 696 cached payloads; across every tag
+    a rate, a count or a one-off payment can equal a part of it, or a part its own filing reports (2,392 of the 3,157
+    items it drops there), so an all-tag reader such as the restatement census's evidence index keeps every item.
+    """
+    return [item for item, partial in zip(items, _partial(items)) if not partial]
+
+
+def partial_years(items: list) -> list:
+    """The items ``without_partial_years`` drops, in order: each a quarterly report's numeric item spanning a year.
+
+    No reader takes a value or a winner from one. The companyfacts collector puts them back in their list places for
+    the calendar's exclusions alone, which judge the winners as they stood before the rule, so one whose dates are no
+    fiscal year stays on record as any rolling year (ARTW's March-February years, AMZN's trailing twelve months, LMB's
+    year from its inception): the quarterly repair quarantines a stored row only by that record
+    (``calendar.fiscal_duration_values``).
+    """
+    return [item for item, partial in zip(items, _partial(items)) if partial]
+
+
+def _partial(items: list) -> list[bool]:
+    """Whether each item is a quarterly report's year that holds part of one (``without_partial_years``)."""
+    from app.services.facts.concepts import _classify_duration, _parse_date  # call time, as currency's admission
+
+    def span(item: Any) -> tuple[Any, Any, Any]:  # (span class, start, value) of a numeric duration item
+        value = item.get("val") if isinstance(item, dict) else None
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return None, None, None
+        start, end = _parse_date(item.get("start")), _parse_date(item.get("end"))
+        return (_classify_duration(start, end), start, value) if start and end else (None, None, None)
+
+    def filing(item: dict) -> Any:  # the item's accession; one that is no string ties it to no filing
+        return item["accn"] if isinstance(item.get("accn"), str) else None
+
+    spans = [span(item) for item in items]
+    parts = [(filing(item), start, value) for item, (klass, start, value) in zip(items, spans)
+             if klass in ("Q", "YTD6", "YTD9")]
+    same_start = {(start, value) for _accn, start, value in parts}
+    same_filing = {(accn, value) for accn, _start, value in parts if accn is not None}
+    return [klass == "FY" and value != 0 and str(item.get("form") or "").upper() in QUARTERLY_FORMS
+            and ((start, value) in same_start or (filing(item), value) in same_filing)
+            for item, (klass, start, value) in zip(items, spans)]
 
 
 def focus_years(end: date) -> tuple[int, int]:

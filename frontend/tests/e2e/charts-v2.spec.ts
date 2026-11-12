@@ -8,8 +8,8 @@ import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
  * contrast and reflow under 200% text; and the states §3.9 and §3.10 add (E200): the bones a plot holds while its font
  * loads, the export busy while a PNG is drawn, and the plot row running to its new height on a toggle. The DOM checks of
  * the drawing itself (D1–D3, D5, D6, D8–D10, D14, M6, M19) run on the gallery, charts-v2-gallery.spec.ts, through
- * fixtures/chartChecks.ts. Since E195 the route always draws the renderer, and every case runs in CI's standard
- * e2e-tests job against the production build, with no chart flag.
+ * fixtures/chartChecks.ts. Since E195 the route always draws the renderer, and every case runs in CI's browser shards
+ * (e2e-shard) against the production build, with no chart flag.
  */
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 // The first chart's own card: the nearest <section> around its chart, never an outer section that holds every

@@ -226,11 +226,13 @@ const ROUTES: Route[] = [
  * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). With ROUTES, this list
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
  * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
- * /register, /check-email, /verify-email, /forgot-password and /reset-password), and the census cases below
+ * /register, /check-email, /verify-email, /forgot-password, /reset-password and /auth/complete, an OAuth login's
+ * landing, read while its code exchange is held open), and the census cases below
  * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar
  * and /search. CI's e2e build turns the last two on: the calendar reads its own fixtures with the clock pinned to
  * one week (fixtures/calendarWeek.ts), and the search is answered here and run (fixtures/searchApi.ts), so each is
- * read with its rows painted. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
+ * read with its rows painted. It also adds /email/unsubscribe, an invitation email's opt-out, opened without its
+ * token. A third census case reads every page.tsx under app/, static or dynamic, and fails on one
  * that no entry visits (a dynamic route by a representative path) unless NOT_VISITED names it with its reason,
  * so a new public page cannot stay outside the gate in silence. Kept apart from ROUTES so the cases below that pick a route by its index keep theirs.
  * /waitlist's example falls back to its h2 card here; waitlistPage.spec.tsx reads the outline with the
@@ -245,11 +247,30 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'verify email (no token)', path: '/verify-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Verification failed' })).toBeVisible() },
   { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'reset password (no token)', path: '/reset-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible() },
+  {
+    // An OAuth login's landing (E29 (5)): its callback hands it a one-time code in the URL fragment, which a script
+    // plants here before the page's own runs, and its exchange is held open, so the census reads the page while it
+    // waits (without a code it would leave for /login at once).
+    name: 'OAuth login landing (code exchange in flight)',
+    path: '/auth/complete',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/auth/oauth/complete', () => new Promise<void>(() => {}))
+      await p.addInitScript(() => {
+        if (window.location.pathname === '/auth/complete' && !window.location.hash) {
+          window.history.replaceState(null, '', '/auth/complete#code=e2e-census-code')
+        }
+      })
+    },
+    ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Logging you in…' })).toBeVisible(),
+  },
   { name: 'contact', path: '/contact', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'privacy', path: '/privacy', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible() },
   { name: 'terms', path: '/terms', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible() },
   { name: 'security', path: '/security', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible() },
   { name: 'delete account', path: '/delete-account', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Delete your account' })).toBeVisible() },
+  // Opened without the email's token, so it settles on the notice that asks for the email's link; it makes no request of its own.
+  { name: 'unsubscribe (no token)', path: '/email/unsubscribe', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByText('This page needs the link from your email')).toBeVisible() },
   {
     name: 'calendar',
     path: '/calendar',

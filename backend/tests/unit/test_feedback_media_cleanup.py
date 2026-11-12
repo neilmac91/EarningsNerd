@@ -1,5 +1,6 @@
 """Screenshot manifests outlive owners, retry failed deletes, and release SQL before storage."""
 from datetime import datetime, timedelta, timezone
+import logging
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from app.models import User
 from app.models.feedback import Feedback, FeedbackAttachment, FeedbackSubmission
 from app.services import feedback_media_cleanup_service as cleanup
 from app.services.feedback_storage_service import FeedbackStorageError, make_feedback_object_key
+from app.services.job_run_service import ERROR_COUNTERS
 from app.services.user_account_service import delete_user
 from app.services.user_data_export_service import build_user_data_export
 from app.utils.datetimes import ensure_utc
@@ -207,8 +209,8 @@ def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cl
             if fail_delete:
                 raise FeedbackStorageError()
     stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
-    assert stats == {"permissions_verified": 1, "storage_verified": 1, "deleted": int(not fail_delete),
-                     "errors": int(fail_delete), "pending_verification": 0}
+    assert stats == {"permissions_verified": 1, "permissions_excess": 0, "storage_verified": 1,
+                     "deleted": int(not fail_delete), "errors": int(fail_delete), "pending_verification": 0}
     with database.factory() as db:
         row = db.query(FeedbackAttachment).one()
         assert row.object_key and row.object_generation == "23"
@@ -216,7 +218,7 @@ def test_storage_probe_persists_ownerless_manifest_before_io_and_keeps_failed_cl
         assert row.state == ("purge_pending" if fail_delete else "deleted")
 
 
-def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(database):
+def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(database, caplog):
     class Storage:
         def verify_permissions(self):
             pass
@@ -224,27 +226,67 @@ def test_uncertain_probe_upload_retains_known_key_for_generation_lookup_cleanup(
             raise FeedbackStorageError()
         def delete(self, key, generation):
             assert generation is None
-            raise FeedbackStorageError()
-    assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
-        "permissions_verified": 1, "storage_verified": 0, "deleted": 0, "errors": 2, "pending_verification": 0,
+            raise FeedbackStorageError("generation_conflict")
+    with caplog.at_level(logging.WARNING, logger=cleanup.__name__):
+        stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
+    assert "object round trip failed (storage_unavailable)" in caplog.text
+    assert "object delete failed (generation_conflict)" in caplog.text
+    assert stats == {
+        "permissions_verified": 1, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 2,
+        "pending_verification": 0,
     }
     with database.factory() as db:
         row = db.query(FeedbackAttachment).one()
         assert row.object_key and row.object_generation is None and row.state == "purge_pending"
 
 
-def test_permission_audit_failure_stops_probe_before_object_or_database_writes(database):
+@pytest.mark.parametrize("failure, logged", [
+    (FeedbackStorageError("storage_permissions_missing"), "storage_permissions_missing"),
+    (FeedbackStorageError("storage_unavailable"), "storage_unavailable"),
+    (FeedbackStorageError("storage_timeout"), "storage_timeout"),
+    (RuntimeError("private provider detail"), "RuntimeError"),
+])
+def test_permission_audit_failure_stops_probe_before_object_or_database_writes(database, caplog, failure, logged):
+    """Every audit failure but excess stops the probe before any write, and its log names only the closed code or the
+    exception's type, so the job's own logs say why, never what the provider or a payload said."""
     class Storage:
         def verify_permissions(self):
-            raise FeedbackStorageError("storage_permissions_excess")
+            raise failure
         def upload(self, *_):
-            pytest.fail("probe uploaded under excess runtime permissions")
-    assert cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW) == {
-        "permissions_verified": 0, "storage_verified": 0, "deleted": 0, "errors": 1, "pending_verification": 0,
+            pytest.fail("probe uploaded without a verified permission audit")
+    with caplog.at_level(logging.WARNING, logger=cleanup.__name__):
+        stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
+    assert f"permission audit failed ({logged})" in caplog.text and "private" not in caplog.text
+    assert stats == {
+        "permissions_verified": 0, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 1,
+        "pending_verification": 0,
     }
     with database.factory() as db:
         assert db.query(FeedbackAttachment).count() == 0
         assert db.query(FeedbackSubmission).count() == 0
+
+
+def test_excess_permissions_are_recorded_and_logged_and_the_probe_still_runs(database, caplog):
+    """The founder's decision of 10 November: while the backend identity holds broader storage access than the feature needs, that
+    access is a recorded warning, not a refusal (follow-up recorded on #2027). The audit reports it only after create, get and
+    delete are confirmed, and missing access still stops the probe (above)."""
+    class Storage:
+        data = None
+        def verify_permissions(self):
+            raise FeedbackStorageError("storage_permissions_excess")
+        def upload(self, key, data):
+            self.data = data
+            return "7"
+        def download(self, key, generation):
+            return self.data
+        def delete(self, key, generation):
+            assert generation == "7"
+    with caplog.at_level(logging.WARNING, logger=cleanup.__name__):
+        stats = cleanup.verify_feedback_media_storage(database.factory, Storage(), now=NOW)
+    assert stats == {"permissions_verified": 1, "permissions_excess": 1, "storage_verified": 1, "deleted": 1,
+                     "errors": 0, "pending_verification": 0}
+    assert "beyond object create/get/delete" in caplog.text
+    assert "permissions_excess" not in ERROR_COUNTERS  # track_job records it without failing the run
 
 
 def test_unknown_absence_is_rechecked_without_starving_new_deletions_then_catches_late_commit(database):

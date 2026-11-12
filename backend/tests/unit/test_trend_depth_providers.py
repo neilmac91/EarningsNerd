@@ -25,6 +25,7 @@ from evals.trend_depth.providers import (
     anthropic_request, call, canonical_pair, labels_by_number, list_cost, max_tokens_for, packs_dir, prompt_path,
     worst_case_usd,
 )
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture(autouse=True)
@@ -373,7 +374,8 @@ def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkey
 
         monkeypatch.setattr(providers, "_sleep", gated)
         first = asyncio.create_task(call(sonnet, "s", "u"))
-        await asyncio.wait_for(backing_off.wait(), 5)  # a regression that stops retrying fails here, never hangs
+        # a regression that stops retrying fails here, never hangs
+        await asyncio.wait_for(backing_off.wait(), HANG_GUARD_S)
         with pytest.raises(BudgetExceeded):  # the cut's worst case is already counted while the first waits
             await call(sonnet, "s", "u")
         assert len(sent) == 1

@@ -61,7 +61,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   without one, and "We couldn't check the link just now. Reload this page to try again." for a lost
   connection, a timeout or a server error, never the API client's own text; on success, "Your email
   address is confirmed. Taking you to the home page…" (reading and a password sign-in never waited on
-  it). The verification banner says "Verify your email to subscribe.", and the dialog that checkout's
+  it). The verification banner says "Verify your email address to confirm it's yours.", the
+  verification mail's own ask (#1965 Decision 4: beta testers get Pro by grant and checkout stays
+  closed, so neither names subscribing), and the dialog that checkout's
   403 opens says "Subscribing requires a verified email. We send verification links to" the address:
   checkout is the one action that refuses an unverified email, with a 403
   (`tests/unit/authPagesCopy.spec.tsx` holds that 403 to `backend/app/routers/subscriptions.py`, and
@@ -395,7 +397,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `ANALYSIS_MONTHLY_CAP` (the backend's `entitlements.py` constants, D-050), read by the /pricing FAQ and the filing
   page's monthly-limit card, D-046, `tests/unit/summaryPlanClaims.spec.ts`),
   the search card reads "Find a company by name or ticker", the plan strip's button reads "Manage
-  billing", and the route error boundary is in sentence case with a generic line that names no route
+  billing" (for an account with a Stripe customer; a complimentary private-beta grant's Pro reads
+  "Complimentary access (private beta)" there instead, PB-02), and the route error boundary is in sentence case with a generic line that names no route
   ("This page didn't load. The error has been logged."). Tickers are set in the data face. A watched
   company's card shows a missing filed date as the missing-value element read as "filing date
   unavailable" (its line has no label of its own) and a missing period end as "Period end:" with the
@@ -455,12 +458,19 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   it has not classified; its stylesheet check fails a rule that sets sage at rest.
 - **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
   `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
-  summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
-  "{company} · Multi-Period Analysis", the feature keeping its name). The analysis PDF and workbook print
-  the company as the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's
-  capitals) through `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`; the
-  filing summary's PDF and CSV keep EDGAR's form until E210, since the eval's blinding reads that PDF's
-  date. The middot and sentence case hold for the PDF's source line
+  summaries of SEC filings". Titles take the middot and sentence case ("Biogen Inc. · 10-K summary",
+  "{company} · Multi-Period Analysis", the feature keeping its name). Every export prints the company as
+  the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's capitals) through
+  `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`. Its header's days and
+  instants take one form, `analysis_export_metadata.py`'s `display_date` and `display_instant`: a day
+  unpadded ("Filing Date: October 5, 2026") and an instant with its zone named ("Generated November 3,
+  2026, 06:45 UTC"), each dated clause of a PDF meta line whole on its line. A source record's day prints
+  as stored ("2025-02-14"): an operand's period and filed day in Sources & methods, the filed days in the
+  first-reported sentence, and the workbook's period and filed columns. The filing summary's PDF and CSV
+  joined the analysis exports in E210, with the eval's blinding of that PDF's generation date
+  (`backend/evals/acceptance_readiness.py`), which since E303 also keeps each of the shell's fonts to its file
+  name, since the fonts' `file://` addresses name the checkout an export was rendered in.
+  The middot and sentence case hold for the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
   document, with the address that link opens) and the CSV, which now carries that source row under its
   generated date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
@@ -539,15 +549,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   rule, and the fine print's count clauses, places, detail forms and checks sentence (read from `DataNotes.tsx`), the
   calculated sentence (from `metrics-table.spec.tsx`) and the Q4 legend (from `MetricsTable.tsx`) to the page's words, by
   `test_export_note_marks.py`; the eval's blinding
-  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
+  of the generation date and of the fonts' addresses by cases in `test_acceptance_readiness.py` that run it on a
+  real export, the second rendering one from two checkouts and pinning the shell's five font addresses; the
   backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
   backend's company display name to the page's by one case table,
   `backend/tests/fixtures/company_display_names.json`, which `test_company_names.py` and
   `formatCompanyName.spec.ts` both run, the Python test also holding the two modules' word lists equal.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
-  mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
-  said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
+  mail asks only that the reader confirm the address, "Verify your email address to confirm it's
+  yours." (#1965 Decision 4, which replaced E46's "to subscribe to Pro."), where it said "and you can
+  start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
   "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
   can check it."), where it said "so you don't have to read the whole filing"; and the waitlist welcome
   mail no longer asks its reader to verify their address "to secure your place", a step no page took

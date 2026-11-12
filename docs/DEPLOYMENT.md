@@ -229,8 +229,8 @@ unverified or any readable invariant fails.
 The Cloud SQL proxy step used by `capacity-readout`, `summary-recovery-readout`, `excerpt-cohort`,
 `detection-sql`, the repair-ticker,
 the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`), the
-lineage backfill (`repair-lineage-*`) and the financial revenue preview (`financial-revenue-preview`)
-operations captures the `DATABASE_URL` secret read's stderr,
+lineage backfill (`repair-lineage-*`), the financial revenue preview (`financial-revenue-preview`)
+and the complimentary access (`complimentary-access-*`) operations captures the `DATABASE_URL` secret read's stderr,
 including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
@@ -451,6 +451,20 @@ compatible image. Preserve that reader and its dependencies when reverting the o
 `main`; do not rewrite or delete stored password hashes to make an older image usable. Existing
 bcrypt hashes remain readable by the compatible reader and do not need conversion.
 
+**OAuth session handoff (E29 (5), #1963, #2014): the frontend floor.** Every Google or Apple sign-in hands its
+session to the frontend's `/auth/complete` landing page, whatever its start asked: the callback sets no session
+cookie, and only that page's exchange (`POST /api/auth/oauth/complete`) sets them. So while an API at or after #2014
+serves, **never roll the frontend back to, or promote, a deployment older than `c32af8f`** (#1963's merge, the first
+build with `/auth/complete`, serving since 2026-11-03). A frontend without the page leaves every Google and Apple
+sign-in without its exchange: the code lapses in two minutes, and an account with no password has no other way in.
+To go further back, first move the API's traffic to a revision before #2014. The frontend shipped first: `c32af8f`
+served before #2014 merged. An **API rollback** stays safe at any time. To a revision from #1963 up to #2014, the
+app's own starts still hand off (they still ask, `handoff=1` on the login page's `GET /api/auth/{google,apple}` link
+and `"handoff": true` in the sign-up page's POST start, and each state row records the ask), while a start that did
+not ask (a bookmark, a direct URL) takes the callback path that sets the session cookies on its redirect home again.
+Past #1963, every start takes that path, and a code handed to the landing page within its last two minutes finds no
+exchange route there, so that reader logs in again.
+
 ```bash
 # List recent revisions (newest first) to find the last-known-good one:
 gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --limit=5
@@ -474,6 +488,12 @@ drop file's `migration_ledger` row and the next deploy drops it again. The drop 
 column's values, which only a database backup keeps
 (`lessons/ops-drop-a-mapped-column-in-two-deploys.md`).
 
+**Invite readiness floor (PB-01, #1965).** An API-only rollback past this PR removes
+`GET /api/admin/invites/readiness`. The admin invites page fails closed on that read, so Send and
+Resend stay unavailable there until the frontend is rolled back too. The API itself still mints
+invites, and links already issued stay valid. A frontend-only rollback is safe: the older page
+does not read the route.
+
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
 > (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
 > deploy, so toggling one of these in the Cloud Run console is silently reverted on the next push.
@@ -483,6 +503,10 @@ column's values, which only a database backup keeps
 
 Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`
 (and creates preview deployments for PRs). CI does **not** deploy the frontend.
+
+> **Rollback floor.** A Vercel rollback or promotion never moves production to a deployment older than `c32af8f`
+> while an API at or after #2014 serves: every Google or Apple sign-in lands on `/auth/complete`
+> ("OAuth session handoff" under the backend's Rollback above).
 
 > **Single source of Vercel config.** The project's **Root Directory** is set to `frontend`, so
 > Vercel reads `frontend/vercel.json` (region `pdx1`, co-located with Cloud Run us-west1) — that is the only Vercel config file
@@ -824,13 +848,51 @@ The custom `earningsnerdFeedbackObjects` role contains only object create/get/de
 buckets to the runtime identity. Inspection rejects any additional direct runtime bucket grant,
 including objectAdmin or a conditional grant. The storage probe also queries the actual runtime
 identity's effective permissions on the production bucket, so an inherited broad role cannot be
-assumed away. It requires object create/get/delete and rejects the other thirteen enumerated bucket/
-object permissions. This is a point-in-time audit of sixteen supported permissions, not proof about
-every future permission or project-level bucket listing. Broader inherited access blocks rollout;
-adding the narrow binding does not remove it. The provisioning identity needs permissions to create those buckets,
+assumed away. It requires object create/get/delete and flags the other eleven enumerated bucket/
+object permissions. This is a point-in-time audit of fourteen supported permissions, not proof about
+every future permission or project-level bucket listing. Broader inherited access is recorded as
+`permissions_excess` and logged, not refused, while the backend identity holds broader storage access
+(the founder's decision, 10 November; narrowing it is the follow-up recorded on #2027). Missing access still blocks rollout, and adding
+the narrow binding does not remove the broader access. For whatever does not yet exist (below), the provisioning identity needs permissions to create those buckets,
 create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
 its Cloud Scheduler trigger, create/read log-based metrics, and create/list/read alert policies and the
 existing notification channel; absent grants fail the apply rather than being worked around.
+
+Provisioning tests its reads before its first write (`PROVISION_READS` in `ops/feedback_media/manage.py`,
+through Resource Manager `testIamPermissions`, plus `actAs` tested on the runtime identity itself) and
+refuses with the missing names and nothing changed. The deploying caller also
+needs to read the image it deploys to the cleanup job: Artifact Registry Reader's
+`artifactregistry.repositories.downloadArtifacts` on the image's repository, which Google lists separately
+from the Cloud Run service agent's access. Provisioning tests it on the repository itself, and refuses
+before any call an API image outside `us-west1-docker.pkg.dev/earnings-nerd/earningsnerd`; verify-apply
+tests it the same way before its first write. It then reads every
+existing resource a later step would refuse rather than repair, and refuses that too before any write: a
+deleted, `DISABLED` or differing object role; a bucket with other settings, a public principal or another
+runtime grant; a cleanup job or schedule this feature does not own, or a public principal on the job; an
+owned schedule that is paused, disabled or in an unknown state, which an update cannot resume (an update is
+Google's recovery from `UPDATE_FAILED`); a differing heartbeat metric or alert policy. A denied read stops
+with its label and a malformed answer is refused, so neither is taken as absent or as already approved. Only
+then does it test the writes that state needs: a create for each absent resource, `setIamPolicy` for each
+missing runtime or invoker grant, an update for the existing job and schedule, and both executions. A role,
+bucket or grant the founder made by hand in the approved shape therefore needs no `iam.roles.create`,
+`storage.buckets.create` or `storage.buckets.setIamPolicy`. Absent resources are still created and owned ones
+converged, and each write step keeps its own ownership and etag checks: a policy read without an etag is
+refused, and a grant step writes exactly when the plan found the grant missing.
+`feedback-media-inspect` prints the same capability check for both provisioning operations, then each
+resource's state on its own line before it fails: the role, each bucket, the cleanup job, its schedule, the
+alert channel, the alert policies and the heartbeat metric. Each is verified, absent or not yet observed
+(incomplete), `UNVERIFIED` with a closed class when its read fails, or refused for readable drift, which an
+unverified line never masks: a failed read never stops another resource's checks. One read shows what a
+retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
+error class (status, reason, a denied permission that one of these steps names, and up to three request fields
+a `BadRequest` refuses, each named only as a dotted path of lowercase snake- or camel-case words with indices of at
+most three digits, so a refused Cloud Run create says which field it objects to); a dropped connection
+reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
+Provider messages, resources and principals stay withheld. The check reads the identity's own
+project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled
+API or an organization policy passes it and
+still surfaces at the step itself, while a grant held only on a single resource is invisible to it, so the
+check reports that permission missing and refuses; grant provisioning permissions at the project.
 
 `earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
 one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
@@ -856,8 +918,17 @@ commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact byte
 deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
 report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
 uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
-heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest attempt of each mode to have succeeded on the serving
-image; an older success cannot conceal a recent failure.
+heartbeat. Its enumerated permission audit runs before writing the synthetic object. Inspection requires the latest finished attempt of each mode to have succeeded,
+within two hours, on the serving image; an older success cannot conceal a recent failure, and a run still in progress
+counts only once it ends or reports a failed or cancelled task, so the hourly cleanup running at :17 does not refuse
+an enable. Cloud Run records an execution's image by the digest its tag resolved to. An execution recorded by digest
+counts only when that digest is the one production's serving revision reports (`run.revisions.get`) and any tag it
+names is the approved one; an execution recorded by the approved tag alone also counts. The serving digest is read only
+while production is one ready, untagged revision serving all traffic and not reconciling. During a rollout, or with
+traffic held on an older revision, inspection prints `Serving image digest: unverified` and no execution recorded by
+digest counts, so provision's readiness check cannot pass and enable refuses until it settles. An execution need not
+restate the job's Cloud SQL volume and mount, which no run's overrides can change and which the job itself must carry;
+every other field of the approved task is still compared.
 
 Two feature-owned Cloud Monitoring policies route to that existing channel. One observes failed
 completed executions of `earningsnerd-feedback-media-cleanup`, including overdue-object failures.
@@ -886,20 +957,75 @@ images; never delete the bucket, manifests or migrations as a rollback.
 
 #### Isolated live verification before enabling screenshots
 
-Merge and verify the backend deployment, then merge the screenshot frontend before this operation.
+##### Optional founder-comment approval for the private beta
+
+If this private repository's plan does not support required environment reviewers, the founder may
+separately enable the bounded alternative by setting repository variable
+`BETA_COMMENT_APPROVAL_ENABLED` to `true`. Shipping this code does not enable it. The dispatch input
+`beta_comment_approval` also defaults to `false`; selecting it is required on each intended run.
+Only screenshot provision, isolated verification, screenshot enable/disable and
+`complimentary-access-apply` may use it. All other applies keep the existing environment approval.
+The `approve-apply` job remains unchanged: any configured environment protection still applies.
+
+The separate `approve-comment` job has read-only GitHub permissions, no cloud identity and no Ops
+concurrency lock. It prints one copyable approval statement and the link to the existing beta
+acceptance PR #1954, then waits at most 15 minutes. **The founder personally posts that statement.**
+Agents must never post or edit an approval comment, including with the founder's credentials.
+GitHub proves the owner account authored it; the API cannot prove which human or agent used that account.
+The statement binds repository, actual run ID, attempt `1`, immutable source SHA and exact operation.
+For complimentary access it also binds the existing salted `confirm_digest`; the manifest stays private.
+
+The reader checks the live owner ID, current main, checked-out commit and real workflow run. A comment
+from before dispatch, another thread/author/run/action/source/digest, an edited or hidden comment,
+an unavailable API answer, or a timeout grants no approval. The real comment is fetched again immediately
+before WIF authentication, including its edit history. Deletion, edit or source drift then stops the run.
+The existing main-deploy preflight, Ops concurrency, first-attempt rule and operation-specific resource,
+capability, manifest and runtime guards remain. A retry needs a fresh dispatch and personal approval;
+never reuse or invent a run ID. This route changes no live flags, IAM grants or tester entitlements by itself.
+
+The founder's decision to enable this approval route is separate from each operation's approval.
+When preparing an operation, include `-f beta_comment_approval=true` with its existing dispatch inputs,
+open that run's **Wait for the founder's exact beta approval** summary, and copy only the statement shown
+there: its seven lines, without the code fence around them, as a new comment that is never edited. Either
+line ending matches (a browser stores CRLF), and blank space before or after the statement is ignored; any
+other difference does not. Do not pre-post a guessed statement. Normal dispatches that omit this input retain the existing
+`ops-apply` approval check. Keep the release freeze and two-hour verification sequence below.
+
+Merge and verify the backend deployment, then merge the screenshot frontend and every other change to
+`frontend/` or `ops/feedback_media/` meant to ship with it, before `feedback-media-provision-apply`.
+**Release freeze:** from that provision's dispatch until `feedback-media-enable-apply` completes, merge
+nothing that deploys the backend or changes `frontend/` or `ops/feedback_media/`; records-only merges are
+fine for the receipt. Ops still refuses provision, verify and enable while a CI run for a push to `main` is in
+progress or queued, so even a records-only merge in the window can cost an approval and part of the two hours
+([closed-beta runbook](ops/closed-beta-acceptance.md#1-identities-to-record-before-every-acceptance-step), section
+1). Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
+the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
+provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
+sitting. The verifier scales to zero and starts only within its run's two-hour lease, which begins when
+verify seeds its run, so enable's receipt read must also come before that lease ends: verify-apply prints
+the deadline (`Enable before <time>`). A verify that fails after seeding its run holds a two-hour lease,
+by which time the probe has expired, so recovery is a fresh provision and then a fresh verify. So before
+the seed, once its identity exists, verify-apply has Cloud Run validate its job and service writes exactly as
+it will send them (`validateOnly`, which persists nothing): a field Cloud Run refuses fails there, naming the
+field, and a retry can follow at once. The first live verify-apply was refused that way, before any job
+existed: Cloud Run requires a Cloud SQL volume to be named `cloudsql`.
 The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
 verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
 The wrapper is never installed as a production route or added to the backend image. The unchanged
 application handles the browser's requests; only the private verifier has the fixture controls and
 the local notification sink. Email, Stripe, model, analytics and error-reporting credentials are
-absent from this runtime. The sink validates the application's real feedback notifications without
-sending email.
+absent from this runtime. The application's AI client still needs a key when it is imported (openai
+3.x refuses an empty one), so the wrapper gives it a fixed non-credential key and a closed loopback
+endpoint; no verified route calls a model. The sink validates the application's real feedback
+notifications without sending email. A refused verifier start names only its closed refusal code, or
+the failing exception's class, in the service's private Cloud Run log.
 
 ```bash
 gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
 ```
 
-The founder approves this exact run's `ops-apply` deployment in GitHub. It has the same main-only,
+The founder approves this exact run's `ops-apply` deployment in GitHub, or personally supplies the
+exact-run comment through the separately enabled beta route above. It has the same main-only,
 first-attempt, owner-approval and no-overlapping-main-deploy gates as the other apply operations.
 Do not approve it through an agent or run its cloud writes directly. A failed or partial apply is
 inspected before a fresh dispatch and fresh founder approval.
@@ -933,12 +1059,34 @@ The provisioner addresses only these feature resources:
   Scheduled cleanup skips an unexpired verification lease, so it cannot erase a browser's active
   fixtures. The protected operation uses execution-scoped `cleanup_now` for its final cleanup.
   A new apply waits for the prior two-hour lease to expire, even after an early failure or completed
-  run; absence of an active browser is not inferred from a timeout. A changed runtime source also
+  run; absence of an active browser is not inferred from a timeout. A prior run that stopped before
+  initialize created its schema left no fixture or object (only the service started after it makes them),
+  so it is settled without a cleanup execution, which could not run without tables; the hourly schedule is
+  created only once initialize has made the schema it cleans. A changed runtime source also
   refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
   through a separately reviewed operation before retrying the new source.
 
+Before any write, the provisioner requires the object role and preview bucket that media provisioning
+creates, and admits itself only while the shared production instance has room: active client backends,
+the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
+summary rehearsal's rule, applied here to `earningsnerd-db`; a session the administrator cannot see in full
+counts as a client backend, and the admission query's own session does not, since the cap already holds that
+one serial connection). It prints the counts and refuses otherwise;
+that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
+pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
+connection at :41 to the job budget above.
+
 Before creating resources, the provisioner checks actual project IAM capabilities and SQL
 `CREATEDB`/`CREATEROLE`; a denied permission is a blocker, never a reason to widen grants silently.
+Its identity, grant and secret writes, and its Cloud Run and Scheduler creates and updates, are tested only
+while this run would make that write (`bootstrap_gaps` in `ops/feedback_media/verify_manage.py`). Once the
+founder has made the verification identity, its one unconditional `roles/cloudsql.client` project grant, the
+deployer's service-account user and OpenID-token creator grants on it, the two labelled secrets with their
+accessor grants and the deployer's version-adder grant on each, and its preview-bucket grant, the run needs no
+`resourcemanager.projects.setIamPolicy`, `iam.serviceAccounts.*` write or `secretmanager.secrets.*` write. A
+pre-existing identity, grant or secret in any other shape, a malformed policy, or a denied read is refused
+before the first write. `feedback-media-verify-inspect` prints what a verify-apply would lack on the current
+state.
 It verifies that the test role has no privileges on production application tables, sequences or
 security-definer functions. PostgreSQL's inherited PUBLIC CONNECT cannot be denied to one role
 without editing production ACLs, so this is an object-access check, not a claim that the role cannot
@@ -955,12 +1103,31 @@ key. The browser exercises real upload, clipboard, private owner/admin reads, ot
 links, lost-response retry, export, account deletion and cleanup. Runtime evidence also records
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
-combination of warmed filing traffic.
+combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
+execution environment, which exposes the cgroup v2 memory files the measurement reads, with startup
+CPU boost for its cold starts. Only the two isolated workers may run beside the application. A child
+shows the application's arguments until it execs, and no arguments while it execs or exits, so in
+either state it counts as unexplained only if it still does a second later; a zombie awaiting its
+reap holds no memory and is not checked, though it still counts as a process. Any other program
+counts as unexplained at once. Without the kernel's peak, the bound adds three times the highest high-water mark a worker
+reports for its own image, read while it runs: a child's `ru_maxrss` also counts the application's
+image from before it exec'd, so it cannot bound a worker. A failed browser run names its stage and
+closed failure code in the Ops log (`Live browser verification failed at <stage> (<code>)`), so one
+run shows where it stopped; a browser wait or action that fails without its own code names the step
+it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
+failure also fails, it is reported beside the browser's failure, not in its place. The run's last
+receipt check reads production as it serves at the end of the run. Known limit: the lost-response check
+drops the response before any header reaches the browser, and Chromium can resend such a POST on a
+reused connection by itself, so the composer's own receipt recovery may not run; losing the response
+after its headers would prove it, and needs a fresh live verification.
 
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend
 tree. Upload enablement now requires that receipt to be less than two hours old, in addition to the
-production cleanup/probe/monitoring prerequisites. Production request handlers never query the
+production cleanup/probe/monitoring prerequisites. The verifier scales to zero between verify and enable, so every
+receipt read (verify's last step, the read-only verify inspection and enable) starts a new attempt every 15 seconds for
+four minutes while its requests fail, including a dropped connection; each attempt keeps its own request timeouts, so a
+read that never succeeds ends within about six minutes. An answer without a receipt refuses at once. Production request handlers never query the
 verification database. A subsequent backend image or frontend/source change requires fresh live
 verification. Confirm that Vercel serves the receipt's frontend tree and inspect the artifact before
 the separately approved enable operation.
@@ -1048,7 +1215,7 @@ backend deploy owns the persistent `earningsnerd-backfill-facts` contract and re
 `python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
 from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
 committed script operations (`repair-ticker-*`, `relabel-fy-*`, `repair-quarterly-*`, `repair-lineage-*`,
-`financial-revenue-preview`), execution-scoped arguments are the
+`financial-revenue-preview`, `complimentary-access-*`), execution-scoped arguments are the
 way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
 for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
 run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
@@ -1114,6 +1281,41 @@ The order:
 4. Dispatch the apply and approve it.
 5. Read the execution as above, then dispatch `excerpt-cohort` to read the result back: the window's regex rows
    move to native.
+
+**Complimentary access (`complimentary-access-dry-run` / `-apply` / `-readout`).** These run
+`backend/scripts/complimentary_access.py`, PB-02's grant and revoke of complimentary Pro for the invited private-beta
+testers ([runbook](ops/complimentary-access.md)), on the Ops runner through the Cloud SQL proxy, so each report lands
+in the run's log: the manifest's action, cohort label and review date, counts, refusals by their place in the manifest
+and the manifest's digest (`manifest_sha256`), never an account id, an address or the manifest's reason: a refusal
+names a fault's place and kind from a fixed table, never a value the manifest holds. The cohort label is public
+through that log, so it names no person ([runbook](ops/complimentary-access.md)). A grant and a revoke take the same
+three operations; the manifest's `action` says which. The dry run and the readout run read-only. The apply writes one
+account a unit, only after the founder approves `ops-apply` for its run, and only for the manifest whose digest its
+`confirm_digest` input names; it records `ops-run:<run id>` as its runner.
+
+The manifest is the founder's private file and is never a dispatch input. It reaches a run only as the repository
+secret `COMPLIMENTARY_ACCESS_MANIFEST`, read in the script step's environment and handed to the script on stdin, never
+written to a file or printed. The runner masks each line of a secret as text of its own wherever it appears in the
+log, so a manifest written over several lines also blanks the report text that repeats one of its lines: its action,
+cohort and review date, and every `{`, `}` and `]`. So step 1 sets the secret from the one-line form `jq -c` prints,
+which leaves the digest unchanged. While the secret exists, a workflow on any branch could read it, so it is deleted
+as soon as the apply has run; the readout needs no manifest. The manifest file itself stays in the founder's private
+store, outside this repository's checkout, so it can never be committed. The code and its two migrations must be on
+`main` and deployed first, deployed as the runbook's "Deploying" says: confirm the merge's deploy-backend run
+succeeded, or, if a later backend merge superseded it (that run then skips its deploy), the newer run that shipped
+both.
+
+The order, for a grant or a revoke, each dispatch after the previous run has finished:
+1. On the founder's own machine, offline, with the manifest outside the checkout (for example
+   `"$HOME/beta-private/manifest.json"`): `python scripts/complimentary_access.py check --manifest
+   "$HOME/beta-private/manifest.json"` (from `backend/`), then
+   `jq -c . "$HOME/beta-private/manifest.json" | gh secret set COMPLIMENTARY_ACCESS_MANIFEST`.
+2. Dispatch `complimentary-access-dry-run` and compare its counts, refusals and `manifest_sha256` with the private
+   roster. After any edit to the manifest, set the secret again and dry-run again: an edit changes the digest.
+3. Dispatch `complimentary-access-apply` with `confirm_digest` set to that digest, and approve `ops-apply` for that
+   run.
+4. `gh secret delete COMPLIMENTARY_ACCESS_MANIFEST`. A rerun of the apply sets it again first.
+5. Dispatch `complimentary-access-readout`.
 
 Reconciliation-flag audit (W3-9): re-evaluates stored `financial_fact.reconciled` flags on
 value/source-identical rows only, recorded under the ad hoc `reconciliation-flag-audit` identity.

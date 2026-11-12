@@ -11,11 +11,11 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier, Event
+from threading import Barrier, Event, Thread
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, event, func, select
+from sqlalchemy import any_, create_engine, event, func, literal, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
@@ -26,6 +26,7 @@ from app.models import Company, Filing, Summary, SummaryJob, SummaryPreparationB
 from app.services import summary_job_store as store, subscription_service as usage
 from app.services import summary_jobs as jobs, summary_recovery as recovery
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -71,15 +72,101 @@ def seeded(factory):
         return user.id, filing.id
 
 
-@pytest.fixture
-def recovery_guard(postgres_engine, monkeypatch):
+class _LateRelease:
+    """The ``late`` mode's release: a released session that held the recovery lock stays open, its pool slot already
+    free, until another session waits for that lock or the case ends.
+
+    The server frees a released session's lock only when its backend exits, after release() returns, and a busy
+    runner can schedule that exit after any check that does not wait. This is the latest the exit can come, so a case
+    that counts on the lock being free without waiting for it fails here every time
+    (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
+    """
+
+    def __init__(self, engine):
+        self.engine = engine
+        self.finished = Event()
+        self.closers = []
+
+    def release(self, owner):
+        connection, owner.connection = owner.connection, None
+        if connection is None:
+            return
+        if owner.backend_pid is None:  # It never held the lock: close it at once, as release() does.
+            connection.invalidate()
+            connection.close()
+            return
+        connection.detach()
+        closer = Thread(target=self._close_once_waited_for, args=(connection, owner.backend_pid), daemon=True)
+        self.closers.append(closer)
+        closer.start()
+
+    def _close_once_waited_for(self, connection, backend_pid):
+        from sqlalchemy import column, table
+        # pg_locks reads the lock table live; pg_stat_activity would keep its first read for the whole transaction,
+        # and miss a waiter that connected after it. Autocommit ends each read's transaction anyway.
+        locks = table("pg_locks", column("pid"), column("granted"))
+        waiting = select(func.count()).select_from(locks).where(
+            locks.c.granted.is_(False), literal(backend_pid) == any_(func.pg_blocking_pids(locks.c.pid)),
+        )
+        try:
+            with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as watch:
+                while not self.finished.wait(0.01):
+                    if watch.execute(waiting).scalar_one():
+                        break
+        finally:
+            connection.close()
+
+    def finish(self):
+        self.finished.set()
+        for closer in self.closers:
+            closer.join()
+
+
+@pytest.fixture(params=["prompt", "late"])
+def recovery_guard(request, postgres_engine, monkeypatch):
     # Advisory locks are database-wide, unlike this home's per-case row schema.
     monkeypatch.setattr(recovery, "RECOVERY_LOCK_KEY", int(uuid4().hex[:15], 16))
     monkeypatch.setattr(database, "_DATABASE_URL", postgres_engine.url)
     monkeypatch.setattr(recovery, "_engine", None)
-    yield
+    # Each recovery case runs twice: with release() as it is, and with each released lock freed only once another
+    # session waits for it. The two whose recovery owner runs in a child process run once: the late mode patches
+    # release() in this process only, and their one release here follows a failed acquire.
+    late = _LateRelease(postgres_engine) if request.param == "late" else None
+    if late is not None:
+        monkeypatch.setattr(recovery._RecoveryOwner, "release", lambda owner: late.release(owner))
+    yield late
+    if late is not None:
+        late.finish()
     if recovery._engine is not None:
         recovery._engine.dispose()
+
+
+def _assert_held_elsewhere(postgres_engine):
+    # Sound only while a live session holds the lock: its backend cannot free it until that session ends. The
+    # transaction-level probe keeps nothing if it ever succeeds.
+    with postgres_engine.begin() as probe:
+        assert not probe.execute(select(func.pg_try_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+
+
+def _wait_until_free(postgres_engine):
+    # release() closes the owning session and returns at once. The server frees that session's lock only when its
+    # backend exits, which a busy runner can schedule after a probe that does not wait, so wait for the lock, as the
+    # crash case does. The fixture's 5 s statement timeout is a hang guard, not an elapsed assertion: a lock left held
+    # fails the case there (lessons/test-wait-for-a-closed-sessions-advisory-lock.md).
+    with postgres_engine.begin() as probe:
+        probe.execute(select(func.pg_advisory_xact_lock(recovery.RECOVERY_LOCK_KEY)))
+
+
+def test_late_mode_frees_a_released_lock_only_for_a_waiter(recovery_guard, postgres_engine):
+    owner = recovery._RecoveryOwner()
+    assert owner.acquire()
+    owner.release()
+    assert owner.connection is None
+    if recovery_guard is not None:
+        # Nothing has waited for the lock yet, so the late mode still holds the released session, and its lock.
+        assert [closer.is_alive() for closer in recovery_guard.closers] == [True]
+        _assert_held_elsewhere(postgres_engine)
+    _wait_until_free(postgres_engine)
 
 
 def test_recovery_session_excludes_other_caller_without_open_transaction(recovery_guard, postgres_engine):
@@ -106,9 +193,7 @@ def test_recovery_session_excludes_other_caller_without_open_transaction(recover
     finally:
         first.release()
     assert first.connection is None
-    with postgres_engine.begin() as probe:
-        assert probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-        assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+    _wait_until_free(postgres_engine)
 
 
 @pytest.mark.asyncio
@@ -141,7 +226,9 @@ async def test_recovery_real_transactions_have_local_budgets(recovery_guard, fac
 
 
 @pytest.mark.asyncio
-async def test_recovery_lock_timeout_closes_pass_without_queue_work(recovery_guard, factory, seeded, monkeypatch):
+async def test_recovery_lock_timeout_closes_pass_without_queue_work(
+    recovery_guard, factory, seeded, postgres_engine, monkeypatch,
+):
     user_id, filing_id = seeded
     view = store.ensure_job(filing_id, user_id)
     calls = []
@@ -157,6 +244,7 @@ async def test_recovery_lock_timeout_closes_pass_without_queue_work(recovery_gua
             await jobs.recover_due_jobs()
     assert calls == []
     assert not recovery._slot.locked()
+    _wait_until_free(postgres_engine)
     assert await jobs.recover_due_jobs() == 1
 
 
@@ -186,8 +274,7 @@ async def test_recovery_cancellation_keeps_pg_lock_until_sql_thread_finishes(
         assert await asyncio.to_thread(entered.wait, 10)
         task.cancel()
         await asyncio.wait_for(draining.wait(), 10)
-        with postgres_engine.begin() as probe:
-            assert not probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
+        _assert_held_elsewhere(postgres_engine)
         assert not task.done()
     finally:
         release.set()
@@ -228,13 +315,6 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         entered.set()
         assert release.wait(10), "test did not unblock the cleanup executor"
 
-    def competitor_acquires():
-        with postgres_engine.begin() as probe:
-            acquired = probe.execute(select(func.pg_try_advisory_lock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-            if acquired:
-                assert probe.execute(select(func.pg_advisory_unlock(recovery.RECOVERY_LOCK_KEY))).scalar_one()
-            return acquired
-
     async def one_pass():
         async with recovery.recovery_scope() as acquired:
             assert acquired
@@ -244,13 +324,13 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
     task = asyncio.create_task(one_pass())
     try:
         await asyncio.wait_for(cleanup_queued.wait(), 10)
-        assert not competitor_acquires()
+        _assert_held_elsewhere(postgres_engine)
         for _ in range(3):
             task.cancel()
             await asyncio.sleep(0)
             assert not submitted[2].cancelled(), "mandatory disconnect was discarded before starting"
             assert not task.done() and recovery._slot.locked()
-            assert not competitor_acquires()
+            _assert_held_elsewhere(postgres_engine)
             async with recovery.recovery_scope() as acquired:
                 assert not acquired
         release.set()
@@ -259,7 +339,7 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         assert submitted[2].done() and not submitted[2].cancelled()
         assert owner.connection is None
         assert not recovery._slot.locked()
-        assert competitor_acquires()
+        _wait_until_free(postgres_engine)
     finally:
         release.set()
         if not task.done():
@@ -270,6 +350,7 @@ async def test_recovery_repeated_cancellation_cannot_cancel_queued_disconnect(
         owner.release()
 
 
+@pytest.mark.parametrize("recovery_guard", ["prompt"], indirect=True)  # its owner runs in a child process
 def test_recovery_process_crash_releases_session_lock(recovery_guard, postgres_engine):
     # The child opens only a Core guard connection against this disposable test
     # database. It touches no table outside the fixture's schema or any provider.
@@ -316,6 +397,7 @@ signal.pause()
         process.communicate(timeout=10)
 
 
+@pytest.mark.parametrize("recovery_guard", ["prompt"], indirect=True)  # its owner runs in a child process
 def test_asyncio_run_shutdown_finishes_recovery_disconnect(recovery_guard, postgres_engine):
     # A separate process supplies the outer hang guard: asyncio shutdown cancels
     # every remaining Task, including any cleanup child an implementation adds.
@@ -424,7 +506,7 @@ recovery._engine.dispose()
 def _race(call, count=4):
     barrier = Barrier(count)
     def worker():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         return call()
     with ThreadPoolExecutor(max_workers=count) as pool:
         return list(pool.map(lambda _: worker(), range(count)))
@@ -453,7 +535,7 @@ def test_account_backlog_limit_serializes_different_filings(factory, seeded, mon
         other_id = second.id
     barrier = Barrier(2)
     def create(filing):
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         try:
             return store.ensure_job(filing, user_id)
         except store.SummaryJobUnavailable:
@@ -526,13 +608,13 @@ def test_result_transaction_blocks_reclaim_until_atomic_terminal_commit(factory,
             return store.claim_job(view.job_id, view.generation)
         with ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(reclaim)
-            assert started.wait(timeout=2)
+            assert started.wait(timeout=HANG_GUARD_S)
             summary = Summary(filing_id=filing_id, business_overview="committed result")
             writer.add(summary)
             writer.flush()
             store.settle_job_result(row, summary.id, "complete")
             writer.commit()
-            assert future.result(timeout=5) is None
+            assert future.result(timeout=HANG_GUARD_S) is None
     assert store.read_job(view.job_id, view.generation).status == "complete"
 
 
@@ -567,7 +649,7 @@ def test_system_daily_budget_serializes_fleet_admissions(factory, seeded, monkey
         other_id = second.id
     barrier = Barrier(2)
     def create(filing):
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=HANG_GUARD_S)
         try:
             return store.ensure_job(filing, None, system=True)
         except store.SummaryJobUnavailable:
@@ -597,7 +679,7 @@ def test_join_during_final_result_commit_neither_deadlocks_nor_creates_second_jo
         try:
             with ThreadPoolExecutor(max_workers=1) as pool:
                 joining = pool.submit(store.ensure_job, filing_id, user_id)
-                assert waiting_for_job.wait(timeout=2)
+                assert waiting_for_job.wait(timeout=HANG_GUARD_S)
                 try:
                     summary = Summary(filing_id=filing_id, business_overview="Current committed summary.")
                     writer.add(summary)
@@ -607,7 +689,7 @@ def test_join_during_final_result_commit_neither_deadlocks_nor_creates_second_jo
                 except BaseException:
                     writer.rollback()  # release the job lock before joining the thread on test failure
                     raise
-                observed = joining.result(timeout=5)
+                observed = joining.result(timeout=HANG_GUARD_S)
                 assert observed.status == "complete" and observed.summary_id == summary.id
                 assert not observed.created
         finally:

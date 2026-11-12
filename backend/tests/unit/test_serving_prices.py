@@ -20,6 +20,7 @@ from app.config import settings
 from app.routers import subscriptions
 from app.services import billing_serving_prices as serving
 from app.services import stripe_subscription_reader as reader
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 def _price(cycle="monthly", **overrides):
@@ -163,7 +164,7 @@ def test_a_request_during_a_read_neither_waits_nor_reads_again(bound):
 
     def slow(price_id):
         entered.set()
-        assert release.wait(5)
+        assert release.wait(HANG_GUARD_S)
         return real(price_id)
 
     bound.read.side_effect = slow
@@ -171,13 +172,13 @@ def test_a_request_during_a_read_neither_waits_nor_reads_again(bound):
     reading = threading.Thread(target=lambda: results.append(serving.serving_pro_prices()))
     reading.start()
     try:
-        assert entered.wait(5)
+        assert entered.wait(HANG_GUARD_S)
         # Nothing held yet: "unavailable", at once, without touching Stripe.
         assert serving.serving_pro_prices() == {"monthly": {"problem": "unavailable"}, "yearly": {"problem": "unavailable"}}
         assert bound.read.call_count == 1
     finally:
         release.set()
-        reading.join(5)
+        reading.join(HANG_GUARD_S)
     assert results == [AGREEING]
 
     # With a report held but expired, a request during the refresh gets the held report.
@@ -187,12 +188,12 @@ def test_a_request_during_a_read_neither_waits_nor_reads_again(bound):
     reading = threading.Thread(target=serving.serving_pro_prices)
     reading.start()
     try:
-        assert entered.wait(5)
+        assert entered.wait(HANG_GUARD_S)
         assert serving.serving_pro_prices() == AGREEING
         assert bound.read.call_count == 3
     finally:
         release.set()
-        reading.join(5)
+        reading.join(HANG_GUARD_S)
 
 
 def test_a_read_finished_between_the_check_and_the_lock_is_not_repeated(bound):

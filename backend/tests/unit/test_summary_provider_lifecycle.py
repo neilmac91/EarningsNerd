@@ -14,6 +14,7 @@ from sqlalchemy.pool import QueuePool
 
 from app.config import settings
 from app.services import summary_pipeline as pipeline
+from tests.support.hang_guard import HANG_GUARD_S
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
 from tests.unit.test_provider_resilience import KW, service_for
 
@@ -194,7 +195,7 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
                 block_next_query = False
                 self.blocked = True
                 query_entered.set()
-                assert query_finish.wait(2), "test did not release the DB worker"
+                assert query_finish.wait(HANG_GUARD_S), "test did not release the DB worker"
             return result
 
         def close(self):
@@ -325,20 +326,20 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
             patch.setattr(pipeline, "_check_usage_and_plan", checked_plan)
             task = asyncio.create_task(request() if boundary in route_boundaries else consume())
             if boundary == "db_worker":
-                assert await asyncio.to_thread(query_entered.wait, 2)
+                assert await asyncio.to_thread(query_entered.wait, HANG_GUARD_S)
                 if stop == "cancel":
                     task.cancel()
                     await asyncio.sleep(0)
                     assert not query_closed.is_set(), "coroutine closed a worker's active transaction"
                 query_finish.set()
-                assert await asyncio.to_thread(query_closed.wait, 2)
+                assert await asyncio.to_thread(query_closed.wait, HANG_GUARD_S)
                 if stop == "cancel":
                     with pytest.raises(asyncio.CancelledError):
                         await task
                     assert engine.pool.checkedout() == 0
                     assert ownership_errors == []
                     return
-            await asyncio.wait_for(ready.wait(), timeout=2)
+            await asyncio.wait_for(ready.wait(), timeout=HANG_GUARD_S)
             if boundary in real_routes - {"loaded_sub_route"}:
                 assert subscription_threads, "the unresolved subscription was never loaded"
                 assert loop_thread not in subscription_threads, "subscription SQL blocked the event loop"
@@ -360,7 +361,7 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
                 if boundary == "semaphore":
                     semaphore.release()
                 finish.set()
-                await asyncio.wait_for(task, timeout=2)
+                await asyncio.wait_for(task, timeout=HANG_GUARD_S)
                 with sessions() as db:
                     assert db.query(Summary).filter_by(filing_id=filing_id).count() == 1
             assert engine.pool.checkedout() == 0

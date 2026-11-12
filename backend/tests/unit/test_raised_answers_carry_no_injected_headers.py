@@ -504,8 +504,11 @@ def test_the_walk_reads_the_routes_it_guards():
         for function in ast.walk(tree)
         if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) and _injected_responses(function, names)
     }
-    assert {"refresh", "login", "logout", "logout_all", "change_password"} <= guarded.keys()
+    assert {"refresh", "login", "logout", "logout_all", "change_password", "complete_oauth_sign_in"} <= guarded.keys()
     assert "rotate_and_issue" in guarded["refresh"]
+    # The OAuth sign-in's exchange sets the session cookies in its unit and answers a refusal on a response of its own
+    # (E29 (5)), so the walk must see that unit.
+    assert "complete" in guarded["complete_oauth_sign_in"]
 
 
 # ── the premise, at runtime ───────────────────────────────────────────────────

@@ -24,6 +24,7 @@ import time
 import zlib
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -45,6 +46,9 @@ IDENTITY = f"{NAME}@{PROJECT}.iam.gserviceaccount.com"
 SA_PATH = f"projects/{PROJECT}/serviceAccounts/{IDENTITY}"
 DATABASE = "earningsnerd_feedback_verify"
 INSTANCE = f"{PROJECT}:{REGION}:earningsnerd-db"
+# Cloud Run refuses a create whose Cloud SQL volume has any other name, and reserves this name for one: "Cloud SQL
+# volume must be named 'cloudsql', and 'cloudsql' is reserved for Cloud SQL volumes" (the first live verify-apply).
+SQL_VOLUME = "cloudsql"
 DB_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_DATABASE_URL"
 KEY_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_SECRET_KEY"
 BUCKET = media.BUCKETS["preview"]
@@ -60,23 +64,50 @@ RECEIPT_DOMAIN = b"feedback-media-verification-receipt-v1\0"
 CONTROL_DOMAIN = b"feedback-media-verification-control-v1\0"
 RUN_PATTERN = re.compile(r"[1-9][0-9]{0,19}-1")
 IMAGE_PATTERN = re.compile(r"us-west1-docker\.pkg\.dev/earnings-nerd/earningsnerd/backend@sha256:[0-9a-f]{64}")
+# Project permissions every run uses. The identity, grant and secret writes, and the Cloud Run and Scheduler creates and
+# updates, depend on what exists, so bootstrap_gaps tests each only when this run will make it: a founder-made identity, grant or secret in
+# the approved shape needs no create or setIamPolicy permission, and resourcemanager.projects.setIamPolicy (owner
+# equivalent) is never needed once the verifier's one Cloud SQL client grant exists.
 PROJECT_PERMISSIONS = {
-    "iam.serviceAccounts.create", "iam.serviceAccounts.get", "iam.serviceAccounts.getIamPolicy",
-    "iam.serviceAccounts.setIamPolicy", "resourcemanager.projects.getIamPolicy", "resourcemanager.projects.setIamPolicy",
-    "run.services.create", "run.services.get", "run.services.update", "run.services.getIamPolicy", "run.services.setIamPolicy",
-    "run.jobs.create", "run.jobs.get", "run.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides",
-    "run.jobs.getIamPolicy", "run.jobs.setIamPolicy", "cloudscheduler.jobs.create", "cloudscheduler.jobs.get",
-    "cloudscheduler.jobs.update", "secretmanager.secrets.create", "secretmanager.secrets.get",
-    "secretmanager.secrets.getIamPolicy", "secretmanager.secrets.setIamPolicy", "secretmanager.versions.add",
-    "cloudsql.instances.get", "cloudsql.instances.connect", "storage.buckets.get", "storage.buckets.getIamPolicy",
-    "storage.buckets.setIamPolicy",
+    "iam.serviceAccounts.get", "iam.serviceAccounts.getIamPolicy", "resourcemanager.projects.getIamPolicy",
+    "run.services.get", "run.services.getIamPolicy", "run.jobs.get", "run.jobs.run", "run.jobs.runWithOverrides",
+    "run.jobs.getIamPolicy", "cloudscheduler.jobs.get", "secretmanager.secrets.get", "secretmanager.secrets.getIamPolicy",
+    "secretmanager.versions.get", "cloudsql.instances.get", "cloudsql.instances.connect", "storage.buckets.get",
+    "storage.buckets.getIamPolicy",
+    # Read before or between the writes: the object role, every Cloud Run operation poll, the serving revision.
+    "iam.roles.get", "run.operations.get", "run.revisions.get",
 }
+CONDITIONAL_PERMISSIONS = {
+    "iam.serviceAccounts.create", "iam.serviceAccounts.setIamPolicy", "resourcemanager.projects.setIamPolicy",
+    "secretmanager.secrets.create", "secretmanager.secrets.setIamPolicy", "secretmanager.versions.add",
+    "storage.buckets.setIamPolicy", "run.jobs.create", "run.jobs.update", "run.jobs.setIamPolicy",
+    "run.services.create", "run.services.update", "run.services.setIamPolicy",
+    "cloudscheduler.jobs.create", "cloudscheduler.jobs.update",
+}
+SA_ROLES = ("roles/iam.serviceAccountUser", "roles/iam.serviceAccountOpenIdTokenCreator")
+ACCESSOR, VERSION_ADDER = "roles/secretmanager.secretAccessor", "roles/secretmanager.secretVersionAdder"
+DEPLOYER_PATTERN = re.compile(r"[a-z][a-z0-9-]{4,28}[a-z0-9]@earnings-nerd\.iam\.gserviceaccount\.com")
+# The isolated role's cap covers the service's pool (2), the cleanup job's pool (1) and one serial psql or
+# migration connection. Admission on the shared production instance reuses the summary rehearsal's rule
+# (ops/summary_delivery/database.py): active client backends, this cap and the reserve stay within 70% of usable.
+CONNECTION_LIMIT = 4
+OPERATIONAL_RESERVE = 5
+
+
+class CommandFailed(media.OperationError):
+    """A command that exited non-zero; its standard output is kept for a caller that reads only closed codes from it."""
+
+    def __init__(self, output: str) -> None:
+        super().__init__("Verification command failed; diagnostics withheld")
+        self.output = output
 
 
 def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60) -> str:
     try:
         result = subprocess.run(command, input=input_text, text=True, env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, timeout=timeout, check=True)
+    except subprocess.CalledProcessError as failed:
+        raise CommandFailed(failed.stdout if isinstance(failed.stdout, str) else "") from None
     except (subprocess.SubprocessError, OSError):
         raise media.OperationError("Verification command failed; diagnostics withheld") from None
     return result.stdout
@@ -112,7 +143,8 @@ def current_image(cloud: media.Cloud, service: dict) -> str:
 
 
 def check_owned(resource: dict | None, kind: str) -> None:
-    if resource is not None and resource.get("labels", {}).get("purpose") != PURPOSE:
+    labels = resource.get("labels") if resource is not None else None
+    if resource is not None and (not isinstance(labels, dict) or labels.get("purpose") != PURPOSE):
         raise media.OperationError(f"Existing verification {kind} is not feature-owned")
 
 
@@ -128,9 +160,9 @@ def secret(cloud: media.Cloud, name: str, *, create_value: str | None = None, de
         cloud.call("secretmanager", f"v1/projects/{PROJECT}/secrets?secretId={name}", method="POST",
                    body={"labels": {"purpose": PURPOSE}, "replication": {"automatic": {}}})
     if deployer is not None:
-        if create_value is None or not re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]@earnings-nerd\.iam\.gserviceaccount\.com", deployer):
+        if create_value is None or not DEPLOYER_PATTERN.fullmatch(deployer):
             raise media.OperationError("Verification secret provisioning identity differs")
-        media.bind(cloud, "secretmanager", path, "roles/secretmanager.secretAccessor", "serviceAccount:" + deployer)
+        media.bind(cloud, "secretmanager", path, ACCESSOR, "serviceAccount:" + deployer)
     payload = cloud.call("secretmanager", path + "/versions/latest:access", missing_ok=True)
     if payload is None:
         # Recover only an owned secret with no version, never rotate an existing value after an
@@ -186,7 +218,7 @@ class Sql:
         if existing == "1":
             valid = self.query(f"""SELECT (NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
                 AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit AND rolcanlogin
-                AND rolconnlimit=4 AND shobj_description(oid,'pg_authid')='{PURPOSE}'
+                AND rolconnlimit={CONNECTION_LIMIT} AND shobj_description(oid,'pg_authid')='{PURPOSE}'
                 AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid))::int
                 FROM pg_roles WHERE rolname='{DATABASE}';""")
             if valid != "1":
@@ -199,13 +231,38 @@ class Sql:
         if db not in {"", "owned"}:
             raise media.OperationError("Existing verification database is not feature-owned")
 
+    def admit(self) -> None:
+        """Refuse before any write unless the shared production instance has room for the capped verifier.
+
+        A point-in-time admission, not a reservation. The administrator's own query is not counted: it is the
+        one serial psql connection the verifier's cap already holds, and counting it again refused a quiet
+        production (7 counted, live run 43094001737). A role without pg_read_all_stats sees another role's
+        session with backend_type NULL, so a hidden session attached to a database counts as a client backend
+        too (it may overcount a background worker, never undercount a session). Only counts are printed.
+        """
+        answer = self.query("""SELECT current_setting('max_connections') || '|' ||
+            current_setting('superuser_reserved_connections') || '|' ||
+            COALESCE(current_setting('reserved_connections',true),'0') || '|' ||
+            (SELECT count(*) FROM pg_stat_activity
+             WHERE (backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL))
+               AND pid <> pg_backend_pid());""")
+        if not re.fullmatch(r"[0-9]{1,7}(\|[0-9]{1,7}){3}", answer):
+            raise media.OperationError("Production SQL headroom is unreadable; nothing was created")
+        maximum, superuser_reserved, reserved, active = map(int, answer.split("|"))
+        usable = maximum - superuser_reserved - reserved
+        admitted = usable > 0 and (active + CONNECTION_LIMIT + OPERATIONAL_RESERVE) * 10 <= usable * 7
+        print(f"Production SQL admission: {active} client backends of {usable} usable; verifier cap {CONNECTION_LIMIT}, "
+              f"reserve {OPERATIONAL_RESERVE}, threshold 70%: " + ("admitted" if admitted else "refused"))
+        if not admitted:
+            raise media.OperationError("Production SQL headroom is insufficient for the isolated verifier; nothing was created")
+
     def provision(self, password: str, test_env: dict) -> None:
         self.preflight()
         if not re.fullmatch(r"[0-9a-f]{64}", password):
             raise media.OperationError("Verification SQL password is not generated by the fixed derivation")
         if self.query(f"SELECT count(*) FROM pg_roles WHERE rolname='{DATABASE}';") == "0":
             self.query(f"BEGIN; CREATE ROLE {DATABASE} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
-                       f"NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 4 PASSWORD '{password}'; "
+                       f"NOREPLICATION NOBYPASSRLS CONNECTION LIMIT {CONNECTION_LIMIT} PASSWORD '{password}'; "
                        f"COMMENT ON ROLE {DATABASE} IS '{PURPOSE}'; COMMIT;")
         if self.query(f"SELECT count(*) FROM pg_database WHERE datname='{DATABASE}';") == "0":
             self.query(f"CREATE DATABASE {DATABASE};")
@@ -263,12 +320,119 @@ def sql_admin(cloud: media.Cloud):
             process.wait(timeout=5)
 
 
+def preflight_gaps(cloud: media.Cloud) -> list[str]:
+    """What every verify-apply run needs and the identity lacks: its project permissions and the image read."""
+    # A malformed answer grants nothing (media.held).
+    missing = sorted(PROJECT_PERMISSIONS - media.held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}",
+                                                      sorted(PROJECT_PERMISSIONS)))
+    # The service and job it deploys run the serving image, which IMAGE_PATTERN holds to media.IMAGE_REPOSITORY.
+    if media.IMAGE_READ not in media.held(cloud, "artifactregistry", "v1/" + media.IMAGE_REPOSITORY, [media.IMAGE_READ]):
+        missing.append(media.IMAGE_READ + " on the API image repository")
+    return missing
+
+
 def preflight_cloud(cloud: media.Cloud) -> None:
-    found = cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}:testIamPermissions", method="POST",
-                       body={"permissions": sorted(PROJECT_PERMISSIONS)}).get("permissions", [])
-    if not PROJECT_PERMISSIONS.issubset(found):
-        missing = sorted(PROJECT_PERMISSIONS - set(found))
+    missing = preflight_gaps(cloud)
+    if missing:
         raise media.OperationError("Verification provisioning lacks required IAM permissions: " + ", ".join(missing))
+
+
+def check_grants(policy: dict, approved: dict[str, set[str]], kind: str) -> None:
+    """Refuse a malformed or etag-less policy, a public principal, a conditional grant, or any role or member beyond the
+    approved bootstrap shape."""
+    media.check_private_policy(policy)
+    media.policy_etag(policy)
+    if any(binding.get("condition") or not set(binding.get("members", [])) <= approved.get(binding["role"], set())
+           for binding in media.policy_bindings(policy)):
+        raise media.OperationError(f"Existing verification {kind} grants differ from the approved bootstrap")
+
+
+def bootstrap_gaps(cloud: media.Cloud, deployer: str) -> list[str]:
+    """Read-only, before the first write: refuse a pre-existing identity, grant or secret in another shape, and
+    return the permissions this run lacks for the writes the state it read still needs.
+
+    Only a read that finds a resource absent (404) plans its create; a denied read stops here, and a malformed
+    answer or drift is refused, so neither is planned as absent or as already approved. A write the founder
+    already made by hand in the approved shape is not tested. Two prerequisites held on one resource are tested on
+    it: actAs and getOpenIdToken on the identity, once the deployer's grants on it exist, and versions.add on a secret
+    with no version yet. The deployer's accessor grant on each secret is read as a binding.
+    """
+    member, runner = "serviceAccount:" + IDENTITY, "serviceAccount:" + deployer
+    needed: set[str] = set()
+    resource_gaps: list[str] = []
+    identity = cloud.call("iam", "v1/" + SA_PATH, missing_ok=True)
+    if identity is None:
+        needed |= {"iam.serviceAccounts.create", "iam.serviceAccounts.setIamPolicy"}
+    else:
+        if identity.get("description") != PURPOSE or identity.get("disabled"):
+            raise media.OperationError("Existing verification identity is not the active feature-owned identity")
+        sa_policy = cloud.call("iam", "v1/" + SA_PATH + ":getIamPolicy?options.requestedPolicyVersion=3", method="POST", body={})
+        check_grants(sa_policy, {role: {runner} for role in SA_ROLES}, "identity")
+        if not all(media.bound(sa_policy, role, runner) for role in SA_ROLES):
+            needed.add("iam.serviceAccounts.setIamPolicy")
+        elif media.held(cloud, "iam", f"v1/projects/-/serviceAccounts/{IDENTITY}",
+                        [media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"]) != {media.ACT_AS, "iam.serviceAccounts.getOpenIdToken"}:
+            resource_gaps.append("actAs and getOpenIdToken on the verification identity")
+    policy = project_policy(cloud)
+    media.policy_etag(policy)
+    grants = [binding for binding in media.policy_bindings(policy) if member in binding.get("members", [])]
+    if any(binding.get("role") != "roles/cloudsql.client" or binding.get("condition") for binding in grants):
+        raise media.OperationError("Verification identity has unexpected direct project privileges")
+    if not grants:
+        needed.add("resourcemanager.projects.setIamPolicy")
+    for name in (DB_SECRET, KEY_SECRET):
+        path = f"v1/projects/{PROJECT}/secrets/{name}"
+        metadata = cloud.call("secretmanager", path, missing_ok=True)
+        check_owned(metadata, "secret")
+        if metadata is None:
+            needed |= {"secretmanager.secrets.create", "secretmanager.secrets.setIamPolicy", "secretmanager.versions.add"}
+            continue
+        policy = cloud.call("secretmanager", media.policy_path(path))
+        check_grants(policy, {ACCESSOR: {runner, member}, VERSION_ADDER: {runner}}, "secret")
+        if not (media.bound(policy, ACCESSOR, runner) and media.bound(policy, ACCESSOR, member)):
+            needed.add("secretmanager.secrets.setIamPolicy")
+        version = cloud.call("secretmanager", path + "/versions/latest", missing_ok=True)
+        if version is None:
+            if "secretmanager.versions.add" not in media.held(cloud, "secretmanager", path, ["secretmanager.versions.add"]):
+                resource_gaps.append(f"secretmanager.versions.add on {name}")
+        elif version.get("state") != "ENABLED":
+            # The run reads the latest value and never rotates one, so a disabled or destroyed latest version would
+            # stop it after earlier writes.
+            raise media.OperationError(f"Verification secret {name} has a latest version that is not enabled")
+    bucket_policy = cloud.call("storage", media.policy_path("storage/v1/b/" + BUCKET, storage=True))
+    media.check_runtime_bucket_policy(bucket_policy, IDENTITY, granted=False)
+    media.policy_etag(bucket_policy)
+    if not media.bound(bucket_policy, media.ROLE, member):
+        needed.add("storage.buckets.setIamPolicy")
+    for kind, path in (("jobs", JOB), ("services", SERVICE)):
+        current = cloud.call("run", "v2/" + path, missing_ok=True)
+        check_owned(current, "cleanup job" if kind == "jobs" else "service")
+        if current is None:
+            needed |= {f"run.{kind}.create", f"run.{kind}.setIamPolicy"}
+            continue
+        policy = cloud.call("run", media.policy_path("v2/" + path))
+        media.check_private_policy(policy)
+        media.policy_etag(policy)
+        needed.add(f"run.{kind}.update")
+        if not media.bound(policy, "roles/run.invoker", member):
+            needed.add(f"run.{kind}.setIamPolicy")
+    schedule = cloud.call("cloudscheduler", "v1/" + SCHEDULE, missing_ok=True)
+    if schedule is not None and schedule.get("description") != PURPOSE:
+        raise media.OperationError("Existing verification cleanup schedule is not feature-owned")
+    needed.add("cloudscheduler.jobs.create" if schedule is None else "cloudscheduler.jobs.update")
+    return sorted(needed - media.held(cloud, "cloudresourcemanager", f"v1/projects/{PROJECT}", sorted(needed))) + resource_gaps
+
+
+def require_media_prerequisites(cloud: media.Cloud) -> None:
+    """Refuse before any write unless media provisioning made the object role and preview bucket this lane binds."""
+    try:
+        media.check_role(cloud.call("iam", "v1/" + media.ROLE, missing_ok=True, step=media.ROLE_READ))
+        preview = cloud.call("storage", "storage/v1/b/" + BUCKET, missing_ok=True, step=media.BUCKET_READ)
+        if preview is None:
+            raise media.OperationError("Preview bucket is absent")
+        media.check_bucket(preview, "preview")
+    except media.OperationError as exc:
+        raise media.OperationError(f"Live verification refused before any write: media provisioning prerequisite not verified ({exc})") from None
 
 
 def project_policy(cloud: media.Cloud) -> dict:
@@ -284,8 +448,9 @@ def ensure_identity(cloud: media.Cloud, deployer: str) -> None:
     elif identity.get("description") != PURPOSE or identity.get("disabled"):
         raise media.OperationError("Existing verification identity is not the active feature-owned identity")
     policy = project_policy(cloud)
+    media.policy_etag(policy)  # setIamPolicy carries it: a concurrent change fails the write rather than being lost
     member = "serviceAccount:" + IDENTITY
-    grants = [b for b in policy.get("bindings", []) if member in b.get("members", [])]
+    grants = [b for b in media.policy_bindings(policy) if member in b.get("members", [])]
     if any(b.get("role") != "roles/cloudsql.client" or b.get("condition") for b in grants):
         raise media.OperationError("Verification identity has unexpected direct project privileges")
     if not grants:
@@ -293,23 +458,24 @@ def ensure_identity(cloud: media.Cloud, deployer: str) -> None:
         cloud.call("cloudresourcemanager", f"v1/projects/{PROJECT}:setIamPolicy", method="POST", body={"policy": policy})
     # IAM serviceAccounts.getIamPolicy uses POST (Cloud Run/Secret Manager use GET).
     sa_policy = cloud.call("iam", "v1/" + SA_PATH + ":getIamPolicy?options.requestedPolicyVersion=3", method="POST", body={})
-    media.check_private_policy(sa_policy)
+    check_grants(sa_policy, {role: {"serviceAccount:" + deployer} for role in SA_ROLES}, "identity")
     changed = False
-    for role in ("roles/iam.serviceAccountUser", "roles/iam.serviceAccountOpenIdTokenCreator"):
+    for role in SA_ROLES:
         member = "serviceAccount:" + deployer
+        if media.bound(sa_policy, role, member):  # the test bootstrap_gaps planned with
+            continue
         binding = next((row for row in sa_policy.get("bindings", []) if row.get("role") == role and not row.get("condition")), None)
         if binding is None:
             sa_policy.setdefault("bindings", []).append({"role": role, "members": [member]})
-            changed = True
-        elif member not in binding.get("members", []):
+        else:
             binding.setdefault("members", []).append(member)
-            changed = True
+        changed = True
     if changed:
         cloud.call("iam", "v1/" + SA_PATH + ":setIamPolicy", method="POST", body={"policy": sa_policy})
     member = "serviceAccount:" + IDENTITY
     for name in (DB_SECRET, KEY_SECRET):
-        media.bind(cloud, "secretmanager", f"v1/projects/{PROJECT}/secrets/{name}", "roles/secretmanager.secretAccessor", member)
-        media.bind(cloud, "secretmanager", f"v1/projects/{PROJECT}/secrets/{name}", "roles/secretmanager.secretAccessor", "serviceAccount:" + deployer)
+        media.bind(cloud, "secretmanager", f"v1/projects/{PROJECT}/secrets/{name}", ACCESSOR, member)
+        media.bind(cloud, "secretmanager", f"v1/projects/{PROJECT}/secrets/{name}", ACCESSOR, "serviceAccount:" + deployer)
     media.check_role(cloud.call("iam", "v1/" + media.ROLE, missing_ok=True))
     media.check_bucket(cloud.call("storage", "storage/v1/b/" + BUCKET), "preview")
     media.bind(cloud, "storage", "storage/v1/b/" + BUCKET, media.ROLE, member, storage=True)
@@ -341,17 +507,23 @@ def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versio
         raise media.OperationError("Verification runtime changed after its fingerprint was recorded")
     container = {"name": "verification", "image": image, "command": ["python"], "args": ["-c", source],
                  "env": runtime_env(run_id, image, hashes, versions, "cleanup" if job else "api"),
-                 "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}],
+                 "volumeMounts": [{"name": SQL_VOLUME, "mountPath": "/cloudsql"}],
                  "resources": {"limits": {"cpu": "1", "memory": "512Mi" if job else "1Gi"}}}
+    if not job:
+        # Its cold starts (its first start, and enable's receipt read after it scales to zero) must fit Cloud Run's
+        # startup window and the 180 s operation wait.
+        container["resources"]["startupCpuBoost"] = True
     task = {"serviceAccount": IDENTITY, "timeout": "600s" if job else "60s", "containers": [container],
-            "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [INSTANCE]}}]}
+            "volumes": [{"name": SQL_VOLUME, "cloudSqlInstance": {"instances": [INSTANCE]}}]}
     if production["template"].get("vpcAccess"):
         task["vpcAccess"] = copy.deepcopy(production["template"]["vpcAccess"])
     if job:
         task["maxRetries"] = 1
         return {"name": JOB, "labels": {"purpose": PURPOSE},
                 "template": {"taskCount": 1, "parallelism": 1, "template": task}}
-    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1}})
+    # Memory acceptance reads cgroup v2 files, which only the second generation exposes (Cloud Run may pick either).
+    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1},
+                 "executionEnvironment": "EXECUTION_ENVIRONMENT_GEN2"})
     return {"name": SERVICE, "labels": {"purpose": PURPOSE}, "ingress": "INGRESS_TRAFFIC_ALL",
             "invokerIamDisabled": False, "scaling": {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1},
             "template": task}
@@ -400,6 +572,51 @@ def require_anonymous_denial(origin: str) -> None:
     raise media.OperationError("Verification endpoint must reject anonymous health reads with HTTP 403")
 
 
+CONTROL_WAIT_SECONDS = 600
+CONTROL_POLL_SECONDS = 15
+
+
+def await_control(cloud: media.Cloud, origin: str, key: str, run_id: str) -> None:
+    """Wait until the service answers the verifier identity, before the browser's first call.
+
+    ensure_service has just written the identity's invoker grant, and an IAM allow-policy change typically takes two
+    minutes to apply and can take seven or more (https://cloud.google.com/iam/docs/access-change-propagation). The
+    browser treats a refusal as fatal after the run has seeded its two-hour lease, so it starts only once the
+    receipt read, which changes nothing, succeeds.
+    """
+    deadline = time.monotonic() + CONTROL_WAIT_SECONDS
+    while True:
+        try:
+            control(cloud, origin, key, run_id, "receipt")
+            return
+        except media.OperationError:
+            if time.monotonic() >= deadline:
+                raise media.OperationError("Verification service did not answer the verifier identity within ten minutes") from None
+            time.sleep(CONTROL_POLL_SECONDS)
+
+
+RECEIPT_WAIT_SECONDS = 240
+
+
+def read_receipt(cloud: media.Cloud, origin: str, key: str, run_id: str) -> dict:
+    """The receipt read, with a new attempt every 15 s for four minutes while the request itself fails.
+
+    The verifier scales to zero between verify-apply and enable-apply, and its cold start (application import and
+    startup audit) can outlast one 60 s request. Each attempt keeps its own request timeouts, so a read that never
+    succeeds ends within about six minutes. The read changes nothing, and every receipt check uses it (verify-apply's
+    last step, the read-only verify-inspect and enable). An answer that arrives is returned as it is: one without a
+    receipt is refused by the caller at once.
+    """
+    deadline = time.monotonic() + RECEIPT_WAIT_SECONDS
+    while True:
+        try:
+            return control(cloud, origin, key, run_id, "receipt")
+        except media.OperationError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(CONTROL_POLL_SECONDS)
+
+
 def control(cloud: media.Cloud, origin: str, key: str, run_id: str, path: str, payload: dict | None = None) -> dict:
     authentication = hmac.new(key.encode(), CONTROL_DOMAIN + run_id.encode(), hashlib.sha256).hexdigest()
     request = Request(origin + "/__feedback_verify/" + path,
@@ -415,7 +632,9 @@ def control(cloud: media.Cloud, origin: str, key: str, run_id: str, path: str, p
         if not isinstance(result, dict):
             raise TypeError("shape")
         return result
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError):
+    # URLError and timeouts are OSErrors; so is a connection dropped before a response, which urllib raises outside its
+    # URLError wrapper. HTTPException covers a response cut short (manage.Cloud.call reads the same way).
+    except (OSError, HTTPException, ValueError, TypeError):
         raise media.OperationError("Private verification control request failed; response withheld") from None
 
 
@@ -475,7 +694,7 @@ def counts_only_receipt(receipt: dict) -> bool:
     resources = observed["resources"]
     numeric = {"sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
                "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
-               "reaped_child_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
+               "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
     if (not isinstance(resources, dict) or set(resources) != numeric | {"method", "worker_limits", "unexplained_children", "acceptance_passed", "sample_age_seconds", "evidence_basis"}
             or not numbers({name: resources[name] for name in numeric}, numeric,
                            nullable={"cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes"})
@@ -578,7 +797,7 @@ def require_receipt(cloud: media.Cloud, production: dict) -> dict:
         raise media.OperationError("Verification service no longer matches the reviewed isolated runtime")
     if current_image(cloud, service) != image:
         raise media.OperationError("Verification service is not serving the current backend digest")
-    receipt = control(cloud, origin, key, run_id, "receipt").get("receipt")
+    receipt = read_receipt(cloud, origin, key, run_id).get("receipt")
     if not isinstance(receipt, dict):
         raise media.OperationError("A completed live verification receipt is required")
     verify_receipt(receipt, key, run_id, image, hashes)
@@ -594,7 +813,8 @@ def contains_spec(actual, expected) -> bool:
             return False  # An unexpected secret reference must never masquerade as an omitted empty env value.
         if set(expected) == {"cpu", "memory"} and set(actual) != set(expected):
             return False  # Additional accelerators are not server-added resource defaults.
-        defaults = {"invokerIamDisabled": False, "minInstanceCount": 0, "value": ""}
+        # AUTOMATIC is ServiceScaling's documented default, so a read-back may omit it; MANUAL is still refused.
+        defaults = {"invokerIamDisabled": False, "minInstanceCount": 0, "scalingMode": "AUTOMATIC", "value": ""}
         return all((key in actual and contains_spec(actual[key], value))
                    or (key not in actual and key in defaults and value == defaults[key]) for key, value in expected.items())
     if isinstance(expected, list):
@@ -664,17 +884,54 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     expired = sql.query(f"SELECT (expires_at<=CURRENT_TIMESTAMP)::int FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
     if expired != "1":
         raise media.OperationError("Previous verification lease is still active or unreadable; inspect and wait for expiry before a new apply")
+    # Initialize creates the whole schema in one transaction, and only the service it precedes makes fixtures or
+    # objects. A run that stopped before it left nothing to settle, and its cleanup could not run without the schema.
+    if sql.query("SELECT (to_regclass('public.users') IS NOT NULL)::int;", env=test_env) != "1":
+        return
     execute_cleanup(cloud)  # Keep the old run marker until all its durable objects have settled.
+
+
+# Each Cloud Run write's two forms: the create, which leaves the name to its ID, and the update of the one present.
+JOB_WRITES = (f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", "v2/" + JOB)
+SERVICE_WRITES = (f"v2/{media.PARENT}/services?serviceId={NAME}",
+                  "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling")
+
+
+def run_write(current: dict | None, spec: dict, writes: tuple[str, str]) -> tuple[str, str, dict]:
+    """The write ensure_job or ensure_service sends: a create while the resource is absent, else an update of the one
+    just read, under its etag."""
+    create, update = writes
+    if current:
+        return update, "PATCH", {**spec, "etag": current["etag"]}
+    return create, "POST", media.create_body(spec)
+
+
+def validate_writes(cloud: media.Cloud, job: dict, service: dict) -> None:
+    """Cloud Run's own validation of this run's job and service writes, before the run seeds its lease.
+
+    Each request is the write ensure_job or ensure_service would send for the state read now, with validateOnly, so
+    Cloud Run validates it and persists nothing. A field it refuses, as it refused the first live create's Cloud SQL
+    volume name, then fails here, where a retry can follow at once; after the seed, the lease holds every retry for
+    two hours. The refusal names the field (media.error_class).
+    """
+    for kind, path, spec, writes in (("cleanup job", JOB, job, JOB_WRITES), ("service", SERVICE, service, SERVICE_WRITES)):
+        current = cloud.call("run", "v2/" + path, missing_ok=True)
+        check_owned(current, kind)
+        write, method, body = run_write(current, spec, writes)
+        cloud.call("run", write + ("&" if "?" in write else "?") + "validateOnly=true", method=method, body=body,
+                   step=f"Cloud Run validation of the verification {kind}")
 
 
 def ensure_job(cloud: media.Cloud, spec: dict) -> None:
     current = cloud.call("run", "v2/" + JOB, missing_ok=True)
     check_owned(current, "cleanup job")
-    if current:
-        cloud.wait(cloud.call("run", "v2/" + JOB, method="PATCH", body={**spec, "etag": current["etag"]}))
-    else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST", body=spec))
+    write, method, body = run_write(current, spec, JOB_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
     media.bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+
+
+def ensure_schedule(cloud: media.Cloud) -> None:
+    """The hourly expiry cleanup, created once initialize has made the schema it cleans."""
     schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": "41 * * * *", "timeZone": "Etc/UTC",
                 "attemptDeadline": "60s", "retryConfig": {"retryCount": 0}, "httpTarget": {
                     "uri": f"https://run.googleapis.com/v2/{JOB}:run", "httpMethod": "POST", "body": "e30=",
@@ -685,6 +942,36 @@ def ensure_job(cloud: media.Cloud, spec: dict) -> None:
         raise media.OperationError("Existing verification cleanup schedule is not feature-owned")
     cloud.call("cloudscheduler", f"v1/{SCHEDULE}?updateMask=schedule,timeZone,attemptDeadline,retryConfig,httpTarget" if current else f"v1/{media.PARENT}/jobs",
                method="PATCH" if current else "POST", body=schedule)
+
+
+def ensure_service(cloud: media.Cloud, spec: dict) -> None:
+    """Create or update the isolated service and grant its invoker, refusing one this feature does not own.
+
+    It re-reads the service at the write, so a service that changed after bootstrap_gaps planned is refused or
+    written under the etag read now.
+    """
+    current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
+    check_owned(current, "service")
+    write, method, body = run_write(current, spec, SERVICE_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
+    media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+
+
+# live_runner.mjs's stages; a failure reports one with a kebab-case code from a VerificationError or check() literal.
+BROWSER_STAGES = ("manifest", "fixtures", "frontend", "browser", "cleanup", "measurement", "completion", "shutdown")
+
+
+def browser_failure(output: str) -> media.OperationError:
+    """The refusal for a runner that exited non-zero: its closed stage and code only (Ops logs are public)."""
+    try:
+        result = json.loads(output)
+    except ValueError:
+        result = None
+    if (isinstance(result, dict) and set(result) == {"status", "stage", "reason"} and result["status"] == "failed"
+            and result["stage"] in BROWSER_STAGES and isinstance(result["reason"], str)
+            and re.fullmatch(r"[a-z][a-z-]{0,39}", result["reason"])):
+        return media.OperationError(f"Live browser verification failed at {result['stage']} ({result['reason']})")
+    return media.OperationError("Verification command failed; diagnostics withheld")
 
 
 def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
@@ -717,6 +1004,8 @@ def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, 
         try:
             output = run(["node", str(Path(__file__).with_name("live_runner.mjs")), "--manifest", manifest_path,
                           "--frontend", str(ROOT / "frontend")], env=environment, timeout=900)
+        except CommandFailed as failed:
+            raise browser_failure(failed.output) from None
         finally:
             retain_artifacts(folder / "output", key, run_id, image, hashes)
         try:
@@ -733,13 +1022,19 @@ def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, 
 def provision(cloud: media.Cloud) -> None:
     run_id = os.environ.get("GITHUB_RUN_ID", "") + "-" + os.environ.get("GITHUB_RUN_ATTEMPT", "")
     deployer = os.environ.get("FEEDBACK_VERIFY_DEPLOYER", "")
-    if not RUN_PATTERN.fullmatch(run_id) or not re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]@earnings-nerd\.iam\.gserviceaccount\.com", deployer):
+    if not RUN_PATTERN.fullmatch(run_id) or not DEPLOYER_PATTERN.fullmatch(deployer):
         raise media.OperationError("Verification apply requires a first-attempt GitHub run and the configured project deployer")
     production = cloud.call("run", "v2/" + media.SERVICE)
     image, hashes = current_image(cloud, production), fingerprints()
     preflight_cloud(cloud)
+    require_media_prerequisites(cloud)
+    missing = bootstrap_gaps(cloud, deployer)
+    if missing:
+        raise media.OperationError("Verification provisioning lacks required IAM permissions for this state; nothing was "
+                                   "changed: " + ", ".join(missing))
     with sql_admin(cloud) as sql:
         sql.preflight()  # no creation until actual SQL capabilities are established
+        sql.admit()  # and production has room for the capped verifier
         key, key_version = secret(cloud, KEY_SECRET, create_value=secrets.token_urlsafe(48), deployer=deployer)
         if len(key) < 32:
             raise media.OperationError("Verification signing key does not meet its minimum length")
@@ -751,33 +1046,49 @@ def provision(cloud: media.Cloud) -> None:
         sql.provision(password, test_env)
         ensure_identity(cloud, deployer)
         versions = {KEY_SECRET: key_version, DB_SECRET: db_version}
+        # Cloud Run validates both writes before the seed, so a refused field never leaves a two-hour lease behind.
+        validate_writes(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True),
+                        runtime_spec(production, run_id, image, hashes, versions, job=False))
         settle_previous_run(cloud, sql, test_env, production)
+        lease_end = datetime.now(UTC) + timedelta(hours=2)  # taken before the seed, so never later than the lease
         seed_marker(sql, test_env, run_id, image, hashes)
         ensure_job(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True))
         execute_cleanup(cloud, initialize=True)
+        ensure_schedule(cloud)
         migration_output = run(["bash", str(ROOT / "backend/scripts/apply_migrations.sh")], env=test_env, timeout=900)
         summaries = re.findall(r"^apply_migrations: applied=\d+ skipped=\d+$", migration_output, re.MULTILINE)
         if len(summaries) != 1:
             raise media.OperationError("Isolated migration runner did not produce its completion receipt")
         print("Isolated verification database: " + summaries[0])
-        spec = runtime_spec(production, run_id, image, hashes, versions, job=False)
-        current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
-        check_owned(current, "service")
-        if current:
-            cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
-                                  body={**spec, "etag": current["etag"]}))
-        else:
-            cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST", body=spec))
-        media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+        ensure_service(cloud, runtime_spec(production, run_id, image, hashes, versions, job=False))
         origin = assert_private_service(cloud, cloud.call("run", "v2/" + SERVICE))
-        try:
-            browser(cloud, origin, key, run_id, image, hashes)
-        finally:
-            # A failed browser must leave a runnable cleanup path and durable manifests. This
-            # bounded attempt supplements the retained hourly job; it never drops either one.
-            execute_cleanup(cloud)
-        require_receipt(cloud, production)
+        await_control(cloud, origin, key, run_id)
+        browse_then_clean(cloud, origin, key, run_id, image, hashes)
+        # Production as it serves now: a deploy during the run must not leave this check on the revision it started on.
+        require_receipt(cloud, cloud.call("run", "v2/" + media.SERVICE))
     print("Isolated live verification completed; production uploads remain unchanged")
+    print(enable_deadline(lease_end))
+
+
+def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
+    """The browser, then the bounded in-run cleanup, which runs whether or not the browser passed."""
+    try:
+        browser(cloud, origin, key, run_id, image, hashes)
+    except BaseException:
+        # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt supplements
+        # the retained hourly job; a failure of its own is reported beside the browser's, never in its place.
+        try:
+            execute_cleanup(cloud)
+        except media.OperationError as cleanup_failure:
+            print(f"Verification cleanup after that failure: {cleanup_failure}")
+        raise
+    execute_cleanup(cloud)
+
+
+def enable_deadline(lease_end: datetime) -> str:
+    """The verifier scales to zero and starts only within its run's lease, so enable's receipt read must come before."""
+    return (f"Enable before {lease_end:%Y-%m-%dT%H:%MZ}: the verifier answers its receipt read only within this "
+            "run's two-hour lease, as well as within two hours of the receipt")
 
 
 def main() -> None:
@@ -788,7 +1099,22 @@ def main() -> None:
     if operation == "feedback-media-verify-apply":
         provision(cloud)
     else:
+        report_capability(cloud)
         require_receipt(cloud, cloud.call("run", "v2/" + media.SERVICE))
+
+
+def report_capability(cloud: media.Cloud) -> None:
+    """Print, read-only, what verify-apply would lack on the current state; it reports, never refuses."""
+    deployer = os.environ.get("FEEDBACK_VERIFY_DEPLOYER", "")
+    try:
+        if not DEPLOYER_PATTERN.fullmatch(deployer):
+            raise media.OperationError("the configured project deployer is unavailable")
+        missing = preflight_gaps(cloud) or bootstrap_gaps(cloud, deployer)
+    except media.OperationError as exc:
+        print(f"Capability for feedback-media-verify-apply: UNVERIFIED ({exc})")
+        return
+    print("Capability for feedback-media-verify-apply: " + ("all required permissions present" if not missing
+                                                             else "missing " + ", ".join(missing)))
 
 
 if __name__ == "__main__":

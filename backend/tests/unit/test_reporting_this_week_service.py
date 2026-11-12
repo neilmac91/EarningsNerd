@@ -21,6 +21,7 @@ from app.services.reporting_this_week_service import (
     ReportingThisWeekService,
     current_market_week,
 )
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -297,7 +298,7 @@ def _cold_burst(n, reads_return):
     def fetch(db, mon, fri, today):
         result = reads_return[min(len(reads), len(reads_return) - 1)]
         reads.append(1)
-        release_reads.wait(timeout=2)
+        release_reads.wait(timeout=HANG_GUARD_S)
         return result
 
     svc = ReportingThisWeekService()
@@ -317,7 +318,7 @@ def _cold_burst(n, reads_return):
             # Each request's first check and the first reader's recheck under the lock: all have missed
             # before any read returns, since the others wait on the lock that reader holds.
             missed = 0
-            while missed < n + 1 and checks.acquire(timeout=2):
+            while missed < n + 1 and checks.acquire(timeout=HANG_GUARD_S):
                 missed += 1
             # A request that raised before its check would look like a missing check, so its error rides along.
             assert missed == n + 1, (
@@ -327,7 +328,7 @@ def _cold_burst(n, reads_return):
             # A failed precondition still lets the held read return, so the pool's shutdown does not wait
             # out each reader's timeout in turn.
             release_reads.set()
-        return [request.result(timeout=3) for request in requests], len(reads)
+        return [request.result(timeout=HANG_GUARD_S) for request in requests], len(reads)
 
 
 def _week():
@@ -352,6 +353,15 @@ def test_failed_read_lets_the_next_waiter_retry():
     assert sorted(r["status"] for r in responses) == ["empty", "ok", "ok"]
 
 
+# The test below: a passing run's read waits for the holder to finish, which needs the event loop to run one callback
+# first; a starved runner stretches that past a second, so the pool gives it 5 s
+# (lessons/test-a-burst-pool-timeout-breaks-a-deadlock-and-detects-nothing.md). The regression it guards, a read
+# checking out on the loop, deadlocks until the pool times out at any figure. The hang guards sit beyond the pool, so
+# that regression fails on the pool's own error, a strip that does not read "ok".
+HOLDER_POOL_TIMEOUT = 5.0
+HOLDER_HANG_GUARD = 2 * HOLDER_POOL_TIMEOUT
+
+
 @pytest.mark.asyncio
 async def test_waiting_fetch_lets_another_request_release_its_connection(monkeypatch, tmp_path):
     """The route is public, so no auth dependency checks the session out off the event loop first.
@@ -363,7 +373,7 @@ async def test_waiting_fetch_lets_another_request_release_its_connection(monkeyp
         poolclass=QueuePool,
         pool_size=1,
         max_overflow=0,
-        pool_timeout=0.25,
+        pool_timeout=HOLDER_POOL_TIMEOUT,
     )
     EarningsEvent.__table__.create(engine)
     monday, _ = current_market_week()
@@ -392,7 +402,7 @@ async def test_waiting_fetch_lets_another_request_release_its_connection(monkeyp
     async def hold(db: Session = Depends(database.get_db)):
         db.connection()  # takes the pool's only connection until the request cleans up
         holder_entered.set()
-        await asyncio.wait_for(release_holder.wait(), timeout=2)
+        await asyncio.wait_for(release_holder.wait(), timeout=HOLDER_HANG_GUARD)
         return {"ok": True}
 
     try:
@@ -401,9 +411,9 @@ async def test_waiting_fetch_lets_another_request_release_its_connection(monkeyp
             base_url="http://test",
         ) as client:
             holder = asyncio.create_task(client.get("/hold"))
-            await asyncio.wait_for(holder_entered.wait(), timeout=2)
-            strip = await asyncio.wait_for(client.get("/api/reporting_this_week"), timeout=3)
-            assert (await asyncio.wait_for(holder, timeout=3)).status_code == 200
+            await asyncio.wait_for(holder_entered.wait(), timeout=HOLDER_HANG_GUARD)
+            strip = await asyncio.wait_for(client.get("/api/reporting_this_week"), timeout=HOLDER_HANG_GUARD)
+            assert (await asyncio.wait_for(holder, timeout=HOLDER_HANG_GUARD)).status_code == 200
         assert strip.status_code == 200
         assert strip.json()["status"] == "ok"
         assert [c["ticker"] for c in strip.json()["companies"]] == ["AAPL", "JPM", "MSFT", "GOOGL"]

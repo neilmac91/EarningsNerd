@@ -198,6 +198,14 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
     run.filing_type = run.filing_fields["filing_type"]
     run.filing_accession_number = run.filing_fields["accession_number"]
 
+    run.artifact_mode = run.artifact_requested and (run.filing_type or "").upper() in {
+        "10-K", "10-K/A", "10-Q", "10-Q/A", "8-K", "8-K/A",
+    }
+    if run.artifact_mode:
+        # New artifact-backed work derives a private excerpt from its verified
+        # bundle. Completed summary reads returned before admission.
+        run.rebuild_excerpt = True
+
     if (run.filing_type or "").upper().split("/")[0] == "8-K":
         # Legacy excerpts contain only the cover/current report. Every new 8-K
         # generation resolves its advertised earnings exhibits before building an

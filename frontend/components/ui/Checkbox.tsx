@@ -25,6 +25,12 @@
    The props are named, not spread, and there is no className: the app-wide
    field gate (siteChromeFocusRing.spec.ts) reads the field's classes as
    written, and a spread could replace them.
+   Unavailable but focusable (`aria-disabled`, the admin invites page's "Email
+   invites" while invitation email is held): the caller's change handler
+   returns early, so the controlled box keeps its value; the look fades the
+   edge and the check's fill, never the element, so the focus ring keeps its
+   strength (ariaDisabledKeepsItsRing.spec.ts). Native `disabled` stays for a
+   box that cannot hold focus when it turns off.
    tests/unit/checkboxRecipe.spec.tsx holds the contrast and that no page
    hand-rolls a checkbox again.
 ============================================================================= */
@@ -42,6 +48,8 @@ export interface CheckboxProps {
   'aria-label'?: string
   'aria-labelledby'?: string
   'aria-describedby'?: string
+  /** Unavailable but focusable: pair it with an early return in onChange (the controlled value then stays). */
+  'aria-disabled'?: boolean
   size?: 'sm' | 'md'
 }
 
@@ -56,6 +64,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
     'aria-label': ariaLabel,
     'aria-labelledby': ariaLabelledBy,
     'aria-describedby': ariaDescribedBy,
+    'aria-disabled': ariaDisabled,
     size = 'md',
   },
   ref,
@@ -74,11 +83,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={ariaDescribedBy}
+        aria-disabled={ariaDisabled || undefined}
         className={cx(
           'h-full w-full rounded border border-flat-light bg-panel-light text-brand-strong checked:border-transparent checked:bg-brand-strong',
           'dark:border-flat-dark dark:bg-panel-dark dark:text-brand-dark dark:checked:border-transparent dark:checked:bg-brand-dark dark:checked:[background-image:var(--check-navy)]',
           'focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
           'disabled:cursor-not-allowed disabled:opacity-50',
+          'aria-disabled:cursor-not-allowed aria-disabled:border-flat-light/50 aria-disabled:checked:bg-brand-strong/50',
+          'dark:aria-disabled:border-flat-dark/50 dark:aria-disabled:checked:bg-brand-dark/50',
         )}
       />
     </span>

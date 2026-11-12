@@ -203,7 +203,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 CI (`.github/workflows/ci.yml`): ruff + bandit + pytest; eslint + tsc + vitest; Playwright with NO
 backend; `eval-baseline` compares AI output against `backend/evals/baseline_scores.json` (advisory:
-`continue-on-error`, not a required check).
+`continue-on-error`, not a required check). The test jobs run on a ready pull request, on a push to
+main that deploys the backend, and nightly on main; a draft's push runs no test job and shows
+`e2e-tests` red, so run the local gates and mark the pull request ready to test it
+(`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`).
 `deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/` (migrations
 through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-nerd`/us-west1, job
 images), and skips a commit main has since moved past with deployable backend changes, so a guarded
@@ -218,7 +221,9 @@ deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
   Opus lens; high-risk paths (summary pipeline, Copilot, prompts, evals, entitlements and billing,
   auth, migrations and schema, SEC fetching, config, CI and deploy files, settings and workflows)
   keep the full adversarial review. Every agent stage names its model there; never put a subagent
-  on the session's premium model by default. Unsure of the tier: review as high.
+  on the session's premium model by default. Unsure of the tier: review as high. Converge in one
+  fix round: round 2 reviews only round 1's fix diff, and a later finding outside it goes to a
+  follow-up row unless it blocks (`lessons/ops-converge-a-review-in-one-fix-round.md`).
 - **Plan** briefly when work has real dependencies or architectural choices; resolve routine
   implementation choices directly and re-plan when evidence changes the approach; record open
   items in `tasks/todo.md`, one line each. Ask only when a decision needs founder input; otherwise

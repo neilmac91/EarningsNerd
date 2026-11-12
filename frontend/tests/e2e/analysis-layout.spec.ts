@@ -16,8 +16,8 @@ import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShape
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
  *
  * The trend charts are read through fixtures/trendChartDom.ts, on the spec renderer, the only one since step 7 of the
- * trend-chart migration (E195). CI's e2e-tests job runs this file and charts-v2.spec.ts, which holds the renderer's
- * keyboard and notes cases.
+ * trend-chart migration (E195). CI's browser shards (e2e-shard) run this file and charts-v2.spec.ts, which holds the
+ * renderer's keyboard and notes cases.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
@@ -1548,3 +1548,44 @@ for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const tex
     })
   })
 }
+
+/** Removes every empty inputs list from the dataset's provenance records, at every depth: the shape a stored record sent
+ *  as stored, without the list, reaches the page in (E294). */
+function dropEmptyLists(dataset: AnalysisDataset) {
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(visit)
+    if (!node || typeof node !== 'object') return
+    for (const [key, value] of Object.entries(node)) {
+      const inputs = (value as { inputs?: unknown } | null)?.inputs
+      if (key.endsWith('provenance') && Array.isArray(inputs) && !inputs.length) delete (value as { inputs?: unknown }).inputs
+      visit(value)
+    }
+  }
+  visit(dataset)
+}
+
+// E294: a calculated KPI whose inputs are themselves calculated lists their reported operands two levels down in its
+// source dialog. The legacy fixture's pruning had left those operands without an inputs list, and opening "Free cash
+// flow, Q2 2026" took the page down to its error screen. The fixture now carries the list the builders write, and the
+// page admits a missing one as the builders' empty list where the dataset enters (lib/provenanceInputs.ts): both shapes
+// open the same dialog. The completion keeps its lists: this fixture's citations whose own list is empty are reported
+// figures or legacy calculations, which NarrativePane labels without reading it, and no reader on the page opens a
+// citation's operands, so no browser case here could tell the stream's admission from none.
+// analysis-presentation-api.spec.ts proves that admission.
+test.describe('analysis source dialog / operands two levels down', () => {
+  for (const lists of ['as the builders write them', "missing from the dataset, as a stored record can send them"] as const) {
+    test(`a calculated KPI's dialog lists them, their lists ${lists}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1280, height: 900 })
+      await openAnalysis(page, baseURL!, 'legacy', 'light', 1, false, lists.startsWith('missing') ? dropEmptyLists : undefined)
+      await page.locator('[data-analysis-kpi]').getByRole('button', { name: /^Free cash flow, Q2 2026: / }).click()
+      const dialog = page.getByRole('dialog', { name: 'Free cash flow · Q2 2026' })
+      await expect(dialog).toBeVisible()
+      // Its two inputs, operating cash flow and capital expenditures, are each the six months to date less the first
+      // quarter, and under each sit its two reported operands.
+      await expect(dialog.getByText('Calculated from recorded inputs.', { exact: true })).toHaveCount(2)
+      const operands = dialog.locator('li li')
+      await expect(operands).toHaveCount(4)
+      for (const operand of await operands.all()) await expect(operand).toContainText('Reported in the source filing.')
+    })
+  }
+})

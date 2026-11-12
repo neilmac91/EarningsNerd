@@ -34,8 +34,8 @@ reach the database only through libpq's `PGOPTIONS`. An `options` setting in the
 connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any committed
 file a Cloud SQL step runs through python, bash or sh (each read from its step's command, not named by
 hand; a module, inline code, a file run with no interpreter and a path held in a variable are out of
-reach, each planted in `STEP_SCRIPT_CASES`) or in the modules that run the quarterly repair's or the lineage backfill's SQL
-would replace them, so none may exist.
+reach, each planted in `STEP_SCRIPT_CASES`) or in the modules that run the quarterly repair's, the lineage backfill's or
+complimentary access's SQL would replace them, so none may exist.
 The one connection-level event allowed is database.py's `connect` listener that runs each session
 at UTC (E151), held by running it on a recording connection: it sets the time zone and touches
 nothing else, no other statement, attribute or method.
@@ -73,8 +73,8 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BASELINE, BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PREVIEW, PROXY, QUARTERLY, REBUILD,
-    RELABEL, RESOLVE, ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
+    BASELINE, BY_NAME, COMPLIMENTARY, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PREVIEW, PROXY,
+    QUARTERLY, REBUILD, RELABEL, RESOLVE, ROOT, STEPS, cloud_sql_reach, pg_settings, selected, setting_ms, shown,
 )
 
 DB_COMMAND = re.compile(
@@ -315,7 +315,7 @@ def test_the_e28_rebuild_step_runs_for_exactly_its_operations_and_its_committed_
     assert scripts == ["scripts/rebuild_e28_window_excerpts.py"] and (ROOT / "backend" / scripts[0]).is_file()
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE, PREVIEW])
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE, BASELINE, PREVIEW, COMPLIMENTARY])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -612,11 +612,12 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     )
     # The quarterly repair and lineage backfill scripts run their SQL through their services and the fact
     # writers' lock, so those modules are read too, the repair's proxy step included (it runs no SQL, but it
-    # sits on the repair's path). database.py's additive-column DDL and subscription_service.py bound their
-    # own lock waits on purpose, and stay out.
+    # sits on the repair's path); so does the complimentary access script, through its service. database.py's
+    # additive-column DDL and subscription_service.py bound their own lock waits on purpose, and stay out.
     sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
                    ROOT / "backend/app/services/filing_lineage_repair.py",
-                   ROOT / "backend/app/services/proxy_fact_repair.py"]
+                   ROOT / "backend/app/services/proxy_fact_repair.py",
+                   ROOT / "backend/app/services/complimentary_access_service.py"]
     for path in [*scripts, *sql_modules]:
         assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (
@@ -638,11 +639,13 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     assert set(approve) == {"if", "runs-on", "timeout-minutes", "environment", "permissions", "steps"}
     assert (approve["environment"], approve["permissions"]) == ("ops-apply", {})
     assert [step.get("uses") for step in approve["steps"]] == [None], "the approval job runs no action"
-    assert ops["needs"] == "approve-apply" and "environment" not in ops
+    assert ops["needs"] == ["approve-apply", "approve-comment"] and "environment" not in ops
     listed = re.search(r"contains\('([^']*)', inputs\.operation\)", ops["if"]).group(1)
     assert set(listed.split()) == applies
     assert ops["if"] == (
-        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
+        "${{ !cancelled() && github.ref == 'refs/heads/main' && ((!inputs.beta_comment_approval "
+        "&& needs.approve-comment.result == 'skipped') || (inputs.beta_comment_approval "
+        "&& needs.approve-comment.result == 'success')) && ((needs.approve-apply.result == 'skipped' "
         f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
         "&& github.run_attempt == '1')) }}")
     assert "concurrency" not in OPS and set(ops["concurrency"]) == {"group", "cancel-in-progress"}

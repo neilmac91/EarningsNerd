@@ -1,13 +1,17 @@
 """The private verifier cannot become a production-data or arbitrary-control back door."""
 from __future__ import annotations
 
+import ast
 import hashlib
 import hmac
 import importlib.util
 import json
+import os
+import re
 from datetime import timedelta
 from pathlib import Path
 import subprocess
+import sys
 import time
 from types import SimpleNamespace
 from uuid import uuid4
@@ -50,6 +54,7 @@ def env():
     ("CORS_ORIGINS_STR", "https://production.example"), ("FEEDBACK_VERIFY_RUN_ID", "123456-2"),
     ("FEEDBACK_VERIFY_IMAGE_DIGEST", "registry.invalid:latest"), ("SECRET_KEY", "short"),
     ("RESEND_API_KEY", "unexpected-provider-credential"), ("POSTHOG_API_KEY", "unexpected-provider-credential"),
+    ("OPENAI_API_KEY", "unexpected-provider-credential"),
     ("K_SERVICE", "earningsnerd-backend"),
 ])
 def test_preview_environment_refuses_misrouting_before_application_import(key, value):
@@ -335,7 +340,7 @@ def memory():
     return {"sample_count": 10, "sample_age_seconds": .1, "unexplained_children": False,
             "last_process_count": 1, "cgroup_kernel_peak_bytes": 500000000, "cgroup_sample_peak_bytes": 400000000,
             "cgroup_memory_limit_bytes": 1073741824, "worker_limits": {"feedback_image_service": 1, "feedback_storage_worker_service": 2},
-            "self_high_water_rss_bytes": 200000000, "reaped_child_high_water_rss_bytes": 100000000}
+            "self_high_water_rss_bytes": 200000000, "worker_high_water_rss_bytes": 100000000}
 
 
 @pytest.mark.parametrize("failure", ("kernel_budget", "budget", "unknown_child", "stale", "no_samples", "unverified_limit", "missing_sample", "missing_child_bound"))
@@ -349,7 +354,7 @@ def test_resource_acceptance_never_turns_missing_or_unsafe_evidence_into_zero(fa
     evidence["cgroup_kernel_peak_bytes"] = None
     assert runtime.resource_acceptance(evidence)
     if failure == "budget":
-        evidence["reaped_child_high_water_rss_bytes"] = 500000000
+        evidence["worker_high_water_rss_bytes"] = 500000000
     elif failure == "unknown_child":
         evidence["unexplained_children"] = True
     elif failure == "stale":
@@ -361,7 +366,19 @@ def test_resource_acceptance_never_turns_missing_or_unsafe_evidence_into_zero(fa
     elif failure == "missing_sample":
         evidence["cgroup_sample_peak_bytes"] = None
     else:
-        evidence["reaped_child_high_water_rss_bytes"] = 0
+        evidence["worker_high_water_rss_bytes"] = 0
+    assert runtime.resource_acceptance(evidence) is False
+
+
+def test_the_fallback_bound_passes_the_measured_workload_once_a_worker_counts_only_its_own_peak():
+    """Measured offline on the real application (dry-run, 11 November): it peaks near 300 MiB, and the image worker
+    near 154 MiB on the 4000x4000 boundary image. ru_maxrss counted the parent's image in every child, so a bound taken
+    from it (four times the parent) could never pass when the kernel peak is not exposed."""
+    evidence = memory()
+    evidence.update(cgroup_kernel_peak_bytes=None, cgroup_sample_peak_bytes=384 * 2**20,
+                    self_high_water_rss_bytes=315002880, worker_high_water_rss_bytes=154 * 2**20)
+    assert runtime.resource_acceptance(evidence)
+    evidence["worker_high_water_rss_bytes"] = evidence["self_high_water_rss_bytes"]  # what ru_maxrss reported
     assert runtime.resource_acceptance(evidence) is False
 
 
@@ -436,3 +453,175 @@ receiptEnvelope(receipt,config);
 def test_inline_source_is_bounded_and_real_child_limits_remain_explainable():
     assert (ROOT / "ops/feedback_media/verify_runtime.py").stat().st_size <= 32768
     assert runtime.worker_limits() == {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
+
+
+def _process(root, pid, cmdline, state="S", children=(), high_water_kib=150000, name=b"python"):
+    folder = root / "proc" / str(pid)
+    (folder / "task" / str(pid)).mkdir(parents=True, exist_ok=True)
+    (folder / "statm").write_text("100 10 0 0 0 0 0\n")
+    (folder / "cmdline").write_bytes(cmdline)
+    (folder / "stat").write_bytes(b"%d (%s) %s 1 1 1 0 -1\n" % (pid, name, state.encode()))
+    # A process without an address space (exiting, or a zombie) reports no high-water mark.
+    (folder / "status").write_text("Name:\tpython\nVmPeak:\t  999999 kB\n" +
+                                   (f"VmHWM:\t  {high_water_kib} kB\n" if high_water_kib is not None else ""))
+    (folder / "task" / str(pid) / "children").write_text("".join(f"{child} " for child in children))
+
+
+@pytest.fixture
+def fake_proc(tmp_path, monkeypatch):
+    """sample() reads /proc and /sys through Path: serve those from a temporary tree, every other path as it is."""
+    monkeypatch.setattr(runtime, "Path", lambda value: Path(f"{tmp_path}{value}")
+                        if str(value).startswith(("/proc/", "/sys/")) else Path(value))
+    return tmp_path
+
+
+@pytest.mark.parametrize("child, unexplained, own_peak", [
+    ("worker", False, True),
+    ("worker leaving its address space", False, False),  # read between its argv and its high-water mark
+    ("exiting", False, False),  # mid-exec or mid-exit: no argv to read, and its state is not yet Z
+    ("exiting a second later", True, False),  # never transient: what it is cannot be told
+    ("zombie", False, False),  # exited and awaiting its reap
+    ("zombie a second later", False, False),  # still a process (counted), never an unexplained program
+    ("not yet exec'd", False, False),  # spawned: until exec, a child shows its parent's argv
+    ("not exec'd a second later", True, False),  # a fork, not a worker
+    ("exec'd as a worker", False, True),
+    ("another program", True, False),
+    ("another program with a name that is not UTF-8", True, False),  # never a read error that skips the check
+])
+def test_the_sampler_explains_a_worker_at_every_moment_of_its_life(verifier, fake_proc, child, unexplained, own_peak):
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    worker = b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                         os.fsencode(Path("app/services/feedback_image_service.py").resolve()), b""))
+    first, state = {"worker": (worker, "S"), "worker leaving its address space": (worker, "R"), "exiting": (b"", "R"),
+                    "exiting a second later": (b"", "R"), "zombie": (b"", "Z"), "zombie a second later": (b"", "Z"),
+                    "another program": (b"/bin/sh\0-c\0true\0", "S"),
+                    "another program with a name that is not UTF-8": (b"/bin/sh\0-c\0true\0", "S")}.get(child, (own, "R"))
+    _process(fake_proc, parent, own, children=[parent + 1], high_water_kib=320000)
+    _process(fake_proc, parent + 1, first, state,
+             high_water_kib=None if child.startswith(("worker leaving", "exiting", "zombie")) else 150000,
+             name=b"\xff\xfe" if child.endswith("not UTF-8") else b"python")
+    verifier.sample()
+    if child.endswith("a second later"):
+        if parent + 1 in verifier.spawning:
+            verifier.spawning[parent + 1] -= 2  # first seen two seconds ago, and still not exec'd or gone
+        verifier.sample()
+    elif child == "exec'd as a worker":
+        _process(fake_proc, parent + 1, worker)
+        verifier.sample()
+    assert verifier.resources["sample_count"] >= 1 and verifier.resources["last_process_count"] == 2
+    assert verifier.resources["unexplained_children"] is unexplained
+    # The child bound is a worker's own high-water mark: never the parent's, and never a child not yet exec'd, whose
+    # address space is still the parent's.
+    assert verifier.resources["worker_high_water_rss_bytes"] == (150000 * 1024 if own_peak else 0)
+
+
+def test_the_worker_bound_keeps_the_highest_peak_any_worker_reported(verifier, fake_proc):
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    worker = b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                         os.fsencode(Path("app/services/feedback_storage_worker_service.py").resolve()), b""))
+    for high_water_kib in (90000, 160000, 70000):
+        _process(fake_proc, parent, own, children=[parent + 1])
+        _process(fake_proc, parent + 1, worker, high_water_kib=high_water_kib)
+        verifier.sample()
+    assert verifier.resources["worker_high_water_rss_bytes"] == 160000 * 1024
+
+
+@pytest.mark.parametrize("seconds, unexplained", [(0.9, False), (1.1, True)])
+def test_a_child_that_has_not_exec_d_counts_as_a_fork_only_after_one_second(verifier, fake_proc, seconds, unexplained):
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    _process(fake_proc, parent, own, children=[parent + 1])
+    _process(fake_proc, parent + 1, own, "R")
+    verifier.sample()
+    verifier.spawning[parent + 1] -= seconds
+    verifier.sample()
+    assert verifier.resources["unexplained_children"] is unexplained
+
+
+def test_an_unexplained_child_stays_reported_after_it_is_gone(verifier, fake_proc):
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    _process(fake_proc, parent, own, children=[parent + 1])
+    _process(fake_proc, parent + 1, b"/bin/sh\0-c\0true\0")
+    verifier.sample()
+    _process(fake_proc, parent, own)  # the child has exited and been reaped
+    verifier.sample()
+    assert verifier.resources["unexplained_children"] is True and verifier.resources["last_process_count"] == 1
+
+
+def test_more_than_three_children_at_once_is_unexplained_even_if_each_is_a_worker(verifier, fake_proc):
+    """The workers' own bounds allow three at once (one image, two storage); a fourth means another launch path."""
+    parent, own = os.getpid(), b"python\0-c\0verification-source\0"
+    worker = b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                         os.fsencode(Path("app/services/feedback_storage_worker_service.py").resolve()), b""))
+    _process(fake_proc, parent, own, children=[parent + child for child in range(1, 5)])
+    for child in range(1, 5):
+        _process(fake_proc, parent + child, worker)
+    verifier.sample()
+    assert verifier.resources["unexplained_children"] is True and verifier.resources["last_process_count"] == 5
+
+
+def test_every_refusal_is_a_fixed_code():
+    """A refused start prints the refusal's text in the Cloud Run log: every Refused(...) takes one snake_case literal."""
+    tree = ast.parse((ROOT / "ops/feedback_media/verify_runtime.py").read_text())
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Refused"]
+    assert len(calls) > 20
+    assert [ast.unparse(call) for call in calls if len(call.args) != 1 or call.keywords
+            or not isinstance(call.args[0], ast.Constant) or not isinstance(call.args[0].value, str)
+            or not re.fullmatch(r"[a-z_]+", call.args[0].value)] == []
+
+
+def _service_environment(tmp_path):
+    """The environment the verification service runs with: runtime_env's values, its secrets and Cloud Run's name."""
+    spec = importlib.util.spec_from_file_location("feedback_verify_start_ops", ROOT / "ops/feedback_media/verify_manage.py")
+    manage = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / "ops/feedback_media"))
+    try:
+        spec.loader.exec_module(manage)
+    finally:
+        sys.path.remove(str(ROOT / "ops/feedback_media"))
+    fixture = env()
+    hashes = {name: fixture[variable] for name, variable in runtime.HASH_ENV.items() if name != "image_digest"}
+    image = "registry.invalid/backend@" + fixture["FEEDBACK_VERIFY_IMAGE_DIGEST"]
+    service = {row["name"]: row["value"] for row in manage.runtime_env(
+        fixture["FEEDBACK_VERIFY_RUN_ID"], image, hashes, {manage.KEY_SECRET: "1", manage.DB_SECRET: "1"}, "api")
+        if "value" in row}
+    assert service["OPENAI_API_KEY"] == ""  # every integration key is empty where the service starts
+    return {**service, **{name: fixture[name] for name in ("DATABASE_URL", "SECRET_KEY", "K_SERVICE")},
+            "PATH": os.environ["PATH"], "HOME": str(tmp_path)}
+
+
+def test_the_service_imports_the_application_in_the_environment_it_runs_with(tmp_path):
+    """openai 3.x refuses an empty key when the application imports its AI facade, and main() must still start it."""
+    script = """import sys, types, uvicorn
+verification = types.ModuleType("verification")
+exec(compile(open(sys.argv[1]).read(), sys.argv[1], "exec"), verification.__dict__)
+verification.Runtime.authority = lambda self, expired=False: None
+verification.Runtime.audit_permissions = lambda self: None
+verification.sink = lambda runtime: types.SimpleNamespace(serve_forever=lambda: None, shutdown=lambda: None,
+                                                          server_close=lambda: None)
+uvicorn.run = lambda application, **options: print(
+    "application imported:", type(application).__name__, "| model key:", __import__("os").environ["OPENAI_API_KEY"],
+    "| model endpoint:", __import__("os").environ["OPENAI_BASE_URL"],
+    "| integration keys with a value:", sorted(name for name in verification.INTEGRATIONS if __import__("os").environ.get(name)))
+verification.main()
+"""
+    result = subprocess.run([sys.executable, "-B", "-c", script, str(ROOT / "ops/feedback_media/verify_runtime.py")],
+                            cwd=ROOT / "backend", env=_service_environment(tmp_path), capture_output=True, text=True,
+                            timeout=300)
+    assert result.returncode == 0, result.stderr[-2000:]
+    # Only the model key gets a fixed non-credential value, beside the mail sink's own key; the endpoint is loopback.
+    assert ("application imported: Controls | model key: feedback-verification-no-model | model endpoint: "
+            "http://127.0.0.1:9/v1 | integration keys with a value: ['OPENAI_API_KEY', 'RESEND_API_KEY']") in result.stdout
+
+
+@pytest.mark.parametrize("case, refusal", [
+    ("misrouted database", "database_configuration"),  # a closed refusal code
+    ("unreachable database", "OperationalError"),  # any other failure: its class name, never its message
+])
+def test_a_refused_start_names_only_a_closed_code_or_class(tmp_path, case, refusal):
+    environment = _service_environment(tmp_path)
+    if case == "misrouted database":
+        environment["DATABASE_URL"] = "postgresql://owner:PRIVATE_SENTINEL@/production"
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", (ROOT / "ops/feedback_media/verify_runtime.py").read_text()],
+                            cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 1 and result.stdout == ""
+    assert result.stderr.strip() == f"Feedback verification runtime refused ({refusal})"

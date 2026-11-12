@@ -488,7 +488,10 @@ test.describe('Public collection readiness', () => {
       await page.getByRole('checkbox', { name: /agree to the/ }).check()
       await button.click()
       await expect.poll(() => state.mutations.length).toBe(1)
-      expect(state.mutations[0]).toEqual({ path: `/api/auth/${provider.toLowerCase()}/start`, body: { invite: INVITE, ...AGREEMENT } })
+      // Both sign-up buttons ask for the session handoff (#1963, E29 (5)): startOAuthWithInvite posts `handoff: true`.
+      expect(state.mutations[0]).toEqual({
+        path: `/api/auth/${provider.toLowerCase()}/start`, body: { invite: INVITE, ...AGREEMENT, handoff: true },
+      })
       expect(state.readinessRequests).toBeGreaterThanOrEqual(2)
       expect(state.blockedExternal).toEqual([])
     })

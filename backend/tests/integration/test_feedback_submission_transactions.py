@@ -23,8 +23,8 @@ from app.schemas.feedback import FeedbackCreate
 from app.services import feedback_submission_service as service
 from app.services.feedback_image_service import NormalizedFeedbackImage
 from app.services.user_account_service import delete_user
+from tests.support.hang_guard import HANG_GUARD_S
 
-HANG_GUARD_S = 5
 PAYLOAD = FeedbackCreate(type="bug", message="The chart clipped the filing text")
 
 

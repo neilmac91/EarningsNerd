@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -146,12 +147,6 @@ function headingIcons(file: string, text: string): HeadingIcon[] {
  */
 type Exemption = { file: string; place: string; heading: string; why: string }
 const NOT_SECTION_HEADINGS: Exemption[] = [
-  {
-    file: 'app/dashboard/settings/page.tsx',
-    place: '<WarningCircleIcon> before <h3>',
-    heading: 'Warning: This action is permanent',
-    why: "the delete confirmation's warning callout: its icon is the status icon a Notice carries beside its title (DESIGN_SYSTEM.md, Inline notice)",
-  },
   {
     file: 'features/dashboard/components/FeedOnboarding.tsx',
     place: '<NewspaperIcon> before <h3>',

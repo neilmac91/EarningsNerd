@@ -21,12 +21,14 @@ REQUIRED_STORAGE_PERMISSIONS = frozenset({
 # about every permission a future Google release may add. Bucket testIamPermissions rejects
 # project-only buckets.list/create and documents buckets/objects/managedFolders resources;
 # project-only and multipartUploads permissions are deliberately outside this bucket audit.
+# It also refuses the whole request (HTTP 400) when it names storage.objects.getIamPolicy or
+# storage.objects.setIamPolicy on a uniform bucket-level access bucket, which these buckets must
+# be; such a bucket has no object IAM, so neither permission is audited.
 EXCESS_STORAGE_PERMISSIONS = frozenset({
     "storage.buckets.get", "storage.buckets.update", "storage.buckets.delete",
     "storage.buckets.getIamPolicy", "storage.buckets.setIamPolicy", "storage.objects.list",
-    "storage.objects.update", "storage.objects.getIamPolicy", "storage.objects.setIamPolicy",
-    "storage.objects.restore", "storage.objects.move", "storage.objects.setRetention",
-    "storage.objects.overrideUnlockedRetention",
+    "storage.objects.update", "storage.objects.restore", "storage.objects.move",
+    "storage.objects.setRetention", "storage.objects.overrideUnlockedRetention",
 })
 
 

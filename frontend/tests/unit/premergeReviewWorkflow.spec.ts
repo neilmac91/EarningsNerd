@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Behavioural gate for `.claude/workflows/premerge-review.js` (CLAUDE.md rule 12; AGENTS.md §5).
  *
@@ -80,6 +81,22 @@
  *     tick or a hook layer later than its refuters' call reads the cap never lets that call throw at one PR's cap, so
  *     how it treats a verification that throws stays out of the case's reach (in the runtime an exhausted token
  *     budget, or a cap that other PRs in a batch filled, can still throw one);
+ *   - review rounds (AGENTS.md §5): a PR's round is 1 unless set, and a PR set to round 1 is reviewed as one with no
+ *     round, over the merge-base diff; from round 2 every lens and refuter is shown the fix diff: every `git diff`
+ *     in its prompt runs from `fixBase` to the branch head, and the prompt names the branch only as that diff's end,
+ *     in the ancestor check, in file reads and greps on the branch and in the PR's own line, so no diff or log of the
+ *     branch starts anywhere else, however its command is spelled; it is told to report a finding only in that diff
+ *     and inside the done criteria (a blocker anywhere) and, in a sentence pinned whole, to report one blocker if
+ *     `fixBase` is not an ancestor, all on the tier's whole team, and a refuter refutes a non-blocker outside the
+ *     diff or the criteria; round 3 or later shows every agent the reason, and round 4 or later the founder's go; the
+ *     verdicts are round 1's, and at rounds 2, 3 and 4 one report of each verified severity is judged on its own
+ *     refuters' answers for every combination of them; a round that is not a whole number from 1, a round without
+ *     what it needs (a `fixBase` of 7 to 40 lowercase hex characters, a stated reason, a stated go, each from its
+ *     round on, tried at its first round, the next one and round 7), a field given before its round, or a round
+ *     field set on the batch fails before any agent, for the whole batch; each lens's summary reaches the result
+ *     under its lens, at every round and whether or not the lens reports findings. Out of reach: a change that acts
+ *     only on a later round's review of more than one report, only on judging at round 5 or later, or only on a
+ *     refusal past round 7, or that tells a stated reason or go from other text;
  *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
  * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
@@ -222,7 +239,9 @@ type Result = {
   refuted: Array<{ title: string; reasons?: string[] }>
   unverified: Verdict[]
   nits: Verdict[]
+  summaries: Record<string, string>
 }
+type RoundResult = Result & { round: number }
 
 // `refuted`, a boolean or a function of the refuter's label and prompt, sets each refuter's vote; `corrected`, a
 // function of the same, gives a refuter's corrected severity. Any agent that is not a lens answers as a refuter.
@@ -921,5 +940,173 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(result.confirmed).toHaveLength(0)
     expect(result.incomplete).toBe(true)
     expect(result.mergeable).toBe(false)
+  })
+
+  it("reviews a PR set to round 1 as one with no round, over the merge-base diff, and a later round over its fix diff alone, on the tier's whole team and with round 1's verdicts, on every tier", async () => {
+    const FIX_LINES = ['git diff abc1234 origin/x --stat', 'git diff abc1234 origin/x -- <path>', 'git merge-base --is-ancestor abc1234 origin/x']
+    const REASON = 'a regression the fix made in the pinned case'
+    const GO = 'the founder allowed one more round'
+    const OUTSIDE = 'it is not a blocker and lies outside the fix diff or beyond the done criteria the PR body (or brief) states'
+    const SCOPE = 'Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.'
+    // The whole sentence, so a later round's lenses report the blocker when the fix base is off the branch, not when it is on it.
+    const NOT_AN_ANCESTOR = 'If abc1234 is not an ancestor of the head (git merge-base --is-ancestor abc1234 origin/x exits 1), report one blocker saying so and nothing else: that diff would carry changes from outside the PR.'
+    // What may come right before a later round's mention of the branch: the fix base (the fix diff's end and the
+    // ancestor check), the PR's own line, a file read and a grep on the branch. Any other mention, a diff or log of the
+    // branch from anywhere else however its command is spelled, fails.
+    const BRANCH_AFTER = ['abc1234 ', 'branch ', 'git show ', '<symbol> ']
+    const runOf = async (tier: string, extra: Record<string, unknown>) => {
+      const { agent, calls } = stub()
+      const [result] = (await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)) as RoundResult[]
+      return { calls, result }
+    }
+    const verdicts = (r: RoundResult) => [titles(r.confirmed), titles(r.refuted), titles(r.unverified), titles(r.nits), r.incomplete, r.mergeable, r.agents]
+    const LATER: Array<[number, Record<string, unknown>]> = [[2, {}], [3, { reason: REASON }], [4, { reason: REASON, founderGo: GO }], [6, { reason: REASON, founderGo: GO }]]
+    for (const tier of ['records', 'routine', 'high']) {
+      const none = await runOf(tier, {})
+      const one = await runOf(tier, { round: 1 })
+      expect(one.calls.map((c) => [c.label, c.model, c.effort, c.prompt]), tier).toEqual(none.calls.map((c) => [c.label, c.model, c.effort, c.prompt]))
+      expect(verdicts(one.result), tier).toEqual(verdicts(none.result))
+      for (const r of [none, one]) {
+        expect(r.result.round, tier).toBe(1)
+        for (const c of r.calls) {
+          expect(c.prompt, `${tier} ${c.label}`).toContain('git diff origin/main...origin/x --stat')
+          expect(c.prompt, `${tier} ${c.label}`).not.toContain('fix diff')
+          expect(c.prompt, `${tier} ${c.label}: a field left unset`).not.toContain('undefined')
+        }
+      }
+      for (const [round, extra] of LATER) {
+        const later = await runOf(tier, { round, fixBase: 'abc1234', ...extra })
+        const where = `${tier}, round ${round}`
+        expect(later.result.round, where).toBe(round)
+        // The tier's whole team on its models, efforts and schemas, and the verdicts round 1 gives on the same answers.
+        expect(later.calls.map((c) => [c.label, c.model, c.effort, c.schema]), where).toEqual(none.calls.map((c) => [c.label, c.model, c.effort, c.schema]))
+        expect(verdicts(later.result), where).toEqual(verdicts(none.result))
+        for (const c of later.calls) {
+          for (const line of FIX_LINES) expect(c.prompt, `${where} ${c.label}`).toContain(line)
+          // Both ends of every git diff: from the fix base to the branch head, never to the base or the working tree.
+          for (const m of c.prompt.matchAll(/git diff (\S+)(?: (\S+))?/g)) {
+            expect([m[1], (m[2] ?? '').replace(/[).,]+$/, '')], `${where} ${c.label}: only the fix diff`).toEqual(['abc1234', 'origin/x'])
+          }
+          for (const m of c.prompt.matchAll(/origin\/x\b/g)) {
+            const before = c.prompt.slice(0, m.index ?? 0)
+            expect(BRANCH_AFTER.some((p) => before.endsWith(p)), `${where} ${c.label}: the branch named after "${before.slice(-16)}"`).toBe(true)
+          }
+          expect(c.prompt, `${where} ${c.label}: the scope a later round reports in`).toContain(SCOPE)
+          expect(c.prompt, `${where} ${c.label}: the blocker for a fix base off the branch`).toContain(NOT_AN_ANCESTOR)
+          for (const whole of ['...origin/x', 'MERGE-BASE', 'two-dot diff']) expect(c.prompt, `${where} ${c.label}`).not.toContain(whole)
+          expect(c.prompt.includes(REASON), `${where} ${c.label}: the reason`).toBe(round >= 3)
+          expect(c.prompt.includes('The reason for this one:'), `${where} ${c.label}: the reason's sentence`).toBe(round >= 3)
+          expect(c.prompt.includes(GO), `${where} ${c.label}: the founder's go`).toBe(round >= 4)
+          expect(c.prompt.includes("The founder's go for this one:"), `${where} ${c.label}: the go's sentence`).toBe(round >= 4)
+          expect(c.prompt, `${where} ${c.label}: a field left unset`).not.toContain('undefined')
+          expect(c.prompt.includes(OUTSIDE), `${where} ${c.label}: a refuter refutes a finding outside the fix diff`).toBe(c.label.startsWith('verify:'))
+        }
+      }
+    }
+  })
+
+  it("judges a later round's report on its own refuters' answers alone, as round 1 does, at rounds 2, 3 and 4: one report of each verified severity, for every combination of those answers, on both tiers", async () => {
+    const run = load()
+    for (const [round, extra] of [[2, {}], [3, { reason: 'r' }], [4, { reason: 'r', founderGo: 'g' }]] as const) {
+      for (const tier of ['high', 'routine'] as const) {
+        const T = REFUTING[tier]
+        const args = { prs: [{ number: 1875, branch: 'claude/a-fix-branch', title: 'fix(api): the fix round', base: 'main', tier, round, fixBase: '0123abcd', ...extra }] }
+        for (const claimed of T.verify) {
+          const reports: Report[] = [{ id: '[#100]', lens: T.lenses[0], title: 'one defect', claimed, file: 'src/one.py', line: 12, detail: '[#100] one defect, in the fix diff', evidence: 'src/one.py:12 is the line it quotes' }]
+          const solo = await soloPrompts(run, args, reports)
+          for (let k = 0; k < ANSWERS.length ** T.refuters; k++) {
+            const answerOf = (r: Report, n: number) => ANSWERS[Math.floor(k / ANSWERS.length ** (reports.indexOf(r) * T.refuters + n - 1)) % ANSWERS.length]
+            const where = `round ${round}, ${tier}, claimed ${claimed}, answers ${Array.from({ length: T.refuters }, (_, n) => answerOf(reports[0], n + 1)).join(' ')}`
+            const { calls, result } = await reviewWith(run, args, reports, answerOf)
+            expect(ownVerdictProblems(T, reports, calls, result, solo, answerOf).problems, where).toEqual([])
+          }
+        }
+      }
+    }
+  })
+
+  it('refuses, before any agent starts and for the whole batch, a round it cannot run: one that is not a whole number from 1, one without what it needs, a field given before its round, or a round field set on the batch', async () => {
+    const at = (round: unknown, extra: Record<string, unknown> = {}) => ({ prs: [{ ...pr('high'), round, ...extra }] })
+    const fixed = (round: number, extra: Record<string, unknown> = {}) => at(round, { fixBase: 'abc1234', ...extra })
+    const WHOLE = /round must be a whole number from 1/
+    const refused: Array<[string, unknown, RegExp]> = [
+      ['round 0', at(0), WHOLE],
+      ['round -1', at(-1), WHOLE],
+      ['round 1.5', at(1.5), WHOLE],
+      ["round '2'", fixed(2, { round: '2' }), WHOLE],
+      ['round null', at(null), WHOLE],
+      ['round true', at(true), WHOLE],
+      ['round 2 without fixBase', at(2), /needs fixBase/],
+      ['round 3 without fixBase', at(3, { reason: 'r' }), /needs fixBase/],
+      ['round 7 without fixBase', at(7, { reason: 'r', founderGo: 'g' }), /needs fixBase/],
+      ["fixBase ''", at(2, { fixBase: '' }), /needs fixBase/],
+      ["fixBase 'main'", at(2, { fixBase: 'main' }), /needs fixBase/],
+      ['fixBase of 6 characters', at(2, { fixBase: 'abc123' }), /needs fixBase/],
+      ['fixBase of 41 characters', at(2, { fixBase: 'a'.repeat(41) }), /needs fixBase/],
+      ['fixBase in capitals', at(2, { fixBase: 'ABC1234' }), /needs fixBase/],
+      ['fixBase with an option after it', at(2, { fixBase: 'abc1234 --stat' }), /needs fixBase/],
+      ['fixBase with a newline after it', at(2, { fixBase: 'abc1234\n' }), /needs fixBase/],
+      ['fixBase a number', at(2, { fixBase: 1234567 }), /needs fixBase/],
+      ['fixBase of 7 lowercase letters, not all hex', at(2, { fixBase: 'release' }), /needs fixBase/],
+      ['round 3 without a reason', fixed(3), /needs a reason/],
+      ['round 4 without a reason', fixed(4, { founderGo: 'g' }), /needs a reason/],
+      ['round 7 without a reason', fixed(7, { founderGo: 'g' }), /needs a reason/],
+      ["reason ''", fixed(3, { reason: '' }), /needs a reason/],
+      ['reason of blanks', fixed(3, { reason: ' \t\n' }), /needs a reason/],
+      ['reason a number', fixed(3, { reason: 3 }), /needs a reason/],
+      ['round 4 without founderGo', fixed(4, { reason: 'r' }), /needs founderGo/],
+      ["founderGo ''", fixed(4, { reason: 'r', founderGo: '' }), /needs founderGo/],
+      ['founderGo of blanks', fixed(4, { reason: 'r', founderGo: '  ' }), /needs founderGo/],
+      ['founderGo a number', fixed(4, { reason: 'r', founderGo: 4 }), /needs founderGo/],
+      ['round 7 without founderGo', fixed(7, { reason: 'r' }), /needs founderGo/],
+      ['fixBase with no round', { prs: [{ ...pr('high'), fixBase: 'abc1234' }] }, /fixBase belongs to round 2 or later/],
+      ['fixBase on round 1', fixed(1), /fixBase belongs to round 2 or later/],
+      ['an empty fixBase on round 1', at(1, { fixBase: '' }), /fixBase belongs to round 2 or later/],
+      ['reason on round 2', fixed(2, { reason: 'r' }), /reason belongs to round 3 or later/],
+      ['founderGo on round 2', fixed(2, { founderGo: 'g' }), /founderGo belongs to round 4 or later/],
+      ['founderGo on round 3', fixed(3, { reason: 'r', founderGo: 'g' }), /founderGo belongs to round 4 or later/],
+      ['a round on the batch', { prs: [pr('high')], round: 2 }, /args\.round is set on the batch/],
+      ['a null round on the batch', { prs: [pr('high')], round: null }, /args\.round is set on the batch/],
+      ['fixBase on the batch', { prs: [pr('high')], fixBase: 'abc1234' }, /args\.fixBase is set on the batch/],
+      ['reason on the batch', { prs: [pr('high')], reason: 'r' }, /args\.reason is set on the batch/],
+      ['founderGo on the batch', { prs: [pr('high')], founderGo: 'g' }, /args\.founderGo is set on the batch/],
+      ['a refused PR after an allowed one', { prs: [pr('high'), { ...pr('high'), number: 2, round: 3, fixBase: 'abc1234' }] }, /needs a reason/],
+    ]
+    for (const [name, args, message] of refused) {
+      const { agent, calls } = stub()
+      await expect(load()(args, agent), name).rejects.toThrow(message)
+      expect(calls.length, name).toBe(0)
+    }
+    // Their allowed neighbours run, on the tier's whole team: a fixBase of 7 and of 40 characters, a reason, a go.
+    const allowed: Array<[string, unknown, number]> = [
+      ['fixBase of 7 characters', at(2, { fixBase: 'abc1234' }), 2],
+      ['fixBase of 40 characters', at(2, { fixBase: '0123456789abcdef0123456789abcdef01234567' }), 2],
+      ['a reason', fixed(3, { reason: 'r' }), 3],
+      ['a reason and a go', fixed(5, { reason: 'r', founderGo: 'g' }), 5],
+    ]
+    for (const [name, args, round] of allowed) {
+      const { agent, calls } = stub()
+      const [result] = (await load()(args, agent)) as RoundResult[]
+      expect(result.round, name).toBe(round)
+      expect(calls.length, name).toBe(3 + 6 * 2)
+    }
+  })
+
+  it("keeps each lens's summary in the result under its lens, where a later round's lenses put their follow-up suggestions, on every tier and round, whether or not the lens reports findings, and none for a lens that returns nothing", async () => {
+    // The first lens also reports a nit (a finding no refuter verifies), so a lens that reports keeps its summary too.
+    const NIT = FINDINGS.findings.filter((f) => f.severity === 'nit')
+    const said = (label: string): Findings => ({ findings: /:(correctness|combined)$/.test(label) ? NIT : [], summary: `follow-ups of ${label.split(':').pop()}` })
+    for (const tier of ['records', 'routine', 'high']) {
+      const lenses = tier === 'high' ? ['correctness', 'rules-and-brief', 'tests-and-gates'] : ['combined']
+      for (const extra of [{}, { round: 2, fixBase: 'abc1234' }, { round: 3, fixBase: 'abc1234', reason: 'r' }, { round: 4, fixBase: 'abc1234', reason: 'r', founderGo: 'g' }]) {
+        const { agent } = stub(undefined, { findings: said })
+        const [result] = (await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)) as RoundResult[]
+        expect(result.summaries, `${tier} ${JSON.stringify(extra)}`).toEqual(Object.fromEntries(lenses.map((l) => [l, `follow-ups of ${l}`])))
+      }
+    }
+    const { agent } = stub((label) => label.endsWith(':correctness'), { findings: said })
+    const [result] = (await load()({ prs: [pr('high')] }, agent)) as RoundResult[]
+    expect(result.summaries).toEqual({ 'rules-and-brief': 'follow-ups of rules-and-brief', 'tests-and-gates': 'follow-ups of tests-and-gates' })
+    expect(result.incomplete).toBe(true)
   })
 })

@@ -16,6 +16,75 @@
       ]
     },
     {
+      "rule": "keeps an issuer's own initialism",
+      "why": "E304: a sweep of the names the app serves (the S&P 500 and Nasdaq-100 members, the acceptance manifest and the golden sets) found 24 initialisms the rule title-cased, \"SAP SE\" reading \"Sap SE\". All but ON are in KEEP_UPPER; ON is also a word, so the next group keeps it (E307).",
+      "cases": [
+        ["SAP SE", "SAP SE"],
+        ["HSBC HOLDINGS PLC", "HSBC Holdings PLC"],
+        ["HSBC Holdings plc", "HSBC Holdings PLC"],
+        ["NIO Inc.", "NIO Inc."],
+        ["ASML HOLDING NV", "ASML Holding NV"],
+        ["KLA CORP", "KLA Corp"],
+        ["IQVIA HOLDINGS INC.", "IQVIA Holdings Inc."],
+        ["EOG RESOURCES INC", "EOG Resources Inc"],
+        ["PDD HOLDINGS INC.", "PDD Holdings Inc."],
+        ["TE CONNECTIVITY PLC", "TE Connectivity PLC"],
+        ["CF INDUSTRIES HOLDINGS, INC.", "CF Industries Holdings, Inc."],
+        ["APA CORP", "APA Corp"],
+        ["BNY MELLON", "BNY Mellon"],
+        ["BRT APARTMENTS CORP.", "BRT Apartments Corp."],
+        ["BXP, INC.", "BXP, Inc."],
+        ["CMS ENERGY CORP", "CMS Energy Corp"],
+        ["CRH plc", "CRH PLC"],
+        ["FIGS, INC.", "FIGS, Inc."],
+        ["IDEX CORP", "IDEX Corp"],
+        ["NVR INC", "NVR Inc"],
+        ["PPL CORP", "PPL Corp"],
+        ["PTC INC.", "PTC Inc."],
+        ["TKO GROUP HOLDINGS, INC.", "TKO Group Holdings, Inc."],
+        ["UDR, INC.", "UDR, Inc."]
+      ]
+    },
+    {
+      "rule": "keeps a leading initialism that is also a word upper only before its partner",
+      "why": "E307: ON is ON Semiconductor's initialism and a word elsewhere. Mid-name \"on\" is a connective, and EDGAR's company search for \"on\" (read 2026-11-03) lists 36 other names in capitals that lead with it, most as the word. LEADING_INITIALISMS keeps a name's first token upper only before its partner token, so those read as words, and On Holding AG, which EDGAR files in its own casing, stays as served.",
+      "cases": [
+        ["ON SEMICONDUCTOR CORP", "ON Semiconductor Corp"],
+        ["ON TRACK INNOVATIONS LTD", "On Track Innovations Ltd"],
+        ["ON THE BORDER CAFES INC", "On the Border Cafes Inc"],
+        ["ON THE MOVE Corp", "On the Move Corp"],
+        ["On Holding AG", "On Holding AG"]
+      ]
+    },
+    {
+      "rule": "takes a brand's own casing inside a word",
+      "why": "E307: a brand that cases its own name inside a word read flattened, EDGAR's \"FEDEX CORP\" printing \"Fedex Corp\". Each override is the casing the brand's own filings write (a 10-K or 20-F certification, the XBRL cover, or the brand's EDGAR name, read 2026-11-03), and each served name here is EDGAR's, current or former: MicroStrategy filed as \"MICROSTRATEGY INC\" until 2025-08-11, and a company row keeps the name it was created with. An override reaches every name holding its token, so an ordinary word never is one: GE HealthCare stays out, or Healthcare Services Group would read \"HealthCare\".",
+      "cases": [
+        ["AUTOZONE INC", "AutoZone Inc"],
+        ["BLACKROCK ADVISORS LLC", "BlackRock Advisors LLC"],
+        ["CENTERPOINT ENERGY INC", "CenterPoint Energy Inc"],
+        ["COSTAR GROUP, INC.", "CoStar Group, Inc."],
+        ["DAVITA INC.", "DaVita Inc."],
+        ["FACTSET RESEARCH SYSTEMS INC", "FactSet Research Systems Inc"],
+        ["FEDEX CORP", "FedEx Corp"],
+        ["FIRSTENERGY CORP", "FirstEnergy Corp"],
+        ["FREEPORT-MCMORAN INC", "Freeport-McMoRan Inc"],
+        ["KEYCORP /NEW/", "KeyCorp /NEW/"],
+        ["L3HARRIS TECHNOLOGIES, INC. /DE/", "L3Harris Technologies, Inc. /DE/"],
+        ["MARSH & MCLENNAN COMPANIES, INC.", "Marsh & McLennan Companies, Inc."],
+        ["MERCADOLIBRE INC", "MercadoLibre Inc"],
+        ["METLIFE INC", "MetLife Inc"],
+        ["MICROSTRATEGY INC", "MicroStrategy Inc"],
+        ["NEXTERA ENERGY INC", "NextEra Energy Inc"],
+        ["NISOURCE INC.", "NiSource Inc."],
+        ["PULTEGROUP INC/MI/", "PulteGroup Inc/MI/"],
+        ["RESMED INC", "ResMed Inc"],
+        ["UNITEDHEALTH GROUP INC", "UnitedHealth Group Inc"],
+        ["XPENG INC.", "XPeng Inc."],
+        ["HEALTHCARE SERVICES GROUP INC", "Healthcare Services Group Inc"]
+      ]
+    },
+    {
       "rule": "cases the body when only the legal suffix is cased",
       "why": "Live sec.gov company_tickers.json: ~1,300-1,600 of 10,412 titles are ALL CAPS except the legal suffix. A cased suffix must not exempt the shouting body in front of it.",
       "cases": [
@@ -58,7 +127,10 @@
         ["(JPMORGAN) HOLDINGS", "(JPMorgan) Holdings"],
         ["IBM, LLC", "IBM, LLC"],
         ["AT&T, INC.", "AT&T, Inc."],
-        ["BANK OF AMERICA, N.A.", "Bank of America, N.A."]
+        ["BANK OF AMERICA, N.A.", "Bank of America, N.A."],
+        ["(ON) SEMICONDUCTOR CORP", "(ON) Semiconductor Corp"],
+        ["ON SEMICONDUCTOR, CORP", "ON Semiconductor, Corp"],
+        ["L3HARRIS, INC.", "L3Harris, Inc."]
       ]
     },
     {

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { directionChip } from '@/lib/financialTone'
+import { DeltaChip } from '@/components/ui'
 import BrandEmphasis from '@/features/marketing/components/BrandEmphasis'
 
 const [supportMailbox, supportDomain] = CONTACT_ADDRESSES.support.split('@')
@@ -92,9 +92,7 @@ function AuthBrandPane() {
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Revenue</p>
               <p className="font-data text-lg font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">$416.2B</p>
             </div>
-            <div className={`rounded-full border px-2.5 py-1 font-data text-xs font-semibold tabular-nums ${directionChip.up}`}>
-              ▲ +6.4% YoY
-            </div>
+            <DeltaChip label="YoY" direction="up" tone="up" display="+6.4%" />
           </div>
         </div>
 

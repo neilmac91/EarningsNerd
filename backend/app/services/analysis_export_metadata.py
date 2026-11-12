@@ -6,7 +6,7 @@ provenance; they never recalculate or promote a legacy record to validated statu
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Context, Decimal
 import math
 import re
@@ -30,11 +30,24 @@ FCF_DEFINITION = (
     "This definition excludes finance-lease principal payments and may differ from the "
     "company's own free cash flow measure."
 )
-_FORMULA_LABELS = {
-    "year_over_year_growth": "(current - same period last year) / abs(same period last year)",
-    "quarter_over_quarter_growth": "(current quarter - previous fiscal quarter) / abs(previous fiscal quarter)",
-    "compound_annual_growth": "(last / first) ^ (1 / fiscal years between endpoints) - 1",
-    "percentage_point_change": "current percentage - comparison percentage",
+# A recorded formula in the page's words (figureDisplay.ts's FORMULAS, the evidence dialog's), key for key: one
+# vocabulary for the page, the PDF's Sources & methods and the workbook's Formula column and comments (chief design on
+# #1953). test_export_formula_words.py reads the page's words and fallback and fails where these differ.
+FORMULA_WORDS = {
+    "FY - YTD9": "Full year − first nine months",
+    "FY - (Q1 + Q2 + Q3)": "Full year − first, second and third quarters",
+    "YTD9 - YTD6": "First nine months − first six months",
+    "YTD6 - Q1": "First six months − first quarter",
+    "100 * operating_income / revenue": "Operating income ÷ revenue × 100",
+    "100 * net_income / revenue": "Net income ÷ revenue × 100",
+    "100 * gross_profit / revenue": "Gross profit ÷ revenue × 100",
+    "operating_cash_flow - abs(capital_expenditures)": "Operating cash flow − absolute cash capital expenditures",
+    "current_assets - current_liabilities": "Current assets − current liabilities",
+    "current_assets / current_liabilities": "Current assets ÷ current liabilities",
+    "year_over_year_growth": "(Current − same period last year) ÷ absolute same period last year",
+    "quarter_over_quarter_growth": "(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter",
+    "compound_annual_growth": "(Last ÷ first) to the power of (1 ÷ years from first to last) − 1",
+    "percentage_point_change": "Current percentage − comparison percentage",
 }
 # The fine print's closing line. The page's asks the reader to select a figure, which a file cannot offer, so each
 # export names where it keeps a figure's evidence instead; its words hold the surface rules data_notes' reason words
@@ -76,6 +89,14 @@ DERIVED_Q4_LEGEND = ("A Q4 header † means some flow figures are calculated fro
                      "months. It does not mark the column’s balance-sheet figures as calculated.")
 
 
+def display_date(value: date | None) -> str | None:
+    """A calendar day as the exports print it, "October 5, 2026", the day unpadded; None when absent. A datetime
+    prints its own calendar day, as stored."""
+    if value is None:
+        return None
+    return f"{value:%B} {value.day}, {value.year}"
+
+
 def display_instant(value: datetime | str | None) -> str | None:
     """An instant as the exports print it, "October 24, 2026, 20:26 UTC": the server cannot know the
     reader's zone, so the zone is named. None when absent or unreadable."""
@@ -85,11 +106,13 @@ def display_instant(value: datetime | str | None) -> str | None:
         moment = (ensure_utc(value) if isinstance(value, datetime) else utc_from_iso(str(value))).astimezone(timezone.utc)
     except ValueError:
         return None
-    return f"{moment:%B} {moment.day}, {moment.year}, {moment:%H:%M} UTC"
+    return f"{display_date(moment)}, {moment:%H:%M} UTC"
 
 
 def formula_text(formula: Any) -> str:
-    return _FORMULA_LABELS.get(str(formula), str(formula)) if formula else ""
+    """A recorded formula as the page's evidence dialog prints it (figureDisplay.ts formulaWords): its words, else its
+    stored expression with each underscore a space ("total debt / total equity"); "" where none is recorded."""
+    return FORMULA_WORDS.get(str(formula), str(formula).replace("_", " ")) if formula else ""
 
 
 def point_method(point: dict[str, Any]) -> str:
@@ -99,6 +122,44 @@ def point_method(point: dict[str, Any]) -> str:
         return str(method)
     # A legacy derived flag records calculation provenance, not validation.
     return "calculated" if point.get("derived") else "unknown"
+
+
+# A source's words are the page's. They come from its source list's label (NarrativePane.tsx's CitationList and
+# calculationWords, coherence.md §2.5's "Narrative and sources" row) and, where no method is recorded, from the clause
+# its source dialog says of a figure and of an input (SourceValue.tsx). test_export_service.py reads them from those
+# files.
+SOURCE_REPORTED = "SEC filing"
+METHOD_NOT_RECORDED = "Source method is not recorded"
+
+
+def calculation_words(provenance: Mapping[str, Any]) -> str:
+    """How a calculated source was made, keyed on its recorded reason: an empty input list alone does not prove a
+    calculation predates kept inputs."""
+    if "legacy_calculation" in (provenance.get("reasons") or []):
+        return "calculated before we kept its inputs"
+    return "calculated from filed figures" if provenance.get("inputs") else "calculated figure"
+
+
+def source_words(provenance: Mapping[str, Any] | None, fallback: str) -> str:
+    """A source's label as the page's source list prints it: how a calculated source was made, "SEC filing" for a
+    reported one, else the fallback, which for a citation is the label stored with it."""
+    method = (provenance or {}).get("method")
+    if method == "calculated":
+        return calculation_words(provenance or {})
+    return SOURCE_REPORTED if method == "reported" else fallback
+
+
+def method_words(point: Mapping[str, Any]) -> str:
+    """A figure's method in Sources & methods: the source list's words, first letter raised like the appendix's other
+    parts. A figure with no provenance reads as the page's dialog reads it: a calculation with no recorded inputs where
+    its legacy derived flag says so, otherwise no recorded method. A gap, a period with no figure and nothing recorded
+    (export_points' stand-in), has no method to name: empty, as the page draws a dash and opens no dialog."""
+    provenance = point.get("provenance")
+    if provenance is None and not point.get("derived") and point.get("value") is None:
+        return ""
+    words = (source_words(provenance, METHOD_NOT_RECORDED) if provenance is not None
+             else calculation_words({}) if point.get("derived") else METHOD_NOT_RECORDED)
+    return words[:1].upper() + words[1:]
 
 
 def point_notes(point: dict[str, Any], note: dict[str, Any] | None = None) -> list[str]:

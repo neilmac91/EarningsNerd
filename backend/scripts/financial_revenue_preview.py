@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """E264 step (2): a read-only preview of each financial company's stored revenue rows against the deployed rule.
 
-Since E264's deploy (#1913) a financial filer's companyfacts revenue is its reported total, never its ASC 606 fee
-line, and since E286's (#1938) the rule reads every total element a filer tags. Rows stored before E286's deploy keep
-an older reading, since both fact writers skip a stored identity. For each financial company synced since E286's
-deploy, this reads SEC's current companyfacts once and computes what the
-deployed rule writes with the deployed pure functions, never a copy: ``normalize_companyfacts`` (the batch and its
-own-report history), ``financial_revenue_tags`` (the company's tag choice), ``extract_authoritative_values`` with
-``cross_check_facts`` (the per-filing writer's verdict), ``admitted_items`` with ``own_period_ends`` (what an
-accession reported itself), ``quarterly_fact_repair._validate_payload`` (the payload names the company) and the
-sync's own currency test. It reads the company's revenue and margin rows from both writers, with their filings, and
-sorts each row into at most one feed set and, for a per-filing revenue row, one per-filing verdict.
+Since E264's deploy (#1913) a financial filer's companyfacts revenue is its reported total, never its ASC 606 fee line,
+and since E286's (#1938) the rule reads every total element a filer tags. Rows stored before E286's deploy keep an older
+reading, since both fact writers skip a stored identity. For each financial company synced since E286's deploy, this
+reads SEC's current companyfacts once and computes what the deployed rule writes with the deployed pure functions, never
+a copy: ``normalize_companyfacts`` (the batch and its own-report history), ``financial_revenue_tags`` (the company's tag
+choice), ``extract_authoritative_values`` with ``cross_check_facts`` (the per-filing writer's verdict),
+``admitted_items`` with ``own_period_ends`` (what an accession reported itself),
+``quarterly_fact_repair._validate_payload`` (the payload names the company) and ``currency._another_currency`` (which
+gates no sync since E198; here it leaves a company out). It reads the company's revenue and margin rows from both
+writers, with their filings, and sorts each row into at most one feed set and, for a per-filing revenue row, one
+per-filing verdict.
 
 An identity is a row's concept, period end, fiscal period, unit and accession; its key is the same without the
 accession. A gap is |a - b| / max(|a|, |b|). A feed row has no filing owner. The choice is the tags the deployed
@@ -39,12 +40,13 @@ attempt included, can still run the old image. Census set 8 splits at the same i
 since the deploy from an earlier one, when no service can (only the services sync companyfacts); tasks/todo.md, E264,
 says how each was read.
 
-Outcomes per company (OUTCOMES): previewed; pending_resync (synced before the deploy, no SEC read: step (1)'s rest
-of the cohort); not_financial; fetch_failed; payload_rejected; unsupported_ifrs; another_currency (the sync's
-currency step would run, which this does not model); database_error; internal_error; not_run (left by a stop).
-Output: a flushed start line before any SEC read, one line per company, then the summary line; the report at
---output holds all of them and every listed row. Failures print a closed class only, and app log records are
-withheld while it runs, since they can carry an exception's text: the Ops log and its artifact are public.
+Outcomes per company (OUTCOMES): previewed; pending_resync (synced before the deploy, no SEC read: step (1)'s rest of
+the cohort); not_financial; fetch_failed; payload_rejected; unsupported_ifrs; another_currency (the payload or a stored
+row of its concepts reads another currency, where the currency step's by-currency parts act: this does not model them;
+every sync runs the step since E198); database_error; internal_error; not_run (left by a stop). Output: a flushed start
+line before any SEC read, one line per company, then the summary line; the report at --output holds all of them and
+every listed row. Failures print a closed class only, and app log records are withheld while it runs, since they can
+carry an exception's text: the Ops log and its artifact are public.
 
 Read-only and bounded. The Ops step (financial-revenue-preview) fixes PGOPTIONS to read-only and checks them with
 psql first. Here, before the cohort read and in each company's session, a PostgreSQL session must report

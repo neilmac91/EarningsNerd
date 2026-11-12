@@ -424,8 +424,8 @@ sends) is a clean miss, logged at INFO with the masked recipient, the id and the
 `earningsnerd-retention-purge` (weekly; `scripts/retention_purge.py`, ad hoc through
 `POST /internal/jobs/retention-purge?dry_run=true|false`) applies the clocked rows of
 `DATA_RETENTION_POLICY.md`: search history older than 365 days, failed-login state untouched for
-7 days and not locked, expired OAuth states, refresh tokens expired or revoked more than 30 days
-ago, contact-form submissions older than 365 days. Deletes run in batches of 5,000 committed
+7 days and not locked, expired OAuth states, expired OAuth session handoffs (E29 (5)), refresh
+tokens expired or revoked more than 30 days ago, contact-form submissions older than 365 days. Deletes run in batches of 5,000 committed
 one at a time; the job ledger row (`earningsnerd_job_runs`, `job_name = 'retention-purge'`)
 carries `<target>_purged` counts and `dry_run`. Nothing user-facing changes: every qualifying
 row is already invisible or unusable. Account deletion for inactivity, waitlist and referral
@@ -622,9 +622,15 @@ controls. Signup is where an account's holder accepts the account requirements, 
 creates one: `POST /api/admin/users/free` answers 409 and creates nothing. While
 `REGISTRATION_MODE` is `invite_only`, an admin first mints an invitation bound to that address
 (`POST /api/admin/invites` with `email`) and hands over the response's `invite_link`, which is
-shown once. Asking the mint to email it answers 503 while promotional mail stays closed
-(`legal_readiness_service.is_marketing_available()`), and the mint and signup both answer 503
-while new collection is closed (`is_collection_available()`).
+shown once. Asking the mint to email it (`send_email: true`) answers 503 while invitation email
+is held (`legal_readiness_service.is_invitation_email_available()`: collection or the
+invited-cohort exception, the `LEGAL_INVITATION_EMAIL_ENABLED` switch, `RESEND_API_KEY` and a
+usable `RESEND_WEBHOOK_SECRET`), and 422 without the recipient's recorded request (`permission`);
+promotional mail stays closed either way (`is_marketing_available()`). The mint and signup both
+answer 503 while new collection is closed (`is_collection_available()`), unless the invited-cohort
+exception is open, which admits only an invitation bound to its address and in its cohort (the mint
+answers 422 for any other). `docs/LEGAL_READINESS.md` has the steps that turn invitation email
+and that exception on.
 
 New checkout is closed in code today: `legal_readiness_service.is_checkout_available()`
 returns False, so `POST /api/subscriptions/create-checkout-session` answers 503. Once it
@@ -663,6 +669,10 @@ Located in `backend/scripts/`:
 - `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+- `complimentary_access.py` - Grant or revoke complimentary Pro for invited private-beta accounts from a private
+  manifest (PB-02): `fingerprint` and `check` run offline; `dry-run` writes nothing; `apply --confirm-digest`
+  runs only the manifest its dry run reported; `readout` counts grants, reviews due and drift. Every report
+  is safe for a public log. Procedure, manifest and end-date rules: `docs/ops/complimentary-access.md`
 
 ### Review gate (rule 12 for the review-wait lesson)
 
@@ -753,8 +763,15 @@ blocked; a pull request required with **zero** approvals and squash as the only 
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
 `lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app. The founder
 removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and gallery specs now run
-unconditionally in `e2e-tests`, and E195 deletes the duplicate job; no bypass actors, so the rules
-bind the administrator too. A required status check needs no approver, so this does not lock a
+unconditionally in the browser suite, and E195 deletes the duplicate job. Since 2026-11-04 (#1990)
+that suite runs as five `e2e-shard` jobs, and `e2e-tests`, which always runs, passes only when every
+shard passed. A shard skips its build and tests, and passes, when `ci-scope` finds that the change
+touches no file a browser check reads: records, and `backend/` or `ops/` files other than the three
+the frontend reads (`docs/ops/actions-cost-plan-2026-11.md`); `lighthouse` does the same. On a draft
+pull request the test jobs skip and `e2e-tests` fails, so a draft never shows the seven checks green;
+the ready mark starts the run that tests the head
+(`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`). There are no bypass actors, so the rules bind the administrator too. A required status
+check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
 their own pull requests, and the GitHub default `require_extra_approval_for_unattributed_changes` is
 switched off for the same reason (agent commits are authored as `noreply@anthropic.com`). When the

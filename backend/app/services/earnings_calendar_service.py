@@ -21,7 +21,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_
@@ -197,6 +197,68 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return {(t or "").upper(): int(n) for t, n in rows if t}
 
 
+_EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit
+
+_SKIP_NON_MEMBER = "non_member"
+
+
+def _ingest_key(
+    row: Any, *, members: Optional[frozenset[str]], today: date,
+) -> tuple[Optional[tuple[str, date, date]], Optional[str]]:
+    """``((ticker, fiscal_period_end, report_date), None)`` for an AV row ``ingest_alpha_vantage``
+    upserts, or ``(None, reason)`` for one it skips. The pass and its prefetch both read rows
+    through this one function, so the prefetch loads exactly the keys the pass looks up: a narrower
+    prefetch would make the pass insert a second row for a stored key and fail the run's commit.
+    """
+    ticker = (getattr(row, "symbol", "") or "").upper()
+    fpe = getattr(row, "fiscal_period_end", None)
+    if not ticker or fpe is None:
+        return None, "unkeyed"  # need a fiscal period to key on (uniqueness invariant)
+    if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+        return None, _SKIP_NON_MEMBER  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
+    new_date = getattr(row, "report_date", None)
+    if new_date is None or new_date < today:
+        return None, "past"
+    return (ticker, fpe, new_date), None
+
+
+def _events_by_key(
+    db: Session, rows: list[Any], *, members: Optional[frozenset[str]], today: date,
+) -> dict[tuple[str, date], EarningsEvent]:
+    """The stored events ``ingest_alpha_vantage`` can key on, by ``(ticker, fiscal_period_end)``.
+
+    Collects the keys of the rows the pass will look up (``_ingest_key``, as the pass does) and
+    reads their events in a few ``ticker IN (...) AND fiscal_period_end IN (...)`` queries. The IN
+    pair also returns rows no key reaches (a key's ticker with another key's period); the map's
+    two-part key keeps them out of every lookup. A row ``_ingest_key`` cannot read is skipped here:
+    the pass meets it and raises there, at the same row as before. A key's event is the row the
+    per-row ``WHERE ticker = ? AND fiscal_period_end = ?`` SELECT returned (one at most, by
+    ``uq_earnings_events_ticker_period``), and the session's identity map makes it the same object.
+    """
+    tickers: set[str] = set()
+    periods: set[date] = set()
+    for row in rows:
+        try:
+            keyed, _ = _ingest_key(row, members=members, today=today)
+        except Exception:  # noqa: BLE001 — the pass raises on this row; the prefetch only skips it
+            continue
+        if keyed is not None:
+            tickers.add(keyed[0])
+            periods.add(keyed[1])
+    by_key: dict[tuple[str, date], EarningsEvent] = {}
+    if not tickers:
+        return by_key
+    ordered = sorted(tickers)
+    for start in range(0, len(ordered), _EVENT_LOOKUP_CHUNK):
+        events = db.query(EarningsEvent).filter(
+            EarningsEvent.ticker.in_(ordered[start:start + _EVENT_LOOKUP_CHUNK]),
+            EarningsEvent.fiscal_period_end.in_(periods),
+        )
+        for event in events:
+            by_key[(event.ticker, event.fiscal_period_end)] = event
+    return by_key
+
+
 def ingest_alpha_vantage(
     db: Session,
     rows: Iterable,
@@ -216,48 +278,46 @@ def ingest_alpha_vantage(
     if stats is None:
         stats = RefreshStats()  # solo callers/tests: keep the counter bumps unconditional
     members = index_membership_service.active_member_filter()
+    rows = list(rows)
+    # One chunked read of every existing event a row can key on, instead of one SELECT per row
+    # (~6k a day), keyed by the same _ingest_key the loop reads rows through. The loop is unchanged
+    # otherwise: each insert still flushes at once, so where an error stops the pass stays as before.
+    by_key = _events_by_key(db, rows, members=members, today=today)
     upserted = 0
     for row in rows:
-        ticker = (getattr(row, "symbol", "") or "").upper()
-        fpe = getattr(row, "fiscal_period_end", None)
-        if not ticker or fpe is None:
-            continue  # need a fiscal period to key on (uniqueness invariant)
-        if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+        keyed, skipped = _ingest_key(row, members=members, today=today)
+        if skipped == _SKIP_NON_MEMBER:
             stats.skipped_non_member += 1
-            continue  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
-        new_date = getattr(row, "report_date", None)
-        if new_date is None or new_date < today:
+        if keyed is None:
             continue
-        existing = (
-            db.query(EarningsEvent)
-            .filter(EarningsEvent.ticker == ticker, EarningsEvent.fiscal_period_end == fpe)
-            .first()
-        )
+        ticker, fpe, new_date = keyed
+        existing = by_key.get((ticker, fpe))
         # Precedence: a provider estimate must never overwrite ground truth (reported) OR a
         # confirmed row (a source with a real confirmation flag outranks an AV estimate).
         if existing is not None and existing.status in (STATUS_REPORTED, STATUS_CONFIRMED):
             existing.last_seen_at = now
             continue
         if existing is None:
-            db.add(
-                EarningsEvent(
-                    ticker=ticker,
-                    company_name=getattr(row, "company_name", None),
-                    fiscal_period_end=fpe,
-                    event_date=new_date,
-                    event_time=getattr(row, "event_time", None),
-                    status=STATUS_ESTIMATED,
-                    confidence=CONFIDENCE_MEDIUM,
-                    eps_estimate=getattr(row, "eps_estimate", None),
-                    source=SOURCE_ALPHA_VANTAGE,
-                    first_seen_at=now,
-                    last_seen_at=now,
-                )
+            created = EarningsEvent(
+                ticker=ticker,
+                company_name=getattr(row, "company_name", None),
+                fiscal_period_end=fpe,
+                event_date=new_date,
+                event_time=getattr(row, "event_time", None),
+                status=STATUS_ESTIMATED,
+                confidence=CONFIDENCE_MEDIUM,
+                eps_estimate=getattr(row, "eps_estimate", None),
+                source=SOURCE_ALPHA_VANTAGE,
+                first_seen_at=now,
+                last_seen_at=now,
             )
-            # Flush so this row is visible to later existence checks in the SAME transaction —
-            # SessionLocal is autoflush=False, so without this the EDGAR pass (and a repeated
-            # (ticker, fpe) later in this run) wouldn't see it and would INSERT a duplicate, making
-            # the final commit raise on the unique constraint and lose the whole day's ingest.
+            db.add(created)
+            # A repeated (ticker, fpe) later in this run updates this row, as the per-row SELECT
+            # found it once flushed.
+            by_key[(ticker, fpe)] = created
+            # Each insert is flushed at once, so a row that cannot be read stops the pass with the
+            # inserts before it, and the updates before them, written. An update after the file's
+            # last insert stays pending: each later step flushes before it reads (E306).
             db.flush()
         else:
             if existing.event_date != new_date:
@@ -289,6 +349,11 @@ def ingest_edgar_reported(
     now = datetime.now(timezone.utc)
     if stats is None:
         stats = RefreshStats()  # keeps the counter bumps unconditional; discarded for solo callers
+    # The attach queries below read rows, not this session's pending changes (autoflush is off): write
+    # them first. The Alpha Vantage pass leaves an update after the file's last insert pending, and the
+    # query would otherwise look for that row at its old date and skip its hit as having no prior row,
+    # also when the pass stopped at a row it could not read (E306).
+    db.flush()
     members = index_membership_service.active_member_filter()
     reported = 0
     for hit in hits:
@@ -382,6 +447,10 @@ def downgrade_stale_estimates(db: Session, *, today: date) -> int:
     the 8-K wasn't seen (strategy §3.5). Drop them to low confidence so the UI can frame the date
     as "may move" if the row resurfaces; they stay ``estimated`` and a later provider pass or 8-K
     still updates them. Bulk UPDATE; returns the number of rows downgraded."""
+    # The bulk UPDATE reads rows, not this session's pending changes (autoflush is off): write them
+    # first, so a row this run moved into the future or reported is not read, counted and set low as a
+    # stale estimate (E306).
+    db.flush()
     updated = (
         db.query(EarningsEvent)
         .filter(

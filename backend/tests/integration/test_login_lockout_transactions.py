@@ -18,6 +18,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 from app.database import Base, SessionLocal
 from app.models import LoginAttempt
 from app.services import login_lockout as lockout
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -64,7 +65,7 @@ def _seed(engine, email, scenario):
 def test_parallel_failures_count_every_commit_across_initial_and_reset_states(postgres_engine, scenario):
     email = f"ghost-{uuid.uuid4().hex}@example.com"
     _seed(postgres_engine, email, scenario)
-    first_writes = threading.Barrier(3, timeout=5)
+    first_writes = threading.Barrier(3, timeout=HANG_GUARD_S)
     local = threading.local()
 
     def before_write(conn, cursor, statement, parameters, context, executemany):
@@ -85,7 +86,7 @@ def test_parallel_failures_count_every_commit_across_initial_and_reset_states(po
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [pool.submit(fail_login) for _ in range(3)]
             for future in futures:
-                future.result(timeout=6)
+                future.result(timeout=HANG_GUARD_S + 10)  # above the barrier's, which a thread waits out inside it
     finally:
         event.remove(postgres_engine, "before_cursor_execute", before_write)
     with _session(postgres_engine) as db:
@@ -123,14 +124,14 @@ def test_failure_waiting_on_success_clear_records_against_committed_state(postgr
             with ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(fail_login)
                 try:
-                    assert entered.wait(5), "failure did not reach its database write"
+                    assert entered.wait(HANG_GUARD_S), "failure did not reach its database write"
                     assert not finished.wait(0.1), "failure passed an uncommitted clear"
                 finally:
                     if commit_clear:
                         success.commit()
                     else:
                         success.rollback()
-                future.result(timeout=6)
+                future.result(timeout=HANG_GUARD_S)
         finally:
             event.remove(postgres_engine, "before_cursor_execute", before_write)
     with _session(postgres_engine) as db:

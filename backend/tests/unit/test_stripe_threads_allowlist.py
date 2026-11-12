@@ -94,6 +94,12 @@ from app.services import logging_service
 from main import app
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+# The portal case's usage read. The held portal requests run under the middleware's 30 s default deadline, counted
+# from their start, and the case's 10 s poll comes first: together they stay 5 s under it, so a slow but correct run
+# is not answered 504.
+USAGE_READ_S = 15.0
+# The portal case's Stripe calls hold past its 10 s poll and that read together, so only the test releases them.
+STRIPE_HOLD_S = 10 + USAGE_READ_S + 10
 
 
 _ON_STRIPE_THREADS = "run_on_stripe_threads"
@@ -799,7 +805,7 @@ async def test_portal_sessions_held_in_stripe_leave_the_default_worker_threads_f
         with lock:
             in_stripe.append((threading.current_thread().name, logging_service.get_correlation_id()))
         # Bounded, so a failing run still ends.
-        assert release.wait(20), "the test never released Stripe"
+        assert release.wait(STRIPE_HOLD_S), "the test never released Stripe"
         return SimpleNamespace(url="https://portal.stripe.test/s")
 
     class PortalSessions:
@@ -842,7 +848,7 @@ async def test_portal_sessions_held_in_stripe_leave_the_default_worker_threads_f
         await asyncio.sleep(0.1)
         assert len(in_stripe) == 8, f"{len(in_stripe)} Stripe calls ran at once, not the eight Stripe threads"
         assert current_default_thread_limiter().statistics().borrowed_tokens == 0
-        usage = await asyncio.wait_for(call("GET", "/api/subscriptions/usage", "usage"), timeout=5)
+        usage = await asyncio.wait_for(call("GET", "/api/subscriptions/usage", "usage"), timeout=USAGE_READ_S)
         assert usage.status_code == 200, usage.text
         assert not release.is_set() and len(in_stripe) == 8
     finally:

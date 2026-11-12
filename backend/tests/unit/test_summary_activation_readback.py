@@ -41,6 +41,8 @@ def test_real_service_reader_reports_exact_config_without_echoing_credentials(re
         {"name": "SUMMARY_PREWARM_MAX_PER_DAY", "value": "0"},
         {"name": "SEC_DISTRIBUTED_WAIT_SECONDS", "value": "10.0"},
         {"name": "INTERNAL_JOB_TOKEN", "value": SENTINEL},
+        {"name": "FILING_SOURCE_ARTIFACTS_ENABLED", "value": "false"},
+        {"name": "FILING_SOURCE_ARTIFACTS_BUCKET", "value": SENTINEL},
     ]
     reads = _readbacks(revision, job, worker, worker_revision, policy)
     _metadata(reads)
@@ -54,6 +56,9 @@ def test_real_service_reader_reports_exact_config_without_echoing_credentials(re
     assert runtime["fields"]["SEC_DISTRIBUTED_WAIT_SECONDS"]["value"] == 10
     assert runtime["fields"]["SUMMARY_NEW_JOBS_PAUSED"] == {"state": "not_set_image_default_unverified"}
     assert runtime["internal_job_token"] == {"state": "literal", "nonempty_literal": True}
+    assert runtime["fields"]["FILING_SOURCE_ARTIFACTS_ENABLED"] == {"state": "literal", "value": False}
+    assert runtime["fields"]["FILING_SOURCE_ARTIFACTS_BUCKET"] == {"state": "literal_value_withheld", "nonempty_literal": True}
+    assert "Presence-only fields do not prove validity, resource existence, IAM, storage access or readiness" in runtime["limit"]
     schedule = _line(output, "Activation configuration summary-recovery-minute: ")
     assert schedule["schedule"] == "* * * * *" and schedule["time_zone"] == "Etc/UTC"
     assert schedule["post_target_matches"] and schedule["internal_token_header_present"] and schedule["oidc_present"]
@@ -123,6 +128,7 @@ def test_summary_lane_readback_withholds_unknown_duplicate_and_secret_values(fie
     "SUMMARY_DURABLE_GENERATION_ENABLED", "SUMMARY_NEW_JOBS_PAUSED", "SUMMARY_JOB_MAX_ATTEMPTS",
     "SUMMARY_PREWARM_MAX_PER_SCAN", "SEC_DISTRIBUTED_LIMIT_ENABLED", "SEC_DISTRIBUTED_WAIT_SECONDS",
     "DURABLE_TASKS_ENABLED", "TASKS_WORKER_PROCESS",
+    "FILING_SOURCE_ARTIFACTS_ENABLED",
 ])
 def test_malformed_activation_values_never_escape_the_complete_renderer(resources, name):
     service, revision, job, worker, worker_revision, policy = resources
@@ -130,6 +136,32 @@ def test_malformed_activation_values_never_escape_the_complete_renderer(resource
     output, exit_, _ = _execute(service, _readbacks(revision, job, worker, worker_revision, policy))
     assert exit_ is None and SENTINEL not in output
     assert _line(output, "Summary/SEC runtime configuration: ")["fields"][name] == {"state": "invalid_withheld"}
+
+
+@pytest.mark.parametrize("field", ["FILING_SOURCE_ARTIFACTS_ENABLED", "FILING_SOURCE_ARTIFACTS_BUCKET"])
+@pytest.mark.parametrize("kind,expected", [
+    ("missing", "not_set_image_default_unverified"), ("invalid_type", "invalid_withheld"),
+    ("secret_v1", "secret_ref_unresolved"), ("secret_v2", "secret_ref_unresolved"),
+    ("duplicate", "duplicate_unresolved"),
+])
+def test_artifact_controls_preserve_absent_and_unresolved_states(field, kind, expected):
+    from ops.describe.summary_configuration import runtime_configuration
+    entry = {"name": field, "value": True if kind == "invalid_type" else SENTINEL}
+    if kind.startswith("secret"):
+        entry["valueFrom" if kind == "secret_v1" else "valueSource"] = {"secretKeyRef": {"name": SENTINEL}}
+    entries = [] if kind == "missing" else [entry, entry] if kind == "duplicate" else [entry]
+    runtime = runtime_configuration(entries)
+    assert runtime["fields"][field] == {"state": expected}
+    assert SENTINEL not in json.dumps(runtime)
+
+
+@pytest.mark.parametrize("value,nonempty", [("", False), ("source-fixture", True), (SENTINEL, True), (" ", True)])
+def test_source_bucket_literal_reports_presence_without_validating_or_exposing_name(value, nonempty):
+    from ops.describe.summary_configuration import runtime_configuration
+    runtime = runtime_configuration([{"name": "FILING_SOURCE_ARTIFACTS_BUCKET", "value": value}])
+    assert runtime["fields"]["FILING_SOURCE_ARTIFACTS_BUCKET"] == {"state": "literal_value_withheld", "nonempty_literal": nonempty}
+    assert "source-fixture" not in json.dumps(runtime) and SENTINEL not in json.dumps(runtime)
+    assert "validity, resource existence, IAM, storage access or readiness" in runtime["limit"]
 
 
 @pytest.mark.parametrize("defect", ["PERMISSION_DENIED", "NOT_FOUND", "UNAVAILABLE", "timeout", "missing"])
@@ -172,11 +204,16 @@ def test_same_projection_covers_known_jobs_and_secret_duplicate_or_out_of_range_
             {"name": "SUMMARY_JOB_MAX_ATTEMPTS", "value": "9"},
             {"name": "SUMMARY_JOB_LEASE_SECONDS", "valueFrom": {"secretKeyRef": {"name": SENTINEL}}},
             {"name": "SUMMARY_PREWARM_MAX_PER_DAY", "value": "0"},
+            {"name": "FILING_SOURCE_ARTIFACTS_ENABLED", "value": "true"},
+            {"name": "FILING_SOURCE_ARTIFACTS_BUCKET", "value": SENTINEL},
         ]
     output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
     assert exit_ is None and output.count('"SUMMARY_DURABLE_GENERATION_ENABLED": {"state": "literal", "value": true}') == 9
     assert output.count('"SUMMARY_JOB_MAX_ATTEMPTS": {"state": "invalid_withheld"}') == 9
     assert output.count('"SUMMARY_JOB_LEASE_SECONDS": {"state": "secret_ref_unresolved"}') == 9
+    assert output.count('"FILING_SOURCE_ARTIFACTS_ENABLED": {"state": "literal", "value": true}') == 9
+    assert output.count('"FILING_SOURCE_ARTIFACTS_BUCKET": {"nonempty_literal": true, "state": "literal_value_withheld"}') == 9
+    assert SENTINEL not in output
     # Duplication is already a hard failure in both owners; the pure projection also refuses ambiguity.
     from ops.describe.summary_configuration import runtime_configuration
     assert runtime_configuration([

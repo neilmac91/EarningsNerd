@@ -72,6 +72,9 @@ os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_stripe_webhook_12345"
 # Skip Redis initialization in tests - prevents 3+ second timeout per test
 os.environ["SKIP_REDIS_INIT"] = "true"
 os.environ["SEC_DISTRIBUTED_LIMIT_ENABLED"] = "false"
+# Source artifacts must remain opt-in even when a developer configured a private bucket locally.
+os.environ["FILING_SOURCE_ARTIFACTS_ENABLED"] = "false"
+os.environ["FILING_SOURCE_ARTIFACTS_BUCKET"] = ""
 
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
@@ -79,6 +82,8 @@ os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 # Readiness tests start closed regardless of a developer's published operator configuration.
 # Legacy registration/collection tests opt into the synthetic notice with collection_ready.
 os.environ["LEGAL_COLLECTION_ENABLED"] = "false"
+# Invitation email (EN-BETA PB-01) starts held, whatever a developer's backend/.env says; mail_ready opens it.
+os.environ["LEGAL_INVITATION_EMAIL_ENABLED"] = "false"
 os.environ["LEGAL_OPERATOR_PUBLISHED"] = "false"
 for _legal_field in ("NAME", "POSTAL_ADDRESS", "COUNTRY", "EMAIL"):
     os.environ["LEGAL_OPERATOR_" + _legal_field] = ""

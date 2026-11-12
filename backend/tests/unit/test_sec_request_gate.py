@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.exc import OperationalError, TimeoutError as PoolTimeoutError
 
 from app.services import sec_request_gate as gate
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 @pytest.fixture
@@ -115,7 +116,7 @@ async def test_cancelled_waiter_cannot_send_after_db_finishes(enabled, monkeypat
 
     def blocked_grant():
         entered.set()
-        assert release.wait(3), "test did not release its DB fixture"
+        assert release.wait(HANG_GUARD_S), "test did not release its DB fixture"
         return gate.AdmissionDecision(0, datetime.now(timezone.utc))
 
     monkeypatch.setattr(gate, "_get_gate", lambda: SimpleNamespace(try_grant=blocked_grant))
@@ -125,7 +126,7 @@ async def test_cancelled_waiter_cannot_send_after_db_finishes(enabled, monkeypat
             transport=httpx.MockTransport(send), **gate.sec_request_options(),
         ) as client:
             pending = asyncio.create_task(client.get("https://fixture.invalid/document"))
-            async with asyncio.timeout(2):
+            async with asyncio.timeout(HANG_GUARD_S):
                 while not entered.is_set():
                     await asyncio.sleep(0)
             # A second async attempt cannot submit an unbounded queued DB unit.
@@ -206,7 +207,7 @@ async def test_disconnect_does_not_discard_already_observed_feedback(enabled, mo
         try_defer=lambda hint: persisted.append(hint.seconds) or True,
     ))
     caller = asyncio.create_task(gate.record_response_async(429, "60"))
-    await asyncio.wait_for(entered.wait(), timeout=2)
+    await asyncio.wait_for(entered.wait(), timeout=HANG_GUARD_S)
     caller.cancel()
     with pytest.raises(asyncio.CancelledError):
         await caller

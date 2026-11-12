@@ -10,6 +10,9 @@ export const AUTH_ROUTES: readonly string[] = [
   '/verify-email',
   '/forgot-password',
   '/reset-password',
+  // The landing of a Google or Apple login, which exchanges its one-time code (E29 (5)): no site header, so no /me read
+  // of the header's runs around the exchange.
+  '/auth/complete',
 ]
 
 export function isAuthRoute(pathname: string | null): boolean {

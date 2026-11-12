@@ -17,6 +17,7 @@ import pytest
 from evals.acceptance_ai_judge_evidence import validate_judge_ledger
 from evals.acceptance_ai_judge_runner import SLOTS, export_ledger, initialize, inspect, run_one
 from evals.judge import _JUDGE_SYSTEM
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 _BACKEND = Path(__file__).resolve().parents[2]
@@ -178,7 +179,7 @@ def test_owner_death_guardian_terminates_child_and_preserves_partial_raw(tmp_pat
         assert pidfile.exists(), "fake CLI did not start"
         cli_pid = int(pidfile.read_text())
         controller.kill()
-        controller.wait(timeout=5)
+        controller.wait(timeout=HANG_GUARD_S)
         while time.monotonic() < deadline:
             state = inspect(root)
             if state["stop_reason"] == "owner_died_during_cli":
@@ -201,7 +202,7 @@ def test_owner_death_guardian_terminates_child_and_preserves_partial_raw(tmp_pat
     finally:
         if controller.poll() is None:
             controller.kill()
-            controller.wait(timeout=5)
+            controller.wait(timeout=HANG_GUARD_S)
         _cleanup_recorded_fake_cli(root, fake)
 
 
@@ -365,5 +366,5 @@ def test_guardian_crash_stops_programme_and_kills_recorded_cli(tmp_path: Path) -
     finally:
         if controller.poll() is None:
             controller.kill()
-            controller.wait(timeout=5)
+            controller.wait(timeout=HANG_GUARD_S)
         _cleanup_recorded_fake_cli(root, fake)

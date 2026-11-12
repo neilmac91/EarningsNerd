@@ -34,3 +34,5 @@ export { MarkedCopy, EnRef } from './MarkedCopy'
 export { markedBlockInsetClass, markedRowInsetClass } from './markedCopyLayout'
 export { cx } from './cx'
 export { TrailingArrowLabel } from './TrailingArrowLabel'
+
+export { DeltaChip, type DeltaChipProps } from './DeltaChip'

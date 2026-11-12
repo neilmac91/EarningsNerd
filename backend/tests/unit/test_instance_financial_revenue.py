@@ -33,7 +33,8 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "companyfacts_fi"
 RNOIE, REV, FEE = "RevenuesNetOfInterestExpense", "Revenues", fi_revenue.FEE_TAG
 FEEI = "RevenueFromContractWithCustomerIncludingAssessedTax"
 NII, NONII, GII = "InterestIncomeExpenseNet", "NoninterestIncome", "GrossInvestmentIncomeOperating"
-RULE_TAGS = (*fi_revenue.TOTAL_TAGS, *fi_revenue.FEE_TAGS, *fi_revenue.NON_606_TAGS)
+IBR = "InvestmentBankingRevenue"
+RULE_TAGS = (*fi_revenue.TOTAL_TAGS, *fi_revenue.SOLE_TAGS, *fi_revenue.NON_606_TAGS)
 M = 1_000_000  # figures in whole millions, so each is an exact float
 FINANCIAL = SimpleNamespace(sic="6211")  # no edgartools probe: the SIC band decides
 
@@ -461,6 +462,11 @@ def test_every_fixture_filings_own_items_give_e264s_choice():
     ("PNC", "0000713676-21-000025", (REV, FEE)),  # the fee element matches the total, so it may fill
     ("WBHC", "0001193125-26-082893", ()),  # FY2025 10-K: its gross Revenues is above its bank's sum
     ("WBHC", "0000950170-25-067712", (REV,)),  # Q1 2025 10-Q: a quarter's sum leaves no total out (E290 (5))
+    ("PNC", "0000713676-26-000020", (REV,)),  # FY2025 10-K: its investment banking fees are a part (E290 (2))
+    ("PNC", "0000713676-26-000038", (REV,)),  # Q1 2026 10-Q: they share only quarters, and a shared one refuses them
+    ("MC", "0001564590-20-006910", (IBR,)),  # FY2019 10-K: its total, above the interest line beside it (E290 (2))
+    ("MC", "0001193125-26-076747", (IBR,)),  # FY2025 10-K: its total, beside no total element (E290 (2))
+    ("MC", "0001193125-26-192462", (IBR,)),  # Q1 2026 10-Q, the same
 ])
 def test_named_filings_choose_their_reported_total(ticker, accession, tags):
     [(form, own)] = [(form, own) for t, accn, form, own in _own_filings() if (t, accn) == (ticker, accession)]

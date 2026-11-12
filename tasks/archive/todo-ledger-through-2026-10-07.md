@@ -7158,6 +7158,56 @@ Full local and hosted verification plus independent exact-head review precede re
   permission-classifier refusal of the chief's commands in the window; five corrections to record 71.
   Gate (a) merged; gate (d) and F57 built and reviewed locally, their review findings being taken.
   The fact-check's 47 findings were verified, 26 taken and 21 kept.
+- 2026-11-02 (record 73, `runtime/control/DECISIONS-73.md`): PR #1822 (record 72) merged `8d497f19` by
+  another session under the founder's one-off exception of 2026-10-31 (sixty-eighth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step), after its fact-check's corrections commit,
+  its reviewer ended unfinished by the account's weekly usage limit, which stopped the chief's agents and
+  session from 2026-10-30T21:52Z until 2026-11-02. Closure 224 registers record 72's survey, fact-check and
+  reviewer, four engineering reviews and gate (c)'s design workflow, the seven workflow agents the limit
+  ended in the -cut-off form, and pre-registers record 74's reviewer. No survey or fact-check workflow for
+  this record, by an economy plan the founder may overrule. 137 main merges, 49 deploy jobs from 48 of them
+  each healthy by its own health step, one older image serving about three minutes on 2026-10-31 until a
+  re-run put the newer one back, 84 push runs skipping every deploy step. Production read live after four
+  deploys: describe-service passing and logs-probe reading logging permitted each time. No CODE RED spend;
+  no ledger event. One chief defect (40: record 72's checkpoint line 11 left #1815 out); one hook refusal;
+  the lapses counted from the chief's notes and its own commands. F57 and gate (d) built and reviewed
+  locally; gate (c)'s design panel lost to the limit.
+- 2026-11-03 (record 74, `runtime/control/DECISIONS-74.md`): PR #1967 (record 73) merged `6bf8f40d` by
+  the chief's own squash (sixty-ninth deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, two delta commits and a final delta check with no blocker.
+  F57's row closed: PR #1970 merged `01fffa80` by the chief and deployed healthy. Closure 225 registers
+  record 73's reviewer, F57's round-3 review, gate (d)'s round-3 and round-4 reviews and gate (c)'s two
+  design critiques, and pre-registers record 75's reviewer. No survey or fact-check workflow for this
+  record. Nine main merges, five deploy jobs each healthy by its own health step, four push runs skipping
+  every deploy step and one running at the stamp. Production read live after each of the five deploys:
+  describe-service passing and logs-probe reading logging permitted each time. No CODE RED spend; no
+  ledger event. One chief defect (41: the checkpoint's line 10 has left gate (a)'s #1815 out since record
+  72); no hook refusal; the lapses counted from the chief's notes and its own commands. Gate (d) after
+  its fifth round; gate (c) critiqued twice, its third design being written. New founder item 28: founder
+  council transcripts in the repository.
+- 2026-11-03 (record 75, `runtime/control/DECISIONS-75.md`): PR #1976 (record 74) merged `86479c66` by
+  the chief's own squash (seventieth deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, one delta commit and a clean delta check. Closure 226
+  registers record 74's reviewer, gate (c)'s third design, gate (d)'s round-5 to round-7 reviews, gate
+  (c)'s round-1 review and its implementation context, and pre-registers record 76's reviewer. No survey or
+  fact-check workflow for this record. Eleven main merges, three deploy jobs each healthy by its own health
+  step, eight push runs skipping every deploy step. Production read live after the last of the three
+  deploys: describe-service passing and logs-probe reading logging permitted; none after the first two. No
+  CODE RED spend; no ledger event. No new chief defect; no hook refusal; the lapses counted from the
+  chief's notes and its own commands. Two container restarts. Gate (d) in its ninth round; gate (c) in
+  its third.
+- 2026-11-03 (record 76, `runtime/control/DECISIONS-76.md`): PR #1982 (record 75) merged `87656c72` by
+  the chief's own squash (seventy-first deploy-skip proof: its main run succeeded and its deploy job skipped
+  every deploy step), after its reviewer's pass, one delta commit and a clean delta check. Closure 227
+  registers record 75's reviewer, gate (d)'s round-8 and round-9 reviews and gate (c)'s round-2 review, and
+  pre-registers record 77's reviewer and the review-rounds rule's label. No survey or fact-check workflow for
+  this record. Sixteen main merges, ten deploy jobs each healthy by its own health step, five push runs
+  skipping every deploy step. Production read live after nine of the ten deploys: describe-service passing
+  and logs-probe reading logging permitted; none after #1979's, the container restart coming first. The
+  founder's correction on review rounds: chief defect 42, the rule recorded and gated in #1989. No CODE RED
+  spend; no ledger event. No hook refusal; the lapses counted from the chief's notes and its own commands.
+  One container restart; one full disk. Gate (d)'s round-10 review, of the fix diff only, running at the
+  window's end; gate (c)'s fourth and last fix round handed back.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

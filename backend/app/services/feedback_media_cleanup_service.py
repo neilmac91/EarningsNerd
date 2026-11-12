@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import hashlib
+import logging
 import struct
 from time import monotonic
 from uuid import uuid4
@@ -22,6 +23,7 @@ from app.models.feedback import Feedback, FeedbackAttachment, FeedbackSubmission
 from app.services.feedback_storage_service import FeedbackStorage, FeedbackStorageError, make_feedback_object_key
 from app.utils.datetimes import ensure_utc, utcnow
 
+logger = logging.getLogger(__name__)
 
 CLAIM_DURATION = timedelta(minutes=15)
 REMOVAL_TARGET = timedelta(hours=24)
@@ -187,6 +189,11 @@ def run_feedback_media_cleanup(
     return stats
 
 
+def _failure(exc: BaseException) -> str:
+    """A content-free name for a probe failure: the closed storage code, or only the exception's type."""
+    return exc.code if isinstance(exc, FeedbackStorageError) else type(exc).__name__
+
+
 def verify_feedback_media_storage(
     session_factory: Callable[[], Session], storage: FeedbackStorage, *, now: datetime | None = None,
 ) -> dict[str, int]:
@@ -196,13 +203,26 @@ def verify_feedback_media_storage(
     and no screenshot is readable through the user/admin API because it has no owner.
     """
     now = ensure_utc(now or utcnow())
-    stats = {"permissions_verified": 0, "storage_verified": 0, "deleted": 0, "errors": 0, "pending_verification": 0}
+    stats = {"permissions_verified": 0, "permissions_excess": 0, "storage_verified": 0, "deleted": 0, "errors": 0,
+             "pending_verification": 0}
     try:
         storage.verify_permissions()
-        stats["permissions_verified"] = 1
-    except Exception:
+    except FeedbackStorageError as exc:
+        if exc.code != "storage_permissions_excess":
+            logger.warning("Feedback media storage probe: permission audit failed (%s)", _failure(exc))
+            stats["errors"] = 1
+            return stats
+        # The audit reports excess only after create/get/delete are confirmed. While the backend runs with
+        # broader storage access than the feature needs, it is recorded and logged, not refused (founder, 10 November;
+        # the follow-up recorded on #2027 narrows the identity and restores the refusal).
+        stats["permissions_excess"] = 1
+        logger.warning("Feedback media storage probe: the serving identity holds storage permissions beyond "
+                       "object create/get/delete")
+    except Exception as exc:
+        logger.warning("Feedback media storage probe: permission audit failed (%s)", _failure(exc))
         stats["errors"] = 1
         return stats
+    stats["permissions_verified"] = 1
     data = _probe_png()
     submission_id, attempt_token, attachment_id = (str(uuid4()) for _ in range(3))
     object_key = make_feedback_object_key(attempt_token, attachment_id)
@@ -232,7 +252,8 @@ def verify_feedback_media_storage(
         if storage.download(object_key, generation) != data:
             raise FeedbackStorageError("probe_content_mismatch")
         stats["storage_verified"] = 1
-    except Exception:
+    except Exception as exc:
+        logger.warning("Feedback media storage probe: object round trip failed (%s)", _failure(exc))
         stats["errors"] += 1
     finally:
         error = None
@@ -240,7 +261,8 @@ def verify_feedback_media_storage(
         try:
             observed_generation = storage.delete(object_key, generation)
             stats["deleted"] = int(generation is not None or observed_generation is not None)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Feedback media storage probe: object delete failed (%s)", _failure(exc))
             stats["errors"] += 1
             error = "storage_error"
         absent_unknown = error is None and generation is None and observed_generation is None

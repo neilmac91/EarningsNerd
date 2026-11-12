@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 from datetime import timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -9,6 +10,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image, PngImagePlugin
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -19,12 +21,16 @@ from app.models.feedback import Feedback, FeedbackAttachment, FeedbackSubmission
 from app.routers import feedback as router
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackCreate
-from app.services import feedback_submission_service as service
+from app.services import feedback_image_service, feedback_submission_service as service
 from app.services.feedback_image_service import NormalizedFeedbackImage
 from app.services.feedback_storage_service import FeedbackStorageError
 from app.services.user_account_service import delete_user
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import ensure_utc, utcnow
 from main import app
+from tests.support.hang_guard import HANG_GUARD_S
+
+# The held publication outlasts every bounded wait the test makes before it releases the worker.
+PUBLICATION_HOLD_S = HANG_GUARD_S + 10
 
 
 @pytest.fixture
@@ -419,7 +425,7 @@ async def test_request_deadline_closes_partial_multipart_files(media, monkeypatc
         await asyncio.Event().wait()
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
-        async with real_timeout(5):
+        async with real_timeout(HANG_GUARD_S):  # below the middleware's 60 s deadline, which also answers 504
             response = await client.post('/api/feedback/with-attachments', headers=request_headers, content=body())
     assert body_waiting.is_set() and temporary_files
     assert response.status_code == 504, response.text
@@ -463,7 +469,7 @@ async def test_cancelled_provider_is_settled_before_attempt_becomes_retryable(me
         sending = asyncio.create_task(client.post('/api/feedback/with-attachments', headers=headers(key),
                                                    data={'message': 'A useful note'},
                                                    files=[('files', ('private.png', b'image', 'image/png'))]))
-        await asyncio.wait_for(entered.wait(), timeout=5)
+        await asyncio.wait_for(entered.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
         with pytest.raises(asyncio.CancelledError):
             await sending
@@ -524,7 +530,7 @@ async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_
         db.query(User.id).filter(User.id == 1).one()
         loop.call_soon_threadsafe(started.set)
         try:
-            assert release.wait(5)
+            assert release.wait(PUBLICATION_HOLD_S)
             return original_publish(db, *args)
         finally:
             finished.set()
@@ -557,9 +563,9 @@ async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_
     db = media.sessions()
     sending = asyncio.create_task(router.submit_feedback_with_attachments(request, Response(), media.actor, db))
     try:
-        await asyncio.wait_for(started.wait(), timeout=5)
+        await asyncio.wait_for(started.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
-        await asyncio.wait_for(draining.wait(), timeout=5)
+        await asyncio.wait_for(draining.wait(), timeout=HANG_GUARD_S)
         sending.cancel()
         # Drain's gather cancellation runs through a few event-loop callbacks. No worker
         # release or elapsed-time assertion is used to make the race pass.
@@ -572,3 +578,106 @@ async def test_repeated_cancellation_does_not_reuse_a_session_while_publication_
             await sending
         db.close()
     assert finished.is_set() and cleanup_after_worker == [True]
+
+
+def _form(media, files, *, key=None):
+    return media.client.post("/api/feedback/with-attachments", headers=headers(key),
+                             data={"type": "bug", "message": "This chart clipped the filing text", "page_url": "/company/AAPL"},
+                             files=files)
+
+
+def _picture(format_name, *, frames=1, comment=None):
+    output = io.BytesIO()
+    frames_ = [Image.new("RGB", (12, 8), colour) for colour in ("red", "blue")[:frames]]
+    options = {"save_all": True, "append_images": frames_[1:], "duration": 100, "loop": 0} if frames > 1 else {}
+    if comment:
+        options["pnginfo"] = PngImagePlugin.PngInfo()
+        options["pnginfo"].add_text("Comment", comment)
+    frames_[0].save(output, format_name, **options)
+    for frame in frames_:
+        frame.close()
+    return output.getvalue()
+
+
+@pytest.mark.parametrize("content_type", ("image/gif", "image/svg+xml", "image/heic", "application/octet-stream"))
+def test_a_disallowed_declared_type_is_refused_before_any_claim_decode_or_storage(media, monkeypatch, content_type):
+    async def never(_data):
+        raise AssertionError("a refused type must not reach the decoder")
+    monkeypatch.setattr(router, "normalize_feedback_image", never)
+    response = _form(media, [("files", ("screenshot.png", _picture("PNG"), content_type))])
+    assert response.status_code == 422 and "Choose PNG, JPEG or static WebP screenshots." in response.text
+    assert media.uploads == [] and media.notify == []
+    with media.sessions() as db:
+        assert db.query(FeedbackSubmission).count() == db.query(Feedback).count() == 0
+
+
+@pytest.mark.parametrize("payload, content_type, message", [
+    (b"not a screenshot", "image/png", "This image could not be read."),
+    ("PNG", "image/png", "Animated images are not supported."),
+    ("WEBP", "image/webp", "Animated images are not supported."),
+], ids=["unreadable", "animated-png", "animated-webp"])
+def test_the_real_decoder_refuses_unreadable_and_animated_screenshots_at_the_endpoint(
+        media, monkeypatch, payload, content_type, message):
+    monkeypatch.setattr(router, "normalize_feedback_image", feedback_image_service.normalize_feedback_image)
+    data = payload if isinstance(payload, bytes) else _picture(payload, frames=2)
+    response = _form(media, [("files", ("screenshot", data, content_type))])
+    assert response.status_code == 422 and message in response.text
+    assert media.uploads == [] and media.notify == []
+    with media.sessions() as db:
+        assert db.query(Feedback).count() == 0 and db.query(FeedbackAttachment).count() == 0
+
+
+def test_the_real_decoder_publishes_a_static_png_without_its_text_metadata(media, monkeypatch):
+    # The genuine accept case for the refusals above, through the same decoder and endpoint.
+    monkeypatch.setattr(router, "normalize_feedback_image", feedback_image_service.normalize_feedback_image)
+    original = _picture("PNG", comment="PRIVATE_METADATA_SENTINEL")
+    accepted = _form(media, [("files", ("screenshot.png", original, "image/png"))])
+    assert accepted.status_code == 201, accepted.text
+    stored = media.storage[media.uploads[0]]
+    assert b"PRIVATE_METADATA_SENTINEL" in original and b"PRIVATE_METADATA_SENTINEL" not in stored
+    with Image.open(io.BytesIO(stored)) as published:
+        assert published.format == "PNG" and published.size == (12, 8) and not published.text
+
+
+def test_three_screenshots_of_exactly_five_mebibytes_each_are_accepted(media):
+    # The acceptance number lives here, not in the code under test: lowering either limit must fail this test.
+    # The media fixture stubs the decoder, so its own input limit is pinned here too.
+    limit = 5 * 1024 * 1024
+    assert router.MAX_FILE_BYTES == limit
+    assert feedback_image_service.MAX_INPUT_BYTES == limit
+    response = send(media, images=(b"a" * limit, b"b" * limit, b"c" * limit))
+    assert response.status_code == 201, response.text
+    assert len(media.uploads) == 3 and all(len(media.storage[key]) == limit for key in media.uploads)
+
+
+def test_an_anonymous_reader_receives_neither_screenshot_bytes_nor_a_location(media):
+    assert send(media).status_code == 201
+    with media.sessions() as db:
+        attachment_id = db.query(FeedbackAttachment.id).scalar()
+    del app.dependency_overrides[get_current_user]
+    response = media.client.get(f"/api/feedback/attachments/{attachment_id}", follow_redirects=False)
+    assert response.status_code == 401
+    assert "location" not in response.headers and b"first screenshot" not in response.content
+
+
+@pytest.mark.parametrize("days", (180, 30))
+def test_published_screenshots_expire_after_the_configured_retention(media, monkeypatch, days):
+    monkeypatch.setattr(settings, "FEEDBACK_MEDIA_RETENTION_DAYS", days)
+    before = utcnow()
+    assert send(media).status_code == 201
+    after = utcnow()
+    with media.sessions() as db:
+        expires = ensure_utc(db.query(FeedbackAttachment.expires_at).scalar())
+    assert before + timedelta(days=days) <= expires <= after + timedelta(days=days)
+
+
+def test_disabling_uploads_keeps_the_admin_read_and_other_account_denial(media, monkeypatch):
+    assert send(media).status_code == 201
+    with media.sessions() as db:
+        attachment_id = db.query(FeedbackAttachment.id).scalar()
+    monkeypatch.setattr(settings, "FEEDBACK_MEDIA_ENABLED", False)
+    media.actor.id = 3
+    admin = media.client.get(f"/api/feedback/attachments/{attachment_id}")
+    assert admin.status_code == 200 and admin.content == b"first screenshot"
+    media.actor.id = 2
+    assert media.client.get(f"/api/feedback/attachments/{attachment_id}").status_code == 404

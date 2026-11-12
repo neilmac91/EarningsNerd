@@ -59,8 +59,9 @@ too). Planted modules score each check. What it cannot see:
   or the queue bound by unpacking (``q, t = a, b``) or held as a class's attribute; a send
   behind a helper or a wrapper module, counted once however often its callers call it; and a call of the
   mail provider that names neither its settings nor its address;
-- mail built or sent outside ``email_service``, in the modules ``SENDERS`` lists: ``routers/contact.py``'s
-  confirmation (E56) and the internal admin and team notices, which send no text part of their own, and the
+- mail sent outside ``email_service``, in the modules ``SENDERS`` lists: ``routers/contact.py``'s confirmation,
+  whose actual route test checks that it sends the renderer's page and text, and the internal admin and team
+  notices, which send no text part of their own, and the
   page and text part ``data_quality_service.run_and_email`` hands the transport, which the render here checks
   as ``render_data_quality_report`` returns them.
 
@@ -178,6 +179,8 @@ COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
+# The invitation hands in two links, the invite's and the unsubscribe page's, each LINK's length as each line holds.
+INVITE = dict(to_email=TO, magic_link=LINK, unsubscribe_link=LINK, delivery_ref="0123456789abcdef" * 2, cohort=None)
 WAITLIST = dict(name=NAME, position=3, referral_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
@@ -221,12 +224,13 @@ FULL_REPORT = {
 
 # Every public function of email_service that builds mail, with inputs that run every line of the module.
 RENDERS = {
+    "render_contact_confirmation": [dict(name=NAME)],
     "render_welcome_email": [WAITLIST],
     "send_waitlist_welcome_email": [dict(WAITLIST, to_email=TO)],
     "render_referral_success_email": [REFERRAL],
     "send_referral_success_email": [dict(REFERRAL, to_email=TO)],
     "send_verification_email": [dict(to_email=TO, name=NAME, verification_link=LINK)],
-    "send_invite_email": [dict(to_email=TO, magic_link=LINK), dict(to_email=TO, magic_link=LINK, name=NAME)],
+    "send_invite_email": [INVITE, dict(INVITE, name=NAME)],
     "send_password_reset_email": [dict(to_email=TO, name=NAME, reset_link=LINK)],
     "send_oauth_linked_email": [dict(to_email=TO, name=NAME, provider="Google")],
     "send_account_exists_email": [dict(to_email=TO, name=NAME, login_link=LINK, reset_link=LINK)],
@@ -487,6 +491,7 @@ def _render(cases: dict, module=email_service) -> dict:
     mails: dict[str, list[tuple[str, object]]] = {}  # each mail a function sends or returns, as (page, text part)
     transport = resend_service.send_email
     marketing_readiness = legal_readiness_service.is_marketing_available
+    invitation_readiness = legal_readiness_service.is_invitation_email_available_for
     sys.settrace(trace)
     try:
         resend_service.send_email = _record  # a send through the transport is recorded, however the module reaches it
@@ -494,6 +499,7 @@ def _render(cases: dict, module=email_service) -> dict:
         if module is email_service:
             # Cover the no-mail refusal as well as the dormant template, without exempting lines.
             legal_readiness_service.is_marketing_available = lambda: False
+            legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: False
             asyncio.run(module.send_referral_success_email(**cases["send_referral_success_email"][0]))
             try:
                 asyncio.run(module.send_invite_email(**cases["send_invite_email"][0]))
@@ -502,6 +508,7 @@ def _render(cases: dict, module=email_service) -> dict:
             else:
                 raise AssertionError("closed invitation delivery must refuse")
         legal_readiness_service.is_marketing_available = lambda: True
+        legal_readiness_service.is_invitation_email_available_for = lambda cohort, email: True
         for name, inputs in cases.items():
             for kwargs in inputs:
                 result = getattr(module, name)(**kwargs)
@@ -520,6 +527,7 @@ def _render(cases: dict, module=email_service) -> dict:
         sys.settrace(None)
         resend_service.send_email = transport
         legal_readiness_service.is_marketing_available = marketing_readiness
+        legal_readiness_service.is_invitation_email_available_for = invitation_readiness
     source = Path(module.__file__).read_text(encoding="utf-8")
     values = _public_values(module, source)
     lines = _lines(compile(source, module.__file__, "exec"))
@@ -660,10 +668,10 @@ def test_no_other_module_reaches_the_mail_modules_private_names():
 
 
 # The HTML pages a module of backend/app builds outside the shell, with how many: contact.py's notice to the team
-# and its confirmation to the person who wrote in, until E56 moves the confirmation into the shell, and a PDF
+# (its confirmation to the person who wrote in uses the shell), and a PDF
 # export's page, which is no mail. Equalities (lessons/test-allowlist-caps-are-equalities.md): a page that moves into
 # the shell lowers its count in the same diff.
-OWN_PAGES = {"app/routers/contact.py": 2, "app/services/pdf_branding.py": 1}
+OWN_PAGES = {"app/routers/contact.py": 1, "app/services/pdf_branding.py": 1}
 _OPENS_A_PAGE = re.compile(r"<(?:html|head|body)[\s>]|<!doctype\s", re.IGNORECASE)
 
 
@@ -759,7 +767,7 @@ def test_the_page_walk_sets_aside_the_mail_modules_shell_alone(tmp_path):
 # and what it sends. email_service builds its mail in the shell that carries the header, and the render holds every
 # mail it sends through the transport to a page the shell built; its count holds a send the render does not record,
 # through the queue or to the provider, to a look as well. The queue, the filing scan and the data-quality report send
-# what it builds; contact.py builds two pages of its own, one to the person who wrote in (E56), and the admin and
+# what it builds; contact.py builds the team's notice and renders the confirmation through the shell; the admin and
 # feedback routes send fragments. Equalities (lessons/test-allowlist-caps-are-equalities.md): a new sender, or a listed
 # one that names a send once more, fails here until it sends through email_service or is listed with what it sends.
 SENDERS = {
@@ -767,7 +775,7 @@ SENDERS = {
     "app/services/notification_delivery_service.py": (1, "the filing alerts and digests email_service builds, held for delivery"),
     "app/services/filing_scan_service.py": (5, "the filing alerts and digests email_service builds, queued: three batches and two drains"),
     "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, its page and text part"),
-    "app/routers/contact.py": (2, "a notice to the team and a confirmation to the person who wrote in, pages of its own (E56)"),
+    "app/routers/contact.py": (2, "its own notice to the team and the confirmation email_service renders through the shell"),
     "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/email.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/feedback.py": (1, "a notice of beta feedback to the team, a fragment"),
@@ -1213,6 +1221,7 @@ def test_every_page_sent_keeps_the_headers_set_size_and_leaves_the_rest_to_the_v
 # as an address, a company's name, a link with its token, a report's hashes and addresses. Held as it is, so an
 # input that shortens every one a page prints fails here too, and a new render is listed with its own.
 PRINTS_LONG_RUNS = {
+    "render_contact_confirmation": [1],
     "render_welcome_email": [1], "send_waitlist_welcome_email": [1], "render_referral_success_email": [2],
     "send_referral_success_email": [2], "send_verification_email": [2], "send_invite_email": [1, 2],
     "send_password_reset_email": [2], "send_oauth_linked_email": [1], "send_account_exists_email": [1],
@@ -1648,6 +1657,7 @@ def _preheader_line(page: str) -> str:
 # Each mail's line, as the render's inputs give it: the words an inbox lists the mail by. A change to a line is
 # a change to this list, read in review.
 PREHEADER_LINES = {
+    "render_contact_confirmation": ["We received your contact form submission."],
     "render_welcome_email": ["You're number 3 on the waitlist."],
     "render_referral_success_email": ["Someone joined with your referral link. You're now number 2."],
     "send_verification_email": ["Confirm your email address. The link works for 24 hours."],
@@ -1660,8 +1670,9 @@ PREHEADER_LINES = {
     "render_earnings_day_alert": ["PVCT before open and BETA during market hours.", f"{COMPANY} reports after close."],
     "render_data_quality_report": ["This week's scan, each section with its count."] * 2,
 }
-# The eleven mails the module builds, each once: its render, or the send_ function that builds its page.
+# The twelve mails the module builds, each once: its render, or the send_ function that builds its page.
 MAILS = (
+    "render_contact_confirmation",
     "render_welcome_email", "render_referral_success_email", "send_verification_email", "send_invite_email",
     "send_password_reset_email", "send_oauth_linked_email", "send_account_exists_email", "render_new_filing_alert",
     "render_daily_digest", "render_earnings_day_alert", "render_data_quality_report",
@@ -1692,28 +1703,73 @@ def test_each_mail_lists_by_its_own_line(rendered):
     assert not named, f"a preheader names no one, since a phone's lock screen shows it: {named}"
 
 
-# The verification mail asks for what verifying gates, as the site's banner does (E46): checkout refuses an unverified
-# address (routers/subscriptions.py), and a Google or Apple login links to an existing account only once its address
-# is verified (services/oauth_account_service.py); reading waits on neither. So the mail names subscribing to Pro and
-# promises no reading, where it said "Verify your email address and you can start reading." The banner's line is
-# read from its source, so a change to either sentence is a change here. This holds the two to one ask; whether
-# that ask should follow checkout's state while new checkout is closed is F56's question.
+# The verification mail and the site's banner make one ask: that the reader confirm the address is theirs (#1965
+# Decision 4, the founder's word of 2026-11-04; F56 (b)). It replaces E46's ask, which named what verifying gates
+# (checkout, "Verify your email address to subscribe to Pro."): beta testers get Pro by grant and new checkout stays
+# closed, so a mail that named Pro, checkout or subscribing would send a tester toward a checkout they must not use.
+# The dialog that checkout's 403 opens still names subscribing (frontend/tests/unit/authPagesCopy.spec.tsx). The mail
+# still promises no reading, which no verification gates (E46). The banner's line is read from its source, its
+# entities unescaped, so a change to either sentence is a change here.
 VERIFICATION_BANNER = REPO / "frontend" / "features" / "auth" / "components" / "VerificationBanner.tsx"
-VERIFY_ASK = "Verify your email address to subscribe to Pro."
+VERIFY_ASK = "Verify your email address to confirm it's yours."
 _PROMISES_READING = re.compile(r"start reading|\bunlock|\bread (?:the|your|any|every) (?:filing|summar)", re.IGNORECASE)
+# What the mail must not name, word by word: Pro, checkout (spaced or hyphenated), subscribing, upgrading, a trial,
+# pricing, a paid plan, Premium, purchasing or buying. `\bsubscri` passes an unsubscribe line, which is no purchase.
+# frontend/tests/unit/authPagesCopy.spec.tsx holds the banner to the same pattern.
+_NAMES_A_PURCHASE = re.compile(
+    r"\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b"
+    r"|\bpurchas|\bbuy",
+    re.IGNORECASE,
+)
 
 
-def test_the_verification_mail_asks_for_what_verifying_gates_as_the_banner_does(rendered):
-    assert "Verify your email to subscribe." in VERIFICATION_BANNER.read_text(encoding="utf-8"), (
-        "the site's banner no longer names subscribing as what verifying gates: hold the verification mail's ask to "
-        "what the banner says now"
+def test_the_purchase_scan_reads_each_way_a_mail_could_name_one():
+    """Not vacuous: the scan the verification mail is held to finds each purchase word it names, in either case, and
+    passes the words a verification mail does carry, an unsubscribe line among them."""
+    for planted in (
+        "Verify your email address to subscribe to Pro.",
+        "Subscribing requires a verified email.",
+        "Verify to unlock checkout.",
+        "Verify, then check out.",
+        "Verify, then check-out.",
+        "Verify your email to upgrade.",
+        "Verify to start your PRO trial.",
+        "Verify to start your free trials.",
+        "Verify your email to see pricing.",
+        "Verify to choose a paid plan.",
+        "Verify to compare plans.",
+        "Verify to go Premium.",
+        "Verify to purchase.",
+        "Verify, then buy access.",
+    ):
+        assert _NAMES_A_PURCHASE.search(planted), f"the scan misses a purchase in {planted!r}"
+    for clean in (
+        VERIFY_ASK,
+        "If you didn't create an account, you can safely ignore this email.",
+        "Unsubscribe from these emails.",
+        "This email is about your EarningsNerd account or a request you made.",
+        "Filing data sourced from SEC EDGAR. Not investment advice.",
+        "The summary that shows its work.",
+    ):
+        assert not _NAMES_A_PURCHASE.search(clean), f"the scan flags a line that names no purchase: {clean!r}"
+
+
+def test_the_verification_mail_and_the_banner_ask_only_that_the_reader_confirm_the_address(rendered):
+    banner = html.unescape(VERIFICATION_BANNER.read_text(encoding="utf-8"))
+    assert VERIFY_ASK in banner, (
+        f"the site's banner no longer says {VERIFY_ASK!r}: the mail and the banner make one ask, so change both"
     )
     pairs = rendered["mails"]["send_verification_email"]
     assert pairs, "the verification mail is rendered"
     for page, text in pairs:
         words = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
         for part, body in (("page", words), ("text part", text)):
-            assert VERIFY_ASK in body, f"the verification mail's {part} asks for what verifying gates: {VERIFY_ASK!r}"
+            assert VERIFY_ASK in body, f"the verification mail's {part} makes the banner's one ask: {VERIFY_ASK!r}"
+            named = _NAMES_A_PURCHASE.findall(body)
+            assert not named, (
+                f"the verification mail's {part} names a purchase ({named}); it asks only that the reader confirm the "
+                "address"
+            )
             assert not _PROMISES_READING.search(body), (
                 f"the verification mail's {part} promises reading, which no verification gates"
             )

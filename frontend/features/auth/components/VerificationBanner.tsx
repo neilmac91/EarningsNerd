@@ -14,11 +14,13 @@ const DISMISS_KEY = 'verifyBannerDismissed'
 
 /**
  * Slim, session-dismissible banner shown to logged-in users who haven't verified
- * their email yet. Checkout is the one action that refuses an unverified email, with a 403
- * (`backend/app/routers/subscriptions.py`); generating and reading summaries never wait on it. A
+ * their email yet. Its line asks only that the reader confirm the address is theirs, in the
+ * verification mail's own words (#1965 Decision 4, the founder's word of 2026-11-04): beta testers
+ * get Pro by grant and checkout stays closed, so neither names subscribing. Checkout is still the one
+ * action that refuses an unverified email, with a 403 (`backend/app/routers/subscriptions.py`), and
+ * the dialog that 403 opens names subscribing; generating and reading summaries never wait on it. A
  * Google or Apple sign-in links to an existing account only once both sides have verified the email
- * (`backend/app/services/oauth_account_service.py`), which the login page's conflict sentence says,
- * so the banner's line names subscribing alone.
+ * (`backend/app/services/oauth_account_service.py`), which the login page's conflict sentence says.
  */
 export default function VerificationBanner() {
   const pathname = usePathname()
@@ -88,7 +90,7 @@ export default function VerificationBanner() {
           {resent ? (
             <>Verification email sent. Check your inbox.</>
           ) : (
-            <>Verify your email to subscribe.</>
+            <>Verify your email address to confirm it&apos;s yours.</>
           )}
         </p>
         {!resent && (

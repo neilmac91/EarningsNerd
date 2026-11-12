@@ -245,18 +245,21 @@ function emailVerifiedSites(rel: string, source: string): string[] {
 }
 
 /**
- * Every backend read of an account's `email_verified`, with what it does. The banner and the dialog name
- * subscribing alone because checkout is the one read that gates a feature. The "verify your email" scan
- * above finds a gate by its words; this list finds it by the field, so a gate worded any other way
- * ("Confirm your address first.") fails here until the banner and the dialog name what it gates.
+ * Every backend read of an account's `email_verified`, with what it does. The dialog that checkout's 403
+ * opens names subscribing alone because checkout is the one read that gates a feature; the banner and the
+ * verification mail ask only that the reader confirm the address (#1965 Decision 4). The "verify your
+ * email" scan above finds a gate by its words; this list finds it by the field, so a gate worded any other
+ * way ("Confirm your address first.") fails here until the dialog names what it gates.
  */
 const EMAIL_VERIFIED_READS: [site: string, what: string][] = [
-  ['app/routers/subscriptions.py::create_checkout_session', 'the gate: its 403 says "verify your email", and the banner and the dialog name subscribing'],
+  ['app/routers/subscriptions.py::create_checkout_session', 'the gate: its 403 says "verify your email", and the dialog it opens names subscribing'],
   ['app/routers/subscriptions.py::_read_checkout_account', "checkout's first unit, which reads the state for that gate before the session's release"],
   ['app/services/oauth_account_service.py::resolve_google_user', "links Google to an existing account only once both sides have verified the email (the login page's conflict sentence)"],
   ['app/services/oauth_account_service.py::resolve_apple_user', 'the same for Apple'],
   ['app/services/account_mail_service.py::_issue_link', 'sends no verification link to a verified address, after the response; resend-verification answers the same either way'],
   ['app/routers/auth.py::get_current_user_info', 'reports the state (/me), which shows or hides the banner'],
+  ['app/services/complimentary_access_service.py::_grant_outcome', "an operator's eligibility check, not an in-app gate: a complimentary beta grant (PB-02) skips an unverified tester, whom the operator's dry run reports, and a later run grants once they verify"],
+  ['app/services/complimentary_access_service.py::_operator_label', "the operator command's authorization: the admin account that runs a grant or revoke must be verified; no account holder meets it"],
 ]
 
 function emailVerifiedReads(): string[] {
@@ -428,6 +431,20 @@ describe('login: an OAuth account conflict', () => {
   })
 })
 
+describe('login: an OAuth login whose landing page could not exchange its code (E29 (5))', () => {
+  // app/auth/complete/page.tsx sends here a code the exchange refused (used, expired, not bound to this browser) or a
+  // landing with no code at all: the sentence says the login did not finish and what to do, naming no cause it cannot
+  // tell apart. This build leaves Sign in with Apple off (CI's), so it names Google alone, as the buttons do; a build
+  // with Apple names both (oauthHandoffFailedWithApple.spec.tsx).
+  it('says the login did not finish, and to log in again', () => {
+    useSearchParams.mockReturnValue(new URLSearchParams('error=oauth_handoff_failed'))
+    withQueryClient(<LoginPage />)
+    expect(screen.getByText('Your Google login did not finish. Log in again.')).toBeInTheDocument()
+    expect(screen.queryByText(/Apple/)).toBeNull()
+    expect(screen.queryByText('Login failed. Please try again.')).toBeNull()
+  })
+})
+
 describe('login: the way in for a visitor without an account (D-046, F44)', () => {
   // The link under the form follows the one access decision (features/marketing/lib/access.ts), as RegisterForm's
   // notice and the header do: while registration is by invite, and until the registration payload answers or when
@@ -449,10 +466,11 @@ describe('login: the way in for a visitor without an account (D-046, F44)', () =
 
 describe('verification banner and dialog', () => {
   it("the 403 that opens the dialog is checkout's alone (backend/app/routers/subscriptions.py)", () => {
-    // The client opens the dialog on a 403 whose detail reads "verify your email"; both lines below name
-    // subscribing because checkout is the only route that answers an unverified email that way.
+    // The client opens the dialog on a 403 whose detail reads "verify your email"; the dialog's line names
+    // subscribing because checkout is the only route that answers an unverified email that way. The banner asks
+    // only that the reader confirm the address (#1965 Decision 4), so a new gate is named in the dialog.
     expect(readFileSync(path.join(FRONTEND, 'lib/api/client.ts'), 'utf8')).toContain('/verify your email/i.test(backendDetail)')
-    expect(verifyEmailRefusals(), 'a new "verify your email" refusal: name what it gates in the banner and the dialog, then list it here').toEqual([
+    expect(verifyEmailRefusals(), 'a new "verify your email" refusal: name what it gates in the dialog, then list it here').toEqual([
       'app/routers/subscriptions.py::create_checkout_session',
     ])
   })
@@ -476,10 +494,10 @@ describe('verification banner and dialog', () => {
     expect(backendFiles().filter((rel) => /^(?:tests|scripts|evals)\//.test(rel)), 'tests, scripts and evals never serve a request').toEqual([])
   })
 
-  it('every backend read of email_verified is listed with what it does, so a gate worded any way fails until the banner and the dialog name it', () => {
+  it('every backend read of email_verified is listed with what it does, so a gate worded any way fails until the dialog names it', () => {
     expect(
       emailVerifiedReads().sort(),
-      'a new read of email_verified: if it gates a feature, name that feature in the banner and the dialog; then list the read in EMAIL_VERIFIED_READS with what it does',
+      'a new read of email_verified: if it gates a feature, name that feature in the dialog; then list the read in EMAIL_VERIFIED_READS with what it does',
     ).toEqual(EMAIL_VERIFIED_READS.map(([site]) => site).sort())
   })
 
@@ -536,11 +554,17 @@ describe('verification banner and dialog', () => {
     ])
   })
 
-  it('the banner says verifying unlocks subscribing: checkout is the one feature gated on it (linking Google or Apple also waits on it)', async () => {
+  it("the banner asks only that the reader confirm the address, in the verification mail's words, and names no purchase (#1965 Decision 4)", async () => {
     sessionStorage.clear()
     vi.mocked(getCurrentUserSafe).mockResolvedValue({ id: 1, email: 'a@example.com', email_verified: false } as never)
-    withQueryClient(<VerificationBanner />)
-    expect(await screen.findByText('Verify your email to subscribe.')).toBeInTheDocument()
+    const { container } = withQueryClient(<VerificationBanner />)
+    // backend/tests/unit/test_mail_rendered_addresses.py holds the mail to these same words.
+    expect(await screen.findByText("Verify your email address to confirm it's yours.")).toBeInTheDocument()
+    // Beta testers get Pro by grant and checkout stays closed: the banner sends no one toward it. The pattern is
+    // test_mail_rendered_addresses.py's _NAMES_A_PURCHASE, which the mail is held to and whose self-check plants each form.
+    expect(container.textContent).not.toMatch(
+      /\bpro\b|\bcheck[ -]?out\b|\bsubscri|\bupgrad|\btrials?\b|\bpricing\b|\bpaid\b|\bplans?\b|\bpremium\b|\bpurchas|\bbuy/i,
+    )
     expect(screen.queryByText(/generate/i)).toBeNull()
   })
 

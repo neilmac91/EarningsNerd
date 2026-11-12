@@ -30,8 +30,13 @@ export function exactFigure(value: number, figure: Figure): string {
   return [amount, figure.unit].filter(Boolean).join(' ')
 }
 
+// A recorded formula's words, keyed by the expression the producer stores: a quarter's period calculation, a metric's
+// (fact_provenance.py METRIC_FORMULAS) and a growth's (trend_analysis/dataset_quality.py and dataset.py). The PDF and
+// the workbook print these words, and the same fallback, through one port (analysis_export_metadata.FORMULA_WORDS);
+// backend/tests/unit/test_export_formula_words.py reads both here, one entry a line, and fails when they differ.
 const FORMULAS: Record<string, string> = {
   'FY - YTD9': 'Full year − first nine months',
+  'FY - (Q1 + Q2 + Q3)': 'Full year − first, second and third quarters',
   'YTD9 - YTD6': 'First nine months − first six months',
   'YTD6 - Q1': 'First six months − first quarter',
   '100 * operating_income / revenue': 'Operating income ÷ revenue × 100',
@@ -40,9 +45,53 @@ const FORMULAS: Record<string, string> = {
   'operating_cash_flow - abs(capital_expenditures)': 'Operating cash flow − absolute cash capital expenditures',
   'current_assets - current_liabilities': 'Current assets − current liabilities',
   'current_assets / current_liabilities': 'Current assets ÷ current liabilities',
+  'year_over_year_growth': '(Current − same period last year) ÷ absolute same period last year',
+  'quarter_over_quarter_growth': '(Current quarter − previous fiscal quarter) ÷ absolute previous fiscal quarter',
+  'compound_annual_growth': '(Last ÷ first) to the power of (1 ÷ years from first to last) − 1',
+  'percentage_point_change': 'Current percentage − comparison percentage',
 }
 
 export const formulaWords = (formula: string) => FORMULAS[formula] ?? formula.replaceAll('_', ' ')
+
+// Each concept's name as /analysis's table writes it (trend_analysis/periods.py _CONCEPT_LABELS), so a source dialog's
+// operand reads as its own row does and as the Method line writes it, in sentence case: "Operating cash flow", never
+// its key title-cased by CSS (E309). tests/unit/metricLabelParity.spec.ts holds this map equal to the Python's, and
+// fails any other source that spells a concept's name from its key.
+export const CONCEPT_NAMES: Record<string, string> = {
+  revenue: 'Revenue',
+  net_interest_income: 'Net interest income',
+  noninterest_income: 'Noninterest income',
+  premiums_earned: 'Premiums earned',
+  net_investment_income: 'Net investment income',
+  gross_profit: 'Gross profit',
+  gross_margin: 'Gross margin',
+  operating_income: 'Operating income',
+  operating_margin: 'Operating margin',
+  net_income: 'Net income',
+  net_margin: 'Net margin',
+  earnings_per_share: 'EPS (basic)',
+  eps_diluted: 'EPS (diluted)',
+  operating_cash_flow: 'Operating cash flow',
+  capital_expenditures: 'Capital expenditures',
+  free_cash_flow: 'Free cash flow',
+  investing_cash_flow: 'Investing cash flow',
+  financing_cash_flow: 'Financing cash flow',
+  total_assets: 'Total assets',
+  cash_and_equivalents: 'Cash & equivalents',
+  current_assets: 'Current assets',
+  current_liabilities: 'Current liabilities',
+  working_capital: 'Working capital',
+  current_ratio: 'Current ratio',
+  long_term_debt: 'Long-term debt',
+  shareholders_equity: "Shareholders' equity",
+}
+
+/** A concept's name, to start a line; inside a sentence, pass it through inSentence (lib/format.ts). A concept
+ *  /analysis does not name reads as its key in sentence case. */
+export function conceptName(concept: string): string {
+  const words = concept.replaceAll('_', ' ')
+  return CONCEPT_NAMES[concept] ?? words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 /** Substitute only formula shapes whose operand identities are known. Input list order differs
  * between ratios and quarter subtraction; guessing from a slash can reverse the arithmetic. */

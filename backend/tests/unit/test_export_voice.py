@@ -51,7 +51,7 @@ EDGAR = re.compile(r"edgar", re.IGNORECASE)
 ADDRESS = re.compile(r"https?://[!-~]+")
 WINDOW_KEY = re.compile(r"(?:FY)?\d{4}(?:Q[1-4])?\.\.(?:FY)?\d{4}|Q[1-4] \d{4}\.\.Q[1-4] \d{4}")
 EMOJI = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]")
-PROPER = ("BIOGEN INC.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
+PROPER = ("Biogen Inc.", "Test & Co", "Multi-Period Analysis", "EarningsNerd")
 MIXED_CASE = frozenset({"YoY", "QoQ"})
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9'’-]*")
 _VOID = frozenset({"br", "meta", "img", "hr", "link", "input", "wbr"})
@@ -340,9 +340,10 @@ def test_the_readers_flag_the_forms_this_pr_fixed():
                    "FY2016–FY2025", "Q1 2025–Q2 2026", "Loading...", "10..20"]) == [
         "Revenue CAGR was 22.5% over FY2016..FY2025 [3].", "2025Q1..2026Q2", "Q1 2025..Q2 2026",
     ]
-    assert not_sentence_case("BIOGEN INC. · 10-K Summary") == "Summary"
+    assert not_sentence_case("Biogen Inc. · 10-K Summary") == "Summary"
     assert not_sentence_case("Sources & Methods") == "Methods"
-    assert not_sentence_case("BIOGEN INC. · 10-K summary") is None
+    assert not_sentence_case("Biogen Inc. · 10-K summary") is None
+    assert not_sentence_case("Biogen Inc · 10-K summary") == "Inc"  # only the name as the page prints it stands
     assert not_sentence_case("Test & Co · Multi-Period Analysis") is None
     assert not_sentence_case("YoY growth") is None and not_sentence_case("Exported UTC") is None
     # The Metrics key: the run's labels stand as proper nouns there; its own words keep sentence case. A header cell

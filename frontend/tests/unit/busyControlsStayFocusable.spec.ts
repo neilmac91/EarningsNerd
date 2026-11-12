@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -902,9 +903,10 @@ function propPassSites(source: string, fileName: string, props: (FailureProp & {
 
 /**
  * Failures built by hand, pinned by the element's exact text (whitespace collapsed), so a change to one (a
- * `busy` fed by a fetching flag) fails until it is re-reviewed. Capped. The one sanctioned way in is a stream
- * restart converted to RetryButton: that change raises both caps by one as its ALLOW_RETRY_LABEL pin, and that
- * list's caps, go down by one. Anything else only shrinks it.
+ * `busy` fed by a fetching flag) fails until it is re-reviewed. Capped. The sanctioned ways in are a stream
+ * restart converted to RetryButton (that change raises both caps by one as its ALLOW_RETRY_LABEL pin, and that
+ * list's caps, go down by one) and a retry of a post that is no query (the OAuth landing page's exchange of its
+ * one-time code, which raised both caps by one on its own). Anything else only shrinks it.
  */
 const ALLOW_HAND_BUILT_FAILURE: Record<string, { sites: string[]; reason: string }> = {
   'app/filing/[id]/StreamingSummaryDisplay.tsx': {
@@ -916,9 +918,17 @@ const ALLOW_HAND_BUILT_FAILURE: Record<string, { sites: string[]; reason: string
       'sentence no retry can help, so the Retry leaves); RetryButton is there for the hand-off to the progress ' +
       "heading, or to the card's own heading when the card stays (EN-05).",
   },
+  'app/auth/complete/page.tsx': {
+    sites: ['{ failed: true, error: problem, busy: retrying, retry: tryAgain }'],
+    reason:
+      "Try again posts the OAuth login's one-time code once more (E29 (5)): a post that sets the session cookies, not " +
+      'a query, so there is no query to hold. The failure stays shown through the press (busy while that post is ' +
+      'out), a code an earlier post redeemed is refused and leaves for the login page, and a press that ends where ' +
+      "this browser cannot hold the session cookies' lock takes the Retry away: RetryButton hands focus to the notice.",
+  },
 }
-const MAX_HAND_BUILT_FAILURE_FILES = 1
-const MAX_HAND_BUILT_FAILURE_SITES = 1
+const MAX_HAND_BUILT_FAILURE_FILES = 2
+const MAX_HAND_BUILT_FAILURE_SITES = 2
 
 /** Open rule (h) cases, pinned by exact expression. Shrink-only: converting one to RetryButton removes its pin. */
 const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {

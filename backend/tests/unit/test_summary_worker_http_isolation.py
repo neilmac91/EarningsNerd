@@ -26,6 +26,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.utils.datetimes import utcnow
+from tests.support.hang_guard import HANG_GUARD_S
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -142,7 +143,7 @@ def _stop(worker: _Worker) -> None:
         if worker.process.poll() is None:
             worker.process.terminate()
             try:
-                worker.process.wait(timeout=5)
+                worker.process.wait(timeout=HANG_GUARD_S)
             except subprocess.TimeoutExpired:
                 pass
     finally:
@@ -150,7 +151,7 @@ def _stop(worker: _Worker) -> None:
             os.killpg(worker.process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        worker.process.wait(timeout=5)
+        worker.process.wait(timeout=HANG_GUARD_S)
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Cloud Run process-group proof requires POSIX")

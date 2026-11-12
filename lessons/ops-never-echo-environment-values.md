@@ -58,6 +58,12 @@ list included) and the str of a log's body that is not text only after `before_s
 - The setting does not reach the error's structured form: `errors()` and `json()` return every input,
   whole, unless called with `include_input=False`. An `except` block that calls either on its caught
   exception passes it.
+- Pydantic's own message can quote the input as well, outside the settings class too: a discriminated union's
+  `union_tag_invalid` names the tag it found, whatever its JSON type, and `include_input=False` leaves a message's
+  text as it is (PB-02, #1955: a mistyped manifest `action` reached the public Ops log's refusal). Where a validation
+  error can reach a public output, word each fault from its `type` and a place built from known keys and positions,
+  never from `msg` (`app/services/complimentary_access_manifest.py::_describe`; its gates plant an address and an id
+  in malformed manifests: `test_complimentary_access_service.py`, `test_complimentary_access_script.py`).
 - The setting does not reach a validator's own message either. A raise or assert message in `app/config.py`
   reads only literals, lengths (`len(v)`) and module constants bound to immutable literals; a raise inside an
   `except` or `finally` block says `from None`, or its traceback prints the error it handled. A validator never

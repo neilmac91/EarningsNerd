@@ -26,7 +26,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
-| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FF96A1` (text-safe on navy and the panel; level in their chips' tints, 5.72:1 and 5.76:1 on the panel, D-074); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
+| **Financial** | `gain.light` / `gain.text #406425`; `loss.light` / `loss.text #924739`; `flat.light #636A77` (AA adjustment). Analysis only: `gain.data #406425` / `loss.data #90493B` | `gain.dark #A9CA95` / `loss.dark #EDAB9E`; `flat.dark #9CA3AF` unchanged. Analysis only: `gain.dataDark #C0D9B1` / `loss.dataDark #F9C7BC` | Money/% direction only; neutral stone chip grounds, secondary labels, direction ink on icon and figure (§4) |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle · the context ink `chart.context.light` `#968A78` | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) · `chart.context.dark` `#AFA391` | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted. The context ink paints a bar chart's context bars (E251, §10): no series, no palette slot, never an opacity |
@@ -35,6 +35,8 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
 (`#D99E4A` honey, `#5E9A6E` green) are retired — the green competed with sage; honey failed the
 3:1 graphic floor on cream.
+
+**Financial soft tokens:** `gain.soft #ECF3E9`, `gain.softDark rgba(169,202,149,0.12)`, `loss.soft #FBEDEA`, `loss.softDark rgba(237,171,158,0.12)`. Delta pills, beat/miss badges and insider buy/sell tiles use the neutral background pair instead. Status colours and the `new` badge are unchanged. These approved option C values are recorded from the working-tree implementation; old financial contrast measurements are not evidence for the new values.
 
 **Contrast floors are audited against cream `#F4F3EE`, not white.** Text ≥ 4.5:1 in both themes;
 text on a tinted bg is measured against the mixed tint; non-text UI (bars, sparklines,
@@ -49,9 +51,7 @@ smallest), reads at that label tier in both themes, |Lc| ≥ 75 on its panel and
 the light panel and 75.1 on cream, and its dark twin `brand-strong-dark` `#AEDCC2` (Reading Sage), the same
 OKLCH hue and chroma, is −75.5 on the dark panel and −78.4 on navy. As `#98C5AD` (Bright Sage) the dark
 Export Excel label measured −62.2 (E202 (2), D-071); Bright Sage stays as `brand-bright-dark`, a fill, and is
-no text ink outside the logo. In dark Reading Sage sits close to the figure surfaces' gain ink `#B6E4CE`
-(OKLab 0.026 apart, where light's accent and gain are 0.056); sage never carries a number (brandCopyRules.spec.ts
-rule 2), so the two never mark one thing. Gates: `tests/unit/figureSurfaceInks.spec.ts` (the tier, and the twin
+no text ink outside the logo. Sage never carries a number (brandCopyRules.spec.ts rule 2); financial figures use their own direction inks. Gates: `tests/unit/figureSurfaceInks.spec.ts` (the tier, and the twin
 on Deep Sage's hue and chroma) and `tests/unit/themePairs.spec.ts` (Bright Sage stays a fill).
 
 **The device's tint is a ground like any other** (`brand-weak` light, `brand-weak-dark` mixed over what
@@ -100,7 +100,7 @@ the debug payload panel).
   three in globals.css) was twinned back to tertiary-dark, so it keeps today's ink. Gates:
   `tests/unit/themePairs.spec.ts` ('keeps tertiary and secondary on their own rungs in dark', with its
   planted self-check; it reads a dark twin by its ink, so a token of tertiary's or secondary's hex counts as
-  that rung, and lists its one decided crossing, the flat direction chip on flat-dark: D-073, §4 Delta text;
+  that rung; neutral direction-chip labels now keep secondary in both themes (§4 Delta text);
   the light key stays by name, so the figure surfaces' note pair, held by figureSurfaceInks.spec.ts, is
   outside it) and
   `tests/unit/figureSurfaceInks.spec.ts` ('keeps tertiary's dark twin text-safe
@@ -356,7 +356,11 @@ clears the error in the render that starts the stream, so the card leaves with t
 and its hand-off target is the progress card's heading. The card offers it only for a failure a retry can help
 (`isNonRetryableStreamError`: Pro's fair-use pause, a sign-in or a permission error keeps its sentence and no
 Retry), so a press that starts no run (signed out) keeps the card without it, and the target falls back to the
-card's own heading. A failure built by hand like this is pinned, with its
+card's own heading. So is the OAuth login landing's Try again (app/auth/complete/page.tsx, E29 (5)), which
+posts the page's kept one-time code once more, a post and not a query: `{ failed: true, error, busy, retry }`,
+busy while that post is out, so the notice stays with its Retry focused and busy through the press; a press that
+ends where the browser cannot hold the session cookies' lock takes the Retry away, and RetryButton hands focus to
+the notice, which took focus when it replaced the wait. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
 `useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
 which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
@@ -680,8 +684,24 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  the loss tone, which is a direction (§1). Set it through the prop, never a border colour on top:
                  Card's own dark:border-white/10 beat the settings card's dark override, so it drew its hairline
                  in light only (a design selector in eslint.config.mjs fails a border colour written in a Card's
-                 className; designRules.spec.ts plants it). The card's confirmation warning lends Notice's error
-                 tint (noticeTint), its words in the ink and the error ink on its glyph alone (§4 › Inline notice).
+                 className; designRules.spec.ts plants it). The card's confirmation warning is a warning Notice,
+                 the risk the reader weighs before an act they cannot undo, its list the Notice's body (D-076;
+                 §4 › Inline notice).
+                 A class written on a Card or a section (CardHeader, CardBody, CardFooter, CardTitle) never
+                 competes with one the component sets, on its own state or under a dark or screen variant the
+                 class has no twin for: the hairline, the fill, the corner, the shadow, a section's padding, layout
+                 or title type. Stylesheet order, not class order, decides between two such classes:
+                 rounded-2xl loses to rounded-xl, CardBody's py-3 loses to py-4 while py-5 wins, ps-0 (a logical
+                 side) beats px-cap-5 today, and a bare bg-white loses in dark to Card's dark:bg-panel-dark. What
+                 Card offers is a prop (tone, radius, elevation, interactive); spacing, position and a ring, which
+                 composes with the shadow, are the caller's, and so is a layer on a state or screen the component
+                 leaves alone (sm:rounded-2xl), which the stylesheet orders after the resting class (gate:
+                 tests/unit/cardClassesNoOverrides.spec.tsx, every <Card> and section in the app read through its
+                 imports, cx() and conditions and measured against the classes it renders, as
+                 inputClassesNoOverrides.spec.tsx holds the field; a logical property reads as the side it sets in
+                 this left-to-right app, a shorthand as its longhands; the components that forward a caller's
+                 className to a Card are listed, traced, and their call sites read against the Card's classes and
+                 their own; one of the five used as a value or re-exported fails).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -706,53 +726,36 @@ Company mark     <CompanyLogo ticker name decorative size>  (components/) — th
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
                  AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
-Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
-                 (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
-                 lib/financialTone.directionText IS this recipe — route delta text through it; a
-                 direction chip (the dashboard's what-changed metrics) takes directionChip, whose flat
-                 chip keeps the semantic flat ink in dark, flat-dark #9CA3AF (4.87:1 in its tint on the
-                 panel), a rung below its light label: quieter than the up and down chips (5.72:1 and 5.76:1
-                 in theirs), where secondary-dark's 8.40:1 would outshine both (E202 (3), D-073). It is
-                 the one text-ramp crossing themePairs.spec.ts's rung check lists (CROSSED_RUNG_RESIDUE),
-                 which reads a dark twin by its ink, so flat-dark counts as tertiary-dark's. Never sage on
-                 a direction. Gates: earningsnerd/direction-text-tokens (eslint.designRules.mjs) bans the
-                 600-level gain/loss as text anywhere (written on an icon or an SVG graphic, it colours
-                 the graphic and passes), and sage on a TrendUp/TrendDown glyph, known by its spelling,
-                 its import (any local name, a namespace member, Phosphor's unsuffixed name) or a binding
-                 the file writes one to (an alias, a ternary, a lookup in a map of glyphs, as the
-                 what-changed chip draws its `<Icon />`), on every element above it up to the first that
-                 gives it an ink on every render (a theme text colour with no variant, or a class part the
-                 rule cannot read, such as directionChip[tone]; a layout or type wrapper such as
-                 `flex gap-1` or `text-sm` passes the ink through), or in a map that pairs one with its
-                 classes; a glyph that reaches a binding as a parameter or a call's result, a glyph
-                 returned from a .map callback and a glyph passed as a JSX prop (`icon={…}`) are past it.
-                 A delta or a figure in sage with no glyph fails tests/unit/brandCopyRules.spec.ts rule 2
-                 (D-030), a figure field such as `display` included. tests/unit/whatChangedChip.spec.tsx
-                 renders the what-changed chip and holds its colour to directionChip for the server's
-                 tone, which no lint can see. tests/unit/directionChipContrast.spec.ts holds every
-                 directionChip label, and Badge's beat and miss, at 4.5:1 in its tint on the panel and
-                 the page in both themes, each read from its classes as it ships (E282, D-074).
-                 The analysis figure surfaces alone amend the 700-level clause (CLAUDE.md rule 11):
-                 their change lines (MetricsTable's, KpiStrip's) take
-                 lib/financialTone.dataDirectionText, up text-gain-data dark:text-gain-data-dark
-                 (#166534 green-800 / #B6E4CE), down text-loss-data dark:text-loss-data-dark (#B91C1C /
-                 #FECDD3), flat text-text-secondary-light dark:text-note-dark, each held to APCA
-                 |Lc| ≥ 75 on the sheet and the panel. Three of the general delta inks miss that tier
-                 there: green-700 #15803D is Lc 72.4 on the light sheet and 71.1 on the panel, and in
-                 dark emerald-400 #34D399 is -65.6 / -62.6 and loss.dark #FF96A1 -61.5 / -58.6; green-800
-                 holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
-                 lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
-                 reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss
-                 beside it. Level inks give colour-blind readers no lightness cue: under deuteranopia
-                 (Machado 2009, full severity) the pair is ΔE76 2.1 (emerald-300's was 7.2), protanopia
-                 8.8, so the sign carries the direction, as it does for every reader (the drawn minus is
-                 as wide as the plus). The light loss ink holds: red-700 #B91C1C is 78.4 / 77.2, so
-                 loss.data is red-700 too, a role of its own that can move alone. Every other delta keeps
-                 directionText and the 700 level. Gates: tests/unit/figureSurfaceInks.spec.ts (the data
-                 inks are written only in financialTone, dataDirectionText is read only by MetricsTable
-                 and KpiStrip, every pair meets its tier, and the dark gain and loss stay within 1 Lc and
-                 0.01 chroma of each other); tests/unit/designSystemDoneGate.spec.ts
-                 (its classes reach the production CSS).
+Delta text       Route ordinary delta text through lib/financialTone.directionText:
+                 gain text-gain-text dark:text-gain-dark (#406425 / #A9CA95),
+                 loss text-loss-text dark:text-loss-dark (#924739 / #EDAB9E),
+                 flat text-flat-light dark:text-flat-dark (#636A77 / #9CA3AF).
+                 Use the named text roles even where gain.light and loss.light share their values.
+                 Never sage or a status ink on a financial direction; preserve its sign or glyph.
+                 Option C: directionChip supplies bg-background-light dark:bg-background-dark,
+                 border-border-light dark:border-border-dark and
+                 text-text-secondary-light dark:text-text-secondary-dark for every tone.
+                 Shared DeltaChip keeps the label secondary and applies directionText[tone] only to
+                 the icon and figure. direction chooses the glyph independently of semantic tone:
+                 rising expenses can show an up glyph in loss ink. A flat tone uses the flat token
+                 pair, not tertiary classes, even though their values match the tertiary pair. The border is decorative: it carries no meaning and does not
+                 require the 3:1 meaningful non-text floor. Beat/miss badges and insider buy/sell
+                 tiles also take neutral grounds, with financial cues in direction ink.
+                 Do use the shared component and metric-aware tone (a debt rise can be negative).
+                 Don't tint a delta pill by direction or colour its neutral label, and don't change
+                 status colours or the brand-tinted New badge to match financial direction.
+                 Text must meet 4.5:1 on its actual grounds in both themes. Relevant checks:
+                 tests/unit/whatChangedChip.spec.tsx, tests/unit/directionChipContrast.spec.ts,
+                 tests/unit/brandCopyRules.spec.ts and earningsnerd/direction-text-tokens.
+                 The analysis figure surfaces alone take lib/financialTone.dataDirectionText:
+                 gain text-gain-data dark:text-gain-data-dark (#406425 / #C0D9B1),
+                 loss text-loss-data dark:text-loss-data-dark (#90493B / #F9C7BC),
+                 flat text-text-secondary-light dark:text-note-dark. Keep APCA |Lc| ≥ 75 on
+                 the sheet and the panel in both themes. These roles belong only to MetricsTable
+                 and KpiStrip; every other delta uses directionText. Previous measured values for
+                 the replaced financial inks do not establish the new palette's contrast.
+                 Gates: tests/unit/figureSurfaceInks.spec.ts (scope and APCA floors) and
+                 tests/unit/designSystemDoneGate.spec.ts (classes reach production CSS).
 
 Data note mark   <DataNoteMark> (analysis) — the footnote mark: a letter for a grouped data note, drawn only
                  where the note questions the number (lib/dataNotes noteMarksFigure, D-061): a review
@@ -1072,7 +1075,19 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  source lineage. Checks tell a reported figure taken from the company’s filed data (XBRL)
                  apart from a compatible-input calculation; neither claims an audit. Missing figures read
                  “Unavailable”, with the effect of a gap stated. Quarterly dialogs name the quarter end;
-                 source links name their figure and period.
+                 source links name their figure and period. Each input is named as /analysis names its
+                 row, in the Method line's sentence case (“Operating cash flow”, “EPS (diluted)”;
+                 figureDisplay.ts conceptName), and no CSS recases it; inside a sentence, a source link's
+                 name or a noted comparison's input, the name takes inSentence (“for operating cash flow”).
+                 Gate: tests/unit/metricLabelParity.spec.ts holds the names to periods.py's
+                 _CONCEPT_LABELS and fails a name spelled from a concept's key (E309).
+                 A recorded formula reads in words (figureDisplay.ts FORMULAS: “Operating income ÷
+                 revenue × 100”), in the Method section, under each input, and after “Calculation:” for
+                 a comparison (“(Current − same period last year) ÷ absolute same period last year”);
+                 a formula with no words reads as stored, each underscore a space. The PDF's and the
+                 workbook's Sources & methods print the same words through one port
+                 (analysis_export_metadata.FORMULA_WORDS; gate: backend
+                 tests/unit/test_export_formula_words.py, which reads them from figureDisplay.ts).
                  Formula substitution uses operand identity, not list position; it only asserts an
                  equality for a passed calculation. Missing lineage is stated explicitly, never
                  represented as recorded inputs or a scheduled repair. Original SEC links and
@@ -1181,7 +1196,10 @@ Analysis reading <NarrativePane> — compact monetary amounts and period labels 
                  legacy_calculation, never on an empty input list) or “calculated figure”. A quiet
                  source count and Notes control replace repeated status labels; the Sources badge's title
                  reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
-                 and names one, only for a marked note.
+                 and names one, only for a marked note. Its name and title say its source in the list's
+                 words (sourceLabel, “SEC filing” for a reported one), never a stored key the list does
+                 not print; the analysis PDF prints the same label (gates: narrative-pane.spec.tsx for the
+                 chip and the list; test_export_service.py for the PDF).
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -1425,7 +1443,7 @@ Solid chip       <Badge variant="solid">  — the primary colorway as a chip (br
                  beat/miss are the
                  earnings-surprise direction with their ▲/▼ and never tell a status (gate:
                  tests/unit/badgeVariants.spec.tsx, with no row exempt); their labels hold 4.5:1 in
-                 their tints in both themes (tests/unit/directionChipContrast.spec.ts, E282).
+                 their neutral background-light/dark grounds in both themes (tests/unit/directionChipContrast.spec.ts). These Badge variants have no border.
                  `new` is the brand tint, `brand`'s
                  own classes (bg-brand-weak text-brand-strong and the sage hairline, dark pair), with a pulse
                  dot in that sage ink, static under reduced motion (D-032): a new filing is news, not a
@@ -1455,7 +1473,12 @@ Checkbox         <Checkbox size="sm|md">  — the one checkbox (consent dialog, 
                  check (7.8:1), drawn by `dark:checked:[background-image:var(--check-navy)]`, the
                  plugin's check path in #0B1120 declared in app/globals.css (white on brand-dark would be
                  2.4:1). Each fill is stated as `checked:bg-*` because a `dark:bg-*` ground outranks the
-                 plugin's checked fill; the unchecked edge is the flat ink (4.6:1 / 5.8:1 on panel).
+                 plugin's checked fill; the unchecked edge is the flat ink; verify it on its actual panel in both themes.
+                 Unavailable but focusable (`aria-disabled`, with the caller's onChange returning early so
+                 the controlled value stays: the admin invites page's "Email invites" while invitation email
+                 is held) fades the edge and the checked fill to half, never the element, so the focus ring
+                 keeps its strength; native `disabled` keeps `disabled:opacity-50` for a box that cannot hold
+                 focus when it turns off.
                  Gate: tests/unit/checkboxRecipe.spec.tsx (the check read from the stylesheet; the dark
                  state equal to the Primary's dark fill and label ink).
 
@@ -1486,9 +1509,8 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
                  with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
                  under their cream hover, in light; 5.78:1 and 4.98:1 in dark); "Confirmed" on info-status, a
-                 firm, upcoming date and the rung a reader scans for (not success, whose light ink is
-                 gain.text's #15803D, the ink a reported row's beat prints in, and not the brand tint, which
-                 is brand and activity); "Reported" on neutral-status, the event over, its EPS figure carrying
+                 firm, upcoming date and the rung a reader scans for (not financial direction or the
+                 brand tint, which is brand and activity); "Reported" on neutral-status, the event over, its EPS figure carrying
                  the news. It reads dashed, blue, quiet. On the calendar's rows, at rest and hovered, light
                  measures 5.21 and 5.44:1 (Est.), 6.70:1 (Confirmed) and 5.44:1 (Reported), dark 5.78 and
                  4.98:1 (Est. and Reported) and 5.77 and 4.97:1 (Confirmed). Before, Reported was the quiet
@@ -1650,9 +1672,18 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  result, an error, a limit, a mode of the account). The variant is written at every call
                  site, never a default (the default-info trap of lessons/frontend-status-colors-for-status-only.md):
                  `info` is an advisory state in the info ink; `warning` a state the reader weighs (a limit near or
-                 reached, a risk in what they are about to do: an invite link anyone can redeem) in the warning
-                 ink, its glyph the triangle, where an error's is the circle; `error` takes role="alert"; and the
-                 action slot takes a small Button. Guidance is no state (a sign-in that would show a company's
+                 reached, a risk in what they are about to do: an invite link anyone can redeem, deleting the
+                 account) in the warning ink, its glyph the triangle, where an error's is the circle, so its title
+                 never opens on "Warning:"; `error` takes role="alert"; and the action slot takes a small Button.
+                 More than a sentence (a list) is the Notice's children, in the description's secondary ink and
+                 size, since the description is a <p>: the settings page's delete warning lists what deleting
+                 removes (D-076). The words a caller writes into a Notice (its title, description and children)
+                 rest in the ink, a link in the accent ink at full strength (gate:
+                 tests/unit/noticeTintInk.spec.ts, every <Notice> under any alias; out of its reach, words a
+                 component inside the Notice inks itself and a class held in a variable), and no piece of a
+                 title opens on its state's name and a colon (gate: tests/unit/noticeTitlesAreOnePhrase.spec.ts,
+                 every piece of a Notice's or a GuidanceCard's title it can read; out of its reach, a title held
+                 in a variable or a spread of one, and a component reached through another module's re-export). Guidance is no state (a sign-in that would show a company's
                  periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
                  hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
                  the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's
@@ -1691,10 +1722,8 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  E196 (3)). The warning tint goes to two banners, each keeping its words in the ink and the warning
                  ink on its glyph alone, as a Notice keeps them (E196 (2)): the verification banner, a strip under
                  the header, and the dashboard's limit banner, which keeps a banner's shape, its upgrade at its end
-                 from sm and at its full width below, as the trial banner above it does. The settings page's Delete
-                 account warning keeps its heading, its list and its closing line in the error tint, its words in
-                 the ink in the same way (E283): a Notice's description is a <p>, which cannot hold a list, and its
-                 role="alert" would read the whole warning out as the confirmation opens. Each borrower is listed
+                 from sm and at its full width below, as the trial banner above it does. A list is no reason to
+                 borrow: it is a Notice's children (D-076). Each borrower is listed
                  with the variant it writes, as a string literal (gate: statusTintResidue.spec.ts's
                  TINT_BORROWED). Words in another ink inside a tint are listed with their inks and measured at
                  4.5:1 on the panel and the page in both themes, today the Copilot bubble's sentence in the error
@@ -2766,7 +2795,7 @@ Each page frame owns one `main` landmark. The root layout's `div#main` is only t
 target, never an enclosing main. AuthShell owns the form pane's main, outside its utility and brand panes;
 settings, ticker-filings and company frames retain one main while loading or showing a terminal state.
 An error boundary or account-load failure replaces the page and owns its main too. Gates:
-tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all six auth
+tests/e2e/skip-link.spec.ts (root target and no nested main), tests/e2e/text-floors.spec.ts (all seven auth
 routes and the route error boundary), and the existing errorBoundaryHeadings, dashboardLoadingSkeletons,
 TickerFilingsView and company-page-lead unit specs (their loading and terminal branches). Loading-heading
 presentation remains with the loading-state work; a landmark does not change its visual design.
@@ -2776,9 +2805,10 @@ titles, so a page whose content ends at h1 (the 404, /analysis, /search) does no
 `tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
 accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
 the 404, the route error boundary, /waitlist (its problem cards are h2, since the example beside the form has no heading),
-/login, /register, /forgot-password, /check-email, /verify-email and /reset-password (the auth shell,
+/login, /register, /forgot-password, /check-email, /verify-email, /reset-password and /auth/complete (the auth shell,
 which has no site footer; the two token pages are opened without their emailed token), /contact,
-/privacy, /terms, /security, /delete-account, /calendar and /search (CI's e2e build turns both on:
+/privacy, /terms, /security, /delete-account, /email/unsubscribe (opened without its token), /calendar
+and /search (CI's e2e build turns both on:
 the calendar reads its own fixtures with the clock pinned to one week, the search is answered and
 run), a finished Multi-Period Analysis run on /analysis, and four
 page-level card states (a filing without a summary for a guest and for a signed-in reader whose run
@@ -3099,15 +3129,12 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   pair as usual.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
-- **The analysis figure surfaces' change lines take the data inks**, the one amendment to "chip/delta
-  text = the 700-level tokens" (CLAUDE.md rule 11): `lib/financialTone.dataDirectionText`, up
-  `text-gain-data dark:text-gain-data-dark` (#166534 / #B6E4CE: light moves from green-700 to green-800,
-  dark matches the loss ink's lightness and chroma),
-  down `text-loss-data dark:text-loss-data-dark` (#B91C1C / #FECDD3), flat
-  `text-text-secondary-light dark:text-note-dark`, read by MetricsTable and KpiStrip alone; a note
-  letter there is the note ink, never a status ink (D-061). Each change ink holds APCA |Lc| ≥ 75 on the
-  sheet and the panel, a note letter ≥ 60 (§4 Delta text). Every other delta keeps
-  `directionText` and the 700 level. Gate: `tests/unit/figureSurfaceInks.spec.ts`.
+- **The analysis figure surfaces' change lines take the data inks** through
+  `lib/financialTone.dataDirectionText`: gain `#406425` / `#C0D9B1`, loss `#90493B` / `#F9C7BC`,
+  flat `text-text-secondary-light dark:text-note-dark`, read by MetricsTable and KpiStrip alone.
+  Each change ink retains APCA |Lc| ≥ 75 on the sheet and panel in both themes; a note letter
+  takes note ink, never status ink, and retains ≥ 60 (§4 Delta text). Every other delta uses
+  `directionText`. Gate: `tests/unit/figureSurfaceInks.spec.ts`.
 - **A figure sheet inside a Card.** The metrics table's figures sit on `well` (#FCFCFD / #0B1120) inside
   the panel Card, framed by a `rule` outline (DataTable `surface="well"`, §4 Analysis table); its heading
   row and Metric column keep the panel surface and the panel's inks, for slight contrast between the
@@ -3160,7 +3187,13 @@ The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
-Firefox are unchecked). Use keyboard/touch source controls, not
+Firefox are unchecked). The PNG follows the page's theme (its ground the card's panel, its inks and series the
+theme's), while the analysis PDF and workbook always print light (`docs/mpa-improvements/coherence.md` §5). Its
+control says so in its title, "Download chart as PNG. Image matches your theme.", and in its accessible description,
+"Image matches your theme.", which a `hidden` line beside the button carries, so browse mode does not read it twice.
+Its name stays the label (ChartControl's `hint`; the expand control takes none; gate:
+`tests/unit/trend-charts-v2.spec.tsx`).
+Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count, the axis space and the widest x tick (a slot holds each tick line with 2 px each side, so a ticker
@@ -3276,8 +3309,9 @@ tooltip first, wherever focus is when a pointer raised it, then collapses an exp
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
 themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` and, for the tap on a tooltip over the bars it covers,
-`tests/e2e/company-sector-peers.spec.ts` (E267). CI's required `e2e-tests` job runs them all
-unconditionally after E195 retires the separate chart job and its flag guards (F67).
+`tests/e2e/company-sector-peers.spec.ts` (E267). CI's browser shards (`e2e-shard`) run them all
+unconditionally, and its required `e2e-tests` check passes only when every shard passed; E195 retired the separate
+chart job and its flag guards (F67).
 
 **Financial trends** (the filing page's card, `features/fundamentals/components/FundamentalsTrendChart.tsx`) draws
 through the same engine in the analysis charts' full look (E195 (D), D-067): `buildBarChart` (`lib/charts/barChart.ts`)

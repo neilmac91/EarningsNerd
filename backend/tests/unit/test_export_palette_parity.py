@@ -58,7 +58,9 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    grid prints none since D-061, and its nested operand list prints the disc), and a 20-F summary that prints
    "≈", "₩" and "₹" in prose, a figure column and a quote, and the marks in its figure column, each with a mark,
    a space and a mark, the two fixtures
-   printing every mark in MARKS between them: WeasyPrint logs no .notdef;
+   printing every mark in MARKS between them, and the analysis printing in Sources & methods every formula's
+   words, the page's (test_export_formula_words.py), with their ÷, × and minus sign, which Inter's latin cut
+   carries (chief design on #1953): WeasyPrint logs no .notdef;
    every font each render embeds, whatever kind of program, is of a vendored face's family (Inter Var, Inter
    Var Symbols or Geist Mono) and encoded by Identity-H; every glyph a composite font's text map pairs with
    text is, in a file declared for the font's family and style, that text's glyph or one its GSUB reaches
@@ -89,6 +91,7 @@ import logging
 import re
 import unicodedata
 import zipfile
+from html import escape
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -104,6 +107,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Border, Color, Font, PatternFill, Side
 
 import tests.unit.test_excel_export as workbook_fixtures
+import tests.unit.test_export_formula_words as formula_fixtures
 import tests.unit.test_export_service as export_fixtures
 from app.services.excel_export_service import CHART_SERIES, build_analysis_workbook
 from app.services.export_service import ExportService
@@ -687,6 +691,9 @@ VENDORED_FAMILIES = frozenset({"Inter Var", "Inter Var Symbols", "Geist Mono"})
 # The marks the latin subsets lack, which Inter's symbols faces carry: the every-mark fixtures must print each
 # (the glyph gate reads them), and test_vendored_font_sources.py holds pdf_branding.SYMBOLS_RANGE equal to it.
 MARKS = frozenset("†‡←→◦≈₩₹")
+# The signs the formulas' words print (the division and multiplication signs and the minus sign), in Inter's latin cut:
+# the every-mark analysis must print each in Sources & methods.
+FORMULA_SIGNS = frozenset("÷×\u2212")
 _SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-(?:Italic-)?symbols\.woff2[^}]*\}")  # roman and italic
 
 
@@ -900,7 +907,8 @@ def list_markers(html: str) -> dict[int, set[str]]:
 def _every_mark_analysis() -> str:
     """The analysis PDF with each mark the latin subsets lack in reach: an arrow in the narrative (the trend
     detectors join a move with " → "), and an operand with an operand of its own, a list in the methods list. A
-    calculated figure carries no dagger since D-061: the 20-F summary prints a mark in the data face."""
+    calculated figure carries no dagger since D-061: the 20-F summary prints a mark in the data face. Sources &
+    methods also prints every formula's words, the page's, for a figure and for its input (chief design on #1953)."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
     # A mark, a space and a mark keep the space in the marks' run (Pango), in roman and in italic (an em). The
     # thin space comes first: WeasyPrint's text map keeps the first text a glyph draws, so the reader reads the
@@ -913,7 +921,12 @@ def _every_mark_analysis() -> str:
             "method": "calculated", "validation": "passed", "formula": "sum",
             "inputs": [{"concept": "product_revenue", "value": 2000, "unit": "USD"}]}}],
     }
+    words, _ = formula_fixtures.page_formulas()
+    analysis.dataset_json["series"] += formula_fixtures.formula_series(words)
     html = ExportService().generate_analysis_pdf_html(analysis, export_fixtures.TestAnalysisPdfHtml()._company())
+    methods = html.split('<section class="methods">', 1)[1]
+    # Each formula's words end a figure's line and its input's.
+    assert all(methods.count(f" · {escape(text)}<") == 2 for text in words.values()), "a formula's words do not print"
     assert "→" in html and '<td class="num">$1,500</td>' in html and '<ul class="operands">' in html
     assert "<em>Moved 20.0% → 24.3%, † ‡.</em>" in html and "Marked †\u2009‡ and † ‡. Back ← and ◦ open." in html
     return html
@@ -968,6 +981,8 @@ def test_every_glyph_prints_in_a_vendored_face(tmp_path):
     assert {name: glyph_problems(pdfs[name], pdf) for name, (pdf, _) in renders.items()} == {name: [] for name in pdfs}
     drawn = set().union(*(rendered_text(renders[name][0]) for name in ("analysis with every mark", "20-F summary with every mark")))
     assert MARKS <= drawn, f"the every-mark fixtures print none of {sorted(MARKS - drawn)}"
+    signs = rendered_text(renders["analysis with every mark"][0])
+    assert FORMULA_SIGNS <= signs, f"the every-mark analysis prints none of {sorted(FORMULA_SIGNS - signs)}"
     for name in ("analysis with every mark", "20-F summary with every mark"):  # the reader saw the marks' faces
         assert {"Inter Var Symbols"} <= set(families[name]), name
         assert any(font.endswith("Inter-Var-Symbols-Italic") and asked and italic

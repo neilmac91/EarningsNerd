@@ -47,8 +47,9 @@ either lands, the code wins and this file is corrected in that pull request ([AG
 
 ## 2. Definitions
 
-**Chain.** The tokens one sign-in mints and its rotations supersede: a mint (password login, OAuth callback, the
-token a password change issues) followed by each successor that rotation linked to through `replaced_by_id`.
+**Chain.** The tokens one sign-in mints and its rotations supersede: a mint (password login; an OAuth sign-in's, at
+its code exchange (E29 (5)); the token a password change issues) followed by each successor that rotation linked to
+through `replaced_by_id`.
 
 **Well-formed link.** A link from token `t` to `replaced_by_id = s` is followed only when all three hold:
 
@@ -108,15 +109,24 @@ Every rotation and revocation takes the users row lock before reading the tokens
 | --- | --- | --- |
 | refresh (rotate) | the presented token; on replay, its descendants | users row, then token re-read |
 | logout | the presented chain's live tip | users row, then token re-read |
-| logout-all | every active token of the account | users row |
-| password change | every active token of the account, plus the new hash | users row first (`stage_password_change`) |
-| password reset | every active token of the account, plus the new hash | users row (`complete_password_reset`, through `revoke_all_for_user`) |
+| logout-all | every active token of the account, and its pending OAuth session handoffs (E29 (5)) | users row (`revoke_all_for_user`) |
+| password change | every active token of the account and its pending OAuth session handoffs, plus the new hash | users row first (`stage_password_change`) |
+| password reset | every active token of the account and its pending OAuth session handoffs, plus the new hash | users row (`complete_password_reset`, through `revoke_all_for_user`) |
 | password login mint | a new token, after re-checking the verified hash | users row (`record_password_login`) |
-| account deletion | every token, through the ORM cascade (`db.delete(user)`, one DELETE per token) | users row, `FOR UPDATE` (`user_account_service.delete_user`) |
+| OAuth code exchange (E29 (5)), every Google or Apple sign-in's | the sign-in's session handoff (marked used by a guarded UPDATE), then a new token | users row first, after a plain read of the handoff's account and before re-reading it (`oauth_account_service.redeem_session_handoff`) |
+| account deletion | every token, through the ORM cascade (`db.delete(user)`, one DELETE per token), and its session handoffs through `ON DELETE CASCADE` | users row, `FOR UPDATE` (`user_account_service.delete_user`) |
 
 E157's expired-access logout-all fallback takes the same lock, after validating the presented refresh credential
 belongs to the account it sweeps. The logout-all, reset, change and deletion scopes stay account-wide. Only the
 replay sweep narrows.
+
+The OAuth code exchange (E29 (5)), every Google or Apple sign-in's since its follow-up retired the callback's own
+mint, and an account-wide revocation serialize on that lock: an exchange that waits out
+a revocation finds its handoff deleted and is refused, writing nothing, and a revocation that waits out an exchange
+revokes the token the exchange minted, so no session from before the revocation outlives it
+(`test_an_oauth_code_exchange_and_an_account_wide_revocation_leave_no_session_from_the_exchange` in
+`backend/tests/integration/test_refresh_rotation_transactions.py`, both orders, both start points). No OAuth
+callback mints a token.
 
 ## 5. Successor foreign key and index (Agent E)
 
