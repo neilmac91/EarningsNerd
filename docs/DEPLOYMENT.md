@@ -1104,8 +1104,15 @@ links, lost-response retry, export, account deletion and cleanup. Runtime eviden
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
 combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
-execution environment, which exposes the cgroup v2 memory files the measurement reads, with startup
-CPU boost for its cold starts. Only the two isolated workers may run beside the application. A child
+execution environment, with startup CPU boost for its cold starts. The measurement reads the cgroup v2
+memory files at `/sys/fs/cgroup` where they read, but the live inspect of 12 November (Ops 43138110953)
+read none of them there. Where `memory.current` does not read, the sample is the instance's memory in use
+from `/proc/meminfo`: MemTotal minus MemAvailable, which counts the in-memory filesystem too. The record
+then names that basis, and the resource line marks the figure as meminfo's. With no kernel peak,
+acceptance needs both the sample and the process bound under 85% of 1 GiB. The measurement never reads
+cgroup v1's files: from inside, `/sys/fs/cgroup/memory/` may be the instance's own cgroup or a root, whose
+peak counts only its children's charges and could pass acceptance on a fraction of the memory in use.
+Only the two isolated workers may run beside the application. A child
 shows the application's arguments until it execs, and no arguments while it execs or exits, so in
 either state it counts as unexplained only if it still does a second later; a zombie awaiting its
 reap holds no memory and is not checked, though it still counts as a process. Any other program
