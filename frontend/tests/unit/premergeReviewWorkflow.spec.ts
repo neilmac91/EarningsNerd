@@ -88,7 +88,8 @@
  *     branch starts anywhere else, however its command is spelled; it is told to report a finding only in that diff
  *     and inside the done criteria (a blocker anywhere) and, in a sentence pinned whole, to report one blocker if
  *     `fixBase` is not an ancestor, all on the tier's whole team, and a refuter refutes a non-blocker outside the
- *     diff or the criteria; every later round shows every agent the reason, and round 3 or later the founder's go; the
+ *     diff or the criteria; every later round shows every agent the one-round rule and the reason, and round 3 or later
+ *     the third round's rule and the founder's go, each rule in a sentence pinned whole; the
  *     verdicts are round 1's, and at rounds 2, 3 and 4 one report of each verified severity is judged on its own
  *     refuters' answers for every combination of them; a round that is not a whole number from 1, a round without
  *     what it needs (a `fixBase` of 7 to 40 lowercase hex characters, a stated reason, a stated go, each from its
@@ -946,6 +947,9 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const FIX_LINES = ['git diff abc1234 origin/x --stat', 'git diff abc1234 origin/x -- <path>', 'git merge-base --is-ancestor abc1234 origin/x']
     const REASON = 'the blocker round 1 found in the pinned case'
     const GO = 'the founder allowed one more round'
+    // The rules a later round's agents are told, each sentence whole, so a prompt that drifts back to the old rule fails.
+    const ONE_ROUND = 'A round after the first runs only for a blocker.'
+    const THIRD_ROUND = "A third or later round runs only on the founder's go."
     const OUTSIDE = 'it is not a blocker and lies outside the fix diff or beyond the done criteria the PR body (or brief) states'
     const SCOPE = 'Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.'
     // The whole sentence, so a later round's lenses report the blocker when the fix base is off the branch, not when it is on it.
@@ -994,6 +998,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
           expect(c.prompt, `${where} ${c.label}: the scope a later round reports in`).toContain(SCOPE)
           expect(c.prompt, `${where} ${c.label}: the blocker for a fix base off the branch`).toContain(NOT_AN_ANCESTOR)
           for (const whole of ['...origin/x', 'MERGE-BASE', 'two-dot diff']) expect(c.prompt, `${where} ${c.label}`).not.toContain(whole)
+          expect(c.prompt.includes(ONE_ROUND), `${where} ${c.label}: the one-round rule`).toBe(true)
+          expect(c.prompt.includes(THIRD_ROUND), `${where} ${c.label}: the third round's rule`).toBe(round >= 3)
           expect(c.prompt.includes(REASON), `${where} ${c.label}: the reason`).toBe(round >= 2)
           expect(c.prompt.includes('The reason for this one:'), `${where} ${c.label}: the reason's sentence`).toBe(round >= 2)
           expect(c.prompt.includes(GO), `${where} ${c.label}: the founder's go`).toBe(round >= 3)
