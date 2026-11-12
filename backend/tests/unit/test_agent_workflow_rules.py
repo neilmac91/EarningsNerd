@@ -6,7 +6,9 @@ Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
   to 6,406 lines because every session prepended a ``## <date> — …`` section. A cap on lines alone
   then held the page at 120 lines while it grew to 173 KB: 102 rows, one of 2,614 words, and a
   2,058-word status bullet (``lessons/ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md``).
-  So the page has three budgets: its lines, its open rows, and the words on any one line.
+  So the page has budgets a longer line or a wrapped row cannot get round: its lines, its open
+  rows (any checkbox bullet, at any indent), the words on any one line, its words in all, and its
+  product bets, the one ground of admission that names no reader, blocker or exposure.
 - Every ``agent(`` call in ``.claude/workflows/*.js`` names its ``model`` in its options object
   with one of the aliases ``sonnet``, ``opus`` or ``haiku`` or a tier key the script defines (§5),
   and every tier of the review script names a lens model and, when it refutes, a refuter model, so
@@ -44,7 +46,14 @@ TODO_MAX_LINES = 80
 # Budgets, not allowlist caps: a row leaves when it closes, and nothing here is a list to shrink.
 TODO_MAX_OPEN_ROWS = 30
 TODO_MAX_LINE_WORDS = 70
-TODO_OPEN_ROW = re.compile(r"^- \[ \] ")
+# The whole page: a row wrapped over several lines passes the per-line budget, and this one stops it.
+TODO_MAX_WORDS = 2400
+# A product bet is admitted on the founder's choice alone (AGENTS.md §7), so it is the ground to ration.
+TODO_MAX_BETS = 5
+# A row is any checkbox bullet, checked or not, at any indent and with any bullet character: an
+# indented row or a `* [ ]` one is still a row, and a closed row leaves the page.
+TODO_OPEN_ROW = re.compile(r"^\s*[-*+] \[[ xX]?\] ")
+TODO_BET_ROW = re.compile(r"^\s*[-*+] \[[ xX]?\] \S+ \S+ [A-Z-]+ \(bet\b")
 TODO_TITLE = "# Open items — EarningsNerd"
 # The only sections the open-items file may carry, each exactly once (AGENTS.md §7). The first
 # one carries the date of the last refresh; a second copy is a ledger entry, not a refresh.
@@ -127,6 +136,12 @@ def _todo_budget_problems(lines: list[str]) -> list[str]:
         for line in lines
         if len(line.split()) > TODO_MAX_LINE_WORDS
     ]
+    words = sum(len(line.split()) for line in lines)
+    if words > TODO_MAX_WORDS:
+        problems.append(f"{words} words in all, over {TODO_MAX_WORDS}: a row is a pointer, its evidence lives in its pull request")
+    bets = sum(1 for line in lines if TODO_BET_ROW.match(line))
+    if bets > TODO_MAX_BETS:
+        problems.append(f"{bets} product bets, over {TODO_MAX_BETS}: close or park one before choosing another")
     return problems
 
 
@@ -138,10 +153,22 @@ def test_todo_is_one_page_of_open_items():
     )
     # The budgets read the page as written: a row past the count and a line past its words each fail,
     # and a page inside both passes, however its rows are worded.
-    row = "- [ ] E1 — DO (engineering): " + "word " * (TODO_MAX_LINE_WORDS - 7)  # exactly at the budget
-    assert _todo_budget_problems([row.strip()] * TODO_MAX_OPEN_ROWS) == []
-    assert len(_todo_budget_problems([row.strip()] * (TODO_MAX_OPEN_ROWS + 1))) == 1
+    row = ("- [ ] E1 — DO (engineering): " + "word " * (TODO_MAX_LINE_WORDS - 7)).strip()  # exactly at the line budget
+    assert _todo_budget_problems([row] * TODO_MAX_OPEN_ROWS) == []
+    assert len(_todo_budget_problems([row] * (TODO_MAX_OPEN_ROWS + 1))) == 1
     assert len(_todo_budget_problems(["- a status bullet " + "word " * TODO_MAX_LINE_WORDS])) == 1
+    # A row is a row however it is written: indented, under another bullet character, or ticked.
+    short = "E1 — DO (engineering): one"
+    for bullet in (" - [ ] ", "    - [ ] ", "* [ ] ", "+ [ ] ", "- [x] ", "- [] "):
+        assert _todo_budget_problems([bullet + short] * (TODO_MAX_OPEN_ROWS + 1)) != [], bullet
+    # A row wrapped over continuation lines keeps every line short, and still spends the page's words.
+    wrapped = ["- [ ] E1 — DO (engineering): start"] + ["  " + "word " * (TODO_MAX_LINE_WORDS - 1)] * 40
+    assert any("words in all" in problem for problem in _todo_budget_problems(wrapped))
+    # Product bets are rationed apart from the rows: the sixth fails, a bet-looking word elsewhere does not.
+    bet = "- [ ] E1 — DO (bet; founder decides): one"
+    assert _todo_budget_problems([bet] * TODO_MAX_BETS) == []
+    assert any("product bets" in problem for problem in _todo_budget_problems([bet] * (TODO_MAX_BETS + 1)))
+    assert _todo_budget_problems(["- [ ] E1 — DO (engineering): a bet on the launch (bet; not an owner)"] * (TODO_MAX_BETS + 1)) == []
     problems = _todo_budget_problems(lines)
     assert not problems, (
         "tasks/todo.md is past its budget (AGENTS.md §7: a row needs a reader, a launch blocker or an "

@@ -241,12 +241,14 @@ state, how to read production, spend, holds by pointer); the open items, most ur
 short line each with owner and next step; and what to doubt first.
 
 Admission (`lessons/ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md`). A row
-enters `tasks/todo.md` only if a reader, tester or customer hit it, it blocks admitting testers or
-taking payment, or it is a security or legal exposure today. A finding that meets none of these is
-a limit its pull request's body names, and gets no row. A row that waits on an event rather than on
-work is parked: one line under "Parked" naming the event, not an open row. The page holds at most
-30 open rows, 70 words on any line and 80 lines
-(`backend/tests/unit/test_agent_workflow_rules.py`); at the cap, close, merge or park a row before
+enters `tasks/todo.md` on one of four grounds: a reader, tester or customer hit it; it blocks
+admitting testers, taking payment or the public launch; it is a security, legal or availability
+exposure today; or it is a product bet chosen on purpose, its owner opening `(bet; …)`, at most
+five at a time. "A review found it" is not a ground: a finding that meets none of these is a limit
+its pull request's body names, and gets no row. A row that waits on an event rather than on work
+is parked: one line under "Parked" naming the event, not an open row. The page holds at most 30
+open rows, 70 words on any line, 80 lines and 2,400 words in all
+(`backend/tests/unit/test_agent_workflow_rules.py`); at a cap, close, merge or park a row before
 adding one. A production state, a deploy history or a review's evidence never goes in a row: read
 production live, and keep evidence in the pull request that produced it.
 

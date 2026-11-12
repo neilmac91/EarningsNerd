@@ -228,7 +228,8 @@ deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
 - **Plan** briefly when work has real dependencies or architectural choices; resolve routine
   implementation choices directly and re-plan when evidence changes the approach; record open
   items in `tasks/todo.md`, one short line each, and only those `AGENTS.md` §7 admits (a reader hit
-  it, it blocks testers or payment, or it is an exposure today). Ask only when a decision needs founder input; otherwise
+  it, it blocks testers, payment or the launch, it is an exposure today, or it is one of at most
+  five chosen product bets). Ask only when a decision needs founder input; otherwise
   carry authorized work through implementation, verification (`AGENTS.md` §4) and fixes,
   preserve explicit approval and release boundaries, and report any blocker precisely.
 - **Delegate** bounded independent work when parallelism or context isolation helps, naming the

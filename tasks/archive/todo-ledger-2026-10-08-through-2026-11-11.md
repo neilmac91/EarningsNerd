@@ -7,11 +7,11 @@ character is as it was at `7e8af9c`.
 
 What the triage did with the 102 rows:
 
-- **Kept, as 19 rows of `tasks/todo.md`** (the lead row's ID, with the rows merged into it): F46; F38;
+- **Kept, as 17 rows of `tasks/todo.md`** (the lead row's ID, with the rows merged into it): F46; F38;
   F60 (with F50); F70; E29; E318, a new row (with F23, F34, F62); F49 (with F65, E264, E198, E206,
-  E260, E293, E278, E28); E172; F15; E27; F68; E300 (with E77); E271; E99; F71; F48; F64; F9 (with
-  F14, F54, F27); F55. Six rows were added for what the launch needed and no row covered: F72 to F76
-  and E319.
+  E260, E293, E278, E28); E172; F15 (with F55's three cost calls); E27; F68; E300 (with E77); E271;
+  E99; F71; F64; F9 (with F14, F54, F27). Six rows were added for what the launch needed and no row
+  covered: F72 to F76 and E319.
 - **Found already done on main when each kept row was checked against the code, and closed:** F53 and
   F4 (`/privacy` names DeepSeek, states no retention the code does not enforce and covers Vercel Web
   Analytics); F56 (both backend sentences of its (b) are gone); E32 (return URLs are built on
@@ -20,7 +20,7 @@ What the triage did with the 102 rows:
 - **Built in the triage's own change:** E29 (7), E296 and E281. **Closed as stale:** E1, whose
   prepared stack no open pull request carried.
 - **Parked** (one line each under "Parked" in `tasks/todo.md`, with the event that revives it): E98,
-  F18, F19, E317, E316, E299, E301, E121, E96, E287, E277, E36, E50, E31, E21, F12.
+  F18, F19, E317, E316, E299, E301, E121, E96, E287, E277, E36, E50, E31, E21, F12, F48.
 - **Closed without a build:** process, CI and test machinery (F63, F58, F51, F11, E315, E314, E246,
   E116, E10, E162, E64, E256); polish (F5, E313, E74, E79, E37, E26, E9, E13, E14, E15, E34, E68);
   parked programmes (F10, F13, F16, F17, F21, E12); refinements no reader asked for (E270, E269, E288,
