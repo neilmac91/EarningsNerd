@@ -72,8 +72,11 @@ class Cloud:
 
 
 class Sql:
-    def __init__(self, expired="1", schema="1"):
+    """The isolated database: the previous run's marker row, with the runtime hash seed_marker recorded for it."""
+
+    def __init__(self, expired="1", schema="1", recorded=None):
         self.expired, self.schema, self.statements = expired, schema, []
+        self.recorded = hashes(PRIOR)["runtime_source_sha256"] if recorded is None else recorded
 
     def query(self, statement, *, env):
         self.statements.append(statement)
@@ -82,6 +85,9 @@ class Sql:
             return self.expired
         if statement.startswith("SELECT (to_regclass('public.users')"):
             return self.schema
+        if statement.startswith("SELECT runtime_source_sha256 FROM"):
+            assert RUN_ID in statement
+            return self.recorded
         assert statement.startswith("SELECT EXTRACT(EPOCH FROM expires_at)::bigint") and RUN_ID in statement
         return str(EXPIRES)
 
@@ -120,7 +126,86 @@ def test_a_previous_source_without_a_later_successful_cleanup_refuses_before_any
     assert cloud.calls == [("GET", None)]
 
 
-def test_the_previous_source_is_held_to_its_own_run_hash():
+def test_the_previous_source_is_held_to_the_hash_its_run_s_marker_recorded():
+    """The job agreeing with itself is not enough: its source must be the one the run's marker row recorded."""
+    sql = Sql(recorded="d" * 64)
+    cloud = Cloud(job(latest=execution()))
+    with pytest.raises(verify.media.OperationError, match="runtime source is not the one its run recorded"):
+        verify.settle_previous_run(cloud, sql, {}, {"template": {}})
+    assert cloud.calls == [("GET", None)] and not any("EXTRACT(EPOCH" in statement for statement in sql.statements)
+
+
+def test_an_empty_previous_source_is_refused_even_when_its_hash_is_its_run_s():
+    previous = job(latest=execution())
+    container = previous["template"]["template"]["containers"][0]
+    container["args"] = ["-c", ""]
+    for row in container["env"]:
+        if row["name"] == "FEEDBACK_VERIFY_RUNTIME_SHA256":
+            row["value"] = hashlib.sha256(b"").hexdigest()
+    sql = Sql(recorded=hashlib.sha256(b"").hexdigest())
+    cloud = Cloud(previous)
+    with pytest.raises(verify.media.OperationError, match="Previous cleanup differs from the bounded isolated contract"):
+        verify.settle_previous_run(cloud, sql, {}, {"template": {}})
+    assert cloud.calls == [("GET", None)] and sql.statements == []
+
+
+def env_row(name, value):
+    return lambda container: next(row for row in container["env"] if row["name"] == name).update(value=value)
+
+
+@pytest.mark.parametrize("change, refusal", [
+    # The run id reaches the SQL, so a quote in it must never pass.
+    (env_row("FEEDBACK_VERIFY_RUN_ID", "1-1'; DROP TABLE x; --"), "inspect its retained manifest"),
+    (lambda container: container.update(image="registry.example/other@sha256:" + "a" * 64), "inspect its retained manifest"),
+    (lambda container: container.update(command=["python3"]), "inspect its retained manifest"),
+    (env_row("FEEDBACK_VERIFY_MODE", "cleanup_now"), "inspect its retained manifest"),
+    (env_row("FEEDBACK_MEDIA_BUCKET", "another-bucket"), "inspect its retained manifest"),
+    (lambda container: next(row for row in container["env"] if row["name"] == "DATABASE_URL")["valueSource"]
+     ["secretKeyRef"].update(secret="another-secret"), "inspect its retained manifest"),
+    (lambda container: container["env"].append({"name": "EXTRA", "valueSource": {"secretKeyRef": {"secret": "s"}}}),
+     "inspect its retained manifest"),
+    (lambda container: container["resources"]["limits"].update(memory="1Gi"), "bounded isolated contract"),
+    (env_row("FEEDBACK_VERIFY_SUITE_SHA256", "not a hash"), "bounded isolated contract"),
+])
+def test_a_previous_source_is_held_to_every_other_part_of_the_contract(change, refusal):
+    """Only the source may differ from main's: a job differing anywhere else is refused before any SQL or execution."""
+    previous = job(latest=execution())
+    change(previous["template"]["template"]["containers"][0])
+    sql = Sql()
+    cloud = Cloud(previous)
+    with pytest.raises(verify.media.OperationError, match=refusal):
+        verify.settle_previous_run(cloud, sql, {}, {"template": {}})
+    assert cloud.calls == [("GET", None)] and sql.statements == []
+
+
+def test_a_previous_source_under_another_identity_is_refused():
+    previous = job(latest=execution())
+    previous["template"]["template"]["serviceAccount"] = "another@example.invalid"
+    sql = Sql()
+    cloud = Cloud(previous)
+    with pytest.raises(verify.media.OperationError, match="cleanup authority differs"):
+        verify.settle_previous_run(cloud, sql, {}, {"template": {}})
+    assert cloud.calls == [("GET", None)] and sql.statements == []
+
+
+def test_the_refusal_names_the_hourly_cleanup_s_own_minute():
+    """The retry minute the refusal gives is the one ensure_schedule writes into the schedule's cron."""
+    written = []
+
+    class Scheduler:
+        def call(self, api, path, *, method="GET", body=None, **_):
+            if method != "GET":
+                written.append(body)
+            return None
+
+    verify.ensure_schedule(Scheduler())
+    minute = written[0]["schedule"].split()[0]
+    with pytest.raises(verify.media.OperationError) as refusal:
+        verify.settled_by_its_own_schedule({}, str(EXPIRES))
+    assert str(refusal.value).endswith(f"retry after its next run at minute {minute}") and minute.isdecimal()
+
+
+def test_the_previous_source_is_held_to_its_own_job_hash():
     """A job whose source is not the one its run recorded never counts, however its schedule ran."""
     cloud = Cloud(job(source=PRIOR, bound="raise SystemExit('the runtime this run recorded')\n", latest=execution()))
     with pytest.raises(verify.media.OperationError, match="Previous cleanup differs from the bounded isolated contract"):

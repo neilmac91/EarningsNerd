@@ -41,6 +41,7 @@ NAME = "earningsnerd-feedback-verify"
 SERVICE = f"{media.PARENT}/services/{NAME}"
 JOB = f"{media.PARENT}/jobs/{NAME}-cleanup"
 SCHEDULE = f"{media.PARENT}/jobs/feedback-media-verify-cleanup-hourly"
+SCHEDULE_MINUTE = 41  # the hourly cleanup's minute; a refusal that waits for it names the same one
 IDENTITY = f"{NAME}@{PROJECT}.iam.gserviceaccount.com"
 SA_PATH = f"projects/{PROJECT}/serviceAccounts/{IDENTITY}"
 DATABASE = "earningsnerd_feedback_verify"
@@ -981,7 +982,7 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
             or any(not re.fullmatch(r"[0-9a-f]{40}" if field == "frontend_tree" else r"[0-9a-f]{64}", value)
                    for field, value in hashes.items())
             or hashlib.sha256(args[1].encode()).hexdigest() != hashes["runtime_source_sha256"]
-            or len(args[1].encode()) > 32768
+            or not 0 < len(args[1].encode()) <= 32768
             or not contains_spec(previous, runtime_spec(production, previous_run, container["image"], hashes, versions,
                                                         job=True, source=args[1]))):
         raise media.OperationError("Previous cleanup differs from the bounded isolated contract")
@@ -993,6 +994,11 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     if sql.query("SELECT (to_regclass('public.users') IS NOT NULL)::int;", env=test_env) != "1":
         return
     if prior:
+        # The run's durable record is its marker row, which seed_marker wrote and the runtime's own check_database
+        # holds every execution to; the job's env hash alone would only prove the job agrees with itself.
+        recorded = sql.query(f"SELECT runtime_source_sha256 FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
+        if recorded != hashes["runtime_source_sha256"]:
+            raise media.OperationError("Previous cleanup's runtime source is not the one its run recorded")
         settled_by_its_own_schedule(previous, sql.query(
             f"SELECT EXTRACT(EPOCH FROM expires_at)::bigint FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env))
         return
@@ -1016,7 +1022,7 @@ def settled_by_its_own_schedule(job: dict, expires_at: str) -> None:
         settled = False
     if not settled:
         raise media.OperationError("Previous run used another runtime source and its hourly cleanup has not succeeded "
-                                   "since its lease expired; retry after its next run at minute 41")
+                                   f"since its lease expired; retry after its next run at minute {SCHEDULE_MINUTE}")
     print(f"Previous run used another runtime source; its own hourly cleanup succeeded after its lease expired "
           f"(execution created {created:%Y-%m-%dT%H:%MZ}): settled without executing it")
 
@@ -1062,7 +1068,7 @@ def ensure_job(cloud: media.Cloud, spec: dict) -> None:
 
 def ensure_schedule(cloud: media.Cloud) -> None:
     """The hourly expiry cleanup, created once initialize has made the schema it cleans."""
-    schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": "41 * * * *", "timeZone": "Etc/UTC",
+    schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": f"{SCHEDULE_MINUTE} * * * *", "timeZone": "Etc/UTC",
                 "attemptDeadline": "60s", "retryConfig": {"retryCount": 0}, "httpTarget": {
                     "uri": f"https://run.googleapis.com/v2/{JOB}:run", "httpMethod": "POST", "body": "e30=",
                     "headers": {"Content-Type": "application/json"},
