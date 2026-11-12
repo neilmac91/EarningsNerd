@@ -88,7 +88,7 @@
  *     branch starts anywhere else, however its command is spelled; it is told to report a finding only in that diff
  *     and inside the done criteria (a blocker anywhere) and, in a sentence pinned whole, to report one blocker if
  *     `fixBase` is not an ancestor, all on the tier's whole team, and a refuter refutes a non-blocker outside the
- *     diff or the criteria; round 3 or later shows every agent the reason, and round 4 or later the founder's go; the
+ *     diff or the criteria; every later round shows every agent the reason, and round 3 or later the founder's go; the
  *     verdicts are round 1's, and at rounds 2, 3 and 4 one report of each verified severity is judged on its own
  *     refuters' answers for every combination of them; a round that is not a whole number from 1, a round without
  *     what it needs (a `fixBase` of 7 to 40 lowercase hex characters, a stated reason, a stated go, each from its
@@ -944,7 +944,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
 
   it("reviews a PR set to round 1 as one with no round, over the merge-base diff, and a later round over its fix diff alone, on the tier's whole team and with round 1's verdicts, on every tier", async () => {
     const FIX_LINES = ['git diff abc1234 origin/x --stat', 'git diff abc1234 origin/x -- <path>', 'git merge-base --is-ancestor abc1234 origin/x']
-    const REASON = 'a regression the fix made in the pinned case'
+    const REASON = 'the blocker round 1 found in the pinned case'
     const GO = 'the founder allowed one more round'
     const OUTSIDE = 'it is not a blocker and lies outside the fix diff or beyond the done criteria the PR body (or brief) states'
     const SCOPE = 'Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.'
@@ -960,7 +960,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       return { calls, result }
     }
     const verdicts = (r: RoundResult) => [titles(r.confirmed), titles(r.refuted), titles(r.unverified), titles(r.nits), r.incomplete, r.mergeable, r.agents]
-    const LATER: Array<[number, Record<string, unknown>]> = [[2, {}], [3, { reason: REASON }], [4, { reason: REASON, founderGo: GO }], [6, { reason: REASON, founderGo: GO }]]
+    const LATER: Array<[number, Record<string, unknown>]> = [[2, { reason: REASON }], [3, { reason: REASON, founderGo: GO }], [4, { reason: REASON, founderGo: GO }], [6, { reason: REASON, founderGo: GO }]]
     for (const tier of ['records', 'routine', 'high']) {
       const none = await runOf(tier, {})
       const one = await runOf(tier, { round: 1 })
@@ -994,10 +994,10 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
           expect(c.prompt, `${where} ${c.label}: the scope a later round reports in`).toContain(SCOPE)
           expect(c.prompt, `${where} ${c.label}: the blocker for a fix base off the branch`).toContain(NOT_AN_ANCESTOR)
           for (const whole of ['...origin/x', 'MERGE-BASE', 'two-dot diff']) expect(c.prompt, `${where} ${c.label}`).not.toContain(whole)
-          expect(c.prompt.includes(REASON), `${where} ${c.label}: the reason`).toBe(round >= 3)
-          expect(c.prompt.includes('The reason for this one:'), `${where} ${c.label}: the reason's sentence`).toBe(round >= 3)
-          expect(c.prompt.includes(GO), `${where} ${c.label}: the founder's go`).toBe(round >= 4)
-          expect(c.prompt.includes("The founder's go for this one:"), `${where} ${c.label}: the go's sentence`).toBe(round >= 4)
+          expect(c.prompt.includes(REASON), `${where} ${c.label}: the reason`).toBe(round >= 2)
+          expect(c.prompt.includes('The reason for this one:'), `${where} ${c.label}: the reason's sentence`).toBe(round >= 2)
+          expect(c.prompt.includes(GO), `${where} ${c.label}: the founder's go`).toBe(round >= 3)
+          expect(c.prompt.includes("The founder's go for this one:"), `${where} ${c.label}: the go's sentence`).toBe(round >= 3)
           expect(c.prompt, `${where} ${c.label}: a field left unset`).not.toContain('undefined')
           expect(c.prompt.includes(OUTSIDE), `${where} ${c.label}: a refuter refutes a finding outside the fix diff`).toBe(c.label.startsWith('verify:'))
         }
@@ -1007,7 +1007,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
 
   it("judges a later round's report on its own refuters' answers alone, as round 1 does, at rounds 2, 3 and 4: one report of each verified severity, for every combination of those answers, on both tiers", async () => {
     const run = load()
-    for (const [round, extra] of [[2, {}], [3, { reason: 'r' }], [4, { reason: 'r', founderGo: 'g' }]] as const) {
+    for (const [round, extra] of [[2, { reason: 'r' }], [3, { reason: 'r', founderGo: 'g' }], [4, { reason: 'r', founderGo: 'g' }]] as const) {
       for (const tier of ['high', 'routine'] as const) {
         const T = REFUTING[tier]
         const args = { prs: [{ number: 1875, branch: 'claude/a-fix-branch', title: 'fix(api): the fix round', base: 'main', tier, round, fixBase: '0123abcd', ...extra }] }
@@ -1036,41 +1036,43 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
       ["round '2'", fixed(2, { round: '2' }), WHOLE],
       ['round null', at(null), WHOLE],
       ['round true', at(true), WHOLE],
-      ['round 2 without fixBase', at(2), /needs fixBase/],
-      ['round 3 without fixBase', at(3, { reason: 'r' }), /needs fixBase/],
+      ['round 2 without fixBase', at(2, { reason: 'r' }), /needs fixBase/],
+      ['round 3 without fixBase', at(3, { reason: 'r', founderGo: 'g' }), /needs fixBase/],
       ['round 7 without fixBase', at(7, { reason: 'r', founderGo: 'g' }), /needs fixBase/],
-      ["fixBase ''", at(2, { fixBase: '' }), /needs fixBase/],
-      ["fixBase 'main'", at(2, { fixBase: 'main' }), /needs fixBase/],
-      ['fixBase of 6 characters', at(2, { fixBase: 'abc123' }), /needs fixBase/],
-      ['fixBase of 41 characters', at(2, { fixBase: 'a'.repeat(41) }), /needs fixBase/],
-      ['fixBase in capitals', at(2, { fixBase: 'ABC1234' }), /needs fixBase/],
-      ['fixBase with an option after it', at(2, { fixBase: 'abc1234 --stat' }), /needs fixBase/],
-      ['fixBase with a newline after it', at(2, { fixBase: 'abc1234\n' }), /needs fixBase/],
-      ['fixBase a number', at(2, { fixBase: 1234567 }), /needs fixBase/],
-      ['fixBase of 7 lowercase letters, not all hex', at(2, { fixBase: 'release' }), /needs fixBase/],
-      ['round 3 without a reason', fixed(3), /needs a reason/],
-      ['round 4 without a reason', fixed(4, { founderGo: 'g' }), /needs a reason/],
+      ["fixBase ''", at(2, { fixBase: '', reason: 'r' }), /needs fixBase/],
+      ["fixBase 'main'", at(2, { fixBase: 'main', reason: 'r' }), /needs fixBase/],
+      ['fixBase of 6 characters', at(2, { fixBase: 'abc123', reason: 'r' }), /needs fixBase/],
+      ['fixBase of 41 characters', at(2, { fixBase: 'a'.repeat(41), reason: 'r' }), /needs fixBase/],
+      ['fixBase in capitals', at(2, { fixBase: 'ABC1234', reason: 'r' }), /needs fixBase/],
+      ['fixBase with an option after it', at(2, { fixBase: 'abc1234 --stat', reason: 'r' }), /needs fixBase/],
+      ['fixBase with a newline after it', at(2, { fixBase: 'abc1234\n', reason: 'r' }), /needs fixBase/],
+      ['fixBase a number', at(2, { fixBase: 1234567, reason: 'r' }), /needs fixBase/],
+      ['fixBase of 7 lowercase letters, not all hex', at(2, { fixBase: 'release', reason: 'r' }), /needs fixBase/],
+      ['round 2 without a reason', fixed(2), /needs a reason/],
+      ['round 3 without a reason', fixed(3, { founderGo: 'g' }), /needs a reason/],
       ['round 7 without a reason', fixed(7, { founderGo: 'g' }), /needs a reason/],
-      ["reason ''", fixed(3, { reason: '' }), /needs a reason/],
-      ['reason of blanks', fixed(3, { reason: ' \t\n' }), /needs a reason/],
-      ['reason a number', fixed(3, { reason: 3 }), /needs a reason/],
+      ["reason ''", fixed(2, { reason: '' }), /needs a reason/],
+      ['reason of blanks', fixed(2, { reason: ' \t\n' }), /needs a reason/],
+      ['reason a number', fixed(2, { reason: 2 }), /needs a reason/],
+      ['round 3 without founderGo', fixed(3, { reason: 'r' }), /needs founderGo/],
+      ["founderGo ''", fixed(3, { reason: 'r', founderGo: '' }), /needs founderGo/],
+      ['founderGo of blanks', fixed(3, { reason: 'r', founderGo: '  ' }), /needs founderGo/],
+      ['founderGo a number', fixed(3, { reason: 'r', founderGo: 3 }), /needs founderGo/],
       ['round 4 without founderGo', fixed(4, { reason: 'r' }), /needs founderGo/],
-      ["founderGo ''", fixed(4, { reason: 'r', founderGo: '' }), /needs founderGo/],
-      ['founderGo of blanks', fixed(4, { reason: 'r', founderGo: '  ' }), /needs founderGo/],
-      ['founderGo a number', fixed(4, { reason: 'r', founderGo: 4 }), /needs founderGo/],
       ['round 7 without founderGo', fixed(7, { reason: 'r' }), /needs founderGo/],
       ['fixBase with no round', { prs: [{ ...pr('high'), fixBase: 'abc1234' }] }, /fixBase belongs to round 2 or later/],
       ['fixBase on round 1', fixed(1), /fixBase belongs to round 2 or later/],
       ['an empty fixBase on round 1', at(1, { fixBase: '' }), /fixBase belongs to round 2 or later/],
-      ['reason on round 2', fixed(2, { reason: 'r' }), /reason belongs to round 3 or later/],
-      ['founderGo on round 2', fixed(2, { founderGo: 'g' }), /founderGo belongs to round 4 or later/],
-      ['founderGo on round 3', fixed(3, { reason: 'r', founderGo: 'g' }), /founderGo belongs to round 4 or later/],
+      ['reason with no round', { prs: [{ ...pr('high'), reason: 'r' }] }, /reason belongs to round 2 or later/],
+      ['reason on round 1', at(1, { reason: 'r' }), /reason belongs to round 2 or later/],
+      ['founderGo on round 1', at(1, { founderGo: 'g' }), /founderGo belongs to round 3 or later/],
+      ['founderGo on round 2', fixed(2, { reason: 'r', founderGo: 'g' }), /founderGo belongs to round 3 or later/],
       ['a round on the batch', { prs: [pr('high')], round: 2 }, /args\.round is set on the batch/],
       ['a null round on the batch', { prs: [pr('high')], round: null }, /args\.round is set on the batch/],
       ['fixBase on the batch', { prs: [pr('high')], fixBase: 'abc1234' }, /args\.fixBase is set on the batch/],
       ['reason on the batch', { prs: [pr('high')], reason: 'r' }, /args\.reason is set on the batch/],
       ['founderGo on the batch', { prs: [pr('high')], founderGo: 'g' }, /args\.founderGo is set on the batch/],
-      ['a refused PR after an allowed one', { prs: [pr('high'), { ...pr('high'), number: 2, round: 3, fixBase: 'abc1234' }] }, /needs a reason/],
+      ['a refused PR after an allowed one', { prs: [pr('high'), { ...pr('high'), number: 2, round: 2, fixBase: 'abc1234' }] }, /needs a reason/],
     ]
     for (const [name, args, message] of refused) {
       const { agent, calls } = stub()
@@ -1079,10 +1081,11 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     }
     // Their allowed neighbours run, on the tier's whole team: a fixBase of 7 and of 40 characters, a reason, a go.
     const allowed: Array<[string, unknown, number]> = [
-      ['fixBase of 7 characters', at(2, { fixBase: 'abc1234' }), 2],
-      ['fixBase of 40 characters', at(2, { fixBase: '0123456789abcdef0123456789abcdef01234567' }), 2],
-      ['a reason', fixed(3, { reason: 'r' }), 3],
-      ['a reason and a go', fixed(5, { reason: 'r', founderGo: 'g' }), 5],
+      ['fixBase of 7 characters', at(2, { fixBase: 'abc1234', reason: 'r' }), 2],
+      ['fixBase of 40 characters', at(2, { fixBase: '0123456789abcdef0123456789abcdef01234567', reason: 'r' }), 2],
+      ['a reason', fixed(2, { reason: 'r' }), 2],
+      ['a reason and a go', fixed(3, { reason: 'r', founderGo: 'g' }), 3],
+      ['a reason and a go at round 5', fixed(5, { reason: 'r', founderGo: 'g' }), 5],
     ]
     for (const [name, args, round] of allowed) {
       const { agent, calls } = stub()
@@ -1098,7 +1101,7 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const said = (label: string): Findings => ({ findings: /:(correctness|combined)$/.test(label) ? NIT : [], summary: `follow-ups of ${label.split(':').pop()}` })
     for (const tier of ['records', 'routine', 'high']) {
       const lenses = tier === 'high' ? ['correctness', 'rules-and-brief', 'tests-and-gates'] : ['combined']
-      for (const extra of [{}, { round: 2, fixBase: 'abc1234' }, { round: 3, fixBase: 'abc1234', reason: 'r' }, { round: 4, fixBase: 'abc1234', reason: 'r', founderGo: 'g' }]) {
+      for (const extra of [{}, { round: 2, fixBase: 'abc1234', reason: 'r' }, { round: 3, fixBase: 'abc1234', reason: 'r', founderGo: 'g' }, { round: 4, fixBase: 'abc1234', reason: 'r', founderGo: 'g' }]) {
         const { agent } = stub(undefined, { findings: said })
         const [result] = (await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)) as RoundResult[]
         expect(result.summaries, `${tier} ${JSON.stringify(extra)}`).toEqual(Object.fromEntries(lenses.map((l) => [l, `follow-ups of ${l}`])))
