@@ -694,10 +694,13 @@ def resource_refusals(resources: dict) -> list[str]:
     """Every acceptance condition a valid resource record fails, by closed name.
 
     verify_runtime.resource_acceptance decides, and a unit test holds the two to the same verdict on every input it
-    tries. This names each failing condition rather than stopping at the first, so a refusal explains itself without
-    changing verify_runtime.py, the verifier's fingerprinted source.
+    tries; configured-limit is the one condition live_runner.mjs adds beside it. This names each failing condition
+    rather than stopping at the first, so a refusal explains itself without changing verify_runtime.py, the verifier's
+    fingerprinted source.
     """
     refused = []
+    if resources["configured_memory_limit_bytes"] != MEMORY_CAP_BYTES:  # live_runner.mjs's own third condition
+        refused.append("configured-limit")
     if resources["sample_count"] < 5:
         refused.append("samples")
     if resources["unexplained_children"]:

@@ -460,6 +460,8 @@ def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_fa
             raise verify.media.OperationError("Verification initialization/cleanup did not complete successfully")
     monkeypatch.setattr(verify, "browser", browser)
     monkeypatch.setattr(verify, "execute_cleanup", execute_cleanup)
+    # The diagnostic receipt read a browser failure makes (test_feedback_media_verify_resources.py) is stubbed offline.
+    monkeypatch.setattr(verify, "control", lambda *_args, **_kwargs: {"resources": None})
     if browser_fails or cleanup_fails:
         with pytest.raises(verify.media.OperationError) as failure:
             verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)

@@ -52,7 +52,7 @@ def test_the_constants_match_the_runtime_that_writes_the_record():
     """The cap, the record's keys and its two fixed strings are the ones verify_runtime.py writes."""
     source = (ROOT / "ops/feedback_media/verify_runtime.py").read_text()
     assert verify.MEMORY_CAP_BYTES == CAP
-    assert "cap = 1073741824" in source and '"configured_memory_limit_bytes": 1073741824' in source
+    assert re.search(r"\bcap = 1073741824\b", source) and re.search(r'"configured_memory_limit_bytes": 1073741824\b', source)
     assert f'"method": "{verify.RESOURCE_METHOD}"' in source
     for basis in verify.EVIDENCE_BASES:
         assert f'"{basis}"' in source
@@ -70,6 +70,7 @@ def test_a_passing_record_prints_its_figures_and_names_no_condition():
 
 
 @pytest.mark.parametrize("changes, names", [
+    ({"configured_memory_limit_bytes": 2 * CAP}, "configured-limit"),
     ({"sample_count": 4}, "samples"),
     ({"unexplained_children": True}, "unexplained-child"),
     ({"last_process_count": 2}, "process-count"),
@@ -88,6 +89,38 @@ def test_a_passing_record_prints_its_figures_and_names_no_condition():
 def test_a_refused_record_names_every_failing_condition(changes, names):
     line = verify.resources_line(record(acceptance_passed=False, **changes), INSTANCE)
     assert line.startswith(f"Verifier resources ({INSTANCE}): acceptance refused; conditions failed: {names}; samples ")
+
+
+def test_the_printed_verdict_is_the_verifiers_own_even_when_no_condition_is_named():
+    """A verdict skewed from the conditions named here (another runtime source) still prints as the verifier gave it."""
+    assert verify.resources_line(record(acceptance_passed=False), SIGNED).startswith(
+        f"Verifier resources ({SIGNED}): acceptance refused; conditions failed: none; ")
+
+
+def receipt_with(resources):
+    """A receipt of the counts-only shape counts_only_receipt admits (its values are verify_receipt's to check)."""
+    observed = {
+        "database": {**dict.fromkeys(("feedback", "submitted", "attachments", "fixture_users", "available", "deleted",
+                                      "pending", "published_attachments", "confirmed_generation_deletions"), 0),
+                     "normalized_metadata_valid": True},
+        "notifications": {"accepted": 1, "rejected": 0, "attachment_counts": [3], "admin_link_valid": True,
+                          "no_image_payload": True},
+        "resources": resources,
+        "cleanup": {"dry_run": False, "eligible": 3, "deleted": 3, "errors": 0, "overdue": 0, "pending_verification": 0}}
+    payload = dict.fromkeys(("schema", "purpose", "run_id", "completed_at", "image_digest", "runtime_source_sha256",
+                             "verification_suite_sha256", "frontend_tree", "browser_assertions"), "x")
+    return {"payload": {**payload, "observed": observed}, "signature": "f" * 64}
+
+
+@pytest.mark.parametrize("resources, admitted", [
+    (record(), True),
+    (record(error="withheld runtime text"), False),
+    (record(sample_age_seconds=10**400), False),
+    (record(method="another method"), False),
+])
+def test_the_receipt_allow_list_still_checks_its_resources_through_the_shared_helper(resources, admitted):
+    """counts_only_receipt keeps runtime text out of a retained receipt; its resources check is valid_resources."""
+    assert verify.counts_only_receipt(receipt_with(resources)) is admitted
 
 
 def test_without_a_kernel_peak_the_line_says_so():
@@ -172,17 +205,20 @@ def test_a_failed_resource_read_says_so_and_never_replaces_the_browser_failure(m
     def browser(*_args):
         raise verify.media.OperationError(FAILURE)
 
-    def control(*_args, **_kwargs):
+    def control(*args, **_kwargs):
+        reads.append(args[-1])
         if error is None:
             return ["withheld detail"]
         raise error
 
+    reads = []
     monkeypatch.setattr(verify, "browser", browser)
     monkeypatch.setattr(verify, "control", control)
     monkeypatch.setattr(verify, "execute_cleanup", cleanups.append)
     with pytest.raises(verify.media.OperationError) as failure:
         verify.browse_then_clean("cloud", "https://verify.example", "key", "40210191699-1", "image", {})
-    assert str(failure.value) == FAILURE and cleanups == ["cloud"]
+    # One read, never read_receipt's four-minute retry loop, before the bounded cleanup.
+    assert str(failure.value) == FAILURE and cleanups == ["cloud"] and reads == ["receipt"]
     out = capsys.readouterr().out
     assert out == "Verifier resources: unavailable (receipt read failed)\n" and "withheld" not in out
 
