@@ -445,6 +445,57 @@ def test_a_failed_browser_run_names_only_its_closed_stage_and_code(monkeypatch, 
     assert str(failure.value) == refusal and failure.value.__suppress_context__ == bool(exit_status)
 
 
+def test_the_in_run_cleanup_runs_after_a_failure_of_any_kind(monkeypatch):
+    """A crash or an interrupt in the browser still leaves its cleanup run, then the original error stands."""
+    cleanups = []
+    for failure in (RuntimeError("unexpected"), KeyboardInterrupt()):
+        def browser(*_args, failure=failure):
+            raise failure
+        monkeypatch.setattr(verify, "browser", browser)
+        monkeypatch.setattr(verify, "execute_cleanup", cleanups.append)
+        with pytest.raises(type(failure)):
+            verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert cleanups == ["cloud", "cloud"]
+
+
+def output_reads(source: str) -> list[tuple[int, bool]]:
+    """Each read of an `output` attribute in `source`, a load or a getattr(_, "output", ...) call, with its line and
+    whether it is the sole argument of a browser_failure(...) call directly inside a function named browser."""
+    tree = ast.parse(source)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    reads = []
+    for node in ast.walk(tree):
+        if not ((isinstance(node, ast.Attribute) and node.attr == "output" and isinstance(node.ctx, ast.Load))
+                or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "getattr"
+                    and len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and node.args[1].value == "output")):
+            continue
+        call, scope = parents.get(node), parents.get(node)
+        while scope is not None and not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            scope = parents.get(scope)
+        allowed = (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "browser_failure"
+                   and call.args == [node] and not call.keywords
+                   and isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)) and scope.name == "browser")
+        reads.append((node.lineno, allowed))
+    return reads
+
+
+def test_only_the_browser_reads_a_failed_commands_output():
+    """A failed command's output can carry any text, and an Ops log is public: the one read is browser()'s, as the sole
+    argument of browser_failure, which keeps only closed codes. Both files a CommandFailed reaches are walked whole, at
+    module level too, and getattr(_, "output") counts as a read; one through vars() or __dict__ stays review-checked."""
+    reads = {name: output_reads((ROOT / "ops/feedback_media" / name).read_text()) for name in ("verify_manage.py", "manage.py")}
+    assert [allowed for _line, allowed in reads["verify_manage.py"]] == [True] and reads["manage.py"] == []
+    # The gate refuses each wider read it was widened for.
+    browser_read = "            raise browser_failure(failed.output) from None\n"
+    for mutant in ("\nLEAK = CommandFailed('').output\n", "\ndef leak(failure):\n    return getattr(failure, 'output', '')\n",
+                   "\ndef leak(failure):\n    return failure.output\n"):
+        assert [allowed for _line, allowed in output_reads("def browser():\n    pass\n" + mutant)] == [False], mutant
+    source = (ROOT / "ops/feedback_media/verify_manage.py").read_text()
+    assert source.count(browser_read) == 1
+    second = source.replace(browser_read, "            print(failed.output)\n" + browser_read)
+    assert sorted(allowed for _line, allowed in output_reads(second)) == [False, True]
+
+
 @pytest.mark.parametrize("browser_fails, cleanup_fails", [(False, False), (True, False), (True, True), (False, True)])
 def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_failure(monkeypatch, capsys, browser_fails,
                                                                                        cleanup_fails):
