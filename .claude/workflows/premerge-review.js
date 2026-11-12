@@ -1,6 +1,6 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high; rounds 2+ review only the fix diff, from round 3 with a reason and from round 4 with a go from the founder',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high; one round, unless round 1 found a blocker: a round 2 reviews only that fix diff, with a reason, and a round 3 or later needs a go from the founder',
   phases: [
     { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
     { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker or should-fix' },
@@ -12,10 +12,10 @@ export const meta = {
 // args.tier may set 'routine' or 'high' for the batch; 'records' is accepted only on a PR itself; a PR
 // with no tier is reviewed as 'high'. An unknown tier fails the run before any agent starts.
 // round (AGENTS.md §5; lessons/ops-converge-a-review-in-one-fix-round.md): 1 when unset, the tier's full review over
-// the merge-base diff. From round 2 the PR names fixBase, the commit the previous round reviewed (7 to 40 lowercase hex
-// characters), and every lens and refuter reads only the fix diff from it to the branch head, on the tier's whole team;
-// round 3 or later also needs reason (the blocker, or the regression in the fix, it reviews), and round 4 or later
-// founderGo (the founder's words). A round that is not a whole number from 1, a round without what it needs, a field
+// the merge-base diff, and the only round unless round 1 found a blocker. From round 2 the PR names fixBase, the commit
+// the previous round reviewed (7 to 40 lowercase hex characters), and reason (the blocker whose fix the round reviews),
+// and every lens and refuter reads only the fix diff from it to the branch head, on the tier's whole team; round 3 or
+// later also needs founderGo (the founder's words). A round that is not a whole number from 1, a round without what it needs, a field
 // given before its round, or a round field set on the batch fails the run before any agent starts. The script checks
 // that a reason and a go are stated, not what they say, and takes the round and fixBase on the caller's word: it
 // checks their form, not that fixBase is the head the previous round reviewed, that it is an ancestor of the head
@@ -43,7 +43,7 @@ for (const pr of PRS) {
 }
 
 // Review rounds (the header): each field a later round takes, and the first round that takes it.
-const ROUND_FIELDS = { fixBase: 2, reason: 3, founderGo: 4 }
+const ROUND_FIELDS = { fixBase: 2, reason: 2, founderGo: 3 }
 const roundOf = (pr) => (pr.round === undefined ? 1 : pr.round)
 const stated = (text) => typeof text === 'string' && text.trim() !== ''
 for (const key of ['round', ...Object.keys(ROUND_FIELDS)]) {
@@ -56,8 +56,8 @@ for (const pr of PRS) {
     if (round < from && Object.prototype.hasOwnProperty.call(pr, key)) throw new Error(`PR #${pr.number}: ${key} belongs to round ${from} or later, not round ${round}`)
   }
   if (round >= 2 && !(typeof pr.fixBase === 'string' && /^[0-9a-f]{7,40}$/.test(pr.fixBase))) throw new Error(`round ${round} of PR #${pr.number} needs fixBase, the commit the previous round reviewed, as 7 to 40 lowercase hex characters`)
-  if (round >= 3 && !stated(pr.reason)) throw new Error(`round ${round} of PR #${pr.number} needs a reason: the blocker, or the regression in the fix, it reviews`)
-  if (round >= 4 && !stated(pr.founderGo)) throw new Error(`round ${round} of PR #${pr.number} needs founderGo: the founder's words allowing it`)
+  if (round >= 2 && !stated(pr.reason)) throw new Error(`round ${round} of PR #${pr.number} needs a reason: the blocker whose fix it reviews`)
+  if (round >= 3 && !stated(pr.founderGo)) throw new Error(`round ${round} of PR #${pr.number} needs founderGo: the founder's words allowing it`)
 }
 
 const FINDINGS_SCHEMA = {
@@ -111,9 +111,9 @@ const FIX_DIFF = (pr) => { const round = roundOf(pr); return `This is review rou
   git diff ${pr.fixBase} origin/${pr.branch} --stat
   git diff ${pr.fixBase} origin/${pr.branch} -- <path>
 If ${pr.fixBase} is not an ancestor of the head (git merge-base --is-ancestor ${pr.fixBase} origin/${pr.branch} exits 1), report one blocker saying so and nothing else: that diff would carry changes from outside the PR.
-Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.${round >= 3 ? `
-Round 3 or later runs only for a blocker or a regression in the fix. The reason for this one: ${pr.reason}` : ''}${round >= 4 ? `
-A fourth or later round runs only on the founder's go. The founder's go for this one: ${pr.founderGo}` : ''}` }
+Report a finding only in the fix diff, and only inside the done criteria the PR body (or brief) states; a blocker counts wherever it lies. Put any other should-fix or nit in your summary as a follow-up suggestion, never as a finding.
+A round after the first runs only for a blocker. The reason for this one: ${pr.reason}${round >= 3 ? `
+A third or later round runs only on the founder's go. The founder's go for this one: ${pr.founderGo}` : ''}` }
 
 const COMMON = (pr) => { const BASE = `origin/${pr.base || 'main'}`; return `
 Repo: /home/user/EarningsNerd (branches already fetched; do NOT modify the working tree, do not check out branches, do not create worktrees — read-only review via git plumbing).

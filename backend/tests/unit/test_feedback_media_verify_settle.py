@@ -206,8 +206,8 @@ def test_the_refusal_names_the_hourly_cleanup_s_own_minute():
 
 
 def test_the_previous_source_is_held_to_its_own_job_hash():
-    """A job whose source is not the one its run recorded never counts, however its schedule ran."""
-    cloud = Cloud(job(source=PRIOR, bound="raise SystemExit('the runtime this run recorded')\n", latest=execution()))
+    """A job whose source is not the one its own env hash binds never counts, however its schedule ran."""
+    cloud = Cloud(job(source=PRIOR, bound="raise SystemExit('the runtime the job env hash binds')\n", latest=execution()))
     with pytest.raises(verify.media.OperationError, match="Previous cleanup differs from the bounded isolated contract"):
         verify.settle_previous_run(cloud, Sql(), {}, {"template": {}})
     assert cloud.calls == [("GET", None)]

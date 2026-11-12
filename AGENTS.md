@@ -131,20 +131,21 @@ wins, so one refuter's raise to blocker blocks the merge and a lowering needs ev
 and a finding with a vote missing stays unverified at its claimed severity. Missing review output is
 never clearance. Record the tier and the review in the PR body under "Review".
 
-Review rounds converge in one fix round (`lessons/ops-converge-a-review-in-one-fix-round.md`).
+A review converges in one round (`lessons/ops-converge-a-review-in-one-fix-round.md`).
 Write the done criteria in the PR body before round 1, the tier's full review, and fix its findings
-once. Round 2 reviews only that fix's diff, from round 1's head to the fix's head, with the tier's
-whole team. A round-2 finding in that diff and inside the criteria is fixed without another round;
-one outside the diff or beyond the criteria becomes a follow-up row in `tasks/todo.md`, or a limit
-the body names, unless it is a blocker. Round 3 runs only for a blocker or a regression in the fix,
-its reason under "Review", and a fourth needs the founder's go. Codex's review of each head is not a
-round, and the records tier's same-context delta checks each cover only their head's fix commit.
+once; the full gate and Codex's review of the fix's head cover those fixes. Round 2 runs only when
+round 1 found a blocker, named under "Review", and reviews only that fix's diff, from round 1's head
+to the fix's head, with the tier's whole team. A round-2 finding in that diff and inside the criteria
+is fixed without another round; one outside the diff or beyond the criteria becomes a follow-up row
+in `tasks/todo.md`, or a limit the body names, unless it is a blocker. A third round needs the
+founder's go. Codex's review of each head is not a round, and the records tier's same-context delta
+checks each cover only their head's fix commit.
 `/premerge-review` partly gates the rounds: each PR in `args.prs` takes `round` (1 when unset);
-from round 2 it needs `fixBase`, the commit the previous round reviewed, and shows every lens and
-refuter only `git diff <fixBase> origin/<branch>`; from round 3 it also needs `reason`, and from
-round 4 `founderGo`, the founder's words. A round that is not a whole number from 1, a round
-without what it needs, a field given before its round, or a round field set on the batch fails
-before any agent starts. It takes the round and `fixBase` on the caller's word and checks only
+from round 2 it needs `fixBase`, the commit the previous round reviewed, and `reason`, the blocker
+whose fix it reviews, and shows every lens and refuter only `git diff <fixBase> origin/<branch>`;
+from round 3 it also needs `founderGo`, the founder's words. A round that is not a whole number
+from 1, a round without what it needs, a field given before its round, or a round field set on the
+batch fails before any agent starts. It takes the round and `fixBase` on the caller's word and checks only
 that a reason and a go are stated, so the true round, the previous round's head and what a
 reason or a go says stay review-checked, as does that `fixBase` is an ancestor of the head (a
 later round's prompt asks for one blocker when it is not). The base comes into the branch, by
