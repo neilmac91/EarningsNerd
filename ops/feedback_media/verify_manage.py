@@ -500,8 +500,11 @@ def runtime_env(run_id: str, image: str, hashes: dict, versions: dict, mode: str
     return result
 
 
-def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versions: dict, *, job: bool) -> dict:
-    source = Path(__file__).with_name("verify_runtime.py").read_text()
+def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versions: dict, *, job: bool,
+                 source: str | None = None) -> dict:
+    """The isolated service's or cleanup job's spec. Its inline source is main's runtime unless a previous run's own
+    source is named, which settle_previous_run reads back but never executes; either must be the one hashes binds."""
+    source = Path(__file__).with_name("verify_runtime.py").read_text() if source is None else source
     if hashlib.sha256(source.encode()).hexdigest() != hashes["runtime_source_sha256"] or len(source.encode()) > 32768:
         raise media.OperationError("Verification runtime changed after its fingerprint was recorded")
     container = {"name": "verification", "image": image, "command": ["python"], "args": ["-c", source],
@@ -956,8 +959,12 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     container = containers[0]
     env = {row.get("name"): row for row in container.get("env", [])}
     previous_run = env.get("FEEDBACK_VERIFY_RUN_ID", {}).get("value", "")
+    args, source = container.get("args"), Path(__file__).with_name("verify_runtime.py").read_text()
+    # A previous run bound to another runtime source (main's runtime changed since) keeps its own source: it is read
+    # back below, held to its own run's hash, and never executed from here.
+    prior = isinstance(args, list) and len(args) == 2 and args[0] == "-c" and isinstance(args[1], str) and args[1] != source
     if (container.get("command") != ["python"] or not IMAGE_PATTERN.fullmatch(container.get("image", ""))
-            or container.get("args") != ["-c", Path(__file__).with_name("verify_runtime.py").read_text()]
+            or (args != ["-c", source] and not prior)
             or env.get("FEEDBACK_MEDIA_BUCKET", {}).get("value") != BUCKET
             or env.get("FEEDBACK_VERIFY_MODE", {}).get("value") != "cleanup"
             or not RUN_PATTERN.fullmatch(previous_run)
@@ -973,7 +980,10 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     if (any(not re.fullmatch(r"[1-9][0-9]*", value) for value in versions.values())
             or any(not re.fullmatch(r"[0-9a-f]{40}" if field == "frontend_tree" else r"[0-9a-f]{64}", value)
                    for field, value in hashes.items())
-            or not contains_spec(previous, runtime_spec(production, previous_run, container["image"], hashes, versions, job=True))):
+            or hashlib.sha256(args[1].encode()).hexdigest() != hashes["runtime_source_sha256"]
+            or len(args[1].encode()) > 32768
+            or not contains_spec(previous, runtime_spec(production, previous_run, container["image"], hashes, versions,
+                                                        job=True, source=args[1]))):
         raise media.OperationError("Previous cleanup differs from the bounded isolated contract")
     expired = sql.query(f"SELECT (expires_at<=CURRENT_TIMESTAMP)::int FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
     if expired != "1":
@@ -982,7 +992,33 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     # objects. A run that stopped before it left nothing to settle, and its cleanup could not run without the schema.
     if sql.query("SELECT (to_regclass('public.users') IS NOT NULL)::int;", env=test_env) != "1":
         return
+    if prior:
+        settled_by_its_own_schedule(previous, sql.query(
+            f"SELECT EXTRACT(EPOCH FROM expires_at)::bigint FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env))
+        return
     execute_cleanup(cloud)  # Keep the old run marker until all its durable objects have settled.
+
+
+def settled_by_its_own_schedule(job: dict, expires_at: str) -> None:
+    """Refuse unless a previous run bound to another runtime source has settled through its own cleanup job.
+
+    Only that job's hourly schedule starts it once the run's lease has expired, in the scheduled mode that cleans an
+    expired lease (fixture accounts, then the stored media cleanup), so its latest execution, created a minute or more
+    after the expiry and succeeded, is the settlement settle_previous_run would otherwise make with cleanup_now. An apply
+    never executes the previous source itself: main's runtime changed since that run was bound to it.
+    """
+    latest = job.get("latestCreatedExecution")
+    try:
+        created = datetime.fromisoformat(latest["createTime"].replace("Z", "+00:00"))
+        settled = (latest["completionStatus"] == "EXECUTION_SUCCEEDED" and bool(latest["completionTime"])
+                   and created.timestamp() >= int(expires_at) + 60)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        settled = False
+    if not settled:
+        raise media.OperationError("Previous run used another runtime source and its hourly cleanup has not succeeded "
+                                   "since its lease expired; retry after its next run at minute 41")
+    print(f"Previous run used another runtime source; its own hourly cleanup succeeded after its lease expired "
+          f"(execution created {created:%Y-%m-%dT%H:%MZ}): settled without executing it")
 
 
 # Each Cloud Run write's two forms: the create, which leaves the name to its ID, and the update of the one present.
