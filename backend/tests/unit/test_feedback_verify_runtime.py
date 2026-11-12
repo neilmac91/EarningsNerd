@@ -633,6 +633,7 @@ def test_a_refused_start_names_only_a_closed_code_or_class(tmp_path, case, refus
     assert result.stderr.strip() == f"Feedback verification runtime refused ({refusal})"
 
 
+# The layout of Linux's /proc/meminfo (Documentation/filesystems/proc.rst, "meminfo"): a padded label, then kB.
 MEMINFO = "MemTotal:        1014296 kB\nMemFree:          301000 kB\nMemAvailable:     612000 kB\nShmem:             16384 kB\n"
 MEMINFO_BASIS = "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
 CGROUP_BASIS = "kernel peak unavailable; conservative process-bound evidence"
@@ -643,14 +644,18 @@ CGROUP_BASIS = "kernel peak unavailable; conservative process-bound evidence"
     # instance's memory in use from /proc/meminfo (MemTotal - MemAvailable), named as such; no kernel peak, no limit.
     ({}, MEMINFO, ((1014296 - 612000) * 1024, None, None), MEMINFO_BASIS),
     ({"current": "not a number\n"}, MEMINFO, ((1014296 - 612000) * 1024, None, None), MEMINFO_BASIS),
-    # Readable root cgroup v2 files are kept; meminfo is not read for them.
-    ({"current": "500000000\n", "peak": "600000000\n", "max": "1073741824\n"}, MEMINFO, (500000000, 600000000, 1073741824), CGROUP_BASIS),
-    ({"current": "500000000\n", "max": "max\n"}, MEMINFO, (500000000, None, None), CGROUP_BASIS),
+    # Readable root cgroup v2 files are kept; meminfo is not read for them. Each figure is below meminfo's, so a meminfo
+    # read mixed into the sample would show through the peak.
+    ({"current": "300000000\n", "peak": "600000000\n", "max": "1073741824\n"}, MEMINFO, (300000000, 600000000, 1073741824), CGROUP_BASIS),
+    ({"current": "300000000\n", "max": "max\n"}, MEMINFO, (300000000, None, None), CGROUP_BASIS),
     # No source: nothing is sampled, so acceptance still refuses (sampled-peak), never a zero.
     ({}, None, (None, None, None), CGROUP_BASIS),
     ({}, "MemTotal:        1014296 kB\n", (None, None, None), CGROUP_BASIS),
     ({}, "MemTotal: lots kB\nMemAvailable: some kB\n", (None, None, None), CGROUP_BASIS),
-    ({}, "MemTotal: 100 kB\nMemAvailable: 200 kB\n", (None, None, None), MEMINFO_BASIS),  # never a negative figure
+    ({}, "MemTotal:        1014296 kB\nMemTotal:        1014000 kB\n", (None, None, None), CGROUP_BASIS),  # two totals
+    ({}, "MemTotal: 100 kB\nMemAvailable: 200 kB\n", (None, None, None), CGROUP_BASIS),  # no negative figure, nor its basis
+    # Each figure is read by its name, wherever its line stands.
+    ({}, "MemAvailable:     612000 kB\nMemTotal:        1014296 kB\n", ((1014296 - 612000) * 1024, None, None), MEMINFO_BASIS),
 ])
 def test_the_sampler_names_meminfo_as_its_source_where_no_cgroup_memory_file_reads(verifier, fake_proc, v2, meminfo,
                                                                                   expected, basis):
@@ -667,21 +672,33 @@ def test_the_sampler_names_meminfo_as_its_source_where_no_cgroup_memory_file_rea
     assert verifier.basis == basis
 
 
-def test_cgroup_v1_files_are_never_read(verifier, fake_proc):
+@pytest.mark.parametrize("meminfo", [MEMINFO, None])
+def test_cgroup_v1_files_are_never_read(verifier, fake_proc, monkeypatch, meminfo):
     """At a cgroup v1 root, usage counts every page cache, the peak only the children's charges and the limit is
-    "unlimited": none of them is this instance's figure, so the sampler takes meminfo's and never v1's."""
+    "unlimited": none of them is this instance's figure. The sampler takes meminfo's, or none, and never opens v1's."""
+    opened, served = [], runtime.Path
+    monkeypatch.setattr(runtime, "Path", lambda value: opened.append(str(value)) or served(value))
+    monkeypatch.setattr(runtime, "open", lambda path, *args, **kwargs: opened.append(str(path)) or open(path, *args, **kwargs),
+                        raising=False)
     _process(fake_proc, os.getpid(), b"python\0-c\0verification-source\0")
     v1 = fake_proc / "sys" / "fs" / "cgroup" / "memory"
     v1.mkdir(parents=True)
     for name, content in {"usage_in_bytes": "2900979712", "max_usage_in_bytes": "100000",
                           "limit_in_bytes": "9223372036854771712"}.items():
         (v1 / f"memory.{name}").write_text(content + "\n")
-    (fake_proc / "proc" / "meminfo").write_text(MEMINFO)
+    if meminfo is not None:
+        (fake_proc / "proc" / "meminfo").write_text(meminfo)
     verifier.sample()
+    assert "/sys/fs/cgroup/memory.current" in opened and "/proc/meminfo" in opened  # the reads are the ones seen
+    assert not [path for path in opened if path.startswith("/sys/fs/cgroup/memory/")]
     assert (verifier.resources["cgroup_sample_peak_bytes"], verifier.resources["cgroup_kernel_peak_bytes"],
-            verifier.resources["cgroup_memory_limit_bytes"]) == ((1014296 - 612000) * 1024, None, None)
-    assert verifier.basis == MEMINFO_BASIS
-    assert "memory/memory." not in (ROOT / "ops/feedback_media/verify_runtime.py").read_text()
+            verifier.resources["cgroup_memory_limit_bytes"]) == (
+        ((1014296 - 612000) * 1024, None, None) if meminfo else (None, None, None))
+    assert verifier.basis == (MEMINFO_BASIS if meminfo else CGROUP_BASIS)
+    # Nor does the source name a v1 file, however its string is built (the parser joins adjacent literals).
+    source = ast.parse((ROOT / "ops/feedback_media/verify_runtime.py").read_text())
+    assert not [node.value for node in ast.walk(source) if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and re.search(r"_in_bytes|cgroup/memory(?!\.)", node.value)]
 
 
 def test_the_meminfo_peak_and_its_basis_outlive_a_later_sample(verifier, fake_proc):

@@ -69,7 +69,7 @@ export function receiptEnvelope(value, config) {
       : memory.evidence_basis === 'kernel cgroup high-water peak')
     && memory.sample_count >= 5 && memory.configured_memory_limit_bytes === 1073741824
     && Number.isFinite(memory.sample_age_seconds) && memory.sample_age_seconds >= 0 && memory.sample_age_seconds <= 1
-    && memory.method === 'kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only', 'receipt-resources')
+    && memory.method === 'kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only', 'receipt-resources')
   check(observed?.database?.feedback >= 1 && observed.database.submitted === observed.database.feedback
     && observed.database.attachments >= 3 && observed.database.pending === 0 && observed.database.fixture_users === 0
     && observed.database.deleted === observed.database.attachments

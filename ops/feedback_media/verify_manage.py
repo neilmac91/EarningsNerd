@@ -664,7 +664,7 @@ RESOURCE_NUMBERS = ("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes"
                     "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
                     "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes")
 RESOURCE_NULLABLE = ("cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes")
-RESOURCE_METHOD = ("kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; "
+RESOURCE_METHOD = ("kernel peak when exposed; otherwise conservative process bound plus sampled memory; "
                    "representative workload only")
 # The third names a sampled figure from /proc/meminfo (MemTotal - MemAvailable), where no cgroup memory file reads.
 EVIDENCE_BASES = ("kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence",

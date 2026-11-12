@@ -44,7 +44,7 @@ def envelope(**changes):
         "resources": {**dict.fromkeys(("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
                                        "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
                                        "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"), 1),
-                      "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only",
+                      "method": "kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only",
                       "worker_limits": {"feedback_image_service": 1, "feedback_storage_worker_service": 2},
                       "unexplained_children": False, "acceptance_passed": True, "sample_age_seconds": 0.01,
                       "evidence_basis": "kernel cgroup high-water peak"},

@@ -171,7 +171,7 @@ class Runtime:
                           "configured_memory_limit_bytes": 1073741824,
                           "self_high_water_rss_bytes": 0, "worker_high_water_rss_bytes": 0,
                           "worker_limits": {}, "unexplained_children": False, "last_process_count": 1,
-                          "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"}
+                          "method": "kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only"}
         self.permission_audited = False
         self.last_cleanup = None
         self.last_sample, self.spawning, self.basis = None, {}, "kernel peak unavailable; conservative process-bound evidence"
@@ -403,10 +403,10 @@ class Runtime:
             self.resources["rss_peak_bytes"] = max(rss, self.resources["rss_peak_bytes"])
             for key, name in (("cgroup_sample_peak_bytes", "current"), ("cgroup_kernel_peak_bytes", "peak"), ("cgroup_memory_limit_bytes", "max")):
                 value = read("/sys/fs/cgroup/memory." + name)
-                if name == "current" and not value.isdecimal():  # none at cgroup v2's root: the instance's memory in use
-                    found = re.findall(r"Mem(?:Total|Available): +(\d+) kB", read("/proc/meminfo"))
-                    if len(found) == 2:
-                        value, self.basis = str((int(found[0]) - int(found[1])) * 1024), "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
+                if name == "current" and not value.isdecimal():  # none at cgroup v2's root: instance memory in use
+                    m = dict(re.findall(r"Mem(Total|Available): +(\d+) kB", read("/proc/meminfo")))
+                    if len(m) == 2 and (used := int(m["Total"]) - int(m["Available"])) >= 0:
+                        value, self.basis = str(used * 1024), "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
                 if value.isdecimal():
                     self.resources[key] = max(int(value), self.resources[key] or 0)
             self.resources["last_process_count"] = len(seen)
