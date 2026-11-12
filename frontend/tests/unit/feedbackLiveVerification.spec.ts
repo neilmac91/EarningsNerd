@@ -249,6 +249,25 @@ describe('disposable feedback verification trust boundaries', () => {
     fixtures.accounts.owner.email = 'real-user@example.com'
     expect(() => validateFixtures(fixtures, config.run_id)).toThrow('fixture-account')
   })
+
+  it('admits the /proc/meminfo evidence basis only beside an unread kernel peak', () => {
+    // Cloud Run's second generation reads no root cgroup v2 memory file, so the verifier names its sample as meminfo's.
+    const config = manifest()
+    const MEMINFO = 'kernel peak unavailable; conservative process bound plus /proc/meminfo in use'
+    const KERNEL = 'kernel cgroup high-water peak', PROCESS = 'kernel peak unavailable; conservative process-bound evidence'
+    const withBasis = (basis: string, peak: number | null) => {
+      const value = receipt(config)
+      Object.assign(value.payload.observed.resources, { evidence_basis: basis, cgroup_kernel_peak_bytes: peak })
+      return value
+    }
+    for (const [basis, peak] of [[MEMINFO, null], [PROCESS, null], [KERNEL, 100]] as const) {
+      const value = withBasis(basis, peak)
+      expect(receiptEnvelope(value, config)).toBe(value)
+    }
+    for (const [basis, peak] of [[MEMINFO, 100], [PROCESS, 100], [KERNEL, null]] as const) {
+      expect(() => receiptEnvelope(withBasis(basis, peak), config)).toThrow('receipt-resources')
+    }
+  })
 })
 
 // A fake frontend whose Playwright fails the first page action as each case says, and whose sharp makes a fixture PNG.

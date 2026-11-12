@@ -520,7 +520,7 @@ def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versio
         task["maxRetries"] = 1
         return {"name": JOB, "labels": {"purpose": PURPOSE},
                 "template": {"taskCount": 1, "parallelism": 1, "template": task}}
-    # Memory acceptance reads cgroup v2 files, which only the second generation exposes (Cloud Run may pick either).
+    # Memory acceptance was measured on the second generation (cgroup v2 where it reads, else /proc/meminfo); pin it.
     task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1},
                  "executionEnvironment": "EXECUTION_ENVIRONMENT_GEN2"})
     return {"name": SERVICE, "labels": {"purpose": PURPOSE}, "ingress": "INGRESS_TRAFFIC_ALL",
@@ -666,7 +666,9 @@ RESOURCE_NUMBERS = ("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes"
 RESOURCE_NULLABLE = ("cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes")
 RESOURCE_METHOD = ("kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; "
                    "representative workload only")
-EVIDENCE_BASES = ("kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence")
+# The third names a sampled figure from /proc/meminfo (MemTotal - MemAvailable), where no cgroup memory file reads.
+EVIDENCE_BASES = ("kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence",
+                  "kernel peak unavailable; conservative process bound plus /proc/meminfo in use")
 WORKER_LIMITS = {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
 
 
@@ -755,7 +757,8 @@ def resources_line(resources, source: str) -> str:
             f"last sample {resources['sample_age_seconds']:.2f} s old; "
             f"cgroup limit {size('cgroup_memory_limit_bytes', 'unread')}; "
             f"kernel peak {size('cgroup_kernel_peak_bytes', 'unexposed')}; "
-            f"sampled peak {size('cgroup_sample_peak_bytes', 'unread')}; "
+            f"sampled peak {size('cgroup_sample_peak_bytes', 'unread')}"
+            f"{' (instance memory in use, /proc/meminfo)' if resources['evidence_basis'] == EVIDENCE_BASES[2] else ''}; "
             f"process-tree peak {resources['rss_peak_bytes']} bytes; "
             f"own high-water {resources['self_high_water_rss_bytes']} bytes; "
             f"worker high-water {resources['worker_high_water_rss_bytes']} bytes; "

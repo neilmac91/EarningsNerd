@@ -382,7 +382,8 @@ def test_the_fallback_bound_passes_the_measured_workload_once_a_worker_counts_on
     assert runtime.resource_acceptance(evidence) is False
 
 
-def test_receipt_requires_real_server_observations_and_uses_separate_secret_domain(verifier, database, monkeypatch):
+@pytest.mark.parametrize("meminfo", [False, True])
+def test_receipt_requires_real_server_observations_and_uses_separate_secret_domain(verifier, database, monkeypatch, meminfo):
     observations = {"database": {"feedback": 1, "submitted": 1, "attachments": 3, "published_attachments": 3,
                     "normalized_metadata_valid": True, "pending": 0, "fixture_users": 0, "deleted": 3,
                     "confirmed_generation_deletions": 3},
@@ -429,10 +430,15 @@ def test_receipt_requires_real_server_observations_and_uses_separate_secret_doma
                 position=position, state="deleted", created_at=now, expires_at=now, deletion_due_at=now, deleted_at=now))
         db.commit()
     verifier.resources.update(memory())
+    if meminfo:  # Cloud Run's second generation: no kernel peak or limit, and a sample named as meminfo's
+        verifier.resources.update(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None)
+        verifier.basis = MEMINFO_BASIS
     verifier.last_sample = time.monotonic()
     verifier.record_mail(mail(verifier))
     verifier.last_cleanup = {"dry_run": False, "eligible": 3, "deleted": 3, "errors": 0, "overdue": 0, "pending_verification": 0}
     composed = verifier.complete(body)
+    assert composed["payload"]["observed"]["resources"]["evidence_basis"] == (
+        MEMINFO_BASIS if meminfo else "kernel cgroup high-water peak")
     monkeypatch.syspath_prepend(str(ROOT / "ops/feedback_media"))
     spec = importlib.util.spec_from_file_location("feedback_verify_composition_ops", ROOT / "ops/feedback_media/verify_manage.py")
     consumer = importlib.util.module_from_spec(spec)
@@ -625,3 +631,77 @@ def test_a_refused_start_names_only_a_closed_code_or_class(tmp_path, case, refus
                             cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=120)
     assert result.returncode == 1 and result.stdout == ""
     assert result.stderr.strip() == f"Feedback verification runtime refused ({refusal})"
+
+
+MEMINFO = "MemTotal:        1014296 kB\nMemFree:          301000 kB\nMemAvailable:     612000 kB\nShmem:             16384 kB\n"
+MEMINFO_BASIS = "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
+CGROUP_BASIS = "kernel peak unavailable; conservative process-bound evidence"
+
+
+@pytest.mark.parametrize("v2, meminfo, expected, basis", [
+    # Cloud Run's second generation (Ops 43138110953): no root cgroup v2 memory file reads, so the sample is the
+    # instance's memory in use from /proc/meminfo (MemTotal - MemAvailable), named as such; no kernel peak, no limit.
+    ({}, MEMINFO, ((1014296 - 612000) * 1024, None, None), MEMINFO_BASIS),
+    ({"current": "not a number\n"}, MEMINFO, ((1014296 - 612000) * 1024, None, None), MEMINFO_BASIS),
+    # Readable root cgroup v2 files are kept; meminfo is not read for them.
+    ({"current": "500000000\n", "peak": "600000000\n", "max": "1073741824\n"}, MEMINFO, (500000000, 600000000, 1073741824), CGROUP_BASIS),
+    ({"current": "500000000\n", "max": "max\n"}, MEMINFO, (500000000, None, None), CGROUP_BASIS),
+    # No source: nothing is sampled, so acceptance still refuses (sampled-peak), never a zero.
+    ({}, None, (None, None, None), CGROUP_BASIS),
+    ({}, "MemTotal:        1014296 kB\n", (None, None, None), CGROUP_BASIS),
+    ({}, "MemTotal: lots kB\nMemAvailable: some kB\n", (None, None, None), CGROUP_BASIS),
+    ({}, "MemTotal: 100 kB\nMemAvailable: 200 kB\n", (None, None, None), MEMINFO_BASIS),  # never a negative figure
+])
+def test_the_sampler_names_meminfo_as_its_source_where_no_cgroup_memory_file_reads(verifier, fake_proc, v2, meminfo,
+                                                                                  expected, basis):
+    _process(fake_proc, os.getpid(), b"python\0-c\0verification-source\0")
+    (fake_proc / "sys" / "fs" / "cgroup").mkdir(parents=True)
+    for name, content in v2.items():
+        (fake_proc / "sys" / "fs" / "cgroup" / f"memory.{name}").write_text(content)
+    if meminfo is not None:
+        (fake_proc / "proc" / "meminfo").write_text(meminfo)
+    verifier.sample()
+    assert verifier.resources["sample_count"] == 1
+    assert (verifier.resources["cgroup_sample_peak_bytes"], verifier.resources["cgroup_kernel_peak_bytes"],
+            verifier.resources["cgroup_memory_limit_bytes"]) == expected
+    assert verifier.basis == basis
+
+
+def test_cgroup_v1_files_are_never_read(verifier, fake_proc):
+    """At a cgroup v1 root, usage counts every page cache, the peak only the children's charges and the limit is
+    "unlimited": none of them is this instance's figure, so the sampler takes meminfo's and never v1's."""
+    _process(fake_proc, os.getpid(), b"python\0-c\0verification-source\0")
+    v1 = fake_proc / "sys" / "fs" / "cgroup" / "memory"
+    v1.mkdir(parents=True)
+    for name, content in {"usage_in_bytes": "2900979712", "max_usage_in_bytes": "100000",
+                          "limit_in_bytes": "9223372036854771712"}.items():
+        (v1 / f"memory.{name}").write_text(content + "\n")
+    (fake_proc / "proc" / "meminfo").write_text(MEMINFO)
+    verifier.sample()
+    assert (verifier.resources["cgroup_sample_peak_bytes"], verifier.resources["cgroup_kernel_peak_bytes"],
+            verifier.resources["cgroup_memory_limit_bytes"]) == ((1014296 - 612000) * 1024, None, None)
+    assert verifier.basis == MEMINFO_BASIS
+    assert "memory/memory." not in (ROOT / "ops/feedback_media/verify_runtime.py").read_text()
+
+
+def test_the_meminfo_peak_and_its_basis_outlive_a_later_sample(verifier, fake_proc):
+    """Once a meminfo figure may hold the peak, the record says so for the boot, whatever a later read gives."""
+    _process(fake_proc, os.getpid(), b"python\0-c\0verification-source\0")
+    for available_kib in (612000, 300000, 700000):
+        (fake_proc / "proc" / "meminfo").write_text(f"MemTotal: 1014296 kB\nMemAvailable: {available_kib} kB\n")
+        verifier.sample()
+    (fake_proc / "proc" / "meminfo").unlink()
+    verifier.sample()
+    (fake_proc / "sys" / "fs" / "cgroup").mkdir(parents=True)
+    (fake_proc / "sys" / "fs" / "cgroup" / "memory.current").write_text("400000000\n")
+    verifier.sample()
+    assert verifier.resources["cgroup_sample_peak_bytes"] == (1014296 - 300000) * 1024
+    assert verifier.basis == MEMINFO_BASIS
+
+
+@pytest.mark.parametrize("used_kib, accepted", [(400000, True), (891000, True), (891300, False)])
+def test_acceptance_judges_a_meminfo_sample_as_it_judges_a_cgroup_sample(used_kib, accepted):
+    """No kernel peak and no limit: the process bound and the sample must both stay under 85% of 1 GiB."""
+    evidence = memory()
+    evidence.update(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None, cgroup_sample_peak_bytes=used_kib * 1024)
+    assert runtime.resource_acceptance(evidence) is accepted

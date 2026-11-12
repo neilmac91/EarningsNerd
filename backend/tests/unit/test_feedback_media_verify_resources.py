@@ -49,7 +49,7 @@ def record(**changes):
 
 
 def test_the_constants_match_the_runtime_that_writes_the_record():
-    """The cap, the record's keys and its two fixed strings are the ones verify_runtime.py writes."""
+    """The cap, the record's keys and its fixed strings are the ones verify_runtime.py writes."""
     source = (ROOT / "ops/feedback_media/verify_runtime.py").read_text()
     assert verify.MEMORY_CAP_BYTES == CAP
     assert re.search(r"\bcap = 1073741824\b", source) and re.search(r'"configured_memory_limit_bytes": 1073741824\b', source)
@@ -117,6 +117,8 @@ def receipt_with(resources):
     (record(error="withheld runtime text"), False),
     (record(sample_age_seconds=10**400), False),
     (record(method="another method"), False),
+    (record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None, evidence_basis=verify.EVIDENCE_BASES[2]), True),
+    (record(evidence_basis="kernel peak unavailable; conservative process bound plus sampled cgroup"), False),
 ])
 def test_the_receipt_allow_list_still_checks_its_resources_through_the_shared_helper(resources, admitted):
     """counts_only_receipt keeps runtime text out of a retained receipt; its resources check is valid_resources."""
@@ -127,6 +129,19 @@ def test_without_a_kernel_peak_the_line_says_so():
     line = verify.resources_line(record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None), SIGNED)
     assert "; cgroup limit unread; kernel peak unexposed; sampled peak 639631360 bytes;" in line
     assert "conditions failed: none;" in line
+
+
+def test_a_meminfo_sample_is_named_as_the_instance_memory_in_use():
+    """Where no cgroup memory file reads (Cloud Run's second generation), the sample is MemTotal - MemAvailable."""
+    meminfo = record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None, evidence_basis=verify.EVIDENCE_BASES[2])
+    assert verify.valid_resources(meminfo)
+    assert ("; cgroup limit unread; kernel peak unexposed; "
+            "sampled peak 639631360 bytes (instance memory in use, /proc/meminfo); process-tree peak ") in (
+        verify.resources_line(meminfo, SIGNED))
+    assert "conditions failed: none;" in verify.resources_line(meminfo, SIGNED)
+    refused = verify.resources_line({**meminfo, "cgroup_sample_peak_bytes": BOUND + 1, "acceptance_passed": False}, SIGNED)
+    assert "conditions failed: sampled-peak; " in refused and "(instance memory in use, /proc/meminfo)" in refused
+    assert "/proc/meminfo" not in verify.resources_line(record(cgroup_kernel_peak_bytes=None), SIGNED)
 
 
 def test_the_named_conditions_agree_with_the_runtime_acceptance_on_every_combination():

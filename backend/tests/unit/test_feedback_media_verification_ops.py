@@ -161,7 +161,7 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
             assert "executionEnvironment" not in task and "startupCpuBoost" not in task["containers"][0]["resources"]
         else:
             assert task["maxInstanceRequestConcurrency"] == 4 and task["scaling"]["maxInstanceCount"] == 1
-            # Memory acceptance reads cgroup v2 files, which only the second generation exposes.
+            # Memory acceptance was measured on the second generation (cgroup v2 where it reads, else /proc/meminfo).
             assert task["executionEnvironment"] == "EXECUTION_ENVIRONMENT_GEN2"
             # Its cold starts (the first, and enable's receipt read after scale-to-zero) get Cloud Run's startup boost.
             assert task["containers"][0]["resources"]["startupCpuBoost"] is True

@@ -1,8 +1,5 @@
-"""Fixed inline preview entrypoint; never installed as a production route or script.
-
-Only the protected verifier supplies this reviewed source to the serving image. All
-credentials stay in environment/secret references. No application collaborator is replaced.
-"""
+"""Inline preview entrypoint, never a production route or script: only the protected verifier supplies it to the
+serving image. Credentials stay in environment/secret references; no application collaborator is replaced."""
 from __future__ import annotations
 
 import ast
@@ -140,7 +137,7 @@ def environment(env):
 
 
 def check_database(connection, env, *, expired=False):
-    """Check actual PostgreSQL authority, not merely a connection-string label."""
+    """Check actual PostgreSQL authority, not a connection-string label."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT current_database(),current_user,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls "
                        "FROM pg_roles WHERE rolname=current_user")
@@ -177,7 +174,7 @@ class Runtime:
                           "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"}
         self.permission_audited = False
         self.last_cleanup = None
-        self.last_sample, self.spawning = None, {}
+        self.last_sample, self.spawning, self.basis = None, {}, "kernel peak unavailable; conservative process-bound evidence"
         self.expires = 0
 
     def authority(self, *, expired=False):
@@ -290,8 +287,7 @@ class Runtime:
         with self.lock:
             resources = {**self.resources, "sample_age_seconds": time.monotonic() - self.last_sample if self.last_sample else None}
             resources["conservative_process_bound_bytes"] = resources["self_high_water_rss_bytes"] + 3 * resources["worker_high_water_rss_bytes"]
-            resources["evidence_basis"] = ("kernel cgroup high-water peak" if resources["cgroup_kernel_peak_bytes"] is not None
-                                           else "kernel peak unavailable; conservative process-bound evidence")
+            resources["evidence_basis"] = self.basis if resources["cgroup_kernel_peak_bytes"] is None else "kernel cgroup high-water peak"
             resources["acceptance_passed"] = resource_acceptance(resources)
             return {"schema": 1, "run_id": self.run, "boot_id": self.boot, "database": counts,
                     "notifications": json.loads(json.dumps(self.notifications)), "resources": resources,
@@ -309,8 +305,7 @@ class Runtime:
         self.authority(expired=True)
         with SessionLocal() as db:
             marker = self.marker(db, latest=False)
-            # The hourly job cannot interrupt the browser's still-valid fixture lease.
-            # Authenticated controls and the protected cleanup_now override are explicit.
+            # The hourly job spares a still-valid lease; controls and cleanup_now are explicit.
             if scheduled and ensure_utc(marker["expires_at"]) > utcnow():
                 return {"skipped_active_run": True}
             ids = self.owned_rows(db, marker)
@@ -371,12 +366,11 @@ class Runtime:
             self.notifications["no_image_payload"] &= no_image
 
     def sample(self):
-        def number(path):
+        def read(path):
             try:
-                value = Path(path).read_text().strip()
-                return int(value) if value.isdecimal() else None
+                return Path(path).read_text().strip()
             except OSError:
-                return None
+                return ""
         parent, todo, seen, rss = os.getpid(), [os.getpid()], set(), 0
         unexplained, spawning, own, worker = False, {}, Path(f"/proc/{parent}/cmdline").read_bytes(), 0
         workers = [b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
@@ -408,9 +402,13 @@ class Runtime:
             self.resources["sample_count"] += 1
             self.resources["rss_peak_bytes"] = max(rss, self.resources["rss_peak_bytes"])
             for key, name in (("cgroup_sample_peak_bytes", "current"), ("cgroup_kernel_peak_bytes", "peak"), ("cgroup_memory_limit_bytes", "max")):
-                value = number("/sys/fs/cgroup/memory." + name)
-                if value is not None:
-                    self.resources[key] = max(value, self.resources[key] or 0)
+                value = read("/sys/fs/cgroup/memory." + name)
+                if name == "current" and not value.isdecimal():  # none at cgroup v2's root: the instance's memory in use
+                    found = re.findall(r"Mem(?:Total|Available): +(\d+) kB", read("/proc/meminfo"))
+                    if len(found) == 2:
+                        value, self.basis = str((int(found[0]) - int(found[1])) * 1024), "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
+                if value.isdecimal():
+                    self.resources[key] = max(int(value), self.resources[key] or 0)
             self.resources["last_process_count"] = len(seen)
             self.last_sample = time.monotonic()
             self.resources["unexplained_children"] |= unexplained or len(seen) > 4 or bool(todo)
@@ -442,7 +440,7 @@ def sink(runtime):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'{"id":"synthetic-feedback-notification"}')
-            except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+            except Exception:  # noqa: BLE001 — values withheld
                 self.send_response(400)
                 self.end_headers()
     return HTTPServer(("127.0.0.1", 8091), Handler)
@@ -497,7 +495,7 @@ class Controls:
                 result = await run_owned_sync(method, *([body] if action == "complete" else []))
         except Refused as error:
             status, result = 403, {"error": str(error)}
-        except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+        except Exception:  # noqa: BLE001 — values withheld
             status, result = 503, {"error": "verification_runtime_unavailable"}
         encoded = canonical(result)
         await send({"type": "http.response.start", "status": status,
@@ -518,7 +516,7 @@ def main():
     os.environ.update(RESEND_API_KEY=digest(runtime.key, "sink", runtime.run), RESEND_BASE_URL="http://127.0.0.1:8091",
                       FEEDBACK_NOTIFICATION_EMAIL="feedback-verify-notify@example.com",
                       RESEND_FROM_EMAIL="Feedback verification <feedback-verify@example.com>")
-    # openai 3.x refuses an empty key at app import; no verified route calls a model.
+    # openai 3.x refuses an empty key at import; no verified route calls a model.
     os.environ.update(OPENAI_API_KEY="feedback-verification-no-model", OPENAI_BASE_URL="http://127.0.0.1:9/v1")
     if mode == "initialize":
         import app.models
@@ -552,6 +550,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception as error:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+    except Exception as error:  # noqa: BLE001 — values withheld
         raise SystemExit("Feedback verification runtime refused ("
                          + (str(error) if isinstance(error, Refused) else type(error).__name__) + ")") from None
