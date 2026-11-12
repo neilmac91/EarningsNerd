@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import FeedbackMessage from '@/features/feedback/components/FeedbackMessage'
-import { LINK, LINK_NAME, checkSafeLink } from '../../../ops/feedback_media/live_browser.mjs'
+import { LINK, LINK_NAME, checkSafeLink, runBrowser } from '../../../ops/feedback_media/live_browser.mjs'
 
 // A Playwright-shaped view over the rendered DOM: getByRole finds by exact accessible name, as the suite asks.
 function dom() {
@@ -34,6 +34,12 @@ describe('the live verification suite and the feedback message', () => {
   it("passes the suite's own check against the rendered component", async () => {
     render(<FeedbackMessage message={`Synthetic live feedback light.\n${LINK}`} />)
     await expect(checkSafeLink(dom())).resolves.toBeUndefined()
+  })
+
+  // The signed receipt's safe_links rests on this call: deleting it, or inlining another lookup, fails here.
+  it('is the check the suite itself runs at its admin-link step', () => {
+    // The runner may print the source with semicolons (`step = 'admin-link';`), so one is allowed after each.
+    expect(runBrowser.toString()).toMatch(/step = 'admin-link';?\s+await checkSafeLink\(detail\);?\s+step = 'admin-narrow'/)
   })
 
   it.each([

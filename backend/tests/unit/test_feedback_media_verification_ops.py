@@ -458,13 +458,42 @@ def test_the_in_run_cleanup_runs_after_a_failure_of_any_kind(monkeypatch):
     assert cleanups == ["cloud", "cloud"]
 
 
+def output_reads(source: str) -> list[tuple[int, bool]]:
+    """Each read of an `output` attribute in `source`, a load or a getattr(_, "output", ...) call, with its line and
+    whether it is the sole argument of a browser_failure(...) call directly inside a function named browser."""
+    tree = ast.parse(source)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    reads = []
+    for node in ast.walk(tree):
+        if not ((isinstance(node, ast.Attribute) and node.attr == "output" and isinstance(node.ctx, ast.Load))
+                or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "getattr"
+                    and len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and node.args[1].value == "output")):
+            continue
+        call, scope = parents.get(node), parents.get(node)
+        while scope is not None and not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            scope = parents.get(scope)
+        allowed = (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "browser_failure"
+                   and call.args == [node] and not call.keywords
+                   and isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)) and scope.name == "browser")
+        reads.append((node.lineno, allowed))
+    return reads
+
+
 def test_only_the_browser_reads_a_failed_commands_output():
-    """A failed command's output can carry any text: only browser(), through browser_failure's closed codes, reads it."""
-    tree = ast.parse((ROOT / "ops/feedback_media/verify_manage.py").read_text())
-    readers = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-               for inner in ast.walk(node) if isinstance(inner, ast.Attribute) and inner.attr == "output"
-               and isinstance(inner.ctx, ast.Load)}
-    assert readers == {"browser"}
+    """A failed command's output can carry any text, and an Ops log is public: the one read is browser()'s, as the sole
+    argument of browser_failure, which keeps only closed codes. Both files a CommandFailed reaches are walked whole, at
+    module level too, and getattr(_, "output") counts as a read; one through vars() or __dict__ stays review-checked."""
+    reads = {name: output_reads((ROOT / "ops/feedback_media" / name).read_text()) for name in ("verify_manage.py", "manage.py")}
+    assert [allowed for _line, allowed in reads["verify_manage.py"]] == [True] and reads["manage.py"] == []
+    # The gate refuses each wider read it was widened for.
+    browser_read = "            raise browser_failure(failed.output) from None\n"
+    for mutant in ("\nLEAK = CommandFailed('').output\n", "\ndef leak(failure):\n    return getattr(failure, 'output', '')\n",
+                   "\ndef leak(failure):\n    return failure.output\n"):
+        assert [allowed for _line, allowed in output_reads("def browser():\n    pass\n" + mutant)] == [False], mutant
+    source = (ROOT / "ops/feedback_media/verify_manage.py").read_text()
+    assert source.count(browser_read) == 1
+    second = source.replace(browser_read, "            print(failed.output)\n" + browser_read)
+    assert sorted(allowed for _line, allowed in output_reads(second)) == [False, True]
 
 
 @pytest.mark.parametrize("browser_fails, cleanup_fails", [(False, False), (True, False), (True, True), (False, True)])

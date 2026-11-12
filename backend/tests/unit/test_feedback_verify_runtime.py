@@ -573,10 +573,11 @@ def test_three_workers_at_once_are_explained(verifier, fake_proc):
                for name in ("feedback_image_service", "feedback_storage_worker_service", "feedback_storage_worker_service")]
     _process(fake_proc, parent, own, children=[parent + child for child in range(1, 4)])
     for child, argv in enumerate(workers, start=1):
-        _process(fake_proc, parent + child, argv, high_water_kib=50000 * child)
+        _process(fake_proc, parent + child, argv, high_water_kib=(50000, 150000, 100000)[child - 1])
     verifier.sample()
     assert verifier.resources["unexplained_children"] is False and verifier.resources["last_process_count"] == 4
-    # Every worker of the sample is read: the bound keeps the highest, whatever order the sampler visits them in.
+    # Every worker of the sample is read: the highest sits in the middle, so neither a walk from the first child nor
+    # one from the last meets it first or last, and the bound keeps it whatever order the sampler visits them in.
     assert verifier.resources["worker_high_water_rss_bytes"] == 150000 * 1024
 
 
