@@ -126,7 +126,11 @@ def _headings(lines: list[str]) -> list[str]:
 
 
 def _todo_budget_problems(lines: list[str]) -> list[str]:
-    """What an open-items page spends past its row and word budgets (AGENTS.md §7)."""
+    """What an open-items page spends past its row, word and bet budgets (AGENTS.md §7).
+
+    What it cannot see: a row written without a checkbox (a plain or numbered bullet) is not counted as a row or
+    as a bet, and words joined by hyphens or zero-width characters count as one. The page's lines and its words
+    in all still bound both, so neither lets the page regrow; which ground a row claims is review-checked."""
     problems = []
     open_rows = sum(1 for line in lines if TODO_OPEN_ROW.match(line))
     if open_rows > TODO_MAX_OPEN_ROWS:

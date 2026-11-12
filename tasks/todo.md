@@ -1,6 +1,6 @@
 # Open items — EarningsNerd
 One short line per open item, most urgent first, with owner and next step. The [ledger](archive/todo-ledger-2026-10-08-through-2026-11-11.md) keeps the detail of rows the 2026-11-11 triage merged or closed; it is evidence, not a queue.
-Admission (`AGENTS.md` §7): a reader hit it; it blocks admitting testers, taking payment or the public launch; it is a security, legal or availability exposure today; or it is one of at most five chosen product bets, marked `(bet; …)`. Budgets: 30 open rows, 70 words a line, 2,400 words in all.
+Admission (`AGENTS.md` §7): a reader hit it; it blocks admitting testers, taking payment or the public launch; it is a security, legal or availability exposure today; or it is one of at most five chosen product bets, marked `(bet; …)`. Budgets: 30 open rows, 70 words a line, 80 lines, 2,400 words in all.
 ## Where things stand — 2026-11-11
 - Readers (the founder updates these weekly; the repository shows none yet): testers admitted 0, conversations held 0, testers back for a second filing 0, people asked to pay 0. A week in which none moves was spent on the wrong rows.
 - Product, read from the public API on 2026-11-11: registration `invite_only` with the invited-cohort exception on; collection, checkout and marketing closed; no operator notice published. Nobody can pay yet (F76, E318). Pro is USD 25 a month or USD 240 a year.

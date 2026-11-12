@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -85,11 +86,11 @@ def test_a_scheduled_run_passes_above_the_floor_and_prints_the_balance(monkeypat
     assert "::error::" not in out and "::warning::" not in out
 
 
-@pytest.mark.parametrize(("usd", "floor"), [("4.99", "5"), ("15.14", "20"), ("0", "5")])
+@pytest.mark.parametrize(("usd", "floor"), [("4.99", "5"), ("15.14", "20"), ("0", "5"), ("0", "0.5"), ("999", "1e3")])
 def test_a_scheduled_run_fails_below_the_floor(monkeypatch, capsys, usd, floor):
     code, out, _ = _check(monkeypatch, capsys, _balance(usd), "schedule", floor)
     assert code == 1
-    assert f"::error::DeepSeek balance USD {usd} is below the floor of USD {floor}: top up" in out
+    assert f"::error::DeepSeek balance USD {usd} is below the floor of USD {format(Decimal(floor), 'f')}: top up" in out
 
 
 @pytest.mark.parametrize("usd", ["15.14", None])
@@ -123,7 +124,7 @@ def test_a_balance_with_no_usd_row_says_the_floor_is_unchecked(monkeypatch, caps
     assert "::notice::No USD balance row" in out
 
 
-@pytest.mark.parametrize("floor", ["", "five", "5 USD", "$5", "-1", "nan", "inf"])
+@pytest.mark.parametrize("floor", ["", "five", "5 USD", "$5", "-1", "nan", "inf", "1E+99999999", "1E-99999999", "2e9"])
 def test_a_floor_that_is_not_a_non_negative_number_fails_the_scheduled_run_and_names_the_variable(monkeypatch, capsys, floor):
     code, out, _ = _check(monkeypatch, capsys, _balance("15.14"), "schedule", floor)
     assert code == 1

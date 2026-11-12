@@ -98,7 +98,8 @@ jobs:
               problems.append("DeepSeek reports the balance unavailable for API calls: top up before readers are refused.")
           try:
               floor = Decimal(os.environ.get("BALANCE_FLOOR_USD", "").strip())
-              if not floor.is_finite() or floor < 0:
+              # A plain amount only: the bounds the balance's own figures take, so no value prints as a giant number.
+              if not floor.is_finite() or not 0 <= floor <= Decimal("1e9") or not -12 <= floor.as_tuple().exponent <= 12:
                   raise ValueError
           except (InvalidOperation, ValueError):
               floor = None
