@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
 import {
   readVerifyEmailFailure,
+  VERIFY_FIRST_TRY_HINT,
   VERIFY_UNANSWERED_DESCRIPTION,
   VERIFY_UNANSWERED_TITLE,
 } from '@/features/auth/lib/verifyEmailFailure'
@@ -36,7 +37,9 @@ function verificationTokenFrom(search: string, hash: string): string | null {
  * (POST /api/auth/verify-email), once per press. No login: the token is the email's own. A refused link (a 400) ends
  * on the failure state, since its token is spent or bad. A press that got no answer about the link (no connection, a
  * timeout, a server error, a rate limit) leaves the token unspent in this page's state, so the page stays as it is,
- * says so in an error notice above the button, and the next press posts the same token again.
+ * says so in an error notice above the button, and the next press posts the same token again. If that next press is
+ * refused, the first may have verified the address before its answer was lost, so the refusal adds that the reader
+ * can log in to check. The success state's move to the home page is cancelled when the reader leaves first.
  */
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -52,7 +55,14 @@ export default function VerifyEmailPage() {
   // One post per press: a second press, or a double click before the busy render lands, sends nothing while a post is
   // out, and nothing after an answer about the link. A press that got no such answer frees it for the next press.
   const sent = useRef(false)
+  // A press in this visit got no answer: it may still have verified the address, which a later refusal cannot tell.
+  const unansweredBefore = useRef(false)
   const answerRef = useRef<HTMLDivElement>(null)
+  // The success state's move to the home page, cancelled if the reader leaves the page before it runs.
+  const goHome = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (goHome.current) clearTimeout(goHome.current)
+  }, [])
 
   useEffect(() => {
     const found = verificationTokenFrom(window.location.search, window.location.hash)
@@ -83,14 +93,18 @@ export default function VerifyEmailPage() {
       setOutcome({ verified: true })
       // Refresh cached identity so the banner and the avatar dot clear at once.
       void queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-      setTimeout(() => router.push('/'), 3000)
+      goHome.current = setTimeout(() => router.push('/'), 3000)
     } catch (err: unknown) {
       const read = readVerifyEmailFailure(err)
       if (read.retryable) {
         sent.current = false
+        unansweredBefore.current = true
         setUnanswered(true)
       } else {
-        setOutcome({ verified: false, message: read.message })
+        setOutcome({
+          verified: false,
+          message: unansweredBefore.current ? `${read.message} ${VERIFY_FIRST_TRY_HINT}` : read.message,
+        })
       }
     } finally {
       setVerifying(false)

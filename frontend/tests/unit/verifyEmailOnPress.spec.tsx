@@ -24,7 +24,12 @@ vi.mock('@/features/auth/components/AuthShell', () => ({
 
 import VerifyEmailPage from '@/app/verify-email/page'
 import { ApiError } from '@/lib/api/client'
-import { VERIFY_LINK_FALLBACK, VERIFY_UNANSWERED_DESCRIPTION, VERIFY_UNANSWERED_TITLE } from '@/features/auth/lib/verifyEmailFailure'
+import {
+  VERIFY_FIRST_TRY_HINT,
+  VERIFY_LINK_FALLBACK,
+  VERIFY_UNANSWERED_DESCRIPTION,
+  VERIFY_UNANSWERED_TITLE,
+} from '@/features/auth/lib/verifyEmailFailure'
 import { queryKeys } from '@/lib/queryKeys'
 
 const openAt = (url: string, state: unknown = null) => window.history.replaceState(state, '', url)
@@ -42,8 +47,8 @@ function renderPage({ strict = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
   const page = <VerifyEmailPage />
-  render(<QueryClientProvider client={queryClient}>{strict ? <StrictMode>{page}</StrictMode> : page}</QueryClientProvider>)
-  return { invalidate }
+  const { unmount } = render(<QueryClientProvider client={queryClient}>{strict ? <StrictMode>{page}</StrictMode> : page}</QueryClientProvider>)
+  return { invalidate, unmount }
 }
 
 beforeEach(() => {
@@ -169,9 +174,28 @@ describe('the answer replaces the button and takes focus', () => {
     await userEvent.setup().click(verifyButton())
     const heading = await screen.findByRole('heading', { level: 1, name: 'Verification failed' })
     expect(screen.getByText(VERIFY_LINK_FALLBACK)).toBeInTheDocument()
+    // No press went unanswered before this refusal, so nothing suggests the address may be verified already.
+    expect(screen.queryByText(VERIFY_FIRST_TRY_HINT, { exact: false })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Get a new link' })).toHaveAttribute('href', '/check-email')
     expect(screen.queryByRole('button', { name: 'Verify email' })).not.toBeInTheDocument()
     expect(heading.parentElement).toHaveFocus()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['under StrictMode', true],
+    ['without it', false],
+  ])('verified, then the reader leaves within 3 s (%s): the move to the home page is cancelled', async (_name, strict) => {
+    vi.useFakeTimers()
+    openAt('/verify-email?token=abc')
+    verifyEmail.mockResolvedValue({ message: 'Email verified successfully' })
+    const { unmount } = renderPage({ strict })
+    fireEvent.click(verifyButton())
+    await act(async () => {})
+    expect(screen.getByRole('heading', { level: 1, name: 'Email verified' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1500))
+    unmount()
+    act(() => vi.advanceTimersByTime(10000))
     expect(push).not.toHaveBeenCalled()
   })
 })
@@ -218,7 +242,7 @@ describe('a press with no answer about the link keeps the button for another pre
     expect(verifyEmail).toHaveBeenCalledTimes(2)
   })
 
-  it('a 400 on the next press: the failure state with its reason, no button', async () => {
+  it('a 400 on the next press: the failure state with its reason and that the first try may have gone through, no button', async () => {
     openAt('/verify-email#token=abc')
     verifyEmail
       .mockRejectedValueOnce(new ApiError(0, 'The request timed out. Please try again.'))
@@ -230,7 +254,11 @@ describe('a press with no answer about the link keeps the button for another pre
     expect(await screen.findByRole('alert')).toHaveTextContent(VERIFY_UNANSWERED_TITLE)
     await user.click(verifyButton())
     const heading = await screen.findByRole('heading', { level: 1, name: 'Verification failed' })
-    expect(screen.getByText('Invalid or expired verification link.')).toBeInTheDocument()
+    // The first press may have verified the address before its answer was lost, which spends the token: the
+    // refusal then describes the second press, so the page says the reader can log in to check.
+    expect(VERIFY_FIRST_TRY_HINT).toBe('Your first try may have gone through. Log in to check whether your email is verified.')
+    expect(screen.getByText(`Invalid or expired verification link. ${VERIFY_FIRST_TRY_HINT}`)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'back to login' })).toHaveAttribute('href', '/login')
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.queryByText(VERIFY_UNANSWERED_TITLE)).not.toBeInTheDocument()
     expect(heading.parentElement).toHaveFocus()

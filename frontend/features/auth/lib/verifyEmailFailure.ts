@@ -18,6 +18,13 @@ export const VERIFY_LINK_FALLBACK = 'The link has expired, or a newer one replac
  */
 export const VERIFY_UNANSWERED_TITLE = "We couldn't check the link just now"
 export const VERIFY_UNANSWERED_DESCRIPTION = 'Try again in a minute.'
+/**
+ * Added to a refusal that follows a press with no answer in the same visit. That first press may have reached the
+ * server and verified the address before its answer was lost, which spends the token: the refusal then describes the
+ * second press, not the account, and a new link would not come (only an unverified account is sent one). Logging in
+ * shows which it is.
+ */
+export const VERIFY_FIRST_TRY_HINT = 'Your first try may have gone through. Log in to check whether your email is verified.'
 
 /**
  * What a failed press of Verify email means for the page. Only a 400 is about the link: the server refused it, so its
