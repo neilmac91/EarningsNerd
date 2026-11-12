@@ -660,6 +660,94 @@ def verify_receipt(receipt: dict, key: str, run_id: str, image: str, hashes: dic
         raise media.OperationError("Verification receipt is not from the last two hours")
 
 
+MEMORY_CAP_BYTES = 1073741824  # the verifier's configured 1 GiB, to which verify_runtime.resource_acceptance holds it
+RESOURCE_NUMBERS = ("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
+                    "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
+                    "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes")
+RESOURCE_NULLABLE = ("cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes")
+RESOURCE_METHOD = ("kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; "
+                   "representative workload only")
+EVIDENCE_BASES = ("kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence")
+WORKER_LIMITS = {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
+
+
+def counted(value, keys, *, nullable=()) -> bool:
+    """A dict of exactly these keys, each a bounded non-negative integer (or None where nullable)."""
+    return isinstance(value, dict) and set(value) == set(keys) and all(
+        (item is None and name in nullable) or (type(item) is int and 0 <= item <= 2**63 - 1)
+        for name, item in value.items())
+
+
+def valid_resources(resources) -> bool:
+    """The verifier's counts-only resource record: fixed keys, bounded numbers and two closed strings, no runtime text."""
+    return (isinstance(resources, dict)
+            and set(resources) == set(RESOURCE_NUMBERS) | {"method", "worker_limits", "unexplained_children",
+                                                           "acceptance_passed", "sample_age_seconds", "evidence_basis"}
+            and counted({name: resources[name] for name in RESOURCE_NUMBERS}, RESOURCE_NUMBERS, nullable=RESOURCE_NULLABLE)
+            and resources["method"] == RESOURCE_METHOD
+            and resources["evidence_basis"] in EVIDENCE_BASES
+            and resources["worker_limits"] == WORKER_LIMITS
+            and type(resources["sample_age_seconds"]) in {float, int} and math.isfinite(resources["sample_age_seconds"])
+            and 0 <= resources["sample_age_seconds"] <= 7200
+            and type(resources["unexplained_children"]) is bool and type(resources["acceptance_passed"]) is bool)
+
+
+def resource_refusals(resources: dict) -> list[str]:
+    """Every acceptance condition a valid resource record fails, by closed name.
+
+    verify_runtime.resource_acceptance decides, and a unit test holds the two to the same verdict on every input it
+    tries. This names each failing condition rather than stopping at the first, so a refusal explains itself without
+    changing verify_runtime.py, the verifier's fingerprinted source.
+    """
+    refused = []
+    if resources["sample_count"] < 5:
+        refused.append("samples")
+    if resources["unexplained_children"]:
+        refused.append("unexplained-child")
+    if resources["last_process_count"] != 1:
+        refused.append("process-count")
+    if not 0 <= resources["sample_age_seconds"] <= 1:
+        refused.append("sample-age")
+    limit, peak, sample = (resources[name] for name in ("cgroup_memory_limit_bytes", "cgroup_kernel_peak_bytes",
+                                                         "cgroup_sample_peak_bytes"))
+    if limit is not None and limit != MEMORY_CAP_BYTES:
+        refused.append("cgroup-limit")
+    if peak is not None:
+        if not 0 < peak < MEMORY_CAP_BYTES * .85:
+            refused.append("kernel-peak")
+        if sample is not None and not sample < MEMORY_CAP_BYTES * .85:
+            refused.append("sampled-peak")
+        return refused
+    own, worker = resources["self_high_water_rss_bytes"], resources["worker_high_water_rss_bytes"]
+    if not (own > 0 and worker > 0):
+        refused.append("high-water-unread")
+    if sample is None or not 0 < sample < MEMORY_CAP_BYTES * .85:
+        refused.append("sampled-peak")
+    if not own + 3 * worker < MEMORY_CAP_BYTES * .85:
+        refused.append("process-bound")
+    return refused
+
+
+def resources_line(resources) -> str:
+    """One public line from the verifier's resource record: its verdict, the failing conditions and the figures in bytes."""
+    if not valid_resources(resources):
+        return "Verifier resources: unavailable (no counts-only resource record)"
+    def size(name: str, absent: str) -> str:
+        return absent if resources[name] is None else f"{resources[name]} bytes"
+    return (f"Verifier resources: acceptance {'passed' if resources['acceptance_passed'] else 'refused'}; "
+            f"conditions failed: {', '.join(resource_refusals(resources)) or 'none'}; "
+            f"samples {resources['sample_count']}; processes at the last sample {resources['last_process_count']}; "
+            f"unexplained child {'seen' if resources['unexplained_children'] else 'none'}; "
+            f"last sample {resources['sample_age_seconds']:.2f} s old; "
+            f"cgroup limit {size('cgroup_memory_limit_bytes', 'unread')}; "
+            f"kernel peak {size('cgroup_kernel_peak_bytes', 'unexposed')}; "
+            f"sampled peak {size('cgroup_sample_peak_bytes', 'unread')}; "
+            f"process-tree peak {resources['rss_peak_bytes']} bytes; "
+            f"own high-water {resources['self_high_water_rss_bytes']} bytes; "
+            f"worker high-water {resources['worker_high_water_rss_bytes']} bytes; "
+            f"bound {int(MEMORY_CAP_BYTES * .85)} bytes")
+
+
 def counts_only_receipt(receipt: dict) -> bool:
     """Allow exactly the signed synthetic evidence schema; never arbitrary runtime strings."""
     if (set(receipt) != {"payload", "signature"} or not isinstance(receipt.get("signature"), str)
@@ -673,10 +761,7 @@ def counts_only_receipt(receipt: dict) -> bool:
     observed = payload.get("observed")
     if not isinstance(observed, dict) or set(observed) != {"database", "notifications", "resources", "cleanup"}:
         return False
-    def numbers(value, keys, *, nullable=()):
-        return isinstance(value, dict) and set(value) == set(keys) and all(
-            (item is None and name in nullable) or (type(item) is int and 0 <= item <= 2**63 - 1)
-            for name, item in value.items())
+    numbers = counted
     database = observed["database"]
     database_numbers = {"feedback", "submitted", "attachments", "fixture_users", "available", "deleted", "pending",
                         "published_attachments", "confirmed_generation_deletions"}
@@ -691,19 +776,7 @@ def counts_only_receipt(receipt: dict) -> bool:
             or not isinstance(mail["attachment_counts"], list) or len(mail["attachment_counts"]) > 30
             or any(type(value) is not int or not 0 <= value <= 3 for value in mail["attachment_counts"])):
         return False
-    resources = observed["resources"]
-    numeric = {"sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
-               "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
-               "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
-    if (not isinstance(resources, dict) or set(resources) != numeric | {"method", "worker_limits", "unexplained_children", "acceptance_passed", "sample_age_seconds", "evidence_basis"}
-            or not numbers({name: resources[name] for name in numeric}, numeric,
-                           nullable={"cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes"})
-            or resources["method"] != "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"
-            or resources["evidence_basis"] not in {"kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence"}
-            or resources["worker_limits"] != {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
-            or type(resources["sample_age_seconds"]) not in {float, int} or not math.isfinite(resources["sample_age_seconds"])
-            or not 0 <= resources["sample_age_seconds"] <= 7200
-            or type(resources["unexplained_children"]) is not bool or type(resources["acceptance_passed"]) is not bool):
+    if not valid_resources(observed["resources"]):
         return False
     cleanup = observed["cleanup"]
     return (isinstance(cleanup, dict) and cleanup.get("dry_run") is False and set(cleanup) == {
@@ -797,7 +870,9 @@ def require_receipt(cloud: media.Cloud, production: dict) -> dict:
         raise media.OperationError("Verification service no longer matches the reviewed isolated runtime")
     if current_image(cloud, service) != image:
         raise media.OperationError("Verification service is not serving the current backend digest")
-    receipt = read_receipt(cloud, origin, key, run_id).get("receipt")
+    answer = read_receipt(cloud, origin, key, run_id)
+    print(resources_line(answer.get("resources")))
+    receipt = answer.get("receipt")
     if not isinstance(receipt, dict):
         raise media.OperationError("A completed live verification receipt is required")
     verify_receipt(receipt, key, run_id, image, hashes)
@@ -1074,7 +1149,9 @@ def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, im
     """The browser, then the bounded in-run cleanup, which runs whether or not the browser passed."""
     try:
         browser(cloud, origin, key, run_id, image, hashes)
-    except BaseException:
+    except BaseException as failure:
+        if isinstance(failure, media.OperationError):
+            report_resources(cloud, origin, key, run_id)
         # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt supplements
         # the retained hourly job; a failure of its own is reported beside the browser's, never in its place.
         try:
@@ -1083,6 +1160,18 @@ def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, im
             print(f"Verification cleanup after that failure: {cleanup_failure}")
         raise
     execute_cleanup(cloud)
+
+
+def report_resources(cloud: media.Cloud, origin: str, key: str, run_id: str) -> None:
+    """After a failed browser run, one receipt read (no retry) prints the verifier's resource line, or says it failed.
+
+    Best effort: whatever this read raises, the browser's failure stays the run's, so its own error is withheld."""
+    try:
+        answer = control(cloud, origin, key, run_id, "receipt")
+    except Exception:  # noqa: BLE001 — a diagnostic read never replaces the browser's failure
+        print("Verifier resources: unavailable (receipt read failed)")
+        return
+    print(resources_line(answer.get("resources")))
 
 
 def enable_deadline(lease_end: datetime) -> str:
