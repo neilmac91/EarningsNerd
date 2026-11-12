@@ -1,6 +1,12 @@
 name: DeepSeek balance readout
 
 on:
+  # Daily, so a low prepaid balance is seen before it is empty. Nothing in the app caps model spend,
+  # and an empty balance stops new summaries, Ask this Filing answers and analysis narratives for
+  # every reader (docs/ops/closed-beta-acceptance.md, section 5). A dispatch reads the balance on
+  # request, as before, and only warns below the floor.
+  schedule:
+    - cron: '41 5 * * *'
   workflow_dispatch:
 
 permissions: {}
@@ -14,6 +20,8 @@ jobs:
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # The floor in USD. A repository variable, so the founder moves it without a code change.
+          BALANCE_FLOOR_USD: ${{ vars.DEEPSEEK_BALANCE_FLOOR_USD || '5' }}
         run: |
           python3 - <<'PY'
           import http.client
@@ -80,4 +88,75 @@ jobs:
           except (ValueError, KeyError, TypeError, InvalidOperation, UnicodeError, RecursionError):
               fail("Balance unavailable: provider returned an invalid balance schema.")
           print(json.dumps({"is_available": payload["is_available"], "balance_infos": normalized}))
+
+          # What is wrong with a readable balance: the provider says it cannot be used, it is below the
+          # floor, or the floor itself is not a number. The scheduled run fails on any of them, which
+          # opens the issue; a dispatch only warns, so a readback before paid work still succeeds.
+          scheduled = os.environ.get("GITHUB_EVENT_NAME") == "schedule"
+          problems = []
+          if not payload["is_available"]:
+              problems.append("DeepSeek reports the balance unavailable for API calls: top up before readers are refused.")
+          try:
+              floor = Decimal(os.environ.get("BALANCE_FLOOR_USD", "").strip())
+              # A plain amount only: the bounds the balance's own figures take, so no value prints as a giant number.
+              if not floor.is_finite() or not 0 <= floor <= Decimal("1e9") or not -12 <= floor.as_tuple().exponent <= 12:
+                  raise ValueError
+          except (InvalidOperation, ValueError):
+              floor = None
+              problems.append(
+                  "The balance floor is not a non-negative number, so it is not checked: "
+                  "correct the DEEPSEEK_BALANCE_FLOOR_USD variable."
+              )
+          usd = [Decimal(row["total_balance"]) for row in normalized if row["currency"] == "USD"]
+          if floor is not None and not usd:
+              print("::notice::No USD balance row, so the floor is not checked.")
+          elif floor is not None and usd[0] < floor:
+              problems.append(
+                  f"DeepSeek balance USD {format(usd[0], 'f')} is below the floor of USD {format(floor, 'f')}: "
+                  "top up before readers are refused."
+              )
+          for problem in problems:
+              print(f"::{'error' if scheduled else 'warning'}::{problem}")
+          if problems and scheduled:
+              raise SystemExit(1)
           PY
+
+  # The scheduled check's failure, as an issue: the balance is below the floor or unavailable, it
+  # could not be read (the key, the quota or the provider), or the floor variable is not a number.
+  # One open issue takes each later day's comment.
+  report-low-balance:
+    needs: balance
+    if: always() && github.event_name == 'schedule' && needs.balance.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update a low-balance issue
+        shell: bash
+        env:
+          BALANCE_RESULT: ${{ needs.balance.result }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="DeepSeek balance check failed $(date -u +%F)"
+          BODY_FILE="$(mktemp)"
+          trap 'rm -f "$BODY_FILE"' EXIT
+          cat > "$BODY_FILE" <<EOF_BODY
+          The daily DeepSeek balance check finished with result $BALANCE_RESULT: $RUN_URL
+
+          The run's log says which of these it is: the prepaid balance is below the floor (the
+          DEEPSEEK_BALANCE_FLOOR_USD repository variable, USD 5 when unset), the provider reports the
+          balance unavailable, the balance could not be read (the key, the quota or the provider), or
+          the floor variable is not a number. An empty balance stops new summaries, Ask this Filing
+          answers and analysis narratives for every reader; stored summaries still serve. Top up, or
+          repair the read or the variable, then close this issue.
+          EOF_BODY
+          EXISTING="$(gh issue list --state open --search '"DeepSeek balance check failed" in:title' --json number,title \
+            --jq '[.[] | select(.title | startswith("DeepSeek balance check failed"))] | .[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi

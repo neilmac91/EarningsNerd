@@ -11,12 +11,14 @@ import { ENABLE_APPLE_SIGNIN } from '@/lib/featureFlags'
  * behind a flag until the backend exchange + Apple Developer setup are live).
  * `invite` (the closed-beta token from the magic link) rides along to the
  * backend start endpoints, which redeem it when they create the account.
+ * `returnTo` (the login page's `?redirect=`) rides along to the start control, which keeps it for the
+ * landing page (OAuthStartControl, E29 (7)).
  */
-export default function SocialAuthButtons({ apiBase, invite, signup }: { apiBase: string; invite?: string; signup?: OAuthSignup }) {
+export default function SocialAuthButtons({ apiBase, invite, signup, returnTo }: { apiBase: string; invite?: string; signup?: OAuthSignup; returnTo?: string | null }) {
   return (
     <div className="space-y-3">
-      {ENABLE_APPLE_SIGNIN && <AppleSignInButton apiBase={apiBase} invite={invite} signup={signup} />}
-      <GoogleSignInButton apiBase={apiBase} invite={invite} signup={signup} />
+      {ENABLE_APPLE_SIGNIN && <AppleSignInButton apiBase={apiBase} invite={invite} signup={signup} returnTo={returnTo} />}
+      <GoogleSignInButton apiBase={apiBase} invite={invite} signup={signup} returnTo={returnTo} />
     </div>
   )
 }

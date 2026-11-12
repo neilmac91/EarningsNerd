@@ -1,4 +1,4 @@
-# Converge a review in one round: write the done criteria first, fix round 1's findings once, run a second round only on the fix of a blocker round 1 found, and send a later finding outside that fix diff to a follow-up row
+# Converge a review in one round: write the done criteria first, fix round 1's findings once, run a second round only on the fix of a blocker round 1 found, and send a later finding outside that fix diff to the pull request's limits, or to a follow-up row AGENTS.md §7 admits
 
 Date: 2026-11-03, tightened 2026-11-12   Area: ops, review
 
@@ -36,8 +36,9 @@ review)".
 - Bring the base into the branch, by merge or rebase, before round 1 or after the last round, never between rounds: a
   merge puts the base's changes into the fix diff, and a rebase leaves the previous round's head off the branch.
 - Fix a round-2 finding that lies in the fix diff and inside the done criteria without another round; the full gate and
-  Codex's review of that head cover the change. Send one outside the diff or beyond the criteria to a follow-up row in
-  `tasks/todo.md`, or name it as a limit in the pull request body, unless it is a blocker.
+  Codex's review of that head cover the change. Name one outside the diff or beyond the criteria as a limit in the
+  pull request body, or send it to a follow-up row in `tasks/todo.md` only where `AGENTS.md` §7 admits one
+  (`ops-a-todo-row-needs-a-reader-a-launch-blocker-or-an-exposure.md`), unless it is a blocker.
 - A third round needs the founder's go, whatever round 2 found; it reviews only its own fix diff.
 - Give the review workflow (`.claude/workflows/premerge-review.js`) the round: `round` on each pull request, and
   from round 2 `fixBase` (the commit the previous round reviewed) and `reason` (the blocker whose fix it reviews),

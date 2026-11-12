@@ -115,8 +115,8 @@ The Google tester then starts at step 1, and both testers go on from step 7; the
 | 2 | Deliver it | The email reaches the tester's inbox within the founder's mail window, its link opens `/register` on `www` with the invitation, and the row moves to "Delivered to the recipient's mail server". A link shared by hand is the fallback, not the plan: while invitation email is off, or for a suppressed address, Resend on the row gives a replacement to share by hand and revokes the emailed link | #1965's `test_a_manual_resend_of_a_bound_invite_sends_nothing` (the fallback) |
 | 3 | Link scanners | Opening the link with a plain `GET` (`curl`) and again in a browser leaves the invitation `pending` in `/admin/invites` | `frontend/tests/e2e/legal-readiness.spec.ts` (no write request before submit); `backend/tests/unit/test_read_only_get_endpoints.py` (GET routes write nothing, except allowlisted ones such as the Google callback, which needs the state the tester's own browser started) |
 | 4 | Register | Both agreement boxes start unchecked; registration answers with the check-your-email notice | onboarding test; `frontend/tests/e2e/legal-readiness.spec.ts` (both boxes start unchecked) |
-| 5 | Verification mail | The mail arrives in the tester's inbox within the founder's mail window and its link verifies the account. A mail scanner that runs scripts can open the link first: the page then reports a failure although the account is verified; record it. The tester recovers by signing in, which finds the account verified (E296 in `tasks/todo.md`; step 22 exercises it) | onboarding test (capture only) |
-| 6 | Sign in | Password and Google sign-in return to the home page signed in, and the account menu shows the tester's own address. If the build offers Sign in with Apple (`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN`), one Apple sign-in in Safari does the same | onboarding and Google tests |
+| 5 | Verification mail | The mail arrives in the tester's inbox within the founder's mail window. Its link opens a page that verifies the account only when the tester presses Verify email: opening the link sends nothing, so a mail scanner that runs scripts cannot spend it (E296, built 2026-11-11; step 22 exercises it) | onboarding test (capture only); `frontend/tests/unit/verifyEmailOnPress.spec.tsx` (nothing is posted before the press) |
+| 6 | Sign in | Password and Google sign-in return to the home page signed in, or to the page the tester was headed for when the sign-in began at a filing's signup gate or at `/login?redirect=` (E29 (7)), and the account menu shows the tester's own address. If the build offers Sign in with Apple (`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN`), one Apple sign-in in Safari does the same | onboarding and Google tests |
 | 7 | Complimentary Pro | First the grant, which no earlier step makes: once both testers have verified (step 5), the complimentary-access dry run, then its apply under the founder's approval of that run ([its runbook](complimentary-access.md)). Until then both show Free, by design. Then the account shows Pro on the dashboard, in Settings and in usage, and Settings offers no upgrade or checkout | matrix and grant tests (the plan through `/api/auth/me` and usage); `frontend/tests/unit/BillingPanel.spec.tsx` (Settings' billing control for a complimentary account) |
 | 8 | Search and filing | A covered company's filing page loads | — |
 | 9 | Cached summary | A filing with a stored summary renders it at once | matrix test (cached read) |
@@ -132,16 +132,16 @@ The Google tester then starts at step 1, and both testers go on from step 7; the
 | 19 | Sign out, reset, sign in | The reset mail arrives; the old password fails; the new one works | reset test |
 | 20 | Export | Settings → export downloads the tester's data with their agreement and feedback | feedback test |
 | 21 | Cross-account | Signed in as one tester, the other's saved summaries, watchlist and screenshots cannot be reached | cross-account and feedback tests |
-| 22 | Unusable links | The password tester's used link and the expired link are each refused, with the same answer. The used link's tester signs in instead. Resend on the expired link's row gives a replacement, emailed or to share by hand, and revokes the expired link, which is still refused; the replacement registers the disposable account with a password. Open that account's verification link first in another browser, as a mail scanner that runs scripts would: the tester's own browser then reports a failure, and the tester signs in to find the account verified, with no banner asking them to verify | onboarding test (used) and invalid-invitation test (revoked, expired), refusal only; #1965's `test_a_manual_resend_of_a_bound_invite_sends_nothing` and `test_an_emailed_resend_reuses_the_first_request_and_replaces_the_link` (the replacement) |
+| 22 | Unusable links | The password tester's used link and the expired link are each refused, with the same answer. The used link's tester signs in instead. Resend on the expired link's row gives a replacement, emailed or to share by hand, and revokes the expired link, which is still refused; the replacement registers the disposable account with a password. Open that account's verification link first in another browser and press nothing, as a mail scanner that runs scripts would: the account stays unverified, and the tester's own press of Verify email then verifies it | onboarding test (used) and invalid-invitation test (revoked, expired), refusal only; #1965's `test_a_manual_resend_of_a_bound_invite_sends_nothing` and `test_an_emailed_resend_reuses_the_first_request_and_replaces_the_link` (the replacement) |
 | 23 | Deletion | A disposable tester account deletes itself and its session ends. With screenshots enabled, its screenshot cannot be opened at once and its object is gone after the next hourly cleanup run | feedback test |
 
 Step 7 has no unmet code precondition since the complimentary-access work's Billing fix (#1955): a granted account
 sees no upgrade or checkout. Each wave needs the same grant before its exit check (section 6). Step 22
 needs #1965's Resend, which replaces an address-bound link, and nothing more: registration answers a used, a revoked
-and an expired link with one refusal, and telling them apart (E298 in `tasks/todo.md`) is a deferred follow-up, not a
-launch condition.
+and an expired link with one refusal. Telling them apart is not built and is not a launch condition (E298, closed by
+the triage of 2026-11-11): for a cohort this size the founder answers a confused invitee by hand.
 
-A tab must never change the credentials of an account other than the one it shows (E29 (6) in `tasks/todo.md`).
+A tab must never change the credentials of an account other than the one it shows (E29 (6), built in #1952).
 Before any tester is admitted, that auth repair is merged and deployed in full, as the chief's review of its pull
 request requires. Among those conditions: every password change names the account its tab shows, as a required field
 (the founder approved that contract change); two-account tests (one target with a password, one social-only); and a
@@ -192,22 +192,23 @@ Read before admission, after the founder rehearsal, and at each observation poin
 | API latency and errors, queue depth and task attempts, SQL connections, job executions | Ops `capacity-readout` (read-only, bounded) | Observed aggregates; a partial read is a floor, never zero |
 | Pool reserve | `database.checked_out` from `GET /metrics` (administrator); [thresholds](../OPERATIONS.md#monitoring-alerts-suggested-thresholds) | The deployed pool has no overflow. A reading covers one instance and counts its own connection, so 1 means nothing else is checked out |
 | SEC throttling | The SEC breaker in `/health/detailed`; `sec_rate_limiter` and `circuit_breaker` in `GET /metrics` (administrator), each for the instance that answered | An open breaker stops fresh summaries that must fetch their filing from SEC on that instance; Multi-Period Analysis does not use it |
-| Model cost and timeouts | The DeepSeek balance readout; `ai_call` log lines ([telemetry](../OPERATIONS.md#ai-call-telemetry-ai_call--ai_summary-log-lines)) | Spend against the founder's daily limit |
+| Model cost and timeouts | The DeepSeek balance readout (`.github/workflows/deepseek-balance.yml`), on request and once a day: the daily run fails below the floor (the `DEEPSEEK_BALANCE_FLOOR_USD` repository variable, USD 5 when unset) or when the balance cannot be read, and opens the issue "DeepSeek balance check failed"; `ai_call` log lines ([telemetry](../OPERATIONS.md#ai-call-telemetry-ai_call--ai_summary-log-lines)) | Spend against the founder's daily limit; set the floor to at least a few days of it |
 | Account mail | Inbox arrival time at steps 5 and 19. For step 5, the API's logs and Sentry; for reset and resend mail, the worker's `email NOT sent` and `(nothing sent)` lines ([account mail](../OPERATIONS.md#account-mail-f60)) | The API sends registration's mail itself; reset and resend mail wait behind the single task worker's current task and anything queued before it |
 | Job freshness | `capacity-readout`'s job executions and job ledger; the weekly data-quality report (`describe-jobs` reads configuration only) | Filing and 8-K alerts depend on the hourly filing scan; earnings-day alerts depend on their own daily job |
 | Errors | Sentry, filtered to the serving `SENTRY_RELEASE`; `logs-probe` start lines per API revision | Every API revision reports under its own release. The task worker and the pregenerate job bind no `SENTRY_DSN`, so their failures reach Cloud Logging only |
 | Funnel | PostHog: the browser's events, sent only after a tester's cookie consent, and the API's account events (sign-up, invitation redeemed, feedback), sent whatever the choice (D-051) | A step missing from the browser's events is not proof it failed; read the API's events or the database |
 | Backups | The newest monthly SQL export run; managed backup and point-in-time settings read by the founder | The tolerated loss window must be set before testers create data, and a restore proof must cover every applied migration |
-| Alerts | The alert policies and Sentry alert rules that exist, and a test notification someone received | Without one, the daily smoke issue is the only automated availability signal, so an outage can go unseen for a day |
+| Alerts | The alert policies and Sentry alert rules that exist, and a test notification someone received | Without one, the daily smoke issue and the daily balance check's issue are the only automated signals, so an outage can go unseen for a day |
 
 Fresh summaries are generated inside the API request on the serving architecture; durable summary generation is
 not active. Whether that path carries the beta's load is unmeasured, and the first wave's capacity readout is the
 first evidence. Fresh summaries share the API's CPU, its four-connection pool and its event loop with sign-in,
 feedback and registration mail, while reset and resend mail wait behind the single task worker's current task and
 anything queued before it. Six first-time generations of large filings at once leave most of them a
-lower-quality excerpt that is stored for good (E77 in `tasks/todo.md`), so the first wave's observation reads the
+lower-quality excerpt that is stored for good (E300 in `tasks/todo.md`, which carries E77), so the first wave's observation reads the
 capacity readout around its busiest hour. Nothing in code caps
-daily model spend: the provider balance is prepaid and read by hand, and running it out stops fresh summaries, Ask
+daily model spend: the provider balance is prepaid, read by hand and checked once a day against a floor (the row
+above), and running it out stops fresh summaries, Ask
 this Filing answers and new Multi-Period Analysis narratives for every tester. Stored summaries, the analysis
 dataset, its charts and its workbook still serve. A rehearsal of the durable path, or a load run against an
 isolated environment, needs its own approved budget.
@@ -249,8 +250,8 @@ only for the identities it was taken on. Merge backend changes one at a time, ea
 run shows its migration line and a healthy revision ([deploy discipline](../../AGENTS.md#6-deploy-discipline)):
 back-to-back merges usually ship as one revision, so neither change can be verified or rolled back on its own.
 
-Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198 in
-`tasks/todo.md`). Such a change lands with a census of its own: E198's is `ops/detection/usd_sync_convergence.sql`
+Some changes move figures at each company's next companyfacts sync rather than at their deploy (E198, now part of
+F49 in `tasks/todo.md`). Such a change lands with a census of its own: E198's is `ops/detection/usd_sync_convergence.sql`
 (#1968), which merges first and stays until the records change that reports E198's after run retires it. Ops runs
 only `main`'s SQL, so dispatch the read-only `detection-sql` once the census is on `main` and before the change merges,
 and keep that run. After the change deploys:

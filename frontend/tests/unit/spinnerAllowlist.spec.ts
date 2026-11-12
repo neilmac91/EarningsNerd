@@ -43,7 +43,7 @@ const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 // Equal to the list (lessons/test-allowlist-caps-are-equalities.md): lower it when an entry goes; a new entry raises
 // it in the same change, its reason naming the wait it marks.
-const MAX_ALLOWLIST_SIZE = 13
+const MAX_ALLOWLIST_SIZE = 12
 const CONTROL = "a control's own request:"
 const LAYOUT = 'a wait whose answer decides the layout:'
 const EXCEPTION = "a full-page loader, one of §11's shrink-only exceptions:"
@@ -76,7 +76,6 @@ const ALLOW: Record<string, { sites: number; reason: string }> = {
     sites: 1,
     reason: `${EXCEPTION} the /filing/<TICKER> loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
   },
-  'app/verify-email/page.tsx': { sites: 1, reason: `${LAYOUT} over the heading "Verifying your email…", which names the wait` },
   'app/auth/complete/page.tsx': {
     sites: 1,
     reason: `${LAYOUT} over the heading "Logging you in…", which names the wait: the OAuth login's code exchange (E29 (5))`,
