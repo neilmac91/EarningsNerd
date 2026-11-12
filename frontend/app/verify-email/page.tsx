@@ -38,8 +38,9 @@ function verificationTokenFrom(search: string, hash: string): string | null {
  * on the failure state, since its token is spent or bad. A press that got no answer about the link (no connection, a
  * timeout, a server error, a rate limit) leaves the token unspent in this page's state, so the page stays as it is,
  * says so in an error notice above the button, and the next press posts the same token again. If that next press is
- * refused, the first may have verified the address before its answer was lost, so the refusal adds that the reader
- * can log in to check. The success state's move to the home page is cancelled when the reader leaves first.
+ * refused as a spent token would be, and the first got no answer or a server error, the first may have verified the
+ * address before its answer was lost, so the refusal adds that the reader can log in to check. The success state's
+ * move to the home page is cancelled when the reader leaves first.
  */
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -55,8 +56,8 @@ export default function VerifyEmailPage() {
   // One post per press: a second press, or a double click before the busy render lands, sends nothing while a post is
   // out, and nothing after an answer about the link. A press that got no such answer frees it for the next press.
   const sent = useRef(false)
-  // A press in this visit got no answer: it may still have verified the address, which a later refusal cannot tell.
-  const unansweredBefore = useRef(false)
+  // A press in this visit got no answer and may still have verified the address, which a later refusal cannot tell.
+  const mayBeVerified = useRef(false)
   const answerRef = useRef<HTMLDivElement>(null)
   // The success state's move to the home page, cancelled if the reader leaves the page before it runs.
   const goHome = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,12 +99,12 @@ export default function VerifyEmailPage() {
       const read = readVerifyEmailFailure(err)
       if (read.retryable) {
         sent.current = false
-        unansweredBefore.current = true
+        if (read.mayHaveVerified) mayBeVerified.current = true
         setUnanswered(true)
       } else {
         setOutcome({
           verified: false,
-          message: unansweredBefore.current ? `${read.message} ${VERIFY_FIRST_TRY_HINT}` : read.message,
+          message: mayBeVerified.current && read.spentTokenAnswer ? `${read.message} ${VERIFY_FIRST_TRY_HINT}` : read.message,
         })
       }
     } finally {

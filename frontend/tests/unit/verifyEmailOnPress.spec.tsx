@@ -265,4 +265,39 @@ describe('a press with no answer about the link keeps the button for another pre
     expect(verifyEmail).toHaveBeenCalledTimes(2)
     expect(verifyEmail).toHaveBeenNthCalledWith(2, 'abc')
   })
+
+  it.each([
+    // "Expired" is said only of a token the server still holds: the first press cannot have verified with it.
+    ['a lost answer, then the link has expired', new ApiError(0, 'The request timed out. Please try again.'), 'Verification link has expired. Request a new one.'],
+    // A rate limit answered before the route ran, so the first press verified nothing.
+    ['a rate limit, then a refused link', new ApiError(429, 'Too many requests. Try again later.'), 'Invalid or expired verification link.'],
+  ])('%s: the reason alone, with no word that the first try may have gone through', async (_case, first, reason) => {
+    openAt('/verify-email?token=abc')
+    verifyEmail.mockRejectedValueOnce(first).mockRejectedValueOnce(new ApiError(400, reason))
+    renderPage()
+    await waitFor(() => expect(verifyButton()).not.toHaveAttribute('aria-disabled'))
+    const user = userEvent.setup()
+    await user.click(verifyButton())
+    expect(await screen.findByRole('alert')).toHaveTextContent(VERIFY_UNANSWERED_TITLE)
+    await user.click(verifyButton())
+    await screen.findByRole('heading', { level: 1, name: 'Verification failed' })
+    expect(screen.getByText(reason)).toBeInTheDocument()
+    expect(screen.queryByText(VERIFY_FIRST_TRY_HINT, { exact: false })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Get a new link' })).toHaveAttribute('href', '/check-email')
+  })
+
+  it('a server error, then a refused link: the first try may have gone through', async () => {
+    openAt('/verify-email?token=abc')
+    verifyEmail
+      .mockRejectedValueOnce(new ApiError(503, 'Service unavailable'))
+      .mockRejectedValueOnce(new ApiError(400, 'Request failed with status code 400'))
+    renderPage()
+    await waitFor(() => expect(verifyButton()).not.toHaveAttribute('aria-disabled'))
+    const user = userEvent.setup()
+    await user.click(verifyButton())
+    await screen.findByRole('alert')
+    await user.click(verifyButton())
+    await screen.findByRole('heading', { level: 1, name: 'Verification failed' })
+    expect(screen.getByText(`${VERIFY_LINK_FALLBACK} ${VERIFY_FIRST_TRY_HINT}`)).toBeInTheDocument()
+  })
 })
