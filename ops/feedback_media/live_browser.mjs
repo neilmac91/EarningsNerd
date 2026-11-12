@@ -199,6 +199,13 @@ async function memoryBurst(page, png, readerId) {
   return page.evaluate(boundaryUploadWorkload, { base64: png.toString('base64'), keys: [randomUUID(), randomUUID()], readerId })
 }
 
+/** The admin view's message link: found by the name FeedbackMessage renders, opening the literal address safely. */
+export async function checkSafeLink(detail) {
+  const link = detail.getByRole('link', { name: LINK_NAME, exact: true })
+  check(await link.getAttribute('href') === LINK && await link.getAttribute('rel') === 'noopener noreferrer'
+    && await link.getAttribute('target') === '_blank' && await link.textContent() === LINK, 'admin-safe-link')
+}
+
 /** The runner owns cleanup/completion; the browser owns only user-visible assertions and real application calls. */
 export async function runBrowser(config, fixtures, proxy, frontend, signal) {
   const accounts = validateFixtures(fixtures, config.run_id)
@@ -239,9 +246,7 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
       await admin.page.waitForFunction(() => [...document.querySelectorAll('img[alt^="Screenshot "]')]
         .filter(image => image.complete && image.naturalWidth > 0).length === 3)
       step = 'admin-link'
-      const link = detail.getByRole('link', { name: LINK_NAME, exact: true })
-      check(await link.getAttribute('href') === LINK && await link.getAttribute('rel') === 'noopener noreferrer'
-        && await link.getAttribute('target') === '_blank' && await link.textContent() === LINK, 'admin-safe-link')
+      await checkSafeLink(detail)
       step = 'admin-narrow'
       await screenshot(admin.page, config.output_dir, 'admin-' + theme)
       await admin.page.setViewportSize({ width: 390, height: 400 })

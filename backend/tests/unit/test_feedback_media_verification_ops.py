@@ -445,6 +445,57 @@ def test_a_failed_browser_run_names_only_its_closed_stage_and_code(monkeypatch, 
     assert str(failure.value) == refusal and failure.value.__suppress_context__ == bool(exit_status)
 
 
+def test_the_in_run_cleanup_runs_after_a_failure_of_any_kind(monkeypatch):
+    """A crash or an interrupt in the browser still leaves its cleanup run, then the original error stands."""
+    cleanups = []
+    for failure in (RuntimeError("unexpected"), KeyboardInterrupt()):
+        def browser(*_args, failure=failure):
+            raise failure
+        monkeypatch.setattr(verify, "browser", browser)
+        monkeypatch.setattr(verify, "execute_cleanup", cleanups.append)
+        with pytest.raises(type(failure)):
+            verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
+    assert cleanups == ["cloud", "cloud"]
+
+
+def output_reads(source: str) -> list[tuple[int, bool]]:
+    """Each read of an `output` attribute in `source`, a load or a getattr(_, "output", ...) call, with its line and
+    whether it is the sole argument of a browser_failure(...) call directly inside a function named browser."""
+    tree = ast.parse(source)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    reads = []
+    for node in ast.walk(tree):
+        if not ((isinstance(node, ast.Attribute) and node.attr == "output" and isinstance(node.ctx, ast.Load))
+                or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "getattr"
+                    and len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and node.args[1].value == "output")):
+            continue
+        call, scope = parents.get(node), parents.get(node)
+        while scope is not None and not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            scope = parents.get(scope)
+        allowed = (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "browser_failure"
+                   and call.args == [node] and not call.keywords
+                   and isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)) and scope.name == "browser")
+        reads.append((node.lineno, allowed))
+    return reads
+
+
+def test_only_the_browser_reads_a_failed_commands_output():
+    """A failed command's output can carry any text, and an Ops log is public: the one read is browser()'s, as the sole
+    argument of browser_failure, which keeps only closed codes. Both files a CommandFailed reaches are walked whole, at
+    module level too, and getattr(_, "output") counts as a read; one through vars() or __dict__ stays review-checked."""
+    reads = {name: output_reads((ROOT / "ops/feedback_media" / name).read_text()) for name in ("verify_manage.py", "manage.py")}
+    assert [allowed for _line, allowed in reads["verify_manage.py"]] == [True] and reads["manage.py"] == []
+    # The gate refuses each wider read it was widened for.
+    browser_read = "            raise browser_failure(failed.output) from None\n"
+    for mutant in ("\nLEAK = CommandFailed('').output\n", "\ndef leak(failure):\n    return getattr(failure, 'output', '')\n",
+                   "\ndef leak(failure):\n    return failure.output\n"):
+        assert [allowed for _line, allowed in output_reads("def browser():\n    pass\n" + mutant)] == [False], mutant
+    source = (ROOT / "ops/feedback_media/verify_manage.py").read_text()
+    assert source.count(browser_read) == 1
+    second = source.replace(browser_read, "            print(failed.output)\n" + browser_read)
+    assert sorted(allowed for _line, allowed in output_reads(second)) == [False, True]
+
+
 @pytest.mark.parametrize("browser_fails, cleanup_fails", [(False, False), (True, False), (True, True), (False, True)])
 def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_failure(monkeypatch, capsys, browser_fails,
                                                                                        cleanup_fails):
@@ -1427,13 +1478,25 @@ def test_a_create_leaves_the_resource_name_to_cloud_run(resource):
     assert creates == [{"labels": {"purpose": verify.PURPOSE}, "template": {"marker": resource}}]
 
 
-@pytest.mark.parametrize("state", ["absent", "present"])
-def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
+# The exact requests, spelled out: the module's own constants would accept a wrong jobId or serviceId.
+JOB_CREATE = "v2/projects/earnings-nerd/locations/us-west1/jobs?jobId=earningsnerd-feedback-verify-cleanup"
+JOB_UPDATE = "v2/projects/earnings-nerd/locations/us-west1/jobs/earningsnerd-feedback-verify-cleanup"
+SERVICE_CREATE = "v2/projects/earnings-nerd/locations/us-west1/services?serviceId=earningsnerd-feedback-verify"
+SERVICE_UPDATE = ("v2/projects/earnings-nerd/locations/us-west1/services/earningsnerd-feedback-verify"
+                  "?updateMask=template,ingress,invokerIamDisabled,scaling")
+
+
+@pytest.mark.parametrize("job_present, service_present", [(False, False), (True, True), (True, False), (False, True)])
+def test_cloud_run_validates_each_write_in_the_form_it_will_take(job_present, service_present):
     """validateOnly runs Cloud Run's own validation of the exact write ensure_job and ensure_service then send, and
-    persists nothing: the first live create's refused Cloud SQL volume name would have failed before the lease."""
+    persists nothing: the first live create's refused Cloud SQL volume name would have failed before the lease. Each
+    resource's state and etag are its own (a run stopped at the service create leaves the job alone)."""
     cloud = rerun_identity_cloud()
-    if state == "absent":
-        for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+    for path, present, etag in (("v2/" + verify.JOB, job_present, "job-version"),
+                                ("v2/" + verify.SERVICE, service_present, "service-version")):
+        if present:
+            cloud.run[path]["etag"] = etag
+        else:
             del cloud.run[path]
     specs = {kind: {"name": path, "labels": {"purpose": verify.PURPOSE}, "template": {"marker": kind}}
              for kind, path in (("job", verify.JOB), ("service", verify.SERVICE))}
@@ -1444,13 +1507,35 @@ def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
     verify.ensure_service(cloud, specs["service"])
     written = [(path, method, body) for api, path, method, body in cloud.calls
                if api == "run" and method != "GET" and "IamPolicy" not in path]
-    assert [method for _, method, _ in validated] == ["POST" if state == "absent" else "PATCH"] * 2
-    assert [path for path, _, _ in validated] == (
-        [verify.JOB_WRITES[0] + "&validateOnly=true", verify.SERVICE_WRITES[0] + "&validateOnly=true"] if state == "absent"
-        else ["v2/" + verify.JOB + "?validateOnly=true",
-              "v2/" + verify.SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling&validateOnly=true"])
+    assert [(path, method) for path, method, _ in validated] == [
+        (JOB_UPDATE + "?validateOnly=true", "PATCH") if job_present else (JOB_CREATE + "&validateOnly=true", "POST"),
+        (SERVICE_UPDATE + "&validateOnly=true", "PATCH") if service_present else (SERVICE_CREATE + "&validateOnly=true", "POST")]
+    assert [body.get("etag") for _, _, body in validated] == [
+        "job-version" if job_present else None, "service-version" if service_present else None]
     assert [(re.sub(r"[?&]validateOnly=true$", "", path), method, body) for path, method, body in validated] == written
 
+
+
+def test_every_field_the_verifier_sends_cloud_run_can_be_named_in_a_refusal():
+    """A refusal names a field only through Cloud Run's field names (media.FIELD_NAMES), so each field the verifier's
+    job and service specs send must be one: else a refusal of it would print "?". Map keys (labels, limits) are data."""
+    fields = set()
+
+    def walk(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                fields.add(key)
+                if key not in {"labels", "limits"}:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+    for job in (True, False):
+        walk(verify.runtime_spec({"template": {"vpcAccess": {"connector": "c", "egress": "ALL_TRAFFIC"}}},
+                                 RUN_ID, IMAGE, HASHES, VERSIONS, job=job))
+    snake = {re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower() for name in fields}
+    assert {"volume_mounts", "cloud_sql_instance", "secret_key_ref", "vpc_access"} <= snake
+    assert snake <= verify.media.FIELD_NAMES, sorted(snake - verify.media.FIELD_NAMES)
 
 @pytest.mark.parametrize("resource", ["cleanup job", "service"])
 def test_validation_refuses_a_resource_this_feature_does_not_own_before_validating_it(resource):
@@ -1461,6 +1546,50 @@ def test_validation_refuses_a_resource_this_feature_does_not_own_before_validati
         verify.validate_writes(cloud, {"labels": {}}, {"labels": {}})
     assert not [path for api, path, method, body in cloud.calls if method != "GET" and path.startswith(foreign)]
 
+
+
+@pytest.mark.parametrize("state, refused, kind", [("absent", 1, "service"), ("present", 0, "cleanup job"),
+                                                   ("present", 1, "service")])
+def test_a_refused_validation_of_either_write_in_either_form_stops_there(state, refused, kind):
+    """A refusal of the service's validation, or of an update's, is never swallowed: it stops the step, named."""
+    cloud, validations = rerun_identity_cloud(), []
+    if state == "absent":
+        for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+            del cloud.run[path]
+    answer = cloud.call
+
+    def call(api, path, *, method="GET", body=None, missing_ok=False, step=None):
+        if "validateOnly=true" in path:
+            validations.append(path)
+            if len(validations) - 1 == refused:
+                raise verify.media.ProviderError(f"{step} failed (HTTP 400; INVALID_ARGUMENT)")
+        return answer(api, path, method=method, body=body, missing_ok=missing_ok, step=step)
+    cloud.call = call
+    specs = [{"name": path, "labels": {"purpose": verify.PURPOSE}} for path in (verify.JOB, verify.SERVICE)]
+    with pytest.raises(verify.media.ProviderError,
+                       match=f"^Cloud Run validation of the verification {kind} failed \\(HTTP 400; INVALID_ARGUMENT\\)$"):
+        verify.validate_writes(cloud, *specs)
+    assert len(validations) == refused + 1
+
+
+def test_the_cleanup_run_overrides_the_container_the_job_spec_names():
+    """execute_cleanup overrides one container by name; a name the job's spec does not hold would be refused only after
+    the seed, so the two are tied here."""
+    spec = verify.runtime_spec({"template": {}}, RUN_ID, IMAGE, HASHES, VERSIONS, job=True)
+    bodies = []
+
+    class Cloud:
+        def call(self, api, path, *, method="GET", body=None, **_):
+            bodies.append((path, method, body))
+            return {"name": "operation"}
+
+        def wait(self, operation, step=None):
+            return {"succeededCount": 1, "taskCount": 1}
+    verify.execute_cleanup(Cloud(), initialize=True)
+    [(path, method, body)] = bodies
+    assert (path, method) == (JOB_UPDATE + ":run", "POST")
+    assert [row["name"] for row in body["overrides"]["containerOverrides"]] == [
+        row["name"] for row in spec["template"]["template"]["containers"]]
 
 def test_provision_validates_both_writes_once_its_identity_exists_and_before_the_seed():
     """Validation needs the identity the specs run as, and must come before the lease a refused write would strand."""
@@ -1493,4 +1622,4 @@ def test_a_refused_validation_names_its_step_and_field_and_goes_no_further(monke
     assert str(refused.value) == ("Cloud Run validation of the verification cleanup job failed "
                                   "(HTTP 400; INVALID_ARGUMENT; field job.template.template.volumes[0].name)")
     assert [method for method, _ in sent] == ["GET", "POST"]
-    assert sent[1][1] == f"https://run.googleapis.com/{verify.JOB_WRITES[0]}&validateOnly=true"
+    assert sent[1][1] == f"https://run.googleapis.com/{JOB_CREATE}&validateOnly=true"
