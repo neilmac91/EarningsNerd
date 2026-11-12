@@ -221,9 +221,10 @@ deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
   Opus lens; high-risk paths (summary pipeline, Copilot, prompts, evals, entitlements and billing,
   auth, migrations and schema, SEC fetching, config, CI and deploy files, settings and workflows)
   keep the full adversarial review. Every agent stage names its model there; never put a subagent
-  on the session's premium model by default. Unsure of the tier: review as high. Converge in one
-  fix round: round 2 reviews only round 1's fix diff, and a later finding outside it goes to the
-  PR body's limits, or to a follow-up row where `AGENTS.md` §7 admits one, unless it blocks
+  on the session's premium model by default. Unsure of the tier: review as high. One review
+  round: a round 2 runs only on the fix of a blocker round 1 found, over that fix diff alone; a later
+  finding outside it goes to the PR body's limits, or to a follow-up row where `AGENTS.md` §7 admits
+  one, unless it blocks, and a third round needs the founder's go
   (`lessons/ops-converge-a-review-in-one-fix-round.md`).
 - **Plan** briefly when work has real dependencies or architectural choices; resolve routine
   implementation choices directly and re-plan when evidence changes the approach; record open

@@ -173,7 +173,7 @@ account is gone.
   review. There is no automatic refund, blanket cancellation, orphan sweeper or recurring worker. Any financial
   correction is a manual founder action, taken after review in Stripe's own console. Stripe cancellation outside a
   user's own deletion stays founder-owned (#1176).
-- **Read-only reconciliation.** F62's bounded read-only check (part of [E318](../../tasks/todo.md) since 2026-11-11) finds subscriptions billed on a
+- **Read-only reconciliation.** F62's bounded read-only check (part of [E319](../../tasks/todo.md) since 2026-11-11) finds subscriptions billed on a
   customer the account does not hold, which the earlier checkout bug stranded. It does not today look for
   subscriptions that outlived a deletion whose Stripe step reported `error: …`. Widening it to them is a request to its
   owner. So is keeping test-mode and live-mode observations apart, and reporting what it cannot tell. Either way it

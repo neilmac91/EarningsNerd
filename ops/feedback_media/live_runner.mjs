@@ -63,11 +63,13 @@ export function receiptEnvelope(value, config) {
   check(memory.worker_limits.feedback_image_service === 1 && memory.worker_limits.feedback_storage_worker_service === 2
     && memory.unexplained_children === false && memory.last_process_count === 1 && memory.acceptance_passed === true
     && memory.conservative_process_bound_bytes === memory.self_high_water_rss_bytes + 3 * memory.worker_high_water_rss_bytes
-    && memory.evidence_basis === (memory.cgroup_kernel_peak_bytes === null
-      ? 'kernel peak unavailable; conservative process-bound evidence' : 'kernel cgroup high-water peak')
+    && (memory.cgroup_kernel_peak_bytes === null
+      ? ['kernel peak unavailable; conservative process-bound evidence',
+        'kernel peak unavailable; conservative process bound plus /proc/meminfo in use'].includes(memory.evidence_basis)
+      : memory.evidence_basis === 'kernel cgroup high-water peak')
     && memory.sample_count >= 5 && memory.configured_memory_limit_bytes === 1073741824
     && Number.isFinite(memory.sample_age_seconds) && memory.sample_age_seconds >= 0 && memory.sample_age_seconds <= 1
-    && memory.method === 'kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only', 'receipt-resources')
+    && memory.method === 'kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only', 'receipt-resources')
   check(observed?.database?.feedback >= 1 && observed.database.submitted === observed.database.feedback
     && observed.database.attachments >= 3 && observed.database.pending === 0 && observed.database.fixture_users === 0
     && observed.database.deleted === observed.database.attachments

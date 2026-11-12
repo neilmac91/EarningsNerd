@@ -8,10 +8,11 @@ character is as it was at `7e8af9c`.
 What the triage did with the 102 rows:
 
 - **Kept, as 17 rows of `tasks/todo.md`** (the lead row's ID, with the rows merged into it): F46; F38;
-  F60 (with F50); F70; E29; E318, a new row (with F23, F34, F62); F49 (with F65, E264, E198, E206,
+  F60 (with F50); F70; E29; E319, a new row (with F23, F34, F62); F49 (with F65, E264, E198, E206,
   E260, E293, E278, E28); E172; F15 (with F55's three cost calls); E27; F68; E300 (with E77); E271;
   E99; F71; F64; F9 (with F14, F54, F27). Six rows were added for what the launch needed and no row
-  covered: F72 to F76 and E319.
+  covered: F72 to F76, and E319 and E320 (numbered E318 and E319 until main took E318 for a feedback-media
+  row of its own, added after this page's date, which the new page carries).
 - **Found already done on main when each kept row was checked against the code, and closed:** F53 and
   F4 (`/privacy` names DeepSeek, states no retention the code does not enforce and covers Vercel Web
   Analytics); F56 (both backend sentences of its (b) are gone); E32 (return URLs are built on

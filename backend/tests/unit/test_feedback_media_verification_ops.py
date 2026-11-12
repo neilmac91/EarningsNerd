@@ -8,6 +8,7 @@ import hmac
 import http.client
 import importlib.util
 import inspect
+import io
 import json
 import base64
 import re
@@ -43,7 +44,7 @@ def envelope(**changes):
         "resources": {**dict.fromkeys(("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
                                        "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
                                        "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"), 1),
-                      "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only",
+                      "method": "kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only",
                       "worker_limits": {"feedback_image_service": 1, "feedback_storage_worker_service": 2},
                       "unexplained_children": False, "acceptance_passed": True, "sample_age_seconds": 0.01,
                       "evidence_basis": "kernel cgroup high-water peak"},
@@ -151,14 +152,16 @@ def test_runtime_spec_copies_no_production_secret_and_caps_every_process():
         assert env["DB_POOL_SIZE"]["value"] == ("1" if job else "2")
         assert env["DB_MAX_OVERFLOW"]["value"] == "0"
         assert task["timeout"] == ("600s" if job else "60s")
-        assert task["volumes"] == [{"name": "sql", "cloudSqlInstance": {"instances": [verify.INSTANCE]}}]
+        # Cloud Run refuses a Cloud SQL volume named anything but "cloudsql" (HTTP 400 on the first live create).
+        assert task["volumes"] == [{"name": "cloudsql", "cloudSqlInstance": {"instances": [verify.INSTANCE]}}]
+        assert task["containers"][0]["volumeMounts"] == [{"name": "cloudsql", "mountPath": "/cloudsql"}]
         if job:
             assert spec["template"]["taskCount"] == spec["template"]["parallelism"] == 1
             assert task["maxRetries"] == 1
             assert "executionEnvironment" not in task and "startupCpuBoost" not in task["containers"][0]["resources"]
         else:
             assert task["maxInstanceRequestConcurrency"] == 4 and task["scaling"]["maxInstanceCount"] == 1
-            # Memory acceptance reads cgroup v2 files, which only the second generation exposes.
+            # Memory acceptance was measured on the second generation (cgroup v2 where it reads, else /proc/meminfo).
             assert task["executionEnvironment"] == "EXECUTION_ENVIRONMENT_GEN2"
             # Its cold starts (the first, and enable's receipt read after scale-to-zero) get Cloud Run's startup boost.
             assert task["containers"][0]["resources"]["startupCpuBoost"] is True
@@ -457,6 +460,8 @@ def test_the_in_run_cleanup_runs_after_any_browser_result_and_never_hides_its_fa
             raise verify.media.OperationError("Verification initialization/cleanup did not complete successfully")
     monkeypatch.setattr(verify, "browser", browser)
     monkeypatch.setattr(verify, "execute_cleanup", execute_cleanup)
+    # The diagnostic receipt read a browser failure makes (test_feedback_media_verify_resources.py) is stubbed offline.
+    monkeypatch.setattr(verify, "control", lambda *_args, **_kwargs: {"resources": None})
     if browser_fails or cleanup_fails:
         with pytest.raises(verify.media.OperationError) as failure:
             verify.browse_then_clean("cloud", "https://verify.example", KEY, RUN_ID, IMAGE, HASHES)
@@ -1420,3 +1425,72 @@ def test_a_create_leaves_the_resource_name_to_cloud_run(resource):
     (verify.ensure_job if resource == "job" else verify.ensure_service)(cloud, spec)
     creates = [body for api, write, body in cloud.writes if api == "run" and ("?jobId=" in write or "?serviceId=" in write)]
     assert creates == [{"labels": {"purpose": verify.PURPOSE}, "template": {"marker": resource}}]
+
+
+@pytest.mark.parametrize("state", ["absent", "present"])
+def test_cloud_run_validates_each_write_in_the_form_it_will_take(state):
+    """validateOnly runs Cloud Run's own validation of the exact write ensure_job and ensure_service then send, and
+    persists nothing: the first live create's refused Cloud SQL volume name would have failed before the lease."""
+    cloud = rerun_identity_cloud()
+    if state == "absent":
+        for path in ("v2/" + verify.JOB, "v2/" + verify.SERVICE):
+            del cloud.run[path]
+    specs = {kind: {"name": path, "labels": {"purpose": verify.PURPOSE}, "template": {"marker": kind}}
+             for kind, path in (("job", verify.JOB), ("service", verify.SERVICE))}
+    verify.validate_writes(cloud, specs["job"], specs["service"])
+    validated = [(path, method, body) for api, path, method, body in cloud.calls if api == "run" and method != "GET"]
+    del cloud.calls[:]
+    verify.ensure_job(cloud, specs["job"])
+    verify.ensure_service(cloud, specs["service"])
+    written = [(path, method, body) for api, path, method, body in cloud.calls
+               if api == "run" and method != "GET" and "IamPolicy" not in path]
+    assert [method for _, method, _ in validated] == ["POST" if state == "absent" else "PATCH"] * 2
+    assert [path for path, _, _ in validated] == (
+        [verify.JOB_WRITES[0] + "&validateOnly=true", verify.SERVICE_WRITES[0] + "&validateOnly=true"] if state == "absent"
+        else ["v2/" + verify.JOB + "?validateOnly=true",
+              "v2/" + verify.SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling&validateOnly=true"])
+    assert [(re.sub(r"[?&]validateOnly=true$", "", path), method, body) for path, method, body in validated] == written
+
+
+@pytest.mark.parametrize("resource", ["cleanup job", "service"])
+def test_validation_refuses_a_resource_this_feature_does_not_own_before_validating_it(resource):
+    cloud = rerun_identity_cloud()
+    foreign = "v2/" + (verify.JOB if resource == "cleanup job" else verify.SERVICE)
+    cloud.run[foreign]["labels"] = {"purpose": "another-feature"}
+    with pytest.raises(verify.media.OperationError, match=f"^Existing verification {resource} is not feature-owned$"):
+        verify.validate_writes(cloud, {"labels": {}}, {"labels": {}})
+    assert not [path for api, path, method, body in cloud.calls if method != "GET" and path.startswith(foreign)]
+
+
+def test_provision_validates_both_writes_once_its_identity_exists_and_before_the_seed():
+    """Validation needs the identity the specs run as, and must come before the lease a refused write would strand."""
+    source = inspect.getsource(verify.provision)
+    assert (source.index("ensure_identity(") < source.index("validate_writes(") < source.index("settle_previous_run(")
+            < source.index("seed_marker(") < source.index("ensure_job("))
+    assert ("validate_writes(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True),\n"
+            "                        runtime_spec(production, run_id, image, hashes, versions, job=False))") in source
+
+
+def test_a_refused_validation_names_its_step_and_field_and_goes_no_further(monkeypatch):
+    """The first live verify-apply's refusal, as Cloud Run v2 sends it: the public line names the step and the field,
+    never the provider's text, and the service is not validated after the job is refused."""
+    body = {"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "PRINCIPAL_SENTINEL", "details": [
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": [
+            {"field": "Violation in CreateJobRequest.job.template.template.volumes[0].name",
+             "description": "Cloud SQL volume must be named PRINCIPAL_SENTINEL"}]}]}}
+    cloud, sent = object.__new__(verify.media.Cloud), []
+    cloud.token = "synthetic-token"
+
+    def answer(request, timeout):
+        sent.append((request.get_method(), request.full_url))
+        if request.get_method() == "GET":  # absent, so the step validates a create
+            raise HTTPError(request.full_url, 404, "absent", {}, None)
+        raise HTTPError(request.full_url, 400, "refused", {}, io.BytesIO(json.dumps(body).encode()))
+    monkeypatch.setattr(verify.media, "urlopen", answer)
+    specs = [{"name": path, "labels": {"purpose": verify.PURPOSE}} for path in (verify.JOB, verify.SERVICE)]
+    with pytest.raises(verify.media.ProviderError) as refused:
+        verify.validate_writes(cloud, *specs)
+    assert str(refused.value) == ("Cloud Run validation of the verification cleanup job failed "
+                                  "(HTTP 400; INVALID_ARGUMENT; field job.template.template.volumes[0].name)")
+    assert [method for method, _ in sent] == ["GET", "POST"]
+    assert sent[1][1] == f"https://run.googleapis.com/{verify.JOB_WRITES[0]}&validateOnly=true"
