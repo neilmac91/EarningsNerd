@@ -59,7 +59,7 @@ def canonical(value):
 
 
 def worker_limits():
-    """Verify the serving source's child-launch bounds, without changing its workers."""
+    """Verify the serving source's child-launch bounds; workers unchanged."""
     result = {}
     for module, name, constructor, count in (("feedback_image_service", "_execution_lock", "Lock", 1),
                                             ("feedback_storage_worker_service", "_execution_slots", "Semaphore", 2)):
@@ -403,9 +403,9 @@ class Runtime:
             self.resources["rss_peak_bytes"] = max(rss, self.resources["rss_peak_bytes"])
             for key, name in (("cgroup_sample_peak_bytes", "current"), ("cgroup_kernel_peak_bytes", "peak"), ("cgroup_memory_limit_bytes", "max")):
                 value = read("/sys/fs/cgroup/memory." + name)
-                if name == "current" and not value.isdecimal():  # none at cgroup v2's root: instance memory in use
-                    m = dict(re.findall(r"Mem(Total|Available): +(\d+) kB", read("/proc/meminfo")))
-                    if len(m) == 2 and (used := int(m["Total"]) - int(m["Available"])) >= 0:
+                if name == "current" and not value.isdecimal():  # none at v2's root: instance memory in use
+                    m = dict(f := re.findall(r"Mem(Total|Available): +(\d+) kB", read("/proc/meminfo")))
+                    if len(f) == len(m) == 2 and (used := int(m["Total"]) - int(m["Available"])) > 0:
                         value, self.basis = str(used * 1024), "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
                 if value.isdecimal():
                     self.resources[key] = max(int(value), self.resources[key] or 0)

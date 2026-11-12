@@ -143,7 +143,7 @@ def test_a_meminfo_sample_is_named_as_the_instance_memory_in_use():
     assert "conditions failed: sampled-peak; " in refused and "(instance memory in use, /proc/meminfo)" in refused
     for basis in verify.EVIDENCE_BASES[:2]:  # the process-bound basis is the one the runtime writes beside no peak
         other = record(cgroup_kernel_peak_bytes=None, cgroup_memory_limit_bytes=None, evidence_basis=basis)
-        assert "/proc/meminfo" not in verify.resources_line(other, SIGNED)
+        assert "; sampled peak 639631360 bytes; process-tree peak " in verify.resources_line(other, SIGNED)
 
 
 def test_the_named_conditions_agree_with_the_runtime_acceptance_on_every_combination():
