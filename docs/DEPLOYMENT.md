@@ -1062,9 +1062,12 @@ The provisioner addresses only these feature resources:
   run; absence of an active browser is not inferred from a timeout. A prior run that stopped before
   initialize created its schema left no fixture or object (only the service started after it makes them),
   so it is settled without a cleanup execution, which could not run without tables; the hourly schedule is
-  created only once initialize has made the schema it cleans. A changed runtime source also
-  refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
-  through a separately reviewed operation before retrying the new source.
+  created only once initialize has made the schema it cleans. After main's runtime source changes, an
+  apply never executes the prior run's cleanup job, which still holds that run's own source: it reads the
+  job back, holds its source to the hash the run's marker recorded, and counts the run as settled only when the job's
+  latest execution succeeded and was created a minute or more after the lease expired. Only the hourly
+  schedule starts it then, and its scheduled mode cleans an expired lease. Otherwise the apply refuses
+  before the seed and any Cloud Run write; retry after the next run at minute 41.
 
 Before any write, the provisioner requires the object role and preview bucket that media provisioning
 creates, and admits itself only while the shared production instance has room: active client backends,
