@@ -341,6 +341,13 @@ class CircuitBreaker:
             _ENTRIES.set(entries[:-1])
             if window is not None and window == self._half_open_window and self._half_open_in_flight > 0:
                 self._half_open_in_flight -= 1
+        else:
+            # An exit outside the context its entry ran in (an async generator the loop closes, say)
+            # cannot tell which slot was its own. A slot it took stays counted until the next window.
+            logger.warning(
+                f"Circuit breaker '{self.name}' exit found no entry of its own; "
+                "a probe slot it took stays taken until the next half-open window"
+            )
 
         if exc_val is None:
             await self.record_success()
