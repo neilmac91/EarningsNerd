@@ -85,7 +85,7 @@ Playwright, as `frontend/scripts/generate-brand-assets.mjs` uses it (run from `f
 
 ```js
 // social-post-1080x1350.png
-import { chromium } from 'playwright'
+import { chromium } from '@playwright/test'
 const T = new URL('../docs/brand/templates/', `file://${process.cwd()}/`)
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 1 })

@@ -134,7 +134,7 @@ Each agent definition file serves as a "System Prompt" and "Operating Manual" th
 ### 1. Direct Invocation
 Reference an agent's instruction file when starting a task:
 
-	"Acting as the Frontend Developer agent, implement the earnings comparison component..."
+	"Acting as the Frontend Developer agent, implement the Compare periods card for the company page..."
 
 ### 2. Handoff Protocol
 When one agent completes work, they hand off to the next:
@@ -184,7 +184,7 @@ agent file must also cite this section; non-engineering legacy examples remain i
 
 | Layer | Truth |
 |---|---|
-| Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); seven configured job targets (pregenerate is required; the other six are updated only when found) |
+| Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); Cloud Run job targets (pregenerate is required; every other job is updated only when found; see the deploy steps in `.github/workflows/ci.yml`) |
 | Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` applied once per filename/checksum through `migration_ledger` and skipped afterwards (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
 | Auth | Own JWT (HS256, `Authorization: Bearer`), rotated refresh tokens, OAuth (Google/Apple) — **no Firebase** |
 | AI | OpenAI-compatible client → DeepSeek (`deepseek-flash` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |

@@ -8,8 +8,8 @@ in the results table at the end.
 
 Scope: a check, not a change. It changes no redirect URI, OAuth credential, login route or consent scope. A
 mismatch it finds is recorded and routed, never fixed in a field this page does not hand to the founder (see
-[What a mismatch leads to](#what-a-mismatch-leads-to)). Setup is in
-[`03_implementation_plan.md`](03_implementation_plan.md) and, for Apple,
+[What a mismatch leads to](#what-a-mismatch-leads-to)). The shipped design is in
+[`06_integration_notes.md`](06_integration_notes.md) and Apple's setup is in
 [`05_apple_signin_runbook.md`](05_apple_signin_runbook.md).
 
 ## What never goes in this file

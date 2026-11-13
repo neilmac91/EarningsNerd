@@ -23,7 +23,7 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
                      └───────────────┘     └────────────────┘      └────────────────┘
 ```
 
-- **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind/shadcn, React Query for
+- **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind, React Query for
   server state, the chart engine's renderer (visx, E195) for the analysis trend charts, the filing page's Financial
   trends (D-067) and the company page's Sector peers (E251), PostHog + Sentry. Auth is an **HttpOnly
   cookie** set by the backend — the token is never readable by client JS.
@@ -180,7 +180,7 @@ Thresholds/tuning: see docs/OPERATIONS.md.
 backend/
 ├── app/
 │   ├── routers/          # HTTP/SSE only — delegate to services
-│   ├── services/         # business logic (~54 modules)
+│   ├── services/         # business logic
 │   │   ├── edgar/        # SEC EDGAR layer (client, xbrl, breaker, executor, extractors)
 │   │   └── ai/           # AI internals behind the openai_service façade
 │   ├── models/           # SQLAlchemy ORM (core in __init__.py, rest in submodules)
@@ -190,7 +190,7 @@ backend/
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
 │   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)
-├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
+├── prompts/              # 13 prompt files: 10k/10q/20f/6k analyst+structured, the 6-K class variants (6k-earnings/governance/press-release-agent), trends-analyst, trends-depth-analyst (held eval candidate)
 ├── migrations/           # idempotent SQL, applied once via the migration_ledger table (ADR-0007; no Alembic)
 ├── scripts/              # operational one-offs & verification (see docs/OPERATIONS.md)
 ├── docs/                 # historical specs + edgartools-best-practices.md
@@ -377,6 +377,9 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
 | `internal.py` | `/internal` | token-gated jobs: filing-scan, filing-digest, retention-purge, earnings-calendar-refresh, earnings-day-alerts, backfill-facts, notable-filings-scan, sync-companyfacts, backfill-filing-history, precompute; with `DURABLE_TASKS_ENABLED` these queue to `services/internal_task_runner.py`, otherwise they run as background tasks after the 202 with their own database sessions (`services/job_sessions.py`). Precompute `dry_run` answers synchronously. The separate `summary-recovery` endpoint also answers synchronously, confirming up to 20 repaired handoffs within the recovery scope; it performs no generation and is not queued as another internal job. |
 | `sitemap.py` | `/` | sitemap.xml |
+| `legal.py` | `/api/legal` | `GET /api/legal/readiness`: collection, checkout and marketing availability plus the published operator notice (collection is gated by `LEGAL_COLLECTION_ENABLED`) |
+| `security_contact.py` | `/` | `GET /.well-known/security.txt`: redirect to the site's security.txt |
+| `tasks.py` | `/internal` | `POST /internal/tasks/execute`: the private task worker's router, mounted only by `task_worker_main.py`, not `main.py` |
 
 ## Frontend architecture
 
@@ -405,7 +408,7 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 Core models in `models/__init__.py`: `User`, `OAuthAccount`/`OAuthState`, `Company`,
 `Filing`, `Summary` (UNIQUE `filing_id`), `SavedSummary`, `Watchlist`, `UserUsage`
 (per-month summary/QA/analysis counts), `UserSearch`, `FilingContentCache`,
-`SummaryGenerationProgress`.
+`SummaryGenerationProgress`, `LoginAttempt` (`login_attempts`).
 Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `trend_analysis.py` (cached Multi-Period runs keyed by company/mode/range),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain), `session_handoff.py`
@@ -414,8 +417,11 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `contact.py`, `audit_log.py`, `job_run.py` (`earningsnerd_job_runs`, independent scheduled-job attempts),
 `summary_job.py` (durable filing ownership and preparation budgets),
 `sec_request_gate.py` (shared SEC admission/cooldown),
-`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary), `section_review.py` (`section_reviews`: a reader's labels, completion time and frozen receipt for one filing section). Additional tables via migrations: `invite_codes`,
-`feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
+`filing_section_text.py` (`filing_section_text`: Item 1A text per filing with its extraction status, attempt times and the cached comparison summary), `section_review.py` (`section_reviews`: a reader's labels, completion time and frozen receipt for one filing section).
+Other submodules: `invite.py` (`invite_codes`), `invite_mail.py`, `feedback.py`, `earnings.py` (`earnings_events`),
+`account_agreement.py`, `billing_payment.py`, `complimentary_access.py`, `filing_source.py`,
+`financial_fact_revision.py`, `notable_filing.py`, `notification_delivery.py`, `usage_reservation.py`
+(plus the orphaned `guest_daily_usage` —
 unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 
 ### Data-integrity invariants
@@ -732,10 +738,9 @@ unused since generation became account-required in #619; kept because migrations
   path is bounded by its own two semaphores and never queues behind chat. Per-process too;
   `/metrics` reports every stream and both gates.
 - **Caching:** two-tier L1 (LRU, max 1000, `asyncio.Lock`) + L2 Redis with stale-L1
-  fallback; `CacheTTL`: XBRL 24h, filing metadata 6h, hot filings 5m; all cache ops capped
+  fallback; `CacheTTL`: XBRL 24h, filing metadata 6h, SEC tickers 1h; all cache ops capped
   at 2s. Redis connections survive event-loop changes (`_reset_on_loop_change()`).
-- **Logging:** structured JSON with `X-Correlation-ID` propagation; `get_logger(__name__)`
-  + `log_api_call()`.
+- **Logging:** structured JSON with `X-Correlation-ID` propagation; `get_logger(__name__)`.
 - **DB discipline:** SQLAlchemy event listeners validate NOT NULL before writes; commits
   batched outside loops; commit ownership documented per service.
 - **Boundary validation:** validate external data where it enters (SEC, Stripe, AI
@@ -771,7 +776,8 @@ unused since generation became account-required in #619; kept because migrations
 The significant, hard-to-reverse decisions — and their trade-offs — are ADRs in
 [`docs/adr/`](./adr/): the hosting move to Cloud Run, the AI-provider migrations
 (Gemini, then DeepSeek — ADR-0002/0006), `edgartools` for SEC data, Redis-off-in-prod,
-and staying on React 18 under Next 16.
+staying on React 18 under Next 16, the `migration_ledger` for applied SQL migrations (ADR-0007),
+and the move to `deepseek-flash` (ADR-0008).
 
 Monthly usage counter writes preserve existing first-row history. A metered summary or Copilot
 generation is counted as its provider call starts (summaries and Copilot alike: on the request

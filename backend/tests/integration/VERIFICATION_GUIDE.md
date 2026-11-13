@@ -5,7 +5,7 @@ This guide outlines how to verify the async stream protocol integrity and error 
 ## Protocol Verification Checklist
 
 ### 1. Heartbeat Event Frequency
-**Objective**: Verify that `progress` events are emitted every ~5 seconds during long-running AI operations.
+**Objective**: Verify that `progress` events are emitted every ~3 seconds (`STREAM_HEARTBEAT_INTERVAL`) during long-running AI operations.
 
 **Manual Test Steps**:
 1. Start the backend server locally
@@ -13,10 +13,10 @@ This guide outlines how to verify the async stream protocol integrity and error 
 3. Navigate to a filing page and trigger summary generation
 4. Filter network requests to show only the event stream (look for `generate-stream` endpoint)
 5. Observe the stream events in the Network tab
-6. Verify that `progress` events with `stage: "analyzing"` appear approximately every 5 seconds
+6. Verify that `progress` events with `stage: "analyzing"` appear approximately every 3 seconds
 
 **Expected Behavior**:
-- Progress events should appear every 4-6 seconds (allowing for network latency)
+- Progress events should appear every 2-4 seconds (allowing for network latency)
 - Each event should have format: `data: {"type":"progress","stage":"analyzing","message":"Processing financial data with AI..."}`
 - The connection should remain open throughout the wait period
 
@@ -93,9 +93,6 @@ Run the integration tests:
 ```bash
 # Run heartbeat protocol tests
 pytest backend/tests/integration/test_summary_stream_heartbeat.py -v
-
-# Run with coverage
-pytest backend/tests/integration/test_summary_stream_heartbeat.py --cov=app.routers.summaries --cov-report=html
 ```
 
 ## Protocol Event Format Reference
@@ -142,9 +139,9 @@ pytest backend/tests/integration/test_summary_stream_heartbeat.py --cov=app.rout
 - Check network tab for connection status
 
 ### Issue: Connection closes prematurely
-- Verify frontend timeout is set to 600000ms (10 minutes)
+- Verify the frontend stream timeout (`STREAM_TIMEOUT_MS` in `frontend/features/summaries/api/summaries-api.ts`, 120000 ms, reset on each event) has not been shortened
 - Check backend for exceptions during heartbeat loop
-- Verify Render/Vercel timeout settings allow long connections
+- Verify Cloud Run/Vercel timeout settings allow long connections
 
 ### Issue: Heartbeat events not updating UI
 - Verify frontend `onProgress` callback is being called

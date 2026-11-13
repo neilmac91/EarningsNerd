@@ -1,7 +1,7 @@
 # EarningsNerd — Security & Privacy Runbook
 
-Operational reference for the auth/privacy surface. Pairs with the Phase-2 plan.
-Last updated alongside the auth-hardening pass on branch `claude/clever-keller-l0v83e`.
+Operational reference for the auth/privacy surface.
+Last updated 2026-11-13 (the deferred list and the retention table reconciled with the code).
 
 ---
 
@@ -33,7 +33,7 @@ email+password, Google OAuth, Apple Sign In (Apple is feature-flagged off by def
 The endpoints exist and are authenticated as the requesting user:
 
 - **Access / portability:** `GET /api/users/export` → JSON of profile, searches, saved
-  summaries, watchlist, usage. Writes a `data_exported` audit row.
+  summaries, watchlist, usage, billing payments. Writes a `data_exported` audit row.
 - **Erasure:** `DELETE /api/users/me` → cancels active Stripe subscriptions, sends a PostHog
   `$delete`, clears Sentry context, writes a `user_deleted` audit row, then cascade-deletes the
   user and all child rows (searches, saved summaries, usage, watchlist, refresh tokens, oauth
@@ -65,11 +65,13 @@ Minimal runbook (formal tooling deferred until traction):
 
 ## 4. Data retention (disclose these in the privacy policy)
 
+Governing document: `docs/DATA_RETENTION_POLICY.md`.
+
 | Data | Retention |
 |------|-----------|
 | Account (`users`) | Until deletion request |
-| Refresh tokens | 30 days, then expired/purgeable |
-| `audit_logs` (incl. `user_email`) | Retained post-deletion for security/compliance; pick a window (suggest 1–2y) and add a purge job |
+| Refresh tokens | Purged 30 days after expiry or revocation (`retention_service`, `earningsnerd-retention-purge` job) |
+| `audit_logs` (incl. `user_email`) | Retained post-deletion for security/compliance; never purged by `retention_service` (founder-held); pick a window (suggest 1–2y) and add a purge job |
 | Stripe customer object | 7 years (tax) — subscriptions cancelled on deletion, customer retained |
 | Search history (`user_searches`) | Table exists but is **never written** — drop it or define a purpose+retention before using |
 
@@ -115,6 +117,10 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
   auto-logs-in, and emails an out-of-band "someone tried to sign up" notice to the real owner of an
   existing address. New accounts start `email_verified=False` and finish via the emailed link (or by
   logging in with the chosen password). No product decision outstanding.
+- **X-Forwarded-For trust (was P2):** DONE — `rate_limiter.get_client_ip` takes the Nth entry from
+  the right by `settings.TRUSTED_PROXY_HOPS` (default 1) and never the left-most (spoofable) value.
+- **Retention purge of refresh tokens (was P2):** DONE — `retention_service` runs through the
+  `earningsnerd-retention-purge` Cloud Run job; see `docs/DATA_RETENTION_POLICY.md`.
 
 **Still deferred:**
 - **Processor DPAs (P1, external/legal):** sign the click-through DPAs (Google, Stripe, Resend,
@@ -122,7 +128,6 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 - **MFA (P2):** optional TOTP via `pyotp` + hashed recovery codes, opt-in.
 - **Distributed rate limiting (P2):** in-memory limiters don't share across instances; move to
   Redis/Memorystore when scaling past one Cloud Run instance.
-- **X-Forwarded-For trust (P2):** `_get_client_ip` trusts the left-most (spoofable) XFF value;
-  set a trusted-proxy depth for the Cloud Run topology.
-- **Retention purge jobs (P2):** scheduled cleanup of expired refresh tokens and aged audit logs.
+- **Audit-log retention (P2):** `audit_logs` are not purged (founder-held, `retention_service`);
+  pick a window and add a purge target.
 - **Log scrubbing (P3):** plaintext email/IP still appear in some application logs (e.g. contact).

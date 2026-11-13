@@ -1,6 +1,6 @@
 # Cloud Run Deploy Runbook — EarningsNerd Backend
 
-Project: `earnings-nerd` · Region: `us-west1` · DB: `db-g1-small` · Redis: off · Migrations: in-container.
+Project: `earnings-nerd` · Region: `us-west1` · DB: `db-g1-small` · Redis: off · Schema: `create_all` at startup; SQL migrations applied by the CI deploy.
 Run everything in **Google Cloud Shell** (https://console.cloud.google.com → `>_`).
 
 Success criteria per phase are noted. If a step errors, stop and report it — don't push past it.
@@ -56,16 +56,15 @@ First the generated DB URL (uses the Cloud SQL socket — keep this in the SAME 
 printf 'postgresql://appuser:%s@/earningsnerd?host=/cloudsql/%s' "$DB_PASS" "$CONN" \
   | gcloud secrets create DATABASE_URL --data-file=-
 ```
-Now your Render secrets — **replace each `PASTE_...` with the real value** from Render → earningsnerd-backend → Environment:
+Now the app secrets — **replace each `PASTE_...` with the real value** (the DeepSeek key is mounted as `OPENAI_API_KEY`, as CI does):
 ```bash
-printf '%s' 'PASTE_OPENAI_API_KEY'        | gcloud secrets create OPENAI_API_KEY        --data-file=-
+printf '%s' 'PASTE_DEEPSEEK_API_KEY'      | gcloud secrets create DEEPSEEK_API_KEY      --data-file=-
 printf '%s' 'PASTE_SECRET_KEY'            | gcloud secrets create SECRET_KEY            --data-file=-
 printf '%s' 'PASTE_STRIPE_SECRET_KEY'     | gcloud secrets create STRIPE_SECRET_KEY     --data-file=-
 printf '%s' 'PASTE_STRIPE_PUBLISHABLE'    | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-file=-
 printf '%s' 'PASTE_STRIPE_WEBHOOK_SECRET' | gcloud secrets create STRIPE_WEBHOOK_SECRET --data-file=-
 printf '%s' 'PASTE_RESEND_API_KEY'        | gcloud secrets create RESEND_API_KEY        --data-file=-
 printf '%s' 'PASTE_RESEND_FROM_EMAIL'     | gcloud secrets create RESEND_FROM_EMAIL     --data-file=-
-printf '%s' 'PASTE_FINNHUB_API_KEY'       | gcloud secrets create FINNHUB_API_KEY       --data-file=-
 ```
 ✅ Success: each prints `Created secret [NAME]`.
 
@@ -89,8 +88,8 @@ gcloud run deploy earningsnerd-backend \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost \
   --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-flash@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-flash@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 ✅ Success: prints `Service [earningsnerd-backend] revision ... has been deployed` and a `Service URL`.
 
@@ -101,7 +100,7 @@ curl -s $SVC/health ; echo
 curl -s $SVC/health/detailed ; echo
 ```
 ✅ Success: `/health` → `{"status":"healthy"}`. `/health/detailed` → database `healthy:true`,
-redis shows degraded/unhealthy (EXPECTED — Redis is off), circuit breaker `closed`.
+status `healthy`, redis `{healthy: true, disabled: true}` (Redis is off, `SKIP_REDIS_INIT=true`), `sec_edgar_circuit` `closed`.
 
 ## Phase 8 — Point api.earningsnerd.io at Cloud Run
 ```bash
@@ -125,8 +124,8 @@ gcloud run jobs create earningsnerd-pregenerate \
   --region=us-west1 \
   --set-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --task-timeout=3600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1" \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-flash@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1" \
   --command=python --args=scripts/pregenerate_examples.py
 
 gcloud projects add-iam-policy-binding earnings-nerd \
@@ -141,15 +140,14 @@ gcloud scheduler jobs create http earningsnerd-pregenerate-weekly \
 
 ---
 
-## After it's verified in prod for a few days — decommission Render
-- Suspend/delete the Render `earningsnerd-backend` web service, the `earningsnerd-pregenerate-examples`
-  cron, and the dead Postgres.
-- Archive/remove `render.yaml`; update the Deployment section of `CLAUDE.md`.
+## Render
+Retired; the migration is recorded in [ADR-0001](../docs/adr/0001-render-to-cloud-run.md).
 
 ## Troubleshooting
-- **Deploy fails on startup / health probe timeout:** the container runs `alembic upgrade head`
-  before uvicorn. On a fresh DB this is fast; if it ever times out, we move migrations to their own
-  Cloud Run Job. Check logs: `gcloud run services logs read earningsnerd-backend --region=us-west1`.
+- **Deploy fails on startup / health probe timeout:** the container has no Alembic; startup runs
+  `create_all` and `ensure_additive_columns` in `main.py`'s lifespan, and the deploy job applies SQL
+  migrations through `migration_ledger` ([ADR-0007](../docs/adr/0007-schema-migrations-ledger.md);
+  see `docs/DEPLOYMENT.md`, `docs/TROUBLESHOOTING.md`). Check logs: `gcloud run services logs read earningsnerd-backend --region=us-west1`.
 - **`could not connect to server` / socket errors:** confirm `--add-cloudsql-instances` matches
   `$CONN` and the SA has `roles/cloudsql.client`.
 - **Raising capacity later:** review database and workload headroom, then change both the

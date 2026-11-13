@@ -1,4 +1,7 @@
 # Auth Architecture Recommendation — EarningsNerd.io
+
+> Historical document. The design that shipped is in [`06_integration_notes.md`](06_integration_notes.md), which records where it departed from this one.
+
 **Date:** 2026-06-12  
 **Phase:** 2 of 3 — Architecture Decision  
 **Status:** Awaiting approval before Phase 3 begins

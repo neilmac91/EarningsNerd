@@ -1,5 +1,8 @@
 # Frontend Auth Design Plan — for approval
 
+> Historical document. The design that shipped is in [`06_integration_notes.md`](06_integration_notes.md), which records where it departed from this one.
+
+
 **Status: PROPOSAL (awaiting sign-off before implementation).**
 
 ## Locked decisions (from product owner)

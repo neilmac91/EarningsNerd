@@ -32,8 +32,9 @@ proxy step admits. Deploying the schema does not execute the repair.
 
 Deploy the provenance schema, journal schema and compatible readers first. Use the repository's
 normal migration runner; never manually edit a recorded migration. Retain a database backup and
-save the preview JSON with the intended environment, code revision and operator review. Run
-against staging first. A production apply is a separate operational action.
+save the preview JSON with the intended environment, code revision and operator review. The
+founder reads the production preview before approving the apply, which is a separate operational
+action.
 
 A US-GAAP filer that reports in another currency (the CNY 20-F shape), or that changed its reporting
 currency, normalizes through the same per-filing pick as the sync
@@ -572,9 +573,8 @@ runner through that proxy, so the report lands in the run's log. Operation
   credential, but an `error` entry can quote the failing SQL and its parameters, and a failed
   connection's error names the database user and the database.
 
-The deployment has no staging tier (`docs/DEPLOYMENT.md` lists production only), so the staging run
-asked for above has no target. Instead, the founder reads the production preview before approving
-the apply. The database backup is still the founder's to confirm or take before the first apply,
+The deployment has no staging tier (`docs/DEPLOYMENT.md` lists production only), so the founder
+reads the production preview before approving the apply. The database backup is still the founder's to confirm or take before the first apply,
 since only the founder has GCP credentials. The audited rollback below has no Ops operation; it runs
 through the job image (`docs/fiscal-year-label-repair.md`, "Apply (founder sign-off required)").
 Over more than one ticker, switch gcloud's `--args` delimiter so the list stays one value, and pass

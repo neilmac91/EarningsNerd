@@ -36,7 +36,7 @@ It builds `backend/Dockerfile`, pushes to Artifact Registry
 `backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (download verified against a
 pinned sha256) by running `backend/scripts/apply_migrations.sh` — the `migration_ledger` table
 skips files whose filename + sha256 are recorded; the psql session is pinned to `lock_timeout=10s` /
-`statement_timeout=120s`; up to 5 retries only when psql's stderr carries a lock-contention SQLSTATE
+`statement_timeout=120s`; up to 5 attempts (four retries, 15 s apart) only when psql's stderr carries a lock-contention SQLSTATE
 (`55P03` lock timeout, `57014` statement timeout, `40P01` deadlock — any other error is final); a
 `pg_stat_activity` + `pg_locks` dump names the blocker on final failure — see
 `lessons/ops-migrations-need-lock-timeout.md`. The same script runs three passes against a
@@ -495,7 +495,7 @@ invites, and links already issued stay valid. A frontend-only rollback is safe: 
 does not read the route.
 
 > **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
-> (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
+> (e.g. `REGISTRATION_MODE`, `STREAM_SECTION_REVEAL`, `DB_POOL_SIZE`) is re-asserted on every
 > deploy, so toggling one of these in the Cloud Run console is silently reverted on the next push.
 > To change one durably, edit the workflow — during an incident, that is the lever, not the console.
 
@@ -527,16 +527,18 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > merge, so the dashboard states the truth and nothing depends on the override. A gate
 > (`frontend/tests/unit/nodeVersionLockstep.spec.ts`) keeps all repository Node pins in step and requires CI pins to remain present; the
 > console setting is the one it cannot see. The declared range must also fit the Node requirements
-> of every pinned direct dependency; jsdom 30 requires at least Node 22.22.2 on the 22 line.
+> of every pinned direct dependency; jsdom 31 requires at least Node 22.22.2 on the 22 line.
 >
 > **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
 > reads `SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN`; `instrumentation-client.ts` reads
 > `NEXT_PUBLIC_SENTRY_DSN`. If both are unset, Sentry silently does not initialize.
 >
-> **Rotating the DSN:** `SENTRY_DSN` is read at runtime, so changing it in the dashboard takes effect
-> on the next request. `NEXT_PUBLIC_SENTRY_DSN`, however, is baked into the client bundle by Next.js
-> **at build time** — rotating it requires a **new deployment (rebuild)** to reach the browser.
+> **Rotating the DSN:** both `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` are listed in the `env` block of
+> `next.config.js`, which Next.js inlines **at build time** (server and edge code included, so
+> `instrumentation.ts` sees the build's value). Rotating either one requires a **new deployment
+> (rebuild)**; changing it in the dashboard alone leaves server errors going to the old DSN and the
+> client bundle on the old one.
 >
 > **Source maps (readable stack traces):** `next.config.js` passes `SENTRY_ORG`, `SENTRY_PROJECT`
 > and `SENTRY_AUTH_TOKEN` to `withSentryConfig` (with `widenClientFileUpload`). Set all three as
@@ -586,7 +588,7 @@ printf 'postgresql://appuser:%s@/earningsnerd?host=/cloudsql/%s' "$DB_PASS" "$CO
   | gcloud secrets create DATABASE_URL --data-file=-
 
 # Repeat for each secret, pasting the real value:
-printf '%s' 'PASTE_VALUE' | gcloud secrets create OPENAI_API_KEY        --data-file=-
+printf '%s' 'PASTE_VALUE' | gcloud secrets create DEEPSEEK_API_KEY      --data-file=-   # mounted as OPENAI_API_KEY, as CI does
 printf '%s' 'PASTE_VALUE' | gcloud secrets create SECRET_KEY            --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_SECRET_KEY     --data-file=-
 printf '%s' 'PASTE_VALUE' | gcloud secrets create STRIPE_PUBLISHABLE_KEY --data-file=-
@@ -617,7 +619,7 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
@@ -625,7 +627,7 @@ gcloud run deploy earningsnerd-backend \
 ```bash
 SVC=$(gcloud run services describe earningsnerd-backend --region=us-west1 --format='value(status.url)')
 curl -s $SVC/health           # {"status":"healthy"}
-curl -s $SVC/health/detailed  # database healthy:true; redis degraded (EXPECTED, off); circuit closed
+curl -s $SVC/health/detailed  # status healthy; database healthy:true; redis {healthy:true, disabled:true} (SKIP_REDIS_INIT); circuit closed
 ```
 
 ### 8. Domain mapping
@@ -636,10 +638,12 @@ gcloud beta run domain-mappings create \
 Point the Cloudflare `api` CNAME at the printed target (`ghs.googlehosted.com`), keep it
 **DNS-only (grey cloud)**, wait for the managed TLS cert, then `curl https://api.earningsnerd.io/health`.
 
-### 9. (Optional) Weekly example-refresh cron
+### 9. Weekly example-refresh cron
 A Cloud Run Job `earningsnerd-pregenerate` + Cloud Scheduler (`0 6 * * 1`, Mondays 06:00 UTC) runs
-`scripts/pregenerate_examples.py`. The CD pipeline keeps this job's image in sync; see the
-`deploy-backend` job for the exact commands.
+`scripts/pregenerate_examples.py`. The CD pipeline keeps this job's image in sync, and its
+"Update pregenerate job image" step has no existence guard (unlike the other jobs): create the job
+once, before the first backend deploy, with the commands in Phase 9 of `tasks/gcp-deploy-runbook.md`,
+or that deploy goes red after traffic has moved.
 
 ### 10. New-filing alert scan (Phase 2)
 Two Cloud Run Jobs run `scripts/filing_scan.py` to detect new SEC filings for watched companies and
@@ -657,7 +661,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
-SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
 ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Real-time scan job
@@ -709,12 +713,15 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-`ENABLE_SECTION_CHANGES` ("what changed" wording diff) goes on **both** the scan job and the
-service: the job's real-time pass stores the Item 1A text (its own `section-extraction` job record;
-`SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each through the shared limiter)
-and the service's what-changed endpoint serves the diff. Neither `$ENVV` above nor the service's
-`--update-env-vars` in `ci.yml` sets it, so add it to both when it flips, and add `section-extraction`
-to `JOB_CADENCES`. `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) is set in `ci.yml`, in all three env maps that
+configure a process reading it: the `earningsnerd-backend` service, the private task worker and the
+filing-scan/filing-digest jobs loop. The job's real-time pass stores the Item 1A text (its own
+`section-extraction` job record; `SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each
+through the shared limiter), the worker runs the scan and digest on the durable path, and the service's
+what-changed endpoint serves the diff. None of them sets it today; flip all three together (not `$ENVV`
+above: `tests/unit/test_section_changes_flag_placement.py` fails a flip that misses a map or spells the
+flag elsewhere), and add `section-extraction` to `JOB_CADENCES`.
+`python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
 warms the `filing_section_text` table by hand before the flip, under its own
 `section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
 
@@ -749,7 +756,7 @@ Create them once, with one Cloud Scheduler trigger each:
 # Same connector + secrets + scheduler SA as the filing-scan section above.
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
-SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
 ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Daily refresh job
@@ -824,7 +831,7 @@ and `FEEDBACK_MEDIA_BUCKET`; the default is disabled. Disabling new uploads reta
 cleanup of previously accepted images. CI preserves these operator-owned values and updates the cleanup
 job image on subsequent backend releases when the job exists.
 
-The protected `Ops` workflow has six fixed operations:
+The protected `Ops` workflow has six fixed feedback-media operations:
 
 | Operation | Effect |
 | --- | --- |
@@ -959,7 +966,8 @@ images; never delete the bucket, manifests or migrations as a rollback.
 
 ##### Optional founder-comment approval for the private beta
 
-If this private repository's plan does not support required environment reviewers, the founder may
+If the repository's plan does not support required environment reviewers (for example after a
+return to private), the founder may
 separately enable the bounded alternative by setting repository variable
 `BETA_COMMENT_APPROVAL_ENABLED` to `true`. Shipping this code does not enable it. The dispatch input
 `beta_comment_approval` also defaults to `false`; selecting it is required on each intended run.
@@ -1385,9 +1393,10 @@ total); a surplus on an accession means another writer touched that filing in th
 a missing/short list serves the calendar unfiltered rather than empty, so it can only ever hide
 long-tail names, never blank the page. W3-1 observed service=true and pregenerate unset/default=false
 on the verified #704 images. The founder approved preserving that service override on 2026-09-06;
-W3-2 makes service=true and pregenerate=false explicit in `ci.yml` without changing Settings.
-This filter does not activate the Calendar UI or authorize a data purge. W3-2 deployment is
-pending at this source checkpoint; verify effective values after merge. The earlier rollout
+W3-2 makes service=true and pregenerate=false explicit in `ci.yml` (the task worker pins true too)
+without changing Settings. This filter does not activate the Calendar UI or authorize a data purge.
+W3-2 is merged: those pins are in `ci.yml` and `tests/unit/test_prod_flag_visibility.py` locks them;
+verify effective values after each deploy. The earlier rollout
 recipe below remains founder-operated and is not a new instruction to toggle the approved state:
 
 ```bash
@@ -1499,15 +1508,15 @@ September 28 source readout preserves twelve frozen examples, the initial label 
 additive source reads. Under the founder's delegation, Codex owns the retain/enable decision in
 [the bounded rollout](../tasks/notable-rollout-2026-09-28.md); no new seed or job dispatch is needed.
 
-The reviewed activation pins `NOTABLE_FILINGS_ENABLED=true` in both service and pregenerate
+The reviewed activation pins `NOTABLE_FILINGS_ENABLED=true` in the service, task-worker and pregenerate
 `--update-env-vars` lists in `.github/workflows/ci.yml`, preserving the existing production-pin
 parity gate. The application default remains false and the scanner runs regardless of this flag.
 The corresponding backend production-pin test is updated as an intentional production override;
 that backend change makes the normal deploy path apply the reviewed setting. The operations
 inspector continues to report the actual code default separately from the live pin.
 
-Merge the activation only after #1002's source-faithful reason labels and responsive card layout
-are released and independently verified. After the activation deployment, verify the migration
+The activation was gated on #1002's source-faithful reason labels and responsive card layout being
+released and independently verified, and is merged. After the activation deployment, verify the migration
 summary, detailed health, live flag, `GET /api/notable_filings?limit=6` (the homepage's own request:
 under D-046's rule at most six 10-K and 10-Q filings, one per company), canonical SEC URLs in its
 payload, filing freshness (each `filed_date` today or in the seven days before, in New York) and the
@@ -1518,7 +1527,8 @@ company page, prints the company's name as Reporting this week does and states i
 does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
 three companies qualify; do not infer success or failure from HTTP status alone.
 
-For rollback, restore the service flag and both workflow pins to false and verify an empty API
+For rollback, restore the service flag and all three workflow pins (service, task worker,
+pregenerate) to false and verify an empty API
 feed, recording the remaining homepage cache interval. Source errors or poor observed utility can
 justify keeping the slot dark. Operator requests are not customer engagement, and this discovery
 rollout does not release any summary-quality, wider-generation or invitation hold.

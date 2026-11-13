@@ -1,4 +1,7 @@
 # Auth Implementation Plan — EarningsNerd.io
+
+> Historical document. The design that shipped is in [`06_integration_notes.md`](06_integration_notes.md), which records where it departed from this one.
+
 **Date:** 2026-06-12  
 **Phase:** 3 of 3 — Implementation  
 **Architecture:** Extend existing FastAPI auth — Authlib for Google/Apple OAuth, argon2id passwords

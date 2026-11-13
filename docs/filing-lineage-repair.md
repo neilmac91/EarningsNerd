@@ -161,9 +161,10 @@ written.
 - **A passed row** loses its review note in Multi-Period Analysis, and a growth figure built on it
   passes when the figure it is compared with passes too.
 - **A concern** keeps a review note, now under its own reason rather than `legacy_calculation`, and
-  its `reconciled` flag on the filing page's fundamentals turns false. `calculation_mismatch` has
-  no words of its own in either reason map yet (`trend_analysis/data_notes.py`,
-  `frontend/features/analysis/lib/provenance.ts`), so it reads the generic note.
+  its `reconciled` flag on the filing page's fundamentals turns false. A concern written as
+  `calculation_mismatch` reads "Not confirmed by our calculation from the filed inputs." in
+  Multi-Period Analysis (`trend_analysis/data_notes.py`,
+  `frontend/features/analysis/lib/provenance.ts`).
 - **Every changed dataset** gets a new fingerprint (`trend_analysis/dataset.py`,
   `dataset_fingerprint`), so its narrative is regenerated when next requested, as after the other
   repairs.

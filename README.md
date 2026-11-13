@@ -16,7 +16,8 @@ so investors can understand a company in minutes instead of hours.
   snapshot, financials, liquidity, MD&A, risks, guidance, and trends.
 - **Evidence-backed output.** Every bullet must cite a filing excerpt or an XBRL anchor; the AI
   output is held to a strict JSON contract with deterministic repair and a fallback path.
-- **Side-by-side comparison** of 2–5 filings to surface trends and changes (Pro).
+- **Change Report** — what changed in a filing versus the prior same-form filing: financial-metric
+  deltas and, where enabled, the Item 1A risk-factor wording diff (full for Pro, a teaser for Free).
 - **Ask this Filing (Pro)** — natural-language Q&A grounded in a single filing, with deep-linked
   citations back to the exact passage or XBRL figure.
 - **Financial visualization** — interactive charts for revenue, earnings, and key metrics, grounded
@@ -30,11 +31,11 @@ so investors can understand a company in minutes instead of hours.
 
 ## Tech stack
 
-**Frontend** — Next.js 16 (App Router) · TypeScript · Tailwind CSS + shadcn/ui · React Query ·
+**Frontend** — Next.js 16 (App Router) · TypeScript · Tailwind CSS · React Query ·
 visx (the charts' renderer) · PostHog · Sentry. Deployed on **Vercel**.
 
-**Backend** — FastAPI (Python 3.11) · SQLAlchemy 2.0 · PostgreSQL 15 · two-tier cache (in-memory +
-optional Redis). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on
+**Backend** — FastAPI (Python 3.11) · SQLAlchemy 2.0 · PostgreSQL 15 · two-tier cache (in-memory; Redis
+in local dev only, [ADR-0004](./docs/adr/0004-redis-off-in-production.md)). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on
 **Google Cloud Run** with Cloud SQL.
 
 **AI** — an OpenAI-*compatible* client; default provider **DeepSeek** (platform.deepseek.com), default
@@ -82,6 +83,10 @@ Full setup, tests, and workflow: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 backend/    FastAPI app (routers, services, models, schemas), prompts, evals, tests
 frontend/   Next.js app (app/, components/, features/, lib/)
 docs/        Architecture, deployment, compliance, troubleshooting
+ops/         Operator tooling: the local verification launcher (ops/dev), readouts, detection SQL
+lessons/     One file per engineering rule learned from a review or an incident
+tasks/       Open items (todo.md) and the archive of finished work
+scripts/     Repo-level shell helpers (branch cleanup, performance comparison)
 ```
 
 Key API surface (full, always-current reference at `/docs`):

@@ -79,7 +79,7 @@ mark.
 | 8 | [08-applications.md](08-applications.md) | The landing page and every other surface in code; templates; the empty founder slot retired; Notable filings back under D-046's rule (E90) |
 | 9 | [09-stress-test.md](09-stress-test.md), [stress/](stress/) | Phone, colour-blind, grayscale, misuse, lineup; original second score 11 of 42; current-main rescore 9 of 42, T4's move retained |
 | 10 | this page | The handoff |
-| all | [decisions-log.md](decisions-log.md) | D-001 to D-057 |
+| all | [decisions-log.md](decisions-log.md) | D-001 to D-076 (D-062 is not in the log) |
 
 ## The pull request
 

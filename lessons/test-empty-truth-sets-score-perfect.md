@@ -7,7 +7,7 @@ recall/precision scorers score zero", and rested the safety case on the pin tool
 report. Both halves were false. `score_numeric_accuracy` returns `1.0, [], []` for an empty
 ground truth (`backend/evals/scorers.py:161`) and `score_numeric_precision` returns `1.0` both
 when `ground_truth` is empty and when no labeled field is checkable
-(`backend/evals/scorers.py:272,296`). Those returns are deliberate: a filer that legitimately
+(`score_numeric_precision` in `backend/evals/scorers.py`). Those returns are deliberate: a filer that legitimately
 omits a line must not be penalised. `pin_baseline.py` checked the *completeness* of the verified
 set but never the *content* of an entry, so a hand-filled entry marked `verified` with no facts
 would have been scored a perfect 1.0 on both dimensions and pinned. The harm is not a number

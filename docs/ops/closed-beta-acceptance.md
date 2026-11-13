@@ -176,8 +176,8 @@ tester. `CAPABILITY_MATRIX` in the journey test gives every entitlement in which
 Dormant flags stay off for the beta unless they pass their own acceptance: `ENABLE_SECTION_CHANGES` (the landing's
 pricing table lists the Change Report for both plans), `REVERSE_TRIAL_ENABLED` (global, not targeted, and with no
 revoke before its end), and the forward-looking entitlements `history_retention_days` and `priority_model`, which
-nothing enforces. The serving API and worker set `REVERSE_TRIAL_ENABLED`, and `describe-service` withholds its
-value, so the founder confirms it is false before the rehearsal. If it is true, `/verify-email` gives each tester
+nothing enforces. No deploy workflow sets `REVERSE_TRIAL_ENABLED`, so its default (false) applies unless it is set on
+the service, and `describe-service` withholds its value, so the founder confirms it is false before the rehearsal. If it is true, `/verify-email` gives each tester
 who signed up with a password a seven-day trial row and sets `is_pro` (Google and Apple sign-ups never call it). A
 subscription row outranks the `is_pro` mirror, so once the trial lapses that tester is enforced Free while
 `/api/auth/me` still reads Pro, and a complimentary grant cannot restore Pro over the row.

@@ -75,9 +75,9 @@ SKIP_REDIS_INIT=true python -c "import evals.runner, evals.judge; print('harness
 
 ---
 
-## Step 2 — Expand the golden set to 15–25 filings
-`golden_set.json` ships with a diverse seed. To add more, fill only 5 fields per entry; the
-builder resolves the rest:
+## Step 2 — Extend the golden set
+`golden_set.json` holds 35 verified filings (14 10-K, 11 10-Q, 7 20-F, 3 6-K). To add more, fill
+only 5 fields per entry; the builder resolves the rest:
 
 ```json
 {"ticker": "XXXX", "cik": "0000000", "company_name": "...", "filing_type": "10-Q",
@@ -131,7 +131,8 @@ Confirm it fetches, scores, and writes `evals/reports/eval_*.md` with no errors.
 python -m evals.runner --candidates baseline --runs 3
 ```
 Record `pass_rate`, `mean_aggregate`, `gate_fail_rate`, recall/precision/coverage. Baseline is
-expected to score schema-invalid (it doesn't enforce the canonical schema — the gap S1 closes).
+expected to score schema-valid (≈1.0): `schema_valid` accepts the production `financial_highlights`
+shape (see "`schema_valid` recognizes both financial_highlights shapes" below).
 
 Test the S1 flag directly (this is exactly what flipping it does in prod):
 ```bash
@@ -342,7 +343,7 @@ eligible attempts (10-K, 10-Q, 20-F, amendments included) whose source is `edgar
 native state that is 62 of 64 per two-run report: ASML's 20-F has no parsable item headings, so its
 two attempts are expected misses. Below 0.90 is HARD (a collapse, a broken form or three more
 filings), below 0.95 is WARN (one or two more). The floors are calibrated on the full set: a subset
-report (`--forms 20-F`, `--tickers`) that includes ASML can cross them on ASML alone (a healthy
+report (`--forms 20-F`, `--limit`) that includes ASML can cross them on ASML alone (a healthy
 20-F-only run reads 12 of 14), so judge a subset by its note's non-native list. The check is deterministic, a local parse with no
 model call, which is why it can be HARD. It reads `results`, needs no pinned value and authorized no
 re-pin: the revival restored byte-identical excerpts (sha256 against the 3–4 October reports), so
@@ -405,7 +406,7 @@ A malformed/empty object still fails.
   summary measurement; offline tests and skipped runs cannot establish live acceptance.
 - **Unchanged hard tolerances.** A `gate_fail_rate` increase greater than **0.005** fails;
   precision/coverage drops greater than **0.05** and recall drops greater than **0.10** fail.
-  Two repeats improve measurement granularity, but one hard veto in 52 outputs still exceeds
+  Two repeats improve measurement granularity, but one hard veto in 70 outputs (35 filings × 2 repeats) still exceeds
   the veto tolerance. WARN-level pass rate and variance remain distinct from hard vetoes. The
   native-section floor (E28) is the one HARD check added since: it is deterministic, so it cannot
   fire as model noise.
@@ -478,7 +479,7 @@ The workflow uses its existing `DEEPSEEK_API_KEY` secret; do not extract it to a
 Inspect both the actual runner and regression-gate logs (the job is advisory), then download
 the JSON/Markdown `eval-report-<run_id>` artifact. Keep the run ID, source SHA and report name
 in the PR. Two repeats improve the granularity of mean/WARN measurements; they do **not**
-excuse a hard veto (one failed filing-run out of 52 still exceeds the 0.005 hard tolerance).
+excuse a hard veto (one failed filing-run out of 70 still exceeds the 0.005 hard tolerance).
 
 Reports capture the requested model, provider URL, fallback model/base URL,
 statement/stream/extraction and trust flags, judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
@@ -739,9 +740,9 @@ the eyeball check passes. Rollout (mirrors Step 9):
 4. **Re-run Step B/C** against prod config to confirm it matches.
 
 ### Regenerating / extending the FPI golden entries
-The three entries were resolved live (currency captured automatically). To refresh or add more,
-resolve only the new ones (re-running the full `build_golden_set` re-resolves all 22 to their latest
-filings). Hand-fill is fine for double-tagged filers (ASML tags revenue twice — €32.6673B statement
+The seven 20-F entries were resolved live (currency captured automatically). To refresh or add more,
+resolve only the new ones (re-running the full `build_golden_set` re-resolves every entry to its latest
+filing). Hand-fill is fine for double-tagged filers (ASML tags revenue twice — €32.6673B statement
 + €32.7B rounded — which the extractor correctly drops as ambiguous; the AI still reads it from the
 filing text).
 

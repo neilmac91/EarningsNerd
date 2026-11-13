@@ -32,7 +32,7 @@ PostHog loads after analytics consent. Recording is disabled in application conf
 `$snapshot` payloads are rejected even on otherwise safe routes. Sentry replay remains disabled;
 its error diagnostics and data-scrubbing configuration are separate from browser analytics.
 
-With the locked `posthog-js` 1.440.0, `before_send` runs when an event is captured, not when an
+In `posthog-js` (last reviewed at 1.440.0; the locked version is in `frontend/package-lock.json`), `before_send` runs when an event is captured, not when an
 earlier batch or retry leaves. [posthogConsent.ts](../frontend/lib/posthogConsent.ts) therefore
 guards the two places every request that carries data leaves through: `_send_request` and the
 retry queue's `retriableRequest`. The scripts posthog-js loads (its remote configuration and the

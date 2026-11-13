@@ -22,11 +22,11 @@ WCAG contrast ratios computed for this page (relative luminance, sRGB) against t
 | brand (fill only) | `#4F7A63` | 4.40 | 4.68 | 4.31 |
 | brand-strong (text) | `#3C6650` | 5.89 | 6.27 | 5.77 |
 | brand-emphasis | `#345C48` | 6.82 | 7.26 | 6.68 |
-| gain-text | `#15803D` | 4.51 | 4.80 | 4.42 |
-| gain-light (graphic only) | `#16A34A` | 2.97 | 3.16 | 2.90 |
-| loss-text | `#B91C1C` | 5.82 | 6.19 | 5.70 |
-| loss-light (graphic only) | `#DC2626` | 4.35 | 4.62 | 4.25 |
-| flat | `#6B7280` | 4.35 | 4.63 | 4.26 |
+| gain-text | `#406425` | 6.16 | 6.55 | 6.03 |
+| gain-light (graphic only; equals gain-text since #2011) | `#406425` | 6.16 | 6.55 | 6.03 |
+| loss-text | `#924739` | 5.94 | 6.32 | 5.81 |
+| loss-light (graphic only; equals loss-text since #2011) | `#924739` | 5.94 | 6.32 | 5.81 |
+| flat | `#636A77` | 4.90 | 5.21 | 4.80 |
 | success | `#15803D` | 4.51 | 4.80 | 4.42 |
 | warning | `#92400E` | 6.38 | 6.79 | 6.25 |
 | error | `#B91C1C` | 5.82 | 6.19 | 5.70 |
@@ -43,13 +43,13 @@ WCAG contrast ratios computed for this page (relative luminance, sRGB) against t
 | brand-strong-dark (text; Reading Sage since D-071) | `#AEDCC2` | 12.39 | 9.66 | 9.92 |
 | brand-bright-dark (Bright Sage: fills, the logo's accent) | `#98C5AD` | 9.80 | 7.64 | 7.84 |
 | brand-fill-dark | `#569272` | 5.16 | 4.02 | 4.13 |
-| gain-dark | `#34D399` | 9.79 | 7.64 | 7.84 |
-| loss-dark (since D-074) | `#FF96A1` | 9.08 | 7.08 | 7.27 |
+| gain-dark (since #2011) | `#A9CA95` | 10.37 | 8.09 | 8.31 |
+| loss-dark (since #2011; D-074 set `#FF96A1`) | `#EDAB9E` | 9.79 | 7.63 | 7.84 |
 | success / warning / error / info (dark) | `#22C55E` `#F59E0B` `#F87171` `#60A5FA` | 8.26, 8.77, 6.81, 7.41 | 6.44, 6.83, 5.31, 5.77 | 6.62, 7.02, 5.45, 5.93 |
 | chart-1 … chart-6 | same hexes | 4.85, 5.58, 4.56, 5.52, 4.60, 5.10 | 3.78, 4.35, 3.56, 4.31, 3.58, 3.98 | 3.88, 4.47, 3.65, 4.42, 3.68, 4.09 |
 
-What the tables settle: every text token clears 4.5:1 on every ground it is allowed on; the two
-light graphic tokens (`gain-light`, `brand` as fill) stay graphic; `chart-2` and `chart-4` sit at the
+What the tables settle: every text token clears 4.5:1 on every ground it is allowed on; the light
+graphic token `brand` (as fill) stays graphic, and `gain-light` and `loss-light` now equal their text tokens; `chart-2` and `chart-4` sit at the
 3:1 floor inside the pale tint, so charts stay on panel or cream, never inside a tint; the device's
 own colours (below) are hairlines and tints and are never asked to carry text.
 

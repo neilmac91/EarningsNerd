@@ -9,7 +9,7 @@ file here (never append to a monolith). At session start read "Operations & work
 task)" plus the section for your task area; read "Operations: jobs, deploys, billing, CI and
 environment" and "Evals, judging, paid runs and the founder's machine" only for that work; skip
 "Enforced by a machine gate" (CI fails those on its own) and "Archived". Filenames are greppable
-by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entries are `file — rule`.
+by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`, `brand-*`. Entries are `file — rule`.
 
 
 ## Operations & workflow (every task)

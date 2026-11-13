@@ -67,7 +67,7 @@ retention system. The JSON output repeats these limitations and earliest retaine
 
 Before claiming coverage, verify the production webhook endpoint's selected events and API
 version read-only. Enabling an event or changing that endpoint/version remains a founder action;
-E06 does neither. The development SDK is pinned to Stripe 15.6.1; its default API version does
+E06 does neither. The development SDK is pinned in `backend/requirements.txt`; its default API version does
 not establish the deployed webhook version. Unsupported signed shapes fail explicitly.
 
 Gates: `backend/tests/unit/test_billing_revenue.py` covers evidence, money, attribution,

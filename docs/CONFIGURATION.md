@@ -1,8 +1,9 @@
 # Configuration Reference — environment variables
 
-W3-2 source checkpoint (2026-09-06): explicit deploy pins below are implemented in the
-workflow source; merge/deployment and effective-pin verification remain pending. Defaults
-remain distinct from the founder-approved calendar service override.
+Explicit deploy pins below are merged in the workflow source (`.github/workflows/ci.yml`); only
+verifying the effective pins on the live service remains (the describe-service procedure in
+[DEPLOYMENT.md](DEPLOYMENT.md)). Defaults remain distinct from the founder-approved calendar
+service override.
 
 The complete environment-variable reference for backend (`backend/.env`) and frontend
 (`frontend/.env.local`). Definitions and validation live in `backend/app/config.py`
@@ -73,7 +74,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `OPENAI_API_KEY` | `""` | OpenAI-compatible provider credential; CI mounts DEEPSEEK_API_KEY as this name. |
 | `OPENAI_BASE_URL` | `"https://api.deepseek.com/v1"` | OpenAI-compatible provider base URL; paired with model and API key. |
 | `STRIPE_SECRET_KEY` | `""` | Stripe server credential; match test/live mode to environment. |
-| `STRIPE_PUBLISHABLE_KEY` | `""` | Backend validation of Stripe publishable/secret mode consistency; frontend has its own public variable. |
+| `STRIPE_PUBLISHABLE_KEY` | `""` | Backend validation of Stripe publishable/secret mode consistency; the frontend reads no Stripe key. |
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature secret. |
 | `STRIPE_RECONCILIATION_CONNECT_TIMEOUT_SECONDS` | `2.0` | Dedicated exact-ID Stripe read (bound subscription, invoice, serving Price) connect limit, per read; an event for another subscription makes two reads in sequence under the account lock (E98); finite, > 0 and ≤ 10 seconds. |
 | `STRIPE_RECONCILIATION_READ_TIMEOUT_SECONDS` | `3.0` | Dedicated exact-ID Stripe read (bound subscription, invoice, serving Price) inactivity limit, per read; an event for another subscription makes two reads in sequence under the account lock (E98); finite, > 0 and ≤ 10 seconds. |
@@ -108,7 +109,6 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `SUMMARY_JOB_MAX_AGE_SECONDS` | `3600` | Maximum age of an admitted job for automatic attempts, seconds (300–86400). Verify recovery cadence and queue delay fit this horizon before enabling. |
 | `SUMMARY_PREWARM_MAX_PER_DAY` | `0` | Fleet-wide UTC-day admission cap for system-funded summary preparation (0–200). Zero disables it; failures never replenish admissions. This bounds jobs/attempts, not same-day dollars or provider-internal request count. |
 | `SUMMARY_PREWARM_MAX_PER_SCAN` | `0` | Maximum distinct eligible notified filings considered for preparation in one scan (0–20); zero disables preparation. The separate daily cap and durable flags must also permit it. |
-
 | `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
 | `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
 | `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
@@ -204,7 +204,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `DELIVERY_REPLAY_WINDOW_SECONDS` | `72000` | E11b-1: how long after a batch's first dispatch a retry may replay the same payload under the same `Idempotency-Key`; must stay inside Resend's documented 24 h retention (at most 86400). Past it a `retryable` batch (only ever reached through documented non-acceptance) is re-keyed with a fresh window, so the once-daily digest cadence can still retry; unknown outcomes are `ambiguous` and never re-keyed. |
 | `USAGE_RESERVATION_TTL_SECONDS` | `300` | How long an admission reservation (E07b lease in `earningsnerd_usage_reservations`: summary, Copilot `qa` / lifetime `qa_taste`, `analysis`) holds a quota unit if the owning process dies before converting or releasing it; 181 through 3600 s, covering the 120 s pipeline timeout plus the bounded conversion lock wait. Expired rows are ignored by admission and swept on the account's next admission. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
-| `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls per process (semaphore on the service singleton). |
+| `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls per process (semaphore on the service singleton); at least 1. |
 | `AI_CHAT_MAX_INFLIGHT` | `8` | E09b: at most this many in-flight Copilot chat / Analysis narration provider streams per process; 0 through 512, 0 disables. A chat request waits for a slot only within its own budget and fails as a timeout past it. The summary path is bounded separately by `MAX_CONCURRENT_GENERATIONS + RECOVERY_MAX_CONCURRENCY` and never queues behind chat, so a process holds at most this many plus that maximum provider streams; fleet load on the shared key is the sum over instances and jobs. |
 | `COPILOT_MONTHLY_QUESTION_CAP` | `1000` | Monthly question fair-use ceiling per Pro account. |
 | `COPILOT_MAX_TOKENS` | `2400` | Maximum Copilot completion tokens. |
@@ -215,9 +215,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `ANALYSIS_MAX_TOKENS` | `3200` | Maximum analysis narrative completion tokens. |
 | `ANALYSIS_MAX_ANNUAL_PERIODS` | `10` | Maximum annual periods selectable. |
 | `ANALYSIS_MAX_QUARTERLY_PERIODS` | `12` | Maximum quarterly periods selectable. |
-| `AI_INPUT_CACHE_HIT_PRICE_PER_1M` | `0.003` | Configured USD estimate per million cached input tokens; telemetry assumption, not a live provider price quote. |
-| `AI_INPUT_CACHE_MISS_PRICE_PER_1M` | `0.15` | Configured USD estimate per million uncached input tokens; update alongside model pricing. |
-| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.6` | Configured USD estimate per million output tokens (off-peak); the PostHog per-answer estimate uses this flat rate. |
+| `AI_INPUT_CACHE_HIT_PRICE_PER_1M` | `0.003` | Configured USD estimate per million cached input tokens, the fallback price for a model `llm_pricing.py` has no entry for; telemetry assumption, not a live provider price quote. |
+| `AI_INPUT_CACHE_MISS_PRICE_PER_1M` | `0.15` | Configured USD estimate per million uncached input tokens, the same fallback; update alongside model pricing. |
+| `AI_OUTPUT_PRICE_PER_1M_TOKENS` | `0.6` | Configured USD estimate per million output tokens (off-peak), the same fallback. A model with its own entry in `llm_pricing.py` is priced from that entry, and `estimate_call_cost_usd` applies the peak multiplier to either; the PostHog per-answer `cost_usd` is that estimate. |
 | `AI_PEAK_PRICE_MULTIPLIER` | `2.0` | Multiplier the per-call `ai_call` log estimate applies during DeepSeek peak hours (UTC 01:00–04:00 and 06:00–10:00, Mon–Fri); see `docs/OPERATIONS.md` "AI call telemetry". |
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
@@ -244,6 +244,19 @@ wraps that traffic in `sec_rate_limiter` only in the SIC lookup (`app/services/e
 process's configured SEC ceiling is at most the sum of both. Production pins both to `1` on the API service,
 every job and the task worker (`.github/workflows/ci.yml`; gate
 `backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
+
+**Pre-Settings bootstrap variables (not Settings fields).** These are read with `os.getenv` /
+`os.environ` once at import by the modules `test_os_getenv_allowlist.py` sanctions, so none has a row in the
+table above. Under `uvicorn main:app`, `main.py`'s `load_dotenv()` also lets `backend/.env` supply them; a job
+reads its own process environment. Defaults (code, not live values):
+
+- `database.py`: `DB_POOL_SIZE` (`20`), `DB_MAX_OVERFLOW` (`10`), `DB_POOL_RECYCLE` (`3600`, seconds),
+  `DB_CONNECT_TIMEOUT` (`10`, seconds), `DB_POOL_TIMEOUT` (`10`, seconds a request waits for a pooled
+  connection). A new service or job that leaves the first two unset can open 30 connections; CI pins smaller
+  `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` per process (`.github/workflows/ci.yml`).
+- `redis_service.py`: `REDIS_MAX_CONNECTIONS` (`50`).
+- `edgar/config.py`: `EDGAR_IDENTITY` (`EarningsNerd/1.0 (<support email>)`, the SEC User-Agent for the
+  edgartools layer), `EDGAR_THREAD_POOL_SIZE` (`4`), `EDGAR_DEFAULT_TIMEOUT_SECONDS` (`15.0`).
 
 Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
 retries and a dedicated transport closed after every outcome. These connect/read inactivity limits
@@ -361,22 +374,34 @@ CORS_ORIGINS_STR=http://localhost:3000,https://yourdomain.com
 ### Frontend (.env.local)
 ```
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_POSTHOG_KEY=...
+NEXT_PUBLIC_POSTHOG_HOST=...                       # PostHog ingest host (default https://us.i.posthog.com)
 NEXT_PUBLIC_SENTRY_DSN=...
+SENTRY_DSN=...                                     # Server-side Sentry DSN (next.config.js passes it through; unset = ''), pairs with NEXT_PUBLIC_SENTRY_DSN
+NEXT_PUBLIC_SENTRY_RELEASE=...                     # Sentry release tag (default: VERCEL_GIT_COMMIT_SHA)
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=...                 # Sentry environment tag (default: VERCEL_ENV, then NODE_ENV)
+NEXT_PUBLIC_EXAMPLE_FILING_ID=...                  # Filing id of a pre-generated summary for the homepage "See an Example" link (unset = /company/AAPL)
 SENTRY_AUTH_TOKEN=...                              # Build-time only (Vercel): Sentry source-map upload. Unset = no upload, build still succeeds
 SENTRY_ORG=...                                     # Sentry org slug for the source-map upload (pairs with SENTRY_AUTH_TOKEN)
 SENTRY_PROJECT=...                                 # Sentry project slug for the source-map upload (pairs with SENTRY_AUTH_TOKEN)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...                 # Pairs with backend TURNSTILE_SECRET_KEY
 NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token for CompanyLogo (blank = monogram fallback only)
-NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
-NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
+NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false     # Default off; frontend/vercel.json pins true
+NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true|false        # Summary coverage disclosure (default off; frontend/vercel.json pins true)
+NEXT_PUBLIC_ENABLE_RECOMMENDED_FILING=true|false   # Recommended-filing CTA on the company page (default ON; only the string 'false' turns it off)
+NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET=true|false      # Beta feedback launcher for signed-in users (default ON; only the string 'false' turns it off)
+NEXT_PUBLIC_ENABLE_APPLE_SIGNIN=true|false         # "Continue with Apple" button (default off; the backend Apple exchange must be live first)
+NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH=true|false      # Full-text filing search (default off: /search 404s)
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel (needs backend ENABLE_INSIDER_ACTIVITY=true; keep both off, see above)
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
 NEXT_PUBLIC_ENABLE_FPI_FILINGS=true|false          # The plan cards name 20-F filings and Filing alerts offers its 20-F and 6-K rows (off: hidden, stored values kept); set WITH the backend ENABLE_FPI_FILINGS (the API deploy sets it true; the filing-scan job, whose own value decides whether it fetches 20-F and 6-K filings, is not set by the deploy, so its live value is unverified)
 NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
-WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
+NEXT_PUBLIC_ENABLE_RESEARCH_EVIDENCE_PACKS=true|false  # Local prototype (default off; direct route 404s)
+NEXT_PUBLIC_ENABLE_FILING_REDLINES=true|false      # Local prototype (default off; direct route 404s)
+NEXT_PUBLIC_ENABLE_FINANCIAL_REFRESH_REVIEW=true|false  # Local prototype (default off; no navigation entry)
+NEXT_PUBLIC_CALENDAR_FIXTURES=true|false           # Demo only: run the calendar page against fixtures (default off); NEXT_PUBLIC_CALENDAR_FIXTURE_PLAN picks the fixture plan (default free)
+WAITLIST_MODE=false                                # Server-side waitlist gating (not NEXT_PUBLIC_). Unset, or any value but the string 'false', turns the gate ON: every route outside the middleware allowlist redirects to /waitlist. frontend/vercel.json pins 'false' for production, so a local .env.local needs WAITLIST_MODE=false too
 ```
 
 ### Statement-aware financial extraction

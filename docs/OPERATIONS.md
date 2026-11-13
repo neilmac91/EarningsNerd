@@ -12,7 +12,7 @@ local-dev issues in docs/TROUBLESHOOTING.md.
 | Endpoint | Purpose | Response |
 |----------|---------|----------|
 | `GET /health` | Basic health check for load balancers | `{"status": "healthy"}` |
-| `GET /health/detailed` | Detailed check with DB + Redis + circuit breaker | See example below |
+| `GET /health/detailed` | Detailed check with DB + Redis (local dev only) + circuit breaker | See example below |
 | `GET /metrics` | Application metrics; authenticated admin required | See metrics response below |
 
 ### Detailed Health Check Response
@@ -71,7 +71,10 @@ local-dev issues in docs/TROUBLESHOOTING.md.
 }
 ```
 
-The values above are illustrative, not production measurements. `thread_pool.anyio` snapshots
+The values above are illustrative, not production measurements. The `redis` entries (`checks.redis`,
+`cache.redis`) show a Redis that local dev has: production runs with `SKIP_REDIS_INIT=true` (ADR-0004), where
+`checks.redis` reads `{"healthy": true, "disabled": true, "latency_ms": 0.0}` and `cache.redis.healthy` is `true`
+with its counters at zero; only `xbrl_l1` carries cache numbers. `thread_pool.anyio` snapshots
 the responding event loop's default worker limiter: `total_tokens` is its current capacity,
 `borrowed_tokens` counts occupied tokens, and `tasks_waiting` counts tasks waiting for a token.
 Health probes and summary database units share this limiter. Collection does not borrow a token
@@ -274,7 +277,8 @@ its error-level log counts, the only aggregate evidence of the pin's effect on t
 
 Every provider attempt logs one JSON line, `ai_call {...}`, from `app/services/ai_metrics.py`
 (never prompts, keys or filing identities). Fields: `operation` (`summary_primary`,
-`summary_fallback`, `section_recovery`, `copilot_chat`, `analysis_chat`), `provider`
+`summary_fallback`, `section_recovery`, `attribution_verify` (only while `AI_ATTRIBUTION_VERIFY` is on; the deploy sets it
+false), `copilot_chat`, `analysis_chat`), `provider`
 (`primary`/`fallback`), `trigger` (`user` for request traffic, `job` for Cloud Run jobs, `eval`
 for the eval harness), `requested_model` vs `actual_model` (what we asked for vs what the response
 said it served), `system_fingerprint` (the provider's backend build id when present), `outcome`,
@@ -336,7 +340,8 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 
 **Status codes:**
 - `200` with `status: healthy` - All dependencies operational
-- `200` with `status: degraded` - Non-critical dependency (Redis) unavailable
+- `200` with `status: degraded` - The SEC EDGAR circuit breaker is `open`, or Redis is unavailable (local dev only; production
+  runs with `SKIP_REDIS_INIT=true`, where the Redis check reads healthy with `disabled: true`, ADR-0004)
 - `503` with `status: unhealthy` - Critical dependency (database) unavailable
 
 ## Operational Runbook
@@ -349,7 +354,7 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 - Check stats: `GET /metrics` → `cache.xbrl_l1`
 - Clear via admin: `POST /api/admin/xbrl/clear-memory-cache`
 
-**L2 (Redis) Cache:**
+**L2 (Redis) Cache (local dev only; production runs L1 only, `SKIP_REDIS_INIT=true`, ADR-0004):**
 - Persistent across restarts
 - Shared across instances
 - Check stats: `GET /metrics` → `cache.redis`
@@ -370,7 +375,9 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 
 **Actions:**
 - If stuck in `open`: Check SEC EDGAR status, network connectivity
-- Manual reset (if needed): Restart application or use admin endpoint
+- Manual reset: there is no admin endpoint for it. An `open` breaker moves to `half_open` by itself after 30 s
+  (`recovery_timeout`), on the next call. The state is per process, so each Cloud Run instance and each job keeps its
+  own, and restarting an instance resets it
 - Check stats: `GET /metrics` → `circuit_breaker.sec_edgar`
 
 ### Performance Tuning
@@ -381,17 +388,16 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 _cache_max_size = 1000  # Increase for more memory, fewer evictions
 ```
 
-**Redis Timeouts:**
+**Redis Timeouts (local dev only; no effect in production, ADR-0004):**
 ```python
 # In redis_service.py
 CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
 ```
 
 **Thread Pool Size:**
-```python
-# In edgar/config.py
-EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
-```
+Set the `EDGAR_THREAD_POOL_SIZE` environment variable (default 4) on the service or job to allow more
+concurrent SEC API calls; `edgar/config.py` reads it at startup, so changing the default in code does
+nothing while the variable is set.
 
 ### Alert-to-return measurement (E11c)
 
@@ -575,7 +581,7 @@ Forgot-password and resend-verification queue their mail, the `account_mail` tas
 |--------|---------|----------|
 | `delivery_ambiguous` (job counter, per run) | > 0 | > 10 |
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
-| `cache.redis.healthy` | - | `false` |
+| `cache.redis.healthy` (local dev only; production reads `true` with `disabled`, ADR-0004) | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
 | `database.checked_out` | ≥ pool_size − 1 (3 on the deployed service pool 4 / overflow 0) | = pool_size |
 
@@ -585,9 +591,12 @@ Per-endpoint timeouts configured in `backend/main.py`:
 
 | Endpoint Pattern | Timeout |
 |------------------|---------|
+| `/api/feedback/with-attachments` | 60s |
+| `/api/admin/summaries/refresh-stale` | 570s (`admin.REFRESH_STALE_TIMEOUT_SECONDS`) |
 | `/api/summaries/` | 120s |
 | `/api/filings/` | 60s |
 | `/health` | 5s |
+| `*/insiders` (suffix match, checked after the prefix entries) | 75s |
 | Default | 30s |
 
 Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middleware.
@@ -600,6 +609,13 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 |----------|---------|
 | `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
 | `POST /users/free` | Refuses with 409 and creates nothing: an account comes only from signup, where its holder accepts the account requirements, so the answer points to an invitation (`POST /invites`) |
+| `GET /invites/readiness` | What holds new collection, the invited-cohort exception and requested invitation email, as conditions, never values |
+| `POST /invites` | Mint a single-use beta invite and return its magic link, shown once (`send_email` also emails it while invitation email is available) |
+| `GET /invites` | List recent invites with derived status (pending/used/revoked/expired), emailed invites' delivery state and address suppression |
+| `POST /invites/{id}/revoke` | Revoke an unused invite so its link can no longer be redeemed |
+| `POST /invites/{id}/resend` | Re-issue an invite with a fresh link (same email and cohort) and revoke the old one; 409 for a used invite |
+| `GET /feedback` | List recent beta feedback, newest first, capped at 200 (optional `status` and `type` filters) |
+| `PATCH /feedback/{id}` | Set a feedback row's triage status (new/triaged/resolved) |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -648,7 +664,6 @@ Located in `backend/scripts/`:
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_mock.py` - Tests XBRL extraction with mock data
 - `verify_startup_config.py` - Detailed startup configuration verification
-- `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
   `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or
@@ -763,7 +778,7 @@ blocked; a pull request required with **zero** approvals and squash as the only 
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
 `lighthouse`, `review-gate` and `secret-scan`, each pinned to the GitHub Actions app. The founder
 removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and gallery specs now run
-unconditionally in the browser suite, and E195 deletes the duplicate job. Since 2026-11-04 (#1990)
+unconditionally in the browser suite, and E195 deleted the duplicate job (`test_ci_cost_controls.py` keeps it gone). Since 2026-11-04 (#1990)
 that suite runs as five `e2e-shard` jobs, and `e2e-tests`, which always runs, passes only when every
 shard passed. A shard skips its build and tests, and passes, when `ci-scope` finds that the change
 touches no file a browser check reads: records, and `backend/` or `ops/` files other than the three
@@ -963,7 +978,8 @@ read.
 Every scheduled job script records an attempt in `earningsnerd_job_runs`, using a transaction
 separate from its business work. The logical names are `pregenerate`, `filing-scan`,
 `filing-digest`, `backfill-facts`, `earnings-calendar-refresh`, `earnings-day-alerts`, and
-`notable-filings`. The weekly report records `data-quality-report` separately, even though it
+`notable-filings`. The weekly retention purge records `retention-purge` and the feedback-media cleanup
+records `feedback-media-cleanup`. The weekly report records `data-quality-report` separately, even though it
 runs on the filing-digest Cloud Run job, and the Item 1A extraction batch the real-time scan runs
 behind `ENABLE_SECTION_CHANGES` records `section-extraction` on its own row (a failed batch fails
 that row, not the scan's execution; it joins `JOB_CADENCES` when the flag flips). SIC backfill, financial remediation, the reconciliation-flag audit and the
@@ -990,8 +1006,8 @@ report through `scripts/data_quality_report.py`. Its new report sections mean:
 | Per-job last success | Most recent completed `succeeded` attempt, unaffected by later failed or dry runs |
 | Stale job | No successful completion, or last success older than twice the maximum schedule interval |
 
-The maximum intervals are one hour for scan, one day for digest/calendar/alerts, seven days for
-pregeneration/facts/report, and fourteen hours for Notable's longer overnight gap. All expected
+The maximum intervals are one hour for scan and feedback-media cleanup, one day for digest/calendar/alerts, seven days for
+pregeneration/facts/report/retention purge, and fourteen hours for Notable's longer overnight gap. All expected
 jobs appear even if never observed. In particular, Notable remains never observed until the
 founder creates and runs it. The current report attempt appears running in its own email; the
 last-success field refers to the previous completed report. Empty universe/filing denominators

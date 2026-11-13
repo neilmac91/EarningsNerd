@@ -27,8 +27,8 @@ onto current `main` rather than merged blindly. Decisions:
   surfaced in `/me`, gating Stripe checkout.
 - Password reset (`/forgot-password`, `/reset-password`), single-use SHA-256-hashed tokens.
 - `oauth_accounts` table (integer FK) for multi-provider linking.
-- Apple Sign In button + backend stubs remain flag-gated (`ENABLE_APPLE_SIGNIN`) pending
-  Apple Developer credentials.
+- Apple Sign In: the button is gated by the frontend flag `NEXT_PUBLIC_ENABLE_APPLE_SIGNIN`, and the
+  backend exchange (`/api/auth/apple`, `/apple/start`, `/apple/callback`) is implemented.
 - The whole split-screen auth UI, header user menu, and email-verification nudge system.
 
 ## Notable consequence

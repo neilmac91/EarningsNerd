@@ -3,8 +3,6 @@
 Implements **tasks/earnings-calendar-strategy.md §3.7** (PR #524 branch): a
 week/month calendar of U.S. earnings dates, estimated or reported, with
 per-company earnings-day alerts.
-Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
-(project root — Tweaks simulate plan and data states).
 
 ## What ships
 
@@ -112,37 +110,21 @@ Weighed three layouts:
 
 - `features/dashboard/components/EarningsCalendar.tsx` — retire in place: render
   `getCalendar(mondayOf(today), +14d)` filtered to the user's watchlist, or
-  simply link the dashboard card to `/calendar`. Its `getUpcomingCalendar`
-  (FMP-backed) call goes away with the FMP calendar path (strategy §3.2).
+  simply link the dashboard card to `/calendar`. Its `getUpcomingCalendar` call
+  (`GET /api/dashboard/calendar/upcoming`, served from `calendar_service`) goes away with it.
 - `features/calendar/components/ReportingThisWeek.tsx` — switch its data source to
   `getCalendar(weekRange)` → `rankEvents(...).slice(0, 8)` (score-ranked DB
   reads replacing the hardcoded 60-ticker intersect, §4 P4). Its
   render-nothing-when-empty behavior stays.
 
-## Assumptions (flagging, not asking — each is one small backend/API decision)
+## API contract
 
-1. `GET /api/calendar` responds `{ events: CalendarEvent[] }` (matches the
-   §3.3 column set exposed in the brief).
-2. Alert subscriptions readable via `GET /api/watchlist/earnings-alerts` →
-   `{ tickers: string[] }` (derived from `Watchlist.earnings_alert`; adjust
-   `getEarningsAlertTickers` if it ships as a field on `GET /api/watchlist/`).
+1. `GET /api/calendar` responds `{ events: CalendarEvent[], universe }`.
+2. Alert subscriptions are read via `GET /api/watchlist/earnings-alerts` →
+   `{ tickers: string[] }` (`getEarningsAlertTickers`).
 3. Cap 403 body: `{ detail: string, code?: 'earnings_alert_limit' }`. The
    shared axios interceptor collapses errors to `ApiError(status, detail)`,
    so the toggle uses per-request `validateStatus` to read the body itself —
    no shared-client refactor.
-4. `lib/icons.ts` needs three one-line export additions used here:
-   `CaretRightIcon`, and (already exported) `SunIcon`/`MoonIcon`/`ClockIcon`
-   cover the lanes — only `CaretRightIcon` is genuinely new.
-5. URL state (`/calendar?view=month&anchor=2026-08-01`) is a follow-up; state
-   is component-local in this drop.
-
-## Definition-of-done status (DESIGN_SYSTEM.md §12)
-
-- Grep gates run against `features/calendar/` + `app/calendar/`: **0** legacy
-  brand/type hits; raw-ms grep matches only prose ("401s"/"403s" in comments)
-  and fixture latencies (mock I/O, not motion — motion is token-only).
-- Both themes verified interactively on the design spec
-  (`Earnings Calendar.dc.html`), which mirrors these components 1:1.
-- `typecheck` / `lint --max-warnings 0` / `build` / `test` must run in the
-  repo (not executable from this workspace) — expected clean except the
-  `CaretRightIcon` export noted above; add it with this pack.
+4. URL state (`/calendar?view=month&anchor=2026-08-01`) is not built; view and
+   anchor are component-local.
