@@ -158,12 +158,11 @@ jobs:
             esac
             # The browser jobs build the frontend and run it with no backend, so a change runs them
             # unless every path in it is a record, or a backend/ or ops/ file that neither the build
-            # nor a browser spec reads. The three files named first are the ones they do read; a
+            # nor a browser spec reads. The two files named first are the ones they do read; a
             # frontend file that reaches another file outside frontend/ fails
             # backend/tests/unit/test_ci_cost_controls.py until that file is named here too. Any
             # other path runs them: the workflows, root files and everything under frontend/.
             case "$CHANGED_PATH" in
-              backend/app/public_email_addresses.json) BROWSER=true ;;
               backend/tests/fixtures/analysis_later_filings.json) BROWSER=true ;;
               backend/tests/fixtures/analysis_first_reports_produced.json) BROWSER=true ;;
               backend/*|ops/*) ;;

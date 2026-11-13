@@ -5,8 +5,9 @@ change nothing that build reads. So frontend/vercel.json's ``ignoreCommand`` run
 frontend/scripts/vercel-ignore-build.sh before the build, and Vercel cancels the build when it exits 0.
 A wrong 0 leaves production, or a pull request's preview, on an older frontend with no failing check
 anywhere. The script therefore exits 0 only when this commit and the commit of the branch's last successful
-deployment (VERCEL_GIT_PREVIOUS_SHA) hold the same build inputs: everything under frontend/, and each file
-outside it that a shipped frontend file imports. Whatever else it meets, it builds.
+deployment (VERCEL_GIT_PREVIOUS_SHA) hold the same build inputs: everything under frontend/, and nothing else.
+Whatever else it meets, it builds. A shipped frontend file therefore reads no file outside frontend/; one it shares
+with the backend is copied in and held to its source by a spec (frontend/lib/publicEmailAddresses.json).
 
 Each case runs the command as vercel.json words it, in frontend/, which is where Vercel runs it
 (the project's Root Directory, docs/DEPLOYMENT.md).
@@ -90,9 +91,10 @@ def decide(project, previous):
 @pytest.mark.parametrize("paths", [
     ("backend/main.py",),
     ("docs/DEPLOYMENT.md", "tasks/todo.md", ".github/workflows/ci.yml", "README.md"),
-    # Beside an input, not one: a directory and a file whose names only start as an input's does.
+    # Beside the input, not in it: a directory whose name only starts as frontend/ does.
     ("frontendish/app/page.tsx",),
-    ("backend/app/public_email_addresses.json.bak",),
+    # The backend's own file of public addresses: the build reads the copy under frontend/lib.
+    ("backend/app/public_email_addresses.json",),
 ])
 def test_a_change_to_nothing_the_build_reads_skips_the_build(project, paths):
     _, _, git, commit = project
@@ -112,8 +114,7 @@ def test_a_change_to_nothing_the_build_reads_skips_the_build(project, paths):
     # Everything under frontend/ is an input, the specs included: narrowing that is a change to the script and
     # to this case together.
     ("frontend/tests/unit/some.spec.ts", False),
-    ("backend/app/public_email_addresses.json", False),
-    ("backend/app/public_email_addresses.json", True),
+    ("frontend/lib/publicEmailAddresses.json", False),
 ])
 def test_a_change_to_a_build_input_builds(project, path, delete):
     _, _, git, commit = project
@@ -171,25 +172,19 @@ def test_it_builds_whenever_it_cannot_prove_the_inputs_unchanged(project, tmp_pa
     assert builds and "could not read HEAD" in said, said
 
 
-def test_every_file_the_build_reads_outside_frontend_is_a_build_input(project):
-    # The filter names its inputs outside frontend/ one by one, so a shipped file that starts to import another
-    # must add it there: the scan below finds each, and a change to it alone has to build. The files only the
-    # browser specs read are not the build's, and a change to one alone skips it.
+def test_the_build_reads_no_file_outside_frontend(project):
+    # The filter compares frontend/ alone, so a shipped file that read a file outside it could change the build while
+    # the filter skipped it. The scan (its planted cases are in test_ci_cost_controls.py) finds every such read.
     _, _, git, commit = project
     references = outside_frontend_references(specs=False)
-    assert references, "the scan found no reference at all: its pattern or its file walk is broken"
-    read_by_the_build = set()
-    for target, source in references.items():
-        assert ROOT in target.parents and target.is_file(), (
-            f"frontend/{source} names {target}, which is not a file in the repository: write the whole path as one "
-            "literal, so this gate can read which file the build depends on")
-        read_by_the_build.add(target.relative_to(ROOT).as_posix())
-    assert read_by_the_build <= set(BROWSER_INPUTS_OUTSIDE_FRONTEND), (
-        "the build reads a file the browser jobs' scope does not know: test_ci_cost_controls.py fails on it too")
+    assert not references, (
+        "a shipped frontend file reads a file outside frontend/, which the build filter does not compare: "
+        + ", ".join(f"frontend/{source} reads {target}" for target, source in sorted(references.items()))
+        + ". Copy the file under frontend/ and hold the copy to its source with a spec, as "
+        "frontend/tests/unit/publicEmailConfiguration.spec.ts holds frontend/lib/publicEmailAddresses.json")
+    # The files only the browser specs read are not the build's: a change to one alone skips it.
     for path in sorted(BROWSER_INPUTS_OUTSIDE_FRONTEND):
         deployed = git("rev-parse", "HEAD")
         commit(path)
         builds, said = decide(project, deployed)
-        assert builds == (path in read_by_the_build), (
-            f"{path} is {'read' if path in read_by_the_build else 'not read'} by the build, but the filter says: "
-            f"{said}. Name in BUILD_INPUTS ({SCRIPT}) exactly the files outside frontend/ that the build reads")
+        assert not builds, (path, said)
