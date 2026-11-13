@@ -37,7 +37,7 @@ This design requires no Business Plus-exclusive feature or additional paid user.
 
 ## Product and runtime configuration
 
-The [canonical address JSON](../backend/app/public_email_addresses.json) is consumed by the [frontend module](../frontend/lib/contactAddresses.ts) and [typed backend loader](../backend/app/public_email_addresses.py). Shipped product code imports those values. Documentation and environment examples describe explicit configuration values; internal account addresses must never enter the public map.
+The [canonical address JSON](../backend/app/public_email_addresses.json) is consumed by the [typed backend loader](../backend/app/public_email_addresses.py), and the [frontend module](../frontend/lib/contactAddresses.ts) reads a [copy](../frontend/lib/publicEmailAddresses.json) that `frontend/tests/unit/publicEmailConfiguration.spec.ts` holds to the same bytes. Shipped product code imports those values. Documentation and environment examples describe explicit configuration values; internal account addresses must never enter the public map.
 
 | Setting | Source default or later release action |
 | --- | --- |

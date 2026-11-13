@@ -509,8 +509,7 @@ CI does **not** deploy the frontend.
 > reads. `frontend/vercel.json`'s `ignoreCommand` runs `frontend/scripts/vercel-ignore-build.sh`
 > before a build, and Vercel cancels the build when it exits 0. The script exits 0 only when this
 > commit and the commit of the branch's last successful deployment (`VERCEL_GIT_PREVIOUS_SHA`) hold
-> the same build inputs: everything under `frontend/`, and the files outside it that a shipped
-> frontend file imports, today `backend/app/public_email_addresses.json` alone. It builds in every
+> the same build inputs, which are everything under `frontend/` and nothing else. It builds in every
 > other case: the branch has no earlier deployment, the commit is the one already deployed, the
 > earlier commit is outside Vercel's shallow clone, or a read fails.
 >
@@ -524,9 +523,10 @@ CI does **not** deploy the frontend.
 > **Redeploy** on the deployment and uncheck **Use project's Ignore Build Step**
 > ([Vercel's documentation](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step)).
 >
-> `backend/tests/unit/test_frontend_build_filter.py` runs the command on real Git histories. A
-> shipped frontend file that starts to import another file outside `frontend/` fails it until the
-> script names that file. #2043 records the live reads of Vercel's side.
+> `backend/tests/unit/test_frontend_build_filter.py` runs the command on real Git histories, and
+> fails when a shipped frontend file reads a file outside `frontend/`: such a file is copied in and
+> held to its source by a spec, as `frontend/lib/publicEmailAddresses.json` is. #2043 records the
+> live reads of Vercel's side.
 
 > **Rollback floor.** A Vercel rollback or promotion never moves production to a deployment older than `c32af8f`
 > while an API at or after #2014 serves: every Google or Apple sign-in lands on `/auth/complete`
