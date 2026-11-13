@@ -604,7 +604,7 @@ project's Environment Variables page; `frontend/lib/featureFlags.ts` and `next.c
 code reads. Two differ from Vercel: `NEXT_PUBLIC_SENTRY_RELEASE` and `NEXT_PUBLIC_SENTRY_ENVIRONMENT` must be set
 by hand, because their fallbacks are Vercel's own `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`.
 
-**What was measured, 2026-11-13, on commit `14d1828`** (#2045 holds the evidence):
+**What was measured, 2026-11-13, on commit `14d1828`** (#2051 holds the evidence):
 
 - The Worker is 3.31 MiB gzipped against the paid plan's 10 MiB limit, and starts in about 30 ms.
 - The production smoke spec passes. Shard 1 of 5 of the browser suite ran 253 passed, 5 failed, 5 skipped, and the
