@@ -18,4 +18,8 @@ shares a call with a command that moves a ref).
 
 **Evidence**: `git reflog` of the session of 2026-11-13: `checkout: moving from
 claude/tender-dijkstra-ocx36v to 97256f6`, then three commits on the detached HEAD; the first push
-advanced the branch to `97256f6` only. Review-checked.
+advanced the branch to `97256f6` only.
+
+**Gate**: `frontend/tests/unit/premergeReviewWorkflow.spec.ts` fails if the review workflow's brief stops
+telling any lens or refuter to leave the working tree, the branches and the worktrees alone. Reading
+`git status -sb` before each commit and push stays review-checked.

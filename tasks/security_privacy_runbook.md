@@ -73,7 +73,10 @@ Governing document: `docs/DATA_RETENTION_POLICY.md`.
 | Refresh tokens | Purged 30 days after expiry or revocation (`retention_service`, `earningsnerd-retention-purge` job) |
 | `audit_logs` (incl. `user_email`) | Retained post-deletion for security/compliance; never purged by `retention_service` (founder-held); pick a window (suggest 1–2y) and add a purge job |
 | Stripe customer object | 7 years (tax) — subscriptions cancelled on deletion, customer retained |
-| Search history (`user_searches`) | Table exists but is **never written** — drop it or define a purpose+retention before using |
+| Search history (`user_searches`) | Table exists but is **never written**; `retention_service` purges any row older than 365 days |
+| Failed-login state (`login_attempts`) | Purged 7 days after its last update, once any lock has expired (`retention_service`) |
+| OAuth state and session handoffs | Purged once expired (`retention_service`) |
+| Contact submissions | Purged after 365 days (`retention_service`); copies in the support inbox and at the mail provider are outside it |
 
 ---
 

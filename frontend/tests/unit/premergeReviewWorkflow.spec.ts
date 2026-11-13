@@ -98,7 +98,9 @@
  *     under its lens, at every round and whether or not the lens reports findings. Out of reach: a change that acts
  *     only on a later round's review of more than one report, only on judging at round 5 or later, or only on a
  *     refusal past round 7, or that tells a stated reason or go from other text;
- *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
+ *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier;
+ *   - every lens and refuter is told to leave the shared checkout alone: no working-tree change, no branch
+ *     checkout, no worktree (lessons/ops-confirm-the-branch-is-checked-out-after-agents-ran.md).
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item to null, and a
  * thunk that throws, at once or later, resolves to null. As in the runtime, `parallel` throws on a thunk that is not a
  * function, and `parallel`, `pipeline` and `agent` throw once the run has started all the agents it may (`agent`
@@ -1117,5 +1119,23 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const [result] = (await load()({ prs: [pr('high')] }, agent)) as RoundResult[]
     expect(result.summaries).toEqual({ 'rules-and-brief': 'follow-ups of rules-and-brief', 'tests-and-gates': 'follow-ups of tests-and-gates' })
     expect(result.incomplete).toBe(true)
+  })
+
+  it('tells every lens and every refuter, on each tier and in a later round, to leave the shared checkout alone: no working-tree change, no branch checkout, no worktree', async () => {
+    // A review agent that checked out the commit it was given left the main session committing on a detached HEAD
+    // (lessons/ops-confirm-the-branch-is-checked-out-after-agents-ran.md).
+    const RULES = ['do NOT modify the working tree', 'do not check out branches', 'do not create worktrees']
+    for (const tier of ['records', 'routine', 'high']) {
+      for (const extra of [{}, { round: 2, fixBase: 'abc1234', reason: 'r' }]) {
+        const { agent, calls } = stub()
+        await load()({ prs: [{ ...pr(tier), ...extra }] }, agent)
+        const where = `${tier} ${JSON.stringify(extra)}`
+        expect(calls.some((call) => call.label.startsWith('review:')), where).toBe(true)
+        if (tier !== 'records') expect(calls.some((call) => !call.label.startsWith('review:')), where).toBe(true)
+        for (const call of calls) {
+          for (const rule of RULES) expect(call.prompt, `${call.label} (${where})`).toContain(rule)
+        }
+      }
+    }
   })
 })

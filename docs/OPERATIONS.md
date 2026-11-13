@@ -277,8 +277,8 @@ its error-level log counts, the only aggregate evidence of the pin's effect on t
 
 Every provider attempt logs one JSON line, `ai_call {...}`, from `app/services/ai_metrics.py`
 (never prompts, keys or filing identities). Fields: `operation` (`summary_primary`,
-`summary_fallback`, `section_recovery`, `attribution_verify` (only while `AI_ATTRIBUTION_VERIFY` is on; the deploy sets it
-false), `copilot_chat`, `analysis_chat`), `provider`
+`summary_fallback`, `section_recovery` (which also counts the attribution verifier's calls while
+`AI_ATTRIBUTION_VERIFY` is on; the deploy sets it false), `copilot_chat`, `analysis_chat`), `provider`
 (`primary`/`fallback`), `trigger` (`user` for request traffic, `job` for Cloud Run jobs, `eval`
 for the eval harness), `requested_model` vs `actual_model` (what we asked for vs what the response
 said it served), `system_fingerprint` (the provider's backend build id when present), `outcome`,
@@ -581,7 +581,7 @@ Forgot-password and resend-verification queue their mail, the `account_mail` tas
 |--------|---------|----------|
 | `delivery_ambiguous` (job counter, per run) | > 0 | > 10 |
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
-| `cache.redis.healthy` (local dev only; production reads `true` with `disabled`, ADR-0004) | - | `false` |
+| `cache.redis.healthy` (local dev only; production runs without Redis and reads `true`, ADR-0004) | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
 | `database.checked_out` | ≥ pool_size − 1 (3 on the deployed service pool 4 / overflow 0) | = pool_size |
 

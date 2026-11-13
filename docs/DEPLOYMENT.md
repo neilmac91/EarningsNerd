@@ -737,14 +737,16 @@ gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --sc
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-`ENABLE_SECTION_CHANGES` ("what changed" wording diff) is set in `ci.yml`, in all three env maps that
+`ENABLE_SECTION_CHANGES` ("what changed" wording diff) belongs in `ci.yml`, in the three env maps that
 configure a process reading it: the `earningsnerd-backend` service, the private task worker and the
 filing-scan/filing-digest jobs loop. The job's real-time pass stores the Item 1A text (its own
 `section-extraction` job record; `SECTION_EXTRACTION_BATCH_LIMIT` filings per run, one SEC request each
 through the shared limiter), the worker runs the scan and digest on the durable path, and the service's
-what-changed endpoint serves the diff. None of them sets it today; flip all three together (not `$ENVV`
-above: `tests/unit/test_section_changes_flag_placement.py` fails a flip that misses a map or spells the
-flag elsewhere), and add `section-extraction` to `JOB_CADENCES`.
+what-changed endpoint serves the diff. None of the three sets it today. To turn it on, set it in all
+three together and add `section-extraction` to `JOB_CADENCES`:
+`tests/unit/test_section_changes_flag_placement.py` fails a flip that misses a map or spells the flag
+anywhere else in the workflows. Keep it out of `$ENVV` above: that test reads the workflows alone, so a
+value given to a job by hand is outside the gate, and the deploy's `--update-env-vars` leaves it in place.
 `python scripts/extract_sections.py --tickers AAPL,MSFT` (or `--all --limit N`)
 warms the `filing_section_text` table by hand before the flip, under its own
 `section-extraction-manual` record; `docs/CONFIGURATION.md` lists the three settings.
