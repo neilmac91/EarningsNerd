@@ -538,7 +538,7 @@ def test_the_nightly_run_tests_main_unless_a_run_already_tested_its_tip(history,
 SCANNED_SUFFIXES = {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs", ".css"}
 
 
-def outside_frontend_references(frontend=None):
+def outside_frontend_references(frontend=None, specs=True):
     """Files outside frontend/ that the frontend's build or browser specs name in a path literal.
 
     The browser jobs build frontend/ and run tests/e2e against it. Turbopack's root is the repository
@@ -549,6 +549,9 @@ def outside_frontend_references(frontend=None):
     alias is resolved against frontend/ alone. tests/unit runs in frontend-tests, which no scope skips, so it is
     read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs. A path built from
     separate segments (``path.join(dir, '..', 'backend')``) is outside this check: write such a path as one literal.
+
+    ``specs=False`` reads the build alone, as Vercel runs it (test_frontend_build_filter.py): no file under tests/
+    starts the scan, and one is read only where a shipped file imports it.
     """
     frontend = frontend or ROOT / "frontend"
     root = frontend.parent
@@ -560,8 +563,11 @@ def outside_frontend_references(frontend=None):
         return (path.is_file() and path.suffix in SCANNED_SUFFIXES
                 and relative.parts[0] not in {"node_modules", ".next", "scripts"})
 
-    queue = [path for path in sorted(frontend.rglob("*"))
-             if scanned(path) and path.relative_to(frontend).parts[:2] != ("tests", "unit")]
+    def starts_the_scan(path):
+        parts = path.relative_to(frontend).parts
+        return parts[:2] != ("tests", "unit") if specs else parts[0] != "tests"
+
+    queue = [path for path in sorted(frontend.rglob("*")) if scanned(path) and starts_the_scan(path)]
     seen = set(queue)
     while queue:
         source = queue.pop()
@@ -572,9 +578,10 @@ def outside_frontend_references(frontend=None):
             for base in ([frontend] if aliased else [source.parent, frontend]):
                 target = Path(os.path.normpath(base / text.removeprefix("@/")))
                 if target == frontend or frontend in target.parents:
-                    # A unit-test module or fixture that a scanned file imports is read by the browser jobs too.
+                    # A test module or fixture that a scanned file imports is read with it. With the specs, that
+                    # is a tests/unit one, since everything else under tests/ already started the scan.
                     for module in (target, *(target.with_name(target.name + suffix) for suffix in SCANNED_SUFFIXES)):
-                        if module not in seen and frontend / "tests" / "unit" in module.parents and scanned(module):
+                        if module not in seen and frontend / "tests" in module.parents and scanned(module):
                             seen.add(module)
                             queue.append(module)
                 elif base == source.parent and not aliased or root in target.parents and target.exists():
@@ -607,6 +614,12 @@ def test_the_scan_reads_each_way_a_frontend_file_names_a_file_outside_frontend(t
     found = outside_frontend_references(frontend)
     assert {path.relative_to(tmp_path).as_posix() for path in found} == {
         "backend/a.json", "backend/b.json", "backend/c.json", "backend/d.json", "backend/e.json", "backend/f.css"}
+    # The build alone: what the specs read is left out, until a shipped file imports the module that reads it.
+    build_alone = outside_frontend_references(frontend, specs=False)
+    assert {path.relative_to(tmp_path).as_posix() for path in build_alone} == {"backend/d.json", "backend/f.css"}
+    (frontend / "lib/through-a-spec.ts").write_text("import { helper } from '../tests/unit/helper'\n", encoding="utf-8")
+    assert tmp_path / "backend/e.json" in outside_frontend_references(frontend, specs=False)
+    (frontend / "lib/through-a-spec.ts").unlink()
     # A literal that leaves frontend/ for a file that is not there is kept, so the gate below fails on it.
     (frontend / "tests/e2e/gone.spec.ts").write_text("readFileSync(path.join(__dirname, '../../../backend/gone.json'))\n")
     assert tmp_path / "backend/gone.json" in outside_frontend_references(frontend)

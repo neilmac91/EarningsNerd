@@ -212,8 +212,9 @@ through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-ne
 images), and skips a commit main has since moved past with deployable backend changes, so a guarded
 run never deploys an older commit after a newer one (`lessons/ops-a-superseded-commit-never-deploys.md`);
 a failed deploy is not retried, so check its conclusion after every such merge. Vercel
-deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
-`tasks/gcp-deploy-runbook.md`.
+deploys the frontend on a push to main that changes what its build reads, and previews a pull
+request the same way; a Canceled Vercel deployment means the push changed none of it
+(`docs/DEPLOYMENT.md`, "Build filter"). Manual bootstrap: `tasks/gcp-deploy-runbook.md`.
 
 ## Workflow
 
