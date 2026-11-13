@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import require_entitlement
 from app.models import User
-from app.services import section_review_service as reviews
+from app.services import filing_list_service, section_review_service as reviews
 
 router = APIRouter()
 
@@ -36,9 +36,15 @@ async def get_wording_review(
 ):
     """The reader's labels, progress and (once the queue is complete) the frozen receipt for the
     filing's Item 1A wording changes; ``status: unavailable`` with no items when there is nothing
-    to review yet."""
+    to review yet. The read and the session release are one unit off the event loop."""
+    def state_for_reader():
+        try:
+            return reviews.review_state(db, current_user.id, filing_id)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        return await run_in_threadpool(reviews.review_state, db, current_user.id, filing_id)
+        return await run_in_threadpool(state_for_reader)
     except reviews.FilingNotFound:
         raise HTTPException(status_code=404, detail="Filing not found")
 
@@ -52,10 +58,14 @@ async def put_wording_label(
 ):
     """Label one change (or clear it) and return the review as it now stands. Labelling the last
     change completes the review and freezes its receipt."""
+    def label_for_reader():
+        try:
+            return reviews.set_label(db, current_user.id, filing_id, body.item_id, body.label)
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        return await run_in_threadpool(
-            reviews.set_label, db, current_user.id, filing_id, body.item_id, body.label
-        )
+        return await run_in_threadpool(label_for_reader)
     except reviews.FilingNotFound:
         raise HTTPException(status_code=404, detail="Filing not found")
     except reviews.ReviewUnavailable:

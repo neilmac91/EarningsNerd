@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logger = logging.getLogger(__name__)
 
 # Default tickers mirror the homepage QuickAccessBar
-# (frontend/components/QuickAccessBar.tsx TOP_COMPANIES).
+# (frontend/features/marketing/components/QuickAccessBar.tsx TOP_COMPANIES).
 DEFAULT_TICKERS = [
     "AAPL",
     "NVDA",

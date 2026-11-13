@@ -17,7 +17,7 @@ the Cloud Run jobs) and counts:
   fetches over the size cap, and size-cap fallbacks by form;
 - over E28 (b)'s window (from the last native eval report to #1350's deploy) and over the whole read: distinct
   accessions by class, and, from schema-2 lines only, regex and unavailable ones by fallback_reason and every
-  class by form (an amendment apart from its form; anything but 10-K, 10-Q and 20-F as `other`); `covered` says
+  class by form (10-K, 10-Q, 20-F, their amendments and 6-K each apart; anything else as `other`); `covered` says
   whether the read held the whole window;
 - the last native line inside E28 (b)'s window, rounded down to its minute: native sections stopped after it,
   so it bounds the onset CI could not. A regex line bounds nothing: a 6-K, a thin native assembly, a parse
@@ -262,7 +262,7 @@ def _class(record: dict) -> str:
 
 
 def _form(value) -> str | None:
-    """A schema-2 filing_type as its key: a read form or its amendment as given, anything else `other`."""
+    """A schema-2 filing_type as its key: a read form, its amendment or 6-K as given, anything else `other`."""
     if not isinstance(value, str):
         return None
     form = value.strip().upper()

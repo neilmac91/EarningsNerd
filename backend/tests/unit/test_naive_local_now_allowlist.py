@@ -117,7 +117,9 @@ def _sites(source: str) -> list[str]:
 
 def test_app_reads_no_naive_local_clock_outside_the_allowlist():
     found: Counter = Counter()
-    for path in sorted(APP_DIR.rglob("*.py")):
+    paths = sorted(APP_DIR.rglob("*.py"))
+    assert APP_DIR / "config.py" in paths, f"the walk does not reach app/: {APP_DIR}"
+    for path in paths:
         rel = path.relative_to(APP_DIR).as_posix()
         for qualname in _sites(path.read_text(encoding="utf-8")):
             found[(rel, qualname)] += 1

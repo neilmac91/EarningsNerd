@@ -4,9 +4,6 @@ from __future__ import annotations
 from decimal import Decimal
 
 
-# --- dataset assembly --------------------------------------------------------------------------
-
-
 # Sentinel for `_growth`: a comparison was attempted but crossing zero makes a percentage
 # meaningless (finance convention "n/m" — not meaningful), e.g. investing cash flow swinging from
 # +$503M to -$71.9B renders "-14,399.2%" under plain division. Distinct from None (no prior at

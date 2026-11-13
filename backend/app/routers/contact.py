@@ -109,7 +109,7 @@ async def submit_contact_form(
         raise HTTPException(status_code=503, detail=legal_readiness_service.COLLECTION_UNAVAILABLE_MESSAGE) from None
     except ContactPersistenceError as failure:
         e = failure.__cause__
-        logger.error(f"Database error creating contact submission: {str(e)}")
+        logger.error("Database error creating contact submission: %s", type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save contact form submission",

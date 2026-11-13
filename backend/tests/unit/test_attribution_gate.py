@@ -83,6 +83,16 @@ def test_armed_drops_only_the_clause_and_keeps_the_movement():
     assert sections["forward_signals"]["quotes"][0]["quote"].endswith("never states.")
 
 
+def test_two_drops_in_one_slot_keep_the_text_before_the_earlier_clause_intact():
+    """The punctuation repair runs once, after every drop in the slot: run per drop, it moved text the earlier
+    clause's match offsets still pointed into, and the second drop cut the wrong characters."""
+    sections = {"the_print": {"headline": "Revenue ( net ) rose 5% , driven by strong alpha demand, "
+                                          "and margin fell 2% due to beta gamma pricing."}}
+    audit = _drop_all(sections, FILING)
+    assert len(audit["dropped"]) == 2
+    assert sections["the_print"]["headline"] == "Revenue ( net) rose 5%, and margin fell 2%."
+
+
 def test_a_stated_cause_for_another_line_does_not_transfer():
     """The filing attributes the revenue increase to volume and price; applying that driver to a
     different subject (net income) is exactly the transfer the judge fails as G4."""

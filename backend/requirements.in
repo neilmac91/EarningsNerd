@@ -1,7 +1,7 @@
 # Top-level dependencies (editable source of truth).
 # requirements.txt is the COMPILED LOCK — do not edit it by hand.
 # Regenerate after changing this file:
-#   pip install pip-tools && pip-compile requirements.in -o requirements.txt
+#   pip install pip-tools && pip-compile --output-file=requirements.txt --strip-extras requirements.in
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
 fastapi>=0.162.0,<1.0.0

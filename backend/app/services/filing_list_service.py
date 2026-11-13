@@ -80,10 +80,11 @@ def _mark_filings_synced(ticker: str, types_list: List[str], company_id: int) ->
     """Record a successful live SEC sync of this company's (ticker, types) listing, evicting the oldest
     if full. Called only after SEC answered the listing: a fetch that failed or timed out raised before
     it, so its visit is answered from whatever is stored and the next visit fetches again."""
+    key = (ticker, tuple(types_list))
     with _filings_synced_lock:
-        if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
+        if _filings_synced_at.pop(key, None) is None and len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
             _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
-        _filings_synced_at[(ticker, tuple(types_list))] = (company_id, utcnow())
+        _filings_synced_at[key] = (company_id, utcnow())
 
 
 # In-flight guard for the DB-first background refresh (below): collapses a burst of concurrent loads

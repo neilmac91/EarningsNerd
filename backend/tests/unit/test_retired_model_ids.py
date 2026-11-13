@@ -29,6 +29,7 @@ MODEL_WORKFLOWS = (
     ".github/workflows/ci.yml",
     ".github/workflows/copilot-eval.yml",
     ".github/workflows/data-quality-weekly.yml",
+    ".github/workflows/deepseek-transport-diagnostic.yml",
 )
 LOAD_STEP = "grep -v '^#' .github/ai-model.env >> \"$GITHUB_ENV\""
 SCAN_ROOTS = ("backend/app", "backend/evals", "backend/scripts", ".github/workflows", "backend/.env.example")

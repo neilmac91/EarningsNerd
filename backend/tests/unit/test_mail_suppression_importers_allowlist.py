@@ -3,10 +3,10 @@
 The list (``mail_suppression_service``, the ``MailRecipient`` model) holds the pseudonymous hash of every address an
 invitation was emailed to and of every address that unsubscribed, bounced or complained. Invitation email reads it,
 through ``invite_delivery_service``; requested account mail (verification, password reset, the sign-in notices) never
-does, since a reader who opted out of invitations still needs those. ``email_service``'s own senders are held by
-``test_email_name_interpolation_allowlist.py``; this gate holds every other module in ``app/``: a router, a durable
-mail task or another service that imported the list could start refusing account mail to a suppressed address, and no
-behavioural test would cover every sender. A new reader joins the allowlist here with its reason, in the same diff.
+does, since a reader who opted out of invitations still needs those. This gate walks every module in ``app/``,
+``email_service`` included: a router, a durable mail task, a sender in ``email_service`` or another service that
+imported the list could start refusing account mail to a suppressed address, and no behavioural test would cover every
+sender. A new reader joins the allowlist here with its reason, in the same diff.
 """
 import ast
 from pathlib import Path

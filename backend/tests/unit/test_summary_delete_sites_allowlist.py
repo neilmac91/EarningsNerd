@@ -584,7 +584,7 @@ def test_the_scan_scores_every_planted_form():
 
 
 @pytest.mark.parametrize("tree", [
-    "backend/app", "backend/scripts", "backend/migrations", "ops", "scripts", "tasks", ".github",
+    "backend/app", "backend/scripts", "backend/migrations", "ops", "tasks", ".github",
 ])
 def test_the_scan_reads_every_tree_that_can_reach_the_database(tree):
     files = [p.relative_to(REPO_DIR).as_posix() for p in _in_scope_files()]

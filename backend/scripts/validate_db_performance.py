@@ -2,7 +2,7 @@
 """
 Database Performance Validation Script for EarningsNerd.
 
-Validates PostgreSQL Basic-1gb performance by running benchmark queries.
+Validates PostgreSQL performance by running benchmark queries.
 Run this script after database upgrades to ensure performance baselines.
 
 Usage:
@@ -11,7 +11,7 @@ Usage:
 Environment:
     DATABASE_URL: PostgreSQL connection string
 
-Expected Results (Basic-1gb instance):
+Expected Results:
     - Simple SELECT: < 5ms
     - Index scan: < 10ms
     - Connection establishment: < 100ms
@@ -37,29 +37,6 @@ def get_database_url():
         print("ERROR: DATABASE_URL environment variable not set")
         sys.exit(1)
     return url
-
-
-def measure_operation(operation_func, description: str) -> tuple[float, any]:
-    """
-    Measure the execution time of an operation.
-
-    Args:
-        operation_func: Callable to execute and time
-        description: Description for logging
-
-    Returns:
-        Tuple of (elapsed_ms, result)
-    """
-    start = time.perf_counter()
-    try:
-        result = operation_func()
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        print(f"  {description}: {elapsed_ms:.2f}ms")
-        return elapsed_ms, result
-    except Exception as e:
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {type(e).__name__} (message withheld: it can quote DATABASE_URL)")
-        raise
 
 
 def run_validation():
@@ -285,7 +262,7 @@ def run_validation():
     print()
     if all_pass:
         print("🎉 All performance checks PASSED!")
-        print("PostgreSQL Basic-1gb is performing within expected parameters.")
+        print("PostgreSQL is performing within expected parameters.")
     else:
         print("⚠️  Some checks need attention.")
         print("Review the results above and consider database optimization.")

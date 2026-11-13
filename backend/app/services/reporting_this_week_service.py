@@ -32,7 +32,8 @@ _NY_TZ = ZoneInfo("America/New_York")
 # framing — treated the same as empty so the homepage section omits itself entirely.
 MIN_COMPANIES = 4
 
-# Curated large-cap tickers spanning sectors, used ONLY for this feature. Deliberately separate
+# Curated large-cap tickers spanning sectors. Besides this feature (and its display-name fallback), it
+# feeds the anticipation-score mega-cap floor in earnings_calendar_service. Deliberately separate
 # from QuickAccessBar's TOP_COMPANIES (frontend) and pregenerate_examples.py's DEFAULT_TICKERS
 # (both ~8 tickers) — on any given week only ~1/13 of a company's year has earnings, so a small
 # pool would almost always yield zero matches. This list is intentionally broad.

@@ -42,7 +42,7 @@ NAME = '<a href="x">x</a>'
 ESCAPED_NAME = html.escape(NAME)
 
 SENDERS = [
-    (send_waitlist_welcome_email, dict(position=3, referral_link="https://e.test/r/abc")),
+    (send_waitlist_welcome_email, dict(position=3)),
     (send_referral_success_email, dict(new_position=2, referral_link="https://e.test/r/abc")),
     (send_verification_email, dict(verification_link="https://e.test/v/t")),
     (send_invite_email, dict(magic_link="https://e.test/i/t", unsubscribe_link="https://e.test/u#token=t",
@@ -136,7 +136,7 @@ def test_every_sender_renders_a_markup_shaped_name_as_text(sender, kwargs, sent)
     "render, kwargs",
     [
         (render_contact_confirmation, {}),
-        (render_welcome_email, dict(position=1, referral_link="https://e.test/r")),
+        (render_welcome_email, dict(position=1)),
         (render_referral_success_email, dict(new_position=1, referral_link="https://e.test/r")),
     ],
     ids=["contact_confirmation", "welcome", "referral_success"],

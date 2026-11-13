@@ -93,14 +93,15 @@ clear to PASS, default 0.7), `--judge <model>` (secondary signal, off by default
 
 ## Golden set
 
-`golden_set.json` ships with well-known issuers (mega-cap, financial, 10-K/10-Q) but
-`verified: false` and empty accession/ground_truth. `build_golden_set.py` fills them from live
-EDGAR/XBRL. **Extend it toward 15–25 filings** with small-caps, non-financial issuers, and a
-known problem case (e.g. a pre-2019 filing) to cover the roadmap's intended mix.
+`golden_set.json` holds 35 verified filings (14 10-K, 11 10-Q, 7 20-F, 3 6-K), each with its
+accession and `ground_truth`. `build_golden_set.py` resolves a new entry from live EDGAR/XBRL and
+sets `verified` once its invariants pass. **To extend it**, add entries for small-caps,
+non-financial issuers, and a known problem case (e.g. a pre-2019 filing) to cover adversarial
+cases; `RUNBOOK.md` Step 2 gives the entry shape.
 
 ## Adoption rule
 
-Promote a candidate to default (flip `AI_USE_STRUCTURED_OUTPUT` / `AI_QUALITY_GATE`, or switch
+Promote a candidate to default (flip `USE_STRUCTURED_OUTPUT` / `AI_QUALITY_GATE`, or switch
 `AI_DEFAULT_MODEL`) **only if it beats `baseline` on schema-validity AND numeric accuracy AND
 coverage, with no hard-gate regression** (`gate_fail_rate` no worse than baseline), **AND meets
 the consistency target** (high `pass_rate`, low `aggregate_stdev`) — at acceptable latency/cost.
@@ -108,9 +109,10 @@ The optional `judge_pass_rate` is corroborating evidence, not the gate. Otherwis
 off, report the numbers, and recommend next steps. The harness is also the regression suite for
 every future prompt change.
 
-> The baseline maps the current pipeline into the canonical shape but does **not** enforce the
-> canonical schema, so it typically scores schema-invalid here. That gap is precisely what S1
-> aims to close and is the honest baseline to beat.
+> `schema_valid` accepts both `financial_highlights` shapes (the flat canonical one and the
+> production pipeline's richer one), so the baseline earns it (about 1.0). `USE_STRUCTURED_OUTPUT`
+> changes the prompt and temperature, not the output shape; see the RUNBOOK's "`schema_valid`
+> recognizes both financial_highlights shapes" paragraph.
 
 ---
 
@@ -132,6 +134,8 @@ grounded Q&A loop, so it has a sibling eval with its own deterministic gates:
     summary harness's value-rendering matcher). Hard gate.
 - **CI rigor:** `tests/unit/test_copilot_evals.py` exercises the scorers on synthetic answers — runs
   on every change, no model/network.
-- **Operator bake-off:** `python -m evals.copilot_runner --limit 1` runs the live Copilot over the
-  golden set (needs the model API + the filings/`financial_fact` ingested) and writes
-  `reports/copilot_eval_<ts>.{json,md}`. Like the summary runner, this is a manual task, not CI.
+- **Live run:** `python -m evals.copilot_runner --preparation <preparation.json> --runs 3` runs the
+  live Copilot over the golden set and writes `copilot-eval.{json,md}` under `--output`. It needs
+  the model API, `GITHUB_SHA` set to a 40-hex commit, and the preparation that
+  `evals.copilot_bootstrap` writes; `.github/workflows/copilot-eval.yml` runs that sequence on
+  qualifying pull requests.

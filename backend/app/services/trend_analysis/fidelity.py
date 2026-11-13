@@ -9,7 +9,7 @@ from typing import Any
 
 # A printed figure near a citation: optional $, digits with thousands commas, optional decimals,
 # optional %/pp/compact-scale suffix (incl. the "bn"/"mn"/"tn" style). Linear (single
-# character-class core, no nesting) — this scans model output on the event loop.
+# character-class core, no nesting) — this backstop scans the code-rendered narrative on the event loop.
 _FIDELITY_NUM_RE = re.compile(
     r"(\$)?(\d[\d,]*(?:\.\d+)?)\s*(%|pp|[bmt]n\b|[BTMK]\b|billion|million|trillion|thousand)?",
     re.IGNORECASE,

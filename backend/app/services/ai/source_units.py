@@ -204,7 +204,6 @@ _MATURITY_SEQUENCE = re.compile(
     + r";\s*thereafter:\s*" + _AMOUNT + r";\s*total:\s*" + _AMOUNT + r"\.?\s*$",
     re.I,
 )
-_SKIP_TAGS = frozenset({"script", "style", "title"})
 _AUDIT_CAP = 40
 _SEQUENCE_LABELS = ("thereafter", "total")
 

@@ -476,7 +476,6 @@ async def join_waitlist(
             to_email=signup.email,
             name=signup.name,
             position=position,
-            referral_link=referral_link,
         )
         await run_in_threadpool(mark_sent)
         email_sent = True

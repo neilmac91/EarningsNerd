@@ -1,6 +1,7 @@
 
 import pytest
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from main import app
@@ -85,7 +86,9 @@ async def test_stream_handles_high_latency_fetch():
             assert len(heartbeats) >= 2, f"Expected heartbeats, got count: {len(heartbeats)}"
             
             # Ensure final completion
-            assert "complete" in content
+            frames = [json.loads(line[len("data: "):]) for line in content.split('\n') if line.startswith("data: ")]
+            assert not [f for f in frames if f.get("type") == "error"], f"FAILED FRAMES: {frames}"
+            assert frames and frames[-1].get("type") == "complete", f"FAILED FRAMES: {frames}"
             
     finally:
         app.dependency_overrides.clear()

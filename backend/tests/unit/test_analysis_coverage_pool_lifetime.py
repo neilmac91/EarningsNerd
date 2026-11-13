@@ -53,6 +53,7 @@ async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     monkeypatch, tmp_path, successful_fetch,
 ):
     """Two same-ticker requests used to consume all four production pool slots while waiting."""
+    assert 2 * SETUP_GUARD_S < COVERAGE_WAIT_S < ingest.COMPANYFACTS_INFLIGHT_WAIT_SECONDS
     engine = create_engine(
         f"sqlite:///{tmp_path / 'coverage-pool.db'}",
         connect_args={"check_same_thread": False},

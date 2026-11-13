@@ -151,14 +151,8 @@ class _JsonRepairMixin:
         # TIER 1: Use json-repair library (handles ALL edge cases)
         if HAS_JSON_REPAIR and json_repair_lib is not None:
             try:
-                # Pre-process: Convert Python booleans BEFORE json-repair
-                # (json-repair would otherwise quote these as strings)
-                preprocessed = re.sub(r'\bTrue\b', 'true', json_str)
-                preprocessed = re.sub(r'\bFalse\b', 'false', preprocessed)
-                preprocessed = re.sub(r'\bNone\b', 'null', preprocessed)
-
                 # json_repair returns a valid JSON string
-                repaired = json_repair_lib(preprocessed)
+                repaired = json_repair_lib(json_str)
                 if repaired:
                     logger.debug("JSON repair succeeded using json-repair library")
                     return repaired

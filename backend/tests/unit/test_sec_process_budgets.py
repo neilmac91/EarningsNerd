@@ -131,10 +131,6 @@ def _service_instances(service_run):
     return int(re.search(r"--max-instances=(\d+)", joined).group(1))
 
 
-def _budget(env, key):
-    return int(env.get(key, DEFAULTS[key]))
-
-
 def test_every_production_process_pins_both_sec_buckets_to_one():
     service, maps = _process_env_maps()
     assert set(maps) - {"service", WORKER} == EXPECTED_JOBS

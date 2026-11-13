@@ -26,10 +26,6 @@ def has_valid_xbrl_data(xbrl_data: Optional[Dict[str, Any]]) -> bool:
         # Use 'is not None' to allow zero values (valid financial data)
         if isinstance(metric, dict) and metric.get('current', {}).get('value') is not None:
             return True
-        # Also check if it's a list with items (raw XBRL format)
-        if isinstance(metric, list) and len(metric) > 0:
-            if any(item.get('value') is not None for item in metric if isinstance(item, dict)):
-                return True
     return False
 
 

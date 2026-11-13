@@ -1,6 +1,6 @@
 """Closed-beta invite lifecycle: mint magic links, validate, and single-use redeem.
 
-Tokens follow the email-verification pattern in ``auth.py`` — only the SHA-256 hash is stored; the
+Tokens follow the email-verification pattern in ``auth_account_service`` — only the SHA-256 hash is stored; the
 raw token lives only in the magic link. Eligibility is recorded on the ``User`` (``is_beta``) at
 redemption, so the checkout promo never depends on a client-supplied parameter. The admin surface
 (``routers/admin.py``) lists, revokes and re-issues invites through the functions at the bottom.

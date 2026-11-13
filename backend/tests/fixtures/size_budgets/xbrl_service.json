@@ -1,6 +1,6 @@
 {
   "files": {
-    "app/services/edgar/xbrl_service.py": 348,
+    "app/services/edgar/xbrl_service.py": 346,
     "app/services/edgar/xbrl_cache.py": 179,
     "app/services/edgar/xbrl_instance.py": 384,
     "app/services/edgar/xbrl_companyfacts.py": 243,

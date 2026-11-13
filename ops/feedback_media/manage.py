@@ -877,10 +877,6 @@ def task_differences(task: dict, expected: dict, args: list[str]) -> list[str]:
                                                  {item["name"]: item for item in wanted["env"]})
 
 
-def matches_task(task: dict, expected: dict, args: list[str]) -> bool:
-    return not task_differences(task, expected, args)
-
-
 def serving_digest(cloud: Cloud, service: dict) -> str | None:
     """The image digest Cloud Run resolved for production's revision, or None unless one revision serves all traffic.
 
@@ -943,10 +939,6 @@ def execution_gaps(execution: dict | None, expected: dict, args: list[str], dige
     except (KeyError, ValueError, TypeError):
         gaps.append("no completion time")
     return gaps
-
-
-def recent_success(execution: dict | None, expected: dict, args: list[str]) -> bool:
-    return not execution_gaps(execution, expected, args)
 
 
 def inspect_role(cloud: Cloud) -> bool:
