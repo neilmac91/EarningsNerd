@@ -29,8 +29,9 @@ const MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
  * parsed path is what is returned.
  *
  * The parsed path is checked too, since it is what the router is handed. Removing dot segments can
- * leave one that names another site: `/..//evil.example` parses on this origin with the path
- * `//evil.example`. So the returned path must itself parse to this origin.
+ * leave one that names another site: a destination that opens with a dot segment and then two
+ * slashes before a host parses on this origin, with a path that opens with those two slashes. So
+ * the returned path must itself parse to this origin.
  */
 export function safeInternalPath(dest: string | null | undefined): string | null {
   if (typeof window === 'undefined' || !dest || !dest.startsWith('/')) return null
