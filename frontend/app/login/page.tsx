@@ -19,7 +19,7 @@ import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { ENABLE_APPLE_SIGNIN, TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
+import { consumePostAuthRedirect, safeInternalPath } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 
 /**
@@ -121,19 +121,16 @@ function LoginContent() {
       } catch {
         // Analytics must not block an otherwise current login.
       }
-      // Return the user to where they were headed before the auth gate. Only honour internal,
-      // single-slash-rooted paths: reject protocol-relative ("//evil") and backslash-prefixed
-      // ("/\\evil") values, which some browsers normalise into open redirects to external sites.
+      // Return the user to where they were headed before the auth gate. Only a path on this origin
+      // is honoured, as the URL parser reads it (`safeInternalPath`): "//evil", "/\\evil" and a
+      // slash followed by a tab or line break before another slash all name another site.
       // Fallback: the signup gate's stashed destination (consume-once, validated, 1h TTL) — it
       // survives the verification email's new-tab hop, which the ?redirect= thread cannot.
       // Consume even when the explicit destination wins, so a completed login cannot leave a
       // stale signup destination waiting for a later, unrelated login.
       const stashedDestination = consumePostAuthRedirect()
       const dest = searchParams.get('redirect') ?? stashedDestination
-      const safe =
-        dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
-          ? dest
-          : '/'
+      const safe = safeInternalPath(dest) ?? '/'
       router.push(safe)
       router.refresh()
     } catch (err: unknown) {

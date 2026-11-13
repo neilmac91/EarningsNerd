@@ -9,8 +9,8 @@
  * So the gate ALSO stashes its destination here (localStorage, deliberately not sessionStorage —
  * it must survive the new-tab hop), and login consumes it as the fallback when no `?redirect=`
  * param is present. Consume-once + a freshness window keep a stale stash from teleporting an
- * unrelated later login. Values are validated as single-slash-rooted internal paths on BOTH ends
- * (same rule as login's `?redirect=` handling: reject `//evil` and `/\evil` open-redirect forms).
+ * unrelated later login. Values are validated as internal paths on BOTH ends, by the one rule
+ * login's `?redirect=` handling uses (`safeInternalPath` below).
  */
 
 const KEY = 'en_post_auth_redirect'
@@ -18,8 +18,25 @@ const KEY = 'en_post_auth_redirect'
 // considered stale and ignored (and cleared), so an abandoned signup can't redirect next week's login.
 const MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
 
-const isSafeInternalPath = (path: string): boolean =>
-  path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\')
+/**
+ * The destination as a path on this origin, or null when it is not one. The one rule for every
+ * post-auth destination: login's `?redirect=` value and the stash, written and read.
+ *
+ * The URL parser decides, not a prefix test. It drops tabs and line breaks anywhere in its input and
+ * reads a backslash as a slash, so `/\t/evil.example`, `/\n/evil.example` and `/\\evil.example` all
+ * parse as `//evil.example`, another site, while each begins with one slash and passes a check of
+ * the first two characters. What the router would navigate to is what gets compared, and the
+ * parsed path is what is returned.
+ */
+export function safeInternalPath(dest: string | null | undefined): string | null {
+  if (typeof window === 'undefined' || !dest || !dest.startsWith('/')) return null
+  try {
+    const url = new URL(dest, window.location.origin)
+    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Build `/login` and `/register` hrefs that forward a post-signup `?redirect=` destination. One
@@ -28,7 +45,7 @@ const isSafeInternalPath = (path: string): boolean =>
  *
  * IMPORTANT: pass a RAW path (e.g. `/filing/123`), never a pre-encoded one — these encode exactly
  * once. A double-encode would survive the receiver's single decode as `%2Ffiling%2F123`, fail its
- * `startsWith('/')` internal-path check, and silently drop the redirect to `/`.
+ * internal-path check (`safeInternalPath`), and silently drop the redirect to `/`.
  */
 export function loginHrefWithRedirect(redirect?: string | null): string {
   return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
@@ -39,9 +56,10 @@ export function registerHrefWithRedirect(redirect?: string | null): string {
 }
 
 export function stashPostAuthRedirect(path: string): void {
-  if (typeof window === 'undefined' || !isSafeInternalPath(path)) return
+  const safe = safeInternalPath(path)
+  if (!safe) return
   try {
-    localStorage.setItem(KEY, JSON.stringify({ path, at: Date.now() }))
+    localStorage.setItem(KEY, JSON.stringify({ path: safe, at: Date.now() }))
   } catch {
     // Storage unavailable (private mode, quota) — the ?redirect= thread still works.
   }
@@ -58,7 +76,7 @@ export function consumePostAuthRedirect(): string | null {
     const { path, at } = parsed as { path?: unknown; at?: unknown }
     if (typeof path !== 'string' || typeof at !== 'number') return null
     if (Date.now() - at > MAX_AGE_MS) return null
-    return isSafeInternalPath(path) ? path : null
+    return safeInternalPath(path)
   } catch {
     return null
   }

@@ -51,6 +51,13 @@ describe('completed email-login redirect consumption', () => {
     ['/dashboard/watchlist', '/dashboard/watchlist'],
     ['//example.com', '/'],
     ['/\\example.com', '/'],
+    // The URL parser drops a tab or a line break and reads a backslash as a slash, so each of these is
+    // `//example.com`, another site, though it begins with a single slash.
+    ['/\t/example.com', '/'],
+    ['/\n/example.com', '/'],
+    ['/\r/example.com', '/'],
+    ['/\t\\example.com', '/'],
+    ['/filing/12#risk-factors', '/filing/12#risk-factors'],
   ])('consumes the stash when explicit destination %s completes at %s', async (explicit, expected) => {
     stashPostAuthRedirect('/pricing?billing=monthly')
     searchParams.set('redirect', explicit)
@@ -66,6 +73,19 @@ describe('completed email-login redirect consumption', () => {
     renderLogin()
     submitLogin()
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
+    expect(consumePostAuthRedirect()).toBeNull()
+  })
+
+  it.each(['/\t/example.com', '/\n/example.com', '/\\example.com', '//example.com', 'https://example.com/x'])(
+    'never stashes %j, a destination on another site',
+    (path) => {
+      stashPostAuthRedirect(path)
+      expect(localStorage.getItem('en_post_auth_redirect')).toBeNull()
+    },
+  )
+
+  it('refuses a stored destination on another site, however it came to be stored', () => {
+    localStorage.setItem('en_post_auth_redirect', JSON.stringify({ path: '/\t/example.com', at: Date.now() }))
     expect(consumePostAuthRedirect()).toBeNull()
   })
 
