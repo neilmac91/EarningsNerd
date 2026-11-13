@@ -155,7 +155,7 @@ openai==3.41.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via
     #   fastapi
     #   google-api-core
