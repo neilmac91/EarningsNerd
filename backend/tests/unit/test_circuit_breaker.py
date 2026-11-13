@@ -274,6 +274,113 @@ class TestCircuitBreakerConcurrency:
 
         await task1
 
+    @staticmethod
+    def _half_open_circuit(max_requests: int) -> CircuitBreaker:
+        return CircuitBreaker(
+            "test_probe_slots",
+            config=CircuitBreakerConfig(
+                failure_threshold=1,
+                success_threshold=2,
+                recovery_timeout=0.05,
+                half_open_max_requests=max_requests,
+            )
+        )
+
+    @staticmethod
+    async def _trip(circuit: CircuitBreaker) -> None:
+        with pytest.raises(EdgarTimeoutError):
+            async with circuit:
+                raise EdgarTimeoutError("test")
+        await asyncio.sleep(0.1)
+        assert circuit.state == CircuitState.HALF_OPEN
+
+    @pytest.mark.asyncio
+    async def test_a_probe_that_ends_after_the_circuit_reopened_gives_its_slot_back(self):
+        """Probes that end after another probe's failure reopened the circuit used to keep their
+        slots; once every slot was gone, each half-open window rejected every probe for good."""
+        circuit = self._half_open_circuit(3)
+        await self._trip(circuit)
+
+        for _ in range(4):  # more rounds than there are slots
+            first_failed = asyncio.Event()
+
+            async def failing_probe():
+                async with circuit:
+                    raise EdgarTimeoutError("still down")
+
+            async def slow_probe():
+                async with circuit:
+                    await first_failed.wait()  # ends only after the circuit has reopened
+
+            slow = [asyncio.create_task(slow_probe()) for _ in range(2)]
+            await asyncio.sleep(0)  # both slow probes are admitted
+            with pytest.raises(EdgarTimeoutError):
+                await failing_probe()
+            assert circuit._state == CircuitState.OPEN
+            first_failed.set()
+            await asyncio.gather(*slow)
+            await asyncio.sleep(0.1)
+            assert circuit.state == CircuitState.HALF_OPEN
+
+        # The service is back: two probes pass and the circuit closes.
+        async with circuit:
+            pass
+        async with circuit:
+            pass
+        assert circuit.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_a_call_admitted_while_closed_frees_no_probe_slot(self):
+        """A call admitted while the circuit was closed took no slot, so ending while the circuit is
+        half-open must not add one: the limit on concurrent probes would grow by one each time."""
+        circuit = self._half_open_circuit(1)
+        release = asyncio.Event()
+
+        async def long_call():
+            async with circuit:
+                await release.wait()
+
+        admitted_closed = asyncio.create_task(long_call())
+        await asyncio.sleep(0)
+        await self._trip(circuit)
+
+        probe_release = asyncio.Event()
+
+        async def probe():
+            async with circuit:
+                await probe_release.wait()
+
+        only_probe = asyncio.create_task(probe())
+        await asyncio.sleep(0)  # the one slot is taken
+        release.set()
+        await admitted_closed  # ends while half-open, having taken no slot
+
+        with pytest.raises(CircuitOpenError):
+            async with circuit:
+                pass
+
+        probe_release.set()
+        await only_probe
+
+    @pytest.mark.asyncio
+    async def test_a_manual_reset_frees_every_probe_slot(self):
+        circuit = self._half_open_circuit(1)
+        await self._trip(circuit)
+        release = asyncio.Event()
+
+        async def probe():
+            async with circuit:
+                await release.wait()
+
+        held = asyncio.create_task(probe())
+        await asyncio.sleep(0)
+        circuit.reset()
+        await self._trip(circuit)
+        async with circuit:  # the new window has its slot, though the old probe never ended
+            pass
+        release.set()
+        await held
+
 
 class TestRunWithCircuitBreaker:
     """The `run_with_circuit_breaker` wrapper is what S4 routes the primary edgartools calls
