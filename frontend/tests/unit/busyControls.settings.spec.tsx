@@ -653,7 +653,7 @@ describe('SettingsPage when the session is lost', () => {
     api.deleteUserAccount.mockResolvedValue({ message: 'Account deleted' })
     const { client } = renderWithClient(<SettingsPage />)
     fireEvent.click(await screen.findByRole('button', { name: 'Delete my account' }))
-    fireEvent.change(screen.getByPlaceholderText('delete my account'), { target: { value: 'delete my account' } })
+    fireEvent.change(screen.getByLabelText('Type "delete my account" to confirm:'), { target: { value: 'delete my account' } })
     // The deleted account's session is gone: the /me the cleared cache reads again answers no user.
     api.getCurrentUserSafe.mockResolvedValue(null)
     fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))

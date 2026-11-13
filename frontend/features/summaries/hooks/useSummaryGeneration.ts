@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import {
   getSummary,
   generateSummaryStream,
@@ -25,18 +24,6 @@ import { IN_PROGRESS_MARKER, isSummaryReady } from '../lib/summaryPlaceholder'
 // before any stream starts, so no matcher reads it; it says what to do.
 const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (!error) return null
-
-  if (isAxiosError(error)) {
-    const payload = error.response?.data as { detail?: string; message?: string } | string | undefined
-    if (typeof payload === 'string') return payload
-    if (payload?.detail) return payload.detail
-    if (payload?.message) return payload.message
-    if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
-      return 'The summary timed out. Try again to generate it.'
-    }
-    // axios's own message ("Network Error", "Request failed with status code 500") is transport text.
-    return 'The summary could not load. Try again.'
-  }
 
   // The API client's own status sentences are transport text, not copy (a dropped connection names the
   // API's URL): only a message the backend wrote reaches the card.

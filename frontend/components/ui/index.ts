@@ -24,8 +24,8 @@ export { DataTable, type DataTableProps, type Column, type CellTone, type SortSt
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 // A value the page does not have: the missing-value token, aria-hidden, beside words for assistive tech (E88).
 export { MissingValue, type MissingValueProps } from './MissingValue'
-// v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
-// components/StateCard.tsx notice card; one letter from StatCard the KPI tile).
+// v2.1: ui/StateCard renamed → GuidanceCard (it collided with the app's own
+// StateCard notice card, since replaced by Notice; one letter from StatCard the KPI tile).
 export { GuidanceCard, GuidanceIconWell, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'
 // The brand device's margin and in-text marker (DESIGN.md › Graphic device): the landing's evidence row and
 // the filing page's Risks section, around passages the server located (D-044).

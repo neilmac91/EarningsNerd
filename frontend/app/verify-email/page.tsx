@@ -31,14 +31,18 @@ function VerifyEmailContent() {
         setStatus('success')
         // Refresh cached identity so the banner/avatar dot clear immediately
         queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-        queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
-        setTimeout(() => router.push('/'), 3000)
       })
       .catch((err: unknown) => {
         setStatus('error')
         setErrorMessage(verifyEmailFailureMessage(err))
       })
-  }, [token, router, queryClient])
+  }, [token, queryClient])
+
+  useEffect(() => {
+    if (status !== 'success') return
+    const redirect = setTimeout(() => router.push('/'), 3000)
+    return () => clearTimeout(redirect)
+  }, [status, router])
 
   return (
     <AuthShell>

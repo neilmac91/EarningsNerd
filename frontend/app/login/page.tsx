@@ -40,7 +40,6 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_invalid: 'Google login failed. Please try again.',
   oauth_state_mismatch: 'Login session expired. Please try again.',
   google_token_failed: 'Could not complete Google login. Please try again.',
-  google_userinfo_failed: 'Could not retrieve your Google account info. Please try again.',
   google_missing_claims: 'Google did not return an email address. Please try again.',
   google_account_conflict: accountConflict('Google'),
   apple_denied: 'Apple login was cancelled.',

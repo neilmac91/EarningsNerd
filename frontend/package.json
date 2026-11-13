@@ -14,7 +14,6 @@
     "lhci": "lhci autorun",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "clean": "rimraf .next",
     "clean:all": "rimraf .next node_modules/.cache",

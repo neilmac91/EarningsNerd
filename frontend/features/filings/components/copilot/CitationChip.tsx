@@ -7,13 +7,7 @@ import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/cop
 import { useFilingViewer } from './FilingViewerContext'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
 import { useEvidencePopoverKeys } from './useEvidencePopoverKeys'
-
-// Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
-// malicious/unexpected scheme (e.g. javascript:) reaching the href: the backend builds these from
-// SEC URLs, but the excerpt portion is model-influenced, so we validate before linking. Defined in
-// this leaf component (and re-imported by CopilotMessage/FilingViewer) to avoid a circular import.
-export const isHttpUrl = (url: string | null): url is string =>
-  !!url && (url.startsWith('https://') || url.startsWith('http://'))
+import { isHttpUrl } from '@/features/filings/lib/originalDocumentUrl'
 
 interface CitationChipProps {
   citation: CopilotCitation

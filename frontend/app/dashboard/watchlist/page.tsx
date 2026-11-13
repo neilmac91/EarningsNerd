@@ -176,7 +176,7 @@ export default function WatchlistDashboardPage() {
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
               const progressStage = latest?.progress?.stage
-              const elapsedSeconds = latest?.progress?.elapsedSeconds ?? latest?.progress?.elapsed
+              const elapsedSeconds = latest?.progress?.elapsedSeconds
 
               return (
                 // Non-interactive card (nothing on it is clickable as a whole) —

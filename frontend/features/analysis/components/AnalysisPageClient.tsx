@@ -303,9 +303,11 @@ export default function AnalysisPageClient() {
 
   // Blob export via the shared axios client (auth-refresh + withCredentials — the filing-page
   // export pattern, F4); DOM download plumbing via the shared downloadBlob helper.
+  const [exportingPdf, setExportingPdf] = useState(false)
   const exportPdf = useCallback(() => {
     const analysisId = narrative.completion?.analysis_id
-    if (analysisId == null || !ticker) return
+    if (analysisId == null || !ticker || exportingPdf) return
+    setExportingPdf(true)
     setDatasetError(null)
     void exportAnalysisPdf(analysisId, narrative.completion?.snapshot_id)
       .then((blob) => {
@@ -321,7 +323,8 @@ export default function AnalysisPageClient() {
       .catch((err) =>
         setDatasetError(exportErrorMessage(err, 'PDF'))
       )
-  }, [narrative.completion?.analysis_id, narrative.completion?.snapshot_id, ticker, dataset?.mode, dataset?.period_key])
+      .finally(() => setExportingPdf(false))
+  }, [narrative.completion?.analysis_id, narrative.completion?.snapshot_id, ticker, dataset?.mode, dataset?.period_key, exportingPdf])
 
   // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
   // DATASET on screen — not the picker state, which the user may have changed since running —
@@ -516,6 +519,7 @@ export default function AnalysisPageClient() {
               onRefresh={() => startNarrative(true)}
               refreshDisabled={narrative.status === 'streaming'}
               onExport={exportPdf}
+              exporting={exportingPdf}
             />
             {/* The data notes are the table's fine print (D-061), 8px under its card, not a module's gap away. */}
             <div className="flex flex-col gap-2">

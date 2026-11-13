@@ -47,13 +47,6 @@ export const searchCompanies = async (query: string): Promise<Company[]> => {
 }
 
 export const getCompany = async (ticker: string): Promise<Company> => {
-  const response = await api.get(`/api/companies/${ticker}`)
-  return response.data
-}
-
-export const getTrendingCompanies = async (limit: number = 10): Promise<Company[]> => {
-  const response = await api.get('/api/companies/trending', {
-    params: { limit },
-  })
+  const response = await api.get(`/api/companies/${encodeURIComponent(ticker)}`)
   return response.data
 }

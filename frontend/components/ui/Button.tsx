@@ -29,14 +29,8 @@
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
 import { cx } from './cx'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'tertiary' | 'destructive'
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive'
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon-sm'
-
-/** 'tertiary' is the kept pre-v2 name for the ghost treatment — accepted as a
-    deprecated alias so the port is mechanical (3 call sites). New code: 'ghost'. */
-function resolveVariant(variant: ButtonVariant): Exclude<ButtonVariant, 'tertiary'> {
-  return variant === 'tertiary' ? 'ghost' : variant
-}
 
 const BASE = cx(
   'inline-flex select-none items-center justify-center gap-2 font-semibold',
@@ -83,7 +77,7 @@ function wrapWhenNarrow(size: Exclude<ButtonSize, 'icon-sm'>, className?: string
   return cx(NARROW_WRAP, !own('min-h-') && NARROW_MIN_H[size], !own('py-') && NARROW_PY[size])
 }
 
-const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
+const VARIANT: Record<ButtonVariant, string> = {
   primary: cx(
     'bg-brand text-white shadow-e1',
     'hover:bg-brand-strong',
@@ -138,8 +132,8 @@ export interface ButtonVariantsOptions {
 
 /** Class-string factory — the full button treatment WITHOUT the <button>
     element, for things styled as buttons that aren't buttons: <Link>s, <a>s,
-    summary triggers. Mirrors the kept repo Button's buttonVariants() export
-    (3 importers), so the port needs no invention:
+    summary triggers. Mirrors the kept repo Button's buttonVariants() export,
+    so the port needs no invention:
 
       <Link href="/pricing" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
 
@@ -149,7 +143,7 @@ export function buttonVariants({ variant = 'primary', size = 'md', wrap = false,
     size === 'icon-sm' ? cx(HEIGHT[size], 'whitespace-nowrap')
       : wrap ? cx(WRAP_SIZE[size], 'whitespace-normal')
       : cx(HEIGHT[size], 'whitespace-nowrap', wrapWhenNarrow(size, className)),
-    VARIANT[resolveVariant(variant)], className)
+    VARIANT[variant], className)
 }
 
 /** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is

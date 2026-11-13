@@ -5,15 +5,14 @@ import LandingRow from '@/features/marketing/components/LandingRow'
 import { TrailingArrowLabel } from '@/components/ui/TrailingArrowLabel'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import type { ReportingThisWeekResponse } from '@/lib/serverApi'
+import { isoDayOfWeek } from '../lib/dates'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 function dayLabel(isoDate: string): string {
   // earnings_date is a plain YYYY-MM-DD calendar date (already computed server-side
-  // against America/New_York) — parse as UTC midnight purely to read the weekday,
-  // no timezone-correct instant is needed.
-  const idx = new Date(`${isoDate}T00:00:00Z`).getUTCDay()
-  return DAY_LABELS[idx] ?? ''
+  // against America/New_York); isoDayOfWeek reads its weekday without a timezone.
+  return DAY_LABELS[isoDayOfWeek(isoDate)] ?? ''
 }
 
 function timeLabel(time: string | null): string | null {

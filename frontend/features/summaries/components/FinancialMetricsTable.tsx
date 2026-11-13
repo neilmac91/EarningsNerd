@@ -55,7 +55,7 @@ interface FinancialMetricsTableProps {
   // Highlights" header, because the structured page's section Card already supplies that title.
   // Default false preserves the self-contained card for the standalone/legacy call sites.
   bare?: boolean
-  /** The figure columns' periods; without them the headings read "Current period" and "Prior period". */
+  /** The figure columns' periods; without them the headings read "Current Period" and "Prior Period". */
   periods?: { current: PeriodHeading; prior: PeriodHeading }
   /** Says how the Change column is computed: its heading takes a dagger and the note follows the footer's. */
   changeNote?: string

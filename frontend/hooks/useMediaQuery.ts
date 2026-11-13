@@ -22,5 +22,3 @@ export function useMediaQuery(query: string, enabled = true): boolean {
 
   return enabled ? matches : false
 }
-
-export default useMediaQuery

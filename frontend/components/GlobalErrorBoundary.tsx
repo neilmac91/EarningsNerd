@@ -13,7 +13,6 @@ interface Props {
 interface State {
   hasError: boolean
   error?: Error
-  errorInfo?: ErrorInfo
 }
 
 /**
@@ -33,9 +32,6 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     // Log error to console in development
     console.error('Uncaught error:', error)
     console.error('Component stack:', errorInfo.componentStack)
-
-    // Store error info for display
-    this.setState({ errorInfo })
 
     // Report to Sentry through the SDK module (the old `window.Sentry` global was never set, so
     // every boundary catch was a silent no-op). No-op when the DSN is unset; never let it throw.
@@ -57,7 +53,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
+    this.setState({ hasError: false, error: undefined })
   }
 
   public render() {
@@ -109,5 +105,3 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     return this.props.children
   }
 }
-
-export default GlobalErrorBoundary

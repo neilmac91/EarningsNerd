@@ -166,22 +166,27 @@ describe('FullTextSearch date filters', () => {
 
   it('does not fire a request when the date range is inverted', async () => {
     vi.mocked(searchFullText).mockResolvedValue({ query: '', total: 0, count: 0, hits: [] })
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(
-      <QueryClientProvider client={qc}>
-        <FullTextSearch />
-      </QueryClientProvider>,
-    )
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={qc}>
+          <FullTextSearch />
+        </QueryClientProvider>,
+      )
 
-    fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2024-12-31' } })
-    fireEvent.change(screen.getByLabelText('Filed on or before'), { target: { value: '2024-01-01' } })
-    fireEvent.change(screen.getByLabelText(/Search the full text/i), {
-      target: { value: 'going concern' },
-    })
+      fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2024-12-31' } })
+      fireEvent.change(screen.getByLabelText('Filed on or before'), { target: { value: '2024-01-01' } })
+      fireEvent.change(screen.getByLabelText(/Search the full text/i), {
+        target: { value: 'going concern' },
+      })
 
-    expect(await screen.findByText(/start date must be on or before end date/i)).toBeInTheDocument()
-    await new Promise((resolve) => setTimeout(resolve, 400)) // past the 350ms debounce
-    expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
+      expect(screen.getByText(/start date must be on or before end date/i)).toBeInTheDocument()
+      await act(async () => { vi.runOnlyPendingTimers() }) // past the debounce, whatever its length
+      expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   // E81: under 200% text at 320px each field took the forms plugin's 1rem and Chrome's blank room for a six-digit year,

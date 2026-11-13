@@ -4,7 +4,7 @@ import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { formatInstant } from '@/lib/format'
 
-/** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
+/** The PNG header's period range, source line and disclosure. The range is the
  *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
  *  run's "FY2024"), and in the short form the spec renderer's card subtitle prints ("Q3 ’24–Q4 ’24"; charts/model.ts),
  *  which the header takes when the long one is wider than its strip. The source data's sync time, an instant, prints as the day it falls on in the
@@ -127,7 +127,7 @@ function faceDataUri(url: string): Promise<string | null> {
  * each text, the first family of its resolved stack that the page serves from a file is the family it
  * paints in; of that family's faces, those whose `unicode-range` covers one of the text's characters
  * are embedded, each keeping that range, without which the subsets would shadow one another (latin-ext
- * carries † alone). Resolves null when a needed face cannot be read, or when the text paints in a
+ * carries ₹, ₪ and ₱). Resolves null when a needed face cannot be read, or when the text paints in a
  * family the page loads from a stylesheet this script cannot read (one served from another origin):
  * the export then stops rather than paint a fallback. Exported for tests.
  */

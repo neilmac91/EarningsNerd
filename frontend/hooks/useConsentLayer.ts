@@ -13,5 +13,3 @@ const serverSnapshot = () => false
 export function useConsentLayer(): boolean {
   return useSyncExternalStore(subscribeConsentLayer, isConsentLayerVisible, serverSnapshot)
 }
-
-export default useConsentLayer

@@ -13,8 +13,10 @@
  * `[start, end)` offsets into a DOM Range to scroll to and flash-highlight.
  */
 
-// Minimum normalized (alphanumeric) length we'll attempt to match — mirrors the backend's
-// verification floor so we don't highlight on a too-short, ambiguous fragment.
+// Minimum normalized (alphanumeric) length we'll attempt to match, so we don't highlight on a
+// too-short, ambiguous fragment. Deliberately looser than the backend's verification floor
+// (provenance_service._MIN_VERIFIABLE_LEN = 24, counted with spaces and punctuation kept): this
+// only drives the viewer's find highlight, never a "verified in filing" claim.
 export const MIN_MATCH_LEN = 16
 
 export interface ExcerptMatch {
@@ -56,7 +58,7 @@ function normalizeWithMap(text: string): Normalized {
 // If the excerpt wraps the real quote in quotation marks (e.g. `Item 7: "Revenue rose 8%."`),
 // match on the quoted span only — mirrors the backend's extract_quoted_span intent.
 function stripToQuoted(excerpt: string): string {
-  const m = excerpt.match(/["“”']{1}([^"“”']{8,})["“”']{1}/)
+  const m = excerpt.match(/["“”]([^"“”]{8,})["“”]/)
   return m ? m[1] : excerpt
 }
 

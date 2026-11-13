@@ -3,11 +3,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // Keep the REAL ApiError class (the shape under test) but stub the axios instance so no
 // network request is made. getCurrentUser only calls `api.get('/api/auth/me')`.
 // `vi.hoisted` so the mock fn exists before the hoisted vi.mock factory runs.
-const { get } = vi.hoisted(() => ({ get: vi.fn() }))
+const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/lib/api/client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/client')>('@/lib/api/client')
-  return { ...actual, default: { get } }
+  return { ...actual, default: { get, post } }
 })
+vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: vi.fn() }))
 
 // Session helpers touch localStorage — stub them so we can assert calls without a DOM store.
 vi.mock('@/lib/api/session', async () => ({
@@ -19,8 +20,9 @@ vi.mock('@/lib/api/session', async () => ({
 
 import { ApiError } from '@/lib/api/client'
 import { getErrorStatus } from '@/lib/api/types'
-import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { clearSessionActive } from '@/lib/api/session'
+import { exportUserData, getCurrentUserSafe, register } from '@/features/auth/api/auth-api'
+import { clearSessionActive, markSessionActive } from '@/lib/api/session'
+import { downloadBlob } from '@/lib/downloadBlob'
 
 describe('getErrorStatus', () => {
   // Regression: the axios interceptor throws a custom ApiError whose status lives at the top
@@ -81,5 +83,29 @@ describe('getCurrentUserSafe', () => {
     }
     get.mockResolvedValue({ data: user })
     await expect(getCurrentUserSafe()).resolves.toEqual(user)
+  })
+})
+
+describe('register', () => {
+  // Verify-first registration sets no session (backend/app/routers/auth.py register), so the guest stays
+  // unmarked and a later 401 attempts no refresh.
+  it('leaves the session unmarked', async () => {
+    post.mockResolvedValue({ data: { message: 'Check your email' } })
+    vi.mocked(markSessionActive).mockClear()
+    await expect(register('new@example.test', 'test-only-password')).resolves.toEqual({ message: 'Check your email' })
+    expect(markSessionActive).not.toHaveBeenCalled()
+  })
+})
+
+describe('exportUserData', () => {
+  it('downloads through lib/downloadBlob, which revokes the object URL only after the download starts', async () => {
+    get.mockReset()
+    get.mockResolvedValue({ data: new Blob(['{}'], { type: 'application/json' }) })
+    await expect(exportUserData()).resolves.toEqual({ success: true })
+    expect(get).toHaveBeenCalledWith('/api/users/export', { responseType: 'blob' })
+    expect(downloadBlob).toHaveBeenCalledTimes(1)
+    const [blob, filename] = vi.mocked(downloadBlob).mock.calls[0]
+    expect(blob.type).toBe('application/json')
+    expect(filename).toMatch(/^earningsnerd_data_export_\d{4}-\d{2}-\d{2}\.json$/)
   })
 })

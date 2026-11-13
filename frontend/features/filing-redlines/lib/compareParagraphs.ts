@@ -56,7 +56,7 @@ function unmatched(paragraphs: string[], remaining: Map<string, number>): string
  */
 export function compareParagraphs(earlier: string, current: string): ParagraphComparison {
   const earlierParagraphs = paragraphs(earlier, 'Earlier filing')
-  const currentParagraphs = paragraphs(current, 'Current filing')
+  const currentParagraphs = paragraphs(current, 'Later filing')
   const removed = unmatched(earlierParagraphs, counts(currentParagraphs))
   const added = unmatched(currentParagraphs, counts(earlierParagraphs))
 

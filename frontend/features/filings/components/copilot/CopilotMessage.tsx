@@ -19,7 +19,8 @@ import {
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import type { KnownErrorCode } from '@/lib/api/client'
 import { isCopilotFairUseLimit, isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
-import CitationChip, { isHttpUrl } from './CitationChip'
+import CitationChip from './CitationChip'
+import { isHttpUrl } from '@/features/filings/lib/originalDocumentUrl'
 
 /* Visual language: the v2.2 "Ask answer" evidence block (frontend/DESIGN_SYSTEM.md,
    "Ask answer"): panel card chrome, mono answer register (.copilot-answer: DS

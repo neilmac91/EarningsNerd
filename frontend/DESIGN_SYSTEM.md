@@ -1,7 +1,6 @@
 # EarningsNerd Design System — usage conventions
 
-**Drop-in replacement for `frontend/DESIGN_SYSTEM.md`** (synced July 2026: single Sage accent,
-type v2, cream-audited contrast). Token *definitions* live in `frontend/tailwind.config.js`;
+Token *definitions* live in `frontend/tailwind.config.js`;
 this doc is the *how/why* + the rules learned the hard way. Read it before touching any UI;
 subagent briefs for UI work should link here and to [the root DESIGN.md](../DESIGN.md).
 
@@ -155,7 +154,7 @@ the debug payload panel).
   contextual alternates draw an x between digits, as in `p4x8n2wd`, as a multiplication sign).
   `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
   numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
-  numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule). Until Geist Mono
+  numerics render mono (DataTable numeric cells, the KPI strip's figures — the data-role rule). Until Geist Mono
   arrives (`font-display: swap`) the role paints in the platform's monospace, never a proportional face (§8, E199).
   **The figure face** is the data role on the analysis figures: MetricsTable's values, change lines and
   window column, KpiStrip's value and change line, the DataNoteMark marks and the evidence dialog's
@@ -484,7 +483,6 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  holds the delete button inside its card).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
-                 (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
 Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 and 48px) and one line
                  (whitespace-nowrap) unless `wrap` is set (the row above); icon-sm is a fixed 32px square.
@@ -1373,7 +1371,7 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  at 390 and 1480px, one line closed at 1480px); the later-filing line's places against the
                  shared backend/tests/fixtures/analysis_later_filings.json, which the backend's twin reads
                  too (tests/unit/later-filings.spec.tsx); the backend's tests/unit/test_export_note_marks.py
-                 reads this file's summary spans, five, so the line never joins the summary.
+                 reads DataNotes.tsx's summary spans, five, so the line never joins the summary.
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
@@ -2217,7 +2215,7 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  closes the sheet, storing nothing — and operable again once the modal closes, which is what
                  the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
                  chrome stays below the bar: a section nav passing through the bar's region on a short phone
-                 must not paint over a choice. The site header (z-50, top-anchored) stays above it: on a
+                 must not paint over a choice. The site header (z-header, top-anchored) stays above it: on a
                  short phone (320x568) its open mobile menu reaches the bar's region and covers a choice
                  until the user closes the menu (user-opened, user-closed; before, the bar covered the menu's
                  lower items instead). On a 390x844 phone a signed-in reader's open menu, with the Search and
@@ -3500,7 +3498,7 @@ timers and rAF loops, which need numbers). **No raw ms or bezier strings anywher
    ```
    grep -rnE '[0-9]+(\.[0-9]+)?m?s\b|cubic-bezier' app components features | grep -v 'var(--'
    ```
-   v3 token hygiene (MIGRATION-v3 §c) — expected hits: DataTable's internal `z-[5]`, the eslint-disabled
+   v3 token hygiene — expected hits: DataTable's internal `z-[5]`, the eslint-disabled
    aria-hidden glyphs (Badge ▲▼ `text-[10px]`, DataTable ▲▼ `text-[9px]`) and the brand-mandated
    GoogleSignInButton (`hover:bg-slate-50`, §9); nothing else:
    ```

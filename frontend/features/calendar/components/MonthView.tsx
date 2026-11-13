@@ -17,15 +17,15 @@
 ============================================================================= */
 
 import { cx } from '@/components/ui/cx'
-import { ClockIcon, MoonIcon, SunIcon, BellIcon } from '@/lib/icons'
+import { BellIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
 import type { CalendarEvent } from '../api/calendar-api'
 import { rankEvents, laneOf } from '../lib/lanes'
 import { addDaysIso, isoDayOfWeek, marketHolidayName, mondayOf, firstOfMonth } from '../lib/dates'
 import type { EarningsAlertsApi } from '../hooks/useCalendar'
+import { LANE_ICON } from './laneHeader'
 
 const DOWS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const GLYPH = { bmo: SunIcon, amc: MoonIcon, other: ClockIcon } as const
 
 export function MonthView({
   anchorIso,
@@ -128,7 +128,7 @@ export function MonthView({
                 </span>
                 {inMonth &&
                   top.map((ev) => {
-                    const Icon = GLYPH[laneOf(ev)]
+                    const Icon = LANE_ICON[laneOf(ev)]
                     return (
                       <span
                         key={`${ev.ticker}-${ev.event_date}`}

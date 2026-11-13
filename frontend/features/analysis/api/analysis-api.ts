@@ -336,8 +336,8 @@ export const streamAnalysis = async (
     }
   }
 
-  // Token coalescing — at most one onToken delivery per animation frame (see copilot-api.ts for
-  // the full rationale: per-token markdown re-parses were O(n²) jank on long answers).
+  // Token coalescing — at most one onToken delivery per animation frame, since per-token markdown
+  // re-parses were O(n²) jank on long answers.
   let tokenBuffer = ''
   let rafId: number | null = null
   const canRaf = typeof requestAnimationFrame === 'function'

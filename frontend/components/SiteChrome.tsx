@@ -14,7 +14,7 @@ export { isAuthRoute }
 /**
  * Skip link: the first focusable element on every page with the site header, so keyboard and
  * screen-reader users can bypass the header nav. Visually hidden until focused, then pinned
- * top-left above the sticky header (z-toast, above its z-50 / z-header). Targets the `#main` content wrapper in
+ * top-left above the sticky header (z-toast, above its z-header). Targets the `#main` content wrapper in
  * app/layout.tsx (a tabIndex=-1 div, because pages own their single <main> landmark and a second
  * <main> would nest landmarks).
  */

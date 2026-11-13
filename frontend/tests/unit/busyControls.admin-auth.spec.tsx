@@ -495,6 +495,24 @@ describe('Verification banner: Resend link stays focusable', () => {
     await screen.findByText('Verification email sent. Check your inbox.')
     expect(dismiss).toHaveFocus()
   })
+
+  it('shows and dismisses when blocked site data makes sessionStorage throw', async () => {
+    const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError') }
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked)
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked)
+    try {
+      const user = userEvent.setup()
+      withQueryClient(<VerificationBanner />)
+      await screen.findByRole('button', { name: 'Resend link' })
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+      expect(screen.queryByRole('button', { name: 'Resend link' })).toBeNull()
+      expect(getItem).toHaveBeenCalled()
+      expect(setItem).toHaveBeenCalled()
+    } finally {
+      getItem.mockRestore()
+      setItem.mockRestore()
+    }
+  })
 })
 
 describe('Email verification modal: Resend link stays focusable', () => {

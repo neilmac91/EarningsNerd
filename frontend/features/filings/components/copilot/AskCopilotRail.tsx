@@ -403,9 +403,6 @@ export default function AskCopilotRail({
           if (abortRef.current !== controller) return
           updateAssistant(assistantId, (m) => (m.status === 'reading' ? { status: 'reading' } : {}))
         },
-        // The API waits for a validated completion. These legacy callbacks cannot publish prose.
-        onToken: () => {},
-        onNotDisclosed: () => {},
         onComplete: (c: CopilotCompletion) => {
           if (abortRef.current !== controller) return
           abortRef.current = null

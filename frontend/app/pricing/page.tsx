@@ -67,13 +67,6 @@ function PricingQueryEffects({ onBillingResolved, onCheckoutCanceled }: {
     router.replace(query ? `/pricing?${query}` : '/pricing', { scroll: false })
   }, [checkoutCanceled, searchParams, router, onCheckoutCanceled])
 
-  useEffect(() => {
-    // Handle success from Stripe: refresh subscription status
-    if (searchParams.get('success') === 'true') {
-      router.refresh()
-    }
-  }, [searchParams, router])
-
   return null
 }
 

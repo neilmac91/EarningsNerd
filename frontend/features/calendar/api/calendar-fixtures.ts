@@ -1,10 +1,12 @@
 /* =============================================================================
    Earnings calendar — FIXTURES (features/calendar/api/calendar-fixtures.ts)
    -----------------------------------------------------------------------------
-   ⚠ NOT PRODUCTION DATA. This module stands in for the backend while
-   GET /api/calendar is being built. It is reachable ONLY through the dynamic
-   imports in calendar-api.ts, gated on NEXT_PUBLIC_CALENDAR_FIXTURES='true' —
-   delete the flag (or this file) and the page runs purely against the API.
+   ⚠ NOT PRODUCTION DATA. This module stands in for the backend (GET
+   /api/calendar) for local demos and for the CI browser jobs, which run no
+   backend and set NEXT_PUBLIC_CALENDAR_FIXTURES='true' (.github/workflows/ci.yml;
+   tests/e2e/fixtures/calendarWeek.ts). It is reachable ONLY through the dynamic
+   imports in calendar-api.ts, gated on that flag. Keep it while those specs
+   paint /calendar; with the flag off the page runs purely against the API.
 
    Shape honesty: everything here matches the §3.3 earnings_events contract,
    including the alert-cap 403s (free cap carries code='earnings_alert_limit';
