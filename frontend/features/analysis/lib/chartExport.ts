@@ -127,7 +127,7 @@ function faceDataUri(url: string): Promise<string | null> {
  * each text, the first family of its resolved stack that the page serves from a file is the family it
  * paints in; of that family's faces, those whose `unicode-range` covers one of the text's characters
  * are embedded, each keeping that range, without which the subsets would shadow one another (latin-ext
- * carries ₹, ₪ and ₱). Resolves null when a needed face cannot be read, or when the text paints in a
+ * carries †, ₹, ₪ and ₱). Resolves null when a needed face cannot be read, or when the text paints in a
  * family the page loads from a stylesheet this script cannot read (one served from another origin):
  * the export then stops rather than paint a fallback. Exported for tests.
  */

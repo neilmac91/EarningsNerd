@@ -86,7 +86,6 @@ docs/        Architecture, deployment, compliance, troubleshooting
 ops/         Operator tooling: the local verification launcher (ops/dev), readouts, detection SQL
 lessons/     One file per engineering rule learned from a review or an incident
 tasks/       Open items (todo.md) and the archive of finished work
-scripts/     Repo-level shell helpers (branch cleanup, performance comparison)
 ```
 
 Key API surface (full, always-current reference at `/docs`):

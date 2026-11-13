@@ -3,8 +3,9 @@ Smoke Test Suite - Critical Path Validation for EarningsNerd.
 
 These tests verify that the core functionality of the application is operational.
 They run in-process (TestClient against the suite's temporary SQLite database, outbound network
-blocked) as part of the backend suite, so they cannot observe a deployment; the post-deploy
-check is .github/workflows/prod-smoke.yml.
+blocked) as part of the backend suite, so they cannot observe a deployment. The check after each
+deploy is the `Verify health` step of `deploy-backend` in .github/workflows/ci.yml;
+.github/workflows/prod-smoke.yml is the nightly production smoke, which can also be dispatched.
 
 Usage:
     # Run from backend directory

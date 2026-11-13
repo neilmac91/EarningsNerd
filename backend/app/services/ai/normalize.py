@@ -2,7 +2,7 @@
 
 Pure string/collection normalizers used to decide whether a model-authored field carries real
 content and to canonicalize the risk-factor list. Leaf module — extracted verbatim from
-``openai_service`` and re-exported there for existing callers.
+``openai_service``; ``ai/summary_finalize.py`` is its caller.
 """
 from __future__ import annotations
 

@@ -88,7 +88,7 @@ def verify_ticker(ticker: str) -> bool:
     except Exception:  # noqa: BLE001
         from edgar import set_identity
         from app.public_email_addresses import SUPPORT_EMAIL
-        set_identity(os.environ.get("EDGAR_IDENTITY", f"EarningsNerd {SUPPORT_EMAIL}"))
+        set_identity(os.environ.get("EDGAR_IDENTITY", f"EarningsNerd/1.0 ({SUPPORT_EMAIL})"))
 
     _hr(f"{ticker}")
     try:

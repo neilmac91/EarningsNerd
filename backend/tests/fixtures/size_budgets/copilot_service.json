@@ -7,7 +7,7 @@
     "app/services/copilot/exceptions.py": 14,
     "app/services/copilot/fact_guards.py": 238,
     "app/services/copilot/figures.py": 197,
-    "app/services/copilot/prompt.py": 316,
+    "app/services/copilot/prompt.py": 315,
     "app/services/copilot/quotations.py": 430,
     "app/services/copilot/resolution.py": 182
   },

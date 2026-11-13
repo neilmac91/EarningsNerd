@@ -109,6 +109,7 @@ describe('ui/Modal keyboard contract', () => {
     render(<Host dismissible={false} />)
     const { user, dialog } = await openFromOpener()
     await user.keyboard('{Escape}')
+    fireEvent.mouseDown(dialog.parentElement as HTMLElement)
     fireEvent.click(dialog.parentElement as HTMLElement)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })

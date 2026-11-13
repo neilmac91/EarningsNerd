@@ -4,7 +4,8 @@ Reuses the existing LLM-free diff engine (`dashboard_feed_service.compute_what_c
 deltas, assembled into one report for the filing page. The lead framing is the deterministic
 `metrics.headline`; `Summary.key_changes` is deprecated (still written for API compat, no longer
 surfaced here — it duplicated the Outlook section verbatim; T1.6 / plan §2.3). Pure where it counts
-(report assembly is unit-testable); only the prior-filing lookup touches the DB.
+(report assembly is unit-testable); the prior-filing lookup and, where section access allows, the
+section-text lookup are the only DB reads.
 
 The brand stance (signal over noise): everything here is deterministic and conservative. Stored risk
 labels are model-authored, so the report carries no risk lines (``risks`` stays null).

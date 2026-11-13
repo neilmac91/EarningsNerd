@@ -1,8 +1,10 @@
 # Apple Sign In — Configuration Runbook (Increment 4)
 
-Status: **configured and live.** The backend exchange and the button's wiring have shipped, and
-Apple sign-in was configured in production on 2026-06-28. This runbook stays as the reference for
-repeating the setup (a new environment, a key rotation). Everything below is split into *what you do*
+Status: **the code has shipped.** The backend exchange (`/api/auth/apple`, `/apple/start`,
+`/apple/callback`) and the button's wiring are on main; the button shows only where
+`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN` is set. Whether production holds the Apple credentials is not
+recorded in this repository. This runbook is the reference for the setup (a new environment, a key
+rotation). Everything below is split into *what you do*
 and *what the code does*.
 
 Once it is set up, the check of what a person sees before signing in with Apple (or Google) is

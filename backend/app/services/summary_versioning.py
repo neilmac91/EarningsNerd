@@ -11,7 +11,8 @@ Bump ``SUMMARY_SCHEMA_VERSION`` when the ``sections`` shape changes (v2 = the co
 re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any content-affecting change to the
 generation prompt — whether the per-form ``backend/prompts/*-agent.md`` preambles OR the shared
 inline Rules/schema block in ``app/services/ai/summary_prompt.py`` (``SCHEMA_TEMPLATE`` and the Rules)
-and ``app/services/ai/section_recovery.py`` (all feed the same prompt). Bumping either makes prior rows version-stale but does not regenerate them on read or
+and ``app/services/ai/section_recovery.py`` (the primary prompt and the section-recovery prompt both
+shape summary content). Bumping either version makes prior rows version-stale but does not regenerate them on read or
 schedule a drain. The admin ``refresh-stale`` endpoint defaults to dry-run; an explicit non-dry-run
 call invokes background generation in place (preserving ``summaries.id`` so saved-summary
 bookmarks survive).

@@ -117,7 +117,9 @@ curl -s https://api.earningsnerd.io/health ; echo
 ```
 ✅ Success: returns `{"status":"healthy"}` from the new origin.
 
-## Phase 9 (optional, last) — Weekly example-refresh cron
+## Phase 9 (last) — Weekly example-refresh cron
+The schedule is optional; the job is not. `deploy-backend` updates the job's image on every deploy
+with no existence check, so create the job before the first CI deploy.
 ```bash
 gcloud run jobs create earningsnerd-pregenerate \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
