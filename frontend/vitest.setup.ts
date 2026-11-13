@@ -3,9 +3,6 @@ if (typeof window !== 'undefined') {
   await import('@testing-library/jest-dom/vitest')
 }
 
-// Enable feature flags for tests.
-process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS = 'true'
-
 class ResizeObserverMock {
   observe() {}
   unobserve() {}

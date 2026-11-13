@@ -8,7 +8,7 @@ import {
   sourceLinkLabel,
 } from '@/features/filings/lib/evidenceLabels'
 
-// The figure panel's status line says only what the server checked (lib/evidenceLabels.ts): a figure it did not check
+// The figure panel's status line says only what the server checked (features/filings/lib/evidenceLabels.ts): a figure it did not check
 // is linked, a matched one names the filed amounts it matched, and a replaced one names both the filed amount shown
 // and the summary's own figure it replaced (provenance_service._swap_in_filed_figures).
 describe('figureNote', () => {

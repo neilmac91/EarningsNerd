@@ -14,7 +14,7 @@ vi.mock('@/lib/api/session', () => ({
 }))
 
 function handlers(): CopilotHandlers {
-  return { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn(), onNotDisclosed: vi.fn(), onProgress: vi.fn() }
+  return { onComplete: vi.fn(), onError: vi.fn(), onProgress: vi.fn() }
 }
 const enc = new TextEncoder()
 const sse = (obj: unknown) => `data: ${JSON.stringify(obj)}\n\n`
@@ -49,8 +49,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     wire.send(sse({ type: 'token', text: 'UNADMITTED DRAFT' }) + sse({ type: 'not_disclosed', answer: 'UNADMITTED ABSENCE' }))
     wire.send(sse({ type: 'progress', stage: 'MODEL DRAFT' }) + sse({ type: 'activity', label: 'MODEL ARGUMENT' }))
     await settle()
-    expect(h.onToken).not.toHaveBeenCalled()
-    expect(h.onNotDisclosed).not.toHaveBeenCalled()
     expect(h.onComplete).not.toHaveBeenCalled()
     expect(h.onProgress).toHaveBeenCalledWith('reading')
     const final = sse({ type: 'complete', ...completion })
@@ -92,8 +90,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     wire.send(sse({ type: 'token', text: 'private candidate' }) + sse({ type: 'complete', ...completion, ...patch }))
     await task
     expect(h.onComplete).not.toHaveBeenCalled()
-    expect(h.onToken).not.toHaveBeenCalled()
-    expect(h.onNotDisclosed).not.toHaveBeenCalled()
     expect(h.onError).toHaveBeenCalledExactlyOnceWith("I couldn't verify the cited evidence, so I couldn't provide this answer.")
     expect(wire.cancel).toHaveBeenCalledOnce()
     expect(vi.getTimerCount()).toBe(0)
@@ -116,7 +112,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     wire.send(sse({ type: 'complete', ...payload }))
     await task
     expect(h.onComplete).toHaveBeenCalledExactlyOnceWith(payload)
-    expect(h.onNotDisclosed).not.toHaveBeenCalled()
   })
 
   it.each([['F 2', 'F2'], ['f \t2', 'f2']])('normalizes source ID %s for the shared marker renderer', async (n, canonical) => {
@@ -217,7 +212,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     }
     await task
     expect(h.onError).toHaveBeenCalledExactlyOnceWith("I couldn't complete this answer. Try again.")
-    expect(h.onToken).not.toHaveBeenCalled()
     expect(h.onComplete).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
   })
@@ -232,7 +226,6 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     await settle()
     await vi.advanceTimersByTimeAsync(90000)
     expect(h.onError).not.toHaveBeenCalled()
-    expect(h.onToken).not.toHaveBeenCalled()
     wire.send(sse({ type: 'complete', ...completion }))
     await task
     expect(h.onComplete).toHaveBeenCalledExactlyOnceWith(completion)

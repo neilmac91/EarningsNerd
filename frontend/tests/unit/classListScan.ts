@@ -1,9 +1,10 @@
 /* =============================================================================
    classListScan.ts — the class lists the design gates read
    -----------------------------------------------------------------------------
-   Shared by tests/unit/pulsingMarkAllowlist.spec.ts and
-   tests/unit/spinnerAllowlist.spec.ts, whose headers state what each one looks
-   for and whose planted forms hold this reader. A gate passes a test over a
+   Shared by the class-list design gates (git grep classListScan: pulsingMarkAllowlist,
+   spinnerAllowlist, copilotFocusKeepsThePage, newTabCue, trailingArrowInk and
+   trailingArrowRun specs), whose headers state what each one looks for and whose
+   planted forms hold this reader. A gate passes a test over a
    list's tokens; a site is the innermost list that passes it, counted once (a
    list, not an element: an element whose ternary picks between two such lists
    counts two):

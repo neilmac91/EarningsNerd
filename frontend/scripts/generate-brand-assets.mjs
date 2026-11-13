@@ -37,7 +37,7 @@
    one's sha256 and fails until you do.
 
    Run: npm run brand:assets
-   Requires devDeps sharp + png-to-ico + playwright. If playwright's managed
+   Requires devDeps sharp + png-to-ico + @playwright/test. If playwright's managed
    chromium isn't installed (e.g. CI containers with a system chromium), set
    BRAND_CHROMIUM=/path/to/chrome.
 ============================================================================= */
@@ -46,7 +46,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import sharp from 'sharp'
 import pngToIco from 'png-to-ico'
-import { chromium } from 'playwright'
+import { chromium } from '@playwright/test'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..') // frontend/

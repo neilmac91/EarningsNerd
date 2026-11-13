@@ -30,5 +30,3 @@ export const stripInternalNotices = (markdown: string): string => {
 
   return lines.slice(startIndex).join('\n')
 }
-
-export default stripInternalNotices

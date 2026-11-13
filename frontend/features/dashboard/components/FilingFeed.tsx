@@ -24,7 +24,7 @@ export default function FilingFeed({
 }) {
   const feedQuery = useQuery({
     queryKey: queryKeys.dashboardFeed(),
-    queryFn: () => getDashboardFeed(20),
+    queryFn: () => getDashboardFeed(MAX_CARDS + 1),
     retry: false,
     enabled,
   })
@@ -38,7 +38,7 @@ export default function FilingFeed({
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
   // Overflow count comes from the watchlist (companies followed), never data.length: the feed array
-  // is capped at the fetch limit, so data.length would misreport "See all 20 companies" for a user
+  // is capped at the fetch limit, so data.length would misreport "See all 7 companies" for a user
   // following 30. When the true count isn't known, drop the number rather than show a wrong one.
   const hasMore =
     watchlistCount != null ? watchlistCount > visible.length : (data?.length ?? 0) > MAX_CARDS

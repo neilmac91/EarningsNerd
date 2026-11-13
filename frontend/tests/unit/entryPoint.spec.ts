@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import { getEntryPoint } from '@/lib/entryPoint'
 
@@ -15,8 +15,6 @@ function setReferrer(referrer: string) {
 }
 
 describe('getEntryPoint', () => {
-  afterEach(() => vi.restoreAllMocks())
-
   it('prefers an explicit ?entry= param over the referrer', () => {
     setLocation('?entry=hero')
     setReferrer('https://www.earningsnerd.io/')

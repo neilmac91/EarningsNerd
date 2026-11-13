@@ -114,7 +114,7 @@ const PINNED: Record<string, { z: Record<string, number>; reason: string }> = {
   },
   'features/feedback/components/FeedbackWidget.tsx': {
     z: { '30': 1 },
-    reason: 'the feedback launcher, bottom-left at scrim level, beneath the Ask chrome',
+    reason: 'the feedback launcher, bottom-left at the sticky rung (z-30), beneath the consent bar and the Ask chrome',
   },
 }
 /** The pins' frozen totals: files, sites and the highest z any pinned site may use. */

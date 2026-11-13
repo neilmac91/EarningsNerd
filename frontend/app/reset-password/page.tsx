@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -21,6 +21,12 @@ function ResetPasswordContent() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (!success) return
+    const redirect = setTimeout(() => router.push('/login'), 3000)
+    return () => clearTimeout(redirect)
+  }, [success, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (loading) return
@@ -39,7 +45,6 @@ function ResetPasswordContent() {
     try {
       await resetPassword(token, password)
       setSuccess(true)
-      setTimeout(() => router.push('/login'), 3000)
     } catch (err: unknown) {
       setError(isApiError(err) ? getErrorMessage(err) : 'Reset failed. The link may have expired.')
     } finally {

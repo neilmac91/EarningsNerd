@@ -39,8 +39,14 @@ export default function VerificationBanner() {
   const statusRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
+    let stored = false
+    try {
+      stored = sessionStorage.getItem(DISMISS_KEY) === '1'
+    } catch {
+      // Blocked site data makes sessionStorage throw (SecurityError): the banner shows, undismissed.
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time sessionStorage read; effect is the SSR-safe way to hydrate the dismissed flag
-    setDismissed(sessionStorage.getItem(DISMISS_KEY) === '1')
+    setDismissed(stored)
   }, [])
 
   useEffect(() => {
@@ -74,7 +80,11 @@ export default function VerificationBanner() {
   }
 
   const handleDismiss = () => {
-    sessionStorage.setItem(DISMISS_KEY, '1')
+    try {
+      sessionStorage.setItem(DISMISS_KEY, '1')
+    } catch {
+      // Blocked storage: the dismissal holds until the page reloads.
+    }
     setDismissed(true)
   }
 

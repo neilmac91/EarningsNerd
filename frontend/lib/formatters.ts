@@ -2,66 +2,6 @@ import type { RiskFactor } from '@/types/summary'
 
 const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
 
-// Mirrors backend summary_sections.PLACEHOLDER_PATTERNS: "data unavailable" filler the page hides.
-const PLACEHOLDER_PATTERNS = [
-  'not available',
-  'unavailable',
-  'n/a',
-  'retry',
-  'requires full',
-  'data pending',
-  'being processed',
-  'taking longer',
-  'preliminary',
-  'placeholder',
-  'available in the full',
-]
-
-/** True for non-strings, empties, or "data unavailable" filler — content the page must not show. */
-export const isPlaceholderText = (text: string | undefined | null): boolean => {
-  if (!text || typeof text !== 'string') return true
-  const lowered = text.toLowerCase().trim()
-  if (lowered.length === 0) return true
-  return PLACEHOLDER_PATTERNS.some((pattern) => lowered.includes(pattern))
-}
-
-export const renderMarkdownValue = (value: unknown): string => {
-  if (value === null || value === undefined) {
-    return ''
-  }
-  if (typeof value === 'string') {
-    return value
-  }
-  if (Array.isArray(value)) {
-    const items = value
-      .map((item) => {
-        const rendered = renderMarkdownValue(item)
-        return rendered ? `- ${rendered}` : ''
-      })
-      .filter(Boolean)
-    return items.join('\n')
-  }
-  if (typeof value === 'object') {
-    return Object.entries(value)
-      .map(([key, val]) => {
-        const formattedKey = key
-          .replace(/_/g, ' ')
-          .replace(/\b\w/g, (char) => char.toUpperCase())
-        const rendered = renderMarkdownValue(val)
-        if (!rendered) {
-          return ''
-        }
-        if (typeof val === 'object' && val !== null) {
-          return `${formattedKey}:\n${rendered}`
-        }
-        return `${formattedKey}: ${rendered}`
-      })
-      .filter(Boolean)
-      .join('\n')
-  }
-  return String(value)
-}
-
 export const formatEvidence = (value: unknown): string => {
   if (!value) return ''
   if (Array.isArray(value)) {

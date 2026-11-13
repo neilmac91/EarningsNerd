@@ -126,6 +126,25 @@ describe('the Toaster on tokens (chrome/F4)', () => {
     expect(props.richColors).toBeFalsy()
   })
 
+  it('falls back to light, rather than throwing, when blocked site data makes localStorage throw', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('The operation is insecure.', 'SecurityError')
+    })
+    try {
+      await act(async () => {
+        render(
+          <ThemeProvider>
+            <ThemedToaster />
+          </ThemeProvider>,
+        )
+      })
+      expect(getItem).toHaveBeenCalledWith('theme')
+      expect(captured[captured.length - 1].theme).toBe('light')
+    } finally {
+      getItem.mockRestore()
+    }
+  })
+
   it('styles every class slot with token classes only', async () => {
     const props = await renderToaster('light')
     const classNames = (props.toastOptions?.classNames ?? {}) as Record<string, string>

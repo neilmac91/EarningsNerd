@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { memo, useCallback } from 'react'
-import posthog from 'posthog-js'
 import CompanyLogo from '@/components/CompanyLogo'
+import { analytics } from '@/lib/analytics'
 
 // Rule 6.2: Hoist static data outside component to prevent recreation
 const TOP_COMPANIES = [
@@ -24,7 +24,7 @@ const TOP_COMPANIES = [
 function QuickAccessBar() {
   // Track clicks for analytics
   const handleClick = useCallback((ticker: string) => {
-    posthog.capture('quick_access_click', { ticker })
+    analytics.quickAccessClicked(ticker)
   }, [])
 
   return (

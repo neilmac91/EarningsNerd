@@ -24,7 +24,8 @@
  * property appear only after hydration: SSR markup stays deterministic and nothing mismatches.
  *
  * This module changes nothing about consent itself: what is stored, the `cookieConsentChanged`
- * event and the analytics gating stay in components/CookieConsent.tsx.
+ * event and the analytics gating live in lib/browserConsent.ts; components/CookieConsent.tsx is
+ * the bar's UI.
  *
  * Gate: tests/unit/bottomChromeLadder.spec.ts (no fixed chrome outranks the workspace layers at
  * the launcher corner; the pinned bottom chrome takes this inset).

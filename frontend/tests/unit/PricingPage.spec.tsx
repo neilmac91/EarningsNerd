@@ -87,7 +87,6 @@ vi.mock('@/lib/analytics', () => ({
 }))
 
 // Trim chrome/icon deps so the test stays focused on pricing logic.
-vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/SecondaryHeader', () => ({ default: () => null }))
 
 function renderPricing(initialSubscription?: SubscriptionStatus) {

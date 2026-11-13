@@ -478,10 +478,7 @@ export default function DashboardPage() {
                       {usage?.summaries_used || 0} / {usage?.summaries_limit ?? FREE_SUMMARY_LIMIT} summaries
                     </span>
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">
-                      {usage?.summaries_limit
-                        ? Math.max(0, usage.summaries_limit - (usage.summaries_used || 0))
-                        : 0}{' '}
-                      remaining
+                      {summariesLeft} remaining
                     </span>
                   </div>
                   <UsageMeter used={usage?.summaries_used ?? 0} limit={usage?.summaries_limit} />

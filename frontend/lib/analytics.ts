@@ -132,6 +132,10 @@ export const analytics = {
     })
   },
 
+  quickAccessClicked: (ticker: string) => {
+    safeCapture('quick_access_click', { ticker })
+  },
+
   // Closes the search→navigation loop: fired when a user actually selects a result, so
   // search → company_viewed conversion is causal (not just inferred from a later page view).
   companySearchResultClicked: (query: string, ticker: string, position: number) => {
@@ -496,13 +500,6 @@ export const analytics = {
   checkoutStarted: (plan: string, price: number, billingCycle: string) => {
     // price is the selected cycle's full charge in dollars; the server decides the actual charge.
     safeCapture('checkout_started', { plan, price, billing_cycle: billingCycle })
-  },
-
-  errorOccurred: (error: string, context?: Record<string, unknown>) => {
-    safeCapture('error_occurred', {
-      error,
-      ...context,
-    })
   },
 
   dataExported: (userId: string) => {

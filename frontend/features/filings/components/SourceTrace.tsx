@@ -9,6 +9,7 @@ import { useSheetFocusTrap } from '@/features/filings/components/copilot/useShee
 import { useEvidencePopoverKeys } from '@/features/filings/components/copilot/useEvidencePopoverKeys'
 import { shownTwin } from '@/features/filings/lib/layoutTwin'
 import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { isHttpUrl } from '@/features/filings/lib/originalDocumentUrl'
 import { passageLabel, passageNote, sourceLinkLabel } from '@/features/filings/lib/evidenceLabels'
 
 /**
@@ -28,9 +29,6 @@ import { passageLabel, passageNote, sourceLinkLabel } from '@/features/filings/l
  * focus while open. Nothing here reads plan or auth state: the route to the source is the same for
  * anonymous, free and Pro visitors.
  */
-
-const isHttpUrl = (u: string | null | undefined): u is string =>
-  !!u && (u.startsWith('https://') || u.startsWith('http://'))
 
 interface SourceTraceProps {
   url?: string | null

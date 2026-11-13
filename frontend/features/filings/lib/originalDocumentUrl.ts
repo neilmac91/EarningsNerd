@@ -1,4 +1,6 @@
-const isHttpUrl = (u: string | null | undefined): u is string =>
+// Only render a URL as an active link when it is http(s). Defense-in-depth against an unexpected scheme
+// (e.g. javascript:) reaching an href: citation URLs carry a model-influenced excerpt, so validate before linking.
+export const isHttpUrl = (u: string | null | undefined): u is string =>
   !!u && (u.startsWith('https://') || u.startsWith('http://'))
 
 /**

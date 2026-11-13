@@ -236,6 +236,7 @@ export default function NarrativePane({
   onRefresh,
   refreshDisabled,
   onExport,
+  exporting = false,
   sample = false,
 }: {
   state: NarrativeState
@@ -244,6 +245,8 @@ export default function NarrativePane({
   refreshDisabled?: boolean
   /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
   onExport?: () => void
+  /** A PDF download is in flight: the button shows its busy state and refuses a second click. */
+  exporting?: boolean
   /** Teaser mode: the payload is one saved run of the pipeline, not the reader's own analysis, so a
    *  "Sample data" badge stands in for the live run's source count and Cached badges (F3). */
   sample?: boolean
@@ -326,8 +329,15 @@ export default function NarrativePane({
         {state.status === 'done' && !notEnoughData && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {onExport && completion?.analysis_id != null && (
-              <Button size="sm" variant="secondary" wrap className="max-w-full" onClick={onExport}>
-                <DownloadSimpleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <Button
+                size="sm"
+                variant="secondary"
+                wrap
+                className="max-w-full"
+                onClick={onExport}
+                loading={exporting}
+                leftIcon={<DownloadSimpleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+              >
                 Export PDF
               </Button>
             )}

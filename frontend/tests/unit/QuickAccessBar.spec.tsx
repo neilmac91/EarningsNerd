@@ -11,17 +11,17 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-// Mock PostHog
-const mockCapture = vi.fn()
-vi.mock('posthog-js', () => ({
-  default: {
-    capture: (event: string, properties: Record<string, unknown>) => mockCapture(event, properties),
+// Mock the analytics facade
+const mockQuickAccessClicked = vi.fn()
+vi.mock('@/lib/analytics', () => ({
+  analytics: {
+    quickAccessClicked: (ticker: string) => mockQuickAccessClicked(ticker),
   },
 }))
 
 describe('QuickAccessBar', () => {
   beforeEach(() => {
-    mockCapture.mockClear()
+    mockQuickAccessClicked.mockClear()
   })
 
   it('renders all 8 companies', () => {
@@ -57,19 +57,19 @@ describe('QuickAccessBar', () => {
     const nvidiaLink = screen.getByTestId('quick-access-NVDA')
     fireEvent.click(nvidiaLink)
 
-    expect(mockCapture).toHaveBeenCalledWith('quick_access_click', { ticker: 'NVDA' })
+    expect(mockQuickAccessClicked).toHaveBeenCalledWith('NVDA')
   })
 
   it('tracks different tickers correctly', () => {
     render(<QuickAccessBar />)
 
     fireEvent.click(screen.getByTestId('quick-access-AAPL'))
-    expect(mockCapture).toHaveBeenCalledWith('quick_access_click', { ticker: 'AAPL' })
+    expect(mockQuickAccessClicked).toHaveBeenCalledWith('AAPL')
 
     fireEvent.click(screen.getByTestId('quick-access-BABA'))
-    expect(mockCapture).toHaveBeenCalledWith('quick_access_click', { ticker: 'BABA' })
+    expect(mockQuickAccessClicked).toHaveBeenCalledWith('BABA')
 
-    expect(mockCapture).toHaveBeenCalledTimes(2)
+    expect(mockQuickAccessClicked).toHaveBeenCalledTimes(2)
   })
 
   it('renders as a labelled navigation landmark', () => {

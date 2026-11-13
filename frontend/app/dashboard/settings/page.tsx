@@ -264,7 +264,7 @@ export default function SettingsPage() {
                 </Notice>
 
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  <label htmlFor="delete-account-confirm" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                     Type &quot;delete my account&quot; to confirm:
                   </label>
                   {/* Raw input + inputClasses(): the destructive-confirm field keeps its
@@ -273,6 +273,7 @@ export default function SettingsPage() {
                       form, so Enter here submits nothing), so focus is on Confirm, never on this
                       field or on Cancel, when they flip. */}
                   <input
+                    id="delete-account-confirm"
                     type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}

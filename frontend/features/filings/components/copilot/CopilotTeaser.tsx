@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { CheckCircleIcon, LightningIcon, LockSimpleIcon } from '@/lib/icons'
 import { analytics } from '@/lib/analytics'
+import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Button } from '@/components/ui'
 
 interface CopilotTeaserProps {
@@ -97,7 +98,7 @@ export default function CopilotTeaser({
       {!isAuthenticated && (
         <p className="mt-3 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Already Pro?{' '}
-          <Link href="/login" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+          <Link href={loginHrefWithRedirect(`/filing/${filingId}`)} className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Log in
           </Link>
         </p>

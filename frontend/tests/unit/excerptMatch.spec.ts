@@ -41,6 +41,16 @@ describe('findExcerptMatch', () => {
     expect(haystack.slice(m!.start, m!.end)).toContain('operating margin expanded to 30.1 percent')
   })
 
+  it('treats straight apostrophes as part of the passage, not as quote marks', () => {
+    const haystack = "Overview. The Company's net sales and the segment's operating income declined in fiscal 2024. Other."
+    const excerpt = "The Company's net sales and the segment's operating income declined in fiscal 2024."
+    const m = findExcerptMatch(haystack, excerpt)
+    expect(m).not.toBeNull()
+    expect(haystack.slice(m!.start, m!.end)).toBe(
+      "The Company's net sales and the segment's operating income declined in fiscal 2024",
+    )
+  })
+
   it('anchors via a leading-prefix fallback when the model added a trailing clause', () => {
     const haystack = 'We expect gross margin to remain stable in the coming year.'
     const excerpt = 'We expect gross margin to remain stable in the coming year, per management commentary.'

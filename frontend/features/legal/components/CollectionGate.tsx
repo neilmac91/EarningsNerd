@@ -7,8 +7,7 @@ import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { CollectionLoading } from './CollectionLoading'
 import { useLegalReadiness } from '../hooks/useLegalReadiness'
 import type { LegalReadiness } from '../api/legal-api'
-
-const legalLinkClass = 'box-decoration-clone rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
+import { legalLinkClass } from '../lib/legalLinkClass'
 
 export function CollectionUnavailable({ title, description, showLogin = true }: { title: string; description?: string; showLogin?: boolean }) {
   return <Notice variant="info" title={title} description={<>

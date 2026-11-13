@@ -9,10 +9,6 @@ interface PeekLockedProps {
   children: ReactNode
   /** Feature name for the upgrade prompt, e.g. "8-K alerts". */
   feature?: string
-  /** Short pill text shown over the locked content. Defaults to "Pro". */
-  pill?: string
-  /** Override the click behaviour (default opens the UpgradeModal). */
-  onUpgradeClick?: () => void
   /**
    * How much of the locked content shows. 'full' (the default) shows all of it, with the upgrade action
    * centred on its whole height. 'screen' shows about one screen of it, fading out at its foot, with the
@@ -47,9 +43,8 @@ function makeInert(node: HTMLDivElement | null) {
  *
  *   <PeekLocked feature="Real-time alerts"><AlertsPanel /></PeekLocked>
  */
-export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeClick, preview = 'full' }: PeekLockedProps) {
+export default function PeekLocked({ children, feature, preview = 'full' }: PeekLockedProps) {
   const [modalOpen, setModalOpen] = useState(false)
-  const handleClick = onUpgradeClick ?? (() => setModalOpen(true))
 
   return (
     <div data-peek-locked={preview} className="relative overflow-hidden rounded-xl">
@@ -65,22 +60,20 @@ export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeC
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background-light/40 dark:bg-background-dark/40">
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-bright-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-3 py-1 text-xs font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-full bg-brand text-white dark:bg-brand-dark dark:text-background-dark px-3 py-1 text-xs font-semibold">
           <LockSimpleIcon className="h-3 w-3" />
-          {pill}
+          Pro
         </span>
         <button
           type="button"
-          onClick={handleClick}
+          onClick={() => setModalOpen(true)}
           className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-bright-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2 text-sm font-semibold shadow-e2 transition active:scale-[0.99]"
         >
           Upgrade to Pro
         </button>
       </div>
 
-      {onUpgradeClick ? null : (
-        <UpgradeModal open={modalOpen} onClose={() => setModalOpen(false)} feature={feature} />
-      )}
+      <UpgradeModal open={modalOpen} onClose={() => setModalOpen(false)} feature={feature} />
     </div>
   )
 }

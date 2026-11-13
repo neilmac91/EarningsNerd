@@ -121,7 +121,6 @@ export function SummaryDisplay({
   // ready" reads the same rule (isSummaryReady), so its lead never offers a summary this page will not
   // show, and its "Summarize latest filing" lands on this card's Retry.
   const isError = isSummaryFailure(summary)
-  const hasPolishedMarkdown = !isError
 
   const isPartial = rawSummary?.status === 'partial'
   // A generation marked partial must not read as full, even on an older row without
@@ -234,8 +233,8 @@ export function SummaryDisplay({
             </div>
           )}
 
-          {/* The ONE structured surface (T2): render_sections projection → per-section Cards + a
-              sticky TOC. A legacy summary that produced no structured sections falls back to the
+          {/* The ONE structured surface (T2): render_sections projection → sections set on the
+              page with no card, plus a sticky TOC. A legacy summary that produced no structured sections falls back to the
               derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
           {/* A5 "What changed" vs the prior comparable filing rides inside the structured page as a
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
@@ -248,7 +247,7 @@ export function SummaryDisplay({
               whatChangedContext={whatChangedContext}
               firstHeadingRef={headingRef}
             />
-          ) : hasPolishedMarkdown ? (
+          ) : (
             <>
               <Card as="section" className="overflow-hidden">
                 <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
@@ -260,7 +259,7 @@ export function SummaryDisplay({
               </Card>
               <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} context={wordingIdentity} />
             </>
-          ) : null}
+          )}
 
           {/* Turn the just-finished read into the next action — placed high, directly under the
               summary (T1.7 defect f). */}

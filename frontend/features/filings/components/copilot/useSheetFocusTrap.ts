@@ -132,5 +132,3 @@ export function useSheetFocusTrap({ active, containerRef, onClose, restoreFocusR
     }
   }, [active, containerRef, restoreFocusRef])
 }
-
-export default useSheetFocusTrap
