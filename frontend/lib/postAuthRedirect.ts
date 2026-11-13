@@ -27,12 +27,19 @@ const MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
  * parse as `//evil.example`, another site, while each begins with one slash and passes a check of
  * the first two characters. What the router would navigate to is what gets compared, and the
  * parsed path is what is returned.
+ *
+ * The parsed path is checked too, since it is what the router is handed. Removing dot segments can
+ * leave one that names another site: `/..//evil.example` parses on this origin with the path
+ * `//evil.example`. So the returned path must itself parse to this origin.
  */
 export function safeInternalPath(dest: string | null | undefined): string | null {
   if (typeof window === 'undefined' || !dest || !dest.startsWith('/')) return null
+  const { origin } = window.location
   try {
-    const url = new URL(dest, window.location.origin)
-    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : null
+    const url = new URL(dest, origin)
+    if (url.origin !== origin) return null
+    const path = `${url.pathname}${url.search}${url.hash}`
+    return new URL(path, origin).origin === origin ? path : null
   } catch {
     return null
   }

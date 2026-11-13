@@ -57,6 +57,13 @@ describe('completed email-login redirect consumption', () => {
     ['/\n/example.com', '/'],
     ['/\r/example.com', '/'],
     ['/\t\\example.com', '/'],
+    // Dot segments are removed by the parser and can leave `//example.com` as the path of a URL on
+    // this origin; the path is what the router is handed.
+    ['/..//example.com', '/'],
+    ['/.//example.com', '/'],
+    ['/a/..//example.com', '/'],
+    ['/%2e%2e//example.com', '/'],
+    ['/a/../dashboard', '/dashboard'],
     ['/filing/12#risk-factors', '/filing/12#risk-factors'],
   ])('consumes the stash when explicit destination %s completes at %s', async (explicit, expected) => {
     stashPostAuthRedirect('/pricing?billing=monthly')
@@ -76,7 +83,16 @@ describe('completed email-login redirect consumption', () => {
     expect(consumePostAuthRedirect()).toBeNull()
   })
 
-  it.each(['/\t/example.com', '/\n/example.com', '/\\example.com', '//example.com', 'https://example.com/x'])(
+  it.each([
+    '/\t/example.com',
+    '/\n/example.com',
+    '/\\example.com',
+    '//example.com',
+    'https://example.com/x',
+    '/..//example.com',
+    '/.//example.com',
+    '/%2e%2e//example.com',
+  ])(
     'never stashes %j, a destination on another site',
     (path) => {
       stashPostAuthRedirect(path)
@@ -85,8 +101,10 @@ describe('completed email-login redirect consumption', () => {
   )
 
   it('refuses a stored destination on another site, however it came to be stored', () => {
-    localStorage.setItem('en_post_auth_redirect', JSON.stringify({ path: '/\t/example.com', at: Date.now() }))
-    expect(consumePostAuthRedirect()).toBeNull()
+    for (const path of ['/\t/example.com', '/..//example.com']) {
+      localStorage.setItem('en_post_auth_redirect', JSON.stringify({ path, at: Date.now() }))
+      expect(consumePostAuthRedirect()).toBeNull()
+    }
   })
 
   it('retains the fallback across a rejected login and consumes it on the successful retry', async () => {
