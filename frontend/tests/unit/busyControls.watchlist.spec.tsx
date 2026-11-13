@@ -266,11 +266,12 @@ describe('WatchlistAddSearch result option', () => {
       fireEvent.click((await screen.findAllByRole('option'))[1])
       await waitFor(() => expect(confirmation()).toBe('Added MSFT to your watchlist.'))
 
-      // Past the first add's 2.5s, well inside the second's: the second confirmation is still shown.
-      await act(async () => { vi.advanceTimersByTime(1500) })
+      // 2.8s after the first add, so past its 2.5s, with 1.5s of the second's still to run: the second
+      // confirmation is still shown. Real time moves this clock too, so the margins are kept wide.
+      await act(async () => { vi.advanceTimersByTime(1000) })
       expect(confirmation()).toBe('Added MSFT to your watchlist.')
 
-      await act(async () => { vi.advanceTimersByTime(1500) })
+      await act(async () => { vi.advanceTimersByTime(2000) })
       expect(confirmation()).toBeUndefined()
     } finally {
       vi.useRealTimers()

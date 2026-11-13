@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
 const { withSentryConfig } = require('@sentry/nextjs/config')
-const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
-  // Public addresses are shared with the backend; include that repository source in the bundle.
-  turbopack: { root: path.resolve(__dirname, '..') },
   typescript: {
     // `next build` typechecks the same surface as CI's `npm run typecheck`: shipped app/library code.
     // Since 16.3 the build walks tsconfig.json's full `include` (tests/** too); specs are exercised

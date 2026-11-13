@@ -56,12 +56,16 @@ async def test_auth_dependencies_honor_configured_leeway(monkeypatch):
 
     assert settings.JWT_LEEWAY_SECONDS > 0  # dead config would re-open the skew bug
 
+    # A skew of minutes under a leeway set wider than it, so the refusal below does not depend on how fast
+    # the test runs: with a skew inside the default leeway the token turned valid by itself seconds later.
+    skew = timedelta(minutes=5)
+    monkeypatch.setattr(settings, "JWT_LEEWAY_SECONDS", int(skew.total_seconds()) + 60)
     now = datetime.now(timezone.utc)
     skewed = {
         "sub": "skew@example.com",
-        "iat": now + timedelta(seconds=5),
-        "nbf": now + timedelta(seconds=5),
-        "exp": now + timedelta(minutes=5),
+        "iat": now + skew,
+        "nbf": now + skew,
+        "exp": now + skew + timedelta(minutes=5),
         "iss": settings.JWT_ISSUER,
         "aud": settings.JWT_AUDIENCE,
         "jti": "test-skew",
@@ -73,7 +77,7 @@ async def test_auth_dependencies_honor_configured_leeway(monkeypatch):
     request = Request({"type": "http", "headers": []})
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
-    # With the configured leeway, a token whose nbf/iat is in the (near) future authenticates.
+    # With the configured leeway, a token whose nbf/iat is in the future authenticates.
     assert await auth_module.get_current_user(request, credentials, None) is user
     assert await auth_module.get_current_user_optional(request, credentials, None) is user
 

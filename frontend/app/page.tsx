@@ -14,6 +14,7 @@ import ClosingLine from '@/features/marketing/components/ClosingLine'
 import { betaPricingActive, resolveAccessMode } from '@/features/marketing/lib/access'
 import { DEFAULT_HEADLINE, pageTitleFor } from '@/features/marketing/lib/headline'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
+import { jsonLdHtml } from '@/lib/jsonLd'
 import { SOCIAL_CARD } from '@/lib/socialCard'
 import { fetchExampleData, fetchNotableFilings, fetchReportingThisWeek, fetchSignupConfig } from '@/lib/serverApi'
 
@@ -101,7 +102,7 @@ export default async function Home() {
       {LOGO_DEV_ENABLED && <link rel="preconnect" href="https://img.logo.dev" />}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(JSON_LD) }}
       />
       {/* Every section after the hero is one ruled row (LandingRow, D-045), numbered by the `landing-row` counter
           reset here, so a section that omits itself takes no number. The order is pinned by

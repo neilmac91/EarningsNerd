@@ -781,8 +781,8 @@ removed `e2e-charts-v2` from this list on 2026-10-26 (F67); its chart and galler
 unconditionally in the browser suite, and E195 deleted the duplicate job (`test_ci_cost_controls.py` keeps it gone). Since 2026-11-04 (#1990)
 that suite runs as five `e2e-shard` jobs, and `e2e-tests`, which always runs, passes only when every
 shard passed. A shard skips its build and tests, and passes, when `ci-scope` finds that the change
-touches no file a browser check reads: records, and `backend/` or `ops/` files other than the three
-the frontend reads (`docs/ops/actions-cost-plan-2026-11.md`); `lighthouse` does the same. On a draft
+touches no file a browser check reads: records, and `backend/` or `ops/` files other than the two
+the browser specs read (`docs/ops/actions-cost-plan-2026-11.md`); `lighthouse` does the same. On a draft
 pull request the test jobs skip and `e2e-tests` fails, so a draft never shows the seven checks green;
 the ready mark starts the run that tests the head
 (`lessons/ops-ci-tests-a-ready-pull-request-not-a-draft.md`). There are no bypass actors, so the rules bind the administrator too. A required status

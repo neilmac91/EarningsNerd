@@ -31,7 +31,6 @@ RECORD_PATHS = ("tasks/todo.md", APPOINTMENTS, EXCLUSION)
 
 
 BROWSER_INPUTS_OUTSIDE_FRONTEND = (
-    "backend/app/public_email_addresses.json",
     "backend/tests/fixtures/analysis_later_filings.json",
     "backend/tests/fixtures/analysis_first_reports_produced.json",
     "docs/brand/templates/email-header.html",
@@ -541,8 +540,8 @@ SCANNED_SUFFIXES = {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs", ".css"
 def outside_frontend_references(frontend=None, specs=True):
     """Files outside frontend/ that the frontend's build or browser specs name in a path literal.
 
-    The browser jobs build frontend/ and run tests/e2e against it. Turbopack's root is the repository
-    (frontend/next.config.js), so an import can leave frontend/, and a spec can read any file. Each quoted literal
+    The browser jobs build frontend/ and run tests/e2e against it. A spec can read any file; a shipped file may
+    read none outside frontend/ (test_frontend_build_filter.py), and the scan reads both. Each quoted literal
     that holds ``../`` is resolved two ways: against its file's directory, as an import or a ``__dirname`` join
     reads it, and against frontend/, the directory the jobs run in, as a bare ``readFileSync('../backend/x')`` reads
     it (kept only when the file exists, since most literals are meant the first way). A literal under the ``@/``

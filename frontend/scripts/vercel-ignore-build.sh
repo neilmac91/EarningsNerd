@@ -9,14 +9,13 @@
 # which is how a changed dashboard variable reaches a build; a commit Vercel's shallow clone does
 # not hold; and any failure to read. The one line it prints says what it read and why it decided.
 #
-# What the build reads: everything under frontend/, and the files outside it that a shipped frontend
-# file imports (Turbopack's root is the repository, frontend/next.config.js). Both are named from the
-# repository's top, so the working directory does not change the answer.
-# backend/tests/unit/test_frontend_build_filter.py runs this script on real histories and fails until
-# every such outside file is named here.
+# What the build reads: everything under frontend/, and nothing else. It is named from the repository's
+# top, so the working directory does not change the answer. backend/tests/unit/test_frontend_build_filter.py
+# runs this script on real histories, and fails when a shipped frontend file reads a file outside
+# frontend/: such a file is copied in and held to its source by a spec instead, as
+# frontend/lib/publicEmailAddresses.json is.
 BUILD_INPUTS=(
   ':(top)frontend'
-  ':(top)backend/app/public_email_addresses.json'
 )
 
 build() { printf 'ignore-build: build: %s\n' "$1"; exit 1; }
