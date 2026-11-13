@@ -1,8 +1,9 @@
 """Phase 2: 20-F (foreign private issuer) annual-summary wiring.
 
 Guards that a 20-F is summarized with the 20-F prompt + 20-F section layout/budget — not silently
-with 10-K assumptions — and that the explicit prompt fallback covers forms without a prompt yet
-(e.g. 6-K before Phase 4). See tasks/fpi-support-roadmap.md.
+with 10-K assumptions — and that the explicit prompt fallback covers forms without a prompt of
+their own (e.g. S-1). 6-K has its own prompt and class variants, pinned below. See
+tasks/fpi-support-roadmap.md.
 """
 
 from app.services import prompt_loader
@@ -58,15 +59,11 @@ class TestSectionConfig:
         cfg = openai_service._get_type_config("20-F")
         # 20-F gets the generous 10-K-sized budget, not the smaller base/10-Q one.
         assert cfg["max_tokens"] == 12000
-        assert cfg["ai_timeout"] == 150.0
-        assert cfg["sample_length"] == 100000
 
     def test_type_config_6k_budget(self):
         cfg = openai_service._get_type_config("6-K")
-        # 6-K is a short interim release — a modest budget/timeout, not the annual-report budget.
+        # 6-K is a short interim release — a modest budget, not the annual-report budget.
         assert cfg["max_tokens"] == 5000
-        assert cfg["ai_timeout"] == 90.0
-        assert cfg["sample_length"] == 60000
 
     def test_assemble_excerpt_uses_20f_labels(self):
         sections = {

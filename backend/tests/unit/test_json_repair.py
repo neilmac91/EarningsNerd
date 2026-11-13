@@ -239,6 +239,20 @@ class TestRepairJson:
         parsed = json.loads(repaired)
         assert "Value is high" in parsed["note"]
 
+    def test_does_not_rewrite_python_literals_inside_string_values(self, service):
+        """True/False/None inside quoted prose survive repair verbatim (filings say "None.")."""
+        malformed = (
+            '{"a": "None of our customers. True Value", "b": "Item 1B. None",'
+            ' "c": "False positives", "flag": True, "empty": None,}'
+        )
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["a"] == "None of our customers. True Value"
+        assert parsed["b"] == "Item 1B. None"
+        assert parsed["c"] == "False positives"
+        assert parsed["flag"] is True
+        assert parsed["empty"] is None
+
     def test_empty_string(self, service):
         """Empty input should return empty string."""
         assert service._repair_json("") == ""

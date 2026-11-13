@@ -485,6 +485,27 @@ def test_reconciliation_flag_audit_cli_is_dry_run_unless_apply(monkeypatch, caps
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1]) == stats
 
 
+@pytest.mark.parametrize("apply", [False, True], ids=["dry-run", "apply"])
+@pytest.mark.parametrize("value", ["", " ", ","], ids=["empty", "space", "comma"])
+def test_reconciliation_flag_audit_cli_refuses_tickers_naming_no_ticker(monkeypatch, capsys, apply, value):
+    from app.services import facts_service
+
+    audit = MagicMock()
+    monkeypatch.setattr(facts_service, "backfill_facts", audit)
+    argv = ["audit_reconciliation_flags.py", "--tickers", value]
+    if apply:
+        argv.append("--apply")
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    with pytest.raises(SystemExit) as exc_info:
+        runpy.run_path(str(Path(__file__).resolve().parents[2] / "scripts/audit_reconciliation_flags.py"),
+                       run_name="__main__")
+
+    assert exc_info.value.code == 2
+    audit.assert_not_called()
+    assert "error: --tickers names no ticker" in capsys.readouterr().err
+
+
 def test_provider_exceptions_are_counted_by_services(sessions, monkeypatch):
     from app.services import earnings_calendar_service as calendar, notable_filings_service as notable
     from app.services import filing_scan_service as scan

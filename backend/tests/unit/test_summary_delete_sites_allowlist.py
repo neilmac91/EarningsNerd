@@ -588,5 +588,7 @@ def test_the_scan_scores_every_planted_form():
 ])
 def test_the_scan_reads_every_tree_that_can_reach_the_database(tree):
     files = [p.relative_to(REPO_DIR).as_posix() for p in _in_scope_files()]
-    assert any(f.startswith(f"{tree}/") for f in files)
+    # A tree the repository no longer has (the root `scripts/` went with its last script) holds
+    # nothing to read; one that exists must be read.
+    assert any(f.startswith(f"{tree}/") for f in files) or not (REPO_DIR / tree).exists()
     assert not any(f.startswith(("frontend/", "backend/tests/", ".claude/worktrees/")) for f in files)

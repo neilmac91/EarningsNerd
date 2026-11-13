@@ -668,8 +668,8 @@ async def generate_summary_background(
 TERMINAL_STAGES = {"completed", "error", "partial"}
 
 # A non-terminal progress row older than this is considered orphaned (a crashed/abandoned
-# background task). The longest legitimate run is the 10-K global_timeout (120s) plus the
-# stream pipeline (90s); 180s leaves comfortable headroom before we call it dead.
+# background task). The longest legitimate run is bounded by the pipeline's own
+# ``PIPELINE_TIMEOUT_SECONDS`` (120s); 180s leaves comfortable headroom before we call it dead.
 STALE_PROGRESS_SECONDS = 180
 
 

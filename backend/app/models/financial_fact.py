@@ -47,7 +47,7 @@ class FinancialFact(Base):
     value = Column(Numeric, nullable=False)
     form = Column(String, nullable=True)  # 10-K | 10-Q
     accession = Column(String, nullable=False, index=True)
-    source = Column(String, nullable=False, default="edgar_xbrl")  # edgar_xbrl|companyfacts|frames|fsds
+    source = Column(String, nullable=False, default="edgar_xbrl")  # edgar_xbrl|companyfacts|derived|reported_eps
     reconciled = Column(Boolean, nullable=False, default=False)
     # Versioned source/calculation lineage. NULL marks legacy rows pending re-normalization.
     provenance = Column(JSON, nullable=True)

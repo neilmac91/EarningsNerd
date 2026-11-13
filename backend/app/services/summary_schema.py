@@ -1,6 +1,6 @@
 """SummaryDoc v2 — the content schema for the Tier-3.1 re-architecture.
 
-The v1 summary taxonomy (``openai_service._TRACKED_STRUCTURED_SECTIONS``) is a data-dump: nine
+The v1 summary taxonomy (``TRACKED_SECTIONS_V1`` below) is a data-dump: nine
 sections that repeat the same figures and split trend framing across three of them. v2 is the
 finance-grounded architecture from ``docs/summary-quality-improvement-plan.md`` Part 3.1 — an
 inverted pyramid where **each number has exactly one home**, with two new analytical sections
@@ -20,8 +20,9 @@ missing sections); it has no production caller yet — the generation path relie
 taxonomy filter + json-repair for runtime shape safety, and wiring model_validate as a pre-fallback
 validation gate is a deliberate follow-up (it would need its own eval pass).
 
-The v1 taxonomy is NOT defined here — it lives at its original site and keeps rendering legacy rows
-via the v1 builders. This module adds v2 alongside; it never edits v1.
+The v1 taxonomy is kept here only as the frozen literal ``TRACKED_SECTIONS_V1`` (the quality badge's
+count for legacy rows); legacy rows keep rendering via ``summary_sections``' v1 builders. This module
+adds v2 alongside; it never edits v1.
 """
 
 from __future__ import annotations
@@ -318,7 +319,7 @@ class SummaryDocSections(_V2Base):
     def _none_to_empty(cls, v):
         """A model rendering "no items" as ``null`` (common alongside omission) means ``[]``, not a
         type error — so ``"risks": null`` validates to an empty list rather than spuriously routing an
-        otherwise-good payload into the json-repair fallback (PR B validates model output with this).
+        otherwise-good payload into the json-repair fallback (``SummaryDoc`` has no production caller yet).
         A wrong type (``"risks": "a string"``) still rejects."""
         return [] if v is None else v
 

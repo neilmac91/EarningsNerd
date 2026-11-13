@@ -50,7 +50,7 @@ def _configure(monkeypatch, invocation_dir, source_root, records):
     monkeypatch.setattr(settings, "AI_FALLBACK_API_KEY", "")
     monkeypatch.setattr(settings, "POSTHOG_API_KEY", "")
     frozen = {key: getattr(settings, key) for key in REQUIRED_FROZEN_SETTINGS}
-    monkeypatch.setattr(provider_requests, "current_provider_attempt", lambda: 17, raising=False)
+    monkeypatch.setattr(provider_requests, "current_provider_attempt", lambda: 17)
     return {"source_root": str(source_root), "frozen_settings": frozen,
             "allow_sec_network": False, "allow_provider": True, "source_binding": records}
 

@@ -6,6 +6,8 @@ pin (a) the access cookie is parent-domain scoped, (b) a durable, refresh-lifeti
 session-presence cookie is issued for the edge middleware, and (c) the cookie-name contract
 shared with frontend/middleware.ts.
 """
+from pathlib import Path
+
 import pytest
 from starlette.responses import Response
 
@@ -50,6 +52,8 @@ def test_session_presence_cookie_is_durable(domain_scoped):
 def test_presence_cookie_name_matches_frontend_contract():
     # frontend/middleware.ts hardcodes this literal; the two must never drift.
     assert SESSION_PRESENCE_COOKIE == "en_session"
+    middleware = (Path(__file__).resolve().parents[3] / "frontend/middleware.ts").read_text()
+    assert f"cookies.has('{SESSION_PRESENCE_COOKIE}')" in middleware
 
 
 def test_clear_auth_cookie_clears_both(domain_scoped):

@@ -1,1 +1,1 @@
-"""Pure helpers for normalized financial facts; entry points stay in facts_service."""
+"""Normalized financial facts: normalizers, writers, ingest and transport, and jobs, behind the facts_service facade."""

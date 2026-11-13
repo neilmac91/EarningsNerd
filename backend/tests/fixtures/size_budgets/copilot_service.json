@@ -1,6 +1,6 @@
 {
   "files": {
-    "app/services/copilot_service.py": 619,
+    "app/services/copilot_service.py": 610,
     "app/services/copilot/__init__.py": 1,
     "app/services/copilot/claim_repair.py": 281,
     "app/services/copilot/envelope.py": 165,

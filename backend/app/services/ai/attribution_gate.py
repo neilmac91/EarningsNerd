@@ -37,7 +37,6 @@ composes them for callers that only measure.
 """
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -230,7 +229,10 @@ def _evidence(clause: str, index: List[_Window]) -> List[str]:
 
 
 def _drop_clause(text: str, match: re.Match, clause: str) -> str:
-    """Remove ``<connective> <clause>`` and the separator before it; keep the movement and its end."""
+    """Remove ``<connective> <clause>`` and the separator before it; keep the movement and its end.
+
+    It edits only the separator before ``match`` and the text after it, so an earlier clause's match
+    offsets stay valid; the caller runs ``_repair_punctuation`` once, after the slot's last drop."""
     start = match.start()
     rest = text[match.end():]
     end = match.end() + rest.find(clause) + len(clause)
@@ -245,7 +247,11 @@ def _drop_clause(text: str, match: re.Match, clause: str) -> str:
         joined = f"{before}, {after}"
     else:
         joined = f"{before}{after}"
-    return re.sub(r"\s+([.;,)])", r"\1", joined).strip()
+    return joined
+
+
+def _repair_punctuation(text: str) -> str:
+    return re.sub(r"\s+([.;,)])", r"\1", text).strip()
 
 
 def _slots(sections: Dict[str, Any]) -> Iterator[Tuple[str, Any, Optional[str], Any, str]]:
@@ -331,12 +337,13 @@ def apply_attributions(
             by_slot.setdefault((id(candidate.container), candidate.key), []).append(candidate)
             dropped.append(candidate.record())
     for group in by_slot.values():
-        # Right-to-left within a slot: `candidates` is already in that order, so later drops in the
-        # same string never move an earlier clause's match offsets.
+        # Right-to-left within a slot: `candidates` is already in that order, and a drop edits only its
+        # own separator and what follows, so later drops in the same string never move an earlier
+        # clause's match offsets. The punctuation repair edits the whole string, so it runs once, last.
         text = group[0].value
         for candidate in group:
             text = _drop_clause(text, candidate.match, candidate.clause)
-        group[0].container[group[0].key] = text
+        group[0].container[group[0].key] = _repair_punctuation(text)
     audit = {
         "checked": checked,
         "verified": checked - len(candidates),
@@ -362,7 +369,3 @@ def gate_attributions(
     Callers gate ``armed`` on ``settings.AI_ATTRIBUTION_GATE``; this module stays settings-free."""
     checked, candidates = find_attributions(sections, source_text)
     return apply_attributions(checked, candidates, verdicts, armed)
-
-
-def audit_to_json(audit: Optional[Dict[str, Any]]) -> str:
-    return json.dumps(audit or {}, ensure_ascii=False, sort_keys=True)

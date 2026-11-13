@@ -53,6 +53,12 @@ def test_provider_admission_limit_accepts_supported_range(value):
     assert Settings(AI_CHAT_MAX_INFLIGHT=value, _env_file=None).AI_CHAT_MAX_INFLIGHT == value
 
 
+@pytest.mark.parametrize("value", [-1, 0])
+def test_recovery_concurrency_rejects_a_semaphore_that_never_admits(value):
+    with pytest.raises(ValidationError, match="RECOVERY_MAX_CONCURRENCY"):
+        Settings(RECOVERY_MAX_CONCURRENCY=value, _env_file=None)
+
+
 def _without_frontend_url_in_the_environment(monkeypatch):
     """Settings reads an environment variable's name in any case, so each spelling of this one goes."""
     for name in [name for name in os.environ if name.lower() == "frontend_url"]:

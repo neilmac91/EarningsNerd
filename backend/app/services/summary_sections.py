@@ -7,9 +7,7 @@ the PDF crashed (a dict was fed to a markdown-string formatter that called ``.st
 
 This module renders ``sections`` into an ordered list of format-agnostic ``Section``/``Block``
 objects. ``export_service`` turns those into HTML (PDF) and CSV rows, so the two formats can never
-drift apart again. The placeholder filtering and risk normalization mirror the frontend
-(``frontend/components/SummarySections.tsx`` + ``frontend/lib/formatters.ts``) so exports match
-exactly what the user sees on the page.
+drift apart again. The placeholder filtering drops "data unavailable" filler from the exports.
 """
 
 from __future__ import annotations
@@ -44,8 +42,7 @@ from app.services.summary_schema import (
 # shown, in the page's words (frontend/features/filings/lib/evidenceLabels.ts TAKEAWAY_WITHHELD).
 TAKEAWAY_WITHHELD = "Withheld: written before the figure was corrected."
 
-# Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
-# "data unavailable" filler the page hides.
+# "Data unavailable" filler the exports drop.
 PLACEHOLDER_PATTERNS = (
     "not available",
     "unavailable",
@@ -62,7 +59,7 @@ PLACEHOLDER_PATTERNS = (
 
 
 def is_placeholder(text: Any) -> bool:
-    """Mirror of the frontend ``isPlaceholderText``: non-strings/empties count as placeholder."""
+    """Non-strings and empties count as placeholder, as does any text with a PLACEHOLDER_PATTERNS match."""
     if not isinstance(text, str):
         return True
     lowered = text.strip().lower()
@@ -125,15 +122,6 @@ def _str_list(value: Any) -> List[str]:
         if cleaned:
             out.append(cleaned)
     return out
-
-
-def _format_evidence(value: Any) -> str:
-    """Collapse supporting-evidence (str/list/dict) into one string. Mirrors the frontend."""
-    if isinstance(value, (list, tuple, set)):
-        return "; ".join(_clean(item) for item in value if _clean(item))
-    if isinstance(value, dict):
-        return "; ".join(_clean(item) for item in value.values() if _clean(item))
-    return _clean(value)
 
 
 @dataclass
@@ -367,40 +355,32 @@ def _financial_highlights(sections: dict, *, exact_delta_owned: bool = False) ->
     return section
 
 
-def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Block]:
-    """Build the risks table Block (shared by v1 ``risk_factors`` and v2 ``risks``). Each risk must
-    carry non-placeholder supporting evidence (mirrors the page filter). Returns ``None`` if none
+def _risks_table_block(risks: Any) -> Optional[Block]:
+    """Build the risks table Block (shared by v1 ``risk_factors`` and v2 ``risks``) from source-owned
+    risks. Each must carry a non-empty ``supporting_evidence`` string. Returns ``None`` if none
     qualify."""
     if not isinstance(risks, list):
         return None
     rows: List[List[str]] = []
     located: List[bool] = []
     for risk in risks:
-        if source_owned:
-            if not isinstance(risk, dict) or not isinstance(risk.get("supporting_evidence"), str):
-                continue
-            evidence = risk["supporting_evidence"]
-            if not evidence:
-                continue
-            # Provenance already returned an authoritative retained-source slice. Do not run the
-            # model-output placeholder or inline-markdown cleaners over those source characters.
-            rows.append([str(len(rows) + 1), "Filing excerpt", evidence])
-            # The page's test (SummaryRisks: `source_verified === true`), a flag only the projection writes.
-            located.append(risk.get("source_verified") is True)
+        if not isinstance(risk, dict) or not isinstance(risk.get("supporting_evidence"), str):
             continue
-        normalized = _normalize_risk(risk)
-        if not normalized:
+        evidence = risk["supporting_evidence"]
+        if not evidence:
             continue
-        risk_text, evidence = normalized
-        rows.append([str(len(rows) + 1), risk_text, evidence])
-        located.append(False)
+        # Provenance already returned an authoritative retained-source slice. Do not run the
+        # model-output placeholder or inline-markdown cleaners over those source characters.
+        rows.append([str(len(rows) + 1), "Filing excerpt", evidence])
+        # The page's test (SummaryRisks: `source_verified === true`), a flag only the projection writes.
+        located.append(risk.get("source_verified") is True)
     if not rows:
         return None
     return Block(
         "table",
         headers=["#", "Risk", "Supporting Evidence"],
         rows=rows,
-        literal_cells=source_owned,
+        literal_cells=True,
         located_rows=located,
     )
 
@@ -436,52 +416,15 @@ def _risk_projection_notice(sections: dict, *, risk_source_owned: bool = False) 
 
 
 def _risk_factors(sections: dict, *, risk_source_owned: bool = False) -> Section:
-    """Risks, filtered to match the page: each must have non-placeholder supporting evidence."""
+    """Risks: only a source-owned projection renders, as its retained filing excerpts."""
     section = Section("Investment Risks & Concerns", role="risks")
     notice = _risk_projection_notice(sections, risk_source_owned=risk_source_owned)
     if notice:
         section.blocks.append(notice)
-    block = _risks_table_block(
-        sections.get("risk_factors"), source_owned=True
-    ) if risk_source_owned else None
+    block = _risks_table_block(sections.get("risk_factors")) if risk_source_owned else None
     if block:
         section.blocks.append(block)
     return section
-
-
-def _normalize_risk(risk: Any) -> Optional[tuple]:
-    """Mirror frontend ``normalizeRisk`` + the page's placeholder filter.
-
-    Returns ``(risk_text, evidence)`` for a risk that should be shown, or ``None`` to drop it
-    (no summary candidate, or missing / placeholder supporting evidence, or placeholder
-    description) — matching ``SummarySections.tsx``.
-    """
-    if not isinstance(risk, dict):
-        return None
-    title = _clean(risk.get("title"))
-    description = _clean(risk.get("description"))
-    summary = _clean(risk.get("summary")) or description or title
-    if not summary:
-        return None
-
-    evidence = _format_evidence(
-        risk.get("supporting_evidence")
-        or risk.get("supportingEvidence")
-        or risk.get("evidence")
-        or risk.get("source")
-    )
-    if not evidence or is_placeholder(evidence):
-        return None
-    if description and is_placeholder(description):
-        return None
-
-    if title and description:
-        risk_text = f"{title}: {description}"
-    elif title and summary and summary.lower() != title.lower():
-        risk_text = f"{title}: {summary}"
-    else:
-        risk_text = summary or title or description
-    return (risk_text, evidence)
 
 
 def _management_discussion(sections: dict) -> Section:
@@ -819,9 +762,7 @@ def _v2_risks(sections: dict, *, risk_source_owned: bool = False) -> Section:
     notice = _risk_projection_notice(sections, risk_source_owned=risk_source_owned)
     if notice:
         section.blocks.append(notice)
-    block = _risks_table_block(
-        sections.get("risks"), source_owned=True
-    ) if risk_source_owned else None
+    block = _risks_table_block(sections.get("risks")) if risk_source_owned else None
     if block:
         section.blocks.append(block)
     return section

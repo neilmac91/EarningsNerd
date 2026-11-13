@@ -31,9 +31,6 @@ _SECTION_KEYS = frozenset(key for key, _ in ANALYSIS_SECTIONS)
 _OPTIONAL_PER_SECTION = 3
 
 
-_SELECTION_TOTAL_LIMIT = len(ANALYSIS_SECTIONS) * _OPTIONAL_PER_SECTION
-
-
 @dataclass(frozen=True)
 class TrendObservation:
     """One immutable, request-local sentence the model may select only by ID."""
@@ -507,7 +504,6 @@ def parse_observation_selection(
     if not isinstance(payload, dict) or set(payload) != _SECTION_KEYS:
         return None
     by_id = {item.id: item for item in catalogue}
-    total = 0
     selection: dict[str, list[str]] = {}
     for section, _ in ANALYSIS_SECTIONS:
         ids = payload.get(section)
@@ -517,9 +513,8 @@ def parse_observation_selection(
             return None
         if any(item_id not in by_id or by_id[item_id].section != section for item_id in ids):
             return None
-        total += len(ids)
         selection[section] = ids
-    return selection if total <= _SELECTION_TOTAL_LIMIT else None
+    return selection
 
 
 def render_observation_selection(

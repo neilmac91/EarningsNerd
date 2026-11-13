@@ -139,10 +139,6 @@ def get_client_ip(request: Request) -> str:
     return "unknown"
 
 
-# Back-compat alias — existing callers import the underscored name.
-_get_client_ip = get_client_ip
-
-
 def enforce_rate_limit(
     request: Request,
     limiter: RateLimiter,
@@ -154,7 +150,7 @@ def enforce_rate_limit(
     # Email-scoped limits (password reset, resend-verification) pass include_client_ip=False so the
     # bucket is keyed on the email alone. Prefixing the client IP would let an attacker with an IP
     # pool multiply the per-email cap and bomb a victim's inbox.
-    key = f"{_get_client_ip(request)}:{key_suffix}" if include_client_ip else key_suffix
+    key = f"{get_client_ip(request)}:{key_suffix}" if include_client_ip else key_suffix
     if limiter.allow(key):
         return
     retry_after = limiter.retry_after(key)

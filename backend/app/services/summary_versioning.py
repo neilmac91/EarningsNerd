@@ -10,8 +10,8 @@ summaries because nothing marked them stale). Mirrors ``trend_analysis_service.P
 Bump ``SUMMARY_SCHEMA_VERSION`` when the ``sections`` shape changes (v2 = the content
 re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any content-affecting change to the
 generation prompt — whether the per-form ``backend/prompts/*-agent.md`` preambles OR the shared
-inline Rules/schema block assembled in ``app/services/openai_service.py`` (both feed the same
-prompt). Bumping either makes prior rows version-stale but does not regenerate them on read or
+inline Rules/schema block in ``app/services/ai/summary_prompt.py`` (``SCHEMA_TEMPLATE`` and the Rules)
+and ``app/services/ai/section_recovery.py`` (all feed the same prompt). Bumping either makes prior rows version-stale but does not regenerate them on read or
 schedule a drain. The admin ``refresh-stale`` endpoint defaults to dry-run; an explicit non-dry-run
 call invokes background generation in place (preserving ``summaries.id`` so saved-summary
 bookmarks survive).
@@ -27,7 +27,7 @@ NULL columns on a row (legacy / pre-stamp) are always treated as stale.
 SUMMARY_SCHEMA_VERSION: int = 2
 
 # The generation-prompt version. Bump on any content-affecting change to the generation prompt
-# (the *-agent.md preambles or the shared Rules/schema block in openai_service.py).
+# (the *-agent.md preambles or the shared Rules/schema block in ai/summary_prompt.py and ai/section_recovery.py).
 # summary-2026-07-c: Tier-3.1 v2 cutover — schema_template rewritten to the nine v2 sections.
 # summary-2026-07-d: Tier-4 — schema_template asks for a verbatim `supporting_evidence` excerpt on
 #   metric-takeaway rows + footnotes (the citation surface). Taxonomy shape unchanged (still v2).

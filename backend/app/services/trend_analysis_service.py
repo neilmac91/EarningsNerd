@@ -1,32 +1,9 @@
-"""Compatibility facade for Multi-Period Analysis.
+"""Stable facade for Multi-Period Analysis.
 
 The trend_analysis package owns datasets, observations, citations and cached narrative streaming.
-Keep the original module exports available to callers while those implementations move.
+This module keeps the import path the router and tests use.
 """
 from __future__ import annotations
-
-import hashlib  # noqa: F401 - retained facade import
-import json  # noqa: F401 - retained facade import
-import logging  # noqa: F401 - retained facade import
-import re  # noqa: F401 - retained facade import
-from dataclasses import dataclass  # noqa: F401 - retained facade import
-from datetime import date  # noqa: F401 - retained facade import
-from decimal import Decimal  # noqa: F401 - retained facade import
-from typing import Any, Optional  # noqa: F401 - retained facade import
-
-from sqlalchemy.orm import Session  # noqa: F401 - retained facade import
-
-from app.config import settings  # noqa: F401 - retained facade import
-from app.models import Company, FinancialFact  # noqa: F401 - retained facade import
-from app.services import citation_markers  # noqa: F401 - retained facade import
-from app.services.ai.copilot_chat import merge_chat_usage  # noqa: F401 - retained facade import
-from app.services.fact_provenance import (  # noqa: F401 - retained facade import
-    CALCULATION_VERSION, calculated_provenance,
-)
-
-from app.services.trend_analysis.dataset_quality import add_comparisons, dataset_point  # noqa: F401 - retained facade import
-from app.services.trend_analysis.stream_events import analysis_completion  # noqa: F401 - retained facade import
-from app.utils.datetimes import ensure_utc, iso_z  # noqa: F401 - retained facade import
 
 # Compatibility facade: keep every original definition available at this module path.
 from app.services.trend_analysis.periods import (
@@ -107,7 +84,6 @@ from app.services.trend_analysis.observations import (
     ANALYSIS_SECTIONS,
     _SECTION_KEYS,
     _OPTIONAL_PER_SECTION,
-    _SELECTION_TOTAL_LIMIT,
     TrendObservation,
     _observation_id,
     _point_value,
@@ -165,7 +141,6 @@ __all__ = [
     "ANALYSIS_SECTIONS",
     "_SECTION_KEYS",
     "_OPTIONAL_PER_SECTION",
-    "_SELECTION_TOTAL_LIMIT",
     "TrendObservation",
     "_observation_id",
     "_ratio_threshold_value",

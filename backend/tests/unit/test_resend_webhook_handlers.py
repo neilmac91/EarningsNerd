@@ -40,7 +40,8 @@ def test_handler_logs_masked_recipient_and_email_id(handler, caplog):
     data = {
         "email_id": EMAIL_ID,
         "to": [RAW_ADDRESS],
-        "subject": "Your EarningsNerd invite",
+        # A subject can quote the address (feedback.py's team notice ends "from <address>").
+        "subject": f"[Beta feedback] bug from {RAW_ADDRESS}",
         "bounce_type": "hard",
         # Resend nests the click (link, timestamp, ipAddress, userAgent) under ``click``.
         "click": {"link": "https://earningsnerd.io/register", "timestamp": "2026-09-07T21:00:00.000Z"},

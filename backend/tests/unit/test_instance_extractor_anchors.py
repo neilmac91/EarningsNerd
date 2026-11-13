@@ -1,9 +1,9 @@
 """Wave 0 anchors for the instance-extractor split (refactor plan 2026-10, module M6, PR I0).
 
-I1 moves ``app/services/edgar/instance_extractor.py`` into an ``edgar/instance/`` sub-package
+I1 moved ``app/services/edgar/instance_extractor.py`` into an ``edgar/instance/`` sub-package
 behind an explicit re-export façade, while ``app/services/edgar/xbrl_instance.py`` keeps
 binding the same 14 names from canonical submodules by name. These characterization tests pin behaviour at
-the seams that move cuts, so a pure move passes them unchanged and anything else fails:
+the seams that move cut, so a pure move passes them unchanged and anything else fails:
 
 * I0.1 — the façade surface: the exact names xbrl_service binds, identity of each binding with the
   façade's object (the namespace other tests monkeypatch), and the test-imported private names.
@@ -150,8 +150,8 @@ def test_i0_1_xbrl_service_binds_exactly_the_pinned_facade_names():
 def test_i0_1_each_xbrl_service_binding_is_the_facade_object(name):
     """I0.1: each binding on xbrl_service IS the façade's object, and a function keeps its own name.
 
-    Pins app/services/edgar/xbrl_instance.py against the definitions in
-    app/services/edgar/instance_extractor.py (constants :31-177, functions :180-1229). Identity, not
+    Pins app/services/edgar/xbrl_instance.py against the definitions the façade
+    app/services/edgar/instance_extractor.py re-exports from app/services/edgar/instance/*.py. Identity, not
     equality: a copied registry or a re-wrapped function on either side breaks the shared object.
     """
     bound = getattr(xbrl_service, name)
@@ -164,8 +164,10 @@ def test_i0_1_each_xbrl_service_binding_is_the_facade_object(name):
 def test_i0_1_test_imported_private_names_resolve_from_the_facade(name):
     """I0.1: each private helper other tests import resolves from the façade as itself.
 
-    Pins the definitions at app/services/edgar/instance_extractor.py:246, :262, :305, :318, :1053,
-    :1060 and :1098, which the façade must keep re-exporting.
+    Pins the definitions of ``_parse_decimals``, ``_resolve_period_value``, ``_currency`` (instance/core.py),
+    ``_period_marker``, ``_statement_period_columns``, ``_truthy_flag`` (instance/statements.py) and
+    ``_reporting_currency`` (instance/core.py, re-exported from app/services/facts/currency.py), which the façade
+    must keep re-exporting.
     """
     helper = getattr(ie, name)
     assert callable(helper)
@@ -175,7 +177,7 @@ def test_i0_1_test_imported_private_names_resolve_from_the_facade(name):
 def test_i0_1_financial_sic_band_resolves_from_the_facade():
     """I0.1: FINANCIAL_SIC_LOW/HIGH resolve from the façade with today's values.
 
-    Pins app/services/edgar/instance_extractor.py:907; test_fi_predicate_single_source.py:27-29
+    Pins ``FINANCIAL_SIC_LOW, FINANCIAL_SIC_HIGH`` in instance/financial_profiles.py; test_fi_predicate_single_source.py:27-29
     reads these two attributes from this module path to keep fi_signals' copy in step.
     """
     assert (ie.FINANCIAL_SIC_LOW, ie.FINANCIAL_SIC_HIGH) == (6000, 6799)
@@ -202,11 +204,11 @@ def test_i0_2_reporting_currency_full_tie_break(ends_by_currency, expected):
     """I0.2: most distinct period-ends, then presence at period_of_report, then non-USD, then the
     alphabetically LAST code (``max`` over the code), independent of candidate order.
 
-    Pins app/services/edgar/instance_extractor.py:274-292 (distinct ends per currency :274-276,
-    currency-less candidates excluded :277-279, the ranking key :284-292).
+    Pins ``_reporting_currency`` (instance/core.py re-exports it from app/services/facts/currency.py): distinct
+    ends per currency, currency-less candidates excluded, then the ranking key.
     test_fpi_currency.py:109-122 covers only the more-periods and all-None cases.
     """
-    # Real call shape (instance_extractor.py:413): (end, value, currency, decimals).
+    # Real call shape (instance/series.py, duration_series_with_starts): (end, value, currency, decimals).
     candidates = [(end, 1.0, ccy, -6.0) for ccy, ends in ends_by_currency.items() for end in ends]
     assert ie._reporting_currency(candidates, POR) == expected
     assert ie._reporting_currency(candidates[::-1], POR) == expected
@@ -247,9 +249,9 @@ def test_i0_3_selected_sources_rows_come_from_the_winning_resolution(namespace, 
     """I0.3: the collector is cleared on entry, then holds one entry per returned period, shaped
     {value, period_end, period_start, currency, raw_tag, rows}.
 
-    Pins app/services/edgar/instance_extractor.py:397-398 (clear on entry) and :434-438 (entry
-    shape): ``raw_tag`` is the exact successful namespace query whatever ``qualified_concept`` says
-    (:401, :436, contrast the return at :439); ``rows`` are the original rows of that period inside
+    Pins ``duration_series_with_starts`` in instance/series.py (clear on entry; entry shape):
+    ``raw_tag`` is the exact successful namespace query whatever ``qualified_concept`` says
+    (contrast the returned series); ``rows`` are the original rows of that period inside
     the winning resolution, including the coarser duplicate the precision resolver accepted, and
     never a losing candidate concept's rows, another currency's rows, a dimensioned row, an
     out-of-window duration or a later period. Collecting never changes the returned series.
@@ -289,7 +291,7 @@ def test_i0_3_selected_sources_rows_come_from_the_winning_resolution(namespace, 
 def test_i0_3_selected_sources_is_cleared_even_when_nothing_resolves():
     """I0.3: the clear on entry is unconditional, so a reused collector never carries stale rows.
 
-    Pins app/services/edgar/instance_extractor.py:397-398 together with the empty return at :440.
+    Pins the clear on entry of ``duration_series_with_starts`` (instance/series.py) together with its empty return.
     """
     frames = {f"us-gaap:{_LOSING_CONCEPT}": [
         _duration_fact("2024-12-31", "2024-01-01", 1_959.0, "0", "USD", "c-comparative-only"),
@@ -353,10 +355,10 @@ def test_i0_4_a_fact_without_currency_is_never_an_observation_without_a_reportin
     """I0.4: with no reporting currency there is no currency FILTER, yet a currency-less row is
     still never an observation.
 
-    Pins app/services/edgar/instance_extractor.py:643-645, the only guard on this path when
-    ``reporting_currency`` is None (xbrl_service.py:490-494 passes None when no metric carried a
-    currency); with a known reporting currency :646-647 would also drop the row, which is all
-    test_debt_scope_owner.py:248-257 exercises. The NaN case also needs the guard at :255-256.
+    Pins the missing-currency guard in ``_one_undimensioned_instant_fact`` (instance/debt.py), the only guard on
+    this path when ``reporting_currency`` is None (xbrl_service.py:490-494 passes None when no metric carried a
+    currency); with a known reporting currency the currency-mismatch check would also drop the row, which is all
+    test_debt_scope_owner.py:248-257 exercises. The NaN case also needs the NaN guard in ``_currency`` (instance/core.py).
     """
     row = _balance_fact(34_624_000_000.0)
     if currency_cell == "<drop column>":
@@ -371,7 +373,8 @@ def test_i0_4_a_currency_less_duplicate_does_not_make_the_balance_ambiguous():
     """I0.4: a currency-less row is skipped before the ambiguity count, so it cannot suppress the
     one balance that does carry a currency (here pandas 3 delivers its None cell as NaN).
 
-    Pins app/services/edgar/instance_extractor.py:643-645 ahead of the count at :651-652.
+    Pins the missing-currency guard in ``_one_undimensioned_instant_fact`` (instance/debt.py) ahead of its
+    ambiguity count.
     """
     rows = [
         _balance_fact(34_600_000_000.0, currency=None, context_ref="c-no-unit"),
@@ -459,8 +462,8 @@ def test_i0_5_foreign_annual_forms_read_only_fy_columns(form, expected):
     """I0.5: 20-F and 40-F (amended or not) read the ``(FY)`` columns exactly as a 10-K does,
     newest first; the same frame read as a 10-Q keeps only the discrete quarter.
 
-    Pins app/services/edgar/instance_extractor.py:1072 (the annual forms), :1081-1083 (FY only),
-    :1084-1088 (the quarterly branch the control takes) and :1094 (newest first).
+    Pins ``_statement_period_columns`` in instance/statements.py: the annual forms, FY only, the quarterly
+    branch the control takes, and newest first.
     test_financial_statement_extraction.py:379-389 covers only a 10-Q's quarter-versus-YTD choice.
     """
     assert ie._statement_period_columns(_statement_frame(_MIXED_ANNUAL_COLUMNS), form) == expected
@@ -486,7 +489,7 @@ def test_i0_5_period_columns_are_deduplicated_by_end_and_marker(form, columns, e
     """I0.5: columns sharing (period_end, upper-cased marker) collapse to the FIRST one in frame
     order; columns differing only in marker both stay, in frame order (the sort is stable).
 
-    Pins app/services/edgar/instance_extractor.py:1089-1092 (the de-dup) with :1057 (marker
-    upper-cased) and :1094 (stable newest-first sort).
+    Pins the de-dup in ``_statement_period_columns`` (instance/statements.py) with ``_period_marker`` (marker
+    upper-cased) and the stable newest-first sort.
     """
     assert ie._statement_period_columns(_statement_frame(columns), form) == expected

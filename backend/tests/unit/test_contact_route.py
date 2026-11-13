@@ -251,6 +251,20 @@ def test_persistence_failure_is_500_and_notifies_no_one(client, session_factory,
         assert s.query(ContactSubmission).count() == 0
 
 
+def test_persistence_failure_logs_no_submitted_values(client, monkeypatch, caplog):
+    """A driver error's text carries the INSERT's bind values; the log names only the error's class."""
+    def _fail(db, **fields):
+        raise ContactPersistenceError from RuntimeError(f"[parameters: {tuple(PAYLOAD.values())}]")
+
+    monkeypatch.setattr(contact_router, "persist_contact_submission", _fail)
+    with caplog.at_level("ERROR", logger=contact_router.logger.name):
+        assert _post(client, IP_A).status_code == 500
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Database error creating contact submission: RuntimeError" in logged
+    for value in PAYLOAD.values():
+        assert value not in logged
+
+
 def test_turnstile_configured_without_token_is_403_and_saves_nothing(client, session_factory, monkeypatch, sent_emails):
     monkeypatch.setattr(turnstile.settings, "TURNSTILE_SECRET_KEY", "turnstile-secret")
     resp = _post(client, IP_A)

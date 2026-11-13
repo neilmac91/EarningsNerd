@@ -470,7 +470,7 @@ def validate_filing_before_update(mapper, connection, target):
 
     Nulling either URL always raises. The format check runs only for a URL that is being CHANGED in
     this flush: rows that pre-date the canonical format (legacy ``cgi-bin/viewer`` URLs, migrated
-    lazily by routers/filings.py) must remain updatable — stamping ``processed_facts_at`` or
+    lazily by services/filing_list_service.py) must remain updatable — stamping ``processed_facts_at`` or
     ``xbrl_data`` on such a row is not the moment to reject its URL.
     """
     state = inspect(target)

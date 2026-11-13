@@ -223,7 +223,7 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
 
     enriched = enrich_summary_provenance(summary, filing)
     exporter = ExportService()
-    change_report = assemble_report(filing, filing, summary, summary)
+    change_report = assemble_report(filing, filing)
     surfaces = {
         "partial_sse": preview, "final_sse": result["business_overview"],
         "cached_sse": source_safe_business_overview(summary, filing),

@@ -302,15 +302,15 @@ def test_an_alert_disable_and_a_remove_of_one_company_both_finish(sessions, monk
 
     monkeypatch.setattr(watchlist_service, "remove_company", remove_company)
     _meet_after(monkeypatch, watch_rows, watchlist_service, "_watched")
-    real_read = earnings_alert_service._watch_row_for_ticker
+    real_read = earnings_alert_service._watch_rows_for_ticker
 
     def read_then_wait(*args, **kwargs):
-        row = real_read(*args, **kwargs)
+        rows = real_read(*args, **kwargs)
         watch_rows.meet()
         watch_rows.wait_for(removed)
-        return row
+        return rows
 
-    monkeypatch.setattr(earnings_alert_service, "_watch_row_for_ticker", read_then_wait)
+    monkeypatch.setattr(earnings_alert_service, "_watch_rows_for_ticker", read_then_wait)
     remove = _as_watcher(sessions, lambda db, user: watchlist_service.remove_company(db, user.id, "CAP3"))
     disable = _as_watcher(sessions, lambda db, user: earnings_alert_service.set_earnings_alert(
         db, user, "CAP3", enabled=False))

@@ -5,8 +5,8 @@ Behaviour (real endpoints against the app's SQLite DB; provider HTTP + id-token 
 mocked, mirroring test_apple_signin.py):
   - under REGISTRATION_MODE=invite_only a Google or Apple callback for an unknown provider subject
     creates no User and redirects with error=invite_required; a sign-in started with a valid invite
-    (GET /api/auth/google|apple?invite=...) creates the account, tags it is_beta and consumes the
-    invite; linking to an existing verified account still works
+    in the POST /api/auth/google|apple/start body creates the account, tags it is_beta and consumes the
+    invite (a ?invite= on the GET start is ignored); linking to an existing verified account still works
   - a provider claim with email_verified=false never seeds an account (error=email_unverified)
   - the Apple callback requires the browser-binding cookie set at GET /api/auth/apple
   - a lost invite-redemption race rolls the account back on both the social and the email path,

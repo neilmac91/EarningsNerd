@@ -1,7 +1,7 @@
 """Unit tests for the insider-activity orchestration layer.
 
 The EdgarTools fetch is replaced with an injected async ``fetcher``, so these
-run without edgartools installed and assert the windowing, caching, recent-sort,
+run without calling edgartools and assert the windowing, caching, recent-sort,
 and response-shape contract that the router and schema depend on.
 """
 
@@ -17,11 +17,9 @@ def _days_ago(n: int) -> str:
     return (date.today() - timedelta(days=n)).isoformat()
 
 
-# A stand-in for edgar's CompanyNotFoundError. We avoid importing the real one
-# because the app.services.edgar package pulls in edgartools at import time
-# (absent in this test env). The service only *propagates* the fetcher's
-# exception — it never inspects the type — so any exception exercises the
-# contract the router relies on (router maps CompanyNotFoundError -> 404).
+# A stand-in for edgar's CompanyNotFoundError. The service only *propagates* the
+# fetcher's exception — it never inspects the type — so any exception exercises
+# the contract the router relies on (router maps CompanyNotFoundError -> 404).
 class CompanyNotFoundError(Exception):
     pass
 

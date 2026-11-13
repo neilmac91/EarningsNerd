@@ -2,8 +2,8 @@
 
 These tests PIN the orchestrator's behaviour on its admission branches (filing lookup, the stored
 summary short-circuit, the NULL-timestamp content-cache fallback, the quota / fair-use block, and
-the late-claim fresh re-read of the dedup loop) exactly as it runs today, so the upcoming
-decomposition into stage modules can prove ZERO observable change. Every assertion is on an
+the late-claim fresh re-read of the dedup loop) exactly as it runs today, so the
+decomposition into stage modules proved ZERO observable change. Every assertion is on an
 observable: yielded event dicts, DB rows, mock call lists, the in-flight registry, the generation
 semaphore, and the exact log text the code formats.
 """

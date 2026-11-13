@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 SUPPORTED_FORMS = ("10-K", "10-Q")
 
 # Hard ceiling on a single precompute batch (tickers x forms). Bounds blast radius / spend even if a
-# caller passes a huge list; the top-500 cohort x 2 forms (1000) would be split across batches above
-# this. Tune via the caller, not by raising this casually.
+# caller passes a huge list; the top-500 cohort x 2 forms (1000) fits in one batch; jobs past this cap
+# are dropped and counted in ``truncated_at_cap``. Tune via the caller, not by raising this casually.
 MAX_BATCH = 1200
 
 

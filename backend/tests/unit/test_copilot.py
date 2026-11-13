@@ -4,8 +4,10 @@ Covers:
 * Publication boundary — only completed, admitted answers carry prose; referenced failed citations
   withhold the whole answer, while valid source citations keep their deep links.
 * Not-disclosed path — model emits the sentinel → a ``not_disclosed`` event, no fabricated citations.
-* Endpoint gating — FREE user 403, PRO user 200 + streams.
-* Metering — a PRO user's ``qa_count`` increments; exceeding the monthly cap → 429.
+* Endpoint gating — a FREE user streams until the lifetime free-taste allowance is used, then gets 403; a PRO user
+  200 + streams.
+* Metering — a PRO user's ``qa_count`` increments; exceeding the monthly cap → 429; a FREE taste decrements the
+  lifetime counter; a lease converts when the provider stream starts and is released or refunded on failure.
 
 DB-touching tests are marked ``requires_db`` and override ``get_current_user`` with a stand-in whose
 entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` dep resolves through
@@ -920,9 +922,8 @@ def test_snapshot_filing_detaches_fields():
     assert snap.company.ticker == "AAPL"
     assert snap.filing_type == "10-K"
     assert snap.document_url.startswith("https://www.sec.gov/")
-    # P5: company_id + cik are captured eagerly so the numeric tools can query without the request DB.
+    # P5: company_id is captured eagerly so the numeric tools can query without the request DB.
     assert snap.company_id == 1
-    assert snap.cik == "320193"
 
 
 # --- P5: numeric XBRL tool-use -----------------------------------------------------------------

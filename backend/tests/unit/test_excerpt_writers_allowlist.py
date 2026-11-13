@@ -400,5 +400,7 @@ def test_the_scan_scores_every_planted_form():
 ])
 def test_the_scan_reads_every_place_that_can_reach_the_database(path):
     files = [p.relative_to(REPO_DIR).as_posix() for p in _scanned_files()]
-    assert any(f == path or f.startswith(f"{path}/") for f in files)
+    # A place the repository no longer has (the root `scripts/` went with its last script) holds
+    # nothing to read; one that exists must be read.
+    assert any(f == path or f.startswith(f"{path}/") for f in files) or not (REPO_DIR / path).exists()
     assert not any(f.startswith(("frontend/", "backend/tests/", ".claude/worktrees/")) for f in files)

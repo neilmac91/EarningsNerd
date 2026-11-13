@@ -271,9 +271,9 @@ async def run_scan(db: Session, *, efts_client=None, days: Optional[int] = None)
     """Sweep EDGAR for the trailing window, score, upsert into ``notable_filings``, prune.
 
     Provider failures retain partial work and return error counters; the CLI records failure
-    and exits nonzero, while API callers keep best-effort returns. Request budget: worst case (peak
-    earnings/10-K season) ≈ 56 requests ≈ 56 s of the job's own 1 req/s bucket (deploy-pinned; 10 locally);
-    typical ≈ 25.
+    and exits nonzero, while API callers keep best-effort returns. Request budget: page-cap ceiling
+    (6 phrases x 12 + 2 report queries x 10 + 2 listing forms x (days + 1), 2-day default window) = 98 requests
+    ≈ 98 s of the job's own 1 req/s bucket (deploy-pinned; 10 locally); typical ≈ 25.
     """
     stats = ScanStats()
     if efts_client is None:

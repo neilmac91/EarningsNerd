@@ -72,10 +72,6 @@ def member_tickers() -> frozenset[str]:
     return _MEMBER_TICKERS
 
 
-def is_member(ticker: str) -> bool:
-    return normalize_ticker(ticker) in _MEMBER_TICKERS
-
-
 def active_member_filter() -> Optional[frozenset[str]]:
     """The member set to filter calendar queries by, or ``None`` when no filter must apply.
 

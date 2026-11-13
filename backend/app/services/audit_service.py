@@ -175,27 +175,6 @@ def log_failed_login(
     )
 
 
-def log_subscription_change(
-    db: Session,
-    user_id,
-    user_email: str,
-    subscription_id: str,
-    action: str,  # "created", "updated", "cancelled"
-    details: Optional[Dict[str, Any]] = None,
-) -> AuditLog:
-    """Log a subscription change."""
-    return create_audit_log(
-        db=db,
-        action=f"subscription_{action}",
-        user_id=user_id,
-        user_email=user_email,
-        entity_type="subscription",
-        entity_id=subscription_id,
-        details=details or {},
-        status="success",
-    )
-
-
 def log_login_success(db: Session, user_id, user_email: str, ip_address: Optional[str] = None) -> AuditLog:
     return create_audit_log(db=db, action="login_success", user_id=user_id, user_email=user_email,
                             entity_type="user", ip_address=ip_address)

@@ -386,8 +386,8 @@ class TestStressConditions:
         # Run both concurrently
         await asyncio.gather(add_entries(), clear_periodically())
 
-        # Cache operations should complete without error
-        # Final state may have some entries or be empty
+        # Each of the 20 unique entries was either cleared exactly once or is still cached.
+        assert clear_count + len(_xbrl_cache) == 20
 
 
 # Marker for unit tests
