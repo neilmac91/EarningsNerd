@@ -44,8 +44,9 @@ def service():
                 {"name": "DATABASE_URL", "valueSource": {"secretKeyRef": {"secret": "db", "version": "latest"}}},
                 {"name": "SECRET_KEY", "valueSource": {"secretKeyRef": {"secret": "signing", "version": "latest"}}},
                 {"name": "RESEND_API_KEY", "valueSource": {"secretKeyRef": {"secret": "mail", "version": "latest"}}},
-            ], "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}]}],
-            "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": ["project:region:database"]}}],
+            ], "volumeMounts": [{"name": "cloudsql", "mountPath": "/cloudsql"}]}],
+            # Cloud Run requires a Cloud SQL volume to be named "cloudsql", so production's is.
+            "volumes": [{"name": "cloudsql", "cloudSqlInstance": {"instances": ["project:region:database"]}}],
         },
         # One ready revision serves all traffic, as after ci.yml's deploy (update-traffic --to-latest --clear-tags).
         "latestReadyRevision": f"{ops.SERVICE}/revisions/earningsnerd-backend-00001-abc",
@@ -1296,7 +1297,8 @@ def provider(body, code=403):
     ({"error": {"status": "INVALID_ARGUMENT", "details": [
         {"@type": "type.googleapis.com/google.rpc.ErrorInfo", "fieldViolations": [{"field": "job.name"}]},
         {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": {"field": "job.name"}},
-        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": "job.name"}]}},
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": "job.name"},
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": 7}]}},
      "; INVALID_ARGUMENT"),
 ], ids=["iam-denial", "api-disabled", "unknown-values", "not-json", "unhashable-values", "unlisted-permission",
         "nested-beyond-recursion", "non-object-error", "body-cut-short", "refused-fields-closed-shape",
@@ -1325,9 +1327,12 @@ def test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its
     ("sECRET", False),
     ("value1", False), ("job..name", False), (".job", False), ("job.", False), ("job[0][1]", False),
     ("job name", False), ("job.name\n", False), (".".join(["template"] * 13), False),
+    ("job.name:value", False), ("key=value", False), ("job[0]=1", False),
+    ("a" * 24, True), ("a" * 25, False), ("ab" + "Cd" * 6, True), ("ab" + "Cd" * 7, False),
 ])
 def test_a_refused_field_is_named_only_in_its_closed_path_shape(path, named):
-    """A field path is printed in a public log, so its shape alone must exclude every value a provider could hold."""
+    """A field path is printed in a public log, so its shape excludes every address, URL, secret, number beyond an
+    index, separator and hyphenated or uppercase-led name; FIELD_NAMES then masks any other word."""
     assert bool(ops.FIELD_PATH.fullmatch(path)) is named
 
 
@@ -1342,6 +1347,14 @@ def test_a_refused_field_is_named_only_in_its_closed_path_shape(path, named):
     ("Violation in RequestRequest", None), ("Violation in Request.job.name", None),
     ("violation in createJobRequest.job.name", None), ("Violation in CreateJobRequest.", None),
     ("Violation in CreateJobRequest." + ".".join(["template"] * 30), None),
+    # A word outside Cloud Run's field names is never printed: a value shaped like one reads as "?", and a path with
+    # no field name at all is not named.
+    ("invite_only", None), ("earningsnerd_feedback_verify", None),
+    ("job.template.earningsnerd_feedback_verify", "job.template.?"),
+    ("job.containers[0].unknownWord[3]", "job.containers[0].?[3]"),
+    ("template.template.serviceAccount", "template.template.serviceAccount"),
+    ("Violation in CreateServiceRequest.service.template.containers[0].env[2].valueSource.secretKeyRef.version",
+     "service.template.containers[0].env[2].valueSource.secretKeyRef.version"),
 ])
 def test_a_cloud_run_field_is_named_by_its_path_after_the_request_type(field, path):
     """Cloud Run v2 writes a refused field as "Violation in <request type>.<path>"; only that path is named."""

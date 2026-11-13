@@ -85,6 +85,7 @@ export default function TermsPage() {
                 href="https://www.sec.gov/edgar"
                 target="_blank"
                 rel="noreferrer"
+                aria-label="SEC EDGAR (opens in a new tab)"
                 className="text-brand-strong hover:underline dark:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 SEC EDGAR

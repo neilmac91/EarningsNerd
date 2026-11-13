@@ -106,7 +106,9 @@ sibling plans have landed:
    4. The exports, split by file; the siblings they waited for (#1601, #1609) have merged.
    5. Surfaces and the results header, last.
 
-   E206 in `tasks/todo.md` tracks them in this order. The proxy-statement fix the census found
+   E206 tracked them in this order until the triage of 2026-11-11 merged its open data steps into
+   F49 (`tasks/todo.md`); E206's own text is in
+   `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`. The proxy-statement fix the census found
    (§1.6) went first: it merged as #1622, and its repair of the rows stored before it, E211, is
    E206's first item.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
@@ -329,7 +331,7 @@ after it. That is the overkill this scheme exists to avoid.
 What stays imperfect: the data cannot tell a change of scope like REGN's from a legitimate recast.
 So REGN's FY2018 margin still shows 49.3% unmarked, with the explanation one tap away and the
 broken growth reading n/m. A fix for the scope change itself belongs in concept selection
-(`facts/concepts.py`), a separate decision tracked in E206 (`tasks/todo.md`).
+(`facts/concepts.py`), a separate decision E206 tracked (its text is in the ledger, `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`).
 
 **A separate data bug the census found.** Since 2023, proxy statements carry a pay-versus-performance
 table that tags five years of net income, filed after the 10-K. Ingest takes the latest-filed item
@@ -343,7 +345,7 @@ The fix (ingest skips proxy and information statements, plus a read-only query t
 production rows) went first, as it could put a wrong number on the page (FDX's FY2022–FY2026 net
 income, 3,826 where the 10-K gives $3,826M): it merged as #1622 on 2026-10-25 (high tier), with
 `ops/detection/proxy_form_winners.sql` to measure the rows production holds. The next sync heals
-some of them; the journaled repair of the rest is E211, the first item in E206 (`tasks/todo.md`;
+some of them; the journaled repair of the rest is E211, the first item of E206, now part of F49 (`tasks/todo.md`;
 #1622's body says which rows a sync heals).
 
 **Its first run** ([Ops run 40236489889](https://github.com/neilmac91/EarningsNerd/actions/runs/40236489889), main `15ee1e89`, 2026-10-25 21:39Z) found the cohort small, though not all
@@ -469,7 +471,7 @@ branch: stored v1 passed, needs review and unavailable; legacy calculated; legac
 The review, withheld and dagger counts and the reason breakdown were identical.
 
 It runs only from main, through the Ops workflow's `detection-sql` operation. Run it after this
-lands, and again after the backfill's apply, to confirm the drop. E206 (`tasks/todo.md`) holds
+lands, and again after the backfill's apply, to confirm the drop. F49 (`tasks/todo.md`), which carries E206's data steps, holds
 both runs.
 
 **The first run** ([Ops run 40236489889](https://github.com/neilmac91/EarningsNerd/actions/runs/40236489889), main `15ee1e89`, 2026-10-25 21:39Z, before WP0's apply), over
@@ -1416,8 +1418,10 @@ so it can start today.
 
 What WP3 and WP4 leave is in E206.
 
-**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order. The
-proxy-statement fix went first and merged as #1622; what it left leads the row:
+**Tracking.** One row, E206, held this report's work in order. The triage of 2026-11-11 merged its
+open data steps (E211's repair, WP0's apply) into F49 in `tasks/todo.md` and closed the rest; the
+row as it stood is in `tasks/archive/todo-ledger-2026-10-08-through-2026-11-11.md`. The
+proxy-statement fix went first and merged as #1622; what it left led the row:
 1. E211, the journaled repair of the proxy rows stored before #1622 (§1.6, high tier);
 2. WP0–WP5 in the order above (WP5 also commits a rerunnable restatement census);
 3. the concept-selection decision for REGN's change of scope (§1.6);

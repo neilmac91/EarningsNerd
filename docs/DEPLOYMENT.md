@@ -5,7 +5,7 @@ EarningsNerd runs on two platforms:
 | Tier | Platform | How it deploys |
 |------|----------|----------------|
 | **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests and the secret scan) |
-| **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on push to `main` |
+| **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on a push to `main` that changes what the build reads |
 | **Database** | Cloud SQL for PostgreSQL 15 (`earningsnerd-db`) | Reached over the Cloud SQL connector socket |
 | **Cache** | None in production (`SKIP_REDIS_INIT=true`) — L1 in-memory only | Redis is local-dev only (docker-compose) |
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
@@ -501,8 +501,32 @@ does not read the route.
 
 ## Frontend — continuous deployment
 
-Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`
-(and creates preview deployments for PRs). CI does **not** deploy the frontend.
+Vercel's GitHub integration deploys the `frontend/` app on a push to `main`, and creates a preview
+deployment on a push to any other branch, when the push changes something the frontend build reads.
+CI does **not** deploy the frontend.
+
+> **Build filter.** Vercel bills each build, and most pushes change nothing the frontend build
+> reads. `frontend/vercel.json`'s `ignoreCommand` runs `frontend/scripts/vercel-ignore-build.sh`
+> before a build, and Vercel cancels the build when it exits 0. The script exits 0 only when this
+> commit and the commit of the branch's last successful deployment (`VERCEL_GIT_PREVIOUS_SHA`) hold
+> the same build inputs: everything under `frontend/`, and the files outside it that a shipped
+> frontend file imports, today `backend/app/public_email_addresses.json` alone. It builds in every
+> other case: the branch has no earlier deployment, the commit is the one already deployed, the
+> earlier commit is outside Vercel's shallow clone, or a read fails.
+>
+> So production serves the deployment of the last merge that changed a build input. A deployment
+> Vercel shows as **Canceled** on a later commit means that commit changed none; it is not a
+> failure. A pull request's preview is that of its last push that changed one. The deployment's
+> build log holds the script's one line, `ignore-build: build: …` or `ignore-build: skip: …`, with
+> what it read.
+>
+> To rebuild without a new commit (after changing a dashboard variable, for one), choose
+> **Redeploy** on the deployment and uncheck **Use project's Ignore Build Step**
+> ([Vercel's documentation](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step)).
+>
+> `backend/tests/unit/test_frontend_build_filter.py` runs the command on real Git histories. A
+> shipped frontend file that starts to import another file outside `frontend/` fails it until the
+> script names that file. #2043 records the live reads of Vercel's side.
 
 > **Rollback floor.** A Vercel rollback or promotion never moves production to a deployment older than `c32af8f`
 > while an API at or after #2014 serves: every Google or Apple sign-in lands on `/auth/complete`
@@ -893,7 +917,8 @@ unverified line never masks: a failed read never stops another resource's checks
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
 error class (status, reason, a denied permission that one of these steps names, and up to three request fields
 a `BadRequest` refuses, each named only as a dotted path of lowercase snake- or camel-case words with indices of at
-most three digits, so a refused Cloud Run create says which field it objects to); a dropped connection
+most three digits, and only through Cloud Run's own field names, any other word printed as `?`, so a refused Cloud
+Run create says which field it objects to); a dropped connection
 reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
 Provider messages, resources and principals stay withheld. The check reads the identity's own
 project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled

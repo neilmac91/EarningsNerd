@@ -31,9 +31,9 @@
    read out of braces, conditions and parentheses), the tail's written space
    paints inside the link's box, under its underline and focus ring, so such a
    link takes the label form and a tail there fails as inline (chief design on
-   #1921). An element after the link is not read: it may be a block. The
-   residue, held by name: the terms page's link, on a legal page whose text
-   waits on the founder's go-ahead. A glyph that marks the new tab says
+   #1921). An element after the link is not read: it may be a block. No
+   residue is left: the terms page's link, the last silent one, took the
+   label form (E281). A glyph that marks the new tab says
    nothing itself: inside a new-tab link, an ArrowSquareOutIcon takes
    aria-hidden, and so does an element around a text arrow (↗). Planted cases
    hold the reader.
@@ -48,8 +48,8 @@ import { CLASS_ATTRIBUTE, literalTexts, parse, sourceFiles, tokensOf } from './c
 const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const CUE = '(opens in a new tab)'
-// The links that may stay silent, each until its own decision: the terms page's, whose text waits on the founder.
-const RESIDUE = ['app/terms/page.tsx <a>']
+// The links that may stay silent, each until its own decision: none since the terms page's took the label form (E281).
+const RESIDUE: string[] = []
 
 type Verdict = 'tail' | 'label' | 'silent' | 'unread' | 'inline'
 

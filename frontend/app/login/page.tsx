@@ -19,7 +19,7 @@ import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { ENABLE_APPLE_SIGNIN, TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { consumePostAuthRedirect, safeInternalPath } from '@/lib/postAuthRedirect'
+import { consumePostAuthRedirect, isSafeInternalPath } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 
 /**
@@ -120,16 +120,16 @@ function LoginContent() {
       } catch {
         // Analytics must not block an otherwise current login.
       }
-      // Return the user to where they were headed before the auth gate. Only a path on this origin
-      // is honoured, as the URL parser reads it (`safeInternalPath`): "//evil", "/\\evil" and a
-      // slash followed by a tab or line break before another slash all name another site.
+      // Return the user to where they were headed before the auth gate. Only honour a path the
+      // browser keeps on this site (isSafeInternalPath): protocol-relative ("//evil"), backslash
+      // ("/\\evil") and tab or newline ("/\t/evil") forms all resolve to another site.
       // Fallback: the signup gate's stashed destination (consume-once, validated, 1h TTL) — it
       // survives the verification email's new-tab hop, which the ?redirect= thread cannot.
       // Consume even when the explicit destination wins, so a completed login cannot leave a
       // stale signup destination waiting for a later, unrelated login.
       const stashedDestination = consumePostAuthRedirect()
       const dest = searchParams.get('redirect') ?? stashedDestination
-      const safe = safeInternalPath(dest) ?? '/'
+      const safe = dest && isSafeInternalPath(dest) ? dest : '/'
       router.push(safe)
       router.refresh()
     } catch (err: unknown) {
@@ -175,7 +175,8 @@ function LoginContent() {
       )}
 
       <div className="mt-8">
-        <SocialAuthButtons apiBase={apiBase} />
+        {/* A Google or Apple login keeps `?redirect=` across the provider's round trip (OAuthStartControl, E29 (7)). */}
+        <SocialAuthButtons apiBase={apiBase} returnTo={searchParams.get('redirect')} />
 
         <AuthDivider />
 

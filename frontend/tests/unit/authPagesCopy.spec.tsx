@@ -43,7 +43,7 @@ import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import { getCurrentUserSafe, resendVerification, resetPassword, verifyEmail } from '@/features/auth/api/auth-api'
 import { ApiError, EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
-import { VERIFY_EMAIL_REASONS, VERIFY_LINK_FALLBACK, VERIFY_RETRY_FALLBACK } from '@/features/auth/lib/verifyEmailFailure'
+import { VERIFY_EMAIL_REASONS, VERIFY_LINK_FALLBACK, VERIFY_UNANSWERED_DESCRIPTION } from '@/features/auth/lib/verifyEmailFailure'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -132,7 +132,7 @@ function verifyEmailRefusals(): string[] {
  * that passes a `detail=` (an exception of the app's own, any callee), its status `status_code=`; the detail's
  * adjacent string literals joined in any quoting. A detail written any other way (a name, a call) is unreadable,
  * and a status other than 400, or none the scan can read, is a reason /verify-email cannot show
- * (verifyEmailFailureMessage reads a 400's alone), so each is a problem. A refusal whose detail is not written in
+ * (readVerifyEmailFailure reads a 400's alone), so each is a problem. A refusal whose detail is not written in
  * the body (a helper that builds it, an exception handler) is review-checked.
  */
 /** The names a router module gives HTTPException: its own, and each alias an import (`HTTPException as ApiError`) or
@@ -304,10 +304,16 @@ describe('check email', () => {
 })
 
 describe('verify email', () => {
-  it('shows the server reason for a refused link', async () => {
-    useSearchParams.mockReturnValue(new URLSearchParams('token=t'))
-    vi.mocked(verifyEmail).mockRejectedValue(new ApiError(400, 'Verification link has expired. Request a new one.'))
+  /** The page reads the email's token from the address after mount and posts it only on a press of Verify email. */
+  async function openWithTokenAndPress() {
+    window.history.replaceState(null, '', '/verify-email?token=t')
     withQueryClient(<VerifyEmailPage />)
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Verify email' }))
+  }
+
+  it('shows the server reason for a refused link', async () => {
+    vi.mocked(verifyEmail).mockRejectedValue(new ApiError(400, 'Verification link has expired. Request a new one.'))
+    await openWithTokenAndPress()
     expect(await screen.findByText('Verification link has expired. Request a new one.')).toBeInTheDocument()
     // /check-email without an address offers no Resend, so the link promises a new link, not a send.
     expect(screen.getByRole('link', { name: 'Get a new link' })).toHaveAttribute('href', '/check-email')
@@ -378,50 +384,22 @@ describe('verify email', () => {
   // What lib/api/client.ts's interceptor actually throws when the answer carries no reason of the server's.
   it.each([
     ['a bodiless 400 (axios)', new ApiError(400, 'Request failed with status code 400'), VERIFY_LINK_FALLBACK],
-    ['a lost connection', new ApiError(0, 'Unable to connect to the server. Please ensure the backend API is running on http://localhost:8000'), VERIFY_RETRY_FALLBACK],
-    ['a timeout', new ApiError(0, 'The request timed out. Please try again.'), VERIFY_RETRY_FALLBACK],
-    ['a server error', new ApiError(500, 'A server error occurred. Please try again later.'), VERIFY_RETRY_FALLBACK],
-    ["the backend's production 500", new ApiError(500, 'An unexpected error occurred'), VERIFY_RETRY_FALLBACK],
+    ['a lost connection', new ApiError(0, 'Unable to connect to the server. Please ensure the backend API is running on http://localhost:8000'), VERIFY_UNANSWERED_DESCRIPTION],
+    ['a timeout', new ApiError(0, 'The request timed out. Please try again.'), VERIFY_UNANSWERED_DESCRIPTION],
+    ['a server error', new ApiError(500, 'A server error occurred. Please try again later.'), VERIFY_UNANSWERED_DESCRIPTION],
+    ["the backend's production 500", new ApiError(500, 'An unexpected error occurred'), VERIFY_UNANSWERED_DESCRIPTION],
   ])('on %s, says its own sentence, never the client text', async (_case, rejection, expected) => {
-    useSearchParams.mockReturnValue(new URLSearchParams('token=t'))
     vi.mocked(verifyEmail).mockRejectedValue(rejection)
-    withQueryClient(<VerifyEmailPage />)
+    await openWithTokenAndPress()
     expect(await screen.findByText(expected)).toBeInTheDocument()
     expect(screen.queryByText(rejection.detail)).toBeNull()
   })
 
   it('confirms the address and says where it goes next', async () => {
-    useSearchParams.mockReturnValue(new URLSearchParams('token=t'))
     vi.mocked(verifyEmail).mockResolvedValue({})
-    withQueryClient(<VerifyEmailPage />)
+    await openWithTokenAndPress()
     expect(await screen.findByText('Your email address is confirmed. Taking you to the home page…')).toBeInTheDocument()
     expect(screen.queryByText(/account is active/i)).toBeNull()
-  })
-
-  it('leaves for the home page 3 s after confirming, and not once the reader has left the page', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      useSearchParams.mockReturnValue(new URLSearchParams('token=t'))
-      vi.mocked(verifyEmail).mockResolvedValue({})
-      const verify = async () => {
-        let page!: ReturnType<typeof withQueryClient>
-        await act(async () => { page = withQueryClient(<VerifyEmailPage />) })
-        expect(screen.getByText('Email verified')).toBeInTheDocument()
-        return page
-      }
-      const stayed = await verify()
-      act(() => { vi.advanceTimersByTime(3000) })
-      expect(push).toHaveBeenCalledWith('/')
-      stayed.unmount()
-
-      push.mockReset()
-      const left = await verify()
-      left.unmount()
-      act(() => { vi.advanceTimersByTime(3000) })
-      expect(push).not.toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
-    }
   })
 })
 

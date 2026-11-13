@@ -245,6 +245,25 @@ const PUBLIC_ROUTES: Route[] = [
   { name: 'check email', path: '/check-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible() },
   // Opened without the emailed token: /verify-email settles on its failure state, /reset-password shows its invalid-link notice.
   { name: 'verify email (no token)', path: '/verify-email', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Verification failed' })).toBeVisible() },
+  {
+    // Opened from the emailed link: the page waits for a press of Verify email and posts nothing on load (a link
+    // scanner's load spends no token). A script plants the link's token before the page's own runs, as the OAuth
+    // landing's entry below plants its code, so the route's path stays the AuthShell route.
+    name: 'verify email (token, waiting for the press)',
+    path: '/verify-email',
+    open: async (p, b) => {
+      await answerSiteApi(p, b, false)
+      await p.addInitScript(() => {
+        if (window.location.pathname === '/verify-email' && !window.location.search) {
+          window.history.replaceState(null, '', '/verify-email?token=e2e-census-token')
+        }
+      })
+    },
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 1, name: 'Verify your email address' })).toBeVisible()
+      await expect(p.getByRole('button', { name: 'Verify email' })).toBeVisible()
+    },
+  },
   { name: 'forgot password', path: '/forgot-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'reset password (no token)', path: '/reset-password', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible() },
   {

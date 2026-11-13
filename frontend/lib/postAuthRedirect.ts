@@ -9,40 +9,38 @@
  * So the gate ALSO stashes its destination here (localStorage, deliberately not sessionStorage —
  * it must survive the new-tab hop), and login consumes it as the fallback when no `?redirect=`
  * param is present. Consume-once + a freshness window keep a stale stash from teleporting an
- * unrelated later login. Values are validated as internal paths on BOTH ends, by the one rule
- * login's `?redirect=` handling uses (`safeInternalPath` below).
+ * unrelated later login. Values are validated as internal paths on BOTH ends, by the one rule every
+ * post-login destination takes, the login page's `?redirect=` included (`isSafeInternalPath`).
  */
 
 const KEY = 'en_post_auth_redirect'
 // A gate → verify-email → login round trip is minutes, not days. After this window the stash is
 // considered stale and ignored (and cleared), so an abandoned signup can't redirect next week's login.
 const MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
+// Any origin no site holds: a path is internal when the browser's own parser keeps it on the origin it is read against.
+const PROBE_ORIGIN = 'https://internal.invalid'
 
 /**
- * The destination as a path on this origin, or null when it is not one. The one rule for every
- * post-auth destination: login's `?redirect=` value and the stash, written and read.
- *
- * The URL parser decides, not a prefix test. It drops tabs and line breaks anywhere in its input and
- * reads a backslash as a slash, so `/\t/evil.example`, `/\n/evil.example` and `/\\evil.example` all
- * parse as `//evil.example`, another site, while each begins with one slash and passes a check of
- * the first two characters. What the router would navigate to is what gets compared, and the
- * parsed path is what is returned.
- *
- * The parsed path is checked too, since it is what the router is handed. Removing dot segments can
- * leave one that names another site: a destination that opens with a dot segment and then two
- * slashes before a host parses on this origin, with a path that opens with those two slashes. So
- * the returned path must itself parse to this origin.
+ * True for a destination that stays on this site: a single-slash-rooted path the browser reads as same-origin.
+ * Starting with one slash is not enough. A browser's URL parser removes tab, CR and LF wherever they stand and reads
+ * a backslash as a slash, so "/\t/evil.example" and "/\evil.example" both resolve to another site, where a login
+ * would then land its reader (an open redirect). So a backslash or a control character anywhere refuses the path,
+ * and the parser has the last word: the path must resolve to the origin it was read against, and come back from the
+ * parser as it went in. A dot segment ("/.//evil.example", "/%2e//evil.example") stays on the origin but parses to
+ * the path "//evil.example", which is another site to whatever later reads that path by itself; a destination this
+ * app builds (a page's own pathname and query) is already in the parser's form, so the rule costs it nothing.
  */
-export function safeInternalPath(dest: string | null | undefined): string | null {
-  if (typeof window === 'undefined' || !dest || !dest.startsWith('/')) return null
-  const { origin } = window.location
+export function isSafeInternalPath(path: string): boolean {
+  if (!path.startsWith('/') || path.startsWith('//')) return false
+  for (let i = 0; i < path.length; i += 1) {
+    const code = path.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f || code === 0x5c) return false
+  }
   try {
-    const url = new URL(dest, origin)
-    if (url.origin !== origin) return null
-    const path = `${url.pathname}${url.search}${url.hash}`
-    return new URL(path, origin).origin === origin ? path : null
+    const parsed = new URL(path, PROBE_ORIGIN)
+    return parsed.origin === PROBE_ORIGIN && parsed.pathname + parsed.search + parsed.hash === path
   } catch {
-    return null
+    return false
   }
 }
 
@@ -53,7 +51,7 @@ export function safeInternalPath(dest: string | null | undefined): string | null
  *
  * IMPORTANT: pass a RAW path (e.g. `/filing/123`), never a pre-encoded one — these encode exactly
  * once. A double-encode would survive the receiver's single decode as `%2Ffiling%2F123`, fail its
- * internal-path check (`safeInternalPath`), and silently drop the redirect to `/`.
+ * `startsWith('/')` internal-path check, and silently drop the redirect to `/`.
  */
 export function loginHrefWithRedirect(redirect?: string | null): string {
   return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
@@ -64,10 +62,9 @@ export function registerHrefWithRedirect(redirect?: string | null): string {
 }
 
 export function stashPostAuthRedirect(path: string): void {
-  const safe = safeInternalPath(path)
-  if (!safe) return
+  if (typeof window === 'undefined' || !isSafeInternalPath(path)) return
   try {
-    localStorage.setItem(KEY, JSON.stringify({ path: safe, at: Date.now() }))
+    localStorage.setItem(KEY, JSON.stringify({ path, at: Date.now() }))
   } catch {
     // Storage unavailable (private mode, quota) — the ?redirect= thread still works.
   }
@@ -84,7 +81,7 @@ export function consumePostAuthRedirect(): string | null {
     const { path, at } = parsed as { path?: unknown; at?: unknown }
     if (typeof path !== 'string' || typeof at !== 'number') return null
     if (Date.now() - at > MAX_AGE_MS) return null
-    return safeInternalPath(path)
+    return isSafeInternalPath(path) ? path : null
   } catch {
     return null
   }

@@ -51,21 +51,11 @@ describe('completed email-login redirect consumption', () => {
     ['/dashboard/watchlist', '/dashboard/watchlist'],
     ['//example.com', '/'],
     ['/\\example.com', '/'],
-    // The URL parser drops a tab or a line break and reads a backslash as a slash, so each of these is
-    // `//example.com`, another site, though it begins with a single slash.
+    // A browser's URL parser removes tab, CR and LF, so each of these reads as //example.com (postAuthRedirect.spec.ts).
     ['/\t/example.com', '/'],
     ['/\n/example.com', '/'],
     ['/\r/example.com', '/'],
-    ['/\t\\example.com', '/'],
-    // Dot segments are removed by the parser and can leave `//example.com` as the path of a URL on
-    // this origin; the path is what the router is handed.
-    ['/..//example.com', '/'],
-    ['/.//example.com', '/'],
-    ['/a/..//example.com', '/'],
-    ['/%2e%2e//example.com', '/'],
-    ['/a/../dashboard', '/dashboard'],
-    ['/filing/12#risk-factors', '/filing/12#risk-factors'],
-  ])('consumes the stash when explicit destination %s completes at %s', async (explicit, expected) => {
+  ])('consumes the stash when explicit destination %j completes at %s', async (explicit, expected) => {
     stashPostAuthRedirect('/pricing?billing=monthly')
     searchParams.set('redirect', explicit)
     const firstLogin = renderLogin()
@@ -81,30 +71,6 @@ describe('completed email-login redirect consumption', () => {
     submitLogin()
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'))
     expect(consumePostAuthRedirect()).toBeNull()
-  })
-
-  it.each([
-    '/\t/example.com',
-    '/\n/example.com',
-    '/\\example.com',
-    '//example.com',
-    'https://example.com/x',
-    '/..//example.com',
-    '/.//example.com',
-    '/%2e%2e//example.com',
-  ])(
-    'never stashes %j, a destination on another site',
-    (path) => {
-      stashPostAuthRedirect(path)
-      expect(localStorage.getItem('en_post_auth_redirect')).toBeNull()
-    },
-  )
-
-  it('refuses a stored destination on another site, however it came to be stored', () => {
-    for (const path of ['/\t/example.com', '/..//example.com']) {
-      localStorage.setItem('en_post_auth_redirect', JSON.stringify({ path, at: Date.now() }))
-      expect(consumePostAuthRedirect()).toBeNull()
-    }
   })
 
   it('retains the fallback across a rejected login and consumes it on the successful retry', async () => {

@@ -33,8 +33,10 @@ switch's enable or disable, fails at its one write with nothing partial):
    Each refusal changes nothing; the write steps keep their own ownership and etag checks, and a policy read
    without an etag is refused, because its write-back would not be conditional.
 3. **Closed failures.** Print a refused provider call as its label and a closed error class:
-   `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>)`. The permission is named
-   only when one of the steps names it, otherwise "an unlisted permission". An operation that fails after
+   `<step> [<permission>] failed (HTTP n; <status>; <reason>; denied <permission>; field <path>)`. The permission
+   is named only when one of the steps names it, otherwise "an unlisted permission". A field is a path a
+   `BadRequest` refuses, at most three, named only in a closed shape through Cloud Run's own field names (any
+   other word prints as `?`), so a refused create says which field it objects to. An operation that fails after
    Cloud Run accepted it prints `<step> [<permission>]: Cloud Run operation failed (<status>)`, and a dropped
    connection prints `<step> [<permission>] unavailable or unreadable`. Never print provider text.
 4. **Inspect reads everything.** Read every component before failing, as an independent inventory
@@ -80,7 +82,9 @@ switch's enable or disable, fails at its one write with nothing partial):
   a bucket without its runtime grant included.
 - `test_a_refused_provider_call_names_its_step_and_closed_error_class_never_its_payload`,
   `test_a_failed_cloud_run_operation_names_only_its_step_and_closed_status` and
-  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output, and
+  `test_a_dropped_connection_is_an_unreadable_provider_call_not_a_traceback` pin the output;
+  `test_a_refused_field_is_named_only_in_its_closed_path_shape` and
+  `test_a_cloud_run_field_is_named_by_its_path_after_the_request_type` pin which field paths it may name; and
   `test_every_permission_a_step_label_names_can_be_named_in_a_refusal` keeps each label's permissions nameable.
 - `test_an_unreadable_component_is_unverified_and_never_masks_readable_drift`,
   `test_a_failed_read_never_stops_another_resources_drift_check` and

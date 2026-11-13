@@ -11,9 +11,9 @@ import OAuthStartControl from './OAuthStartControl'
  * - Min height & corner radius matching sibling buttons (never subordinate)
  * The Apple glyph uses currentColor so it tracks the text color in each theme.
  */
-export default function AppleSignInButton({ apiBase, invite, signup }: { apiBase: string; invite?: string; signup?: OAuthSignup }) {
+export default function AppleSignInButton({ apiBase, invite, signup, returnTo }: { apiBase: string; invite?: string; signup?: OAuthSignup; returnTo?: string | null }) {
   return (
-    <OAuthStartControl apiBase={apiBase} provider="apple" invite={invite} signup={signup} className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-black/90 active:scale-[0.99] dark:bg-white dark:text-black dark:hover:bg-white/90">
+    <OAuthStartControl apiBase={apiBase} provider="apple" invite={invite} signup={signup} returnTo={returnTo} className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-black/90 active:scale-[0.99] dark:bg-white dark:text-black dark:hover:bg-white/90">
       <AppleLogo />
       Continue with Apple
     </OAuthStartControl>
