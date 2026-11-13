@@ -546,7 +546,8 @@ def outside_frontend_references(frontend=None, specs=True):
     reads it, and against frontend/, the directory the jobs run in, as a bare ``readFileSync('../backend/x')`` reads
     it (kept only when the file exists, since most literals are meant the first way). A literal under the ``@/``
     alias is resolved against frontend/ alone. tests/unit runs in frontend-tests, which no scope skips, so it is
-    read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs. A path built from
+    read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs, and .open-next/
+    and .wrangler/ are the untracked output of a local Workers build (`npm run cf:build`). A path built from
     separate segments (``path.join(dir, '..', 'backend')``) is outside this check: write such a path as one literal.
 
     ``specs=False`` reads the build alone, as Vercel runs it (test_frontend_build_filter.py): no file under tests/
@@ -560,7 +561,7 @@ def outside_frontend_references(frontend=None, specs=True):
     def scanned(path):
         relative = path.relative_to(frontend)
         return (path.is_file() and path.suffix in SCANNED_SUFFIXES
-                and relative.parts[0] not in {"node_modules", ".next", "scripts"})
+                and relative.parts[0] not in {"node_modules", ".next", ".open-next", ".wrangler", "scripts"})
 
     def starts_the_scan(path):
         parts = path.relative_to(frontend).parts
