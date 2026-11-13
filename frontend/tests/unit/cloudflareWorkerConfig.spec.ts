@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { markNoindex } from '../../cloudflare-robots.mjs'
 
 /**
- * The Cloudflare Workers build is wired across four files that nothing compiles together: open-next.config.ts picks
+ * The Cloudflare Workers build is wired across files that nothing compiles together: open-next.config.ts picks
  * the cache and the queue, wrangler.jsonc binds what they read, cloudflare-worker.mjs is the entry point, and
  * public/_headers sets the static files' caching. CI builds the app for Vercel only, so a name changed in one of
  * them is not seen until a deploy, where it fails at request time. This spec holds them to each other, and holds the
@@ -53,7 +54,7 @@ describe('the Cloudflare Workers build', () => {
 
     // Cloudflare instantiates a Durable Object class only when the entry point exports it.
     expect(existsSync(path.join(FRONTEND, wrangler.main)), `${wrangler.main} exists`).toBe(true)
-    expect(entry).toMatch(/export \{[^}]*\bDOQueueHandler\b[^}]*\} from '\.\/\.open-next\/worker\.js'/)
+    expect(entry).toMatch(/^export \{ DOQueueHandler \} from '\.\/\.open-next\/worker\.js'$/m)
 
     expect(wrangler.assets?.directory).toBe('.open-next/assets')
     expect(read('public/_headers')).toMatch(/^\/_next\/static\/\*\n {2}Cache-Control: public,max-age=31536000,immutable$/m)
@@ -64,7 +65,15 @@ describe('the Cloudflare Workers build', () => {
     // vercel.json; a Worker without it would serve nothing but the waitlist.
     expect(['true', 'false'], 'WAITLIST_MODE is stated in wrangler.jsonc `vars`').toContain(wrangler.vars?.WAITLIST_MODE)
 
-    expect(read(wrangler.main)).toContain("env.ROBOTS_NOINDEX !== 'true'")
+    // The entry point passes every response through markNoindex, which is run here as the Worker runs it.
+    expect(read(wrangler.main)).toMatch(/^ {4}return markNoindex\(await openNextWorker\.fetch\(request, env, ctx\), env\)$/m)
+    const rendered = () => new Response('page', { status: 404, headers: { 'X-Frame-Options': 'DENY' } })
+    const marked = markNoindex(rendered(), { ROBOTS_NOINDEX: 'true' })
+    expect(marked.headers.get('X-Robots-Tag')).toBe('noindex, nofollow')
+    expect([marked.status, marked.headers.get('X-Frame-Options')], 'the response is otherwise the one rendered').toEqual([404, 'DENY'])
+    for (const env of [{}, { ROBOTS_NOINDEX: 'false' }]) {
+      expect(markNoindex(rendered(), env).headers.has('X-Robots-Tag'), 'production, with the variable unset, stays indexable').toBe(false)
+    }
     if (wrangler.workers_dev !== false) {
       expect(wrangler.vars?.ROBOTS_NOINDEX, 'a workers.dev deployment is a copy of the site: keep it out of search').toBe('true')
     }

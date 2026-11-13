@@ -573,17 +573,18 @@ CI does **not** deploy the frontend.
 
 A second build of the same app runs on Cloudflare Workers through the OpenNext adapter, to evaluate moving the
 frontend off Vercel. It is a copy at the Worker `earningsnerd-frontend-poc` on the account's workers.dev subdomain: it has no custom
-domain, takes no production traffic and changes nothing about the Vercel deployment above. Nothing deploys it
-automatically, and CI does not build it.
+domain and takes no production traffic. Nothing deploys it automatically, and CI does not build it. Vercel's
+deployment changes in two small ways: its install also fetches the two build tools (dev dependencies), and it serves
+`public/_headers` as a static file at `/_headers`, which holds one caching rule and nothing private.
 
 | File (under `frontend/`) | What it sets |
 |---|---|
 | `open-next.config.ts` | Rendered pages are cached in R2, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server loads |
 | `wrangler.jsonc` | The Worker's name, its R2 bucket, Durable Object and self-reference bindings, and its two runtime variables |
-| `cloudflare-worker.mjs` | The entry point: OpenNext's handler, plus `X-Robots-Tag: noindex, nofollow` on every response while `ROBOTS_NOINDEX` is `true` |
+| `cloudflare-worker.mjs`, `cloudflare-robots.mjs` | The entry point: OpenNext's handler, plus `X-Robots-Tag: noindex, nofollow` on every response it renders while `ROBOTS_NOINDEX` is `true` |
 | `public/_headers` | A year of immutable browser caching for `/_next/static/*`; without it Cloudflare serves those files `max-age=0` |
 
-`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds the four to each other, requires `WAITLIST_MODE` to be
+`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires `WAITLIST_MODE` to be
 stated (a Worker without it redirects every page to `/waitlist`), and keeps a workers.dev deployment noindex and
 without a route.
 
