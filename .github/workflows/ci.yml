@@ -536,6 +536,33 @@ jobs:
       - name: Run unit tests
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
+      # The frontend's staging copy runs on Cloudflare Workers and is deployed by hand from main
+      # (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)"). No other job builds the app
+      # for Workers, so these two steps are what keeps main deployable there: the build itself, then
+      # the Worker's compressed size against the plan's 10 MiB limit (refused from 8 MiB, to leave
+      # room to act) and a request to the built Worker in the local Workers runtime. They need no
+      # Cloudflare credential and reach no Cloudflare account.
+      - name: Build for Cloudflare Workers
+        run: npm run cf:build
+        working-directory: frontend
+      - name: The Worker fits its size limit and answers in the Workers runtime
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --dry-run | tee dry-run.log
+          gzip_kib=$(sed -n 's/.*gzip: \([0-9]*\)\.[0-9]* KiB.*/\1/p' dry-run.log)
+          if [ -z "$gzip_kib" ] || [ "$gzip_kib" -ge 8192 ]; then
+            echo "::error::The Worker is '${gzip_kib}' KiB gzipped; the build must report a size under 8192 KiB (Cloudflare refuses a Worker over 10 MiB)."
+            exit 1
+          fi
+          npx wrangler dev --port 8788 > wrangler-dev.log 2>&1 &
+          npx wait-on --timeout 90000 http-get://127.0.0.1:8788/robots.txt || { cat wrangler-dev.log; exit 1; }
+          curl -fsS -o /dev/null -D headers.txt http://127.0.0.1:8788/pricing || { cat wrangler-dev.log; exit 1; }
+          cat headers.txt
+          # wrangler.jsonc sets ROBOTS_NOINDEX for staging, and next.config.js sets the frame header on every page.
+          grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
+          grep -qi '^x-frame-options: DENY' headers.txt
+        working-directory: frontend
 
   # Backend first (docs/PRICING_OFFER.md, "Machine checks"): a pricing page must never show less than
   # checkout charges. A pull request that changes the offer (frontend/app/pricing/prices.ts, per

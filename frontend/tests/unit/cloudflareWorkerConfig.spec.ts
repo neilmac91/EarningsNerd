@@ -10,7 +10,7 @@ import { markNoindex } from '../../cloudflare-robots.mjs'
  * the cache and the queue, wrangler.jsonc binds what they read, cloudflare-worker.mjs is the entry point, and
  * public/_headers sets the static files' caching. CI builds the app for Vercel only, so a name changed in one of
  * them is not seen until a deploy, where it fails at request time. This spec holds them to each other, and holds the
- * two properties a deployed copy of the site needs (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (preview)").
+ * two properties a deployed copy of the site needs (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)").
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (file: string) => readFileSync(path.join(FRONTEND, file), 'utf8')
@@ -19,8 +19,7 @@ interface WranglerConfig {
   name: string
   main: string
   workers_dev?: boolean
-  route?: unknown
-  routes?: unknown
+  routes?: { pattern: string; custom_domain?: boolean }[]
   assets?: { directory?: string }
   services?: { binding: string; service: string }[]
   r2_buckets?: { binding: string }[]
@@ -60,7 +59,7 @@ describe('the Cloudflare Workers build', () => {
     expect(read('public/_headers')).toMatch(/^\/_next\/static\/\*\n {2}Cache-Control: public,max-age=31536000,immutable$/m)
   })
 
-  it('states the waitlist gate, and a copy on workers.dev is never indexed or given a route', () => {
+  it('states the waitlist gate, and marks a copy of the site noindex and production never', () => {
     // middleware.ts redirects every page to /waitlist unless WAITLIST_MODE is exactly "false". Vercel takes it from
     // vercel.json; a Worker without it would serve nothing but the waitlist.
     expect(['true', 'false'], 'WAITLIST_MODE is stated in wrangler.jsonc `vars`').toContain(wrangler.vars?.WAITLIST_MODE)
@@ -74,11 +73,14 @@ describe('the Cloudflare Workers build', () => {
     for (const env of [{}, { ROBOTS_NOINDEX: 'false' }]) {
       expect(markNoindex(rendered(), env).headers.has('X-Robots-Tag'), 'production, with the variable unset, stays indexable').toBe(false)
     }
-    if (wrangler.workers_dev !== false) {
-      expect(wrangler.vars?.ROBOTS_NOINDEX, 'a workers.dev deployment is a copy of the site: keep it out of search').toBe('true')
-    }
-    if (wrangler.vars?.ROBOTS_NOINDEX === 'true') {
-      expect(wrangler.route ?? wrangler.routes, 'a noindex deployment must not take a production route').toBeUndefined()
-    }
+    // Either the Worker is a copy (staging, or a workers.dev address) and every response is noindex, or it serves
+    // the production hostnames and none is: a noindex production site leaves search, and an indexable copy competes
+    // with it.
+    const PRODUCTION_HOSTS = ['earningsnerd.io', 'www.earningsnerd.io']
+    const hosts = (wrangler.routes ?? []).map((route) => route.pattern.split('/')[0])
+    const servesProduction = hosts.some((host) => PRODUCTION_HOSTS.includes(host))
+    const servesACopy = wrangler.workers_dev !== false || hosts.some((host) => !PRODUCTION_HOSTS.includes(host))
+    expect(servesProduction && servesACopy, 'one Worker serves production or a copy of it, never both').toBe(false)
+    expect(wrangler.vars?.ROBOTS_NOINDEX === 'true', `ROBOTS_NOINDEX for a Worker on ${hosts.join(', ') || 'workers.dev'}`).toBe(!servesProduction)
   })
 })
