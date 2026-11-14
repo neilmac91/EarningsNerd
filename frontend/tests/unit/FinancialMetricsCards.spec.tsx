@@ -101,8 +101,8 @@ const FALLBACK_XBRL: Array<FinancialMetric & { change: string }> = [
   { metric: 'Net Income', current_period: '$210.0M', prior_period: '—', change: '—', commentary: 'From XBRL data' },
 ]
 const FALLBACK_NO_XBRL: Array<FinancialMetric & { change: string }> = [
-  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
-  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'No figure was extracted for this filing' },
+  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'No figure was extracted for this filing' },
 ]
 /** Figures that are not missing and render as they did before MissingValue reached these cells: a genuine zero, and
  *  words a summary reports in a figure's place ("Not disclosed", the degraded summary's own for a figure XBRL lacks). */

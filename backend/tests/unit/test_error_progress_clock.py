@@ -116,7 +116,7 @@ async def test_a_leaders_error_before_its_fetch_stage_starts_the_clock(clock, mo
         expected = "Pipeline timeout"
     else:
         monkeypatch.setattr(summary_pipeline, "_get_generation_semaphore", _raise("no slot table"))
-        expected = "no slot table"
+        expected = "summary_generation_failed"
     with stream_boundaries() as summarize:
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
@@ -181,7 +181,7 @@ async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, 
     assert events[-1]["type"] == "error"
     assert sec_fetch.call_count == (0 if six_k or failure == "provider_raises_from_cache" else 1)
     assert summarize.call_count == (0 if failure in ("backstop_in_sec_fetch", "backstop_in_6k_exhibits") else 1)
-    expected = "Pipeline timeout" if failure.startswith("backstop") else "provider down"
+    expected = "Pipeline timeout" if failure.startswith("backstop") else "summary_generation_failed"
     assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), expected)
 
 
@@ -203,7 +203,7 @@ async def test_a_leaders_error_after_a_failed_fetch_write_starts_the_clock(clock
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
     summarize.assert_not_called()
-    assert _row(filing_id) == ("error", NOW, 0.0, "progress table locked")
+    assert _row(filing_id) == ("error", NOW, 0.0, "summary_generation_failed")
 
 
 class _FirstSessionFails:
@@ -232,10 +232,8 @@ async def test_a_run_that_fails_before_its_claim_keeps_the_rows_clock(clock, mon
     if failure == "load_filing_raises":
         leader = summary_pipeline._claim_inflight(filing_id)
         monkeypatch.setattr(database, "SessionLocal", _FirstSessionFails(database.SessionLocal))
-        expected = "database unavailable"
     else:
         monkeypatch.setattr(summary_pipeline, "_claim_inflight", _raise("registry down"))
-        expected = "registry down"
     try:
         with stream_boundaries() as summarize:
             events = await _drain(filing_id)
@@ -244,7 +242,7 @@ async def test_a_run_that_fails_before_its_claim_keeps_the_rows_clock(clock, mon
             summary_pipeline._release_inflight(filing_id, leader)
     assert events[-1]["type"] == "error"
     summarize.assert_not_called()
-    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), expected)
+    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), "summary_generation_failed")
 
 
 def _raise(message):

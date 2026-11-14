@@ -210,10 +210,9 @@ def generate_xbrl_summary(
     # Build business overview text
     if metrics_summary:
         business_overview += "### Financial Snapshot (XBRL)\n" + "\n".join(metrics_summary) + "\n\n"
+        business_overview += "_The full AI-powered analysis did not finish in time, so this partial summary shows data extracted from the filing._"
     else:
-        business_overview += "Financial metrics are being processed.\n\n"
-
-    business_overview += "_Click 'Regenerate Analysis' for the full AI-powered insights._"
+        business_overview += "_The full AI-powered analysis did not finish in time, and no revenue, net income or EPS figure was extracted for this filing._"
 
     # ALWAYS provide financial_highlights with meaningful structure
     if has_xbrl_data:
@@ -276,19 +275,19 @@ def generate_xbrl_summary(
                     "current_period": "—",
                     "prior_period": "—",
                     "change": "—",
-                    "commentary": "Regenerate for financial data"
+                    "commentary": "No figure was extracted for this filing"
                 },
                 {
                     "metric": "Net Income",
                     "current_period": "—",
                     "prior_period": "—",
                     "change": "—",
-                    "commentary": "Regenerate for financial data"
+                    "commentary": "No figure was extracted for this filing"
                 }
             ],
-            "profitability": ["Regenerate analysis for profitability metrics."],
-            "cash_flow": ["Regenerate analysis for cash flow data."],
-            "balance_sheet": ["Regenerate analysis for balance sheet metrics."]
+            "profitability": ["Profitability metrics need the full analysis, which did not finish in time."],
+            "cash_flow": ["Cash flow data needs the full analysis, which did not finish in time."],
+            "balance_sheet": ["Balance sheet metrics need the full analysis, which did not finish in time."]
         }
 
     # EXTRACT REAL RISK FACTORS from filing text
@@ -351,8 +350,7 @@ def generate_xbrl_summary(
             "headline": f"{company_name} {filing_type or 'SEC'} Filing — Partial Analysis",
             "key_takeaways": [
                 "Financial metrics extracted from XBRL data" if has_xbrl_data else "XBRL metrics unavailable for this filing",
-                f"{len(risk_factors)} risk factors identified from filing" if risk_factors else "Risk factors require full AI analysis",
-                "Click 'Retry Full Analysis' for complete AI-powered insights",
+                "Complete AI-powered insights are not available because the full analysis did not finish in time",
             ],
             "what_changed": "",
             "tone": "neutral",
