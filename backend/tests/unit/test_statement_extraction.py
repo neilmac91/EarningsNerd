@@ -12,6 +12,8 @@ Covers the PR #239 review findings:
 import pandas as pd
 import pytest
 
+from app.services.edgar import xbrl_companyfacts
+from app.services.edgar.instance.core import DURATION_WINDOWS
 from app.services.edgar.statement_parser import (
     extract_metric_values,
     normalize_concept,
@@ -194,6 +196,36 @@ def test_company_facts_same_end_prefers_standard_duration_for_10k():
     }}}
     result = service._parse_company_facts(facts_data, accn)
     assert [item["value"] for item in result["net_income"]] == [7_153_000_000]
+
+
+@pytest.mark.parametrize("form", ["20-F", "40-F", "20-F/A", "40-F/A", "10-K/A", "10-K405"])
+def test_company_facts_same_end_prefers_the_year_for_every_annual_form(form):
+    # A foreign annual report is annual, as the instance path's DURATION_WINDOWS reads it. Scored against a quarter,
+    # a 20-F that also tags its fourth quarter answered the three-month value as the year's figure.
+    accn = "0000000000-25-000004"
+    facts_data = {"facts": {"us-gaap": {
+        "Revenues": _usd_fact([
+            {"end": "2024-12-31", "start": "2024-10-01", "val": 260,
+             "form": form, "accn": accn, "filed": "2025-04-01"},
+            {"end": "2024-12-31", "start": "2024-01-01", "val": 1000,
+             "form": form, "accn": accn, "filed": "2025-04-01"},
+        ]),
+    }}}
+    result = EdgarXBRLService()._parse_company_facts(facts_data, accn)
+    assert [(item["value"], item["period_start"]) for item in result["revenue"]] == [(1000, "2024-01-01")]
+
+
+def test_the_fallback_reads_as_annual_every_form_the_instance_path_does():
+    # Rule 12 gate: the fallback names its annual forms in one line, so this holds that line to the instance path's
+    # table. A form added to DURATION_WINDOWS on the annual window fails here until the fallback reads it as annual.
+    annual = {form for form, window in DURATION_WINDOWS.items() if window == DURATION_WINDOWS["10-K"]}
+    assert annual == {"10-K", "20-F", "40-F"}
+    assert set(DURATION_WINDOWS) - annual == {"10-Q"}
+    year = {"start": "2024-01-01", "end": "2024-12-31"}
+    quarter = {"start": "2024-10-01", "end": "2024-12-31"}
+    for form in sorted(DURATION_WINDOWS):
+        penalties = [xbrl_companyfacts._duration_penalty({**item, "form": form}) for item in (year, quarter)]
+        assert (penalties[0] < penalties[1]) == (form in annual), form
 
 
 def test_company_facts_same_end_prefers_quarter_duration_for_10q():
