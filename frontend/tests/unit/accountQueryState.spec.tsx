@@ -500,7 +500,7 @@ describe('account snapshots follow the resolved identity', () => {
       queryKeys.savedSummaries(), queryKeys.savedSummaryStatus(5, 1), queryKeys.watchlist(), queryKeys.watchlistInsights(),
       queryKeys.earningsAlertTickers(), queryKeys.dashboardFeed(), queryKeys.dashboardCalendar(), queryKeys.notifications(),
       queryKeys.notificationPreferences(), queryKeys.authConnections(), queryKeys.adminInvites(), queryKeys.adminInviteReadiness(),
-      queryKeys.adminFeedback.list({ status: 'new' }),
+      queryKeys.adminFeedback.list({ status: 'new' }), queryKeys.insiders.byWindow('AAPL', 90),
     ]
     const shared = [
       queryKeys.company('AAPL'), queryKeys.summary(7), queryKeys.filing(7), queryKeys.registrationConfig(),
@@ -529,6 +529,7 @@ describe('account query ownership structural gate', () => {
     'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
     'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
     'notificationPreferences', 'authConnections', 'adminInvites', 'adminInviteReadiness', 'adminFeedback', 'feedback',
+    'insiders', // only a beta account may read it (ADR 0009)
   ]
 
   it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
@@ -536,7 +537,7 @@ describe('account query ownership structural gate', () => {
     // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [
-      'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
+      'registrationConfig', 'turnstileScript', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
       'analysisCoverage', 'analysisCompany', 'tickerCompany', 'tickerFilings', 'filing', 'filingContent', 'summary',
       'summaryProgress', 'company', 'companyFilings', 'companies',
     ]

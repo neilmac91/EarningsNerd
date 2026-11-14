@@ -92,11 +92,11 @@ export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0
 export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true'
 
 /**
- * Show the insider-activity (Form 4) panel on the company page. The backend endpoint does a LIVE
- * SEC EDGAR fan-out across recent Form 4 filings (up to a ~75s ceiling), so this ships off by
- * default and should be enabled deliberately once validated against SEC rate limits.
+ * Show the insider-activity (Form 4) panel on the company page. The backend endpoint answers at once from a
+ * stored Form 4 scan that runs in the background on the task worker, and only to a signed-in beta account
+ * (ADR 0009); the panel itself mounts only for one. This ships off by default.
  * Flip NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY='true' to enable; the backend endpoint also needs
- * ENABLE_INSIDER_ACTIVITY=true (docs/CONFIGURATION.md), which the deploy pins off.
+ * ENABLE_INSIDER_ACTIVITY=true (docs/CONFIGURATION.md), which production's deploy pins on.
  */
 export const ENABLE_INSIDER_ACTIVITY =
   process.env.NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY === 'true'

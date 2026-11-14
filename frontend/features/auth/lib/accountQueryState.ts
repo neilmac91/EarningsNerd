@@ -71,6 +71,8 @@ export const ACCOUNT_QUERY_FAMILIES = [
   queryKeys.adminInvites(),
   queryKeys.adminFeedback.all(),
   queryKeys.feedback.all(),
+  // Unkeyed by the reader, but only a beta account may read it (ADR 0009, require_beta).
+  queryKeys.insiders.all(),
 ] as const
 
 /** Drop identity-derived snapshots before a replacement identity can be accepted.

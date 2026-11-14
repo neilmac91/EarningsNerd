@@ -116,7 +116,7 @@ pin: the insider endpoint's live fetch (about two edgartools requests per Form 4
 about 120) and company search's fuzzy fallback. The insider endpoint (`GET /api/companies/{ticker}/insiders`)
 now makes no request to SEC: it reads a stored scan that the task worker fills on its own 1 req/s, eight
 filings a step (ADR 0009), for signed-in beta accounts, and still answers 404 unless
-`ENABLE_INSIDER_ACTIVITY` is set (the deploy pins it `false`). Company search answers from the cached SEC ticker file only (its
+`ENABLE_INSIDER_ACTIVITY` is set (the deploy pins it `true` on the API service since 2026-11-14). Company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
 to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
@@ -275,6 +275,22 @@ the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for th
 answers; Ops `describe-jobs` prints both pin values for each of the nine jobs and fails when either
 is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
 its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
+
+**Turning the insider endpoint off.** Set `ENABLE_INSIDER_ACTIVITY=false` in the service's `ci.yml`
+map and in the two gates that pin `true` (`tests/unit/test_sec_process_budgets.py`,
+`tests/unit/test_prod_flag_visibility.py`), in a change that also touches a deployable `backend/`
+path: `ci.yml` and `backend/tests/` alone start no deploy, and the service would keep `true`. To
+turn it off within a minute, before that change merges, the founder runs
+`gcloud run services update earningsnerd-backend --region=us-west1 --update-env-vars=ENABLE_INSIDER_ACTIVITY=false`;
+that holds only until the next deploy re-asserts the `ci.yml` value, so the change above still
+follows. Confirm either with Ops `describe-service` and a signed-out
+`GET /api/companies/AAPL/insiders`, which answers 404 when off and 401 when on. Off, the endpoint
+answers 404 to everyone, the panel shows nothing and no visit starts a scan. The task worker does
+not read the flag: a scan already queued reads its remaining filings (at most 60 an issuer, eight a
+step, three issuers at once), and one paused by SEC resumes after its pause (at most 6 h) and stops
+again at the first refusal. Do not pause the queue to stop them: it carries account mail. Turn the
+endpoint off whenever durable tasks are turned off (`docs/DEPLOYMENT.md`): scans start only through
+them, and without them a beta reader's panel says it is reading and never fills.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 

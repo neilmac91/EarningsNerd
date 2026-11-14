@@ -1,25 +1,43 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { CurrentUser } from '@/features/auth/api/auth-api'
+import { ApiError } from '@/lib/api/client'
 
 const getInsiderActivity = vi.fn()
 vi.mock('@/features/insiders/api/insiders-api', () => ({
   getInsiderActivity: (...args: unknown[]) => getInsiderActivity(...args),
 }))
+// The reader, as the company page reads it (/me through getCurrentUserSafe, null when signed out).
+const getCurrentUserSafe = vi.fn()
+vi.mock('@/features/auth/api/auth-api', () => ({
+  getCurrentUserSafe: (...args: unknown[]) => getCurrentUserSafe(...args),
+}))
 
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
-// isFpi defaults to false ("known domestic") so the live read is enabled — the panel only queries
+const user = (over: Partial<CurrentUser> = {}): CurrentUser => ({
+  id: 1, email: 'reader@example.test', full_name: null, is_pro: false, is_beta: true, is_admin: false, email_verified: true, ...over,
+})
+const BETA = user()
+
+function newClient(queries: Record<string, unknown> = { retry: false }) {
+  return new QueryClient({ defaultOptions: { queries } })
+}
+
+// isFpi defaults to false ("known domestic") so the read is enabled — the panel only queries
 // once the parent knows the company is not a foreign private issuer (isFpi === false).
-function renderPanel(ticker = 'AAPL', isFpi: boolean | undefined = false) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPanel(ticker = 'AAPL', isFpi: boolean | undefined = false, qc = newClient()) {
   return render(
     <QueryClientProvider client={qc}>
       <InsiderActivityPanel ticker={ticker} isFpi={isFpi} />
     </QueryClientProvider>,
   )
 }
+
+/** Let the reader's read and anything it enables settle (several turns of the event loop). */
+const settle = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
 
 const txn = (over: Record<string, unknown> = {}) => ({
   insider_name: 'Jane Doe',
@@ -40,6 +58,15 @@ const txn = (over: Record<string, unknown> = {}) => ({
   filed_date: '2024-05-02',
   ...over,
 })
+
+const COMPLETE = {
+  status: 'complete' as 'complete' | 'scanning' | 'paused' | 'failed',
+  filings_listed: 60,
+  filings_read: 60,
+  oldest_filed_date: '2024-03-02' as string | null,
+  refreshed_at: '2024-05-03T10:00:00Z' as string | null,
+  retry_after_seconds: null as number | null,
+}
 
 const RESP = {
   ticker: 'AAPL',
@@ -62,17 +89,26 @@ const RESP = {
   },
   transactions: [txn(), txn({ insider_name: 'John Roe', is_10b5_1: true, acquired_disposed: 'D', transaction_label: 'Sale' })],
   total_transactions: 3,
+  scan: COMPLETE,
 }
 
+const NO_TRADES = { transactions: [], total_transactions: 0 }
+/** A response whose scan says `scan` over COMPLETE's fields, with RESP's trades unless `trades` is false. */
+const answer = (scan: Partial<typeof COMPLETE>, trades = true) => ({ ...RESP, ...(trades ? {} : NO_TRADES), scan: { ...COMPLETE, ...scan } })
+
 describe('InsiderActivityPanel', () => {
-  beforeEach(() => getInsiderActivity.mockReset())
+  beforeEach(() => {
+    getInsiderActivity.mockReset()
+    getCurrentUserSafe.mockReset()
+    getCurrentUserSafe.mockResolvedValue(BETA)
+  })
 
   it('renders the net-buying signal and a transactions row', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
     renderPanel()
 
-    expect(await screen.findByText('Insider activity')).toBeInTheDocument()
-    expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
+    expect(await screen.findByText(/Net insider buying/)).toBeInTheDocument()
+    expect(screen.getByText('Insider activity')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     // The 10b5-1 sale row carries the badge.
     expect(screen.getByText('10b5-1')).toBeInTheDocument()
@@ -237,18 +273,16 @@ describe('InsiderActivityPanel', () => {
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('AAPL', 365))
   })
 
-  it('renders nothing when there are no trades', async () => {
-    getInsiderActivity.mockResolvedValue({
-      ...RESP,
-      transactions: [],
-      total_transactions: 0,
-    })
+  it('says a complete scan found no trades in the window, and keeps the window control', async () => {
+    getInsiderActivity.mockResolvedValue({ ...RESP, ...NO_TRADES })
     renderPanel()
 
-    await waitFor(() => expect(screen.queryByText('Insider activity')).not.toBeInTheDocument())
+    expect(await screen.findByText('No open-market insider trades in the last 90 days.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Insider activity' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
   })
 
-  it('shows the FPI note and skips the live SEC read for foreign private issuers', async () => {
+  it('shows the FPI note to a beta account and asks nothing for foreign private issuers', async () => {
     renderPanel('BABA', true)
 
     expect(
@@ -261,15 +295,439 @@ describe('InsiderActivityPanel', () => {
     getInsiderActivity.mockResolvedValue(RESP)
     // Render WITHOUT the isFpi prop so it is genuinely undefined — passing `undefined` to
     // renderPanel would trigger its default of false. enabled is gated on isFpi === false, so the
-    // live read must not fire while FPI status is still unknown.
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    // read must not fire while FPI status is still unknown.
     render(
-      <QueryClientProvider client={qc}>
+      <QueryClientProvider client={newClient()}>
         <InsiderActivityPanel ticker="AAPL" />
       </QueryClientProvider>,
     )
 
-    await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
+    await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
+    await settle()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
     expect(screen.queryByText('Insider activity')).not.toBeInTheDocument()
+  })
+})
+
+// ADR 0009, decision 7: the endpoint answers only a beta account (401 signed out, 403 any other account), so the panel
+// asks only once the page's read of /me says the reader is one, and otherwise renders nothing.
+describe('InsiderActivityPanel: only a beta account asks', () => {
+  beforeEach(() => {
+    getInsiderActivity.mockReset()
+    getCurrentUserSafe.mockReset()
+    getInsiderActivity.mockResolvedValue(RESP)
+  })
+
+  it.each([
+    ['signed out', null],
+    ['signed in to an account that is not a beta account', user({ is_beta: false })],
+  ])('%s: asks nothing and renders nothing', async (_, reader) => {
+    getCurrentUserSafe.mockResolvedValue(reader)
+    const { container } = renderPanel()
+    await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
+    await settle()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('while the reader is still being read: asks nothing and renders nothing', async () => {
+    getCurrentUserSafe.mockReturnValue(new Promise(() => {}))
+    const { container } = renderPanel()
+    await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
+    await settle()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows the foreign private issuer note to a beta account only', async () => {
+    getCurrentUserSafe.mockResolvedValue(user({ is_beta: false }))
+    const { container } = renderPanel('BABA', true)
+    await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
+    await settle()
+    expect(container).toBeEmptyDOMElement()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
+  })
+
+  it('asks once the reader is known to be a beta account', async () => {
+    getCurrentUserSafe.mockResolvedValue(BETA)
+    renderPanel()
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('AAPL', 90))
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+  })
+})
+
+describe('InsiderActivityPanel: what the stored scan says', () => {
+  beforeEach(() => {
+    getInsiderActivity.mockReset()
+    getCurrentUserSafe.mockReset()
+    getCurrentUserSafe.mockResolvedValue(BETA)
+  })
+
+  /** The panel's status region: the one live region with no name of its own (the skeleton's is named). */
+  const statusRegion = () => screen.getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
+
+  it('shows no card until the endpoint first answers, so a reader it refuses never sees one appear and go', async () => {
+    getInsiderActivity.mockReturnValue(new Promise(() => {}))
+    const { container } = renderPanel()
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledTimes(1))
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows the skeleton in the card, under its heading and window control, while another window loads', async () => {
+    getInsiderActivity.mockResolvedValueOnce(RESP).mockReturnValue(new Promise(() => {}))
+    renderPanel()
+    await screen.findByText('Jane Doe')
+    fireEvent.click(screen.getByRole('button', { name: '180D' }))
+    expect(await screen.findByRole('status', { name: 'Loading insider activity' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Insider activity' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+    expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument()
+  })
+
+  it('a first visit (scanning, nothing listed yet) says the filings are being read, with no count and no empty-window line', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'scanning', filings_listed: 0, filings_read: 0, oldest_filed_date: null, retry_after_seconds: 10 }, false),
+    )
+    renderPanel()
+    const line = await screen.findByText('Reading this company’s recent Form 4 filings.')
+    expect(statusRegion()).toContainElement(line)
+    expect(statusRegion()).toHaveTextContent(/^Reading this company’s recent Form 4 filings\.$/)
+    expect(screen.queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading insider activity' })).not.toBeInTheDocument()
+  })
+
+  /** A run that reports how far it has got shows a bar (DESIGN_SYSTEM.md §4 › Activity line). The count is the
+   *  bar's to say and sits outside the status region, which would otherwise read it out with every answer. */
+  const expectProgress = (read: number, listed: number) => {
+    const bar = screen.getByRole('progressbar', { name: 'Form 4 filings read' })
+    expect(bar).toHaveAttribute('aria-valuenow', String(read))
+    expect(bar).toHaveAttribute('aria-valuemin', '0')
+    expect(bar).toHaveAttribute('aria-valuemax', String(listed))
+    expect(bar.firstElementChild).toHaveStyle({ width: `${Math.round((read / listed) * 100)}%` })
+    const count = screen.getByText(new RegExp(`^${read} of ${listed} filings read`))
+    expect(statusRegion()).not.toContainElement(count)
+    expect(statusRegion()).not.toContainElement(bar)
+    expect(statusRegion()).not.toHaveTextContent(/\d+ of \d+/)
+  }
+
+  it('a first visit shows no bar: nothing is listed to count against', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'scanning', filings_listed: 0, filings_read: 0, oldest_filed_date: null, retry_after_seconds: 10 }, false),
+    )
+    renderPanel()
+    await screen.findByText('Reading this company’s recent Form 4 filings.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/filings read/)).not.toBeInTheDocument()
+  })
+
+  it('scanning with nothing stored in the window: the words, and a bar that counts the filings read', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'scanning', filings_listed: 60, filings_read: 3, oldest_filed_date: '2024-04-20', retry_after_seconds: 10 }, false),
+    )
+    renderPanel()
+    const line = await screen.findByText('Reading this company’s recent Form 4 filings.')
+    expect(statusRegion()).toContainElement(line)
+    expectProgress(3, 60)
+    expect(screen.queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
+  })
+
+  it('scanning with trades stored: the trades, how far back they reach, and the bar', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'scanning', filings_listed: 60, filings_read: 12, oldest_filed_date: '2024-03-02', retry_after_seconds: 10 }),
+    )
+    renderPanel()
+    const line = await screen.findByText('Reading this company’s recent Form 4 filings.')
+    expect(statusRegion()).toContainElement(line)
+    expect(statusRegion()).toHaveTextContent(/^Reading this company’s recent Form 4 filings\.$/)
+    expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toHaveAttribute('aria-valuenow', '12')
+    // How far back the scan has read, beside the count and outside the status region: it moves with every answer.
+    expect(screen.getByText('12 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
+    expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.queryByText(/paused/)).not.toBeInTheDocument()
+  })
+
+  it('paused with trades stored: the trades, how far back they reach, and that reading resumes on its own', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'paused', filings_listed: 60, filings_read: 12, oldest_filed_date: '2024-03-02', retry_after_seconds: 300 }),
+    )
+    renderPanel()
+    const line = await screen.findByText('Reading this company’s Form 4 filings is paused and resumes on its own.')
+    expect(statusRegion()).toContainElement(line)
+    expect(screen.getByText('12 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toHaveAttribute('aria-valuenow', '12')
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('paused with nothing stored in the window: that reading is paused, and the bar where it stopped', async () => {
+    getInsiderActivity.mockResolvedValue(
+      answer({ status: 'paused', filings_listed: 60, filings_read: 3, oldest_filed_date: '2024-04-20', retry_after_seconds: 300 }, false),
+    )
+    renderPanel()
+    expect(await screen.findByText('Reading this company’s Form 4 filings is paused and resumes on its own.')).toBeInTheDocument()
+    expectProgress(3, 60)
+    expect(screen.queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
+  })
+
+  it.each(['failed', 'complete'] as const)('a %s scan shows no bar', async (status) => {
+    getInsiderActivity.mockResolvedValue(answer({ status, filings_listed: 60, filings_read: 60, retry_after_seconds: null }))
+    renderPanel()
+    await screen.findByText('Jane Doe')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('failed with nothing stored: a plain line that it is unavailable, and no empty-window line', async () => {
+    getInsiderActivity.mockResolvedValue(answer({ status: 'failed', filings_listed: 0, filings_read: 0, oldest_filed_date: null }, false))
+    renderPanel()
+    const line = await screen.findByText('Insider activity is unavailable for this company right now.')
+    expect(statusRegion()).toContainElement(line)
+    expect(screen.queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('failed with trades stored: still shows them, under the line', async () => {
+    getInsiderActivity.mockResolvedValue(answer({ status: 'failed', filings_listed: 60, filings_read: 20 }))
+    renderPanel()
+    expect(await screen.findByText('Insider activity is unavailable for this company right now.')).toBeInTheDocument()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('complete: no status line, even when a refresh under way asks to be asked again', async () => {
+    getInsiderActivity.mockResolvedValue(answer({ status: 'complete', retry_after_seconds: 3600 }))
+    renderPanel()
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(statusRegion()).toBeEmptyDOMElement()
+  })
+})
+
+describe('InsiderActivityPanel: a request that fails', () => {
+  beforeEach(() => {
+    getInsiderActivity.mockReset()
+    getCurrentUserSafe.mockReset()
+    getCurrentUserSafe.mockResolvedValue(BETA)
+  })
+
+  // The client here would retry three times at once: only the panel's own `retry: false` stops it.
+  const retryingClient = () => newClient({ retry: 3, retryDelay: 0 })
+
+  it.each([
+    ['a server error', new ApiError(500, 'Internal Server Error')],
+    ['the rate limit', new ApiError(429, 'Too Many Requests')],
+    ['a dropped connection', new ApiError(0, 'Network Error')],
+  ])('%s: an inline error whose Try again asks again, and no retry of its own', async (_, error) => {
+    getInsiderActivity.mockRejectedValueOnce(error).mockResolvedValue(RESP)
+    renderPanel('AAPL', false, retryingClient())
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Couldn’t load insider activity')
+    await settle()
+    expect(getInsiderActivity).toHaveBeenCalledTimes(1)
+
+    await userEvent.setup().click(within(alert).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(getInsiderActivity).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each([401, 403, 404])('a %i (signed out, not a beta account, or the endpoint off) renders nothing', async (status) => {
+    getInsiderActivity.mockRejectedValue(new ApiError(status, 'Refused'))
+    const { container } = renderPanel('AAPL', false, retryingClient())
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalled())
+    await waitFor(() => expect(container).toBeEmptyDOMElement())
+    await settle()
+    expect(getInsiderActivity).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('InsiderActivityPanel: asking again while a scan is under way', () => {
+  const T0 = new Date('2026-11-14T12:00:00Z').getTime()
+  /** Each request: when it was sent, from the start, and for which window. */
+  let calls: { at: number; window: number }[]
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
+    vi.setSystemTime(T0)
+    calls = []
+    getInsiderActivity.mockReset()
+    getCurrentUserSafe.mockReset()
+    getCurrentUserSafe.mockResolvedValue(BETA)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Answer each request with the next of `answers`, the last one for good. */
+  const answering = (...answers: unknown[]) =>
+    getInsiderActivity.mockImplementation(async (_ticker: string, window: number) => {
+      calls.push({ at: Date.now() - T0, window })
+      return answers[Math.min(calls.length - 1, answers.length - 1)]
+    })
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+  /** Render, and let the reader's read, the first request and its answer land. */
+  const start = async () => {
+    renderPanel()
+    await advance(0)
+    await advance(0)
+  }
+  const scanning = (retryAfter: number) =>
+    answer({ status: 'scanning', filings_listed: 60, filings_read: 12, retry_after_seconds: retryAfter })
+
+  it('asks again after the interval the response gives, and stops once nothing is pending', async () => {
+    answering(scanning(10), scanning(10), answer({ status: 'complete', retry_after_seconds: null }))
+    await start()
+    expect(calls.map((c) => c.at)).toEqual([0])
+    await advance(9_999)
+    expect(calls).toHaveLength(1)
+    await advance(1)
+    expect(calls.map((c) => c.at)).toEqual([0, 10_000])
+    await advance(10_000)
+    expect(calls.map((c) => c.at)).toEqual([0, 10_000, 20_000])
+    await advance(5 * 60_000)
+    expect(calls).toHaveLength(3)
+    expect(screen.queryByText(/filings read/)).not.toBeInTheDocument()
+  })
+
+  it('never asks sooner than every 5 seconds', async () => {
+    answering(scanning(1))
+    await start()
+    await advance(4_999)
+    expect(calls).toHaveLength(1)
+    await advance(1)
+    expect(calls.map((c) => c.at)).toEqual([0, 5_000])
+  })
+
+  it('stops asking 3 minutes after its first request', async () => {
+    answering(scanning(10))
+    await start()
+    await advance(10 * 60_000)
+    const times = calls.map((c) => c.at)
+    expect(Math.max(...times)).toBe(180_000)
+    expect(times).toHaveLength(19) // the first request, then one every 10 s up to 3 minutes
+    // The data the scan had stays on screen.
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('a reader who comes back to a scan still under way is asked for again, though the cached answer is fresh', async () => {
+    // Back from a filing within the answer's five minutes: the panel mounts over a cached "scanning" answer, so no
+    // request is due on mount. The polling must still run, or the words and the bar would stand still for good.
+    const client = newClient()
+    answering(scanning(10))
+    const first = renderPanel('AAPL', false, client)
+    await advance(0)
+    await advance(0)
+    expect(calls).toHaveLength(1)
+    first.unmount()
+    await advance(60_000)
+    expect(calls).toHaveLength(1) // nothing asks while no panel is mounted
+
+    renderPanel('AAPL', false, client)
+    await advance(0)
+    expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toBeInTheDocument() // the cached answer
+    expect(calls).toHaveLength(1)
+    await advance(10_000)
+    expect(calls).toHaveLength(2)
+    // And this mount's three minutes end like any other's.
+    await advance(10 * 60_000)
+    expect(Math.max(...calls.map((c) => c.at))).toBeLessThanOrEqual(60_000 + 180_000)
+    expect(screen.getByText(/^Reading continues in the background\. Reload the page to see more\./)).toBeInTheDocument()
+  })
+
+  it('announces nothing new while the scan only gets further: the status words stay the same from answer to answer', async () => {
+    const progress = (read: number, oldest: string) =>
+      answer({ status: 'scanning', filings_listed: 60, filings_read: read, oldest_filed_date: oldest, retry_after_seconds: 10 })
+    answering(progress(8, '2024-04-20'), progress(16, '2024-03-02'), progress(24, '2024-01-15'))
+    await start()
+    const region = () => screen.getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
+    const words = region().textContent
+    expect(screen.getByText('8 of 60 filings read, back to Apr 20, 2024')).toBeInTheDocument()
+    await advance(10_000)
+    await advance(1) // the answer lands, and React Query's batched notice of it renders
+    await advance(1)
+    expect(screen.getByText('16 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
+    expect(region().textContent).toBe(words)
+    await advance(10_000)
+    await advance(1)
+    await advance(1)
+    expect(screen.getByText('24 of 60 filings read, back to Jan 15, 2024')).toBeInTheDocument()
+    expect(region().textContent).toBe(words)
+    expect(words?.replace(/\u00a0/g, ' ')).toBe('Reading this company’s recent Form 4 filings.')
+  })
+
+  it('once it has stopped asking, a first visit that never listed a filing says so too, in place of the pulsing line', async () => {
+    answering(answer({ status: 'scanning', filings_listed: 0, filings_read: 0, oldest_filed_date: null, retry_after_seconds: 10 }, false))
+    await start()
+    expect(screen.getByText('Reading this company’s recent Form 4 filings.')).toBeInTheDocument()
+    await advance(180_000)
+    expect(screen.getByText('Reading continues in the background. Reload the page to see more.')).toBeInTheDocument()
+    expect(screen.queryByText('Reading this company’s recent Form 4 filings.')).not.toBeInTheDocument()
+  })
+
+  it('once it has stopped asking, a paused scan says to come back later', async () => {
+    answering(answer({ status: 'paused', filings_listed: 60, filings_read: 12, retry_after_seconds: 170 }))
+    await start()
+    expect(screen.getByText('Reading this company’s Form 4 filings is paused and resumes on its own.')).toBeInTheDocument()
+    await advance(180_000)
+    expect(
+      screen.getByText('Reading this company’s Form 4 filings is paused and resumes on its own. Reload the page later to see more.'),
+    ).toBeInTheDocument()
+  })
+
+  it('says so once it has stopped asking, and how to see more, in place of words that would stand still', async () => {
+    answering(scanning(10))
+    await start()
+    await advance(179_999)
+    expect(screen.getByText(/^Reading this company’s recent Form 4 filings\./)).toBeInTheDocument()
+    expect(screen.queryByText(/Reload the page/)).not.toBeInTheDocument()
+    await advance(1)
+    expect(screen.getByText(/^Reading continues in the background\. Reload the page to see more\./)).toBeInTheDocument()
+    expect(screen.queryByText(/^Reading this company’s recent Form 4 filings\./)).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toHaveAttribute('aria-valuenow', '12')
+  })
+
+  it('a scan that completes inside the three minutes never says it stopped', async () => {
+    answering(scanning(10), answer({ status: 'complete', retry_after_seconds: null }))
+    await start()
+    await advance(10 * 60_000)
+    expect(screen.queryByText(/Reload the page/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('a change of window does not start the 3 minutes again', async () => {
+    answering(scanning(10))
+    await start()
+    await advance(120_000)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '1Y' })) })
+    await advance(10 * 60_000)
+    const year = calls.filter((c) => c.window === 365).map((c) => c.at)
+    expect(year[0]).toBe(120_000)
+    expect(year.length).toBeGreaterThan(1) // the new window is asked again too
+    expect(Math.max(...year)).toBeLessThanOrEqual(180_000)
+  })
+
+  it('keeps showing complete data as complete while a refresh behind it asks to be asked again', async () => {
+    answering(answer({ status: 'complete', retry_after_seconds: 60 }), answer({ status: 'complete', retry_after_seconds: null }))
+    await start()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.queryByText(/filings read|Reading/)).not.toBeInTheDocument()
+    await advance(60_000)
+    expect(calls.map((c) => c.at)).toEqual([0, 60_000])
+    await advance(5 * 60_000)
+    expect(calls).toHaveLength(2)
+  })
+
+  it('asks nothing more after a request fails, and keeps the stored trades beside the error', async () => {
+    getInsiderActivity.mockImplementation(async (_ticker: string, window: number) => {
+      calls.push({ at: Date.now() - T0, window })
+      if (calls.length === 2) throw new ApiError(503, 'Service Unavailable')
+      return scanning(10)
+    })
+    await start()
+    await advance(10_000)
+    // A failure takes a few more turns to render than an answer (the failure hold's own render among them).
+    for (let i = 0; i < 5; i++) await advance(1)
+    expect(calls).toHaveLength(2)
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load insider activity')
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    await advance(5 * 60_000)
+    expect(calls).toHaveLength(2)
   })
 })
