@@ -203,6 +203,11 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return counts
 
 
+def watched_tickers(db: Session) -> frozenset[str]:
+    """The canonical ticker (``normalize_ticker``) of every company on a watchlist."""
+    return frozenset(_watch_counts(db))
+
+
 def _admitted_tickers(db: Session) -> Optional[frozenset[str]]:
     """The canonical tickers (``normalize_ticker``) the refresh stores and flips events for, or
     ``None`` when it admits every ticker (index filter off or its list unhealthy: no query then).
@@ -211,7 +216,7 @@ def _admitted_tickers(db: Session) -> Optional[frozenset[str]]:
     members = index_membership_service.active_member_filter()
     if members is None:
         return None
-    return members | frozenset(_watch_counts(db))
+    return members | watched_tickers(db)
 
 
 _EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit

@@ -538,7 +538,7 @@ class Settings(BaseSettings):
     # fully reversible within ~1 day. Ingest still stores every watchlisted company's events (dashboard
     # "upcoming" + alerts fire; one first watched today gets its event at the next daily refresh). Ships
     # off; flip CALENDAR_INDEX_FILTER_ENABLED=true on the Cloud Run service after the one-time purge
-    # (scripts/purge_non_index_earnings.py, which deletes by index membership alone, watched or not).
+    # (scripts/purge_non_index_earnings.py, which keeps a watched company's rows as the ingest does).
     CALENDAR_INDEX_FILTER_ENABLED: bool = False
 
     # Homepage "Notable filings" — market-wide EDGAR-native discovery surface (replaces the retired
