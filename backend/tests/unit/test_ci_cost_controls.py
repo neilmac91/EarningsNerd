@@ -837,11 +837,14 @@ def test_the_workers_build_checks_staging_and_never_holds_a_backend_release():
     assert "wrangler.server.jsonc --test-scheduled --port 8788" in check
     assert "curl -fsS -o /dev/null 'http://127.0.0.1:8788/__scheduled?cron=*+*+*+*+*' || { cat wrangler-dev.log; exit 1; }" in check
     first_run, cached, second_run = (check.index(line) for line in (
-        "}\nrun_schedule\nsleep 2\n",
-        "grep -qi '^x-opennext-cache: HIT' cached.txt\n",
+        "}\nrun_schedule\n",
+        "cat cached.txt\ngrep -qi '^x-opennext-cache: HIT' cached.txt\n",
         "itself throws, and this answers 500.\nrun_schedule\n",
     ))
     assert first_run < cached < second_run
+    # The Next server answers the schedule's request from its cache: a render on every run would call the API.
+    assert "-D warmed.txt -H 'cookie: __prerender_bypass=keep-warm' http://127.0.0.1:8788/company/AAPL" in check
+    assert "grep -qi '^x-nextjs-cache: HIT' warmed.txt" in check
     build = next(step for step in job["steps"] if step.get("run") == "npm run cf:build")
     assert build["env"] == {"NEXT_PUBLIC_API_BASE_URL": "http://localhost:8000"}
     assert all("if" not in step and "continue-on-error" not in step for step in job["steps"])

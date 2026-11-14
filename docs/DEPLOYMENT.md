@@ -599,7 +599,8 @@ is not the build's: OpenNext's cache layer in the front Worker passes such a req
 and the Next server, finding the value is not its own, answers the cached page as it would for any reader and
 re-renders it in the background once it is stale. That is about 130,000 requests a month, where the Workers plan
 includes 10 million, and a handful of API calls an hour for the two pages' re-renders. A run that does not reach
-the server Worker throws, and shows as a failed run of the schedule in the Cloudflare dashboard.
+the server Worker throws once it has asked for every page, and Cloudflare records it as a failed run of the
+schedule (read on the experiment copy with the cookie broken: each run counted as `scriptThrewException`).
 
 | File (under `frontend/`) | What it sets |
 |---|---|
@@ -614,13 +615,15 @@ the server Worker throws, and shows as a failed run of the schedule in the Cloud
 `frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds these to each other, keeps the Next server out of the
 front Worker, runs the noindex marking, requires `WAITLIST_MODE` to be stated (a Worker without it redirects every
 page to `/waitlist`), requires a Worker to be either a noindex copy or the production site, and holds the
-schedule's list to the app's on-demand routes: a route with a parameter that the list leaves out fails it.
+schedule's list to the app's on-demand routes: a route with a parameter anywhere in its path that the list leaves
+out fails it.
 `cloudflareCacheWrites.spec.ts` and `sentryOnWorkers.spec.ts` run the two modules. CI's `worker-build` job builds
 the app for Workers, refuses a front Worker of 512 KiB or more gzipped and a server Worker of 8 MiB or more
 (Cloudflare's limit is 10 MiB), requests a page through both in the local Workers runtime, fails if the Next
 server's instrumentation did not load, and runs the schedule before and after a reader's request has found one of
-its pages in the front Worker's cache, where a run that did not pass that cache fails; it uses no Cloudflare
-credential and names no backend, and `deploy-backend` does not wait for it.
+its pages in the front Worker's cache, where a run that did not pass that cache fails, and then requires the Next
+server to answer the schedule's request from its own cache; it uses no Cloudflare credential and names no backend,
+and `deploy-backend` does not wait for it.
 
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
@@ -632,7 +635,10 @@ builds, uploads a new version of each Worker, fills the cache with the build's p
 traffic in three steps (the new server version at 0%, the front Worker to its new version, the server Worker to
 its own), so that no front version ever calls another build's server: a page rendered by one build names scripts
 only that build's front Worker holds. Last, it applies the front Worker's triggers, the hostname and the schedule,
-which a version deploy does not carry. A failure before the three steps changes nothing that serves. A failure
+which a version deploy does not carry; if that step fails, both Workers already serve the new build with the
+triggers they had, and `npx wrangler triggers deploy -c wrangler.jsonc` applies them. The schedule belongs to the
+Worker, not to a version: after a rollback to a front version from before the schedule existed, each run fails
+until the trigger is removed. A failure before the three steps changes nothing that serves. A failure
 between them leaves the old front Worker on the old server version, or the new on the new; `wrangler deployments
 status -c <file>` shows each Worker's versions, and the script refuses to start while one is split.
 `npm run cf:preview` serves the same build locally in the Workers runtime.

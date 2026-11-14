@@ -22,9 +22,10 @@ const KEEP_WARM_PATHS = ['/company/AAPL', '/filing/3']
 // OpenNext's cache layer in this Worker answers a cached page itself, and then nothing reaches the server Worker.
 // It passes on a request that carries Next's draft-mode cookie. The Next server finds the value is not its own and
 // answers as it would any reader: the cached page, re-rendered in the background once it is stale. The hostname is
-// never resolved: the request goes over the SERVER binding.
-const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm' } }
-const KEEP_WARM_ORIGIN = 'https://keep-warm.invalid'
+// never resolved, since the request goes over the SERVER binding; it is stated as a header because the server
+// Worker reads the host from there, and names a stale page's re-render by it.
+const KEEP_WARM_HOST = 'keep-warm.invalid'
+const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm', host: KEEP_WARM_HOST } }
 
 // Sends a request the cache could not answer to the server Worker. The two Workers are built together and must run
 // together: scripts/cf-deploy.mjs gives each front version the server version of its own build, and this header
@@ -47,21 +48,28 @@ export default class FrontWorker extends WorkerEntrypoint {
     return markNoindex(response, env)
   }
 
-  // Cloudflare calls this once a minute (wrangler.jsonc `triggers`). A run whose request stops in this Worker, or
-  // that the server Worker fails, throws, which Cloudflare records as a failed run of the schedule.
+  // Cloudflare calls this once a minute (wrangler.jsonc `triggers`). Every page is asked for, and then a run in
+  // which a request stopped in this Worker, or the server Worker failed one, throws: Cloudflare records the run as
+  // failed, with each page's reason.
   async scheduled() {
     const { env, ctx } = this
+    const failures = []
     for (const path of KEEP_WARM_PATHS) {
-      const request = new Request(KEEP_WARM_ORIGIN + path, KEEP_WARM_REQUEST)
-      await runWithCloudflareRequestContext(request, env, ctx, async () => {
-        const routed = await routeRequest(request, env, ctx)
-        if (routed instanceof Response) {
-          throw new Error(`keep-warm ${path}: the front Worker answered ${routed.status} itself, so nothing reached the server Worker`)
-        }
-        const response = await askServer(routed, env)
-        await response.arrayBuffer()
-        if (response.status >= 500) throw new Error(`keep-warm ${path}: the server Worker answered ${response.status}`)
-      })
+      const request = new Request(`https://${KEEP_WARM_HOST}${path}`, KEEP_WARM_REQUEST)
+      try {
+        await runWithCloudflareRequestContext(request, env, ctx, async () => {
+          const routed = await routeRequest(request, env, ctx)
+          if (routed instanceof Response) {
+            throw new Error(`the front Worker answered ${routed.status} itself, so nothing reached the server Worker`)
+          }
+          const response = await askServer(routed, env)
+          await response.arrayBuffer()
+          if (response.status >= 500) throw new Error(`the server Worker answered ${response.status}`)
+        })
+      } catch (error) {
+        failures.push(`${path}: ${error instanceof Error ? error.message : error}`)
+      }
     }
+    if (failures.length > 0) throw new Error(`keep-warm: ${failures.join('; ')}`)
   }
 }

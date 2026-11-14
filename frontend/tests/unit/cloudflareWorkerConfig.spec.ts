@@ -119,20 +119,25 @@ describe('the Cloudflare Workers build', () => {
     // Worker has no trigger of its own and is reached over SERVER.
     expect(front.triggers?.crons).toEqual(['* * * * *'])
     expect(server.triggers, 'the server Worker is called by the front Worker only').toBeUndefined()
-    // A version deploy does not carry a Worker's triggers, so the deploy applies them.
-    expect(read('scripts/cf-deploy.mjs')).toContain("run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])")
+    // A version deploy does not carry a Worker's triggers, so the deploy applies them, last: the schedule must
+    // not start on a front version that has no handler for it.
+    const deploy = read('scripts/cf-deploy.mjs')
+    const applied = deploy.indexOf("run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])")
+    expect(applied).toBeGreaterThan(deploy.lastIndexOf("run(['wrangler', 'versions', 'deploy', "))
 
     const frontEntry = read(front.main)
     expect(frontEntry).toMatch(/^ {2}async scheduled\(\) \{$/m)
     const listed = frontEntry.match(/^const KEEP_WARM_PATHS = \[([^\]]+)\]$/m)?.[1] ?? ''
     const paths = [...listed.matchAll(/'([^']+)'/g)].map((match) => match[1])
 
-    // The on-demand pages are the routes with a parameter: the build prerenders none of their pages, so each is
-    // first rendered for a reader. Every such route has exactly one page in the list, and the list holds nothing
-    // else: a route added later is warmed from its first deploy, or this fails.
+    // The on-demand pages are the routes with a parameter anywhere in their path: the build prerenders none of
+    // their pages, so each is first rendered for a reader. Every such route has exactly one page in the list, and
+    // the list holds nothing else: a route added later is warmed from its first deploy, or this fails. A route
+    // group's folder, `(name)`, is not part of the address.
     const onDemandRoutes = readdirSync(path.join(FRONTEND, 'app'), { recursive: true, encoding: 'utf8' })
-      .filter((file) => /\[[^/]+\][/\\]page\.tsx$/.test(file))
-      .map((file) => `/${path.dirname(file).split(path.sep).join('/')}`)
+      .map((file) => file.split(path.sep))
+      .filter((parts) => /^page\.[jt]sx?$/.test(parts[parts.length - 1]) && parts.some((part) => /^\[.+\]$/.test(part)))
+      .map((parts) => `/${parts.slice(0, -1).filter((part) => !/^\(.+\)$/.test(part)).join('/')}`)
     expect(onDemandRoutes.length).toBeGreaterThan(0)
     const routeOf = (warmed: string) => onDemandRoutes.filter((route) => new RegExp(`^${route.replace(/\[[^/]+\]/g, '[^/]+')}$`).test(warmed))
     expect(paths.map((warmed) => routeOf(warmed).join()).sort()).toEqual([...onDemandRoutes].sort())
@@ -143,13 +148,18 @@ describe('the Cloudflare Workers build', () => {
     // The request must pass the front Worker's cache, which would answer a cached page itself. OpenNext's cache
     // layer passes on a request carrying Next's draft-mode cookie, by this test in the installed version; when an
     // upgrade rewords it, check that the schedule still reaches the server Worker before changing this line.
-    expect(frontEntry).toContain("const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm' } }")
+    expect(frontEntry).toContain("const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm', host: KEEP_WARM_HOST } }")
     expect(read('node_modules/@opennextjs/aws/dist/core/routing/cacheInterceptor.js')).toContain('cookies.includes("__prerender_bypass")')
-    // A run that stops in the front Worker, or that the server Worker fails, throws: Cloudflare records the run as
-    // failed. CI's worker-build job runs the schedule against a page the cache already holds, where a request
-    // that did not pass the cache fails the job.
-    expect(frontEntry).toContain('if (routed instanceof Response) {\n          throw new Error(`keep-warm ${path}: ')
-    expect(frontEntry).toContain('if (response.status >= 500) throw new Error(`keep-warm ${path}: ')
+    // A run that stops in the front Worker, or that the server Worker fails, throws once every page has been asked
+    // for: Cloudflare records the run as failed. CI's worker-build job runs the schedule against a page the cache
+    // already holds, where a request that did not pass the cache fails the job.
+    expect(frontEntry).toContain('if (routed instanceof Response) {\n            throw new Error(`the front Worker answered ')
+    expect(frontEntry).toContain('if (response.status >= 500) throw new Error(`the server Worker answered ')
+    expect(frontEntry).toContain("if (failures.length > 0) throw new Error(`keep-warm: ${failures.join('; ')}`)")
+    // Its requests reach the server Worker the way a reader's do, through the one call that holds a front version
+    // to its own build's server version while a deploy rolls out.
+    expect(frontEntry.match(/env\.SERVER\.fetch\(/g)).toHaveLength(1)
+    expect(frontEntry).toContain('          const response = await askServer(routed, env)\n')
     expect(read('../.github/workflows/ci.yml')).toContain(`-D cached.txt http://127.0.0.1:8788${paths[0]}\n`)
   })
 
