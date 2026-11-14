@@ -104,7 +104,9 @@ beta user can ask.
    scan's step count, and one enqueued by a visit by the issuer and a short time bucket, so a second visitor in
    the same minute adds nothing and a visit an hour later is not swallowed. A paused scan's next step is
    scheduled for the time its pause ends; a failed one is not retried by itself. With durable tasks off
-   (development), the step runs after the response in process. A visit hands a step off only when the scan's
+   (development) a visit starts nothing: the request that asks is a GET, and a GET starts no work in its own
+   process (`tests/unit/test_read_only_get_endpoints.py`). `backend/scripts/run_insider_scan.py` runs a
+   company's scan there. A visit hands a step off only when the scan's
    own chain is not carrying it (no step holds the lease and the scan row has been still for 45 seconds), and
    only while fewer than three other issuers are scanning, read from the scan rows so it holds across
    instances: the worker runs one task at a time and also sends account mail, so a mail queued behind the

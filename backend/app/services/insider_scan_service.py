@@ -10,7 +10,6 @@ The step stops itself the moment SEC pushes back, because nothing else will: the
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import math
 import re
@@ -540,45 +539,27 @@ def scans_under_way(db: Session, *, excluding: str, now: Optional[datetime] = No
     ).count()
 
 
-_local_scans: dict[str, asyncio.Task] = {}
-
-
 async def request_scan(issuer_cik: str) -> bool:
-    """Hand one step of the issuer's scan to the task worker; True when a step was handed off or started.
+    """Hand one step of the issuer's scan to the task worker; True when the queue took it.
 
-    Many readers in a minute make one task: the name carries the issuer and a one-minute bucket. Where durable
-    tasks are off (development), one step runs in this process after the response, at most one per issuer.
-    A queue that cannot take the task is logged and the reader is served what is stored.
+    Many readers in a minute make one task: the name carries the issuer and a one-minute bucket. A queue that
+    cannot take the task is logged and the reader is served what is stored. Where durable tasks are off
+    (development) nothing is started: the request that asks is a GET, and a GET starts no work in its own
+    process (tests/unit/test_read_only_get_endpoints.py). ``scripts/run_insider_scan.py`` runs a scan there.
     """
     from app.services.durable_tasks import enqueue_task
     from app.services.task_routing import TaskUnavailable
 
     cik = normalize_cik(issuer_cik)
-    if settings.DURABLE_TASKS_ENABLED:
-        try:
-            await enqueue_task("insider_scan", {"issuer_cik": cik},
-                               dedupe_key=f"insider-scan:{cik}:visit", dedupe_seconds=VISIT_DEDUPE_SECONDS)
-            return True
-        except (TaskUnavailable, ValueError):
-            logger.warning("Insider scan handoff unavailable for CIK %s", cik)
-            return False
-    running = _local_scans.get(cik)
-    if running is not None and not running.done():
+    if not settings.DURABLE_TASKS_ENABLED:
         return False
-    task = asyncio.create_task(_run_local_step(cik))
-    _local_scans[cik] = task
-    task.add_done_callback(lambda done, cik=cik: _local_scans.pop(cik, None) if _local_scans.get(cik) is done else None)
-    return True
-
-
-async def _run_local_step(cik: str) -> None:
-    from app.database import SessionLocal
-
     try:
-        with SessionLocal() as db:
-            await run_scan_step(db, cik)
-    except Exception:  # noqa: BLE001 - a background step has no caller to tell
-        logger.exception("Insider scan step failed for CIK %s", cik)
+        await enqueue_task("insider_scan", {"issuer_cik": cik},
+                           dedupe_key=f"insider-scan:{cik}:visit", dedupe_seconds=VISIT_DEDUPE_SECONDS)
+        return True
+    except (TaskUnavailable, ValueError):
+        logger.warning("Insider scan handoff unavailable for CIK %s", cik)
+        return False
 
 
 @dataclass(frozen=True)

@@ -24,6 +24,7 @@ ROUTERS_DIR = Path(__file__).resolve().parents[2] / "app" / "routers"
 ALLOWED = {
     "companies.py::_quote_cache": "per-process quote cache keyed by ticker, values are (quote, stamp)",
     "filings.py::_visit_task_handoffs": "bounded cache of accepted queue handoffs, values are bucket expiry timestamps",
+    "insiders.py::_handed_off": "bounded cache of accepted scan handoffs by issuer, values are bucket expiry times",
 }
 
 _MAPPING_NAMES = {"dict", "Dict", "defaultdict", "DefaultDict", "OrderedDict", "MutableMapping", "Mapping"}

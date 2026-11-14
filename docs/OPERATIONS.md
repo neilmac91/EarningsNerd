@@ -685,6 +685,7 @@ Located in `backend/scripts/`:
     The token-gated precompute endpoint still defaults to annual forms unless requested otherwise.
 - `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
+- `run_insider_scan.py` - Run a stored company's insider (Form 4) scan in this process, step by step, where no task queue runs it (development); about 61 SEC requests for a company with 60 recent Form 4s
 - `verify_insider_extraction.py` - Compare the insider scan's offline Form 4 parse with edgartools' own parse on real filings from SEC (about 50 requests with its defaults); run it before the insider panel is shown to anyone and after an edgartools upgrade
 - `complimentary_access.py` - Grant or revoke complimentary Pro for invited private-beta accounts from a private
   manifest (PB-02): `fingerprint` and `check` run offline; `dry-run` writes nothing; `apply --confirm-digest`

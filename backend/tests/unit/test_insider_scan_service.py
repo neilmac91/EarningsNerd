@@ -873,26 +873,9 @@ async def test_a_queue_that_cannot_take_the_task_is_not_an_error_for_the_reader(
 
 
 @pytest.mark.asyncio
-async def test_without_durable_tasks_one_step_runs_in_this_process_and_only_one_at_a_time_per_issuer(db, worker, monkeypatch):
-    import asyncio
-
+async def test_without_durable_tasks_a_visit_starts_nothing(worker, monkeypatch):
+    """The request that asks is a GET, and a GET starts no work in its own process."""
     monkeypatch.setattr(scan_service.settings, "DURABLE_TASKS_ENABLED", False)
-    release, steps = asyncio.Event(), []
-
-    async def run_scan_step(session, cik, **kwargs):
-        steps.append(cik)
-        await release.wait()
-        return scan_service.StepStats(remaining=5)
-
-    monkeypatch.setattr(scan_service, "run_scan_step", run_scan_step)
-    assert await scan_service.request_scan(CIK) is True
-    await asyncio.sleep(0)
-    assert await scan_service.request_scan(CIK) is False        # the first is still running
-    assert await scan_service.request_scan("555") is True       # another issuer's is its own
-    release.set()
-    await asyncio.gather(*list(scan_service._local_scans.values()))
-    await asyncio.sleep(0)
-
-    assert (sorted(steps), worker, scan_service._local_scans) == (["555", CIK], [], {})   # no queue, nothing chained
-    assert await scan_service.request_scan(CIK) is True
-    await asyncio.gather(*list(scan_service._local_scans.values()))
+    monkeypatch.setattr(scan_service, "run_scan_step", lambda *args, **kwargs: pytest.fail("a step ran in the API process"))
+    assert await scan_service.request_scan(CIK) is False
+    assert worker == []
