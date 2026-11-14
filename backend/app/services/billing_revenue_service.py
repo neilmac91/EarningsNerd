@@ -33,6 +33,12 @@ REPORT_LIMITS = [
 ]
 
 
+class InvalidPaymentEvidence(ValueError):
+    """Payment evidence this module refuses. From the event itself (``payment_from_event``, ``record_payment``'s
+    conflict) a retry cannot change it, so the webhook answers 400; the webhook worker retries an invoice read's
+    refusal (``with_invoice``, which raises it through the shared validators) as unavailable state."""
+
+
 @dataclass(frozen=True)
 class PaymentEvidence:
     payment_id: str
@@ -55,7 +61,7 @@ def _identifier(value: object, name: str, *, optional: bool = False) -> Optional
     if optional and value is None:
         return None
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_]{1,255}", value):
-        raise ValueError(f"Invalid {name}")
+        raise InvalidPaymentEvidence(f"Invalid {name}")
     return value
 
 
@@ -63,42 +69,42 @@ def _mapping(value: object, name: str) -> dict:
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise ValueError(f"Invalid {name} object")
+        raise InvalidPaymentEvidence(f"Invalid {name} object")
     return value
 
 
 def payment_from_event(event: dict) -> PaymentEvidence:
     """Validate only the canonical event, before any optional provider read or database work."""
     if event.get("type") != "invoice_payment.paid" or event.get("account"):
-        raise ValueError("Expected an account-local invoice_payment.paid event")
+        raise InvalidPaymentEvidence("Expected an account-local invoice_payment.paid event")
     obj = _mapping(_mapping(event.get("data"), "event data").get("object"), "InvoicePayment")
     if obj.get("object") != "invoice_payment" or obj.get("status") != "paid":
-        raise ValueError("Expected a paid InvoicePayment")
+        raise InvalidPaymentEvidence("Expected a paid InvoicePayment")
     amount = obj.get("amount_paid")
     if type(amount) is not int or not 0 <= amount <= 9223372036854775807:
-        raise ValueError("Invalid payment amount_paid")
+        raise InvalidPaymentEvidence("Invalid payment amount_paid")
     currency = obj.get("currency")
     if not isinstance(currency, str) or not re.fullmatch("[a-z]{3}", currency):
-        raise ValueError("Invalid payment currency")
+        raise InvalidPaymentEvidence("Invalid payment currency")
     live = obj.get("livemode")
     if type(live) is not bool or event.get("livemode") is not live:
-        raise ValueError("Inconsistent payment livemode")
+        raise InvalidPaymentEvidence("Inconsistent payment livemode")
     payment = _mapping(obj.get("payment"), "payment")
     kind = payment.get("type")
     if not isinstance(kind, str) or not re.fullmatch(r"[a-z_]{1,80}", kind):
-        raise ValueError("Invalid payment type")
+        raise InvalidPaymentEvidence("Invalid payment type")
     if kind in COLLECTED_PAYMENT_TYPES:
         _identifier(payment.get(kind), "payment reference")
     timestamp = _mapping(obj.get("status_transitions"), "status transitions").get("paid_at")
     if type(timestamp) is not int or timestamp < 0:
-        raise ValueError("Invalid payment paid_at")
+        raise InvalidPaymentEvidence("Invalid payment paid_at")
     try:
         paid_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
     except (OverflowError, OSError, ValueError) as exc:
-        raise ValueError("Invalid payment paid_at") from exc
+        raise InvalidPaymentEvidence("Invalid payment paid_at") from exc
     api_version = event.get("api_version")
     if api_version is not None and (not isinstance(api_version, str) or len(api_version) > 80):
-        raise ValueError("Invalid event api_version")
+        raise InvalidPaymentEvidence("Invalid event api_version")
     return PaymentEvidence(
         payment_id=_identifier(obj.get("id"), "payment id"),
         invoice_id=_identifier(obj.get("invoice"), "invoice id"),
@@ -180,7 +186,7 @@ def record_payment(db: Session, evidence: PaymentEvidence, user: Optional[User])
             evidence.invoice_id, evidence.amount_minor, evidence.currency,
             evidence.payment_type, evidence.paid_at,
         ):
-            raise ValueError("Conflicting immutable InvoicePayment evidence")
+            raise InvalidPaymentEvidence("Conflicting immutable InvoicePayment evidence")
         return None
     owner, attribution = payment_attribution(db, evidence)
     if owner != (user.id if user else None):
