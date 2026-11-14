@@ -27,9 +27,10 @@ for its limiter and breaker reason, and PR #1347 then moved `xbrl_sections.py` i
 (breaker-exempt CPU work, off the event loop). Do not add a `Filing`, `CompanyReport` or `obj()`
 accessor for document text: its requests go through edgartools' client, which the deploy pins to
 the same 1 req/s (`EDGAR_RATE_LIMIT_PER_SEC`) but which the app's limiter, breaker and diagnostics
-never see, and they fail wherever the homepage does not resolve. The two sites that predate the
-rule stay as they are: `edgar/sixk_extractor.py` (6-K exhibit text, through a getattr wrapper) and
-`insider_service.py` (Form 4 objects, behind `ENABLE_INSIDER_ACTIVITY`). The summary-section path,
+never see, and they fail wherever the homepage does not resolve. One site that predates the
+rule stays as it is: `edgar/sixk_extractor.py` (6-K exhibit text, through a getattr wrapper). The
+other, `insider_service.py` (Form 4 objects), left the list with ADR 0009: the insider scan fetches
+each Form 4 as a document and parses it offline (`insider_form4.py`). The summary-section path,
 `edgar/xbrl_sections.py`, joined the rule with E28: it parses the document the pipeline fetched with
 the same parser and holds no `obj()` entry. Before that it called `filing.obj()`, which returned
 nothing from early October (between CI's reports of 4 and 7 October) until the backport above,

@@ -28,9 +28,6 @@ ALLOWED_OBJ_CALLS: dict[tuple[str, str], str] = {
     ("app/services/edgar/sixk_extractor.py", "_extract_sixk_text_sync"): (
         "the 6-K exhibit text for summary grounding, through the _safe getattr wrapper"
     ),
-    ("app/services/insider_service.py", "_collect_insider_data_sync"): (
-        "Form 4 objects for the insider feed, behind ENABLE_INSIDER_ACTIVITY (off in the deploy)"
-    ),
 }
 
 

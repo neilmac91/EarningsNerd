@@ -32,6 +32,10 @@ async def run_background_task(envelope: TaskEnvelope) -> None:
         from app.services.summary_jobs import run_summary_task
         await run_summary_task(envelope.payload)
         return
+    if envelope.kind == "insider_scan":
+        from app.services.insider_scan_service import run_scan_task
+        await run_scan_task(envelope.payload)
+        return
     if envelope.kind == "filings":
         task = FilingsTask.model_validate(envelope.payload)
         with SessionLocal() as db:

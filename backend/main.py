@@ -351,9 +351,7 @@ REQUEST_TIMEOUT_SECONDS = {
 # (e.g. /api/companies/{ticker}/insiders), which a prefix match can't reach.
 # Checked after the prefix table. Keep these above the corresponding service-level
 # timeout so the inner timeout fires first with a specific error.
-REQUEST_TIMEOUT_SUFFIXES = {
-    "/insiders": 75.0,  # live Form 4 fan-out across many filings (fetch caps at 60s)
-}
+REQUEST_TIMEOUT_SUFFIXES: dict[str, float] = {}
 
 
 def get_timeout_for_path(path: str) -> float:

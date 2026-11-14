@@ -68,6 +68,14 @@ def require_pro(current_user: User = Depends(_resolve_current_user)) -> User:
     return current_user
 
 
+def require_beta(current_user: User = Depends(_resolve_current_user)) -> User:
+    """Allow only an account admitted to the closed beta (``User.is_beta``, set server-side when an invitation is
+    redeemed): 401 without a session, 403 otherwise. Not a plan: plan truth stays in ``entitlements`` (rule 4)."""
+    if not getattr(current_user, "is_beta", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This is available to beta testers.")
+    return current_user
+
+
 def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)) -> User:
     """Allow the Copilot Q&A endpoint for Pro users (full entitlement) OR a Free user who still has
     lifetime free-taste questions left (roadmap 2.2); 403 → upsell once the taste is spent.

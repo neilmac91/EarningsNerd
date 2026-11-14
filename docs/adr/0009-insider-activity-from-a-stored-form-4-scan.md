@@ -103,8 +103,13 @@ beta user can ask.
    every key carries something that moves: a step enqueued by the step before it is named by the issuer and the
    scan's step count, and one enqueued by a visit by the issuer and a short time bucket, so a second visitor in
    the same minute adds nothing and a visit an hour later is not swallowed. A paused scan's next step is
-   scheduled for the time its pause ends. With durable tasks off (development), the step runs after the response
-   in process.
+   scheduled for the time its pause ends; a failed one is not retried by itself. With durable tasks off
+   (development), the step runs after the response in process. A visit hands a step off only when the scan's
+   own chain is not carrying it (no step holds the lease and the scan row has been still for 45 seconds), and
+   only while fewer than three other issuers are scanning, read from the scan rows so it holds across
+   instances: the worker runs one task at a time and also sends account mail, so a mail queued behind the
+   scans waits about one ten-second step per scan under way. A reader of a further issuer is served what is
+   stored and told to ask again.
 
 6. **The endpoint requires a beta user and never waits for SEC.** A new dependency, `require_beta`, answers 401
    to a signed-out caller and 403 to a signed-in one who is not a beta user. It is not an entitlement: plans
@@ -141,6 +146,8 @@ beta user can ask.
   compares the first stored filings with the same filings on sec.gov before the panel is shown to anyone.
 - A company that files Form 4s as an owner of another issuer's shares no longer has those trades shown as its
   own insider activity, which the live fetch did.
+- `backend/scripts/verify_insider_extraction.py` reads real Form 4s from SEC both ways, offline and through
+  edgartools' own parse, and prints any row that differs. It is the check the production trial runs first.
 - That SEC serves a Form 4's XML at the primary document's name without its stylesheet directory is SEC's
   convention, not something read from code. The text-file fallback covers a miss, and the production trial reads
   the first real fetches before the panel is shown to anyone.

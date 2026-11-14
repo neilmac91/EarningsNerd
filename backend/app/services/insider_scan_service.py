@@ -10,7 +10,9 @@ The step stops itself the moment SEC pushes back, because nothing else will: the
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
 import re
 import time
 import uuid
@@ -19,10 +21,11 @@ from datetime import date, datetime, timedelta
 from itertools import islice
 from typing import Awaitable, Callable, Optional
 
-from sqlalchemy import delete, or_, update
+from sqlalchemy import delete, func, or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.insider import InsiderFiling, InsiderScan, InsiderTransaction
 from app.services.insider_form4 import (
     PARSER_VERSION,
@@ -64,7 +67,9 @@ FILING_NOT_ISSUER = "not_issuer"
 # filing stays listed with this as its error. The same answer on the next attempt stores the filing as failed, so
 # one bad filing cannot hold an issuer's scan for good.
 UNEXPECTED_BODY = "unexpected_body"
-_SUBMISSION_TEXT_RE = re.compile(r"<(?:SEC|IMS)-(?:DOCUMENT|HEADER)>|BEGIN PRIVACY-ENHANCED MESSAGE")
+# A submission's text file whole: it opens and closes with these, so one cut off part-way is not taken for a
+# filing with no ownership document.
+_SUBMISSION_TEXT_RE = re.compile(r"<SEC-DOCUMENT>.*</SEC-DOCUMENT>", re.DOTALL)
 
 # What a step did: ran (it held the lease), busy (another step holds it), paused (not before paused_until).
 OUTCOME_RAN, OUTCOME_BUSY, OUTCOME_PAUSED = "ran", "busy", "paused"
@@ -94,6 +99,36 @@ class StepStats:
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+# What a reader of the stored trades is told about the scan behind them.
+VIEW_COMPLETE, VIEW_SCANNING, VIEW_PAUSED, VIEW_FAILED = "complete", "scanning", "paused", "failed"
+# How soon to ask again while a scan is under way, and the longest a reader is told to wait.
+POLL_SECONDS = 8
+MAX_POLL_SECONDS = 180
+# One on-visit handoff per issuer a minute, however many readers ask (the bucket goes into the task's name).
+VISIT_DEDUPE_SECONDS = 60
+# After a wait on the process's own limiter, the next step starts this much later.
+LIMITER_RETRY = timedelta(seconds=15)
+# A scan whose row moved this recently is being carried on by its own chain of tasks: each step enqueues the next,
+# so a visit hands nothing off. Past it with filings still unread, the chain broke and a visit restarts it.
+CHAIN_QUIET = timedelta(seconds=45)
+# Issuers scanning at once, across every process (read from the scan rows). The worker runs one task at a time and
+# also sends account mail: a step is about ten seconds, and a mail queued behind the steps waits about one step per
+# scan under way. A reader of a further issuer is served what is stored and told to ask again.
+MAX_SCANS_UNDER_WAY = 3
+UNDER_WAY_WINDOW = timedelta(minutes=5)
+
+
+@dataclass(frozen=True)
+class ScanView:
+    status: str                          # complete | scanning | paused | failed
+    filings_listed: int                  # Form 4s the scan knows of
+    filings_read: int                    # of those, the ones with an outcome
+    oldest_filed_date: Optional[date]    # the earliest filing read: how far back the stored trades reach
+    refreshed_at: Optional[datetime]     # when the issuer's filings were last listed
+    retry_after_seconds: Optional[int]   # when asking again can show more; None when nothing is pending
+    due: bool                            # a step would do something now
 
 
 Lister = Callable[[str], Awaitable[list[ListedFiling]]]
@@ -206,18 +241,17 @@ def _store_listing(db: Session, cik: str, listed: list[ListedFiling], now: datet
     known = {row.accession for row in db.query(InsiderFiling.accession).filter(InsiderFiling.issuer_cik == cik)}
     added = 0
     for filing in listed:
-        if filing.accession in known:
-            continue
         try:   # the listing is SEC's data: an accession no address can be built from is left out here (rule 9)
-            normalize_accession(filing.accession)
+            digits = normalize_accession(filing.accession)
         except ValueError:
             logger.warning("Insider scan for CIK %s: a listed accession is not one, left out", cik)
             continue
-        if len(filing.accession) > 25:
+        accession = f"{digits[:10]}-{digits[10:12]}-{digits[12:]}"   # stored in SEC's one dashed spelling
+        if accession in known:
             continue
-        known.add(filing.accession)
+        known.add(accession)
         db.add(InsiderFiling(
-            accession=filing.accession, issuer_cik=cik, filed_date=filing.filed_date,
+            accession=accession, issuer_cik=cik, filed_date=filing.filed_date,
             primary_document=(filing.primary_document or "")[:255] or None,
             status=FILING_LISTED, created_at=now, updated_at=now,
         ))
@@ -463,3 +497,123 @@ async def run_scan_step(
     stats.duration_ms = int((time.monotonic() - started) * 1000)
     logger.info("Insider scan step for CIK %s: %s", cik, stats.as_dict())
     return stats
+
+
+def scan_view(db: Session, issuer_cik: str, *, now: Optional[datetime] = None) -> ScanView:
+    """The issuer's scan as a reader of its stored trades needs it. Reads only; no request to SEC."""
+    now = now or utcnow()
+    cik = normalize_cik(issuer_cik)
+    scan = db.query(InsiderScan).filter(InsiderScan.issuer_cik == cik).first()
+    if scan is None:
+        return ScanView(VIEW_SCANNING, 0, 0, None, None, POLL_SECONDS, due=True)
+    listed = db.query(InsiderFiling).filter(InsiderFiling.issuer_cik == cik).count()
+    unread = _remaining(db, cik)
+    oldest = db.query(func.min(InsiderFiling.filed_date)).filter(
+        InsiderFiling.issuer_cik == cik, InsiderFiling.status != FILING_LISTED).scalar()
+    refreshed = ensure_utc(scan.last_listed_at) if scan.last_listed_at is not None else None
+
+    def view(status: str, retry: Optional[int], due: bool) -> ScanView:
+        return ScanView(status, listed, listed - unread, oldest, refreshed, retry, due)
+
+    failed = scan.status == SCAN_FAILED
+    if scan.paused_until is not None and ensure_utc(scan.paused_until) > now:
+        wait = math.ceil((ensure_utc(scan.paused_until) - now).total_seconds())
+        return view(VIEW_FAILED if failed else VIEW_PAUSED, min(max(wait, POLL_SECONDS), MAX_POLL_SECONDS), False)
+    # A step that holds the lease, or one that released it moments ago and enqueued the next, carries the scan on.
+    carried = (scan.lease_until is not None and ensure_utc(scan.lease_until) > now) or (
+        scan.updated_at is not None and now - ensure_utc(scan.updated_at) < CHAIN_QUIET)
+    if failed:
+        return view(VIEW_FAILED, MAX_POLL_SECONDS, not carried)   # a step is cheap; the first after a fix resumes
+    stale = refreshed is None or now - refreshed >= LIST_TTL
+    if unread or refreshed is None:
+        return view(VIEW_SCANNING, POLL_SECONDS, not carried)
+    # Everything listed is read. An hour-old listing is refreshed behind what is stored, which stays complete.
+    return view(VIEW_COMPLETE, POLL_SECONDS if stale else None, stale and not carried)
+
+
+def scans_under_way(db: Session, *, excluding: str, now: Optional[datetime] = None) -> int:
+    """How many other issuers' scans are reading filings now, in any process."""
+    now = now or utcnow()
+    return db.query(InsiderScan).filter(
+        InsiderScan.issuer_cik != normalize_cik(excluding), InsiderScan.status == SCAN_SCANNING,
+        InsiderScan.updated_at >= now - UNDER_WAY_WINDOW,
+    ).count()
+
+
+_local_scans: dict[str, asyncio.Task] = {}
+
+
+async def request_scan(issuer_cik: str) -> bool:
+    """Hand one step of the issuer's scan to the task worker; True when a step was handed off or started.
+
+    Many readers in a minute make one task: the name carries the issuer and a one-minute bucket. Where durable
+    tasks are off (development), one step runs in this process after the response, at most one per issuer.
+    A queue that cannot take the task is logged and the reader is served what is stored.
+    """
+    from app.services.durable_tasks import enqueue_task
+    from app.services.task_routing import TaskUnavailable
+
+    cik = normalize_cik(issuer_cik)
+    if settings.DURABLE_TASKS_ENABLED:
+        try:
+            await enqueue_task("insider_scan", {"issuer_cik": cik},
+                               dedupe_key=f"insider-scan:{cik}:visit", dedupe_seconds=VISIT_DEDUPE_SECONDS)
+            return True
+        except (TaskUnavailable, ValueError):
+            logger.warning("Insider scan handoff unavailable for CIK %s", cik)
+            return False
+    running = _local_scans.get(cik)
+    if running is not None and not running.done():
+        return False
+    task = asyncio.create_task(_run_local_step(cik))
+    _local_scans[cik] = task
+    task.add_done_callback(lambda done, cik=cik: _local_scans.pop(cik, None) if _local_scans.get(cik) is done else None)
+    return True
+
+
+async def _run_local_step(cik: str) -> None:
+    from app.database import SessionLocal
+
+    try:
+        with SessionLocal() as db:
+            await run_scan_step(db, cik)
+    except Exception:  # noqa: BLE001 - a background step has no caller to tell
+        logger.exception("Insider scan step failed for CIK %s", cik)
+
+
+@dataclass(frozen=True)
+class _FollowUp:
+    key: str
+    at: Optional[datetime]
+
+
+def _follow_up(db: Session, cik: str, stats: StepStats, now: datetime) -> Optional[_FollowUp]:
+    """The task that continues the scan after this step, if any. Cloud Tasks keeps a task's name for a day after
+    it ran and drops a second task of that name without an error, so every name carries the scan's step count,
+    which moves with each step that held the lease."""
+    if stats.outcome != OUTCOME_RAN or stats.stopped == "lease_lost":
+        return None   # another step holds the scan, or it is paused: that step, or a visit, carries it on
+    scan = db.query(InsiderScan).filter(InsiderScan.issuer_cik == cik).one()
+    steps, status, paused_until = scan.steps or 0, scan.status, scan.paused_until
+    db.commit()
+    if stats.stopped is None:
+        return _FollowUp(f"insider-scan:{cik}:step:{steps}", None) if stats.remaining else None
+    if stats.stopped == "limiter_wait":
+        return _FollowUp(f"insider-scan:{cik}:step:{steps}", now + LIMITER_RETRY)
+    if status == SCAN_PAUSED and paused_until is not None:
+        # SEC pushed back: the scan resumes by itself when the pause is over, once per pause.
+        return _FollowUp(f"insider-scan:{cik}:resume:{steps}", ensure_utc(paused_until))
+    return None   # failed: a later visit asks again, nothing retries by itself
+
+
+async def run_scan_task(payload: dict) -> None:
+    """The task worker's entry: one step, then the task that continues the scan when there is more to do."""
+    from app.database import SessionLocal
+    from app.services.durable_tasks import InsiderScanTask, enqueue_task
+
+    task = InsiderScanTask.model_validate(payload)
+    with SessionLocal() as db:
+        stats = await run_scan_step(db, task.issuer_cik)
+        follow = _follow_up(db, task.issuer_cik, stats, utcnow())
+    if follow is not None:
+        await enqueue_task("insider_scan", {"issuer_cik": task.issuer_cik}, dedupe_key=follow.key, schedule_at=follow.at)

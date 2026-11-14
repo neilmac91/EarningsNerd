@@ -1,225 +1,87 @@
-"""Insider-activity orchestration (P4, SEC Form 4).
+"""Insider activity (SEC Form 4) as the endpoint serves it: read from the store, never from SEC (ADR 0009).
 
-Resolves a ticker, pulls its most recent Form 4 filings from SEC EDGAR via
-EdgarTools, extracts the open-market trades (``ownership_extractor``), and
-aggregates them into a buy/sell signal with a Rule 10b5-1 split.
-
-Design notes
-------------
-* **Live SEC read, no DB.** Form 4 data isn't in our ``financial_fact`` table;
-  this reads EDGAR on demand and caches the result in-process (TTL).
-* **EdgarTools is the only heavy dependency** and it's synchronous, so every
-  call goes through ``run_with_circuit_breaker`` (dedicated thread pool +
-  timeout + circuit breaker), exactly like the rest of the EDGAR integration.
-* **Lazy import of ``edgar``.** The top of this module imports nothing from
-  EdgarTools, so it stays importable (and unit-testable via an injected
-  ``fetcher``) in environments where edgartools/cryptography aren't installed.
-* **Fetch once, window many.** Transactions are cached per ``(ticker,
-  limit_filings)``; the trailing-window aggregation is pure and done in-memory,
-  so changing ``window_days`` never re-hits SEC.
+A background scan fills the store a few filings at a time (``insider_scan_service``). This module reads what is
+stored for a company, aggregates it over the reader's trailing window, and says how far the scan has got. The
+aggregation is ``ownership_extractor``'s and is pure, so a different window is a different slice of the same rows.
 """
-
 from __future__ import annotations
 
-import logging
-import time
-from itertools import islice
-from threading import Lock
-from typing import Any, Awaitable, Callable, Optional
+from datetime import datetime
+from typing import Optional
 
-from app.services.ownership_extractor import (
-    _iso_date,
-    _safe_getattr,
-    extract_form4_transactions,
-    summarize_insider_activity,
-    transactions_in_window,
-)
+from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
+from app.models import Company
+from app.models.insider import InsiderTransaction
+from app.services import insider_scan_service
+from app.services.ownership_extractor import summarize_insider_activity, transactions_in_window
+from app.utils.datetimes import iso_z, utcnow
+from app.utils.sec_urls import normalize_cik
 
-# How many of the most-recent Form 4 filings to pull per company. Enough to
-# cover a quarter or two of activity for an active issuer without a huge fan-out.
-DEFAULT_LIMIT_FILINGS = 60
 # How many individual transactions to return in the response (most recent first).
 DEFAULT_RECENT_LIMIT = 30
-# Each filing is a separate fetch+parse inside the thread pool. Kept in line with
-# the /api/filings/ budget (60s) and below the endpoint's request-timeout ceiling
-# (see REQUEST_TIMEOUT_SUFFIXES in main.py) so this inner timeout wins, surfacing
-# a clean 502 rather than a generic 504.
-INSIDER_FETCH_TIMEOUT_SECONDS = 60.0
-# In-process cache TTL. Insider feeds change at most a few times a day.
-CACHE_TTL_SECONDS = 30 * 60
-
-# A "bundle" is the raw, un-windowed result of a SEC fetch:
-#   {"ticker", "company_name", "cik", "transactions": list[dict]}
-# Injectable so tests can supply a fake without touching EdgarTools.
-Fetcher = Callable[[str, int], Awaitable[dict]]
-
-_cache: dict[tuple[str, int], tuple[float, dict]] = {}
-_cache_lock = Lock()
 
 
-def _cache_get(key: tuple[str, int]) -> Optional[dict]:
-    with _cache_lock:
-        entry = _cache.get(key)
-        if entry is None:
-            return None
-        ts, bundle = entry
-        if time.monotonic() - ts > CACHE_TTL_SECONDS:
-            _cache.pop(key, None)
-            return None
-        return bundle
-
-
-def _cache_set(key: tuple[str, int], bundle: dict) -> None:
-    with _cache_lock:
-        _cache[key] = (time.monotonic(), bundle)
-
-
-def clear_cache() -> None:
-    """Drop the in-process insider cache (used by tests/admin)."""
-    with _cache_lock:
-        _cache.clear()
-
-
-def _safe_attr(obj: Any, *names: str) -> Any:
-    """First non-None attribute among ``names``, tolerant of edgartools
-    method-vs-property drift (delegates to ``_safe_getattr``)."""
-    for name in names:
-        val = _safe_getattr(obj, name)
-        if val is not None:
-            return val
-    return None
-
-
-def _collect_insider_data_sync(ticker: str, limit_filings: int) -> dict:
-    """Synchronous EdgarTools work — runs inside the EDGAR thread pool.
-
-    Resolves the company, walks its most recent Form 4 filings, and extracts the
-    open-market trades from each. Raises ``CompanyNotFoundError`` for an unknown
-    ticker so the router can return a clean 404; other EDGAR failures are
-    translated to the standard ``EdgarError`` hierarchy (so the circuit breaker
-    sees real network errors).
-    """
-    from edgar import Company as EdgarCompany  # lazy: heavy dependency
-
-    from app.services.edgar.exceptions import (
-        CompanyNotFoundError,
-        translate_edgartools_exception,
-    )
-
-    try:
-        company = EdgarCompany(ticker)
-    except Exception as exc:
-        if "not found" in str(exc).lower():
-            raise CompanyNotFoundError(ticker, cause=exc)
-        raise translate_edgartools_exception(exc) from exc
-
-    # An unknown ticker can yield a hollow Company rather than raising.
-    cik = _safe_attr(company, "cik")
-    if not cik:
-        raise CompanyNotFoundError(ticker)
-
-    company_name = _safe_attr(company, "name", "company_name")
-    resolved_ticker = _safe_attr(company, "ticker") or ticker
-
-    transactions: list[dict] = []
-    try:
-        # trigger_full_load=False: the panel shows RECENT insider activity, and Form 4s are dense
-        # (insiders file frequently), so the recent submissions window suffices. The default
-        # (trigger_full_load=True) would download the company's entire lifetime history first — the
-        # same mega-filer cost the filing-load fix removed from listings — before islice bounds it.
-        # NOT behavior-preserving for >1000-filing companies (a filer whose newest Form 4 predates
-        # the recent window now shows empty instead of stale history) — a deliberate product call
-        # for a "recent activity" surface.
-        # No empty→full-history fallback here ON PURPOSE (unlike get_filings_multi): companies that
-        # never file Form 4 — FPIs (Section 16 doesn't apply), trusts, shells — have a Form-4-empty
-        # recent window forever, so a fallback would re-pay the full lifetime download on every
-        # cache miss (~30 min). That recurring burn is exactly what this line kills; do not add a
-        # fallback in a future "consistency" refactor.
-        filings = company.get_filings(form="4", amendments=False, trigger_full_load=False)
-    except Exception as exc:
-        raise translate_edgartools_exception(exc) from exc
-
-    for filing in islice(filings, limit_filings):
-        accession = str(_safe_attr(filing, "accession_number", "accession_no") or "")
-        filed_date = _iso_date(_safe_attr(filing, "filing_date", "filed_date"))
-        try:
-            form4 = filing.obj()
-        except Exception as exc:  # one bad filing must not sink the feed
-            logger.warning("Form 4 obj() failed for %s: %s", accession, exc)
-            continue
-        transactions.extend(
-            extract_form4_transactions(form4, accession=accession, filed_date=filed_date)
-        )
-
+def _row(trade: InsiderTransaction) -> dict:
     return {
-        "ticker": str(resolved_ticker).upper(),
-        "company_name": company_name,
-        "cik": str(cik) if cik else None,
-        "transactions": transactions,
+        "insider_name": trade.insider_name, "insider_title": trade.insider_title,
+        "is_director": trade.is_director, "is_officer": trade.is_officer, "is_ten_pct_owner": trade.is_ten_pct_owner,
+        "ticker": trade.ticker,
+        "transaction_date": trade.transaction_date.isoformat() if trade.transaction_date else None,
+        "transaction_code": trade.transaction_code, "transaction_label": trade.transaction_label,
+        "shares": trade.shares, "price": trade.price, "value": trade.value,
+        "acquired_disposed": trade.acquired_disposed, "is_10b5_1": trade.is_10b5_1,
+        "accession": trade.accession, "filed_date": trade.filed_date.isoformat() if trade.filed_date else None,
     }
 
 
-async def _default_fetch(ticker: str, limit_filings: int) -> dict:
-    """Production fetcher: EdgarTools in the thread pool, circuit-breaker guarded."""
-    # Lazy import: the app.services.edgar package pulls in edgartools at import
-    # time, so keep it out of module scope to stay importable (and unit-testable
-    # via an injected fetcher) where edgartools isn't installed.
-    from app.services.edgar.async_executor import run_with_circuit_breaker
-
-    return await run_with_circuit_breaker(
-        lambda: _collect_insider_data_sync(ticker, limit_filings),
-        timeout=INSIDER_FETCH_TIMEOUT_SECONDS,
-    )
-
-
 def _sort_recent(transactions: list[dict]) -> list[dict]:
-    """Most-recent first, by transaction date (falling back to filed date)."""
-
-    def key(t: dict) -> str:
-        return _iso_date(t.get("transaction_date")) or _iso_date(t.get("filed_date")) or ""
-
-    return sorted(transactions, key=key, reverse=True)
+    """Most recent first, by transaction date (falling back to filed date)."""
+    return sorted(transactions, key=lambda row: row["transaction_date"] or row["filed_date"] or "", reverse=True)
 
 
-async def get_insider_activity(
+def read_insider_activity(
+    db: Session,
     ticker: str,
     *,
     window_days: int = 90,
-    limit_filings: int = DEFAULT_LIMIT_FILINGS,
     recent_limit: int = DEFAULT_RECENT_LIMIT,
-    fetcher: Optional[Fetcher] = None,
-) -> dict:
-    """Return the insider-activity summary + recent trades for a ticker.
-
-    Raises ``CompanyNotFoundError`` for an unknown ticker and the usual
-    ``EdgarError`` subclasses for SEC/network failures; the router maps these to
-    404 / 502.
-    """
-    ticker_norm = ticker.upper().strip()
-    fetch = fetcher or _default_fetch
-    cache_key = (ticker_norm, limit_filings)
-
-    bundle = _cache_get(cache_key)
-    if bundle is None:
-        bundle = await fetch(ticker_norm, limit_filings)
-        _cache_set(cache_key, bundle)
-
-    all_txns = bundle.get("transactions") or []
-    # Window the returned list + count to match the (windowed) summary, so a response for
-    # window_days=30 never lists trades from outside that window or reports a total that
-    # disagrees with the signal. `summary` windows internally; reuse the same slice here.
-    windowed = transactions_in_window(all_txns, window_days)
-    summary = summarize_insider_activity(all_txns, window_days=window_days)
-    recent = _sort_recent(windowed)[:recent_limit]
-
+    now: Optional[datetime] = None,
+) -> Optional[dict]:
+    """The stored insider activity of the company with this ticker, and its scan's state; None when no stored
+    company has the ticker. ``scan_due`` says a scan step would do something now; the caller hands one off."""
+    now = now or utcnow()
+    company = db.query(Company).filter(Company.ticker == ticker.upper().strip()).first()
+    if company is None:
+        return None
+    try:
+        cik = normalize_cik(company.cik)
+    except ValueError:
+        return None   # a company row without a real CIK has no filings to scan
+    transactions = [_row(trade) for trade in db.query(InsiderTransaction).filter(InsiderTransaction.issuer_cik == cik)]
+    today = now.date()
+    # One slice for the list, the count and the summary, so a 30-day response never lists a trade outside its
+    # window or reports a total that disagrees with the signal.
+    windowed = transactions_in_window(transactions, window_days, now=today)
+    view = insider_scan_service.scan_view(db, cik, now=now)
+    # A step for this issuer is handed off only while few enough other issuers are scanning (the worker is shared).
+    due = view.due and (
+        insider_scan_service.scans_under_way(db, excluding=cik, now=now) < insider_scan_service.MAX_SCANS_UNDER_WAY)
     return {
-        "ticker": bundle.get("ticker") or ticker_norm,
-        "company_name": bundle.get("company_name"),
-        "cik": bundle.get("cik"),
+        "ticker": company.ticker,
+        "company_name": company.name,
+        "cik": cik,
         "window_days": window_days,
-        "summary": summary,
-        "transactions": recent,
+        "summary": summarize_insider_activity(transactions, window_days=window_days, now=today),
+        "transactions": _sort_recent(windowed)[:recent_limit],
         "total_transactions": len(windowed),
+        "scan": {
+            "status": view.status,
+            "filings_listed": view.filings_listed,
+            "filings_read": view.filings_read,
+            "oldest_filed_date": view.oldest_filed_date.isoformat() if view.oldest_filed_date else None,
+            "refreshed_at": iso_z(view.refreshed_at) if view.refreshed_at else None,
+            "retry_after_seconds": view.retry_after_seconds,
+        },
+        "scan_due": due,
     }

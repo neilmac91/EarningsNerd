@@ -1,164 +1,125 @@
 #!/usr/bin/env python3
-"""Live verification for the insider (Form 4) extraction pipeline.
+"""Check the stored insider scan's offline Form 4 parse against real filings on SEC EDGAR (ADR 0009).
 
-Runs the *real* EdgarTools path against live SEC EDGAR and prints (a) the raw
-object shapes our extractor depends on and (b) the extractor's output, so we can
-confirm the duck-typed contract in ``app/services/ownership_extractor.py`` and
-``app/services/insider_service.py`` holds against current edgartools + SEC data.
+The unit tests parse Form 4 documents written to SEC's schema, with the network closed. This is the other half:
+for each ticker it lists the company's most recent Form 4s, fetches each one's document the way the scan does
+(``insider_scan_service``: the XML at the listing's file name, the submission's text file on a 404), parses it
+offline (``insider_form4.parse_form4``), and compares the rows with the ones edgartools' own parse gives for
+the same filing (``filing.obj()``, the path the endpoint used before the scan). A row that differs is printed.
 
-This is the bridge between the offline unit tests (which mock the EdgarTools
-objects) and production: the unit tests prove the *logic*, this proves the
-*shapes*. Run it before trusting the feed in prod.
+Run it before the insider panel is shown to anyone, and after any edgartools upgrade.
 
 Usage:
     cd backend
-    python scripts/verify_insider_extraction.py            # defaults: AAPL, NVDA, JPM
-    python scripts/verify_insider_extraction.py TSLA MSFT  # custom tickers
-    EDGAR_IDENTITY="you@example.com" python scripts/verify_insider_extraction.py AAPL
+    python scripts/verify_insider_extraction.py                # defaults: AAPL, NVDA, JPM
+    python scripts/verify_insider_extraction.py TSLA MSFT      # custom tickers
+    python scripts/verify_insider_extraction.py --filings 10 AAPL
 
-Requires: edgartools installed and outbound network access to SEC EDGAR.
-Exit code is non-zero if no transactions could be extracted for any ticker
-(a strong signal the EdgarTools contract has drifted).
+Requests to SEC, paced by the process's own limits: per ticker one listing, then per filing one document (two
+when its XML is not at the listing's name) and edgartools' own two or so for the comparison. With the defaults
+(3 tickers, 5 filings each) that is about 50. Requires edgartools, outbound access to SEC EDGAR and
+``EDGAR_IDENTITY`` set as the app requires it.
+
+Exit code: 0 when every filing read gave the same rows both ways, 1 when any differed or none could be read.
 """
 
+import argparse
 import asyncio
 import os
 import sys
 from itertools import islice
+from types import SimpleNamespace
 
 # Make `app` importable when run from backend/.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 DEFAULT_TICKERS = ["AAPL", "NVDA", "JPM"]
-FILINGS_PER_TICKER = 5  # keep the live run quick; enough to see real trades
+DEFAULT_FILINGS = 5
 
 
 def _hr(title: str) -> None:
-    print("\n" + "=" * 72)
-    print(title)
-    print("=" * 72)
+    print(f"\n{'=' * 78}\n{title}\n{'=' * 78}")
 
 
-def _short(value, width: int = 80) -> str:
-    s = repr(value)
-    return s if len(s) <= width else s[: width - 3] + "..."
-
-
-def _introspect_first_form4(ticker: str):
-    """Print the raw shapes of the first Form 4 for a ticker (for humans)."""
+def _listing(ticker: str, filings: int):
+    """The company's CIK and its most recent Form 4s, as edgartools lists them (one or two requests)."""
     from edgar import Company as EdgarCompany
 
     company = EdgarCompany(ticker)
-    print(f"Company: name={getattr(company, 'name', None)!r} cik={getattr(company, 'cik', None)!r}")
+    listed = company.get_filings(form="4", amendments=False, trigger_full_load=False)
+    return str(company.cik), list(islice(listed, filings))
 
-    filings = company.get_filings(form="4", amendments=False)
-    first = next(iter(islice(filings, 1)), None)
-    if first is None:
-        print("  (no Form 4 filings found)")
-        return
 
-    accession = getattr(first, "accession_number", None) or getattr(first, "accession_no", None)
-    print(f"Filing: accession={accession!r} filed={getattr(first, 'filing_date', None)!r}")
+async def _verify_ticker(ticker: str, filings: int) -> tuple[int, int]:
+    """(filings whose rows agree, filings that differ or could not be read) for one ticker."""
+    from app.services import insider_scan_service as scan
+    from app.services.insider_form4 import Form4ParseError, parse_form4
+    from app.services.ownership_extractor import _iso_date, extract_form4_transactions
+    from app.utils.sec_urls import normalize_cik
 
-    form4 = first.obj()
-    print(f"obj() type: {type(form4).__module__}.{type(form4).__name__}")
-
-    # Surface the attributes the extractor reads.
-    for attr in ("insider_name", "position", "reporting_owners", "issuer", "aff10b5_one"):
-        print(f"  .{attr}: {_short(getattr(form4, attr, '<missing>'))}")
-
-    summ_getter = getattr(form4, "get_ownership_summary", None)
-    if callable(summ_getter):
+    _hr(ticker)
+    raw_cik, listed = await asyncio.to_thread(_listing, ticker, filings)
+    cik = normalize_cik(raw_cik)
+    print(f"CIK {cik}: {len(listed)} Form 4 filing(s) listed")
+    agree = differ = 0
+    for filing in listed:
+        accession = str(filing.accession_no)
+        filed = _iso_date(filing.filing_date)
+        stats = scan.StepStats()
+        row = SimpleNamespace(accession=accession, primary_document=str(filing.primary_document or ""))
         try:
-            summ = summ_getter()
-            print(f"  get_ownership_summary().has_10b5_1_plan: "
-                  f"{_short(getattr(summ, 'has_10b5_1_plan', '<missing>'))}")
-            print(f"  get_ownership_summary().net_change: "
-                  f"{_short(getattr(summ, 'net_change', '<missing>'))}")
-        except Exception as exc:  # noqa: BLE001 - diagnostic only
-            print(f"  get_ownership_summary() raised: {exc!r}")
-
-    trades = getattr(form4, "market_trades", None)
-    cols = getattr(trades, "columns", None)
-    if cols is not None:
-        print(f"  market_trades columns: {list(cols)}")
-    else:
-        print(f"  market_trades type: {type(trades).__name__}")
-
-
-async def _verify_ticker(ticker: str) -> int:
-    """Run the production service path and the extractor; return txn count."""
-    from app.services import insider_service
-
-    _hr(f"{ticker}: raw EdgarTools shapes")
-    try:
-        _introspect_first_form4(ticker)
-    except Exception as exc:  # noqa: BLE001 - diagnostic only
-        print(f"  introspection failed: {exc!r}")
-
-    _hr(f"{ticker}: insider_service.get_insider_activity()")
-    # Fresh cache each run so we always exercise the live fetch.
-    insider_service.clear_cache()
-    result = await insider_service.get_insider_activity(
-        ticker, window_days=180, limit_filings=FILINGS_PER_TICKER, recent_limit=10
-    )
-
-    print(f"company_name: {result['company_name']!r}  cik: {result['cik']!r}")
-    print(f"total_transactions: {result['total_transactions']}")
-    s = result["summary"]
-    print(
-        "summary: "
-        f"buys={s['buy_count']} ({s['buy_shares']:,.0f} sh) "
-        f"sells={s['sell_count']} ({s['sell_shares']:,.0f} sh) "
-        f"net={s['net_shares']:,.0f} sh  "
-        f"10b5-1 plan sells={s['plan_10b5_1_sell_shares']:,.0f} sh  "
-        f"last={s['last_transaction_date']}"
-    )
-
-    print("recent transactions:")
-    for t in result["transactions"][:6]:
-        val = f"${t['value']:,.0f}" if t.get("value") is not None else "n/a"
-        print(
-            f"  {t.get('transaction_date')}  {t.get('transaction_code')}"
-            f" {t.get('transaction_label')}  "
-            f"{t.get('insider_name')} ({t.get('insider_title')})  "
-            f"{t.get('shares')} sh @ {t.get('price')}  = {val}  "
-            f"10b5-1={t.get('is_10b5_1')}"
-        )
-    if not result["transactions"]:
-        print("  (none — note: companies with only grants/derivatives have no open-market trades)")
-
-    return result["total_transactions"]
+            document = await scan._fetch_document(cik, row, scan._default_fetch, stats)
+            if document is None:
+                print(f"  {accession}: no ownership document in the filing (the scan stores no_xml)")
+                continue
+            parsed = parse_form4(document, accession=accession, filed_date=filed)
+            live = extract_form4_transactions(await asyncio.to_thread(filing.obj), accession=accession, filed_date=filed)
+        except Form4ParseError as exc:
+            differ += 1
+            print(f"  {accession}: the offline parse refused it: {exc}")
+            continue
+        except Exception as exc:  # noqa: BLE001 - report and carry on with the next filing
+            differ += 1
+            print(f"  {accession}: {type(exc).__name__}: {exc}")
+            continue
+        issuer = "this issuer" if parsed.issuer_cik == cik else f"another issuer (CIK {parsed.issuer_cik}): stores no trades"
+        if parsed.transactions == live:
+            agree += 1
+            print(f"  {accession}: {len(live)} trade(s), the same both ways; {stats.requests} request(s); reports {issuer}")
+            continue
+        differ += 1
+        print(f"  {accession}: DIFFERS ({len(parsed.transactions)} offline, {len(live)} from edgartools); reports {issuer}")
+        for offline_row, live_row in zip(parsed.transactions, live):
+            for key in sorted(set(offline_row) | set(live_row)):
+                if offline_row.get(key) != live_row.get(key):
+                    print(f"      {key}: offline {offline_row.get(key)!r}, edgartools {live_row.get(key)!r}")
+    return agree, differ
 
 
-async def main(tickers: list[str]) -> int:
-    # Mirror the app's EdgarTools identity requirement.
+async def main(tickers: list[str], filings: int) -> int:
     from edgar import set_identity
 
     from app.services.edgar.config import EDGAR_IDENTITY
 
-    identity = EDGAR_IDENTITY
-    set_identity(identity)
-    print(f"EdgarTools identity: {identity}")
-
-    total = 0
+    set_identity(EDGAR_IDENTITY)   # as the app sets it; its value is not printed
+    agree = differ = 0
     for ticker in tickers:
         try:
-            total += await _verify_ticker(ticker.upper().strip())
-        except Exception as exc:  # noqa: BLE001 - report and continue
+            same, different = await _verify_ticker(ticker.upper().strip(), filings)
+        except Exception as exc:  # noqa: BLE001 - report and carry on with the next ticker
             _hr(f"{ticker}: FAILED")
             print(f"  {type(exc).__name__}: {exc}")
-
+            differ += 1
+            continue
+        agree, differ = agree + same, differ + different
     _hr("RESULT")
-    if total == 0:
-        print("❌ No transactions extracted for any ticker — the EdgarTools "
-              "Form 4 contract may have drifted. Inspect the raw shapes above.")
-        return 1
-    print(f"✅ Extracted {total} open-market insider transactions across "
-          f"{len(tickers)} ticker(s). Contract looks healthy.")
-    return 0
+    print(f"{agree} filing(s) gave the same rows offline and from edgartools; {differ} differed or could not be read.")
+    return 0 if agree and not differ else 1
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:] or DEFAULT_TICKERS
-    raise SystemExit(asyncio.run(main(args)))
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("tickers", nargs="*", default=DEFAULT_TICKERS)
+    parser.add_argument("--filings", type=int, default=DEFAULT_FILINGS, help="Form 4s to read per ticker")
+    args = parser.parse_args()
+    sys.exit(asyncio.run(main(args.tickers, max(1, min(args.filings, 20)))))

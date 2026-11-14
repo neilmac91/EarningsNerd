@@ -1,190 +1,133 @@
-"""Unit tests for the insider-activity orchestration layer.
+"""The insider endpoint's read of the stored Form 4 trades (ADR 0009): app/services/insider_service.py.
 
-The EdgarTools fetch is replaced with an injected async ``fetcher``, so these
-run without calling edgartools and assert the windowing, caching, recent-sort,
-and response-shape contract that the router and schema depend on.
+A real SQLite database and no SEC: the read makes no request (the conftest's network gate would fail one). The
+scan that fills the store is tests/unit/test_insider_scan_service.py; the route is tests/unit/test_insiders_route.py.
 """
-
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
-from app.services import insider_service
+from app.models import Base, Company
+from app.models.insider import InsiderFiling, InsiderScan, InsiderTransaction
+from app.services import insider_scan_service as scan_service
+from app.services.insider_service import read_insider_activity
 
-
-def _days_ago(n: int) -> str:
-    """ISO date n days before today (so transactions fall inside the real window)."""
-    return (date.today() - timedelta(days=n)).isoformat()
-
-
-# A stand-in for edgar's CompanyNotFoundError. The service only *propagates* the
-# fetcher's exception — it never inspects the type — so any exception exercises
-# the contract the router relies on (router maps CompanyNotFoundError -> 404).
-class CompanyNotFoundError(Exception):
-    pass
+NOW = datetime(2026, 11, 14, 12, tzinfo=timezone.utc)
+CIK = "320193"
 
 
-def _bundle(transactions, ticker="AAPL", name="Apple Inc.", cik="0000320193"):
-    return {
-        "ticker": ticker,
-        "company_name": name,
-        "cik": cik,
-        "transactions": transactions,
-    }
+@pytest.fixture
+def db():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(Company(cik="0000320193", ticker="AAPL", name="Apple Inc."))
+        session.commit()
+        yield session
+    engine.dispose()
 
 
-def _txn(code, ad, shares, price, day, is_plan=False):
-    return {
-        "insider_name": "Jane Doe",
-        "transaction_code": code,
-        "acquired_disposed": ad,
-        "shares": shares,
-        "price": price,
-        "value": shares * price,
-        "transaction_date": day,
-        "is_10b5_1": is_plan,
-    }
+def trade(db, n, code, shares, price, days_ago, *, plan=False, cik=CIK):
+    day = NOW.date() - timedelta(days=days_ago)
+    db.add(InsiderTransaction(
+        accession=f"0000320193-26-{n:06d}", ordinal=0, issuer_cik=cik, insider_name=f"Insider {n}",
+        insider_title="Director", is_director=True, is_officer=False, is_ten_pct_owner=False, ticker="AAPL",
+        transaction_date=day, transaction_code=code, transaction_label="Purchase" if code == "P" else "Sale",
+        shares=shares, price=price, value=shares * price, acquired_disposed="A" if code == "P" else "D",
+        is_10b5_1=plan, filed_date=day + timedelta(days=1), created_at=NOW,
+    ))
 
 
-@pytest.fixture(autouse=True)
-def _clear_cache():
-    insider_service.clear_cache()
-    yield
-    insider_service.clear_cache()
+def complete_scan(db, *, cik=CIK, listed_ago=timedelta(minutes=5)):
+    db.add(InsiderScan(issuer_cik=cik, status="idle", pauses=0, steps=1, last_listed_at=NOW - listed_ago,
+                       created_at=NOW - timedelta(hours=1), updated_at=NOW - timedelta(minutes=5)))
+    db.add(InsiderFiling(accession="0000320193-26-000001", issuer_cik=cik, filed_date=date(2026, 9, 1), status="ok",
+                         created_at=NOW, updated_at=NOW))
 
 
-@pytest.mark.asyncio
-async def test_get_insider_activity_shape_and_summary():
-    buy_day, sell_day = _days_ago(20), _days_ago(10)
-    txns = [
-        _txn("P", "A", 100, 10, buy_day),
-        _txn("S", "D", 40, 20, sell_day),
-    ]
+def test_the_stored_trades_are_summarised_over_the_window_and_listed_newest_first(db):
+    trade(db, 1, "P", 100, 10.0, days_ago=5)
+    trade(db, 2, "S", 400, 12.0, days_ago=2, plan=True)
+    trade(db, 3, "S", 50, 11.0, days_ago=40)
+    trade(db, 4, "P", 999, 1.0, days_ago=200)             # outside the 90-day window
+    trade(db, 5, "S", 777, 1.0, days_ago=1, cik="555")    # another issuer's
+    complete_scan(db)
+    db.commit()
 
-    async def fetcher(ticker, limit):
-        assert ticker == "AAPL"
-        return _bundle(txns)
+    activity = read_insider_activity(db, "aapl ", now=NOW)
 
-    res = await insider_service.get_insider_activity(
-        "aapl", window_days=90, fetcher=fetcher
-    )
-
-    assert res["ticker"] == "AAPL"
-    assert res["company_name"] == "Apple Inc."
-    assert res["cik"] == "0000320193"
-    assert res["window_days"] == 90
-    assert res["total_transactions"] == 2
-    assert res["summary"]["buy_shares"] == 100
-    assert res["summary"]["sell_shares"] == 40
-    assert len(res["transactions"]) == 2
-    # Recent-first ordering (the more recent sell comes first).
-    assert res["transactions"][0]["transaction_date"] == sell_day
+    assert (activity["ticker"], activity["company_name"], activity["cik"], activity["window_days"]) == ("AAPL", "Apple Inc.", CIK, 90)
+    assert [row["insider_name"] for row in activity["transactions"]] == ["Insider 2", "Insider 1", "Insider 3"]
+    assert activity["total_transactions"] == 3
+    summary = activity["summary"]
+    assert (summary["buy_count"], summary["sell_count"], summary["buy_shares"], summary["sell_shares"]) == (1, 2, 100, 450)
+    assert (summary["plan_10b5_1_sell_shares"], summary["discretionary_net_shares"]) == (400, 50)
+    first = activity["transactions"][0]
+    assert (first["transaction_date"], first["filed_date"], first["accession"], first["value"], first["is_10b5_1"]) == (
+        "2026-11-12", "2026-11-13", "0000320193-26-000002", 4800.0, True)
+    assert activity["scan"] == {"status": "complete", "filings_listed": 1, "filings_read": 1, "oldest_filed_date": "2026-09-01",
+                                "refreshed_at": "2026-11-14T11:55:00Z", "retry_after_seconds": None}
+    assert activity["scan_due"] is False
 
 
-@pytest.mark.asyncio
-async def test_recent_limit_truncates_but_summary_uses_all():
-    # 20 buys on distinct, in-window days (1..20 days ago).
-    txns = [_txn("P", "A", 1, 1, _days_ago(d)) for d in range(1, 21)]
+def test_a_shorter_window_narrows_the_list_the_count_and_the_summary_together(db):
+    trade(db, 1, "P", 100, 10.0, days_ago=5)
+    trade(db, 2, "S", 50, 11.0, days_ago=40)
+    db.commit()
 
-    async def fetcher(ticker, limit):
-        return _bundle(txns)
-
-    res = await insider_service.get_insider_activity(
-        "AAPL", window_days=90, recent_limit=5, fetcher=fetcher
-    )
-    assert len(res["transactions"]) == 5
-    assert res["total_transactions"] == 20
-    # Summary counts all 20 buys, not just the returned 5.
-    assert res["summary"]["buy_count"] == 20
-    # Most recent first (1 day ago).
-    assert res["transactions"][0]["transaction_date"] == _days_ago(1)
+    activity = read_insider_activity(db, "AAPL", window_days=30, now=NOW)
+    assert (activity["total_transactions"], len(activity["transactions"])) == (1, 1)
+    assert (activity["summary"]["buy_count"], activity["summary"]["sell_count"]) == (1, 0)
 
 
-@pytest.mark.asyncio
-async def test_cache_fetches_once_across_windows():
-    calls = {"n": 0}
-    txns = [_txn("P", "A", 10, 5, "2024-05-15")]
+def test_the_list_is_cut_to_its_limit_and_the_count_and_summary_are_not(db):
+    for n in range(1, 8):
+        trade(db, n, "P", 10, 1.0, days_ago=n)
+    db.commit()
 
-    async def fetcher(ticker, limit):
-        calls["n"] += 1
-        return _bundle(txns)
-
-    await insider_service.get_insider_activity("AAPL", window_days=90, fetcher=fetcher)
-    # Different window must reuse the cached bundle (same ticker + limit_filings).
-    await insider_service.get_insider_activity("AAPL", window_days=30, fetcher=fetcher)
-    assert calls["n"] == 1
+    activity = read_insider_activity(db, "AAPL", recent_limit=3, now=NOW)
+    assert (len(activity["transactions"]), activity["total_transactions"], activity["summary"]["buy_count"]) == (3, 7, 7)
 
 
-@pytest.mark.asyncio
-async def test_company_not_found_propagates():
-    async def fetcher(ticker, limit):
-        raise CompanyNotFoundError(ticker)
+def test_a_company_never_scanned_reads_as_scanning_with_nothing_stored_and_a_step_due(db):
+    activity = read_insider_activity(db, "AAPL", now=NOW)
 
-    with pytest.raises(CompanyNotFoundError):
-        await insider_service.get_insider_activity("NOPE", fetcher=fetcher)
-
-
-@pytest.mark.asyncio
-async def test_empty_transactions_yield_zero_summary():
-    async def fetcher(ticker, limit):
-        return _bundle([])
-
-    res = await insider_service.get_insider_activity("AAPL", fetcher=fetcher)
-    assert res["total_transactions"] == 0
-    assert res["summary"]["buy_count"] == 0
-    assert res["transactions"] == []
+    assert (activity["transactions"], activity["total_transactions"], activity["summary"]["buy_count"]) == ([], 0, 0)
+    assert activity["scan"] == {"status": "scanning", "filings_listed": 0, "filings_read": 0, "oldest_filed_date": None,
+                                "refreshed_at": None, "retry_after_seconds": scan_service.POLL_SECONDS}
+    assert activity["scan_due"] is True
 
 
-@pytest.mark.asyncio
-async def test_total_and_list_are_windowed():
-    # A trade far outside the window must not appear in the list or the count, so they agree
-    # with the (windowed) summary instead of reporting stale activity.
-    txns = [
-        _txn("P", "A", 100, 10, _days_ago(5)),    # inside the 30d window
-        _txn("S", "D", 50, 10, _days_ago(400)),   # ~13 months ago — outside
-    ]
+def test_no_step_is_due_for_a_further_issuer_while_enough_scans_are_under_way(db):
+    for n in range(scan_service.MAX_SCANS_UNDER_WAY):
+        db.add(InsiderScan(issuer_cik=str(900 + n), status="scanning", pauses=0, steps=1, created_at=NOW,
+                           updated_at=NOW - timedelta(minutes=1)))
+    db.commit()
+    assert read_insider_activity(db, "AAPL", now=NOW)["scan_due"] is False
 
-    async def fetcher(ticker, limit):
-        return _bundle(txns)
-
-    res = await insider_service.get_insider_activity("AAPL", window_days=30, fetcher=fetcher)
-    assert res["total_transactions"] == 1
-    assert len(res["transactions"]) == 1
-    assert res["transactions"][0]["transaction_date"] == _days_ago(5)
-    assert res["summary"]["buy_count"] == 1
-    assert res["summary"]["sell_count"] == 0
+    stalled = db.query(InsiderScan).filter_by(issuer_cik="900").one()
+    stalled.updated_at = NOW - scan_service.UNDER_WAY_WINDOW - timedelta(seconds=1)   # one of them went quiet
+    db.commit()
+    assert read_insider_activity(db, "AAPL", now=NOW)["scan_due"] is True
 
 
-class _FakeInsiderCompany:
-    """Records the Form 4 get_filings kwargs; returns no filings (so obj() is never called)."""
-
-    last_kwargs = None
-
-    def __init__(self, ticker):
-        self.cik = "0000320193"
-        self.name = "Apple Inc."
-        self.ticker = "AAPL"
-
-    def get_filings(self, form=None, amendments=None, trigger_full_load=None):
-        _FakeInsiderCompany.last_kwargs = {
-            "form": form,
-            "amendments": amendments,
-            "trigger_full_load": trigger_full_load,
-        }
-        return []
+def test_a_scan_of_this_issuer_does_not_count_against_itself(db):
+    for cik in (CIK, "901", "902"):
+        db.add(InsiderScan(issuer_cik=cik, status="scanning", pauses=0, steps=1, created_at=NOW - timedelta(hours=1),
+                           updated_at=NOW - timedelta(minutes=2), last_listed_at=NOW - timedelta(minutes=3)))
+    db.add(InsiderFiling(accession="0000320193-26-000009", issuer_cik=CIK, status="listed", created_at=NOW, updated_at=NOW))
+    db.commit()
+    assert read_insider_activity(db, "AAPL", now=NOW)["scan_due"] is True   # its own chain went quiet: restart it
 
 
-def test_collect_insider_data_sync_uses_recent_window(monkeypatch):
-    # Regression gate: the real Form 4 fetch must pass trigger_full_load=False so it reads only the
-    # recent submissions window, not the company's entire lifetime history (the mega-filer cost the
-    # filing-load fix removed from listings).
-    import edgar
+@pytest.mark.parametrize("ticker", ["MSFT", "", "AAPL.X"])
+def test_a_ticker_no_stored_company_has_is_none(db, ticker):
+    assert read_insider_activity(db, ticker, now=NOW) is None
 
-    monkeypatch.setattr(edgar, "Company", _FakeInsiderCompany)
-    _FakeInsiderCompany.last_kwargs = None
 
-    result = insider_service._collect_insider_data_sync("AAPL", limit_filings=5)
-
-    assert _FakeInsiderCompany.last_kwargs["form"] == "4"
-    assert _FakeInsiderCompany.last_kwargs["trigger_full_load"] is False
-    assert result["transactions"] == []
+def test_a_company_without_a_real_cik_is_none(db):
+    db.add(Company(cik="0", ticker="NOCIK", name="No CIK Inc."))
+    db.commit()
+    assert read_insider_activity(db, "NOCIK", now=NOW) is None
