@@ -63,6 +63,9 @@ pydantic/
 # docs/report-quality-improvement-plan.md + the PR descriptions, with sample reports attached there).
 tasks/phase2-outputs*/
 
+# Local caches (a writer run from the repo root would otherwise be committed)
+/.cache/
+
 # Temporary isolated agent worktrees
 .claude/worktrees/
 .worktrees/

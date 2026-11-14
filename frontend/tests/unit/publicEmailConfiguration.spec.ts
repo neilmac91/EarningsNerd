@@ -36,7 +36,15 @@ describe('public email configuration', () => {
       }
       visit(source)
     }
-    expect(hardcoded, 'Import addresses from lib/contactAddresses.ts, which reads the shared backend JSON.').toEqual([])
+    expect(hardcoded, "Import addresses from lib/contactAddresses.ts, which reads the copy of the backend's JSON.").toEqual([])
+  })
+
+  it("ships the backend's public addresses, byte for byte", () => {
+    // The build reads nothing outside frontend/ (backend/tests/unit/test_frontend_build_filter.py), so the module
+    // imports a copy of the file the backend's sender and contact configuration read. A change to either alone fails here.
+    const copy = readFileSync(path.join(frontendRoot, 'lib/publicEmailAddresses.json'), 'utf8')
+    expect(copy).toBe(readFileSync(path.join(frontendRoot, '../backend/app/public_email_addresses.json'), 'utf8'))
+    expect(CONTACT_ADDRESSES).toEqual(JSON.parse(copy))
   })
 
   it('keeps legal and contact routes discoverable while the waitlist gate is enabled', () => {

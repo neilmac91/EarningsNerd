@@ -1,4 +1,6 @@
-"""One fleet SEC admission/cooldown row; created and seeded by migrations only."""
+"""One fleet SEC admission/cooldown row, seeded by migrations only.
+
+Startup create_all may create the table empty; the gate fails closed until the seed migration runs."""
 from sqlalchemy import CheckConstraint, Column, DateTime, SmallInteger, func
 
 from app.database import Base

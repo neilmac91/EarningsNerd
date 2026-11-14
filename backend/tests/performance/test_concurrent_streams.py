@@ -191,9 +191,9 @@ async def test_concurrent_stream_connections():
                 
                 assert len(results) == n_concurrent
                 for lines in results:
-                    content = "".join(lines)
-                    if "complete" not in content:
-                        print(f"FAILED CONTENT: {content}")
-                    assert "complete" in content
+                    frames = [json.loads(line[len("data: "):]) for line in lines if line.startswith("data: ")]
+                    assert frames, "the stream sent no frames"
+                    assert not [f for f in frames if f.get("type") == "error"], f"FAILED FRAMES: {frames}"
+                    assert frames[-1].get("type") == "complete", f"FAILED FRAMES: {frames}"
     finally:
         app.dependency_overrides.clear()

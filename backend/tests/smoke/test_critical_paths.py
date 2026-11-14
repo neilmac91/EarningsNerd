@@ -2,7 +2,10 @@
 Smoke Test Suite - Critical Path Validation for EarningsNerd.
 
 These tests verify that the core functionality of the application is operational.
-Run these tests after every deployment to ensure critical paths are working.
+They run in-process (TestClient against the suite's temporary SQLite database, outbound network
+blocked) as part of the backend suite, so they cannot observe a deployment. The check after each
+deploy is the `Verify health` step of `deploy-backend` in .github/workflows/ci.yml;
+.github/workflows/prod-smoke.yml is the nightly production smoke, which can also be dispatched.
 
 Usage:
     # Run from backend directory
@@ -19,8 +22,7 @@ Critical Paths Tested:
 5. Database connectivity
 
 Note:
-    Tests that require database access are marked with @pytest.mark.requires_db
-    and will skip gracefully if the database is not initialized.
+    Tests that require database access are marked with @pytest.mark.requires_db.
 """
 
 import pytest
@@ -28,7 +30,6 @@ from tests.support.account_agreement import ACCOUNT_AGREEMENT
 import json
 import threading
 from fastapi.testclient import TestClient
-from sqlite3 import OperationalError as SQLiteOperationalError
 
 # Import app - relies on PYTHONPATH or running from backend directory
 from main import app
@@ -44,16 +45,6 @@ def client():
     """
     with TestClient(app) as test_client:
         yield test_client
-
-
-def _is_db_table_error(exc: Exception) -> bool:
-    """Check if an exception is due to missing database tables."""
-    error_str = str(exc).lower()
-    return (
-        "no such table" in error_str or
-        "relation" in error_str and "does not exist" in error_str or
-        isinstance(exc, SQLiteOperationalError)
-    )
 
 
 class TestHealthEndpoints:
@@ -178,14 +169,8 @@ class TestCompanyEndpoints:
     @pytest.mark.requires_db
     def test_trending_companies_endpoint_exists(self, client):
         """Trending companies endpoint should exist."""
-        try:
-            response = client.get("/api/companies/trending")
-            # Should return 200 or 500 (if DB not initialized in test env)
-            # In production, this should always return 200
-            assert response.status_code in [200, 500]
-        except Exception as e:
-            if _is_db_table_error(e):
-                pytest.skip("Database tables not initialized (run in production for full coverage)")
+        response = client.get("/api/companies/trending")
+        assert response.status_code == 200
 
 
 class TestFilingsEndpoints:
@@ -194,14 +179,8 @@ class TestFilingsEndpoints:
     @pytest.mark.requires_db
     def test_recent_filings_endpoint_exists(self, client):
         """Recent filings endpoint should exist."""
-        try:
-            response = client.get("/api/filings/recent/latest")
-            # Should return 200, 404, or 500 (if DB not initialized in test env)
-            # In production, this should return 200
-            assert response.status_code in [200, 404, 500]
-        except Exception as e:
-            if _is_db_table_error(e):
-                pytest.skip("Database tables not initialized (run in production for full coverage)")
+        response = client.get("/api/filings/recent/latest")
+        assert response.status_code == 200
 
 
 class TestAuthEndpoints:
@@ -252,14 +231,8 @@ class TestSEOEndpoints:
     @pytest.mark.requires_db
     def test_sitemap_endpoint_exists(self, client):
         """Sitemap endpoint should exist."""
-        try:
-            response = client.get("/sitemap.xml")
-            # Should return 200 or 500 (if DB not initialized in test env)
-            # In production with DB, this should return 200
-            assert response.status_code in [200, 500]
-        except Exception as e:
-            if _is_db_table_error(e):
-                pytest.skip("Database tables not initialized (run in production for full coverage)")
+        response = client.get("/sitemap.xml")
+        assert response.status_code == 200
 
 
 class TestSecurityHeaders:

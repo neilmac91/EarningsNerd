@@ -14,9 +14,10 @@ import { getExplicitSessionGeneration } from '@/lib/api/session'
 import { getErrorStatus } from '@/lib/api/types'
 import { ENABLE_APPLE_SIGNIN } from '@/lib/featureFlags'
 import { CircleNotchIcon } from '@/lib/icons'
+import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { queryKeys } from '@/lib/queryKeys'
 
-/** Where a login goes once the exchange took: the home page, where the callback's redirect used to land it. */
+/** Where a login goes once the exchange took, when the reader was headed nowhere else: the home page. */
 const LOGGED_IN = '/'
 /** Where it goes when the code is missing or refused: the login page, which says why (OAUTH_ERROR_MESSAGES). */
 const HANDOFF_FAILED = '/login?error=oauth_handoff_failed'
@@ -68,8 +69,10 @@ const ANSWER = 'rounded-lg focus-visible:outline-none focus-visible:shadow-ring-
  * bookmark, a shared link or the history entry never keeps it), keeps it in this page's state alone, and exchanges it
  * (completeOAuthSignIn), which posts only inside the lock, so a refresh another tab sent with the previous account's
  * cookies answers first and cannot set those over the new session's. Then, as the login page does, it drops the
- * previous account's queries and reads the new identity, and goes to the home page; a missing or refused code goes to
- * the login page, which says so.
+ * previous account's queries and reads the new identity, and goes where the reader was headed: the destination the
+ * signup gate or the login page's `?redirect=` stashed before the provider (lib/postAuthRedirect.ts, E29 (7)), else
+ * the home page. A missing or refused code goes to the login page, which says so, and leaves that destination for
+ * the login that follows.
  *
  * An exchange that posted nothing (another tab's session update held the lock past its wait, or this browser cannot
  * hold the lock) or got no answer it could use leaves a notice in place of the wait, which takes focus, with Log in
@@ -105,12 +108,14 @@ export default function OAuthCompletePage() {
       else setProblem('failed')
       return
     }
-    // The new account's identity before leaving, so the home page opens on it rather than on the reset's null; a
+    // The new account's identity before leaving, so the next page opens on it rather than on the reset's null; a
     // read that fails does not hold the login back.
     await queryClient
       .fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
       .catch(() => undefined)
-    router.replace(LOGGED_IN)
+    // Consumed only here, once the exchange took: the stash is read once, validated as an internal path and an hour
+    // old at most, so a stale or foreign value falls back to the home page.
+    router.replace(consumePostAuthRedirect() ?? LOGGED_IN)
   }, [router, queryClient])
 
   useEffect(() => {
@@ -180,7 +185,7 @@ export default function OAuthCompletePage() {
           Logging you in…
         </h1>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Finishing your login, then taking you to the home page.
+          Finishing your login.
         </p>
       </div>
     </AuthShell>

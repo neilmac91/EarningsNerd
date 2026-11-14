@@ -26,9 +26,10 @@ Usage:
 import asyncio
 import logging
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Optional, Tuple
 
 from .exceptions import EdgarNetworkError, EdgarRateLimitError, EdgarTimeoutError
 
@@ -139,6 +140,16 @@ class CircuitBreakerStats:
         }
 
 
+# One entry for each breaker context the current task is inside, innermost last: the breaker and the
+# half-open window the entry took a probe slot in, or None when it took none. An exit gives back
+# only the slot its own entry took. The state at exit says nothing about that: a probe can leave
+# after another probe's failure has reopened the circuit, and a call admitted while the circuit was
+# closed can leave while it is half-open.
+_ENTRIES: ContextVar[Tuple[Tuple["CircuitBreaker", Optional[int]], ...]] = ContextVar(
+    "circuit_breaker_entries", default=()
+)
+
+
 class CircuitBreaker:
     """
     Async-safe circuit breaker for protecting external service calls.
@@ -160,9 +171,10 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._stats = CircuitBreakerStats()
         self._lock = asyncio.Lock()
-        self._half_open_semaphore = asyncio.Semaphore(
-            self.config.half_open_max_requests
-        )
+        # Probes in flight in the current half-open window. Each window starts its own count, so a
+        # probe that outlives its window gives nothing back to a later one.
+        self._half_open_window = 0
+        self._half_open_in_flight = 0
         self._opened_at: Optional[float] = None
 
     @property
@@ -284,6 +296,7 @@ class CircuitBreaker:
                 async with self._lock:
                     if self._state == CircuitState.OPEN:  # Double-check after lock
                         self._state = CircuitState.HALF_OPEN
+                        self._open_half_open_window()
                         self._stats.last_state_change_time = time.time()
                         self._stats.reset_consecutive()
                         logger.info(
@@ -303,31 +316,38 @@ class CircuitBreaker:
                 )
             )
 
+        window: Optional[int] = None
         if current_state == CircuitState.HALF_OPEN:
-            # Limit concurrent requests in half-open state
-            # Use very small timeout to fail fast atomically
-            # This prevents the TOCTOU race condition between locked() and acquire()
-            try:
-                await asyncio.wait_for(
-                    self._half_open_semaphore.acquire(),
-                    timeout=0.001  # 1ms timeout - enough for immediate acquire, fast fail if blocked
-                )
-            except asyncio.TimeoutError:
+            # Limit concurrent requests in half-open state. No await separates the check from the
+            # count, so no other task runs between them.
+            if self._half_open_in_flight >= self.config.half_open_max_requests:
                 self._stats.record_rejection()
                 raise CircuitOpenError(
                     self.name,
                     message="Circuit in half-open state, max concurrent requests reached"
                 )
+            self._half_open_in_flight += 1
+            window = self._half_open_window
 
+        _ENTRIES.set(_ENTRIES.get() + ((self, window),))
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
         """Exit the circuit breaker context."""
-        current_state = self.state
-
-        # Release semaphore if in half-open state
-        if current_state == CircuitState.HALF_OPEN:
-            self._half_open_semaphore.release()
+        # Give back the probe slot this entry took, and only that one.
+        entries = _ENTRIES.get()
+        if entries and entries[-1][0] is self:
+            window = entries[-1][1]
+            _ENTRIES.set(entries[:-1])
+            if window is not None and window == self._half_open_window and self._half_open_in_flight > 0:
+                self._half_open_in_flight -= 1
+        else:
+            # An exit outside the context its entry ran in (an async generator the loop closes, say)
+            # cannot tell which slot was its own. A slot it took stays counted until the next window.
+            logger.warning(
+                f"Circuit breaker '{self.name}' exit found no entry of its own; "
+                "a probe slot it took stays taken until the next half-open window"
+            )
 
         if exc_val is None:
             await self.record_success()
@@ -337,10 +357,16 @@ class CircuitBreaker:
         # Don't suppress exceptions
         return False
 
+    def _open_half_open_window(self) -> None:
+        """Start a half-open window with every probe slot free."""
+        self._half_open_window += 1
+        self._half_open_in_flight = 0
+
     def reset(self) -> None:
         """Manually reset the circuit breaker to closed state."""
         self._state = CircuitState.CLOSED
         self._opened_at = None
+        self._open_half_open_window()
         self._stats.reset_consecutive()
         logger.info(f"Circuit breaker '{self.name}' manually reset to closed")
 

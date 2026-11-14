@@ -29,7 +29,7 @@ One rule, three parts in this one module:
   and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
-  saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
+  saved-summary routes, the wording-review state and label routes, the upcoming calendar, the account routes (the profile edit, the alert
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
   and a Free question, a missing filing and the admission's three refusals), the summary generate stream (a
   replay, a generation, an unready row, a Pro and a Free force, and a missing filing), the summary exports (the PDF
@@ -4049,6 +4049,104 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
         else:
             assert payloads == ([{**cached, "latest_filing": None}] if case == "lookup_stored"
                                 else [[{**cached, "latest_filing": None}]]) * 8
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,filing_ref,case", [
+    ("GET", "{filing_id}", "state_unavailable"),
+    ("GET", "999999", "state_missing"),
+    ("PUT", "{filing_id}", "label_unavailable"),
+    ("PUT", "999999", "label_missing"),
+])
+async def test_wording_review_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, filing_ref, case):
+    """The wording-review state and label routes run their reads, their refusals and the release in one
+    thread-pool unit, so eight Pro readers on four slots leave nothing for the finalizer and make no
+    checkout, statement or release on the loop."""
+    from app.models import User
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'wording-review-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=POOL_TIMEOUT,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.flush()
+        filing_id = filing.id
+        for i in range(8):
+            db.add(User(email=f"review-reader-{i}@example.com", is_active=True, email_verified=True, is_pro=True))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"review-reader-{i}@example.com"})
+        target = f"/api/summaries/filing/{filing_ref.format(filing_id=filing_id)}/wording-review"
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            if method == "GET":
+                return await client.get(target)
+            return await client.put(f"{target}/labels", json={"item_id": "any-change", "label": "reviewed"})
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop.
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [
+            {"state_unavailable": 200, "state_missing": 404, "label_unavailable": 409, "label_missing": 404}[case]
+        ] * 8
+        payloads = [response.json() for response in responses]
+        if case == "state_unavailable":
+            assert [(payload["filing_id"], payload["status"]) for payload in payloads] == [
+                (filing_id, "unavailable")] * 8
+        else:
+            assert all("detail" in payload for payload in payloads)
     finally:
         engine.dispose()
 

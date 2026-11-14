@@ -12,7 +12,6 @@ import copy
 import hashlib
 import hmac
 import json
-import math
 import os
 import re
 import secrets
@@ -42,10 +41,14 @@ NAME = "earningsnerd-feedback-verify"
 SERVICE = f"{media.PARENT}/services/{NAME}"
 JOB = f"{media.PARENT}/jobs/{NAME}-cleanup"
 SCHEDULE = f"{media.PARENT}/jobs/feedback-media-verify-cleanup-hourly"
+SCHEDULE_MINUTE = 41  # the hourly cleanup's minute; a refusal that waits for it names the same one
 IDENTITY = f"{NAME}@{PROJECT}.iam.gserviceaccount.com"
 SA_PATH = f"projects/{PROJECT}/serviceAccounts/{IDENTITY}"
 DATABASE = "earningsnerd_feedback_verify"
 INSTANCE = f"{PROJECT}:{REGION}:earningsnerd-db"
+# Cloud Run refuses a create whose Cloud SQL volume has any other name, and reserves this name for one: "Cloud SQL
+# volume must be named 'cloudsql', and 'cloudsql' is reserved for Cloud SQL volumes" (the first live verify-apply).
+SQL_VOLUME = "cloudsql"
 DB_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_DATABASE_URL"
 KEY_SECRET = "EARNINGSNERD_FEEDBACK_VERIFY_SECRET_KEY"
 BUCKET = media.BUCKETS["preview"]
@@ -91,10 +94,20 @@ CONNECTION_LIMIT = 4
 OPERATIONAL_RESERVE = 5
 
 
+class CommandFailed(media.OperationError):
+    """A command that exited non-zero; its standard output is kept for a caller that reads only closed codes from it."""
+
+    def __init__(self, output: str) -> None:
+        super().__init__("Verification command failed; diagnostics withheld")
+        self.output = output
+
+
 def run(command: list[str], *, env: dict | None = None, input_text: str | None = None, timeout: int = 60) -> str:
     try:
         result = subprocess.run(command, input=input_text, text=True, env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, timeout=timeout, check=True)
+    except subprocess.CalledProcessError as failed:
+        raise CommandFailed(failed.stdout if isinstance(failed.stdout, str) else "") from None
     except (subprocess.SubprocessError, OSError):
         raise media.OperationError("Verification command failed; diagnostics withheld") from None
     return result.stdout
@@ -221,16 +234,18 @@ class Sql:
     def admit(self) -> None:
         """Refuse before any write unless the shared production instance has room for the capped verifier.
 
-        A point-in-time admission, not a reservation. The administrator's own query is one of the counted
-        client backends. A role without pg_read_all_stats sees another role's session with backend_type NULL,
-        so a hidden session attached to a database counts as a client backend too (it may overcount a
-        background worker, never undercount a session). Only counts are printed.
+        A point-in-time admission, not a reservation. The administrator's own query is not counted: it is the
+        one serial psql connection the verifier's cap already holds, and counting it again refused a quiet
+        production (7 counted, live run 43094001737). A role without pg_read_all_stats sees another role's
+        session with backend_type NULL, so a hidden session attached to a database counts as a client backend
+        too (it may overcount a background worker, never undercount a session). Only counts are printed.
         """
         answer = self.query("""SELECT current_setting('max_connections') || '|' ||
             current_setting('superuser_reserved_connections') || '|' ||
             COALESCE(current_setting('reserved_connections',true),'0') || '|' ||
             (SELECT count(*) FROM pg_stat_activity
-             WHERE backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL));""")
+             WHERE (backend_type='client backend' OR (backend_type IS NULL AND datid IS NOT NULL))
+               AND pid <> pg_backend_pid());""")
         if not re.fullmatch(r"[0-9]{1,7}(\|[0-9]{1,7}){3}", answer):
             raise media.OperationError("Production SQL headroom is unreadable; nothing was created")
         maximum, superuser_reserved, reserved, active = map(int, answer.split("|"))
@@ -486,23 +501,32 @@ def runtime_env(run_id: str, image: str, hashes: dict, versions: dict, mode: str
     return result
 
 
-def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versions: dict, *, job: bool) -> dict:
-    source = Path(__file__).with_name("verify_runtime.py").read_text()
+def runtime_spec(production: dict, run_id: str, image: str, hashes: dict, versions: dict, *, job: bool,
+                 source: str | None = None) -> dict:
+    """The isolated service's or cleanup job's spec. Its inline source is main's runtime unless a previous run's own
+    source is named, which settle_previous_run reads back but never executes; either must be the one hashes binds."""
+    source = Path(__file__).with_name("verify_runtime.py").read_text() if source is None else source
     if hashlib.sha256(source.encode()).hexdigest() != hashes["runtime_source_sha256"] or len(source.encode()) > 32768:
         raise media.OperationError("Verification runtime changed after its fingerprint was recorded")
     container = {"name": "verification", "image": image, "command": ["python"], "args": ["-c", source],
                  "env": runtime_env(run_id, image, hashes, versions, "cleanup" if job else "api"),
-                 "volumeMounts": [{"name": "sql", "mountPath": "/cloudsql"}],
+                 "volumeMounts": [{"name": SQL_VOLUME, "mountPath": "/cloudsql"}],
                  "resources": {"limits": {"cpu": "1", "memory": "512Mi" if job else "1Gi"}}}
+    if not job:
+        # Its cold starts (its first start, and enable's receipt read after it scales to zero) must fit Cloud Run's
+        # startup window and the 180 s operation wait.
+        container["resources"]["startupCpuBoost"] = True
     task = {"serviceAccount": IDENTITY, "timeout": "600s" if job else "60s", "containers": [container],
-            "volumes": [{"name": "sql", "cloudSqlInstance": {"instances": [INSTANCE]}}]}
+            "volumes": [{"name": SQL_VOLUME, "cloudSqlInstance": {"instances": [INSTANCE]}}]}
     if production["template"].get("vpcAccess"):
         task["vpcAccess"] = copy.deepcopy(production["template"]["vpcAccess"])
     if job:
         task["maxRetries"] = 1
         return {"name": JOB, "labels": {"purpose": PURPOSE},
                 "template": {"taskCount": 1, "parallelism": 1, "template": task}}
-    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1}})
+    # Memory acceptance was measured on the second generation (cgroup v2 where it reads, else /proc/meminfo); pin it.
+    task.update({"maxInstanceRequestConcurrency": 4, "scaling": {"minInstanceCount": 0, "maxInstanceCount": 1},
+                 "executionEnvironment": "EXECUTION_ENVIRONMENT_GEN2"})
     return {"name": SERVICE, "labels": {"purpose": PURPOSE}, "ingress": "INGRESS_TRAFFIC_ALL",
             "invokerIamDisabled": False, "scaling": {"scalingMode": "AUTOMATIC", "minInstanceCount": 0, "maxInstanceCount": 1},
             "template": task}
@@ -639,6 +663,112 @@ def verify_receipt(receipt: dict, key: str, run_id: str, image: str, hashes: dic
         raise media.OperationError("Verification receipt is not from the last two hours")
 
 
+MEMORY_CAP_BYTES = 1073741824  # the verifier's configured 1 GiB, to which verify_runtime.resource_acceptance holds it
+RESOURCE_NUMBERS = ("sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
+                    "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
+                    "worker_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes")
+RESOURCE_NULLABLE = ("cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes")
+RESOURCE_METHOD = ("kernel peak when exposed; otherwise conservative process bound plus sampled memory; "
+                   "representative workload only")
+# The third names a sampled figure from /proc/meminfo (MemTotal - MemAvailable), where no cgroup memory file reads.
+EVIDENCE_BASES = ("kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence",
+                  "kernel peak unavailable; conservative process bound plus /proc/meminfo in use")
+WORKER_LIMITS = {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
+
+
+def counted(value, keys, *, nullable=()) -> bool:
+    """A dict of exactly these keys, each a bounded non-negative integer (or None where nullable)."""
+    return isinstance(value, dict) and set(value) == set(keys) and all(
+        (item is None and name in nullable) or (type(item) is int and 0 <= item <= 2**63 - 1)
+        for name, item in value.items())
+
+
+def valid_resources(resources) -> bool:
+    """The verifier's counts-only resource record: fixed keys, bounded numbers and two closed strings, no runtime text."""
+    return (isinstance(resources, dict)
+            and set(resources) == set(RESOURCE_NUMBERS) | {"method", "worker_limits", "unexplained_children",
+                                                           "acceptance_passed", "sample_age_seconds", "evidence_basis"}
+            and counted({name: resources[name] for name in RESOURCE_NUMBERS}, RESOURCE_NUMBERS, nullable=RESOURCE_NULLABLE)
+            and resources["method"] == RESOURCE_METHOD
+            and resources["evidence_basis"] in EVIDENCE_BASES
+            and resources["worker_limits"] == WORKER_LIMITS
+            and type(resources["sample_age_seconds"]) in {float, int} and 0 <= resources["sample_age_seconds"] <= 7200
+            and type(resources["unexplained_children"]) is bool and type(resources["acceptance_passed"]) is bool)
+
+
+def resource_refusals(resources: dict) -> list[str]:
+    """Every acceptance condition a valid resource record fails, by closed name.
+
+    verify_runtime.resource_acceptance decides, and a unit test holds the two to the same verdict on every input it
+    tries; configured-limit is the one condition live_runner.mjs adds beside it. This names each failing condition
+    rather than stopping at the first, so a refusal explains itself without changing verify_runtime.py, the verifier's
+    fingerprinted source.
+    """
+    refused = []
+    if resources["configured_memory_limit_bytes"] != MEMORY_CAP_BYTES:  # live_runner.mjs's own third condition
+        refused.append("configured-limit")
+    if resources["sample_count"] < 5:
+        refused.append("samples")
+    if resources["unexplained_children"]:
+        refused.append("unexplained-child")
+    if resources["last_process_count"] != 1:
+        refused.append("process-count")
+    if not 0 <= resources["sample_age_seconds"] <= 1:
+        refused.append("sample-age")
+    limit, peak, sample = (resources[name] for name in ("cgroup_memory_limit_bytes", "cgroup_kernel_peak_bytes",
+                                                         "cgroup_sample_peak_bytes"))
+    if limit is not None and limit != MEMORY_CAP_BYTES:
+        refused.append("cgroup-limit")
+    if peak is not None:
+        if not 0 < peak < MEMORY_CAP_BYTES * .85:
+            refused.append("kernel-peak")
+        if sample is not None and not sample < MEMORY_CAP_BYTES * .85:
+            refused.append("sampled-peak")
+        return refused
+    own, worker = resources["self_high_water_rss_bytes"], resources["worker_high_water_rss_bytes"]
+    if not (own > 0 and worker > 0):
+        refused.append("high-water-unread")
+    if sample is None or not 0 < sample < MEMORY_CAP_BYTES * .85:
+        refused.append("sampled-peak")
+    if not own + 3 * worker < MEMORY_CAP_BYTES * .85:
+        refused.append("process-bound")
+    return refused
+
+
+BOOT_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
+SIGNED_SOURCE = "the run's signed receipt"
+
+
+def instance_source(answer: dict) -> str:
+    """Whose record a live receipt answer carries: the instance that answered, since it started (a uuid4 boot id).
+
+    The verifier scales to zero, so after a scale-to-zero this is a new instance's record, not the measured run's."""
+    boot = answer.get("boot_id")
+    return ("the answering instance since its start" + (f", boot {boot[:8]}" if isinstance(boot, str)
+                                                         and BOOT_PATTERN.fullmatch(boot) else ""))
+
+
+def resources_line(resources, source: str) -> str:
+    """One public line from a resource record, naming whose it is: its verdict, the failing conditions, its bytes."""
+    if not valid_resources(resources):
+        return f"Verifier resources ({source}): unavailable (no counts-only resource record)"
+    def size(name: str, absent: str) -> str:
+        return absent if resources[name] is None else f"{resources[name]} bytes"
+    return (f"Verifier resources ({source}): acceptance {'passed' if resources['acceptance_passed'] else 'refused'}; "
+            f"conditions failed: {', '.join(resource_refusals(resources)) or 'none'}; "
+            f"samples {resources['sample_count']}; processes at the last sample {resources['last_process_count']}; "
+            f"unexplained child {'seen' if resources['unexplained_children'] else 'none'}; "
+            f"last sample {resources['sample_age_seconds']:.2f} s old; "
+            f"cgroup limit {size('cgroup_memory_limit_bytes', 'unread')}; "
+            f"kernel peak {size('cgroup_kernel_peak_bytes', 'unexposed')}; "
+            f"sampled peak {size('cgroup_sample_peak_bytes', 'unread')}"
+            f"{' (instance memory in use, /proc/meminfo)' if resources['evidence_basis'] == EVIDENCE_BASES[2] else ''}; "
+            f"process-tree peak {resources['rss_peak_bytes']} bytes; "
+            f"own high-water {resources['self_high_water_rss_bytes']} bytes; "
+            f"worker high-water {resources['worker_high_water_rss_bytes']} bytes; "
+            f"bound {int(MEMORY_CAP_BYTES * .85)} bytes")
+
+
 def counts_only_receipt(receipt: dict) -> bool:
     """Allow exactly the signed synthetic evidence schema; never arbitrary runtime strings."""
     if (set(receipt) != {"payload", "signature"} or not isinstance(receipt.get("signature"), str)
@@ -652,10 +782,7 @@ def counts_only_receipt(receipt: dict) -> bool:
     observed = payload.get("observed")
     if not isinstance(observed, dict) or set(observed) != {"database", "notifications", "resources", "cleanup"}:
         return False
-    def numbers(value, keys, *, nullable=()):
-        return isinstance(value, dict) and set(value) == set(keys) and all(
-            (item is None and name in nullable) or (type(item) is int and 0 <= item <= 2**63 - 1)
-            for name, item in value.items())
+    numbers = counted
     database = observed["database"]
     database_numbers = {"feedback", "submitted", "attachments", "fixture_users", "available", "deleted", "pending",
                         "published_attachments", "confirmed_generation_deletions"}
@@ -670,19 +797,7 @@ def counts_only_receipt(receipt: dict) -> bool:
             or not isinstance(mail["attachment_counts"], list) or len(mail["attachment_counts"]) > 30
             or any(type(value) is not int or not 0 <= value <= 3 for value in mail["attachment_counts"])):
         return False
-    resources = observed["resources"]
-    numeric = {"sample_count", "rss_peak_bytes", "cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes",
-               "cgroup_memory_limit_bytes", "configured_memory_limit_bytes", "self_high_water_rss_bytes",
-               "reaped_child_high_water_rss_bytes", "last_process_count", "conservative_process_bound_bytes"}
-    if (not isinstance(resources, dict) or set(resources) != numeric | {"method", "worker_limits", "unexplained_children", "acceptance_passed", "sample_age_seconds", "evidence_basis"}
-            or not numbers({name: resources[name] for name in numeric}, numeric,
-                           nullable={"cgroup_sample_peak_bytes", "cgroup_kernel_peak_bytes", "cgroup_memory_limit_bytes"})
-            or resources["method"] != "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"
-            or resources["evidence_basis"] not in {"kernel cgroup high-water peak", "kernel peak unavailable; conservative process-bound evidence"}
-            or resources["worker_limits"] != {"feedback_image_service": 1, "feedback_storage_worker_service": 2}
-            or type(resources["sample_age_seconds"]) not in {float, int} or not math.isfinite(resources["sample_age_seconds"])
-            or not 0 <= resources["sample_age_seconds"] <= 7200
-            or type(resources["unexplained_children"]) is not bool or type(resources["acceptance_passed"]) is not bool):
+    if not valid_resources(observed["resources"]):
         return False
     cleanup = observed["cleanup"]
     return (isinstance(cleanup, dict) and cleanup.get("dry_run") is False and set(cleanup) == {
@@ -776,10 +891,14 @@ def require_receipt(cloud: media.Cloud, production: dict) -> dict:
         raise media.OperationError("Verification service no longer matches the reviewed isolated runtime")
     if current_image(cloud, service) != image:
         raise media.OperationError("Verification service is not serving the current backend digest")
-    receipt = read_receipt(cloud, origin, key, run_id).get("receipt")
+    answer = read_receipt(cloud, origin, key, run_id)
+    receipt = answer.get("receipt")
     if not isinstance(receipt, dict):
+        # No run's record exists: the line is the answering instance's, which names itself as such.
+        print(resources_line(answer.get("resources"), instance_source(answer)))
         raise media.OperationError("A completed live verification receipt is required")
     verify_receipt(receipt, key, run_id, image, hashes)
+    print(resources_line(receipt["payload"]["observed"]["resources"], SIGNED_SOURCE))
     print("Live isolated feedback verification receipt: current image and sources verified")
     return receipt
 
@@ -841,8 +960,12 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     container = containers[0]
     env = {row.get("name"): row for row in container.get("env", [])}
     previous_run = env.get("FEEDBACK_VERIFY_RUN_ID", {}).get("value", "")
+    args, source = container.get("args"), Path(__file__).with_name("verify_runtime.py").read_text()
+    # A previous run bound to another runtime source (main's runtime changed since) keeps its own source: it is read
+    # back below, held to its own run's hash, and never executed from here.
+    prior = isinstance(args, list) and len(args) == 2 and args[0] == "-c" and isinstance(args[1], str) and args[1] != source
     if (container.get("command") != ["python"] or not IMAGE_PATTERN.fullmatch(container.get("image", ""))
-            or container.get("args") != ["-c", Path(__file__).with_name("verify_runtime.py").read_text()]
+            or (args != ["-c", source] and not prior)
             or env.get("FEEDBACK_MEDIA_BUCKET", {}).get("value") != BUCKET
             or env.get("FEEDBACK_VERIFY_MODE", {}).get("value") != "cleanup"
             or not RUN_PATTERN.fullmatch(previous_run)
@@ -858,24 +981,94 @@ def settle_previous_run(cloud: media.Cloud, sql: Sql, test_env: dict, production
     if (any(not re.fullmatch(r"[1-9][0-9]*", value) for value in versions.values())
             or any(not re.fullmatch(r"[0-9a-f]{40}" if field == "frontend_tree" else r"[0-9a-f]{64}", value)
                    for field, value in hashes.items())
-            or not contains_spec(previous, runtime_spec(production, previous_run, container["image"], hashes, versions, job=True))):
+            or hashlib.sha256(args[1].encode()).hexdigest() != hashes["runtime_source_sha256"]
+            or not 0 < len(args[1].encode()) <= 32768
+            or not contains_spec(previous, runtime_spec(production, previous_run, container["image"], hashes, versions,
+                                                        job=True, source=args[1]))):
         raise media.OperationError("Previous cleanup differs from the bounded isolated contract")
     expired = sql.query(f"SELECT (expires_at<=CURRENT_TIMESTAMP)::int FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
     if expired != "1":
         raise media.OperationError("Previous verification lease is still active or unreadable; inspect and wait for expiry before a new apply")
+    # Initialize creates the whole schema in one transaction, and only the service it precedes makes fixtures or
+    # objects. A run that stopped before it left nothing to settle, and its cleanup could not run without the schema.
+    if sql.query("SELECT (to_regclass('public.users') IS NOT NULL)::int;", env=test_env) != "1":
+        return
+    if prior:
+        # The run's durable record is its marker row, which seed_marker wrote and the runtime's own check_database
+        # holds every execution to; the job's env hash alone would only prove the job agrees with itself.
+        recorded = sql.query(f"SELECT runtime_source_sha256 FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env)
+        if recorded != hashes["runtime_source_sha256"]:
+            raise media.OperationError("Previous cleanup's runtime source is not the one its run recorded")
+        settled_by_its_own_schedule(previous, sql.query(
+            f"SELECT EXTRACT(EPOCH FROM expires_at)::bigint FROM {MARKER} WHERE run_id='{previous_run}';", env=test_env))
+        return
     execute_cleanup(cloud)  # Keep the old run marker until all its durable objects have settled.
+
+
+def settled_by_its_own_schedule(job: dict, expires_at: str) -> None:
+    """Refuse unless a previous run bound to another runtime source has settled through its own cleanup job.
+
+    Only that job's hourly schedule starts it once the run's lease has expired, in the scheduled mode that cleans an
+    expired lease (fixture accounts, then the stored media cleanup), so its latest execution, created a minute or more
+    after the expiry and succeeded, is the settlement settle_previous_run would otherwise make with cleanup_now. An apply
+    never executes the previous source itself: main's runtime changed since that run was bound to it.
+    """
+    latest = job.get("latestCreatedExecution")
+    try:
+        created = datetime.fromisoformat(latest["createTime"].replace("Z", "+00:00"))
+        settled = (latest["completionStatus"] == "EXECUTION_SUCCEEDED" and bool(latest["completionTime"])
+                   and created.timestamp() >= int(expires_at) + 60)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        settled = False
+    if not settled:
+        raise media.OperationError("Previous run used another runtime source and its hourly cleanup has not succeeded "
+                                   f"since its lease expired; retry after its next run at minute {SCHEDULE_MINUTE}")
+    print(f"Previous run used another runtime source; its own hourly cleanup succeeded after its lease expired "
+          f"(execution created {created:%Y-%m-%dT%H:%MZ}): settled without executing it")
+
+
+# Each Cloud Run write's two forms: the create, which leaves the name to its ID, and the update of the one present.
+JOB_WRITES = (f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", "v2/" + JOB)
+SERVICE_WRITES = (f"v2/{media.PARENT}/services?serviceId={NAME}",
+                  "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling")
+
+
+def run_write(current: dict | None, spec: dict, writes: tuple[str, str]) -> tuple[str, str, dict]:
+    """The write ensure_job or ensure_service sends: a create while the resource is absent, else an update of the one
+    just read, under its etag."""
+    create, update = writes
+    if current:
+        return update, "PATCH", {**spec, "etag": current["etag"]}
+    return create, "POST", media.create_body(spec)
+
+
+def validate_writes(cloud: media.Cloud, job: dict, service: dict) -> None:
+    """Cloud Run's own validation of this run's job and service writes, before the run seeds its lease.
+
+    Each request is the write ensure_job or ensure_service would send for the state read now, with validateOnly, so
+    Cloud Run validates it and persists nothing. A field it refuses, as it refused the first live create's Cloud SQL
+    volume name, then fails here, where a retry can follow at once; after the seed, the lease holds every retry for
+    two hours. The refusal names the field (media.error_class).
+    """
+    for kind, path, spec, writes in (("cleanup job", JOB, job, JOB_WRITES), ("service", SERVICE, service, SERVICE_WRITES)):
+        current = cloud.call("run", "v2/" + path, missing_ok=True)
+        check_owned(current, kind)
+        write, method, body = run_write(current, spec, writes)
+        cloud.call("run", write + ("&" if "?" in write else "?") + "validateOnly=true", method=method, body=body,
+                   step=f"Cloud Run validation of the verification {kind}")
 
 
 def ensure_job(cloud: media.Cloud, spec: dict) -> None:
     current = cloud.call("run", "v2/" + JOB, missing_ok=True)
     check_owned(current, "cleanup job")
-    if current:
-        cloud.wait(cloud.call("run", "v2/" + JOB, method="PATCH", body={**spec, "etag": current["etag"]}))
-    else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/jobs?jobId={NAME}-cleanup", method="POST",
-                              body=media.create_body(spec)))
+    write, method, body = run_write(current, spec, JOB_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
     media.bind(cloud, "run", "v2/" + JOB, "roles/run.invoker", "serviceAccount:" + IDENTITY)
-    schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": "41 * * * *", "timeZone": "Etc/UTC",
+
+
+def ensure_schedule(cloud: media.Cloud) -> None:
+    """The hourly expiry cleanup, created once initialize has made the schema it cleans."""
+    schedule = {"name": SCHEDULE, "description": PURPOSE, "schedule": f"{SCHEDULE_MINUTE} * * * *", "timeZone": "Etc/UTC",
                 "attemptDeadline": "60s", "retryConfig": {"retryCount": 0}, "httpTarget": {
                     "uri": f"https://run.googleapis.com/v2/{JOB}:run", "httpMethod": "POST", "body": "e30=",
                     "headers": {"Content-Type": "application/json"},
@@ -895,13 +1088,26 @@ def ensure_service(cloud: media.Cloud, spec: dict) -> None:
     """
     current = cloud.call("run", "v2/" + SERVICE, missing_ok=True)
     check_owned(current, "service")
-    if current:
-        cloud.wait(cloud.call("run", "v2/" + SERVICE + "?updateMask=template,ingress,invokerIamDisabled,scaling", method="PATCH",
-                              body={**spec, "etag": current["etag"]}))
-    else:
-        cloud.wait(cloud.call("run", f"v2/{media.PARENT}/services?serviceId={NAME}", method="POST",
-                              body=media.create_body(spec)))
+    write, method, body = run_write(current, spec, SERVICE_WRITES)
+    cloud.wait(cloud.call("run", write, method=method, body=body))
     media.bind(cloud, "run", "v2/" + SERVICE, "roles/run.invoker", "serviceAccount:" + IDENTITY)
+
+
+# live_runner.mjs's stages; a failure reports one with a kebab-case code from a VerificationError or check() literal.
+BROWSER_STAGES = ("manifest", "fixtures", "frontend", "browser", "cleanup", "measurement", "completion", "shutdown")
+
+
+def browser_failure(output: str) -> media.OperationError:
+    """The refusal for a runner that exited non-zero: its closed stage and code only (Ops logs are public)."""
+    try:
+        result = json.loads(output)
+    except ValueError:
+        result = None
+    if (isinstance(result, dict) and set(result) == {"status", "stage", "reason"} and result["status"] == "failed"
+            and result["stage"] in BROWSER_STAGES and isinstance(result["reason"], str)
+            and re.fullmatch(r"[a-z][a-z-]{0,39}", result["reason"])):
+        return media.OperationError(f"Live browser verification failed at {result['stage']} ({result['reason']})")
+    return media.OperationError("Verification command failed; diagnostics withheld")
 
 
 def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
@@ -934,6 +1140,8 @@ def browser(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, 
         try:
             output = run(["node", str(Path(__file__).with_name("live_runner.mjs")), "--manifest", manifest_path,
                           "--frontend", str(ROOT / "frontend")], env=environment, timeout=900)
+        except CommandFailed as failed:
+            raise browser_failure(failed.output) from None
         finally:
             retain_artifacts(folder / "output", key, run_id, image, hashes)
         try:
@@ -974,10 +1182,15 @@ def provision(cloud: media.Cloud) -> None:
         sql.provision(password, test_env)
         ensure_identity(cloud, deployer)
         versions = {KEY_SECRET: key_version, DB_SECRET: db_version}
+        # Cloud Run validates both writes before the seed, so a refused field never leaves a two-hour lease behind.
+        validate_writes(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True),
+                        runtime_spec(production, run_id, image, hashes, versions, job=False))
         settle_previous_run(cloud, sql, test_env, production)
+        lease_end = datetime.now(UTC) + timedelta(hours=2)  # taken before the seed, so never later than the lease
         seed_marker(sql, test_env, run_id, image, hashes)
         ensure_job(cloud, runtime_spec(production, run_id, image, hashes, versions, job=True))
         execute_cleanup(cloud, initialize=True)
+        ensure_schedule(cloud)
         migration_output = run(["bash", str(ROOT / "backend/scripts/apply_migrations.sh")], env=test_env, timeout=900)
         summaries = re.findall(r"^apply_migrations: applied=\d+ skipped=\d+$", migration_output, re.MULTILINE)
         if len(summaries) != 1:
@@ -986,14 +1199,52 @@ def provision(cloud: media.Cloud) -> None:
         ensure_service(cloud, runtime_spec(production, run_id, image, hashes, versions, job=False))
         origin = assert_private_service(cloud, cloud.call("run", "v2/" + SERVICE))
         await_control(cloud, origin, key, run_id)
-        try:
-            browser(cloud, origin, key, run_id, image, hashes)
-        finally:
-            # A failed browser must leave a runnable cleanup path and durable manifests. This
-            # bounded attempt supplements the retained hourly job; it never drops either one.
-            execute_cleanup(cloud)
-        require_receipt(cloud, production)
+        browse_then_clean(cloud, origin, key, run_id, image, hashes)
+        # Production as it serves now: a deploy during the run must not leave this check on the revision it started on.
+        require_receipt(cloud, cloud.call("run", "v2/" + media.SERVICE))
     print("Isolated live verification completed; production uploads remain unchanged")
+    print(enable_deadline(lease_end))
+
+
+def browse_then_clean(cloud: media.Cloud, origin: str, key: str, run_id: str, image: str, hashes: dict) -> None:
+    """The browser, then the bounded in-run cleanup, which runs whether or not the browser passed."""
+    try:
+        browser(cloud, origin, key, run_id, image, hashes)
+    except BaseException as failure:
+        try:
+            if isinstance(failure, media.OperationError):
+                report_resources(cloud, origin, key, run_id)
+        finally:
+            # A failed browser must leave a runnable cleanup path and durable manifests. This bounded attempt
+            # supplements the retained hourly job; a failure of its own is reported beside the browser's, never in its
+            # place. It runs whatever the diagnostic read above does, an interrupt included.
+            try:
+                execute_cleanup(cloud)
+            except media.OperationError as cleanup_failure:
+                print(f"Verification cleanup after that failure: {cleanup_failure}")
+        raise
+    execute_cleanup(cloud)
+
+
+def report_resources(cloud: media.Cloud, origin: str, key: str, run_id: str) -> None:
+    """After a failed browser run, one receipt read (no retry) prints the answering instance's resource line.
+
+    That instance is the run's own unless the verifier restarted, which the runner reports as runtime-restarted. Best
+    effort: whatever this read or its line raises, the browser's failure stays the run's and its own error is withheld;
+    the caller's cleanup runs in a finally."""
+    try:
+        answer = control(cloud, origin, key, run_id, "receipt")
+        line = resources_line(answer.get("resources"), instance_source(answer))
+    except Exception:  # noqa: BLE001 — a diagnostic read never replaces the browser's failure
+        print("Verifier resources: unavailable (receipt read failed)")
+        return
+    print(line)
+
+
+def enable_deadline(lease_end: datetime) -> str:
+    """The verifier scales to zero and starts only within its run's lease, so enable's receipt read must come before."""
+    return (f"Enable before {lease_end:%Y-%m-%dT%H:%MZ}: the verifier answers its receipt read only within this "
+            "run's two-hour lease, as well as within two hours of the receipt")
 
 
 def main() -> None:

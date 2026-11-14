@@ -8,7 +8,7 @@ ONE home for those tokens and for the rule the filing page shows a stored summar
 
 Deliberately NARROW — the interim/error summary *body*. It is NOT the section-level "Not
 disclosed"/"N/A" placeholders (``ai/normalize._PLACEHOLDER_STRINGS``, exact-match), the
-frontend-mirrored export filter (``summary_sections.PLACEHOLDER_PATTERNS``), or the coverage
+export filter (``summary_sections.PLACEHOLDER_PATTERNS``), or the coverage
 failure-detection list (``summary_generation_service``). Those are separate, context-specific
 checks with their own token sets and match semantics; consolidating them here would change behavior.
 """

@@ -14,17 +14,20 @@ import { HEADLINES } from '@/features/marketing/lib/headline'
 import { routeFiles, walkImports } from './importWalk'
 
 /**
- * Three brand rules as gates (CLAUDE.md rule 12; docs/brand/06-system.md §6; docs/voice-and-style.md
+ * Brand rules as gates (CLAUDE.md rule 12; docs/brand/06-system.md §6; docs/voice-and-style.md
  * › Claims), read from the source the way landing-sections-mounted.spec.ts reads app/page.tsx:
  *
  * 1. Scope stays on matching claims. The server checks only some figures (a mapped concept of at
  *    least $1M: backend/app/services/provenance_service.py, build_metric_source), so shipped copy
  *    never says "each figure" or "every figure" without the scope beside it ("checkable", "where
  *    they can be", "the server can check"). The 2026-10-11 review caught a voice pass that had
- *    deleted that scope in nine places. Two siblings keep the other scopes: 1b, the outline is "up
- *    to nine parts"; 1c, only risk excerpts are promised as located or withheld.
+ *    deleted that scope in nine places. Three siblings keep the other scopes: 1b, the outline is "up
+ *    to nine parts"; 1c, only risk excerpts are promised as located or withheld; 1d, the calendar
+ *    claims only what its data holds (no confirmed date, no anticipation, no day-of alert, no
+ *    reporting pattern).
  *    Rule 1c alone reads the public scope (PUBLIC_FILES below, walked from the public routes through
- *    the import graph); rules 1, 1b, 2 and 3 read every scanned file.
+ *    the import graph); rule 1d alone reads app/calendar/ and features/calendar/; rules 1, 1b, 2 and
+ *    3 read every scanned file.
  * 2. Sage never colours a number, anywhere in the app (DESIGN.md › the Separate Signals Rule;
  *    docs/brand/decisions-log.md D-030, the founder's call of 2026-10-11: the strict reading holds
  *    inside the product as on the public surfaces). Nothing an element renders in sage ink at rest

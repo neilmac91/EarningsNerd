@@ -3,8 +3,8 @@
 These tests PIN the orchestrator's behaviour after the provider returns (the measurement-channel
 log lines keyed off the quality verdict and the audit dicts the payload carries, the UNIQUE(filing_id)
 concurrent-writer resolution inside ``save_summary_sync``, and the completion-time usage count for a
-user id with no account row) exactly as it runs today, so the upcoming decomposition into stage
-modules can prove ZERO observable change. Every assertion is on an observable: yielded event dicts,
+user id with no account row) exactly as it runs today, so the decomposition into stage
+modules proved ZERO observable change. Every assertion is on an observable: yielded event dicts,
 DB rows, mock call lists, the in-flight registry, the generation semaphore, and the exact log text
 the code formats (``record.getMessage()`` for the ``%``-style counters).
 The IntegrityError case's ``error`` write names ``starts_run=False`` since E217: that run's fetch

@@ -51,7 +51,11 @@ describe('completed email-login redirect consumption', () => {
     ['/dashboard/watchlist', '/dashboard/watchlist'],
     ['//example.com', '/'],
     ['/\\example.com', '/'],
-  ])('consumes the stash when explicit destination %s completes at %s', async (explicit, expected) => {
+    // A browser's URL parser removes tab, CR and LF, so each of these reads as //example.com (postAuthRedirect.spec.ts).
+    ['/\t/example.com', '/'],
+    ['/\n/example.com', '/'],
+    ['/\r/example.com', '/'],
+  ])('consumes the stash when explicit destination %j completes at %s', async (explicit, expected) => {
     stashPostAuthRedirect('/pricing?billing=monthly')
     searchParams.set('redirect', explicit)
     const firstLogin = renderLogin()

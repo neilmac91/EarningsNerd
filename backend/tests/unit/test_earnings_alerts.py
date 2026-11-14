@@ -118,6 +118,33 @@ def test_disable_frees_a_slot_and_reenable_works():
 
 
 @pytest.mark.requires_db
+def test_disable_clears_every_watch_row_for_the_ticker():
+    """Duplicate watch rows (no UNIQUE(user_id, company_id)) and two companies sharing a ticker must
+    all turn off, or the send keeps alerting a user who disabled it."""
+    from app.models import Company, Watchlist
+
+    uid = _mk_user(is_pro=True)
+    db, user = _load_user(uid)
+    try:
+        first = Company(cik=f"cik-{uuid.uuid4().hex[:10]}", ticker="DUPT", name="Dup One")
+        second = Company(cik=f"cik-{uuid.uuid4().hex[:10]}", ticker="DUPT", name="Dup Two")
+        db.add_all([first, second])
+        db.flush()
+        db.add_all([
+            Watchlist(user_id=uid, company_id=first.id, earnings_alert=False),
+            Watchlist(user_id=uid, company_id=first.id, earnings_alert=True),
+            Watchlist(user_id=uid, company_id=second.id, earnings_alert=True),
+        ])
+        db.commit()
+        assert alerts.set_earnings_alert(db, user, "dupt", enabled=False) is False
+        assert alerts.count_enabled(db, uid) == 0
+        assert alerts.enabled_tickers(db, uid) == []
+        assert db.query(Watchlist).filter(Watchlist.user_id == uid).count() == 3
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
 def test_reenable_same_company_is_idempotent_not_a_new_slot():
     uid = _mk_user(is_pro=False)
     for t in ("II", "JJ", "KK"):

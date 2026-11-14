@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -118,6 +119,14 @@ describe('KpiStrip', () => {
     render(<KpiStrip dataset={annualDataset} />)
     // Previously blank (CAGR is null for percent series) — now shows the window's pp move.
     expect(changeLine(/Chg \+13\.6pp/)).toBeInTheDocument()
+  })
+
+  it('titles the net-margin card\'s comparison dialog "Window change", as the metrics table does', async () => {
+    render(<KpiStrip dataset={annualDataset} />)
+    await userEvent.click(screen.getByRole('button', { name: /Net margin, FY2025:/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Window change comparison' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('heading', { name: 'Chg comparison' })).not.toBeInTheDocument()
   })
 
   it('uses YoY (not CAGR) as the growth label in quarterly mode', () => {

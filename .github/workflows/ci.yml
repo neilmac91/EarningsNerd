@@ -158,12 +158,12 @@ jobs:
             esac
             # The browser jobs build the frontend and run it with no backend, so a change runs them
             # unless every path in it is a record, or a backend/ or ops/ file that neither the build
-            # nor a browser spec reads. The three files named first are the ones they do read; a
-            # frontend file that reaches another file outside frontend/ fails
-            # backend/tests/unit/test_ci_cost_controls.py until that file is named here too. Any
+            # nor a browser spec reads. The two files named first are the ones the specs do read; a
+            # spec that reaches another file outside frontend/ fails
+            # backend/tests/unit/test_ci_cost_controls.py until that file is named here too, and a
+            # shipped file may reach none (backend/tests/unit/test_frontend_build_filter.py). Any
             # other path runs them: the workflows, root files and everything under frontend/.
             case "$CHANGED_PATH" in
-              backend/app/public_email_addresses.json) BROWSER=true ;;
               backend/tests/fixtures/analysis_later_filings.json) BROWSER=true ;;
               backend/tests/fixtures/analysis_first_reports_produced.json) BROWSER=true ;;
               backend/*|ops/*) ;;
@@ -537,6 +537,52 @@ jobs:
         working-directory: frontend
       - name: Run unit tests
         run: npx vitest run --config vitest.config.mts
+        working-directory: frontend
+
+  # The frontend's staging copy runs on Cloudflare Workers and is deployed by hand from main
+  # (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)"). No other job builds the app for
+  # Workers, so this one is what keeps main deployable there: the build itself, then the Worker's
+  # compressed size against the plan's 10 MiB limit (refused from 8 MiB, to leave room to act) and a
+  # request to the built Worker in the local Workers runtime. It needs no Cloudflare credential and
+  # reaches no Cloudflare account. It is a job of its own, outside deploy-backend's needs, so that a
+  # fault in the Workers toolchain never holds a backend release
+  # (backend/tests/unit/test_ci_cost_controls.py pins both).
+  worker-build:
+    needs: [ci-scope]
+    if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.4'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Build for Cloudflare Workers
+        run: npm run cf:build
+        working-directory: frontend
+      - name: The Worker fits its size limit and answers in the Workers runtime
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --dry-run | tee dry-run.log
+          gzip_kib=$(sed -n 's/.*gzip: \([0-9]*\)\.[0-9]* KiB.*/\1/p' dry-run.log)
+          if ! [[ "$gzip_kib" =~ ^[0-9]+$ ]] || [ "$gzip_kib" -ge 8192 ]; then
+            echo "::error::The Worker is '${gzip_kib}' KiB gzipped; the build must report one size, under 8192 KiB (Cloudflare refuses a Worker over 10 MiB)."
+            exit 1
+          fi
+          npx wrangler dev --port 8788 > wrangler-dev.log 2>&1 &
+          npx wait-on --timeout 90000 http-get://127.0.0.1:8788/robots.txt || { cat wrangler-dev.log; exit 1; }
+          curl -fsS -o /dev/null -D headers.txt http://127.0.0.1:8788/pricing || { cat wrangler-dev.log; exit 1; }
+          cat headers.txt
+          # wrangler.jsonc sets ROBOTS_NOINDEX for staging, and next.config.js sets the frame header on every page.
+          grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
+          grep -qi '^x-frame-options: DENY' headers.txt
         working-directory: frontend
 
   # Backend first (docs/PRICING_OFFER.md, "Machine checks"): a pricing page must never show less than

@@ -41,7 +41,7 @@ checkout), `backend/tests/unit/test_gitleaks_repo_rules.py` (each repository rul
 named or bare, and passes over placeholders) and the widened selector of
 `backend/tests/unit/test_example_env_files_are_placeholders.py` (it now reads `env.example.txt`).
 Clause 3's rotation, the provider usage review and the alert dispositions are the founder's
-(`tasks/todo.md` F73), and review-checked.
+(`tasks/todo.md` F77), and review-checked.
 
 **Evidence**: `git for-each-ref --contains 222424317` lists only `refs/tags/archive/2025-11-18-supabase-rag`
 (tag object `ee2eff971`) and `refs/pull/17/head`. Main's CI run 42986073465 (job 130407432442) logged

@@ -43,11 +43,6 @@ def _hr(title: str) -> None:
     print("=" * 72)
 
 
-def _short(value, width: int = 100) -> str:
-    s = repr(value)
-    return s if len(s) <= width else s[: width - 3] + "..."
-
-
 def _first_filing(company, form: str):
     """Return the most recent filing of `form` (base form only, no amendments), or None."""
     filings = company.get_filings(form=form, amendments=False)
@@ -92,7 +87,8 @@ def verify_ticker(ticker: str) -> bool:
         import app.services.edgar.client  # noqa: F401 — side effect: set_identity()
     except Exception:  # noqa: BLE001
         from edgar import set_identity
-        set_identity(os.environ.get("EDGAR_IDENTITY", "neil@earningsnerd.io"))
+        from app.public_email_addresses import SUPPORT_EMAIL
+        set_identity(os.environ.get("EDGAR_IDENTITY", f"EarningsNerd/1.0 ({SUPPORT_EMAIL})"))
 
     _hr(f"{ticker}")
     try:

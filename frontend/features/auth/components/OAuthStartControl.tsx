@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { startOAuthWithInvite } from '@/features/auth/api/auth-api'
 import { oauthStartHref } from '@/features/auth/lib/oauthStart'
+import { stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 import { cx } from '@/components/ui'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
 
@@ -20,12 +21,18 @@ const PROVIDER_NAME = { google: 'Google', apple: 'Apple' } as const
  * sent in the body of `POST /api/auth/<provider>/start` and the browser then follows the provider
  * URL the backend returns, so the raw single-use invite never appears in any request URL.
  * The control owns the brand focus ring, so both shapes carry it whatever the caller passes.
+ *
+ * `returnTo` is where the reader was headed (the login page's `?redirect=`). The provider's round trip drops the
+ * query string, so the control stashes it as the sign-in leaves (lib/postAuthRedirect.ts, which keeps only an
+ * internal path, for an hour), and the landing page consumes it (app/auth/complete/page.tsx, E29 (7)), as a
+ * password login honours `?redirect=`. A start that fails before it leaves stashes nothing.
  */
 export default function OAuthStartControl({
   apiBase,
   provider,
   invite,
   signup,
+  returnTo,
   className,
   children,
 }: {
@@ -33,6 +40,7 @@ export default function OAuthStartControl({
   provider: 'google' | 'apple'
   invite?: string
   signup?: OAuthSignup
+  returnTo?: string | null
   className: string
   children: ReactNode
 }) {
@@ -40,9 +48,13 @@ export default function OAuthStartControl({
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
 
+  const keepDestination = () => {
+    if (returnTo) stashPostAuthRedirect(returnTo)
+  }
+
   if (!invite && !signup) {
     return (
-      <a href={oauthStartHref(apiBase, provider)} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
+      <a href={oauthStartHref(apiBase, provider)} onClick={keepDestination} className={cx('focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark', className)}>
         {children}
       </a>
     )
@@ -57,6 +69,7 @@ export default function OAuthStartControl({
       const agreement = signup ? await signup.prepare() : undefined
       if (signup && !agreement) return
       const url = await startOAuthWithInvite(provider, invite, agreement ?? undefined)
+      keepDestination()
       window.location.assign(url)
     } catch {
       setFailed(true)

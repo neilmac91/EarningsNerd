@@ -3,7 +3,7 @@
 Direct ``os.getenv`` / ``os.environ`` reads bypass validation, defaults, and the single documented
 place where configuration lives (``docs/CONFIGURATION.md``); the audit found Sentry's init in
 ``main.py`` reading three variables that way. This test encodes the rule the way the naive-utcnow
-gate does: an AST walk over ``app/**/*.py`` + ``main.py`` collects every env read and compares the
+gate does: an AST walk over ``app/**/*.py`` + ``main.py`` + ``task_worker_main.py`` collects every env read and compares the
 (file, enclosing scope) pairs against a checked-in allow-list. A NEW read anywhere fails with its
 file:line and points the author at Settings; a sanctioned site that disappears also fails, so the
 allow-list can never go stale.
@@ -72,7 +72,7 @@ def _env_reads(path: Path) -> list[tuple[str, int]]:
 
 
 def _scanned_files() -> list[Path]:
-    return [BACKEND_DIR / "main.py", *sorted(APP_DIR.rglob("*.py"))]
+    return [BACKEND_DIR / "main.py", BACKEND_DIR / "task_worker_main.py", *sorted(APP_DIR.rglob("*.py"))]
 
 
 def test_env_reads_match_the_allowlist():

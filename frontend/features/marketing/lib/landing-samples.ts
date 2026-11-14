@@ -126,8 +126,8 @@ export const SAMPLE_ASK = {
   ] satisfies CopilotCitation[],
 } as const
 
-/** Change Report demo (WhatChanged): FY2025 vs FY2024 XBRL deltas. Risk lines are left to the
- *  live report (the page renders skeleton bones in their place). */
+/** Change Report demo (WhatChanged): FY2025 vs FY2024 XBRL deltas. The sample carries no
+ *  risk lines, so none render (see ChangeReportDemo). */
 export const SAMPLE_CHANGE_REPORT: ChangeReport = {
   has_prior: true,
   comparison_basis: 'Year over year',

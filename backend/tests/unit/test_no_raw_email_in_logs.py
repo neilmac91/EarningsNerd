@@ -35,7 +35,8 @@ LOG_RECEIVERS = {"logger", "log", "_logger", "logging"}
 LOG_METHODS = {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"}
 # `<anything>.email` in a log argument is an address; so is a bare name from this set.
 EMAIL_ATTRS = {"email"}
-EMAIL_NAMES = {"email", "to", "to_email", "to_addr", "user_email", "recipient", "recipient_email"}
+# `subject` too: a mail's subject can quote an address (feedback.py's team notice ends "from <address>").
+EMAIL_NAMES = {"email", "to", "to_email", "to_addr", "user_email", "recipient", "recipient_email", "subject"}
 # Calls whose result is log-safe by construction: their arguments are not inspected.
 SANITIZERS = {"mask_email", "mask_recipients"}
 
@@ -127,6 +128,10 @@ async def async_handler(data):
 def module_logger_call(payload):
     logging.getLogger("uvicorn.error").warning("bad %s", payload.email)
 
+async def mail_subject(data):
+    subject = data.get("subject")
+    logger.info(f"Email sent - Subject: {subject}")
+
 def masked_attribute_is_fine(user):
     logger.info("Email sent to %s", mask_email(user.email))
 
@@ -152,6 +157,7 @@ def test_finder_catches_every_shape_and_ignores_safe_ones():
         ("structured_extra", ["email"]),
         ("async_handler", ["to"]),
         ("module_logger_call", ["payload.email"]),
+        ("mail_subject", ["subject"]),
     ]
 
 

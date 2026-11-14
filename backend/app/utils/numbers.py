@@ -7,8 +7,8 @@ from typing import Optional
 def coerce_float(value: object) -> Optional[float]:
     """Best-effort float conversion: None for None / blank / non-numeric, else ``float(value)``.
 
-    Consolidates the identical helpers the external integrations (finnhub, fmp, alpha_vantage)
-    and the earnings-calendar service each carried privately.
+    Shared by the alpha_vantage integration and the earnings-calendar service, which each
+    carried an identical private copy.
     """
     if value in (None, ""):
         return None

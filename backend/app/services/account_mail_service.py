@@ -27,11 +27,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
-
 from app.config import settings
 from app.database import SessionLocal
-from app.models import User
 from app.services import auth_account_service, email_service
 from app.services.durable_tasks import AccountMail, AccountMailTask, enqueue_task
 from app.services.request_work import run_owned_sync
@@ -181,14 +178,6 @@ async def send_account_mail_after_response(mail: AccountMail, email: str) -> Non
         await send_account_mail(mail, email)
     except AccountMailNotSent as exc:
         logger.error("%s", exc)
-
-
-async def send_verification_link(db: Session, user: User) -> None:
-    """Registration's verification mail, sent in its request: issue a token on the request's session and
-    email the link, a failed send logged as the task's is."""
-    user_id, to_email, name = user.id, user.email, user.full_name
-    raw_token = auth_account_service.issue_email_verification_token(db, user)
-    await _send_link("verification", _Link(user_id=user_id, to_email=to_email, name=name, raw_token=raw_token))
 
 
 async def send_issued_verification_link(user_id: int, to_email: str, name: str | None, raw_token: str) -> None:

@@ -54,8 +54,6 @@ def presentation_is_current(dataset: dict[str, Any]) -> bool:
 def _display_unit(point: dict[str, Any]) -> str | None:
     if point.get("kind") == "cagr":
         return "growth fraction"
-    if point.get("kind") == "window_pp":
-        return "percentage points"
     return "percent" if point.get("percent") else point.get("unit")
 
 

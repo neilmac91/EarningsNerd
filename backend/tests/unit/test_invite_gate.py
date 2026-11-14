@@ -63,12 +63,21 @@ def _mint_invite(**kwargs):
 @pytest.mark.requires_db
 def test_public_mode_ignores_invite(client):
     """Default (public) registration is unchanged — no invite required."""
+    from app.database import SessionLocal
+    from app.models import User
+
+    email = _unique_email()
     resp = client.post(
         "/api/auth/register",
-        json={**ACCOUNT_AGREEMENT, "email": _unique_email(), "password": VALID_PASSWORD},
+        json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD},
     )
     assert resp.status_code == 200, resp.text
-    client.cookies.clear()
+
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter(User.email == email).first() is not None
+    finally:
+        db.close()
 
 
 @pytest.mark.requires_db
@@ -99,7 +108,6 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
         json={**ACCOUNT_AGREEMENT, "email": email, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert resp.status_code == 200, resp.text
-    client.cookies.clear()
 
     db = SessionLocal()
     try:
@@ -120,8 +128,11 @@ def test_valid_invite_registers_sets_is_beta_and_is_single_use(client, invite_on
 
 @pytest.mark.requires_db
 def test_email_bound_invite_requires_matching_email(client, invite_only):
+    from app.database import SessionLocal
+    from app.models import User, InviteCode
+
     bound = _unique_email()
-    _invite_id, raw = _mint_invite(email=bound)
+    invite_id, raw = _mint_invite(email=bound)
 
     wrong = client.post(
         "/api/auth/register",
@@ -134,7 +145,15 @@ def test_email_bound_invite_requires_matching_email(client, invite_only):
         json={**ACCOUNT_AGREEMENT, "email": bound, "password": VALID_PASSWORD, "invite_code": raw},
     )
     assert ok.status_code == 200, ok.text
-    client.cookies.clear()
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == bound).first()
+        assert user is not None and user.is_beta is True
+        invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+        assert invite.used_at is not None and invite.user_id == user.id
+    finally:
+        db.close()
 
 
 @pytest.mark.requires_db
@@ -164,7 +183,6 @@ def test_invite_revoked_while_registering_creates_no_account(client, invite_only
     )
     assert resp.status_code == 200, resp.text
     assert resp.json() == auth_module._REGISTER_OPAQUE
-    client.cookies.clear()
 
     db = SessionLocal()
     try:

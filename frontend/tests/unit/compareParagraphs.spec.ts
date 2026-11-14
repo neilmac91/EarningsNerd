@@ -62,20 +62,20 @@ describe('compareParagraphs', () => {
 
   it.each(['', ' \t\r\n\r\n\u00a0'])('rejects empty input on either side: %j', (blank) => {
     expect(() => compareParagraphs(blank, 'Current.')).toThrow(/Earlier filing text is empty/)
-    expect(() => compareParagraphs('Earlier.', blank)).toThrow(/Current filing text is empty/)
+    expect(() => compareParagraphs('Earlier.', blank)).toThrow(/Later filing text is empty/)
   })
 
   it('accepts the character limit exactly and rejects either side above it', () => {
     const atLimit = 'x'.repeat(MAX_COMPARISON_CHARACTERS)
     expect(compareParagraphs(atLimit, atLimit)).toEqual({ added: [], removed: [], unchangedCount: 1 })
     expect(() => compareParagraphs(`${atLimit}x`, 'Current.')).toThrow(/Earlier filing text exceeds the 120,000-character/)
-    expect(() => compareParagraphs('Earlier.', `${atLimit}x`)).toThrow(/Current filing text exceeds the 120,000-character/)
+    expect(() => compareParagraphs('Earlier.', `${atLimit}x`)).toThrow(/Later filing text exceeds the 120,000-character/)
   })
 
   it('accepts the paragraph limit exactly and rejects either side above it without truncating', () => {
     const atLimit = Array.from({ length: MAX_COMPARISON_PARAGRAPHS }, (_, index) => `Paragraph ${index}.`).join('\n\n')
     expect(compareParagraphs(atLimit, atLimit)).toEqual({ added: [], removed: [], unchangedCount: MAX_COMPARISON_PARAGRAPHS })
     expect(() => compareParagraphs(`${atLimit}\n\nOverflow.`, 'Current.')).toThrow(/Earlier filing text exceeds the 400-paragraph/)
-    expect(() => compareParagraphs('Earlier.', `${atLimit}\n\nOverflow.`)).toThrow(/Current filing text exceeds the 400-paragraph/)
+    expect(() => compareParagraphs('Earlier.', `${atLimit}\n\nOverflow.`)).toThrow(/Later filing text exceeds the 400-paragraph/)
   })
 })

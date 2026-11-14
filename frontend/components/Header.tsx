@@ -212,7 +212,7 @@ export default function Header({
   // bar's own height, never --site-header-h, which counts the open menu below lg (tests/e2e/reflow-200.spec.ts). From lg
   // the open menu leaves the column and lies over the page (below).
   return (
-    <header ref={headerRef} data-site-header onBlur={closeMenuWhenFocusLeaves} onKeyDown={closeMenuOnEscape} className="sticky top-0 z-50 flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
+    <header ref={headerRef} data-site-header onBlur={closeMenuWhenFocusLeaves} onKeyDown={closeMenuOnEscape} className="sticky top-0 z-header flex max-h-dvh flex-col border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* gap-x-1.5 (6px, 12px at 200% text) keeps the logo's clear space, one E-bar or 11.6% of the mark (4.2px, 8.4px;
           frontend/public/assets/LOGO_README.md), when a full bar sets the account link beside the mark: at 390px and
           200% text the link touched it (tests/e2e/reflow-200.spec.ts). w-full: a column's child with auto side

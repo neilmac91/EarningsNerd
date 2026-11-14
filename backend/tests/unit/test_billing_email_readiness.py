@@ -116,16 +116,13 @@ async def test_closed_marketing_preserves_requested_account_messages(monkeypatch
 async def test_waitlist_confirmation_carries_no_promotion_and_asks_for_no_verification(monkeypatch):
     send = AsyncMock(return_value={"id": "mail_test"})
     monkeypatch.setattr(email_service, "send_email", send)
-    referral = "https://example.com/waitlist?ref=example"
 
-    await email_service.send_waitlist_welcome_email(
-        to_email="reader@example.com", name="Reader", position=3, referral_link=referral,
-    )
+    await email_service.send_waitlist_welcome_email(to_email="reader@example.com", name="Reader", position=3)
 
     send.assert_awaited_once()
     for part in (send.call_args.kwargs["html"], send.call_args.kwargs["text"]):
         assert "You're on the EarningsNerd waitlist." in part
         assert "verif" not in part.lower()
-        assert referral not in part
+        assert "/waitlist?ref=" not in part
         assert "Share your referral" not in part
         assert "keep you posted" not in part

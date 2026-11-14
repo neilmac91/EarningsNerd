@@ -231,7 +231,11 @@ def test_the_gate_runs_first_on_every_attempt_and_nothing_installs_or_spends_wit
 
 
 def test_only_the_runner_step_holds_the_provider_key_and_the_gate_knows_its_name():
-    steps = _workflow()["jobs"][JOB]["steps"]
+    data = _workflow()
+    job = data["jobs"][JOB]
+    assert "OPENAI_API_KEY" not in str(data.get("env", {}))
+    assert "OPENAI_API_KEY" not in str(job.get("env", {}))
+    steps = job["steps"]
     holders = [step for step in steps if "OPENAI_API_KEY" in str(step)]
     assert [step["name"] for step in holders] == [gate.RUNNER_STEP]
     assert "evals.copilot_runner" in holders[0]["run"]

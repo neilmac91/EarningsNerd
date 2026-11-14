@@ -16,6 +16,7 @@ import { periodKind } from '@/features/filings/lib/filingPeriod'
 import { changesPhrase, plural } from '@/features/filings/lib/sectionChanges'
 import UpgradeModal from '@/features/subscriptions/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
+import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { formatLocalDate } from '@/lib/format'
 
 /**
@@ -485,7 +486,7 @@ export function WordingChanges({
             </Button>
             {context && !context.isAuthenticated && (
               <Link
-                href="/login"
+                href={loginHrefWithRedirect(`/filing/${context.filingId}`)}
                 className={cx(
                   'text-sm font-semibold text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark',
                   'rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',

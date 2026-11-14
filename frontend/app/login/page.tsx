@@ -19,7 +19,7 @@ import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { ENABLE_APPLE_SIGNIN, TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
+import { consumePostAuthRedirect, isSafeInternalPath } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice, cx, primaryUnavailableClass } from '@/components/ui'
 
 /**
@@ -40,7 +40,6 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_invalid: 'Google login failed. Please try again.',
   oauth_state_mismatch: 'Login session expired. Please try again.',
   google_token_failed: 'Could not complete Google login. Please try again.',
-  google_userinfo_failed: 'Could not retrieve your Google account info. Please try again.',
   google_missing_claims: 'Google did not return an email address. Please try again.',
   google_account_conflict: accountConflict('Google'),
   apple_denied: 'Apple login was cancelled.',
@@ -121,19 +120,16 @@ function LoginContent() {
       } catch {
         // Analytics must not block an otherwise current login.
       }
-      // Return the user to where they were headed before the auth gate. Only honour internal,
-      // single-slash-rooted paths: reject protocol-relative ("//evil") and backslash-prefixed
-      // ("/\\evil") values, which some browsers normalise into open redirects to external sites.
+      // Return the user to where they were headed before the auth gate. Only honour a path the
+      // browser keeps on this site (isSafeInternalPath): protocol-relative ("//evil"), backslash
+      // ("/\\evil") and tab or newline ("/\t/evil") forms all resolve to another site.
       // Fallback: the signup gate's stashed destination (consume-once, validated, 1h TTL) — it
       // survives the verification email's new-tab hop, which the ?redirect= thread cannot.
       // Consume even when the explicit destination wins, so a completed login cannot leave a
       // stale signup destination waiting for a later, unrelated login.
       const stashedDestination = consumePostAuthRedirect()
       const dest = searchParams.get('redirect') ?? stashedDestination
-      const safe =
-        dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
-          ? dest
-          : '/'
+      const safe = dest && isSafeInternalPath(dest) ? dest : '/'
       router.push(safe)
       router.refresh()
     } catch (err: unknown) {
@@ -179,7 +175,8 @@ function LoginContent() {
       )}
 
       <div className="mt-8">
-        <SocialAuthButtons apiBase={apiBase} />
+        {/* A Google or Apple login keeps `?redirect=` across the provider's round trip (OAuthStartControl, E29 (7)). */}
+        <SocialAuthButtons apiBase={apiBase} returnTo={searchParams.get('redirect')} />
 
         <AuthDivider />
 

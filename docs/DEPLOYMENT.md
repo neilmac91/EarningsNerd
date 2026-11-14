@@ -5,7 +5,7 @@ EarningsNerd runs on two platforms:
 | Tier | Platform | How it deploys |
 |------|----------|----------------|
 | **Backend** (FastAPI) | Google Cloud Run — service `earningsnerd-backend`, project `earnings-nerd`, region `us-west1` | **Automated** via GitHub Actions on push to `main` (gated on tests and the secret scan) |
-| **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on push to `main` |
+| **Frontend** (Next.js) | Vercel | **Automated** via Vercel's GitHub integration on a push to `main` that changes what the build reads |
 | **Database** | Cloud SQL for PostgreSQL 15 (`earningsnerd-db`) | Reached over the Cloud SQL connector socket |
 | **Cache** | None in production (`SKIP_REDIS_INIT=true`) — L1 in-memory only | Redis is local-dev only (docker-compose) |
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
@@ -501,8 +501,32 @@ does not read the route.
 
 ## Frontend — continuous deployment
 
-Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`
-(and creates preview deployments for PRs). CI does **not** deploy the frontend.
+Vercel's GitHub integration deploys the `frontend/` app on a push to `main`, and creates a preview
+deployment on a push to any other branch, when the push changes something the frontend build reads.
+CI does **not** deploy the frontend.
+
+> **Build filter.** Vercel bills each build, and most pushes change nothing the frontend build
+> reads. `frontend/vercel.json`'s `ignoreCommand` runs `frontend/scripts/vercel-ignore-build.sh`
+> before a build, and Vercel cancels the build when it exits 0. The script exits 0 only when this
+> commit and the commit of the branch's last successful deployment (`VERCEL_GIT_PREVIOUS_SHA`) hold
+> the same build inputs, which are everything under `frontend/` and nothing else. It builds in every
+> other case: the branch has no earlier deployment, the commit is the one already deployed, the
+> earlier commit is outside Vercel's shallow clone, or a read fails.
+>
+> So production serves the deployment of the last merge that changed a build input. A deployment
+> Vercel shows as **Canceled** on a later commit means that commit changed none; it is not a
+> failure. A pull request's preview is that of its last push that changed one. The deployment's
+> build log holds the script's one line, `ignore-build: build: …` or `ignore-build: skip: …`, with
+> what it read.
+>
+> To rebuild without a new commit (after changing a dashboard variable, for one), choose
+> **Redeploy** on the deployment and uncheck **Use project's Ignore Build Step**
+> ([Vercel's documentation](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step)).
+>
+> `backend/tests/unit/test_frontend_build_filter.py` runs the command on real Git histories, and
+> fails when a shipped frontend file reads a file outside `frontend/`: such a file is copied in and
+> held to its source by a spec, as `frontend/lib/publicEmailAddresses.json` is. #2043 records the
+> live reads of Vercel's side.
 
 > **Rollback floor.** A Vercel rollback or promotion never moves production to a deployment older than `c32af8f`
 > while an API at or after #2014 serves: every Google or Apple sign-in lands on `/auth/complete`
@@ -544,6 +568,95 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > integration* / org auth token with `project:releases` + `org:read`). With them unset the Sentry
 > plugin logs a warning and skips the upload — the build still succeeds (CI builds run without
 > them), but production stack traces stay minified.
+
+### Frontend on Cloudflare Workers (staging)
+
+A second build of the same app runs on Cloudflare Workers through the OpenNext adapter, to evaluate moving the
+frontend off Vercel. It is the Worker `earningsnerd-frontend-staging` at `https://staging.earningsnerd.io`: the code
+on `main`, built for Workers, calling the production API. It serves no production hostname, and production is
+still Vercel. Nothing deploys it automatically. Vercel's deployment differs in two small ways since the adapter
+arrived: its install also fetches the two build tools (dev dependencies), and it serves `public/_headers` as a
+static file at `/_headers`, which holds one caching rule and nothing private.
+
+| File (under `frontend/`) | What it sets |
+|---|---|
+| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server loads |
+| `wrangler.jsonc` | The Worker's name, its custom domain, its R2 bucket, Durable Object and self-reference bindings, and its two runtime variables |
+| `cloudflare-worker.mjs`, `cloudflare-robots.mjs` | The entry point: OpenNext's handler, plus `X-Robots-Tag: noindex, nofollow` on every response it renders while `ROBOTS_NOINDEX` is `true` |
+| `public/_headers` | A year of immutable browser caching for `/_next/static/*`; without it Cloudflare serves those files `max-age=0` |
+
+`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires
+`WAITLIST_MODE` to be stated (a Worker without it redirects every page to `/waitlist`), and requires a Worker to be
+either a noindex copy or the production site, never an indexable copy or a noindex production. CI's
+`worker-build` job builds the app for Workers, refuses a Worker of 8 MiB or more gzipped (Cloudflare's limit is
+10 MiB) and requests a page from the built Worker in the local Workers runtime; it uses no Cloudflare credential,
+and `deploy-backend` does not wait for it.
+
+**Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
+browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
+must not be served on any `earningsnerd.io` hostname. Review-checked: nothing enforces it while deploys are by hand.
+
+**Deploying it.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`.
+`npm run cf:preview` serves the same build locally in the Workers runtime. The token is an account-owned one
+(Workers Scripts and Workers R2 Storage: Edit, and on the zone Workers Routes and DNS: Edit, which the custom
+domain needs), and it verifies at `/accounts/<id>/tokens/verify`, not at `/user/tokens/verify`. R2 was enabled once
+in the dashboard, and the bucket `earningsnerd-frontend-staging-cache` was created once with
+`npx wrangler r2 bucket create`. The first deploy created the hostname's DNS record (a proxied record Cloudflare
+manages for the Worker) and its certificate. During a deploy, the step that uploads the prerendered pages prints "no
+such Durable Object class is exported from the worker"; it comes from that step's local reader of the config, and
+the deployed Worker does export the class.
+
+**Variables are build inputs.** Next compiles every `NEXT_PUBLIC_*` value, and `SENTRY_DSN` (`next.config.js`
+`env`), into the bundle, so they are exported in the shell that runs the build; a value in `wrangler.jsonc` `vars`
+reaches only code that reads `process.env` on the server at request time, which today is `WAITLIST_MODE` and the
+entry point's `ROBOTS_NOINDEX`. A variable missing from the build fails silently: without
+`NEXT_PUBLIC_LOGO_DEV_TOKEN` every company logo falls back to initials. Take the names and values from the Vercel
+project's Environment Variables page; `frontend/lib/featureFlags.ts` and `next.config.js` are the list of what the
+code reads. Three differ from Vercel: `NEXT_PUBLIC_SENTRY_RELEASE` (the commit) and
+`NEXT_PUBLIC_SENTRY_ENVIRONMENT` (`staging`) are set by hand, because their fallbacks are Vercel's own
+`VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`, and `NEXT_PUBLIC_POSTHOG_KEY` is left unset, so staging's visits stay
+out of production's analytics.
+
+**The API must allow the origin.** The browser's calls to `api.earningsnerd.io` succeed from staging only while
+the service's `CORS_ORIGINS_STR` lists `https://staging.earningsnerd.io`. The deploy does not set that variable
+(step 6 below sets it at bootstrap), so it is applied once to the running service, which starts a new revision:
+
+```bash
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-env-vars="^@^CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io,https://staging.earningsnerd.io"
+```
+
+Read it back with `curl -sI -H 'Origin: https://staging.earningsnerd.io' https://api.earningsnerd.io/health`, which
+answers `access-control-allow-origin: https://staging.earningsnerd.io` once it holds. Until then staging renders
+what the server renders and nothing the browser loads: no session, no registration state, no live company data.
+
+**What was measured, 2026-11-13** (#2051 and the pull request that added this section hold the evidence):
+
+- The Worker is 3.31 MiB gzipped against the paid plan's 10 MiB limit, and starts in 20 to 37 ms.
+- On the workers.dev preview that preceded staging: the production smoke spec passed; shard 1 of 5 of the browser
+  suite ran 253 passed, 5 failed, 5 skipped, and the same five failed against `next start` on the same machine;
+  shards 2 to 5 were not run against a Worker. Sentry received a thrown server error from the Worker (issue
+  `JAVASCRIPT-NEXTJS-2S`).
+- On staging, a page with a 30 second `revalidate` was re-rendered after each expiry, with the edge cache in
+  front of R2; a location's copy trailed the re-render by one request.
+- Median time to first byte from one cloud vantage point, 15 samples, for `/`, `/pricing` and `/company/AAPL`:
+  226, 185 and 192 ms on staging against 216, 168 and 181 ms on Vercel. Without the edge cache staging measured
+  284, 230 and 241 ms; on workers.dev with Smart Placement on, 631, 504 and 542 ms. Smart Placement is left off
+  because it roughly doubled the figure for cached pages.
+
+**Known limits.** One vantage point is not a reader's: the speed figures want a measurement from real locations
+before a decision. The latency of pages that are not cached, which without Smart Placement render near the reader
+and call the API in `us-west1`, was not measured. The Sentry SDK logs that its diagnostics-channel hooks cannot
+register in the Workers runtime, so some performance spans are missing; error capture works. Google and Apple
+sign-in return to `FRONTEND_URL`, which is production, so a reader who signs in that way from staging lands on
+production. Turnstile was not exercised on staging: if the widget's hostname list is restricted, sign-in there
+needs `staging.earningsnerd.io` added to the widget in the Cloudflare dashboard.
+
+**Before any traffic moves:** the origin allowed and a signed-in session checked on staging; all five browser
+shards against staging; the speed re-measured from real locations; and the hostname-bound services checked
+(Turnstile, Logo.dev, PostHog). The cutover itself is two DNS records, the apex `A` and the `www` `CNAME`, a Worker
+configuration for those hostnames with `ROBOTS_NOINDEX` unset, and Vercel left deployed as the rollback.
 
 ---
 
@@ -618,7 +731,7 @@ gcloud run deploy earningsnerd-backend \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io,https://staging.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
 ### 7. Verify
@@ -884,7 +997,10 @@ alert channel, the alert policies and the heartbeat metric. Each is verified, ab
 (incomplete), `UNVERIFIED` with a closed class when its read fails, or refused for readable drift, which an
 unverified line never masks: a failed read never stops another resource's checks. One read shows what a
 retry would meet. A refused provider call names its step, the permission that step needs and Google's closed
-error class (status, reason, and a denied permission that one of these steps names); a dropped connection
+error class (status, reason, a denied permission that one of these steps names, and up to three request fields
+a `BadRequest` refuses, each named only as a dotted path of lowercase snake- or camel-case words with indices of at
+most three digits, and only through Cloud Run's own field names, any other word printed as `?`, so a refused Cloud
+Run create says which field it objects to); a dropped connection
 reads as unavailable, and a Cloud Run operation that fails after acceptance names the step that started it.
 Provider messages, resources and principals stay withheld. The check reads the identity's own
 project grants (with `actAs` on the runtime identity and image read on the image repository): a disabled
@@ -999,15 +1115,24 @@ progress or queued, so even a records-only merge in the window can cost an appro
 1). Each backend deploy re-images the cleanup job, after which enable refuses the provision's probe;
 the verification receipt binds the serving image digest and `HEAD:frontend`. Enable also needs the
 provision's probe and the receipt each under two hours old, so run provision, verify and enable in one
-sitting. A verify that fails after seeding its run holds a two-hour lease, by which time the probe has
-expired, so recovery is a fresh provision and then a fresh verify.
+sitting. The verifier scales to zero and starts only within its run's two-hour lease, which begins when
+verify seeds its run, so enable's receipt read must also come before that lease ends: verify-apply prints
+the deadline (`Enable before <time>`). A verify that fails after seeding its run holds a two-hour lease,
+by which time the probe has expired, so recovery is a fresh provision and then a fresh verify. So before
+the seed, once its identity exists, verify-apply has Cloud Run validate its job and service writes exactly as
+it will send them (`validateOnly`, which persists nothing): a field Cloud Run refuses fails there, naming the
+field, and a retry can follow at once. The first live verify-apply was refused that way, before any job
+existed: Cloud Run requires a Cloud SQL volume to be named `cloudsql`.
 The reviewed `main` checkout supplies both the browser build and a bounded, direct `python -c`
 verification wrapper (at most 32 KiB) to the **exact immutable image digest serving production**.
 The wrapper is never installed as a production route or added to the backend image. The unchanged
 application handles the browser's requests; only the private verifier has the fixture controls and
 the local notification sink. Email, Stripe, model, analytics and error-reporting credentials are
-absent from this runtime. The sink validates the application's real feedback notifications without
-sending email.
+absent from this runtime. The application's AI client still needs a key when it is imported (openai
+3.x refuses an empty one), so the wrapper gives it a fixed non-credential key and a closed loopback
+endpoint; no verified route calls a model. The sink validates the application's real feedback
+notifications without sending email. A refused verifier start names only its closed refusal code, or
+the failing exception's class, in the service's private Cloud Run log.
 
 ```bash
 gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=feedback-media-verify-apply
@@ -1048,15 +1173,22 @@ The provisioner addresses only these feature resources:
   Scheduled cleanup skips an unexpired verification lease, so it cannot erase a browser's active
   fixtures. The protected operation uses execution-scoped `cleanup_now` for its final cleanup.
   A new apply waits for the prior two-hour lease to expire, even after an early failure or completed
-  run; absence of an active browser is not inferred from a timeout. A changed runtime source also
-  refuses to execute the prior cleanup job automatically: inspect and settle its retained manifests
-  through a separately reviewed operation before retrying the new source.
+  run; absence of an active browser is not inferred from a timeout. A prior run that stopped before
+  initialize created its schema left no fixture or object (only the service started after it makes them),
+  so it is settled without a cleanup execution, which could not run without tables; the hourly schedule is
+  created only once initialize has made the schema it cleans. After main's runtime source changes, an
+  apply never executes the prior run's cleanup job, which still holds that run's own source: it reads the
+  job back, holds its source to the hash the run's marker recorded, and counts the run as settled only when the job's
+  latest execution succeeded and was created a minute or more after the lease expired. Only the hourly
+  schedule starts it then, and its scheduled mode cleans an expired lease. Otherwise the apply refuses
+  before the seed and any Cloud Run write; retry after the next run at minute 41.
 
 Before any write, the provisioner requires the object role and preview bucket that media provisioning
 creates, and admits itself only while the shared production instance has room: active client backends,
 the four-connection role cap and a five-connection reserve must stay within 70% of usable connections (the
 summary rehearsal's rule, applied here to `earningsnerd-db`; a session the administrator cannot see in full
-counts as a client backend). It prints the counts and refuses otherwise;
+counts as a client backend, and the admission query's own session does not, since the cap already holds that
+one serial connection). It prints the counts and refuses otherwise;
 that point-in-time admission is not a reservation, so run it outside the Monday 06:00–08:00 UTC
 pregenerate and filing-scan window. After a run, the hourly verification cleanup adds one short
 connection at :41 to the job budget above.
@@ -1088,7 +1220,40 @@ key. The browser exercises real upload, clipboard, private owner/admin reads, ot
 links, lost-response retry, export, account deletion and cleanup. Runtime evidence also records
 notification validation, metadata stripping, generation-confirmed deletion and measured memory.
 The memory result describes this representative workload; it does not establish a bound for every
-combination of warmed filing traffic.
+combination of warmed filing traffic. The verifier service runs in Cloud Run's second-generation
+execution environment, with startup CPU boost for its cold starts. The measurement reads the cgroup v2
+memory files at `/sys/fs/cgroup` where they read, but the live inspect of 12 November (Ops 43138110953)
+read none of them there. Where `memory.current` does not read, the sample is the instance's memory in use
+from `/proc/meminfo`: MemTotal minus MemAvailable, which counts the in-memory filesystem too. The record
+then names that basis, and the resource line marks the figure as meminfo's. With no kernel peak,
+acceptance needs both the sample and the process bound under 85% of 1 GiB. The measurement never reads
+cgroup v1's files: from inside, `/sys/fs/cgroup/memory/` may be the instance's own cgroup or a root, whose
+peak counts only its children's charges and could pass acceptance on a fraction of the memory in use.
+Only the two isolated workers may run beside the application. A child
+shows the application's arguments until it execs, and no arguments while it execs or exits, so in
+either state it counts as unexplained only if it still does a second later; a zombie awaiting its
+reap holds no memory and is not checked, though it still counts as a process. Any other program
+counts as unexplained at once. Without the kernel's peak, the bound adds three times the highest high-water mark a worker
+reports for its own image, read while it runs: a child's `ru_maxrss` also counts the application's
+image from before it exec'd, so it cannot bound a worker. A failed browser run names its stage and
+closed failure code in the Ops log (`Live browser verification failed at <stage> (<code>)`), so one
+run shows where it stopped; a browser wait or action that fails without its own code names the step
+it failed in (`timeout-<step>` or `error-<step>`), and anything else stays withheld. When the in-run cleanup after a browser
+failure also fails, it is reported beside the browser's failure, not in its place. After a browser failure the runner
+reports, one read (no retry) prints the verifier's resource line, `Verifier resources (<whose>): …`, for the instance
+that answers: the run's own unless the verifier restarted. If that read or its line fails, the log says `Verifier
+resources: unavailable (receipt read failed)` and the browser's failure stays the run's. A receipt check (verify-apply's
+last step, `feedback-media-verify-inspect` and enable) prints the run's own record from its signed receipt once that
+receipt verifies, and no line for a receipt that fails verification. Without a receipt it prints the answering
+instance's record since its start, which after a scale-to-zero is a new instance, not the run measured. A receipt read
+that fails stops the check as before, with no line. The line gives its acceptance verdict, the conditions that fail by
+closed name (`configured-limit`, `samples`, `unexplained-child`, `process-count`, `sample-age`, `cgroup-limit`,
+`kernel-peak`, `sampled-peak`, `high-water-unread`, `process-bound`) and its figures in bytes, numbers only, or
+`unavailable` when its record has another shape. The run's last receipt check reads production as it serves at the end
+of the run. Known limit: the lost-response check
+drops the response before any header reaches the browser, and Chromium can resend such a POST on a
+reused connection by itself, so the composer's own receipt recovery may not run; losing the response
+after its headers would prove it, and needs a fresh live verification.
 
 The successful receipt is HMAC-signed by the test secret, persisted in the isolated database, and
 bound to the run, schema, current image digest, runtime source, browser suite and committed frontend

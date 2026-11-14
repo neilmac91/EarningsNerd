@@ -734,8 +734,7 @@ unused since generation became account-required in #619; kept because migrations
 - **Caching:** two-tier L1 (LRU, max 1000, `asyncio.Lock`) + L2 Redis with stale-L1
   fallback; `CacheTTL`: XBRL 24h, filing metadata 6h, hot filings 5m; all cache ops capped
   at 2s. Redis connections survive event-loop changes (`_reset_on_loop_change()`).
-- **Logging:** structured JSON with `X-Correlation-ID` propagation; `get_logger(__name__)`
-  + `log_api_call()`.
+- **Logging:** structured JSON with `X-Correlation-ID` propagation; `get_logger(__name__)`.
 - **DB discipline:** SQLAlchemy event listeners validate NOT NULL before writes; commits
   batched outside loops; commit ownership documented per service.
 - **Boundary validation:** validate external data where it enters (SEC, Stripe, AI

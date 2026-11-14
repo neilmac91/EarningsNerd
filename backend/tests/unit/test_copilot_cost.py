@@ -10,49 +10,8 @@ from datetime import datetime, timezone
 import pytest
 
 from app.config import settings
-from app.services.llm_pricing import estimate_inference_cost_usd
 from app.services import posthog_client
 from app.routers import summaries
-
-
-# --- cache-aware cost estimator ---
-
-def test_estimate_prices_cache_hit_and_miss_separately():
-    hit, miss, completion = 100_000, 5_000, 800
-    expected = round(
-        (
-            hit * settings.AI_INPUT_CACHE_HIT_PRICE_PER_1M
-            + miss * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M
-            + completion * settings.AI_OUTPUT_PRICE_PER_1M_TOKENS
-        )
-        / 1_000_000,
-        6,
-    )
-    got = estimate_inference_cost_usd(
-        hit + miss, completion, cache_hit_tokens=hit, cache_miss_tokens=miss
-    )
-    assert got == expected
-    # The same input priced as all cache-miss (no split) must be strictly dearer — proving the
-    # cache split actually lowers the estimate (the whole point of pricing them apart).
-    assert got < estimate_inference_cost_usd(hit + miss, completion)
-
-
-def test_estimate_falls_back_to_all_miss_without_split():
-    pt, completion = 5_000, 800
-    expected = round(
-        (
-            pt * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M
-            + completion * settings.AI_OUTPUT_PRICE_PER_1M_TOKENS
-        )
-        / 1_000_000,
-        6,
-    )
-    assert estimate_inference_cost_usd(pt, completion) == expected
-
-
-@pytest.mark.parametrize("pt, ct", [(0, 0), (None, None)])
-def test_estimate_is_zero_when_no_tokens(pt, ct):
-    assert estimate_inference_cost_usd(pt, ct) == 0.0
 
 
 # --- PostHog emit helper ---
@@ -318,12 +277,3 @@ def test_unknown_required_usage_is_an_unknown_cost_never_a_partial_or_zero(usage
 
     for at in (_OFF_PEAK, _PEAK):
         assert llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=at)["cost_usd"] is None
-
-
-def test_the_flat_estimator_prices_the_missing_half_too():
-    hit = 100_000
-    assert estimate_inference_cost_usd(1_000_000, 0, cache_hit_tokens=hit) == round(
-        (hit * settings.AI_INPUT_CACHE_HIT_PRICE_PER_1M
-         + (1_000_000 - hit) * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M) / 1_000_000, 6)
-    assert estimate_inference_cost_usd(1_000_000, 0, cache_hit_tokens=0) == round(
-        settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M, 6)

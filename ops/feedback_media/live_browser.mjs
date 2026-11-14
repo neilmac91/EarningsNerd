@@ -2,11 +2,13 @@
 import { createRequire } from 'node:module'
 import { createHash, randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { LOCAL_ORIGIN, check } from './live_proxy.mjs'
+import { LOCAL_ORIGIN, VerificationError, check } from './live_proxy.mjs'
 
 export const ASSERTIONS = ['upload', 'clipboard', 'private_reads', 'other_user_denied', 'admin_view',
   'safe_links', 'retry', 'export', 'account_deleted', 'cleanup', 'memory_boundary']
-const LINK = 'https://evidence.example.invalid/feedback-verification?quarter=1#chart'
+export const LINK = 'https://evidence.example.invalid/feedback-verification?quarter=1#chart'
+// A message link's name says it opens a new tab, while its text stays the literal address (FeedbackMessage, E281).
+export const LINK_NAME = `${LINK} (opens in a new tab)`
 const COOKIE_NAMES = ['earningsnerd_access_token', 'earningsnerd_refresh_token', 'en_session']
 const success = status => status >= 200 && status < 300
 // A preceding UI action can fail before its event is awaited. Keep shutdown rejections handled and out of process logs.
@@ -197,6 +199,13 @@ async function memoryBurst(page, png, readerId) {
   return page.evaluate(boundaryUploadWorkload, { base64: png.toString('base64'), keys: [randomUUID(), randomUUID()], readerId })
 }
 
+/** The admin view's message link: found by the name FeedbackMessage renders, opening the literal address safely. */
+export async function checkSafeLink(detail) {
+  const link = detail.getByRole('link', { name: LINK_NAME, exact: true })
+  check(await link.getAttribute('href') === LINK && await link.getAttribute('rel') === 'noopener noreferrer'
+    && await link.getAttribute('target') === '_blank' && await link.textContent() === LINK, 'admin-safe-link')
+}
+
 /** The runner owns cleanup/completion; the browser owns only user-visible assertions and real application calls. */
 export async function runBrowser(config, fixtures, proxy, frontend, signal) {
   const accounts = validateFixtures(fixtures, config.run_id)
@@ -213,24 +222,32 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
   if (signal?.aborted) abort()
   const contexts = []
   const assertions = Object.fromEntries(ASSERTIONS.map(name => [name, false]))
+  // The step under way, so a failed Playwright wait or action names where it failed: closed literals only.
+  let step = 'owner-login'
   try {
     let owner
     let admin
     let initial
     for (const theme of ['light', 'dark']) {
+      step = 'owner-login'
       owner = await login(browser, accounts.owner, theme, contexts)
+      step = 'composer'
       const submitted = await submitThroughComposer(owner.page, png, theme, config.output_dir)
       initial ||= submitted
+      step = 'admin-login'
       admin = await login(browser, accounts.admin, theme, contexts)
+      step = 'admin-details'
       await admin.page.goto('/admin/feedback')
       const opener = admin.page.getByRole('button', { name: `View details for feedback ${submitted.id}` })
       await opener.focus()
       await opener.press('Enter')
       const detail = admin.page.getByRole('dialog', { name: 'Feedback details' })
+      step = 'admin-images'
       await admin.page.waitForFunction(() => [...document.querySelectorAll('img[alt^="Screenshot "]')]
         .filter(image => image.complete && image.naturalWidth > 0).length === 3)
-      const link = detail.getByRole('link', { name: LINK, exact: true })
-      check(await link.getAttribute('href') === LINK && await link.getAttribute('rel') === 'noopener noreferrer', 'admin-safe-link')
+      step = 'admin-link'
+      await checkSafeLink(detail)
+      step = 'admin-narrow'
       await screenshot(admin.page, config.output_dir, 'admin-' + theme)
       await admin.page.setViewportSize({ width: 390, height: 400 })
       await admin.page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
@@ -241,6 +258,7 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     }
     assertions.upload = assertions.clipboard = assertions.admin_view = assertions.safe_links = true
 
+    step = 'replay'
     const repeated = await replaySubmission(owner.page, initial.replay)
     check(success(repeated.status) && repeated.body.id === initial.id, 'same-key-replay')
     const offset = initial.replay.body.indexOf(Buffer.from('Synthetic live feedback'))
@@ -248,6 +266,7 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     const conflicted = Buffer.from(initial.replay.body)
     conflicted[offset] = 'X'.charCodeAt(0)
     check((await replaySubmission(owner.page, initial.replay, conflicted)).status === 409, 'same-key-conflict')
+    step = 'lost-response'
     proxy.fault.armed = true
     const recovered = await submitThroughComposer(owner.page, png, 'dark', config.output_dir, true)
     check(proxy.fault.saved && proxy.events.some(event => event.dropped && event.key === recovered.replay.key), 'real-lost-response')
@@ -256,6 +275,7 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     assertions.retry = true
 
     // Exercise both accepted source-byte and decoded-pixel ceilings concurrently, not merely tiny padded images.
+    step = 'boundary'
     const maximumPixels = await sharp({ create: { width: 4000, height: 4000, channels: 4, background: '#24445b' } }).png().toBuffer()
     check(maximumPixels.length < 5 * 1024 * 1024, 'boundary-fixture-size')
     const boundaryIds = await memoryBurst(owner.page, maximumPixels, accounts.owner.id)
@@ -265,12 +285,14 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     const images = ownReports.flatMap(report => report.attachments || [])
     check(ownReports.length === 5 && images.length === 15
       && boundaryIds.every(id => ownReports.find(report => report.id === id)?.attachments.length === 3), 'published-counts')
+    step = 'private-reads'
     const other = await login(browser, accounts.other, 'light', contexts)
     for (const context of [owner.context, admin.context]) await imageBytes(context, images[0], sharp)
     const denied = await authenticatedRead(other.context, images[0].download_path)
     check([403, 404].includes(denied.status()), 'other-user-private-denial')
     assertions.private_reads = assertions.other_user_denied = true
 
+    step = 'export'
     await owner.page.goto('/dashboard/settings')
     const exported = pending(owner.page.waitForResponse(response => new URL(response.url()).pathname === '/api/users/export'))
     const download = pending(owner.page.waitForEvent('download'))
@@ -285,6 +307,7 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     await imageBytes(owner.context, exportedImages[0], sharp)
     assertions.export = true
 
+    step = 'account-delete'
     await owner.page.getByRole('button', { name: 'Delete my account', exact: true }).click()
     await owner.page.getByPlaceholder('delete my account', { exact: true }).fill('delete my account')
     const deleted = pending(owner.page.waitForResponse(response => response.request().method() === 'DELETE'
@@ -295,6 +318,12 @@ export async function runBrowser(config, fixtures, proxy, frontend, signal) {
     check(gone.status() === 410, 'deleted-image-denied')
     assertions.account_deleted = true
     return { assertions }
+  } catch (error) {
+    // A Playwright wait or action that fails carries no closed code: name the step it failed in, or the run's deadline
+    // when the runner aborted the browser.
+    if (error instanceof VerificationError) throw error
+    throw new VerificationError(signal?.aborted ? 'verification-deadline'
+      : (error?.name === 'TimeoutError' ? 'timeout-' : 'error-') + step)
   } finally {
     signal?.removeEventListener('abort', abort)
     await Promise.allSettled(contexts.map(context => context.close()))

@@ -1,9 +1,9 @@
 """``main.app`` answers a coded refusal as the HTTPException it replaces did, plus its code (E31-H1).
 
 ``main.py`` registers ``app.api_errors.coded_http_exception_handler`` for ``CodedHTTPException``
-(docs/audit/contracts/error-codes.md §4, "Registration"; this file is §6's item 5). No producer raises one yet, so an
-override of ``get_current_user`` on ``/api/auth/me`` stands in for the first, the 401 A's producer will raise, and
-another override raises the plain HTTPException it replaces, so the comparison holds whatever producers land. Through
+(docs/audit/contracts/error-codes.md §4, "Registration"; this file is §6's item 5). An override of ``get_current_user``
+on ``/api/auth/me`` is a fixed probe route that raises the 401 A coded refusal, and another override raises the plain
+HTTPException it replaces, so the comparison does not depend on any one producer. Through
 every middleware the app runs (CORS, the security headers, the correlation id), the coded answer keeps the plain
 one's status and headers, and its body is the plain body plus ``code``. The other two cases §6 names, an unknown
 code and a known code on the wrong status, cannot be raised through ``CodedHTTPException``: ``test_api_error_codes.py``

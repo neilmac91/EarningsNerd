@@ -37,12 +37,6 @@ export function needsSourceCheck(value: QualityValue): boolean {
   return value.provenance ? value.provenance.validation === 'needs_review' : value.reconciled === false
 }
 
-export function validationLabel(value: QualityValue): string {
-  if (needsSourceCheck(value)) return 'Source check needed'
-  if (value.provenance?.validation === 'passed') return 'Automated checks passed'
-  return 'Validation unavailable'
-}
-
 /** Each reason's words, the same strings as the backend's data_notes.REASONS: the shared notes fixture
  *  (backend/tests/fixtures/analysis_data_notes.json) pins the two maps equal, and the backend's reason gate gives every
  *  reason the backend writes words here. The same message prints for one figure (the dialog, a workbook comment) and for

@@ -31,10 +31,6 @@ def _step():
     return next(step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == STEP)
 
 
-def _split(step):
-    return "", MODULE.read_text()
-
-
 def _literals(code):
     return {node.targets[0].id: ast.literal_eval(node.value) for node in ast.parse(code).body
             if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
@@ -75,10 +71,10 @@ def _container(job):
 @pytest.fixture
 def fixtures():
     """One passing describe fixture per expected job, keyed by name (fresh dicts; mutate freely)."""
-    return {name: _job(name, pool) for name, pool in _literals(_split(_step())[1])["expected_pools"].items()}
+    return {name: _job(name, pool) for name, pool in _literals(MODULE.read_text())["expected_pools"].items()}
 
 
-def _run(tmp_path, monkeypatch, capfd, fixtures, *, files=None, errors=None, cleanup_response=None):
+def _run(monkeypatch, capfd, fixtures, *, files=None, errors=None, cleanup_response=None):
     """Run the entire committed projector, stubbing only fixed external gcloud reads."""
     monkeypatch.setenv("REGION", "us-west1")
     spec = importlib.util.spec_from_file_location("ops_describe_jobs", MODULE)
@@ -124,8 +120,8 @@ def test_describe_jobs_step_uses_the_bounded_complete_collector():
     assert timeout * len(_literals(MODULE.read_text())["expected_pools"]) <= 360
 
 
-def test_describe_jobs_prints_both_pins_and_withholds_command_values(tmp_path, monkeypatch, capfd, fixtures):
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+def test_describe_jobs_prints_both_pins_and_withholds_command_values(monkeypatch, capfd, fixtures):
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is None
     assert output.count("== earningsnerd-") == 9
     assert output.count("  SEC_RATE_LIMIT_PER_SECOND: '1'") == 9 and output.count("  EDGAR_RATE_LIMIT_PER_SEC: '1'") == 9
@@ -142,24 +138,24 @@ def test_describe_jobs_prints_both_pins_and_withholds_command_values(tmp_path, m
 
 @pytest.mark.parametrize("defect", PIN_DEFECTS)
 @pytest.mark.parametrize("pin", ["SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC"])
-def test_describe_jobs_collects_pin_defects_across_all_jobs(tmp_path, monkeypatch, capfd, fixtures, pin, defect):
+def test_describe_jobs_collects_pin_defects_across_all_jobs(monkeypatch, capfd, fixtures, pin, defect):
     container = _container(fixtures["earningsnerd-filing-digest"])
     container["env"] = [entry for entry in container["env"] if entry["name"] != pin]
     if defect == "secret-ref":
         container["env"].append({"name": pin, "valueFrom": {"secretKeyRef": {"name": "PRIVATE_PIN_SECRET_SENTINEL"}}})
     elif defect != "missing":
         container["env"].append({"name": pin, "value": defect})
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None
     assert f"earningsnerd-filing-digest must pin {pin}=1 as a plain value, got " in output
     assert output.count("== earningsnerd-") == 9  # every later block still prints
     assert "describe-jobs: FAIL (1 invariant failure(s); 0 unverified job(s))" in output and "describe-jobs: PASS" not in output
 
 
-def test_describe_jobs_lists_every_value_defect_once(tmp_path, monkeypatch, capfd, fixtures):
+def test_describe_jobs_lists_every_value_defect_once(monkeypatch, capfd, fixtures):
     _container(fixtures["earningsnerd-filing-scan"])["env"][0]["value"] = "2"
     fixtures["earningsnerd-retention-purge"]["spec"]["template"]["spec"]["taskCount"] = 2
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None
     assert "earningsnerd-filing-scan must set plain DB_POOL_SIZE=1; observed 2." in output
     assert "earningsnerd-retention-purge taskCount must be 1." in output
@@ -174,7 +170,7 @@ def test_describe_jobs_lists_every_value_defect_once(tmp_path, monkeypatch, capf
     ("private-image", "image_identity_unresolved"), ("wrong-shape", "unreadable_response"),
     ("too-many-env", "environment_shape_unresolved"),
 ])
-def test_describe_jobs_retains_later_evidence_after_unreadable_job(tmp_path, monkeypatch, capfd, fixtures, defect, expected):
+def test_describe_jobs_retains_later_evidence_after_unreadable_job(monkeypatch, capfd, fixtures, defect, expected):
     name = "earningsnerd-notable-filings"
     target = fixtures[name]
     container = _container(target)
@@ -197,7 +193,7 @@ def test_describe_jobs_retains_later_evidence_after_unreadable_job(tmp_path, mon
         target["spec"] = ["PRIVATE_SHAPE_SENTINEL"]
     else:
         container["env"] = [{"name": "PRIVATE_ENV_NAME_SENTINEL", "value": "value"}] * 257
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures, files=files)
+    output, exit_ = _run(monkeypatch, capfd, fixtures, files=files)
     assert exit_ is not None and f"  read: UNVERIFIED ({expected})" in output
     assert output.count("== earningsnerd-") == 9
     assert output.count("  Summary/SEC runtime configuration:") == 8
@@ -216,8 +212,8 @@ def test_describe_jobs_retains_later_evidence_after_unreadable_job(tmp_path, mon
     (subprocess.TimeoutExpired([], 40, stderr="PRIVATE_ERROR_SENTINEL"), "timeout"),
     (FileNotFoundError("PRIVATE_ERROR_SENTINEL"), "error (gcloud not executable)"),
 ])
-def test_describe_jobs_collects_closed_failure_classes(tmp_path, monkeypatch, capfd, fixtures, error, expected):
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures,
+def test_describe_jobs_collects_closed_failure_classes(monkeypatch, capfd, fixtures, error, expected):
+    output, exit_ = _run(monkeypatch, capfd, fixtures,
                          errors={"earningsnerd-pregenerate": error, "earningsnerd-feedback-media-cleanup": error})
     assert exit_ is not None and output.count(f"  read: UNVERIFIED ({expected})") == 2
     assert output.count("  Summary/SEC runtime configuration:") == 7
@@ -225,49 +221,49 @@ def test_describe_jobs_collects_closed_failure_classes(tmp_path, monkeypatch, ca
     assert "describe-jobs: PASS" not in output
 
 
-def test_unreadable_job_never_masks_readable_drift(tmp_path, monkeypatch, capfd, fixtures):
+def test_unreadable_job_never_masks_readable_drift(monkeypatch, capfd, fixtures):
     del fixtures["earningsnerd-pregenerate"]
     _container(fixtures["earningsnerd-filing-scan"])["env"][0]["value"] = "2"
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None
     assert "describe-jobs: FAIL (1 invariant failure(s); 1 unverified job(s))" in output
 
 
-def test_unexpected_env_names_pool_values_and_task_count_never_print(tmp_path, monkeypatch, capfd, fixtures):
+def test_unexpected_env_names_pool_values_and_task_count_never_print(monkeypatch, capfd, fixtures):
     container = _container(fixtures[BACKFILL])
     container["env"].append({"name": "PRIVATE_ENV_NAME_SENTINEL", "value": "PRIVATE_VALUE_SENTINEL"})
     container["env"][0]["value"] = "PRIVATE_POOL_SENTINEL"
     fixtures[BACKFILL]["spec"]["template"]["spec"]["taskCount"] = "PRIVATE_TASK_COUNT_SENTINEL"
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None and "  DB_POOL_SIZE: <unresolved withheld>" in output
     assert "  taskCount: <invalid withheld>" in output
 
 
-def test_oversized_response_and_total_absence_remain_incomplete(tmp_path, monkeypatch, capfd, fixtures):
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, {},
+def test_oversized_response_and_total_absence_remain_incomplete(monkeypatch, capfd, fixtures):
+    output, exit_ = _run(monkeypatch, capfd, {},
                          files={"earningsnerd-pregenerate": " " * 1_048_577})
     assert exit_ is not None and "UNVERIFIED (response_too_large)" in output
     assert "Job inventory: expected=9 projected=0 unverified=9" in output
     assert "describe-jobs: INCOMPLETE" in output and "do not share one release image" not in output
 
 
-def test_describe_jobs_reports_backfill_entrypoint_drift_without_values(tmp_path, monkeypatch, capfd, fixtures):
+def test_describe_jobs_reports_backfill_entrypoint_drift_without_values(monkeypatch, capfd, fixtures):
     _container(fixtures[BACKFILL])["args"] = ["scripts/backfill_facts.py"]
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None and "== earningsnerd-backfill-facts" in output
     assert "  command/args: DOES NOT MATCH the committed entrypoint (values withheld; compare ci.yml)" in output
     assert "backfill_facts" not in output
 
 
-def test_describe_jobs_fails_on_image_parity_after_printing_all_blocks(tmp_path, monkeypatch, capfd, fixtures):
+def test_describe_jobs_fails_on_image_parity_after_printing_all_blocks(monkeypatch, capfd, fixtures):
     _container(fixtures["earningsnerd-filing-scan"])["image"] = IMAGE.replace("aaaaaaa", "bbbbbbb")
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is not None and "do not share one release image" in output
     assert output.count("== earningsnerd-") == 9 and "describe-jobs: FAIL (1 invariant failure(s); 0 unverified job(s))" in output
 
 
 def test_describe_jobs_literals_match_ci_and_the_other_gates():
-    literals = _literals(_split(_step())[1])
+    literals = _literals(MODULE.read_text())
     pools, entrypoints = literals["expected_pools"], literals["expected_entrypoints"]
     backfill = _ci_step("Update backfill-facts job image and scheduled entrypoint")
     assert entrypoints == {BACKFILL: (["python"], ["scripts/backfill_facts.py", "--only-new"])}
@@ -406,10 +402,10 @@ def test_cleanup_http_success_still_uses_the_existing_safe_job_projection(monkey
 
 @pytest.mark.parametrize("result", [(None, "not_found"), (None, "permission_denied")])
 def test_cleanup_generic_failure_gets_authoritative_class_without_losing_other_jobs(
-    tmp_path, monkeypatch, capfd, fixtures, result,
+    monkeypatch, capfd, fixtures, result,
 ):
     error = subprocess.CalledProcessError(1, [], stderr="PRIVATE_UNCLASSIFIED")
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures,
+    output, exit_ = _run(monkeypatch, capfd, fixtures,
                          errors={"earningsnerd-feedback-media-cleanup": error}, cleanup_response=result)
     assert exit_ is not None and f"UNVERIFIED ({result[1]})" in output
     assert output.count("  Summary/SEC runtime configuration:") == 8

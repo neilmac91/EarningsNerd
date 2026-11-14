@@ -35,13 +35,9 @@ CEILINGS: dict[str, tuple[int, str]] = {
         1,
         "TODO_MAX_LINES bounds the open-items page's length (AGENTS.md §7), a value ceiling, not a list's size",
     ),
-    "tests/unit/test_attribution_verify.py": (
-        1,
-        "MAX_VERIFIABLE_CLAUSES is the batch bound verify.verifiable enforces; the test proves the bound holds",
-    ),
 }
 # Equal to the sites listed, never above them: lower it with a line in the same commit.
-CEILINGS_MAX = 2
+CEILINGS_MAX = 1
 
 
 def _named(node: ast.expr) -> str | None:

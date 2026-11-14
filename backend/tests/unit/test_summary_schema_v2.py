@@ -1,7 +1,7 @@
-"""PR A (Tier-3.1) — the v2 SummaryDoc schema + render + badge dispatch, tested DARK.
+"""The v2 SummaryDoc schema + render + badge dispatch.
 
-Generation still emits v1; these tests exercise the v2 machinery against synthetic v2 payloads so
-the cutover (PR B) lands on proven render + badge code. No live model, no eval.
+Generation emits v2 since the PR B cutover; these tests exercise the v2 machinery against synthetic
+v2 payloads, while legacy v1 rows keep the frozen v1 taxonomy. No live model, no eval.
 """
 from __future__ import annotations
 
@@ -286,7 +286,7 @@ def test_generation_taxonomy_is_v2():
 
 def test_tracked_sections_for_dispatch():
     assert _tracked_sections_for(2) == TRACKED_SECTIONS_V2
-    # v1 arm returns the FROZEN literal, NOT openai's mutable generation constant (PR B re-points
+    # v1 arm returns the FROZEN literal, NOT openai's mutable generation constant (PR B re-pointed
     # that to v2; the badge's v1 taxonomy must stay v1 for legacy rows). Asserting against the frozen
     # literal — not the same import the code uses — is what makes this non-tautological.
     for v1_like in (1, None, "1", 3, "x"):
@@ -296,7 +296,7 @@ def test_tracked_sections_for_dispatch():
 def test_tracked_sections_v1_is_frozen_literal():
     # Pin the exact historical v1 names so a drive-by edit can't silently move the badge's legacy bar.
     # This is a self-contained literal (not compared to openai's generation constant, which PR B
-    # re-points to v2) — the badge's "what a v1 row should contain" is historical fact.
+    # re-pointed to v2) — the badge's "what a v1 row should contain" is historical fact.
     assert TRACKED_SECTIONS_V1 == (
         "executive_snapshot", "financial_highlights", "risk_factors",
         "management_discussion_insights", "segment_performance", "liquidity_capital_structure",
@@ -326,7 +326,7 @@ def test_verdict_coverage_v2_ignores_stray_v1_keys():
 
 def test_verdict_coverage_v1_unchanged():
     # Build per_section from the FROZEN v1 literal (not openai's mutable constant) so this stays
-    # meaningful after PR B re-points the generation tuple to v2.
+    # meaningful after PR B re-pointed the generation tuple to v2.
     per_section = {k: True for k in TRACKED_SECTIONS_V1[:5]}
     summary_data = {"raw_summary": {"schema_version": 1,
                                     "section_coverage": {"per_section": per_section}}}

@@ -125,6 +125,14 @@ def test_example_env_file_holds_only_placeholders(path):
     assert not offenders, f"{path.relative_to(ROOT)} must hold placeholders only: {offenders}"
 
 
+def test_backend_env_example_loads_as_settings_env_file():
+    # The file says to copy it to `.env`; every key it sets must be a Settings field, or the copy
+    # makes `settings = Settings()` raise at import and the backend cannot start.
+    from app.config import Settings
+
+    Settings(_env_file=ROOT / "backend" / ".env.example", SECRET_KEY="s3cure-random-" + "r" * 40)
+
+
 @pytest.mark.parametrize("value", [
     "sk-or-v1-" + "a1" * 32,
     "sb_secret_" + "Zz9" * 8,

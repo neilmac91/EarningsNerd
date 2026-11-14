@@ -98,6 +98,9 @@ export function Modal({
   useEffect(() => {
     onCloseRef.current = onClose
   }, [onClose])
+  // A press that starts in the panel and is released over the scrim (a text-selection drag) clicks the scrim, their
+  // common ancestor: only a press that started on the scrim itself closes.
+  const pressedScrim = useRef(false)
 
   useEffect(() => {
     if (!open) return
@@ -163,7 +166,17 @@ export function Modal({
   return createPortal(
     <div
       className="fixed inset-0 z-modal flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
-      onClick={dismissible ? onClose : undefined}
+      onMouseDown={(e) => {
+        pressedScrim.current = e.target === e.currentTarget
+      }}
+      onClick={
+        dismissible
+          ? (e) => {
+              if (pressedScrim.current && e.target === e.currentTarget) onClose()
+              pressedScrim.current = false
+            }
+          : undefined
+      }
     >
       <div
         ref={panelRef}

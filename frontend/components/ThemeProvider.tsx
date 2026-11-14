@@ -28,7 +28,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Check localStorage for saved theme preference; default to light when none is stored.
     // Must match the pre-paint THEME_BOOTSTRAP in layout.tsx (also light-by-default, no
     // system-preference detection) so there's no hydration theme flip.
-    const savedTheme = localStorage.getItem('theme') as Theme | null
+    let savedTheme: Theme | null = null
+    try {
+      savedTheme = localStorage.getItem('theme') as Theme | null
+    } catch {
+      // Blocked site data makes localStorage throw (SecurityError): fall back to light.
+    }
     const initialTheme = savedTheme ?? 'light'
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration: sync React theme state to persisted localStorage value (SSR-safe pattern)
     setTheme(initialTheme)
@@ -39,7 +44,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setTheme(newTheme)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', newTheme)
+      try {
+        localStorage.setItem('theme', newTheme)
+      } catch {
+        // Blocked storage: the theme still switches for this page.
+      }
     }
     updateTheme(newTheme)
   }

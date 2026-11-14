@@ -29,7 +29,6 @@ interface FilingViewerContextValue {
    * none and leaves the pane's opener as it was.
    */
   requestHighlight: (citation: CopilotCitation, opener?: HTMLElement | null, sourceId?: string) => void
-  clearRequest: () => void
   // Which pane body is active, and how to switch. A citation switches to 'filing' automatically;
   // the [Filing · Ask] tabs and openFiling() (the Filing tab with no citation) switch explicitly.
   activeView: CopilotView
@@ -120,7 +119,6 @@ export function FilingViewerProvider({
     // ...and make sure the pane is actually visible (a closed pane was the EN-01 silent no-op).
     onRequestOpenRef.current?.()
   }, [filingId, ticker, filingType])
-  const clearRequest = useCallback(() => setRequest(null), [])
   const openFiling = useCallback(() => setActiveView('filing'), [])
   // Read as the copy now shown: a metric chip that a breakpoint hid after it opened the pane (EN-03
   // renders each one in two layouts) resolves to its rendered twin, so focus returns to the same chip.
@@ -132,8 +130,8 @@ export function FilingViewerProvider({
   }, [])
 
   const value = useMemo(
-    () => ({ request, requestHighlight, clearRequest, activeView, setActiveView, openFiling, paneOpen, peekOpener, takeOpener }),
-    [request, requestHighlight, clearRequest, activeView, openFiling, paneOpen, peekOpener, takeOpener],
+    () => ({ request, requestHighlight, activeView, setActiveView, openFiling, paneOpen, peekOpener, takeOpener }),
+    [request, requestHighlight, activeView, openFiling, paneOpen, peekOpener, takeOpener],
   )
 
   return <FilingViewerContext.Provider value={value}>{children}</FilingViewerContext.Provider>

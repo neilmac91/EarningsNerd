@@ -37,41 +37,17 @@ class CacheTTL(int, Enum):
     Values are in seconds. These are tuned for EarningsNerd's use cases:
     - XBRL data changes rarely, so long TTL (24h)
     - Filing metadata changes moderately, medium TTL (6h)
-    - Company search is semi-dynamic, shorter TTL (1h)
-    - Session data needs to be fresh, short TTL (30m)
+    - SEC's ticker map is semi-dynamic, shorter TTL (1h)
     """
 
     # Long-lived data (24 hours)
     XBRL_DATA = 86400
-    FILING_CONTENT = 86400
-    MARKDOWN_CACHE = 86400
 
     # Medium-lived data (6 hours)
     FILING_METADATA = 21600
-    COMPANY_INFO = 21600
 
     # Short-lived data (1 hour)
-    COMPANY_SEARCH = 3600
     SEC_TICKERS = 3600
-
-    # Very short-lived data (30 minutes)
-    SESSION = 1800
-    RATE_LIMIT = 1800
-
-
-
-class CacheNamespace(str, Enum):
-    """
-    Cache key namespaces to prevent collisions and enable bulk operations.
-    """
-
-    XBRL = "xbrl"
-    FILING = "filing"
-    COMPANY = "company"
-    SEARCH = "search"
-    SESSION = "session"
-    RATE_LIMIT = "rl"
-    METRICS = "metrics"
 
 
 @dataclass
@@ -109,12 +85,6 @@ _cache_stats = CacheStats()
 def get_cache_stats() -> dict:
     """Get cache statistics for monitoring endpoints."""
     return _cache_stats.to_dict()
-
-
-def reset_cache_stats() -> None:
-    """Reset cache statistics (mainly for testing)."""
-    global _cache_stats
-    _cache_stats = CacheStats()
 
 
 # Global connection pool (initialized lazily with lock protection)
@@ -255,13 +225,16 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
     if _client is not None:
         return _client
 
+    # Resolve the pool before taking the init lock: get_redis_pool takes the same lock, and
+    # asyncio.Lock is not reentrant.
+    pool = await get_redis_pool()
+    if pool is None:
+        return None
+
     async with await _get_init_lock():
         # Double-check after acquiring lock
         if _client is not None:
             return _client
-        pool = await get_redis_pool()
-        if pool is None:
-            return None
         _client = aioredis.Redis(connection_pool=pool)
     return _client
 
@@ -363,17 +336,6 @@ async def close_redis() -> None:
 # =============================================================================
 # Cache Helper Functions
 # =============================================================================
-
-
-def make_cache_key(namespace: CacheNamespace, *parts: str) -> str:
-    """
-    Build a cache key with namespace prefix.
-
-    Example:
-        make_cache_key(CacheNamespace.XBRL, "AAPL", "0000320193-24-000077")
-        # Returns: "xbrl:AAPL:0000320193-24-000077"
-    """
-    return f"{namespace.value}:{':'.join(str(p) for p in parts)}"
 
 
 # Timeout for cache operations to prevent hanging in degraded scenarios
@@ -486,178 +448,3 @@ async def cache_set(
         logger.warning(f"Redis set error for key {key}: {e}")
         _cache_stats.errors += 1
         return False
-
-
-async def cache_delete(key: str) -> bool:
-    """
-    Delete a key from cache.
-
-    Returns True if key was deleted, False otherwise.
-    Has a 2-second timeout to prevent hanging.
-    """
-    global _cache_stats
-
-    if settings.SKIP_REDIS_INIT:
-        return False
-
-    try:
-        client = await asyncio.wait_for(
-            get_redis_client(),
-            timeout=CACHE_OPERATION_TIMEOUT
-        )
-    except asyncio.TimeoutError:
-        logger.warning(f"Redis client acquisition timed out for cache_delete({key})")
-        _cache_stats.errors += 1
-        return False
-
-    if client is None:
-        return False
-
-    try:
-        result = await client.delete(key)
-        if result > 0:
-            _cache_stats.deletes += 1
-        return result > 0
-
-    except RedisError as e:
-        logger.warning(f"Redis delete error for key {key}: {e}")
-        _cache_stats.errors += 1
-        return False
-
-
-async def cache_delete_pattern(pattern: str, max_keys: int = 10000) -> int:
-    """
-    Delete all keys matching a pattern with safety limits.
-
-    Use with caution - this scans the keyspace.
-    Returns number of keys deleted.
-
-    Args:
-        pattern: Redis key pattern (e.g., "xbrl:*")
-        max_keys: Maximum number of keys to delete (safety limit)
-
-    Example:
-        # Delete all XBRL cache entries
-        await cache_delete_pattern("xbrl:*")
-    """
-    global _cache_stats
-
-    if settings.SKIP_REDIS_INIT:
-        return 0
-
-    try:
-        client = await asyncio.wait_for(
-            get_redis_client(),
-            timeout=CACHE_OPERATION_TIMEOUT
-        )
-    except asyncio.TimeoutError:
-        logger.warning(f"Redis client acquisition timed out for cache_delete_pattern({pattern})")
-        _cache_stats.errors += 1
-        return 0
-
-    if client is None:
-        return 0
-
-    try:
-        deleted = 0
-        async for key in client.scan_iter(match=pattern, count=100):
-            # Safety limit to prevent unbounded operations
-            if deleted >= max_keys:
-                logger.warning(
-                    "cache_delete_pattern reached max_keys limit",
-                    extra={"pattern": pattern, "max_keys": max_keys, "deleted": deleted}
-                )
-                break
-            try:
-                await asyncio.wait_for(
-                    client.delete(key),
-                    timeout=CACHE_OPERATION_TIMEOUT
-                )
-                deleted += 1
-            except asyncio.TimeoutError:
-                logger.warning(f"Timeout deleting key: {key}")
-                _cache_stats.errors += 1
-                continue
-
-        if deleted > 0:
-            _cache_stats.deletes += deleted
-            logger.info(f"Deleted {deleted} keys matching pattern {pattern}")
-
-        return deleted
-
-    except RedisError as e:
-        logger.warning(f"Redis delete pattern error for {pattern}: {e}")
-        _cache_stats.errors += 1
-        return 0
-
-
-async def cache_get_or_set(
-    key: str,
-    factory: callable,
-    ttl: int = CacheTTL.FILING_METADATA,
-) -> Optional[Any]:
-    """
-    Get a value from cache, or compute and cache it if missing.
-
-    This is a convenience method for the common cache-aside pattern.
-
-    Args:
-        key: Cache key
-        factory: Async function to compute the value if not cached
-        ttl: Time to live in seconds
-
-    Returns:
-        Cached or computed value, or None if computation fails
-    """
-    # Try to get from cache first
-    cached = await cache_get(key)
-    if cached is not None:
-        return cached
-
-    # Compute the value
-    try:
-        if asyncio.iscoroutinefunction(factory):
-            value = await factory()
-        else:
-            value = factory()
-
-        if value is not None:
-            await cache_set(key, value, ttl)
-
-        return value
-
-    except Exception as e:
-        logger.warning(f"Cache factory error for key {key}: {e}")
-        return None
-
-
-async def cache_exists(key: str) -> bool:
-    """Check if a key exists in cache."""
-    client = await get_redis_client()
-    if client is None:
-        return False
-
-    try:
-        return await client.exists(key) > 0
-    except RedisError as e:
-        logger.warning(f"Redis exists error for key {key}: {e}")
-        return False
-
-
-async def cache_ttl(key: str) -> Optional[int]:
-    """
-    Get remaining TTL for a key in seconds.
-
-    Returns None if key doesn't exist or Redis is unavailable.
-    Returns -1 if key has no TTL (persistent).
-    Returns -2 if key doesn't exist.
-    """
-    client = await get_redis_client()
-    if client is None:
-        return None
-
-    try:
-        return await client.ttl(key)
-    except RedisError as e:
-        logger.warning(f"Redis TTL error for key {key}: {e}")
-        return None

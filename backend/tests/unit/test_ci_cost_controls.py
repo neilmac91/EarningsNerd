@@ -31,7 +31,6 @@ RECORD_PATHS = ("tasks/todo.md", APPOINTMENTS, EXCLUSION)
 
 
 BROWSER_INPUTS_OUTSIDE_FRONTEND = (
-    "backend/app/public_email_addresses.json",
     "backend/tests/fixtures/analysis_later_filings.json",
     "backend/tests/fixtures/analysis_first_reports_produced.json",
     "docs/brand/templates/email-header.html",
@@ -538,17 +537,21 @@ def test_the_nightly_run_tests_main_unless_a_run_already_tested_its_tip(history,
 SCANNED_SUFFIXES = {".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".cjs", ".css"}
 
 
-def outside_frontend_references(frontend=None):
+def outside_frontend_references(frontend=None, specs=True):
     """Files outside frontend/ that the frontend's build or browser specs name in a path literal.
 
-    The browser jobs build frontend/ and run tests/e2e against it. Turbopack's root is the repository
-    (frontend/next.config.js), so an import can leave frontend/, and a spec can read any file. Each quoted literal
+    The browser jobs build frontend/ and run tests/e2e against it. A spec can read any file; a shipped file may
+    read none outside frontend/ (test_frontend_build_filter.py), and the scan reads both. Each quoted literal
     that holds ``../`` is resolved two ways: against its file's directory, as an import or a ``__dirname`` join
     reads it, and against frontend/, the directory the jobs run in, as a bare ``readFileSync('../backend/x')`` reads
     it (kept only when the file exists, since most literals are meant the first way). A literal under the ``@/``
     alias is resolved against frontend/ alone. tests/unit runs in frontend-tests, which no scope skips, so it is
-    read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs. A path built from
+    read only where a scanned file imports from it; scripts/ holds tools no CI browser job runs, and .open-next/
+    and .wrangler/ are the untracked output of a local Workers build (`npm run cf:build`). A path built from
     separate segments (``path.join(dir, '..', 'backend')``) is outside this check: write such a path as one literal.
+
+    ``specs=False`` reads the build alone, as Vercel runs it (test_frontend_build_filter.py): no file under tests/
+    starts the scan, and one is read only where a shipped file imports it.
     """
     frontend = frontend or ROOT / "frontend"
     root = frontend.parent
@@ -558,10 +561,13 @@ def outside_frontend_references(frontend=None):
     def scanned(path):
         relative = path.relative_to(frontend)
         return (path.is_file() and path.suffix in SCANNED_SUFFIXES
-                and relative.parts[0] not in {"node_modules", ".next", "scripts"})
+                and relative.parts[0] not in {"node_modules", ".next", ".open-next", ".wrangler", "scripts"})
 
-    queue = [path for path in sorted(frontend.rglob("*"))
-             if scanned(path) and path.relative_to(frontend).parts[:2] != ("tests", "unit")]
+    def starts_the_scan(path):
+        parts = path.relative_to(frontend).parts
+        return parts[:2] != ("tests", "unit") if specs else parts[0] != "tests"
+
+    queue = [path for path in sorted(frontend.rglob("*")) if scanned(path) and starts_the_scan(path)]
     seen = set(queue)
     while queue:
         source = queue.pop()
@@ -572,9 +578,10 @@ def outside_frontend_references(frontend=None):
             for base in ([frontend] if aliased else [source.parent, frontend]):
                 target = Path(os.path.normpath(base / text.removeprefix("@/")))
                 if target == frontend or frontend in target.parents:
-                    # A unit-test module or fixture that a scanned file imports is read by the browser jobs too.
+                    # A test module or fixture that a scanned file imports is read with it. With the specs, that
+                    # is a tests/unit one, since everything else under tests/ already started the scan.
                     for module in (target, *(target.with_name(target.name + suffix) for suffix in SCANNED_SUFFIXES)):
-                        if module not in seen and frontend / "tests" / "unit" in module.parents and scanned(module):
+                        if module not in seen and frontend / "tests" in module.parents and scanned(module):
                             seen.add(module)
                             queue.append(module)
                 elif base == source.parent and not aliased or root in target.parents and target.exists():
@@ -607,6 +614,12 @@ def test_the_scan_reads_each_way_a_frontend_file_names_a_file_outside_frontend(t
     found = outside_frontend_references(frontend)
     assert {path.relative_to(tmp_path).as_posix() for path in found} == {
         "backend/a.json", "backend/b.json", "backend/c.json", "backend/d.json", "backend/e.json", "backend/f.css"}
+    # The build alone: what the specs read is left out, until a shipped file imports the module that reads it.
+    build_alone = outside_frontend_references(frontend, specs=False)
+    assert {path.relative_to(tmp_path).as_posix() for path in build_alone} == {"backend/d.json", "backend/f.css"}
+    (frontend / "lib/through-a-spec.ts").write_text("import { helper } from '../tests/unit/helper'\n", encoding="utf-8")
+    assert tmp_path / "backend/e.json" in outside_frontend_references(frontend, specs=False)
+    (frontend / "lib/through-a-spec.ts").unlink()
     # A literal that leaves frontend/ for a file that is not there is kept, so the gate below fails on it.
     (frontend / "tests/e2e/gone.spec.ts").write_text("readFileSync(path.join(__dirname, '../../../backend/gone.json'))\n")
     assert tmp_path / "backend/gone.json" in outside_frontend_references(frontend)
@@ -791,6 +804,25 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     assert set(ci["jobs"]["deploy-backend"]["needs"]) == {
         "backend-tests", "frontend-tests", "migrations-postgres", "e2e-tests", "secret-scan",
     }
+
+
+def test_the_workers_build_checks_staging_and_never_holds_a_backend_release():
+    # Staging's Worker is built, sized and requested by worker-build (docs/DEPLOYMENT.md, "Frontend on Cloudflare
+    # Workers (staging)"). It runs when the test jobs run, and deploy-backend does not wait for it: a fault in the
+    # Workers toolchain must not stop a backend release, which is not retried.
+    jobs = workflow()["jobs"]
+    job = jobs["worker-build"]
+    assert job["needs"] == ["ci-scope"] and job["if"] == TESTS_IF and "continue-on-error" not in job
+    assert "worker-build" not in jobs["deploy-backend"]["needs"]
+    runs = [step.get("run", "") for step in job["steps"]]
+    assert "npm run cf:build" in runs
+    check = runs[-1]
+    # The size is refused from 8 MiB (Cloudflare's limit is 10), and a size the step cannot read is refused too.
+    assert '=~ ^[0-9]+$ ]] || [ "$gzip_kib" -ge 8192 ]' in check and "npx wrangler deploy --dry-run" in check
+    assert "npx wrangler dev" in check and "grep -qi '^x-robots-tag: noindex, nofollow' headers.txt" in check
+    assert all("if" not in step and "continue-on-error" not in step for step in job["steps"])
+    # No step may reach a Cloudflare account: the job holds no credential.
+    assert "CLOUDFLARE" not in str(job) and "secrets." not in str(job)
 
 
 def test_the_ready_mark_starts_the_run_that_tests_the_head_and_the_paid_eval():

@@ -1,7 +1,7 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { format } from 'date-fns'
+import { formatInstant } from '@/lib/format'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon } from '@/lib/icons'
@@ -17,15 +17,6 @@ import FeedbackStatusBadge from '@/features/admin/components/FeedbackStatusBadge
 import FeedbackTypeBadge from '@/features/admin/components/FeedbackTypeBadge'
 
 const STATUS_OPTIONS: FeedbackStatus[] = ['new', 'triaged', 'resolved']
-
-/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
- *  ("unavailable"), never a bare token. */
-function fmtDate(value: string | null): string | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  return format(d, 'MMM d, yyyy')
-}
 
 interface FeedbackRowProps {
   feedback: FeedbackRecord
@@ -101,7 +92,7 @@ export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: Fe
         </span>
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(feedback.created_at) ?? <MissingValue />}
+        {formatInstant(feedback.created_at, 'MMM d, yyyy') || <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 align-top text-sm">
         <div className="flex items-center gap-2">

@@ -99,10 +99,7 @@ const UNSOURCED: Record<string, string> = {
   'DashboardError authentication': DASHBOARD_UNSOURCED,
   'DashboardError auth': DASHBOARD_UNSOURCED,
 }
-/** Seeded at 2 when the api modules were scanned; raised to 7 when the scan reached app/dashboard/error.tsx
-    and ContactForm.tsx (2026-10-13); lowered to 6 when #1303 read the contact form's rate limit from the status
-    (2026-10-15), so ContactForm.tsx tests no message word; lowered to 5 when #1293's 401 fallback wrote
-    "Sign in again to generate this summary." (2026-10-16), so "sign in" has a source. It only falls after. */
+/** The UNSOURCED entries above: the four DashboardError phrases. It only falls after. */
 const UNSOURCED_MAX = 4
 
 /** Literal tests the scan reads that test something other than a message the code writes. */
@@ -116,7 +113,6 @@ const NOT_MESSAGES: Record<string, string> = {
   'lib/api/client.ts includes Network Error': "axios's own error message, not the backend's",
   'lib/api/client.ts includes ECONNREFUSED': "axios's own error code, not the backend's",
   'lib/api/client.ts includes timeout': "axios's own error message, not the backend's",
-  'features/summaries/hooks/useSummaryGeneration.ts includes timeout': "axios's own error message (\"timeout of …ms exceeded\"), not the backend's: the test lib/api/client.ts makes",
 }
 
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']

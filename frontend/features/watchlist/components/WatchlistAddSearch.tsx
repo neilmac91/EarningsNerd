@@ -23,6 +23,10 @@ export default function WatchlistAddSearch() {
   const [justAdded, setJustAdded] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const justAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (justAddedTimer.current) clearTimeout(justAddedTimer.current)
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 300)
@@ -64,7 +68,8 @@ export default function WatchlistAddSearch() {
       // onFocus reopens the results, and the close has to land after it.
       if (containerRef.current?.contains(document.activeElement)) inputRef.current?.focus()
       setOpen(false)
-      setTimeout(() => setJustAdded(null), 2500)
+      if (justAddedTimer.current) clearTimeout(justAddedTimer.current)
+      justAddedTimer.current = setTimeout(() => setJustAdded(null), 2500)
     },
   })
 

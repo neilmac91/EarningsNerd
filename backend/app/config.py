@@ -598,7 +598,7 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_GENERATIONS: int = 6
 
     # AI Recovery Settings
-    RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent section-recovery API calls per process
+    RECOVERY_MAX_CONCURRENCY: int = Field(default=3, ge=1)  # Max concurrent section-recovery API calls per process
 
     # E09b: chat admission. At most this many in-flight Copilot chat / Analysis narration
     # provider streams per process; excess chat requests wait for a slot within their own budget
@@ -722,7 +722,7 @@ class Settings(BaseSettings):
         elif not any(provider in self.OPENAI_BASE_URL.lower() for provider in valid_providers):
             warnings.append(
                 f"OPENAI_BASE_URL ({self.OPENAI_BASE_URL}) does not appear to be a supported provider. "
-                "Expected Google AI Studio or OpenRouter."
+                "Expected DeepSeek, Google AI Studio or OpenRouter."
             )
         
         # Check API key

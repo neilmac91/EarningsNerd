@@ -1123,7 +1123,7 @@ def _select_source_text(filing: Any) -> Optional[str]:
 def _is_no_total_bank(xbrl_standardized: Optional[dict]) -> bool:
     """True when the standardized metrics describe a bank that reports NO single revenue line —
     net/non-interest income components present but no populated ``revenue`` total. Mirrors
-    ``openai_service._is_no_total_bank`` (kept as a small independent copy to avoid import coupling);
+    ``ai.bank_guards._is_no_total_bank`` (kept as a small independent copy to avoid import coupling);
     both gate the drop of a conflated bank "Revenue" row."""
     if not isinstance(xbrl_standardized, dict):
         return False

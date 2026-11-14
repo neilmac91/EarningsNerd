@@ -128,6 +128,57 @@ ERROR_REASONS = frozenset({
 })
 # A denied permission is named only when it is one these operations' steps name; any other reads as unlisted.
 KNOWN_PERMISSIONS = PROVISION_PERMISSIONS | {ACT_AS, IMAGE_READ, "run.services.update"}
+# A BadRequest names the request fields it refuses. A field path is schema, not data, so it is named only in a closed
+# shape: dotted lowercase words in snake or camel case, each with at most a three-digit index. That shape cannot carry
+# an address, a URL, a number beyond an index, a separator, or a hyphenated or uppercase-led name; FIELD_NAMES below
+# masks any word that is not a Cloud Run field name. At most three are named.
+BAD_REQUEST = "type.googleapis.com/google.rpc.BadRequest"
+FIELD_SEGMENT = r"[a-z]{1,24}(?:_[a-z]{1,24}|[A-Z][a-z]{1,24}){0,6}(?:\[[0-9]{1,3}\])?"
+FIELD_PATH = re.compile(rf"{FIELD_SEGMENT}(?:\.{FIELD_SEGMENT}){{0,11}}")
+# Cloud Run v2 writes the field as "Violation in <request type>.<path>", for example "Violation in
+# CreateJobRequest.job.template.template.volumes[0].name"; the path after a request type of this shape is named.
+REQUEST_FIELD = re.compile(r"Violation in (?:[A-Z][a-z]{1,24}){2,4}Request\.(.+)")
+NAMED_FIELDS = 3
+# The words a named path may hold: the Cloud Run v2 request fields and the field names of its job and service
+# resources, from its API discovery document, in snake case (camel case is matched as snake). The shape alone admits
+# a value shaped like a field name ("invite_only"), so any other word is printed as "?", and a path with no word from
+# this list is not named at all.
+FIELD_NAMES = frozenset("""
+    job service execution worker_pool job_id service_id parent update_mask allow_missing validate_only
+    accelerator annotations args base_image_uri binary_authorization breakglass_justification bucket build_config
+    build_id build_info clear_args client client_version cloud_sql_instance cloud_storage_source command
+    concurrency_utilization conditions connector container_overrides container_port containers cpu_idle
+    cpu_utilization create_time creator custom_audiences default_mode default_uri_disabled delay_execution delete_time
+    depends_on description egress empty_dir encryption_key encryption_key_revocation_action
+    encryption_key_shutdown_duration env etag execution_count execution_environment expire_time failure_threshold
+    function_target gcs generation gpu_zonal_redundancy_disabled grpc health_check_disabled http_get http_headers
+    iap_enabled image ingress initial_delay_seconds inlined_source instances invoker_iam_disabled items labels
+    last_modifier latest_created_execution latest_created_revision latest_ready_revision launch_stage limits
+    liveness_probe manual_instance_count max_instance_count max_instance_request_concurrency max_retries medium mesh
+    min_instance_count mode mount_options mount_path multi_region_settings name network network_interfaces nfs
+    node_selector observed_generation overrides parallelism path percent period_seconds policy port ports
+    priority_tier read_only readiness_probe reconciling resources revision run_execution_token satisfies_pzs scaling
+    scaling_mode secret secret_key_ref server service_account service_mesh session_affinity size_limit source_code
+    source_location start_execution_token startup_cpu_boost startup_probe sub_path subnetwork tag tags task_count
+    tcp_socket template terminal_condition threat_detection_enabled timeout timeout_seconds traffic traffic_statuses
+    type uid update_time uri urls use_default value value_source version volume_mounts volumes vpc_access working_dir
+""".split())
+
+
+def field_path(field: str) -> str | None:
+    """A refused field's path in its closed shape with each word from FIELD_NAMES (any other as "?"), or None: never
+    any other text the provider wrote."""
+    if len(field) > 256:
+        return None
+    request = REQUEST_FIELD.fullmatch(field)
+    path = request[1] if request else field
+    if not FIELD_PATH.fullmatch(path):
+        return None
+    segments = [re.fullmatch(r"([A-Za-z_]+)(\[[0-9]{1,3}\])?", segment).groups("") for segment in path.split(".")]
+    known = [re.sub(r"(?<!^)(?=[A-Z])", "_", word).lower() in FIELD_NAMES for word, _ in segments]
+    if not any(known):
+        return None
+    return ".".join((word if named else "?") + index for (word, index), named in zip(segments, known))
 
 
 class OperationError(RuntimeError):
@@ -142,7 +193,8 @@ class ProviderError(OperationError):
 
 
 def error_class(raw: bytes) -> str:
-    """Reduce a provider error body to closed values: its status, ErrorInfo reasons and a known denied permission."""
+    """Reduce a provider error body to closed values: its status, ErrorInfo reasons, a known denied permission and
+    the closed-shape paths of the request fields a BadRequest refuses."""
     try:
         error = json.loads(raw)["error"]
         details = [item for item in error.get("details", []) if isinstance(item, dict)]
@@ -154,6 +206,10 @@ def error_class(raw: bytes) -> str:
                  if isinstance(item.get("metadata"), dict) and isinstance(item["metadata"].get("permission"), str)}
         values += sorted({f"denied {name}" if name in KNOWN_PERMISSIONS else "denied an unlisted permission"
                           for name in named})
+        refused = {field_path(row["field"]) for item in details
+                   if item.get("@type") == BAD_REQUEST and isinstance(item.get("fieldViolations"), list)
+                   for row in item["fieldViolations"] if isinstance(row, dict) and isinstance(row.get("field"), str)}
+        values += [f"field {path}" for path in sorted(refused - {None})[:NAMED_FIELDS]]
     except Exception:  # a malformed body yields no class; the labelled refusal itself stands
         return ""
     return "".join(f"; {value}" for value in values)
@@ -821,10 +877,6 @@ def task_differences(task: dict, expected: dict, args: list[str]) -> list[str]:
                                                  {item["name"]: item for item in wanted["env"]})
 
 
-def matches_task(task: dict, expected: dict, args: list[str]) -> bool:
-    return not task_differences(task, expected, args)
-
-
 def serving_digest(cloud: Cloud, service: dict) -> str | None:
     """The image digest Cloud Run resolved for production's revision, or None unless one revision serves all traffic.
 
@@ -887,10 +939,6 @@ def execution_gaps(execution: dict | None, expected: dict, args: list[str], dige
     except (KeyError, ValueError, TypeError):
         gaps.append("no completion time")
     return gaps
-
-
-def recent_success(execution: dict | None, expected: dict, args: list[str]) -> bool:
-    return not execution_gaps(execution, expected, args)
 
 
 def inspect_role(cloud: Cloud) -> bool:

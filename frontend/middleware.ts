@@ -30,10 +30,10 @@ const ALLOWED_PATHS = new Set([
 
 // Demo surfaces are reachable even while the waitlist gate is up, so prospective users
 // can experience the core product (choose company -> pick filing -> get summary) before
-// signing up. The homepage `/` stays gated and still routes to /waitlist. '/icons/' keeps its trailing
-// slash because it passes a directory of files, not a route, so a look-alike such as /iconsx stays gated
-// (middleware.spec.ts); the older prefixes are left in their original form.
-const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/icons/', '/company', '/filing']
+// signing up. The homepage `/` stays gated and still routes to /waitlist. '/icons/' and '/fonts/' keep their
+// trailing slash because each passes a directory of files, not a route, so a look-alike such as /iconsx stays
+// gated (middleware.spec.ts); the older prefixes are left in their original form.
+const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/icons/', '/fonts/', '/company', '/filing']
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings', '/admin']

@@ -462,7 +462,7 @@ def build_legacy_cards(run: SummaryRun) -> None:
             })
 
     # Financial Overview section
-    if run.financial_section:
+    if isinstance(run.financial_section, dict):
         financial_content_parts = []
         table = run.financial_section.get("table", [])
         if table:

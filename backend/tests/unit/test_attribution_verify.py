@@ -120,10 +120,18 @@ def test_only_clauses_with_passages_are_sent_and_the_batch_is_bounded():
     takeaways = [f"Metric {i} rose 5%, driven by an unrelated invented cause number {i}." for i in range(30)]
     sections = {"the_print": {"headline": "", "key_takeaways": takeaways, "what_changed": ""}}
     _checked, candidates = find_attributions(sections, FILING)
+    assert len(candidates) > MAX_VERIFIABLE_CLAUSES
+    assert verify.verifiable(candidates) == []
+
+    takeaways = [f"Metric {i} improved, driven by higher server revenue due to a 27% increase in server ASPs."
+                 for i in range(30)]
+    sections = {"the_print": {"headline": "", "key_takeaways": takeaways, "what_changed": ""}}
+    _checked, candidates = find_attributions(sections, FILING)
     judged = verify.verifiable(candidates)
     assert len(candidates) > MAX_VERIFIABLE_CLAUSES
-    assert len(judged) <= MAX_VERIFIABLE_CLAUSES
-    assert all(c.evidence for c in judged)
+    assert all(c.evidence for c in candidates)
+    assert len(judged) == MAX_VERIFIABLE_CLAUSES
+    assert judged == candidates[:MAX_VERIFIABLE_CLAUSES]
 
 
 def test_the_audit_note_reports_what_was_sent_decided_and_why_not():
@@ -170,7 +178,6 @@ async def _service(handler):
     service.model = 'deepseek-v4-pro'
     service.fallback_client = None
     service._task_models = {}
-    service._model_overrides = {}
     service._recovery_semaphore = asyncio.Semaphore(1)
     async with AsyncOpenAI(api_key='offline', base_url='https://api.deepseek.com/v1', max_retries=0,
                            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler))) as client:

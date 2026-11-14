@@ -27,7 +27,7 @@ Skills for reasoning and decision-making workflows:
 - **karpathy-guidelines** - Baseline coding behaviour; `CLAUDE.md` names it.
 
 ### Workflows (`.claude/workflows/`)
-- **premerge-review** - Risk-tiered PR review (`AGENTS.md` §5): `records` one Sonnet lens and no refuters, `routine` one Opus lens plus one Sonnet refuter per blocker, `high` three Opus lenses plus two Opus refuters per blocker or should-fix; a missing tier reviews as `high`. Pass `tier` on each PR in `args.prs`, and from round 2 `round` and `fixBase` (round 3 adds `reason`, round 4 `founderGo`; `AGENTS.md` §5).
+- **premerge-review** - Risk-tiered PR review (`AGENTS.md` §5): `records` one Sonnet lens and no refuters, `routine` one Opus lens plus one Sonnet refuter per blocker, `high` three Opus lenses plus two Opus refuters per blocker or should-fix; a missing tier reviews as `high`. Pass `tier` on each PR in `args.prs`. One round unless round 1 found a blocker: from round 2 pass `round`, `fixBase` and `reason` (the blocker whose fix it reviews), and from round 3 `founderGo` (the founder's words; `AGENTS.md` §5).
 
 ### Payments (`/payments`)
 Skills for payment processing integrations:

@@ -43,3 +43,9 @@ async def test_circuit_open_handler_defaults_retry_after_when_unknown():
 
     assert response.status_code == 503
     assert int(response.headers["Retry-After"]) == 30
+
+
+def test_main_app_registers_the_circuit_open_handler():
+    import main
+
+    assert main.app.exception_handlers[CircuitOpenError] is main.circuit_open_exception_handler

@@ -1,4 +1,5 @@
 
+import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
@@ -79,10 +80,9 @@ async def test_stream_with_newly_cached_content():
             content = response.text
              
             # Verify we didn't crash with TypeError
-            if "error" in content.lower():
-                 print(f"FAILED CONTENT: {content}")
-            
-            assert "error" not in content.lower() or "complete" in content.lower()
+            frames = [json.loads(line[len("data: "):]) for line in content.split("\n") if line.startswith("data: ")]
+            assert not [f for f in frames if f.get("type") == "error"], f"FAILED FRAMES: {frames}"
+            assert frames and frames[-1].get("type") == "complete", f"FAILED FRAMES: {frames}"
             
     finally:
         app.dependency_overrides.clear()

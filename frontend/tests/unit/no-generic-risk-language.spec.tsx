@@ -33,6 +33,7 @@ describe('Risk factors include supporting evidence', () => {
               summary: 'Filing excerpt',
               supporting_evidence: '“Supply chain constraints persisted through Q3.”',
             },
+            { summary: 'Generic statement with no evidence.' },
           ],
           _risk_source_projection: { version: 1, verified_count: 1, withheld_count: 1 },
         },
@@ -41,6 +42,8 @@ describe('Risk factors include supporting evidence', () => {
 
     render(<SummaryBlocks sections={sections} summary={summary} />)
 
+    // A row's text is its excerpt, never its summary: the evidence-less risk would show as a second row.
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(1)
     expect(screen.getByRole('heading', { level: 3, name: 'Supply chain constraints persisted through Q3' })).toBeInTheDocument()
     expect(screen.getByText(/Supply chain constraints persisted/, { selector: 'blockquote' })).toBeInTheDocument()
     expect(screen.getByText(/1 withheld because the evidence could not be matched/)).toBeInTheDocument()

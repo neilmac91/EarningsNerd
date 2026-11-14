@@ -275,7 +275,9 @@ def test_standalone_cleanup_continues_cloud_teardown_without_database_credential
     assert manage.main(["cleanup", "--plan", str(plan_file), "--output", str(receipt_file),
                         "--expected-plan-sha256", doc["sha256"], "--approval-nonce", manifest["nonce"]]) == 1
     receipt = json.loads(receipt_file.read_text())
-    assert "private-" not in receipt_file.read_text() + capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "private-" not in receipt_file.read_text() + printed
+    assert json.loads(printed)["plan_sha256"] == doc["sha256"]
     assert {path for _, path, method, _ in cloud.seen if method == "POST" and path.endswith(":pause")} == {
         "v2/" + queue["name"] + ":pause" for queue in manifest["queues"]}
     for api, path, kind in manage.resources(manifest):

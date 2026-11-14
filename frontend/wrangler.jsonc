@@ -1,0 +1,30 @@
+// The Cloudflare Workers STAGING copy of the frontend, at https://staging.earningsnerd.io: the same app as
+// production, built for Workers, calling the production API. It serves no production hostname; production is still
+// Vercel (vercel.json). docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)".
+// tests/unit/cloudflareWorkerConfig.spec.ts holds this file to open-next.config.ts and cloudflare-worker.mjs. Keep
+// each comment on a line of its own: the spec reads the file by dropping those lines.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "earningsnerd-frontend-staging",
+  "main": "cloudflare-worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  // No "placement": Smart Placement moved the Worker away from the reader and roughly doubled the first byte of
+  // cached pages, which are most requests.
+  // A custom domain: Cloudflare creates the hostname's DNS record and certificate. Its edge cache and the API's CORS
+  // list work on this hostname and not on a workers.dev address, which is therefore switched off.
+  "routes": [{ "pattern": "staging.earningsnerd.io", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend-staging" }],
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "earningsnerd-frontend-staging-cache" }],
+  "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+  "vars": {
+    // middleware.ts sends every page to /waitlist unless this is exactly "false", so it is always stated here.
+    "WAITLIST_MODE": "false",
+    // cloudflare-worker.mjs marks every response noindex while this is "true": a copy of the site must not be indexed.
+    "ROBOTS_NOINDEX": "true"
+  }
+}

@@ -35,10 +35,3 @@ export const getFiling = async (filingId: number): Promise<Filing> => {
   const response = await api.get(`/api/filings/${filingId}`)
   return response.data
 }
-
-export const getRecentFilings = async (limit: number = 10): Promise<Filing[]> => {
-  const response = await api.get('/api/filings/recent/latest', {
-    params: { limit },
-  })
-  return response.data
-}

@@ -122,7 +122,5 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 - **MFA (P2):** optional TOTP via `pyotp` + hashed recovery codes, opt-in.
 - **Distributed rate limiting (P2):** in-memory limiters don't share across instances; move to
   Redis/Memorystore when scaling past one Cloud Run instance.
-- **X-Forwarded-For trust (P2):** `_get_client_ip` trusts the left-most (spoofable) XFF value;
-  set a trusted-proxy depth for the Cloud Run topology.
 - **Retention purge jobs (P2):** scheduled cleanup of expired refresh tokens and aged audit logs.
 - **Log scrubbing (P3):** plaintext email/IP still appear in some application logs (e.g. contact).

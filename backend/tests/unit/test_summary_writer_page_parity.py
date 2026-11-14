@@ -96,6 +96,7 @@ XBRL_INPUTS = [
     None,
     {},
     {"revenue": {"current": {"value": 1_000_000_000, "period": "FY2025"}}},
+    {"revenue": [{"value": 1_000_000_000, "period": "FY2025"}]},
 ]
 
 

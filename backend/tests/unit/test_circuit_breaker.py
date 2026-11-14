@@ -5,6 +5,7 @@ Tests for the circuit breaker pattern implementation for SEC EDGAR API.
 """
 
 import asyncio
+import logging
 import pytest
 
 from app.services.edgar.circuit_breaker import (
@@ -262,17 +263,173 @@ class TestCircuitBreakerConcurrency:
         # First request should go through
         async def request1():
             async with circuit:
-                await asyncio.sleep(0.1)  # Hold the semaphore
+                await asyncio.sleep(0.1)  # Hold the slot
 
         task1 = asyncio.create_task(request1())
-        await asyncio.sleep(0.01)  # Let task1 acquire semaphore
+        await asyncio.sleep(0.01)  # Let task1 take the slot
 
-        # Second request should be rejected (semaphore full)
+        # Second request should be rejected (no slot free)
         with pytest.raises(CircuitOpenError):
             async with circuit:
                 pass
 
         await task1
+
+    @staticmethod
+    def _half_open_circuit(max_requests: int) -> CircuitBreaker:
+        return CircuitBreaker(
+            "test_probe_slots",
+            config=CircuitBreakerConfig(
+                failure_threshold=1,
+                success_threshold=2,
+                recovery_timeout=0.05,
+                half_open_max_requests=max_requests,
+            )
+        )
+
+    @staticmethod
+    async def _trip(circuit: CircuitBreaker) -> None:
+        with pytest.raises(EdgarTimeoutError):
+            async with circuit:
+                raise EdgarTimeoutError("test")
+        await asyncio.sleep(0.1)
+        assert circuit.state == CircuitState.HALF_OPEN
+
+    @pytest.mark.asyncio
+    async def test_a_probe_that_ends_after_the_circuit_reopened_gives_its_slot_back(self):
+        """Probes that end after another probe's failure reopened the circuit used to keep their
+        slots; once every slot was gone, each half-open window rejected every probe for good."""
+        circuit = self._half_open_circuit(3)
+        await self._trip(circuit)
+
+        for _ in range(4):  # more rounds than there are slots
+            first_failed = asyncio.Event()
+
+            async def failing_probe():
+                async with circuit:
+                    raise EdgarTimeoutError("still down")
+
+            async def slow_probe():
+                async with circuit:
+                    await first_failed.wait()  # ends only after the circuit has reopened
+
+            slow = [asyncio.create_task(slow_probe()) for _ in range(2)]
+            await asyncio.sleep(0)  # both slow probes are admitted
+            with pytest.raises(EdgarTimeoutError):
+                await failing_probe()
+            assert circuit._state == CircuitState.OPEN
+            first_failed.set()
+            await asyncio.gather(*slow)
+            await asyncio.sleep(0.1)
+            assert circuit.state == CircuitState.HALF_OPEN
+
+        # The service is back: two probes pass and the circuit closes.
+        async with circuit:
+            pass
+        async with circuit:
+            pass
+        assert circuit.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_a_call_admitted_while_closed_frees_no_probe_slot(self):
+        """A call admitted while the circuit was closed took no slot, so ending while the circuit is
+        half-open must not add one: the limit on concurrent probes would grow by one each time."""
+        circuit = self._half_open_circuit(1)
+        release = asyncio.Event()
+
+        async def long_call():
+            async with circuit:
+                await release.wait()
+
+        admitted_closed = asyncio.create_task(long_call())
+        await asyncio.sleep(0)
+        await self._trip(circuit)
+
+        probe_release = asyncio.Event()
+
+        async def probe():
+            async with circuit:
+                await probe_release.wait()
+
+        only_probe = asyncio.create_task(probe())
+        await asyncio.sleep(0)  # the one slot is taken
+        release.set()
+        await admitted_closed  # ends while half-open, having taken no slot
+
+        with pytest.raises(CircuitOpenError):
+            async with circuit:
+                pass
+
+        probe_release.set()
+        await only_probe
+
+    @pytest.mark.asyncio
+    async def test_a_manual_reset_frees_every_probe_slot(self):
+        circuit = self._half_open_circuit(1)
+        await self._trip(circuit)
+        release = asyncio.Event()
+
+        async def probe():
+            async with circuit:
+                await release.wait()
+
+        held = asyncio.create_task(probe())
+        await asyncio.sleep(0)
+        circuit.reset()
+        assert circuit._half_open_in_flight == 0  # the reset itself frees the slot, before any new window
+        await self._trip(circuit)
+        async with circuit:  # the new window has its slot, though the old probe never ended
+            pass
+        release.set()
+        await held
+
+    @pytest.mark.asyncio
+    async def test_a_probe_left_from_an_earlier_window_neither_holds_nor_frees_a_slot_of_the_next(self):
+        """A new half-open window starts with every slot free, and a probe still running from an
+        earlier window gives nothing back to it when it ends: the limit holds across windows."""
+        circuit = self._half_open_circuit(2)
+        await self._trip(circuit)
+        release_old = asyncio.Event()
+        release_new = asyncio.Event()
+
+        async def held(release):
+            async with circuit:
+                await release.wait()
+
+        old = asyncio.create_task(held(release_old))  # the first window: one of its two slots
+        await asyncio.sleep(0.01)
+        with pytest.raises(EdgarTimeoutError):  # a second probe fails and reopens the circuit
+            async with circuit:
+                raise EdgarTimeoutError("still down")
+        await asyncio.sleep(0.1)
+        assert circuit.state == CircuitState.HALF_OPEN
+
+        # The second window has both its slots, though the old probe never ended.
+        new = [asyncio.create_task(held(release_new)) for _ in range(2)]
+        await asyncio.sleep(0.01)
+        assert [task.done() for task in new] == [False, False]
+
+        release_old.set()
+        await old  # the old probe ends inside the second window
+        with pytest.raises(CircuitOpenError):  # which is still full
+            async with circuit:
+                pass
+
+        release_new.set()
+        await asyncio.gather(*new)
+
+    @pytest.mark.asyncio
+    async def test_an_exit_outside_its_entrys_context_says_so_and_leaves_the_count_alone(self, caplog):
+        circuit = self._half_open_circuit(1)
+        await self._trip(circuit)
+        # Entered in a task of its own, so the entry is recorded in that task's context, not this one's.
+        await asyncio.create_task(circuit.__aenter__())
+        with caplog.at_level(logging.WARNING):
+            await circuit.__aexit__(None, None, None)
+        assert "found no entry of its own" in caplog.text
+        with pytest.raises(CircuitOpenError):  # the slot is still counted in this window
+            async with circuit:
+                pass
 
 
 class TestRunWithCircuitBreaker:

@@ -185,9 +185,8 @@ async def handle_email_sent(data: Dict[str, Any]):
     """Handle email.sent event"""
     email_id = data.get("email_id")
     masked_to = mask_recipients(data.get("to"))
-    subject = data.get("subject")
 
-    logger.info(f"Email sent: {email_id} to {masked_to} - Subject: {subject}")
+    logger.info(f"Email sent: {email_id} to {masked_to}")
     # Future: Update database record to mark contact submission as "email_sent"
 
 

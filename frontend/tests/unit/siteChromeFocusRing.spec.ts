@@ -1282,7 +1282,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     expect(block('destructive')).toContain('focus-visible:shadow-ring-error')
     expect(block('destructive')).toContain('dark:focus-visible:shadow-ring-error-dark')
     // carries() trusts the factory's className option: the factory joins it last, on no condition.
-    expect(button).toContain('VARIANT[resolveVariant(variant)], className)')
+    expect(button).toContain('VARIANT[variant], className)')
   })
 
   it('the scan catches what it is for (a self-check on fixed sources)', () => {

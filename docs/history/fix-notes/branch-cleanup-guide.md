@@ -3,8 +3,8 @@
 > **2026-11-11: do not archive a branch as a tag.** The tag this guide created,
 > `archive/2025-11-18-supabase-rag`, published a commit whose `backend/env.example.txt` held a real
 > OpenRouter key and a Supabase secret key (GitHub secret-scanning alerts 1 and 2), outside CI's
-> branches-only secret scan. The keys are to be revoked and the tag deleted (`tasks/todo.md` F73), and the
-> script's archive step is gone. The tag steps below are struck; see
+> branches-only secret scan. The tag has since been deleted from GitHub, the keys are to be revoked
+> (`tasks/todo.md` F77), and the script itself was deleted (#2048). The tag steps below are struck; see
 > `lessons/ops-a-tag-publishes-the-commit-it-names.md`.
 
 ## Overview
@@ -51,7 +51,11 @@ All were merged via PRs #1-11:
 
 ## Automated Cleanup
 
-### Option 1: Run the Script (Recommended)
+### Option 1: Run the Script (Removed)
+
+`scripts/cleanup-branches.sh` has been deleted: under `set -e` it exited after its first
+successful delete, and the branches it named are long gone. Use Option 2. The block below is
+kept as history.
 
 ```bash
 # Make sure you're in the repo root
@@ -116,7 +120,7 @@ git branch -vv | grep ': gone]' | awk '{print $1}' | xargs git branch -D
 
 ## Restoring Archived Work
 
-The archive tag is to be deleted from GitHub (`tasks/todo.md` F73): it published real keys. Keep any
+The archive tag has been deleted from GitHub: it published real keys. Keep any
 copy of the RAG/Supabase work offline (a `git bundle` on your own machine), never as a pushed ref.
 
 ## What the RAG Archive Contains

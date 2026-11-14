@@ -530,10 +530,7 @@ describe('AskCopilotRail', () => {
     const handlers = captured!
     act(() => {
       handlers.onProgress?.('reading')
-      handlers.onToken('UNADMITTED REVENUE')
-      handlers.onNotDisclosed('UNADMITTED ABSENCE')
     })
-    expect(screen.queryByText(/UNADMITTED/)).not.toBeInTheDocument()
     expect(analytics.copilotAnswerCompleted).not.toHaveBeenCalled()
     handlers.onComplete({
       answer: 'Revenue grew 8%.',
@@ -619,8 +616,6 @@ describe('AskCopilotRail', () => {
     await user.type(screen.getByLabelText(/ask about this filing/i), 'What is the CEO salary?')
     await user.click(screen.getByRole('button', { name: /^send$/i }))
 
-    act(() => captured!.onNotDisclosed('UNADMITTED ABSENCE'))
-    expect(screen.queryByText('UNADMITTED ABSENCE')).not.toBeInTheDocument()
     captured!.onComplete({ answer: 'The filing does not disclose the CEO salary.', citations: [],
       grounded: 0, kind: 'not_disclosed', followups: [] })
 
@@ -699,14 +694,12 @@ describe('AskCopilotRail', () => {
     act(() => requests[0].handlers.onComplete({ answer: 'Retained completed answer.', citations: [],
       grounded: 0, kind: 'answer', followups: [] }))
     await ask('Cancelled question')
-    act(() => requests[1].handlers.onToken('REJECTED DRAFT'))
     rail.rerenderRail({ open: false })
     expect(requests[1].signal?.aborted).toBe(true)
     rail.rerenderRail({ open: true })
     expect(screen.getByText('Retained completed answer.')).toBeInTheDocument()
     expect(screen.getByText('The question was cancelled. Please try again.')).toBeInTheDocument()
     expect(screen.getByLabelText(/ask about this filing/i)).not.toBeDisabled()
-    expect(screen.queryByText('REJECTED DRAFT')).not.toBeInTheDocument()
     await ask('New question')
     act(() => {
       requests[1].handlers.onComplete({ answer: 'OBSOLETE ANSWER', citations: [], grounded: 0, kind: 'answer', followups: ['OBSOLETE FOLLOWUP'] })

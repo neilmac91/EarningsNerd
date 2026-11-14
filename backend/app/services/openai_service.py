@@ -18,7 +18,6 @@ from app.services.ai.provider_requests import (
     _ProviderRequestsMixin, bounded_summary, close_stream, fallback_client,
 )
 from app.services.ai.recovery_context import RecoveryBlock, clean_filing_source, recovery_blocks
-from app.services.ai.normalize import _normalize_risk_factors, _section_has_content  # noqa: F401 - retained facade imports
 from app.services.ai.xbrl_narrative import (
     build_xbrl_narrative_section,
     _XBRL_NARRATIVE_SPEC,
@@ -37,17 +36,13 @@ from app.services.ai.acquisition_period import (
     CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION,
     bind_acquisition_period, clear_model_acquisition_context,
 )
-from app.services.ai.attribution_gate import apply_attributions, find_attributions  # noqa: F401 - retained facade imports
 from app.services.ai import attribution_verify, summary_finalize, summary_prompt
 from app.services.ai.summary_finalize import _segments_not_applicable as _segments_not_applicable
-from app.services.ai.forward_quote_gate import gate_forward_quotes  # noqa: F401 - retained facade imports
-from app.services.ai.statement_relationship import (  # noqa: F401 - retained facade imports
-    CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship, display_statement_paragraphs,
+from app.services.ai.statement_relationship import (
+    CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION, bind_statement_relationship,
 )
-from app.services.ai.issuer_cash_disclosure import (  # noqa: F401 - retained facade imports
-    CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
-    SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, OWNED_FIELD as ISSUER_CASH_OWNED_FIELD, bind_issuer_cash_disclosure,
+from app.services.ai.issuer_cash_disclosure import (
+    SOURCE_KEY as ISSUER_CASH_SOURCE_KEY, bind_issuer_cash_disclosure,
 )
 from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
@@ -56,12 +51,8 @@ from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
 )
-from app.services.ai.reconciliation_directions import (  # noqa: F401 - retained facade imports
-    AUDIT_KEY as RECONCILIATION_AUDIT_KEY, strip_reconciliation_metadata, withhold_reconciliation_directions,
-)
-from app.services.ai.tax_rate_explanation import (  # noqa: F401 - retained facade imports
-    AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
-)
+from app.services.ai.reconciliation_directions import withhold_reconciliation_directions
+from app.services.ai.tax_rate_explanation import withhold_tax_rate_explanation
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
@@ -71,21 +62,14 @@ from app.services.metric_delta_service import (
     bind_exact_xbrl_deltas,
 )
 from app.services.summary_sections import render_sections, sections_to_markdown
-from app.services.provenance_service import (  # noqa: F401 - retained facade imports
-    RISK_PROJECTION_KEY,
-    RISK_SOURCE_CONTEXT_KEY,
-    RISK_SOURCE_CONTEXT_VERSION,
-    project_risk_list,
-)
 # The generation-side taxonomy: the section keys the current schema_template emits — v2 as of the
-# Tier-3.1 cutover. summarize_filing builds the per_section coverage snapshot from it below. This is
+# Tier-3.1 cutover. ai/summary_finalize.measure_coverage builds the per_section coverage snapshot from it. This is
 # DISTINCT from the quality badge's frozen per-version tuples (summary_schema.TRACKED_SECTIONS_V1 /
 # V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
 # moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
 # for the v2 names lives in summary_schema.
 from app.services.summary_schema import (  # noqa: F401 - retained facade imports
     EARNINGS_RECONCILIATION, FINANCIAL_DRIVER, FINANCIAL_EXPLANATION_SUPPORT, REPORTED_METRIC_LABEL,
-    SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION,
 )
 from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTURED_SECTIONS
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
@@ -107,7 +91,6 @@ class OpenAIService(
                                   base_url=settings.OPENAI_BASE_URL, max_retries=0)
         self.fallback_client = fallback_client()
         self.model = settings.AI_DEFAULT_MODEL
-        self._model_overrides = {"10-K": self.model, "10-Q": self.model}
         self._task_models = {
             "structured_extraction": self.model,
             "section_recovery": (settings.AI_SECTION_RECOVERY_MODEL.strip()
@@ -120,14 +103,11 @@ class OpenAIService(
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting
         # Configurable via RECOVERY_MAX_CONCURRENCY setting (default: 3)
-        max_concurrency = getattr(settings, 'RECOVERY_MAX_CONCURRENCY', 3)
-        self._recovery_semaphore = asyncio.Semaphore(max_concurrency)
+        self._recovery_semaphore = asyncio.Semaphore(settings.RECOVERY_MAX_CONCURRENCY)
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
-        """Return the configured primary model for this filing type."""
-        if not filing_type:
-            return self.model
-        return self._model_overrides.get(filing_type.upper(), self.model)
+        """Return the configured primary model; every filing type uses it."""
+        return self.model
 
     def get_model_for_task(self, task_type: str, filing_type: Optional[str] = None) -> str:
         """Return the appropriate model for a specific task type.
@@ -135,6 +115,7 @@ class OpenAIService(
         Task types:
         - structured_extraction: Primary JSON extraction (needs highest accuracy)
         - section_recovery: Fill missing sections (simpler; opt-in cheaper model via config — A11)
+        - attribution_verify: Yes/no check of attributed claims (the same model section recovery uses)
 
         Falls back to filing-type model if task not recognized.
         """
@@ -366,6 +347,7 @@ class OpenAIService(
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
         rendering and ``stream_cb`` are best-effort — they never affect the returned content."""
         parts: List[str] = []
+        total = 0
         emitted_at = 0
         started = asyncio.get_running_loop().time()
         stream = await (_client or self.client).chat.completions.create(**create_kwargs)
@@ -388,7 +370,7 @@ class OpenAIService(
                 if _observation is not None and _observation.get("first_token_ms") is None:
                     _observation["first_token_ms"] = (asyncio.get_running_loop().time() - started) * 1000
                 parts.append(piece)
-                total = sum(len(p) for p in parts)
+                total += len(piece)
                 # Re-render a preview every ~1500 new chars to keep preview frames modest.
                 if total - emitted_at >= 1500:
                     emitted_at = total
@@ -491,8 +473,6 @@ class OpenAIService(
         transient retries; exhausted/authentication failures retain the existing error contract.
         The metering signal (``provider_requests.provider_start_signal``) travels in the task
         context, not as a parameter."""
-        import asyncio
-
         filing_type_key = (filing_type or "10-K").upper()
         try:
             structured_summary = await self.generate_structured_summary(

@@ -168,11 +168,10 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
         document_url=getattr(filing, "document_url", None),
         sec_url=getattr(filing, "sec_url", None),
         xbrl_data=getattr(filing, "xbrl_data", None),
-        # company_id + cik power the P5 numeric tools, which open their own DB session (the request
+        # company_id powers the P5 numeric tools, which open their own DB session (the request
         # session is gone by the time the SSE generator runs), so the company id is captured eagerly
         # here rather than dereferenced off a detached ORM instance later.
         company_id=getattr(filing, "company_id", None),
-        cik=getattr(company, "cik", None),
         content_cache=service.SimpleNamespace(
             critical_excerpt=getattr(cache, "critical_excerpt", None),
             markdown_content=getattr(cache, "markdown_content", None),

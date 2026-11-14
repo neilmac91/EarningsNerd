@@ -181,7 +181,7 @@ COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
 # The invitation hands in two links, the invite's and the unsubscribe page's, each LINK's length as each line holds.
 INVITE = dict(to_email=TO, magic_link=LINK, unsubscribe_link=LINK, delivery_ref="0123456789abcdef" * 2, cohort=None)
-WAITLIST = dict(name=NAME, position=3, referral_link=LINK)
+WAITLIST = dict(name=NAME, position=3)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
 ALERTS = [

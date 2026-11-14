@@ -1,8 +1,5 @@
-"""Fixed inline preview entrypoint; never installed as a production route or script.
-
-Only the protected verifier supplies this reviewed source to the serving image. All
-credentials stay in environment/secret references. No application collaborator is replaced.
-"""
+"""Inline preview entrypoint, never a production route or script: only the protected verifier supplies it to the
+serving image. Credentials stay in environment/secret references; no application collaborator is replaced."""
 from __future__ import annotations
 
 import ast
@@ -62,7 +59,7 @@ def canonical(value):
 
 
 def worker_limits():
-    """Verify the serving source's child-launch bounds, without changing its workers."""
+    """Verify the serving source's child-launch bounds; workers unchanged."""
     result = {}
     for module, name, constructor, count in (("feedback_image_service", "_execution_lock", "Lock", 1),
                                             ("feedback_storage_worker_service", "_execution_slots", "Semaphore", 2)):
@@ -102,8 +99,8 @@ def resource_acceptance(memory):
         return 0 < peak < cap * .85 and (sample is None or sample < cap * .85)
     if memory["worker_limits"] != {"feedback_image_service": 1, "feedback_storage_worker_service": 2}:
         return False
-    bound = memory["self_high_water_rss_bytes"] + 3 * memory["reaped_child_high_water_rss_bytes"]
-    return (memory["self_high_water_rss_bytes"] > 0 and memory["reaped_child_high_water_rss_bytes"] > 0
+    bound = memory["self_high_water_rss_bytes"] + 3 * memory["worker_high_water_rss_bytes"]
+    return (memory["self_high_water_rss_bytes"] > 0 and memory["worker_high_water_rss_bytes"] > 0
             and sample is not None and 0 < sample < cap * .85 and bound < cap * .85)
 
 
@@ -140,7 +137,7 @@ def environment(env):
 
 
 def check_database(connection, env, *, expired=False):
-    """Check actual PostgreSQL authority, not merely a connection-string label."""
+    """Check actual PostgreSQL authority, not a connection-string label."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT current_database(),current_user,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls "
                        "FROM pg_roles WHERE rolname=current_user")
@@ -172,12 +169,12 @@ class Runtime:
         self.resources = {"sample_count": 0, "rss_peak_bytes": 0, "cgroup_sample_peak_bytes": None,
                           "cgroup_kernel_peak_bytes": None, "cgroup_memory_limit_bytes": None,
                           "configured_memory_limit_bytes": 1073741824,
-                          "self_high_water_rss_bytes": 0, "reaped_child_high_water_rss_bytes": 0,
+                          "self_high_water_rss_bytes": 0, "worker_high_water_rss_bytes": 0,
                           "worker_limits": {}, "unexplained_children": False, "last_process_count": 1,
-                          "method": "kernel peak when exposed; otherwise conservative process bound plus sampled cgroup; representative workload only"}
+                          "method": "kernel peak when exposed; otherwise conservative process bound plus sampled memory; representative workload only"}
         self.permission_audited = False
         self.last_cleanup = None
-        self.last_sample = None
+        self.last_sample, self.spawning, self.basis = None, {}, "kernel peak unavailable; conservative process-bound evidence"
         self.expires = 0
 
     def authority(self, *, expired=False):
@@ -289,9 +286,8 @@ class Runtime:
             saved = marker["receipt"]
         with self.lock:
             resources = {**self.resources, "sample_age_seconds": time.monotonic() - self.last_sample if self.last_sample else None}
-            resources["conservative_process_bound_bytes"] = resources["self_high_water_rss_bytes"] + 3 * resources["reaped_child_high_water_rss_bytes"]
-            resources["evidence_basis"] = ("kernel cgroup high-water peak" if resources["cgroup_kernel_peak_bytes"] is not None
-                                           else "kernel peak unavailable; conservative process-bound evidence")
+            resources["conservative_process_bound_bytes"] = resources["self_high_water_rss_bytes"] + 3 * resources["worker_high_water_rss_bytes"]
+            resources["evidence_basis"] = self.basis if resources["cgroup_kernel_peak_bytes"] is None else "kernel cgroup high-water peak"
             resources["acceptance_passed"] = resource_acceptance(resources)
             return {"schema": 1, "run_id": self.run, "boot_id": self.boot, "database": counts,
                     "notifications": json.loads(json.dumps(self.notifications)), "resources": resources,
@@ -309,8 +305,7 @@ class Runtime:
         self.authority(expired=True)
         with SessionLocal() as db:
             marker = self.marker(db, latest=False)
-            # The hourly job cannot interrupt the browser's still-valid fixture lease.
-            # Authenticated controls and the protected cleanup_now override are explicit.
+            # The hourly job spares a still-valid lease; controls and cleanup_now are explicit.
             if scheduled and ensure_utc(marker["expires_at"]) > utcnow():
                 return {"skipped_active_run": True}
             ids = self.owned_rows(db, marker)
@@ -371,14 +366,16 @@ class Runtime:
             self.notifications["no_image_payload"] &= no_image
 
     def sample(self):
-        def number(path):
+        def read(path):
             try:
-                value = Path(path).read_text().strip()
-                return int(value) if value.isdecimal() else None
+                return Path(path).read_text().strip()
             except OSError:
-                return None
+                return ""
         parent, todo, seen, rss = os.getpid(), [os.getpid()], set(), 0
-        unexplained = False
+        unexplained, spawning, own, worker = False, {}, Path(f"/proc/{parent}/cmdline").read_bytes(), 0
+        workers = [b"\0".join((os.fsencode(sys.executable), b"-I", b"-B",
+                               os.fsencode(Path("app/services/" + worker + ".py").resolve()), b""))
+                   for worker in ("feedback_image_service", "feedback_storage_worker_service")]
         while todo and len(seen) < 128:
             pid = todo.pop()
             if pid in seen:
@@ -387,25 +384,36 @@ class Runtime:
             try:
                 rss += int(Path(f"/proc/{pid}/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
                 if pid != parent:
-                    argv = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-                    unexplained |= not any(argv == [os.fsencode(sys.executable), b"-I", b"-B",
-                        os.fsencode(Path("app/services/" + worker + ".py").resolve()), b""]
-                        for worker in ("feedback_image_service", "feedback_storage_worker_service"))
+                    argv = Path(f"/proc/{pid}/cmdline").read_bytes()
+                    if Path(f"/proc/{pid}/stat").read_bytes().rsplit(b")", 1)[1].split()[0] == b"Z":
+                        pass  # a zombie: no memory, awaiting its reap; still counted
+                    elif argv in (own, b""):  # mid-exec or mid-exit; still so a second later, unexplained
+                        spawning[pid] = self.spawning.get(pid, time.monotonic())
+                        unexplained |= time.monotonic() - spawning[pid] > 1
+                    elif argv in workers:  # own peak: a child's ru_maxrss holds its parent's
+                        worker = max(worker, int(re.search(rb"VmHWM:\s+(\d+)", Path(f"/proc/{pid}/status").read_bytes())[1]) * 1024)
+                    else:
+                        unexplained = True
                 todo.extend(int(child) for path in Path(f"/proc/{pid}/task").glob("*/children") for child in path.read_text().split())
-            except (OSError, ValueError, IndexError):
+            except (OSError, ValueError, IndexError, TypeError):
                 continue
+        self.spawning = spawning
         with self.lock:
             self.resources["sample_count"] += 1
             self.resources["rss_peak_bytes"] = max(rss, self.resources["rss_peak_bytes"])
             for key, name in (("cgroup_sample_peak_bytes", "current"), ("cgroup_kernel_peak_bytes", "peak"), ("cgroup_memory_limit_bytes", "max")):
-                value = number("/sys/fs/cgroup/memory." + name)
-                if value is not None:
-                    self.resources[key] = max(value, self.resources[key] or 0)
+                value = read("/sys/fs/cgroup/memory." + name)
+                if name == "current" and not value.isdecimal():  # none at v2's root: instance memory in use
+                    m = dict(f := re.findall(r"Mem(Total|Available): +(\d+) kB", read("/proc/meminfo")))
+                    if len(f) == len(m) == 2 and (used := int(m["Total"]) - int(m["Available"])) > 0:
+                        value, self.basis = str(used * 1024), "kernel peak unavailable; conservative process bound plus /proc/meminfo in use"
+                if value.isdecimal():
+                    self.resources[key] = max(int(value), self.resources[key] or 0)
             self.resources["last_process_count"] = len(seen)
             self.last_sample = time.monotonic()
             self.resources["unexplained_children"] |= unexplained or len(seen) > 4 or bool(todo)
             self.resources["self_high_water_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
-            self.resources["reaped_child_high_water_rss_bytes"] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * 1024
+            self.resources["worker_high_water_rss_bytes"] = max(worker, self.resources["worker_high_water_rss_bytes"])
 
     def sampler(self):
         deadline = time.monotonic() + 7200
@@ -432,7 +440,7 @@ def sink(runtime):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'{"id":"synthetic-feedback-notification"}')
-            except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+            except Exception:  # noqa: BLE001 — values withheld
                 self.send_response(400)
                 self.end_headers()
     return HTTPServer(("127.0.0.1", 8091), Handler)
@@ -487,7 +495,7 @@ class Controls:
                 result = await run_owned_sync(method, *([body] if action == "complete" else []))
         except Refused as error:
             status, result = 403, {"error": str(error)}
-        except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
+        except Exception:  # noqa: BLE001 — values withheld
             status, result = 503, {"error": "verification_runtime_unavailable"}
         encoded = canonical(result)
         await send({"type": "http.response.start", "status": status,
@@ -508,6 +516,8 @@ def main():
     os.environ.update(RESEND_API_KEY=digest(runtime.key, "sink", runtime.run), RESEND_BASE_URL="http://127.0.0.1:8091",
                       FEEDBACK_NOTIFICATION_EMAIL="feedback-verify-notify@example.com",
                       RESEND_FROM_EMAIL="Feedback verification <feedback-verify@example.com>")
+    # openai 3.x refuses an empty key at import; no verified route calls a model.
+    os.environ.update(OPENAI_API_KEY="feedback-verification-no-model", OPENAI_BASE_URL="http://127.0.0.1:9/v1")
     if mode == "initialize":
         import app.models
         from app.database import Base, engine
@@ -540,5 +550,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:  # noqa: BLE001 — withhold database, credential and submitted-content exception values
-        raise SystemExit("Feedback verification runtime refused") from None
+    except Exception as error:  # noqa: BLE001 — values withheld
+        raise SystemExit("Feedback verification runtime refused ("
+                         + (str(error) if isinstance(error, Refused) else type(error).__name__) + ")") from None
