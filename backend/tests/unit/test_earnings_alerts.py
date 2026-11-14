@@ -599,3 +599,67 @@ async def test_capped_does_not_count_an_event_sent_through_an_in_cap_company_wit
         assert stats["capped"] == 0
     finally:
         db.close()
+
+
+# --------------------------------------------------------------------------- dual-class tickers
+# A company's ticker is SEC's spelling of a share class (BRK-B) and an earnings event's is Alpha
+# Vantage's (BRK.B): every company-to-event match compares the two in the canonical form.
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_dual_class_companies_get_their_earnings_day_alert():
+    day = date(2031, 3, 4)
+    uid = _mk_user(is_pro=True)
+    db, user = _load_user(uid)
+    try:
+        for d, t in enumerate(("BRK-B", "BF-B", "AAPL"), start=1):
+            _mk_watch(db, uid, t, d)
+        for t in ("BRK.B", "BF.B", "AAPL"):
+            _mk_event(db, t, day, date(2030, 12, 31))
+        db.commit()
+        email = user.email
+        sent: list[list[str]] = []
+
+        async def _sender(*, to_email, name, items):
+            if to_email == email:
+                sent.append(sorted(it["ticker"] for it in items))
+
+        stats = await alerts.send_earnings_day_alerts(db, today=day, sender=_sender)
+        assert sent == [["AAPL", "BF-B", "BRK-B"]]
+        assert stats["capped"] == 0
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_dual_class_alert_toggles_round_trip_through_the_event_ticker():
+    """The calendar's bell sends the event's ticker (BRK.B) for a company stored as BRK-B: enabling
+    attaches to that company (no second row), the list names it, and disabling turns it off. The pair
+    reversed (a BF-B request for a company stored as BF.B) does the same, so the request's side is
+    read in the canonical form too, not only the stored one."""
+    from app.models import Company
+
+    uid = _mk_user(is_pro=True)
+    db, user = _load_user(uid)
+    try:
+        db.add_all([
+            Company(cik=f"rt-{uuid.uuid4().hex[:10]}", ticker=t, name=f"{t} Inc") for t in ("BRK-B", "BF.B", "AAPL")
+        ])
+        # The events carry no CIK, so only the ticker can bind an enable to its company.
+        _mk_event(db, "BRK.B", date(2031, 3, 5), date(2030, 12, 31))
+        _mk_event(db, "BF-B", date(2031, 3, 6), date(2030, 12, 31))
+        db.commit()
+        rows_before = db.query(Company).count()
+
+        assert alerts.set_earnings_alert(db, user, "BRK.B", enabled=True) is True
+        assert alerts.set_earnings_alert(db, user, "BF-B", enabled=True) is True
+        assert alerts.set_earnings_alert(db, user, "aapl", enabled=True) is True
+        assert db.query(Company).count() == rows_before
+        assert sorted(alerts.enabled_tickers(db, uid)) == ["AAPL", "BF.B", "BRK-B"]
+
+        assert alerts.set_earnings_alert(db, user, "BRK.B", enabled=False) is False
+        assert alerts.set_earnings_alert(db, user, "BF-B", enabled=False) is False
+        assert alerts.count_enabled(db, uid) == 1
+        assert alerts.enabled_tickers(db, uid) == ["AAPL"]
+    finally:
+        db.close()

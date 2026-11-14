@@ -636,3 +636,108 @@ def test_index_filter_off_is_a_noop(monkeypatch):
     assert "TAILONLY" in served
     db.close()
     _clear("TAILONLY")
+
+
+# ---- dual-class tickers ---------------------------------------------------
+# A company's ticker is SEC's spelling of a share class (BRK-B) and an event's Alpha Vantage's (BRK.B);
+# an EFTS hit's may be either. Every match compares the canonical form, whichever side holds which.
+
+@pytest.mark.requires_db
+def test_edgar_hit_in_the_dash_spelling_flips_the_dot_spelled_event():
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    _clear("BRK.B", "AAPL")
+    fpe = date(2031, 3, 31)
+    db = SessionLocal()
+    try:
+        svc.ingest_alpha_vantage(
+            db, [_av_row("BRK.B", date(2031, 5, 2), fpe), _av_row("AAPL", date(2031, 5, 2), fpe)],
+            today=date(2031, 4, 1),
+        )
+        db.commit()
+        hits = [
+            SimpleNamespace(
+                items=["2.02"], ticker=t, filed_date="2031-05-02", accession_no=f"acc-{t}",
+                cik=None, company=f"{t} Inc", acceptance_datetime=None,
+            )
+            for t in ("BRK-B", "AAPL")
+        ]
+        stats = svc.RefreshStats()
+        assert svc.ingest_edgar_reported(db, hits, stats=stats) == 2
+        db.commit()
+        assert stats.skipped_no_prior == 0
+        statuses = {
+            e.ticker: e.status
+            for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(["BRK.B", "AAPL"]))
+        }
+        assert statuses == {"BRK.B": STATUS_REPORTED, "AAPL": STATUS_REPORTED}
+    finally:
+        db.close()
+        _clear("BRK.B", "AAPL")
+
+
+@pytest.mark.requires_db
+def test_watch_counts_reach_the_dual_class_event_score():
+    """BRK-B's watchers reach the BRK.B event, and the reverse pair's (a BF.B company, a BF-B event)."""
+    import uuid
+
+    from sqlalchemy import func
+
+    from app.database import SessionLocal
+    from app.models import Company, EarningsEvent, User, Watchlist
+
+    events = {"BRK.B": "BRK.B", "BF-B": "BF.B", "AAPL": "AAPL"}  # stored event ticker -> canonical
+    _clear(*events)
+    suffix = uuid.uuid4().hex[:8]
+    day = date(2031, 6, 2)
+    db = SessionLocal()
+
+    def watchers() -> dict[str, int]:
+        """Watch rows per canonical ticker, read plainly (another file's rows may share AAPL)."""
+        rows = (
+            db.query(Company.ticker, func.count(Watchlist.id))
+            .join(Watchlist, Watchlist.company_id == Company.id)
+            .group_by(Company.ticker)
+        )
+        out: dict[str, int] = {}
+        for t, n in rows:
+            key = t.strip().upper().replace("-", ".")
+            out[key] = out.get(key, 0) + n
+        return out
+
+    baseline = watchers()
+    users = [User(email=f"wc{i}-{suffix}@example.com", hashed_password="x") for i in range(2)]
+    companies = [Company(cik=f"wc{suffix}{t}", ticker=t, name=f"{t} Inc") for t in ("BRK-B", "BF.B", "AAPL")]
+    db.add_all(users + companies)
+    db.flush()
+    brk, bf, aapl = companies
+    db.add_all([Watchlist(user_id=u.id, company_id=brk.id) for u in users])
+    db.add_all([Watchlist(user_id=users[0].id, company_id=c.id) for c in (bf, aapl)])
+    svc.ingest_alpha_vantage(db, [_av_row(t, day, date(2031, 3, 31)) for t in events], today=date(2031, 6, 1))
+    db.commit()
+    added = {"BRK.B": 2, "BF.B": 1, "AAPL": 1}
+    try:
+        svc.recompute_scores(db, only_from=day)
+        db.commit()
+        scores = {
+            e.ticker: float(e.anticipation_score)
+            for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(list(events)))
+        }
+        assert scores == pytest.approx({  # the column keeps a fixed scale
+            stored: svc.compute_anticipation_score(
+                is_curated=stored in svc.CURATED_TICKERS,
+                watch_count=baseline.get(canonical, 0) + added[canonical],
+                has_estimate=True,
+            )
+            for stored, canonical in events.items()
+        }, abs=1e-6)
+    finally:
+        db.query(Watchlist).filter(Watchlist.company_id.in_([c.id for c in companies])).delete(
+            synchronize_session=False
+        )
+        db.query(Company).filter(Company.id.in_([c.id for c in companies])).delete(synchronize_session=False)
+        db.query(User).filter(User.id.in_([u.id for u in users])).delete(synchronize_session=False)
+        db.commit()
+        db.close()
+        _clear(*events)
