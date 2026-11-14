@@ -158,7 +158,8 @@ async def get_company_filings(
         except SECEdgarServiceError as e:
             raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
+            logger.exception("Unexpected error fetching company %s for its filings", ticker_upper)
+            raise HTTPException(status_code=500, detail="We could not load this company. Please retry shortly.") from e
 
     types_list = filing_list_service.requested_filing_types(filing_types)
     company_id = company.id
@@ -283,7 +284,7 @@ async def get_company_filings(
         if cached:
             logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")
             return cached
-        raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="We could not load filings. Please retry shortly.") from e
 
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):

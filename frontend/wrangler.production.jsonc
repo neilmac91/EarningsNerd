@@ -1,0 +1,39 @@
+// The Cloudflare Workers PRODUCTION frontend, front Worker (cloudflare-front.mjs): the same two Workers as staging
+// (wrangler.jsonc), under their own names and with their own cache. docs/DEPLOYMENT.md, "Moving production to
+// Cloudflare Workers", is the plan this file is one step of.
+//
+// TODAY IT SERVES NO PRODUCTION HOSTNAME. Production is Vercel (vercel.json). Until the cutover this Worker has only
+// its workers.dev address and is marked noindex, so it can be deployed and checked without a reader reaching it.
+// The cutover is one reviewed change to this file, which the plan spells out: `workers_dev` false, the two
+// hostnames as `routes`, CANONICAL_HOST, and ROBOTS_NOINDEX removed. tests/unit/cloudflareWorkerConfig.spec.ts
+// refuses any state in between. Keep each comment on a line of its own: the spec reads the file by dropping them.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "earningsnerd-frontend",
+  "main": "cloudflare-front.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "workers_dev": true,
+  "preview_urls": false,
+  // As in wrangler.jsonc: once this Worker has hostnames, `wrangler dev` presents local requests at them over HTTPS.
+  "dev": { "upstream_protocol": "https" },
+  // No "placement": this Worker answers cached pages, so it runs where the reader is.
+  // The once-a-minute schedule of cloudflare-front.mjs `scheduled`, as on staging.
+  "triggers": { "crons": ["* * * * *"] },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend" },
+    { "binding": "SERVER", "service": "earningsnerd-frontend-server" }
+  ],
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "earningsnerd-frontend-cache" }],
+  "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
+  "vars": {
+    // middleware.ts sends every page to /waitlist unless this is exactly "false" (vercel.json sets the same).
+    "WAITLIST_MODE": "false",
+    // A copy of the site until the cutover, which removes this line.
+    "ROBOTS_NOINDEX": "true",
+    // scripts/cf-deploy.mjs sets this on each deploy to the server version built with this front version.
+    "SERVER_VERSION_OVERRIDE": ""
+  }
+}

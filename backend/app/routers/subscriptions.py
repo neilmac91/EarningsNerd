@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import logging
 import re
+import traceback
 import stripe
 from app.database import get_db
 from app.models import User
@@ -19,6 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from app.services import (
     billing_account_service, complimentary_access_service, filing_list_service, legal_readiness_service,
 )
+from app.services.billing_revenue_service import InvalidPaymentEvidence
 from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
@@ -70,6 +72,30 @@ def _log_stripe_failure(call: str, error: stripe.error.StripeError) -> None:
     if not (isinstance(request_id, str) and _STRIPE_REQUEST_ID.fullmatch(request_id)):
         request_id = "unknown"
     logger.error("%s failed at Stripe (%s, request %s)", call, type(error).__name__, request_id)
+
+
+# A Stripe event's id and type as Stripe issues them: they find the delivery in the dashboard's event log.
+_STRIPE_EVENT_ID = re.compile(r"evt_[A-Za-z0-9_]{1,255}")
+_STRIPE_EVENT_TYPE = re.compile(r"[a-z0-9_.]{1,100}")
+
+
+def _log_webhook_failure(event: dict, error: Exception) -> None:
+    """Log a verified event that failed processing: its id, its type, the error's class and its stack.
+
+    The record never carries the payload or the error's message, which can name a customer or quote a statement's
+    parameters (as ``_log_stripe_failure`` leaves Stripe's message out, E18): the stack's frames say where it was
+    raised, and the event id finds the payload in Stripe's dashboard. So the stack is formatted here, without the
+    message line that ``logger.exception`` would end it with. An id or type of another shape is left out (rule 9).
+    """
+    event_id, event_type = event.get("id"), event.get("type")
+    if not (isinstance(event_id, str) and _STRIPE_EVENT_ID.fullmatch(event_id)):
+        event_id = "unknown"
+    if not (isinstance(event_type, str) and _STRIPE_EVENT_TYPE.fullmatch(event_type)):
+        event_type = "unknown"
+    logger.error(
+        "Stripe webhook processing failed (%s, event %s, type %s)\n%s",
+        type(error).__name__, event_id, event_type, "".join(traceback.format_tb(error.__traceback__)),
+    )
 
 
 class UsageResponse(BaseModel):
@@ -480,17 +506,26 @@ async def stripe_webhook(
         if event["type"] == "checkout.session.completed":
             metadata = event["data"]["object"].get("metadata") or {}
             int(metadata["user_id"])
+    except HTTPException:
+        raise
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Malformed webhook payload")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error processing webhook")
 
+    # Only the shape checks above answer a malformed payload. Inside processing, a refusal of the event's own
+    # payment evidence is the one deliberate 400; any other exception is a failure Stripe retries.
+    try:
         # The worker owns construction, every ORM access and cleanup. Request cancellation must
         # never close a Session while its database operation is still running in another thread.
         return await run_in_threadpool(process_stripe_event, event)
-    except HTTPException:
-        raise
     except SubscriptionReconciliationUnavailable:
         raise HTTPException(status_code=503, detail="Current subscription state is unavailable; retry delivery")
     except SubscriptionEventBusy:
         raise HTTPException(status_code=503, detail="Subscription event is busy; retry delivery")
-    except (KeyError, ValueError, TypeError) as exc:
-        raise HTTPException(status_code=400, detail=f"Malformed webhook payload: {str(exc)}")
+    except InvalidPaymentEvidence as exc:
+        _log_webhook_failure(event, exc)
+        raise HTTPException(status_code=400, detail="Malformed webhook payload")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(exc)}")
+        _log_webhook_failure(event, exc)
+        raise HTTPException(status_code=500, detail="Error processing webhook")

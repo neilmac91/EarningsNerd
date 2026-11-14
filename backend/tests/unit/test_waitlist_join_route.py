@@ -19,7 +19,7 @@ from main import app
 from app.database import Base, get_db
 from app.models import WaitlistSignup
 from app.routers import watchlist as watchlist_router
-from app.services import turnstile, waitlist_service
+from app.services import turnstile
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -126,6 +126,15 @@ def test_unknown_referral_code_is_400_invalid_referral(client, session_factory):
         assert s.query(WaitlistSignup).count() == 0
 
 
+# A rejoin is told the address is on the list and nothing more: never that signup's place, referral code or link,
+# which the answer would hand to anyone who types the address.
+ALREADY_REGISTERED = {
+    "success": False,
+    "error": "already_registered",
+    "message": "This email is already on the waitlist.",
+}
+
+
 def test_duplicate_email_returns_already_registered(client, emails):
     email = _email()
     first = _join(client, email=email)
@@ -134,8 +143,7 @@ def test_duplicate_email_returns_already_registered(client, emails):
     dup = _join(client, email=email.upper())  # the validator lower-cases, so this is the same row
     assert dup.status_code == 200
     body = dup.json()
-    assert body["success"] is False and body["error"] == "already_registered"
-    assert body["referral_code"] == first.json()["referral_code"]
+    assert body == ALREADY_REGISTERED
     assert len(emails["welcome"]) == 1  # no second welcome email
 
 
@@ -149,8 +157,7 @@ def test_existing_email_is_checked_before_the_referral_code(client, session_fact
     rejoin = _join(client, email=email, referral_code="nosuch01")
     assert rejoin.status_code == 200, rejoin.text
     body = rejoin.json()
-    assert body["success"] is False and body["error"] == "already_registered"
-    assert body["referral_code"] == first.json()["referral_code"]
+    assert body == ALREADY_REGISTERED
     with session_factory() as s:
         assert s.query(WaitlistSignup).filter_by(email=email).count() == 1
     assert len(emails["welcome"]) == 1
@@ -184,8 +191,7 @@ def test_duplicate_join_with_a_valid_code_credits_the_referrer_once(client, sess
     again = _join(client, email=email, referral_code="ref00001")
     assert again.status_code == 200, again.text
     body = again.json()
-    assert body["success"] is False and body["error"] == "already_registered"
-    assert body["referral_code"] == first.json()["referral_code"]
+    assert body == ALREADY_REGISTERED
 
     with session_factory() as s:
         referrer = s.query(WaitlistSignup).filter_by(email=referrer_email).one()
@@ -335,14 +341,7 @@ class TestCommitTimeConflicts:
         resp = _join(client, email=email, referral_code="ref00001")
 
         assert resp.status_code == 200, resp.text
-        assert resp.json() == {
-            "success": False,
-            "error": "already_registered",
-            "message": "This email is already on the waitlist.",
-            "position": 2,  # 7 - 1 * REFERRAL_BONUS
-            "referral_code": "rival001",
-            "referral_link": waitlist_service.build_referral_link("rival001"),
-        }
+        assert resp.json() == ALREADY_REGISTERED
         with session_factory() as s:
             assert s.query(WaitlistSignup).filter_by(referral_code="ref00001").one().priority_score == 0
             assert s.query(WaitlistSignup).filter_by(email=email).one().referral_code == "rival001"
