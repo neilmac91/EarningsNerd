@@ -5,7 +5,7 @@ Date: 2026-10-16   Area: ops
 **Context**: The E20 branch committed Svix's published example secret (`whsec_…`) as a test
 vector, without the `# gitleaks:allow` marker the repository's test fixtures carry. CI's
 `secret-scan` job checks out every branch (`fetch-depth: 0`) and runs gitleaks with
-`--log-opts="--branches --remotes"`, so after the push it failed on another session's pull request
+`--log-opts="--branches --remotes"` (`--tags` too since 2026-11-11, lessons/ops-a-tag-publishes-the-commit-it-names.md), so after the push it failed on another session's pull request
 (#1310's run 38881925266), and it would have blocked any `deploy-backend` that ran in that window.
 A follow-up commit cannot clear it, because the scan reads every commit on every branch.
 
@@ -36,17 +36,18 @@ It needs git 2.43 or later, the first to read `attr.tree`:
 
 ```bash
 pins=$(mktemp) && git --no-replace-objects show refs/remotes/origin/main:.gitleaksignore > "$pins" &&
+rules=$(mktemp) && git --no-replace-objects show refs/remotes/origin/main:.gitleaks.toml > "$rules" &&
 env -i PATH="$PATH" HOME=/nonexistent GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1 GIT_NO_REPLACE_OBJECTS=1 \
   GIT_CONFIG_COUNT=4 GIT_CONFIG_KEY_0=attr.tree GIT_CONFIG_VALUE_0=4b825dc642cb6eb9a060e54bf8d69288fbee4904 \
   GIT_CONFIG_KEY_1=safe.directory GIT_CONFIG_VALUE_1='*' \
   GIT_CONFIG_KEY_2=core.attributesFile GIT_CONFIG_VALUE_2=/dev/null \
   GIT_CONFIG_KEY_3=advice.graftFileDeprecated GIT_CONFIG_VALUE_3=true \
-  gitleaks git "$(git rev-parse --git-common-dir)" --redact --gitleaks-ignore-path "$pins" \
+  gitleaks git "$(git rev-parse --git-common-dir)" --redact --gitleaks-ignore-path "$pins" --config "$rules" \
   --log-opts="refs/remotes/origin/main..$(git rev-parse HEAD)"
 ```
 
 Here `gitleaks` is the job's pinned binary, which `--install` (see **Gate**) puts under
-`~/.cache/earningsnerd/gitleaks/`. Were main to carry a `.gitleaks.toml`, name it too, with `--config`.
+`~/.cache/earningsnerd/gitleaks/`. Main's `.gitleaks.toml` (the repository rules, since 2026-11-11) is named with `--config`, as the hook names it; without it the scan runs the built-in rules alone and misses the bare key shapes they lack.
 
 If a flagged commit is already pushed, rewrite it out of the branch at once (amend and `--force-with-lease`
 on a branch you created), then re-run the `secret-scan` jobs it failed on other pull requests. A pin
@@ -198,7 +199,9 @@ that SHA-256 and another platform's against the release's checksums file once th
   - a GitHub MCP server named without "github", and an MCP write in a session that loads no repository
     hooks.
 
-  CI's `secret-scan` still reads each of them that reaches this repository, after the push.
+  CI's `secret-scan` still reads each of them that reaches a branch or a tag of this repository, after the push
+  (tags only since 2026-11-11: an archive tag's commit went unread for ten months before,
+  lessons/ops-a-tag-publishes-the-commit-it-names.md).
 
 **Evidence**: E20's commit 4ac900bb, amended to 2398f2af with the marker and force-pushed at 09:53 UTC;
 #1310's `secret-scan` re-run afterwards. Partly gated: CI's `secret-scan` finds the literal, but only

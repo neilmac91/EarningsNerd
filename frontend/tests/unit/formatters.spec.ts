@@ -84,6 +84,24 @@ describe('a served figure whose scale or unit is a word', () => {
     }
   })
 
+  it('reads no number from a string that is more than one figure, so a scale word it cannot find is never dropped', () => {
+    // Each ends in something other than its unit. Read loosely, the first four gave 81.6, 3.2, 3 and 81.6.
+    const more = [
+      '$81.6 billion.', '$3.2 billion (2024)', '3 years.', '$81.6 billion, up 7%', '$81.6bn (+7%)', '$81.6B*',
+      '1 234', '1.2.3', '$5.3bn to $5.5bn',
+    ]
+    for (const served of more) {
+      expect(parseNumeric(served), served).toBeNull()
+      expect(formatMetricValue(served), served).toBe(served)
+    }
+    // One figure with its usual decoration reads as it did.
+    expect(['$1.2 B', '(5,000)', '3.4 %', '+8.3%', '-$5', '$-0.50', '.5', '- 5'].map(parseNumeric)).toEqual([
+      1_200_000_000, -5000, 3.4, 8.3, -5, -0.5, 0.5, -5,
+    ])
+    // A column of such strings is still a column of figures: the table keeps it and shows each as served.
+    expect(['$3.2 billion (2024)', '3 years.'].map(isFigure)).toEqual([true, true])
+  })
+
   it('displays as its single-letter form does when the scale is known, and as served when the unit is not a scale', () => {
     expect(formatMetricValue('$81.6 billion')).toBe('$81.6B')
     for (const [worded, letter] of [

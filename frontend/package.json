@@ -16,8 +16,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "cf:build": "opennextjs-cloudflare build",
-    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:preview": "opennextjs-cloudflare build && wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc",
+    "cf:deploy": "node scripts/cf-deploy.mjs",
+    "cf:deploy:production": "node scripts/cf-deploy.mjs wrangler.production.jsonc wrangler.production.server.jsonc",
     "clean": "rimraf .next",
     "clean:all": "rimraf .next node_modules/.cache",
     "dev:clean": "npm run clean && npm run dev",
@@ -79,6 +80,12 @@
       "qs": "^6.16.0"
     },
     "basic-ftp": "^6.2.3",
-    "postcss-selector-parser": "^7.1.6"
+    "postcss-selector-parser": "^7.1.6",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    },
+    "@opennextjs/cloudflare": {
+      "glob": "^14.0.2"
+    }
   }
 }

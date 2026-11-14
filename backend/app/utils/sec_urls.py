@@ -63,6 +63,29 @@ def build_sec_archive_url(cik: str, accession_number: str) -> str:
     return f"{SEC_ARCHIVE_BASE_URL}{normalize_cik(cik)}/{normalize_accession(accession_number)}/"
 
 
+_DOCUMENT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def build_sec_document_url(cik: str, accession_number: str, filename: str) -> str:
+    """Build the address of one document inside a filing's archive folder.
+
+    ``filename`` is a single file name. A path is refused, so a listing's ``xslF345X05/form4.xml`` (the
+    rendered view of a Form 4) must be reduced to ``form4.xml`` (the document itself) by the caller, on purpose.
+    """
+    name = str(filename or "").strip()
+    if not _DOCUMENT_NAME_RE.match(name):
+        raise ValueError(f"Invalid SEC document name {filename!r}: expected one file name")
+    return build_sec_archive_url(cik, accession_number) + name
+
+
+def build_sec_submission_text_url(cik: str, accession_number: str) -> str:
+    """Build the address of a filing's complete submission text file, which sits beside its folder:
+    ``.../data/{cik}/{accession with dashes}.txt``. It holds every document of the filing."""
+    digits = normalize_accession(accession_number)
+    dashed = f"{digits[:10]}-{digits[10:12]}-{digits[12:]}"
+    return f"{SEC_ARCHIVE_BASE_URL}{normalize_cik(cik)}/{dashed}.txt"
+
+
 def is_sec_archive_url(url: object) -> bool:
     """True iff ``url`` is a canonical archive URL (index URL or a document under the folder)."""
     return isinstance(url, str) and SEC_ARCHIVE_URL_RE.match(url) is not None

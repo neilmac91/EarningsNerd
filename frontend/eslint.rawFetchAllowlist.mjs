@@ -5,11 +5,12 @@
 //   - tests/unit/rawFetchAllowlist.spec.ts: each file here must STILL contain exactly `fetchCalls`
 //     raw call sites (a new call inside a sanctioned file fails until the pin is updated and
 //     justified in the PR; a file that stops using fetch fails until it is removed), and the list
-//     itself is shrink-only.
-// The two sanctioned reasons, and the only ones: SSE stream readers (axios rides XHR and cannot
-// read a response body incrementally) and Next server/ISR fetches (Next extends `fetch` with
-// `next: { revalidate }` + per-render dedupe; axios has neither). Anything else is a lint error,
-// not a new entry.
+//     itself is shrink-only. It was raised once, from five to six, for the third reason below.
+// The sanctioned reasons, and the only ones: SSE stream readers (axios rides XHR and cannot
+// read a response body incrementally), Next server/ISR fetches (Next extends `fetch` with
+// `next: { revalidate }` + per-render dedupe; axios has neither), and, since the Cloudflare Workers
+// build, a telemetry SDK's transport where the SDK's own cannot send (it is not a call to our API,
+// and carries no session). Anything else is a lint error, not a new entry.
 export const RAW_FETCH_ALLOWLIST = [
   {
     file: 'app/sitemap.ts',
@@ -41,6 +42,14 @@ export const RAW_FETCH_ALLOWLIST = [
     file: 'features/analysis/api/analysis-api.ts',
     fetchCalls: 1,
     reason: 'SSE reader for the Multi-Period Analysis narrative stream (same XHR constraint).',
+  },
+  {
+    file: 'lib/sentryOnWorkers.ts',
+    fetchCalls: 1,
+    reason:
+      "Sentry transport for the Next server on Cloudflare Workers: the SDK's node:https transport never " +
+      'completes a send in that runtime, and the SDK ships no fetch transport for its Node build. ' +
+      'It posts envelopes to Sentry, never to our API.',
   },
 ]
 

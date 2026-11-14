@@ -1,30 +1,46 @@
 // The Cloudflare Workers STAGING copy of the frontend, at https://staging.earningsnerd.io: the same app as
 // production, built for Workers, calling the production API. It serves no production hostname; production is still
 // Vercel (vercel.json). docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)".
-// tests/unit/cloudflareWorkerConfig.spec.ts holds this file to open-next.config.ts and cloudflare-worker.mjs. Keep
-// each comment on a line of its own: the spec reads the file by dropping those lines.
+//
+// This is the FRONT Worker (cloudflare-front.mjs): routing, cached pages and static files. The Next server is the
+// server Worker, wrangler.server.jsonc. scripts/cf-deploy.mjs deploys the two together.
+// tests/unit/cloudflareWorkerConfig.spec.ts holds the two files to each other, to open-next.config.ts and to the
+// entry points. Keep each comment on a line of its own: the spec reads the file by dropping those lines.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "earningsnerd-frontend-staging",
-  "main": "cloudflare-worker.mjs",
+  "main": "cloudflare-front.mjs",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  // No "placement": Smart Placement moved the Worker away from the reader and roughly doubled the first byte of
-  // cached pages, which are most requests.
   // A custom domain: Cloudflare creates the hostname's DNS record and certificate. Its edge cache and the API's CORS
   // list work on this hostname and not on a workers.dev address, which is therefore switched off.
   "routes": [{ "pattern": "staging.earningsnerd.io", "custom_domain": true }],
   "workers_dev": false,
   "preview_urls": false,
-  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend-staging" }],
+  // `wrangler dev` hands the Worker each local request as if it had come to the hostname above, and over HTTP
+  // unless told otherwise; cloudflare-browser.mjs would redirect that to HTTPS, as it must a real one.
+  "dev": { "upstream_protocol": "https" },
+  // No "placement": this Worker answers cached pages, so it runs where the reader is.
+  // Each minute cloudflare-front.mjs `scheduled` asks the server Worker for one page of each route it renders on
+  // demand, so a reader's first such page does not wait for the route's code to load. scripts/cf-deploy.mjs applies
+  // this with `wrangler triggers deploy`.
+  "triggers": { "crons": ["* * * * *"] },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend-staging" },
+    { "binding": "SERVER", "service": "earningsnerd-frontend-staging-server" }
+  ],
   "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "earningsnerd-frontend-staging-cache" }],
   "durable_objects": { "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler"] }],
   "vars": {
     // middleware.ts sends every page to /waitlist unless this is exactly "false", so it is always stated here.
     "WAITLIST_MODE": "false",
-    // cloudflare-worker.mjs marks every response noindex while this is "true": a copy of the site must not be indexed.
-    "ROBOTS_NOINDEX": "true"
+    // cloudflare-front.mjs marks every response noindex while this is "true": a copy of the site must not be indexed.
+    "ROBOTS_NOINDEX": "true",
+    // The one hostname pages are served at: cloudflare-browser.mjs redirects a request at any other, or over HTTP.
+    "CANONICAL_HOST": "staging.earningsnerd.io",
+    // scripts/cf-deploy.mjs sets this on each deploy to the server version built with this front version.
+    "SERVER_VERSION_OVERRIDE": ""
   }
 }

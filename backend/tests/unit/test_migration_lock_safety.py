@@ -732,6 +732,7 @@ _POSTGRES_STEPS = [
      "PROGRESS_CONCURRENCY_TEST_DATABASE_URL"),
     ("SEC request admission concurrency", "test_sec_request_gate_transactions.py",
      "SEC_ADMISSION_TEST_DATABASE_URL"),
+    ("the insider scan's claim and migration", "test_insider_scan_transactions.py", "INSIDER_SCAN_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 

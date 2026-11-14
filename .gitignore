@@ -11,6 +11,16 @@ out
 # but DO track the example templates
 !.env.example
 !.env.local.example
+# Env files and key material under other names; an example file's placeholders are gated by
+# backend/tests/unit/test_example_env_files_are_placeholders.py.
+*.env
+!.github/ai-model.env
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
 
 # Build / test artifacts (regenerated; never commit)
 *.tsbuildinfo

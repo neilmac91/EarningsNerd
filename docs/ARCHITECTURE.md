@@ -260,7 +260,8 @@ frontend/
 | `change_report_service.py` | Period-over-period change report (financial deltas; risk diffs withheld) plus, behind `ENABLE_SECTION_CHANGES`, the `section_changes` wording diff block |
 | `section_review_service.py` | The Pro review of a filing's Item 1A wording changes (`section_reviews`): labels per content-addressed change id, completion when every change is labelled, the receipt (both texts' fingerprints, engine and extractor versions, counts, follow-ups) frozen then; a write locks the reader's row (`FOR UPDATE`) and recovers the insert race; `review_progress` gives the dashboard feed the same reconciled reading (live ids, receipt still matching); served by `routers/section_reviews.py` under `/api/summaries/filing/{id}/wording-review` behind the `section_changes` entitlement |
 | `filing_section_service.py` / `section_diff.py` | Item 1A text per filing (`filing_section_text`): fetched through the SEC transport, located with edgartools' HTML parser (local), stored with status and a cached comparison summary; the watched-cohort batch the filing-scan job runs; `section_diff` is the pure paragraph-paired, word-level diff (page furniture dropped, line-wrapped typesetting re-flowed, exact/moved/fuzzy pairing, content-addressed item ids) |
-| `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
+| `peers_service.py` / `insider_service.py` | Peer comparison by SIC; the insider endpoint's read of the stored Form 4 trades, windowed and summarised (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
+| `insider_scan_service.py` / `insider_form4.py` | The stored Form 4 scan (ADR 0009): one bounded, leased step lists an issuer's Form 4s and fetches a few as documents, parsed offline, into the `earningsnerd_insider_*` tables, and stops itself when SEC pushes back. It runs on the task worker as the `insider_scan` task kind; each step enqueues the next, and a beta reader's visit starts or restarts it |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed (with the Item 1A wording-change counts and the reader's review progress per card, behind `ENABLE_SECTION_CHANGES`); earnings calendar; new-filing alerts (dedup; a Pro recipient's alert and digest carry the "Risk factor wording" line when the filing's comparison is cached); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand) into Postgres; serves 10-K and 10-Q filings from companies holding a summary the filing page shows, newest first, at most six (D-046); self-omitting |
 | `pulse_service.py` | Filing Pulse gauge (pure scoring; kept for roadmap A3). Its original producer — the FMP/Finnhub-backed hot-filings scorer — and the Stocktwits/FMP trending pipeline were torn down 2026-09 (WS-8a) |
@@ -393,8 +394,9 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory
   per entity, prefix-invalidation via `all()`/`list(filters)` pairs.
 - **Shared HTTP** via `lib/api/client.ts` (axios: auth-refresh interceptor,
-  `withCredentials`). Raw `fetch` is sanctioned only for SSE stream readers and the
-  server-side Next ISR fetches (`lib/serverApi.ts`, `app/sitemap.ts`).
+  `withCredentials`). Raw `fetch` is sanctioned only for SSE stream readers, the
+  server-side Next ISR fetches (`lib/serverApi.ts`, `app/sitemap.ts`), and Sentry's transport for the Next
+  server on Cloudflare Workers (`lib/sentryOnWorkers.ts`).
 - **Feature flags** in `lib/featureFlags.ts`; error boundaries: `GlobalErrorBoundary`
   (Sentry) + `ChartErrorBoundary`; chrome: `CompanyLogo` (Logo.dev + monogram fallback),
   `CookieConsent`, Header/Footer/Theme*.

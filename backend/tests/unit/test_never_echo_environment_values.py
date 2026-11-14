@@ -1570,8 +1570,10 @@ def _capture_every_structure(caplog) -> None:
         raise RuntimeError("database down")
 
     # A request that continues a trace: the SDK copies the incoming baggage's items into the dynamic sampling context.
+    # 2.74.0 preserves the parent's sample rate rather than replacing it with this process's rate; supply it so this
+    # capture still exercises the protocol's sample_rate key on the inherited trace as well as on local traces.
     trace = {"sentry-trace": f"{'a' * 32}-{'b' * 16}-1"}
-    trace["baggage"] = f"sentry-trace_id={'a' * 32},sentry-replay_id={'c' * 32},sentry-user_segment=readers"
+    trace["baggage"] = f"sentry-trace_id={'a' * 32},sentry-replay_id={'c' * 32},sentry-user_segment=readers,sentry-sample_rate=0.25"
     TestClient(app, raise_server_exceptions=False).post(
         "/notes/1", params={"q": "x"}, json={"note": "x"}, headers=trace
     )
@@ -1655,6 +1657,8 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     assert {"schedule", "timezone", "checkin_margin"} <= checkin["monitor_config"].keys()
     traces = [headers["trace"] for kind, headers in envelopes if kind == "headers" and "trace" in headers]
     assert traces and all("sample_rate" in trace and "trace_id" in trace for trace in traces)
+    inherited = [trace for trace in traces if trace["trace_id"] == "a" * 32]
+    assert inherited and all(trace["sample_rate"] == "0.25" for trace in inherited)
     (chat,) = [span for payload in _of(envelopes, "span") for span in payload["items"]]  # split out after the hook
     assert {"parent_span_id", "start_timestamp", "trace_id"} <= chat.keys()
     (logs,), (metrics,) = _of(envelopes, "log"), _of(envelopes, "trace_metric")
@@ -1705,11 +1709,12 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     from app.utils import telemetry_bootstrap
 
     # The capture reaches the structures the design checks of #1297 found the SDK builds under the API's options (not a
-    # subprocess span, errno mechanism data or a gauge). Re-checked against the 2.72.0 -> 2.73.0 SDK diff:
-    # the optional queue/LLM integrations are not installed here; nonfinite telemetry attributes now become
-    # strings inside user data. The API capture below still reaches exactly the same protocol paths.
+    # subprocess span, errno mechanism data or a gauge). Re-checked against the 2.73.0 -> 2.74.0 SDK diff:
+    # inherited traces now keep their incoming sample rate, supplied by this capture; the stdlib change avoids
+    # duplicating existing Sentry baggage. Neither adds a protocol path under these API options, and the API
+    # capture below still reaches exactly the same protocol paths. Optional integration changes are not installed here.
     # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
-    assert sentry_sdk.VERSION == "2.73.0"
+    assert sentry_sdk.VERSION == "2.74.0"
 
     received = []
     value_scrubber = telemetry_bootstrap._value_scrubber

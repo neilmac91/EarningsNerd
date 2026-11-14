@@ -281,11 +281,13 @@ jobs:
         # Clearing addopts also drops `-n auto`: the real-sleep timings run serially, alone.
         run: cd backend && python -m pytest -o addopts= -m performance tests/performance
 
-  # Committed-credential gate (rule 12). Scans the full history of every branch with a
-  # checksum-pinned gitleaks binary; reviewed false positives are listed by fingerprint in
-  # .gitleaksignore. deploy-backend needs: this job, so a credential in any branch commit blocks a
-  # release. Tag refs are curated by hand and are outside this scan (--branches --remotes), so the
-  # gate's verdict follows the branches a pull request can change.
+  # Committed-credential gate (rule 12). Scans the full history of every branch and tag with a
+  # checksum-pinned gitleaks binary and the repository's own rules (.gitleaks.toml); reviewed false
+  # positives are listed by fingerprint in .gitleaksignore. deploy-backend needs: this job, so a
+  # credential in any branch or tag commit blocks a release. A tag is as public as a branch: an
+  # archive tag kept a closed pull request's keys published outside a branches-only scan for ten
+  # months (secret-scanning alerts 1 and 2; lessons/ops-a-tag-publishes-the-commit-it-names.md).
+  # fetch-depth: 0 fetches every tag; the gate is backend/tests/unit/test_ci_secret_scan_scope.py.
   secret-scan:
     runs-on: ubuntu-slim  # the 1-core runner; see ci-scope
     timeout-minutes: 10
@@ -299,7 +301,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Scan branch history for committed credentials
+      - name: Scan branch and tag history for committed credentials
         run: |
           set -euo pipefail
           curl -fsSL -o gitleaks.tgz \
@@ -307,7 +309,7 @@ jobs:
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
           # --redact keeps any match out of this public log; the exit code is the signal.
-          ./gitleaks git . --log-opts="--branches --remotes" --redact=100 --no-banner --exit-code 1
+          ./gitleaks git . --log-opts="--branches --remotes --tags" --redact=100 --no-banner --exit-code 1
 
   # Real-Postgres migration gate (ADR-0007; CLAUDE.md rule 12). backend-tests runs on SQLite, so
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
@@ -485,6 +487,12 @@ jobs:
         env:
           SEC_ADMISSION_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_sec_request_gate_transactions.py
+      - name: Verify the insider scan's claim and migration on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          INSIDER_SCAN_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_insider_scan_transactions.py
 
   frontend-tests:
     needs: [ci-scope]
@@ -537,14 +545,19 @@ jobs:
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
 
-  # The frontend's staging copy runs on Cloudflare Workers and is deployed by hand from main
+  # The frontend's staging copy runs on Cloudflare Workers, as two Workers (a small front Worker for
+  # routing and cached pages, and the Next server behind it), and is deployed by hand from main
   # (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)"). No other job builds the app for
-  # Workers, so this one is what keeps main deployable there: the build itself, then the Worker's
-  # compressed size against the plan's 10 MiB limit (refused from 8 MiB, to leave room to act) and a
-  # request to the built Worker in the local Workers runtime. It needs no Cloudflare credential and
-  # reaches no Cloudflare account. It is a job of its own, outside deploy-backend's needs, so that a
-  # fault in the Workers toolchain never holds a backend release
-  # (backend/tests/unit/test_ci_cost_controls.py pins both).
+  # Workers, so this one is what keeps main deployable there: the build itself; each Worker's
+  # compressed size (the server against the plan's 10 MiB limit, refused from 8 MiB to leave room to
+  # act; the front against 512 KiB, since its size is what a fresh instance waits for); a page
+  # requested through both in the local Workers runtime, with the Next server's instrumentation
+  # (Sentry) loaded and the headers a browser needs; the front Worker's once-a-minute schedule, which
+  # must pass the front Worker's cache and be answered from the Next server's; and production's pair
+  # of wrangler files, which wrangler must accept. The build names no backend, so nothing here calls
+  # production. It needs no Cloudflare credential and reaches no Cloudflare account. It is a job
+  # of its own, outside deploy-backend's needs, so that a fault in the Workers toolchain never holds
+  # a backend release (backend/tests/unit/test_ci_cost_controls.py pins all of this).
   worker-build:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() && !(needs.ci-scope.result == 'success' && needs.ci-scope.outputs.tests == 'false') }}
@@ -564,23 +577,78 @@ jobs:
       - name: Build for Cloudflare Workers
         run: npm run cf:build
         working-directory: frontend
-      - name: The Worker fits its size limit and answers in the Workers runtime
+        env:
+          # No backend, as in the other frontend builds here: the schedule's pages below must not call production.
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      - name: Both Workers fit their size limits and answer in the Workers runtime
         timeout-minutes: 5
         run: |
           set -euo pipefail
-          npx wrangler deploy --dry-run | tee dry-run.log
-          gzip_kib=$(sed -n 's/.*gzip: \([0-9]*\)\.[0-9]* KiB.*/\1/p' dry-run.log)
-          if ! [[ "$gzip_kib" =~ ^[0-9]+$ ]] || [ "$gzip_kib" -ge 8192 ]; then
-            echo "::error::The Worker is '${gzip_kib}' KiB gzipped; the build must report one size, under 8192 KiB (Cloudflare refuses a Worker over 10 MiB)."
+          gzip_kib() {
+            npx wrangler deploy --dry-run -c "$1" > "dry-run-$1.log" || echo "::error::wrangler deploy --dry-run failed for $1" >&2
+            cat "dry-run-$1.log" >&2
+            sed -n 's/.*gzip: \([0-9]*\)\.[0-9]* KiB.*/\1/p' "dry-run-$1.log"
+          }
+          front_kib=$(gzip_kib wrangler.jsonc)
+          server_kib=$(gzip_kib wrangler.server.jsonc)
+          if ! [[ "$front_kib" =~ ^[0-9]+$ ]] || [ "$front_kib" -ge 512 ]; then
+            echo "::error::The front Worker is '${front_kib}' KiB gzipped; the build must report one size, under 512 KiB. Something has pulled the Next server into cloudflare-front.mjs."
             exit 1
           fi
-          npx wrangler dev --port 8788 > wrangler-dev.log 2>&1 &
+          if ! [[ "$server_kib" =~ ^[0-9]+$ ]] || [ "$server_kib" -ge 8192 ]; then
+            echo "::error::The server Worker is '${server_kib}' KiB gzipped; the build must report one size, under 8192 KiB (Cloudflare refuses a Worker over 10 MiB)."
+            exit 1
+          fi
+          # Production's pair is this build under its own names (wrangler.production*.jsonc): wrangler must accept both.
+          for config in wrangler.production.jsonc wrangler.production.server.jsonc; do
+            npx wrangler deploy --dry-run -c "$config" > "dry-run-$config.log" || { cat "dry-run-$config.log"; exit 1; }
+          done
+          npx wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc --test-scheduled --port 8788 > wrangler-dev.log 2>&1 &
           npx wait-on --timeout 90000 http-get://127.0.0.1:8788/robots.txt || { cat wrangler-dev.log; exit 1; }
+          # The local cache starts empty, so this page is routed by the front Worker and rendered by the server Worker.
           curl -fsS -o /dev/null -D headers.txt http://127.0.0.1:8788/pricing || { cat wrangler-dev.log; exit 1; }
           cat headers.txt
+          # The server Worker rendered it: only a render loads the Next server, which the last check below is about.
+          grep -qi '^x-nextjs-cache: MISS' headers.txt
           # wrangler.jsonc sets ROBOTS_NOINDEX for staging, and next.config.js sets the frame header on every page.
           grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
           grep -qi '^x-frame-options: DENY' headers.txt
+          # cloudflare-browser.mjs adds what Vercel's platform sends a browser for the app.
+          grep -qi '^strict-transport-security: max-age=63072000' headers.txt
+          # The front Worker's schedule (cloudflare-front.mjs `scheduled`), run as Cloudflare runs it each minute. The
+          # first run renders its pages, which the server Worker caches; with no backend here they are the pages'
+          # client-fetching shells.
+          run_schedule() {
+            curl -fsS -o /dev/null 'http://127.0.0.1:8788/__scheduled?cron=*+*+*+*+*' || { cat wrangler-dev.log; exit 1; }
+          }
+          run_schedule
+          # A reader now gets one of those pages from the front Worker's cache, once the server Worker's write of it
+          # has landed.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            curl -fsS -o /dev/null -D cached.txt http://127.0.0.1:8788/company/AAPL
+            if grep -qi '^x-opennext-cache: HIT' cached.txt; then break; fi
+            sleep 1
+          done
+          cat cached.txt
+          grep -qi '^x-opennext-cache: HIT' cached.txt
+          # A cached page reaches the browser marked to be checked again each time, not with the header OpenNext
+          # writes for a CDN.
+          grep -qi '^cache-control: public, max-age=0, must-revalidate' cached.txt
+          # The schedule's request must pass that cache to reach the server Worker: a run the front Worker answers
+          # itself throws, and this answers 500.
+          run_schedule
+          # And the Next server must answer such a request from its cache. Were the cookie ever taken for draft mode,
+          # every run would render both pages and call the API for them.
+          curl -fsS -o /dev/null -D warmed.txt -H 'cookie: __prerender_bypass=keep-warm' http://127.0.0.1:8788/company/AAPL
+          cat warmed.txt
+          grep -qi '^x-nextjs-cache: HIT' warmed.txt
+          # The Next server logs one of two lines when instrumentation.ts cannot load or its register() throws, and
+          # then runs without Sentry.
+          if grep -qE 'An error occurred while loading (the )?instrumentation hook' wrangler-dev.log; then
+            cat wrangler-dev.log
+            echo "::error::The Next server's instrumentation hook failed in the Workers runtime, so Sentry is off."
+            exit 1
+          fi
         working-directory: frontend
 
   # Backend first (docs/PRICING_OFFER.md, "Machine checks"): a pricing page must never show less than
@@ -1296,8 +1364,9 @@ jobs:
           # every machine, and each process carries two independent SEC buckets (the app's
           # SEC_RATE_LIMIT_PER_SECOND and edgartools' EDGAR_RATE_LIMIT_PER_SEC, defaults 10 and 9).
           # This service, the task worker above and every job update below pin both to 1; the insider
-          # endpoint, whose cold fetch cannot fit 1 req/s, is pinned off (ENABLE_INSIDER_ACTIVITY=false is
-          # re-asserted on every deploy, so a hand-set true does not survive the next one).
+          # endpoint, served from a stored scan since ADR 0009, stays off until its production trial
+          # (ENABLE_INSIDER_ACTIVITY=false is re-asserted on every deploy, so a hand-set true does not
+          # survive the next one).
           # tests/unit/test_sec_process_budgets.py and docs/OPERATIONS.md state the arithmetic and
           # what it does not guarantee.
           cpu_billing=--no-cpu-throttling
