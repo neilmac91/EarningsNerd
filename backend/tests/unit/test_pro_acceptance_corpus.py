@@ -71,7 +71,7 @@ CORPUS = {
     "TROW": ("companyfacts_fi", "6282", "an asset manager"),
     "CLSK": ("companyfacts_fi", "6199", "a bitcoin miner filed under finance services"),
     "HUT": ("companyfacts_fi", "6199", "a bitcoin miner filed under finance services"),
-    "BXSL": ("companyfacts_fi", None, "a business development company with no SIC code, read as a non-financial filer"),
+    "BXSL": ("companyfacts_fi", "", "a business development company with no SIC code, read as a non-financial filer"),
     "CBAN": ("companyfacts_partial_years", "6022", "a bank whose 10-Q tags a quarter's figure with its year (E291)"),
     "FIX": ("companyfacts_partial_years", "1700", "a contractor whose 10-Q tags a quarter's figure with its year "
             "(E291), with gross profit, operating income and their margins"),

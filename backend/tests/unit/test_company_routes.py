@@ -601,7 +601,7 @@ def test_miss_with_sec_error_is_503(client, monkeypatch):
 
 def test_stored_ticker_lookup_failure_is_not_the_wrapped_500(client, monkeypatch, override_db):
     """The stored-ticker SELECT runs outside the miss path's try, so its failure reaches the app's
-    global handler instead of becoming "Error fetching company: ..."."""
+    global handler instead of becoming the miss path's own wrapped 500."""
     db = SessionLocal()
 
     def broken_query(*_a, **_k):
@@ -647,16 +647,21 @@ def test_a_failed_release_after_the_persistence_unit_is_logged_and_the_row_serve
         verify.close()
 
 
-def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch):
-    """A failure inside the persistence unit keeps its wrapped 500 detail (str of the error)."""
+def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch, caplog):
+    """A failure inside the persistence unit is the wrapped 500: a fixed detail that carries none of the error's
+    text, and the error logged with its traceback."""
     async def search(_query):
         return [{"cik": NEW_CIK, "ticker": "ZZ2"}]  # no "name": the persistence unit raises KeyError
 
     monkeypatch.setattr(sec_edgar_service, "search_company", search)
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
-    resp = client.get("/api/companies/ZZ2")
+    with caplog.at_level(logging.ERROR, logger="app.routers.companies"):
+        resp = client.get("/api/companies/ZZ2")
     assert resp.status_code == 500
-    assert resp.json() == {"detail": "Error fetching company: 'name'"}
+    assert resp.json() == {"detail": "We could not load this company. Please retry shortly."}
+    [logged] = [r for r in caplog.records if r.name == "app.routers.companies"]
+    assert logged.getMessage() == "Unexpected error fetching company ZZ2"
+    assert isinstance(logged.exc_info[1], KeyError)
 
 
 def test_miss_persists_the_sec_hit_under_its_primary_ticker(client, monkeypatch, override_db, caplog, resolver_paths):

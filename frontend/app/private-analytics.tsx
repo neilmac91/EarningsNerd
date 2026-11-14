@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react'
 import { Analytics } from '@vercel/analytics/next'
 import type { BeforeSendEvent } from '@vercel/analytics'
 import { getCookiePreferences, subscribeCookiePreferences } from '@/lib/browserConsent'
+import { ENABLE_VERCEL_ANALYTICS } from '@/lib/featureFlags'
 import { isCredentialLocation, sanitizeTelemetry } from '@/lib/telemetryPrivacy'
 
 /** The visitor's stored analytics choice: the consent bar's `cookie_consent`, the state PostHog obeys. */
@@ -28,8 +29,11 @@ export function beforeSendVercel(event: BeforeSendEvent): BeforeSendEvent | null
  * removes nothing on unmount, so the script stays in the page until the next full load. Unmounting stops the
  * pageviews the component sends on navigation, and beforeSendVercel, which stays registered with the script,
  * drops every event while the current choice is not analytics. From the next page load, nothing loads.
+ *
+ * A build that is not served by Vercel renders nothing at all (ENABLE_VERCEL_ANALYTICS): nothing there answers the
+ * script's address.
  */
 export function PrivateAnalytics() {
   const allowed = useSyncExternalStore(subscribeCookiePreferences, analyticsAllowed, () => false)
-  return allowed ? <Analytics beforeSend={beforeSendVercel} /> : null
+  return ENABLE_VERCEL_ANALYTICS && allowed ? <Analytics beforeSend={beforeSendVercel} /> : null
 }

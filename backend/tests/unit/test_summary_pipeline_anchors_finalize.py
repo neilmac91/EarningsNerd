@@ -268,8 +268,9 @@ async def test_concurrent_writer_that_commits_first_is_served_instead_of_errorin
 async def test_integrity_error_without_a_winner_row_fails_the_stream_generically(caplog):
     """An IntegrityError on the Summary insert with NO competing row to serve is re-raised into the
     generic failure path: the ERROR log carries the exception text with a traceback, progress is
-    recorded as ``error`` with the first 200 characters, the failed funnel event carries the same
-    text, nothing is persisted, and the only terminal is the generic failure sentence."""
+    recorded as ``error`` with the fixed code (the exception's text holds the statement), the failed
+    funnel event carries the same code, nothing is persisted, and the only terminal is the generic
+    failure sentence."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     duplicate = IntegrityError("stmt", {}, Exception("dup"))
@@ -298,11 +299,11 @@ async def test_integrity_error_without_a_winner_row_fails_the_stream_generically
     assert error_records[0].exc_info is not None and error_records[0].exc_info[1] is duplicate
     assert _stages(record_progress) == ["fetching", "parsing", "analyzing", "summarizing", "summarizing", "error"]
     assert record_progress.call_args_list[-1] == call(
-        ANY, filing_id, "error", error=str(duplicate)[:200], starts_run=False)  # past its fetch stage: E217
+        ANY, filing_id, "error", error="summary_generation_failed", starts_run=False)  # past its fetch stage: E217
     assert funnel.call_args_list == [
         call("offline", EVENT_GENERATION_STARTED, entry_point=None),
         call("offline", EVENT_GENERATION_FAILED, duration_ms=ANY, result_type="error", entry_point=None,
-             error=str(duplicate)[:200]),
+             error="summary_generation_failed"),
     ]
     assert _summary_rows(filing_id) == []
     assert _content_cache(filing_id) is None

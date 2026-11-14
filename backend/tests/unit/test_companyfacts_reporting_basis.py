@@ -16,6 +16,8 @@ import pytest
 from app.services import facts_service as svc
 from app.services.facts.reporting_basis import latest_periodic_report, reports_under_ifrs
 
+pytestmark = pytest.mark.usefixtures("sec_lists_no_sic")  # its syncs are of companies whose SIC is NULL
+
 REV_TAG = "RevenueFromContractWithCustomerExcludingAssessedTax"
 
 

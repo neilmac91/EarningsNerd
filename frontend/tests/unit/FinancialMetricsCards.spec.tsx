@@ -101,8 +101,8 @@ const FALLBACK_XBRL: Array<FinancialMetric & { change: string }> = [
   { metric: 'Net Income', current_period: '$210.0M', prior_period: '—', change: '—', commentary: 'From XBRL data' },
 ]
 const FALLBACK_NO_XBRL: Array<FinancialMetric & { change: string }> = [
-  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
-  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'Regenerate for financial data' },
+  { metric: 'Revenue', current_period: '—', prior_period: '—', change: '—', commentary: 'No figure was extracted for this filing' },
+  { metric: 'Net Income', current_period: '—', prior_period: '—', change: '—', commentary: 'No figure was extracted for this filing' },
 ]
 /** Figures that are not missing and render as they did before MissingValue reached these cells: a genuine zero, and
  *  words a summary reports in a figure's place ("Not disclosed", the degraded summary's own for a figure XBRL lacks). */
@@ -265,6 +265,29 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
       const facts = factsOf(layout(container, which))
       expect(facts.currents).toEqual(['$7.46', '$416.2B'])
       expect(facts.priors).toEqual(['$6.08', '$391.0B'])
+    }
+  })
+
+  it('keeps the scale a figure was served with as a word, and the unit of one it cannot scale: "$81.6 billion" never displays as "$81.6"', () => {
+    const rows: FinancialMetric[] = [
+      { metric: 'Total net sales', current_period: '$81.6 billion', prior_period: '$76.3 billion', change_display: '+6.9%', change_direction: 'up', change_tone: 'gain' },
+      { metric: 'Net debt to EBITDA', current_period: '2.1x', prior_period: '2.4x' },
+    ]
+    const { container } = render(<FinancialMetricsTable metrics={rows} bare />)
+    for (const which of ['cards', 'table'] as const) {
+      const facts = factsOf(layout(container, which))
+      expect(facts.currents).toEqual(['$81.6B', '2.1x'])
+      expect(facts.priors).toEqual(['$76.3B', '2.4x'])
+    }
+  })
+
+  it('keeps the prior column when every prior is a figure with a unit it cannot scale', () => {
+    const rows: FinancialMetric[] = [{ metric: 'Net debt to EBITDA', current_period: '2.1x', prior_period: '2.4x' }]
+    const { container } = render(<FinancialMetricsTable metrics={rows} bare />)
+    for (const which of ['cards', 'table'] as const) {
+      const facts = factsOf(layout(container, which))
+      expect(facts.caption).toBe(CAPTION_WITH)
+      expect(facts.priors).toEqual(['2.4x'])
     }
   })
 

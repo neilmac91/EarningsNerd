@@ -1,0 +1,151 @@
+name: Deploy frontend to Cloudflare Workers
+
+# Deploys the Cloudflare Workers copy of the frontend (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers
+# (staging)" and "Moving production to Cloudflare Workers"). A push to main that changes frontend/, which is
+# everything the build reads (frontend/scripts/vercel-ignore-build.sh), deploys staging. Production's pair is
+# deployed by dispatch only: until the cutover it serves no reader, and the cutover is the change that adds it to
+# the push.
+#
+# There is no pull_request trigger: the job holds the Cloudflare token, which can attach a hostname. The token
+# lives in the environment `frontend-workers`, whose deployment branches are set to main only, so a dispatch on
+# another branch, which would run that branch's copy of this file and of the deploy script, is refused by GitHub
+# before any step runs. A repository-level secret would be readable by any branch's workflow. On main, this file
+# and frontend/scripts/cf-deploy.mjs both refuse a checkout whose frontend/ is not main's.
+#
+# Needs, in the repository's settings: the environment `frontend-workers` (Deployment branches: main only)
+# holding the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; and the variables
+# FRONTEND_WORKERS_ENV_STAGING and FRONTEND_WORKERS_ENV_PRODUCTION, each the build's values for that target as
+# KEY=value lines. They are variables, not secrets: every one is a NEXT_PUBLIC_* value or SENTRY_DSN, which the
+# build compiles into what browsers download. Until the token and the target's values are there, a run says so
+# and deploys nothing.
+# backend/tests/unit/test_frontend_workers_deploy_workflow.py pins all of this.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'staging, or production (which serves no reader until the cutover)'
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+# One deploy of a target at a time, in the order the runs arrive. `queue: max` keeps every waiting run: the
+# default single pending slot lets a later run replace one that is waiting, and a later run can be one that
+# deploys nothing (ci.yml's deploy-backend, for the same reason).
+concurrency:
+  group: deploy-frontend-workers-${{ inputs.target || 'staging' }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  deploy-frontend-workers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Holds the Cloudflare token and admits main only (the header above).
+    environment: frontend-workers
+    env:
+      TARGET: ${{ inputs.target || 'staging' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Decide whether this run deploys
+        id: decide
+        timeout-minutes: 5
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_VALUES: ${{ vars.FRONTEND_WORKERS_ENV_STAGING }}
+          PRODUCTION_VALUES: ${{ vars.FRONTEND_WORKERS_ENV_PRODUCTION }}
+        run: |
+          set -euo pipefail
+          # Each target has its own values, chosen here and not by an expression: one that fell back to the other
+          # target's when its own were missing would build production with staging's.
+          if [ "$TARGET" = production ]; then BUILD_VALUES=$PRODUCTION_VALUES; else BUILD_VALUES=$STAGING_VALUES; fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ] || [ -z "$BUILD_VALUES" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Workers deploy not configured::The Cloudflare token, the account id or the build values for ${TARGET} are not in this repository's Actions settings, so nothing was deployed (docs/DEPLOYMENT.md)."
+            exit 0
+          fi
+          # A deploy ships this commit's frontend/. When main's has moved on, a newer commit's own run deploys it,
+          # and shipping this one after it would put the older build back (as the backend's deploy guards against:
+          # lessons/ops-a-superseded-commit-never-deploys.md). A commit that left frontend/ alone does not count.
+          fetched=false
+          for attempt in 1 2 3; do
+            if git fetch --no-tags --quiet --depth=1 origin refs/heads/main; then
+              fetched=true
+              break
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 10; fi
+          done
+          if [ "$fetched" != true ]; then
+            echo "::error title=Deploy not attempted::Could not read main's tip, so this deploy cannot tell whether a newer commit supersedes it. Re-run the job."
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD:frontend)" != "$(git rev-parse FETCH_HEAD:frontend)" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Superseded deploy skipped::frontend/ on main is no longer this commit's. On a push, a newer commit's run deploys it; on a dispatch, run it on main."
+            exit 0
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+      - name: Set up Node.js
+        if: steps.decide.outputs.deploy == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.4'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        if: steps.decide.outputs.deploy == 'true'
+        run: npm ci
+        working-directory: frontend
+      - name: Build and deploy both Workers
+        if: steps.decide.outputs.deploy == 'true'
+        timeout-minutes: 12
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_VALUES: ${{ vars.FRONTEND_WORKERS_ENV_STAGING }}
+          PRODUCTION_VALUES: ${{ vars.FRONTEND_WORKERS_ENV_PRODUCTION }}
+          # Vercel fills these two from its own variables; here they are stated.
+          NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${{ inputs.target || 'staging' }}
+        run: |
+          set -euo pipefail
+          # Next reads this file at build time, and git ignores it, so the checkout stays unchanged for the
+          # deploy script's check. A value the build lacks fails silently (a missing logo token shows initials),
+          # so the names it was given are listed here, without their values.
+          if [ "$TARGET" = production ]; then BUILD_VALUES=$PRODUCTION_VALUES; else BUILD_VALUES=$STAGING_VALUES; fi
+          printf '%s\n' "$BUILD_VALUES" > .env.production.local
+          echo "Build values given for ${TARGET}:"
+          grep -oE '^[A-Za-z0-9_]+=' .env.production.local | tr -d '=' | sort
+          # Main is read once more, now that the install is over: a commit that changed frontend/ meanwhile makes
+          # this run a superseded one, to skip, where the deploy script's own check would fail the run.
+          git fetch --no-tags --quiet --depth=1 origin refs/heads/main
+          if [ "$(git rev-parse HEAD:frontend)" != "$(git rev-parse FETCH_HEAD:frontend)" ]; then
+            echo "::notice title=Superseded deploy skipped::frontend/ on main changed while this run installed; the newer commit's run deploys it."
+            exit 0
+          fi
+          if [ "$TARGET" = production ]; then
+            npm run cf:deploy:production
+          else
+            npm run cf:deploy
+          fi
+        working-directory: frontend
+      - name: Staging answers
+        if: steps.decide.outputs.deploy == 'true' && env.TARGET == 'staging'
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 5 --max-time 30 -o /dev/null -D headers.txt https://staging.earningsnerd.io/pricing
+          cat headers.txt
+          grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
+          grep -qi '^strict-transport-security: max-age=63072000' headers.txt

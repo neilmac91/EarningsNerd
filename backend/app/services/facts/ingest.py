@@ -12,6 +12,7 @@ from app.services.facts.companyfacts import normalize_companyfacts
 from app.services.facts.concepts import COMPANYFACTS_INFLIGHT_WAIT_SECONDS, _is_financial_sic
 from app.services.facts.currency import demote_convenience_rows, payload_view, protected_rows
 from app.services.facts.reporting_basis import retire_ifrs_series
+from app.services.facts.sic_fill import fetch_with_sic
 from app.services.facts.sync_threads import run_to_completion, submit
 from app.services.facts.transport import _fetch_companyfacts_async, logger
 from app.services.facts.upsert import upsert_facts_bulk
@@ -50,13 +51,14 @@ def _companyfacts_fresh_result(
 
 
 def _persist_companyfacts_payload(
-    db: Session, company: Company, payload: dict[str, Any]
+    db: Session, company: Company, payload: dict[str, Any], sic: Optional[str] = None
 ) -> dict[str, Any]:
     """Normalize and persist one fetched payload in the caller's short transaction, deleting nothing: the upsert,
     then the currency step (``demote_convenience_rows``), which every sync runs, one in USD alone too (E198); a newer
     filing's row holds its key on both (``protected_rows``), a proven switch writes nothing, and an IFRS filer's sync
     retires its series (``reporting_basis``)."""
     company_id = company.id  # the commit expires the row; reading it back would check out again
+    company.sic = sic if company.sic is None else company.sic  # SEC's answer (sic_fill), unless one is stored
     facts, meta = normalize_companyfacts(company_id, payload, financial_sic=_is_financial_sic(company.sic))
     guard = protected_rows(db, facts, view := payload_view(payload))  # the view is pure; this takes the row lock
     batch, history = ([], []) if guard.switch else (facts, meta["history"])  # a proven switch writes nothing
@@ -86,9 +88,9 @@ async def ingest_companyfacts(
 
     Freshness: a sync newer than ``COMPANYFACTS_SYNC_TTL_HOURS`` is a no-op UNLESS a Filing row
     newer than the stamp exists (a fresh filing shouldn't wait out the TTL) or ``force`` is set.
-    ``facts_synced_at`` is stamped even for empty/IFRS results so unsupported filers aren't
-    refetched hourly; a FAILED fetch does not stamp (retry on next touch). ``fetcher`` is
-    injectable for tests (async ``cik -> dict | None``).
+    ``facts_synced_at`` is stamped even for empty/IFRS results so unsupported filers aren't refetched hourly; a FAILED
+    fetch does not stamp (retry on next touch), nor does a failed lookup of an unknown SIC (``sic_fill``), which comes
+    after the fetch. ``fetcher`` is injectable for tests (async ``cik -> dict | None``).
     """
     fresh = _companyfacts_fresh_result(db, company, force=force)
     if fresh is not None:
@@ -107,12 +109,11 @@ async def ingest_companyfacts(
     event = asyncio.Event()
     _inflight_syncs[company.id] = event
     try:
-        fetch = fetcher or _fetch_companyfacts_async
-        payload = await fetch(company.cik)
+        payload, sic = await fetch_with_sic(fetcher or _fetch_companyfacts_async, company.cik, company.sic)
         if payload is None:
             return {"synced": False, "refreshed": False, "inserted": 0, "skipped": 0, "demoted": 0,
                     "unsupported_ifrs": False, "error": "fetch_failed"}
-        return _persist_companyfacts_payload(db, company, payload)
+        return _persist_companyfacts_payload(db, company, payload, sic)
     finally:
         if _inflight_syncs.get(company.id) is event:
             _inflight_syncs.pop(company.id, None)
@@ -140,7 +141,7 @@ async def ingest_companyfacts_by_id(
     persist would block it for its whole run (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
 
-    def read_freshness() -> tuple[Optional[dict[str, Any]], Optional[str]]:
+    def read_freshness() -> tuple[Optional[dict[str, Any]], Optional[tuple[str, Optional[str]]]]:
         with session_factory() as db:
             company = db.get(Company, company_id)
             if company is None:
@@ -148,7 +149,7 @@ async def ingest_companyfacts_by_id(
             fresh = _companyfacts_fresh_result(db, company, force=force)
             if fresh is not None:
                 return fresh, None
-            return None, company.cik
+            return None, (company.cik, company.sic)
 
     def read_synced_at() -> Optional[datetime]:
         with session_factory() as db:
@@ -175,11 +176,10 @@ async def ingest_companyfacts_by_id(
     event = asyncio.Event()
     _inflight_syncs[company_id] = event
     try:
-        settled, cik = await submit(read_freshness)
+        settled, known = await submit(read_freshness)
         if settled is not None:
             return settled
-        fetch = fetcher or _fetch_companyfacts_async
-        payload = await fetch(cik)
+        payload, sic = await fetch_with_sic(fetcher or _fetch_companyfacts_async, *known)
         if payload is None:
             return {
                 "synced": False, "refreshed": False, "inserted": 0, "skipped": 0,
@@ -191,7 +191,7 @@ async def ingest_companyfacts_by_id(
                 company = db.get(Company, company_id)
                 if company is None:
                     return {"synced": False}
-                return _persist_companyfacts_payload(db, company, payload)
+                return _persist_companyfacts_payload(db, company, payload, sic)
 
         return await run_to_completion(persist)
     finally:

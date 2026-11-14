@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -9,7 +9,9 @@ import { markNoindex } from '../../cloudflare-robots.mjs'
  * The Cloudflare Workers build is two Workers wired across files that nothing compiles together: open-next.config.ts
  * picks the cache and the queue, wrangler.jsonc (the front Worker) and wrangler.server.jsonc (the server Worker) bind
  * what they read and name each other, cloudflare-front.mjs and cloudflare-server.mjs are their entry points, and
- * public/_headers sets the static files' caching. CI's worker-build job builds them and requests one page through
+ * public/_headers sets the static files' caching. There are two such pairs, staging's and production's
+ * (wrangler.production.jsonc, wrangler.production.server.jsonc), on the same entry points, and every test below
+ * runs on each. CI's worker-build job builds them and requests one page through
  * both, which exercises neither the R2 cache nor the Durable Object, so a binding renamed in one file would first
  * fail on staging, at request time. This spec holds them to each other, and holds the properties a deployed copy of
  * the site needs (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)").
@@ -21,11 +23,15 @@ type Route = string | { pattern: string }
 interface WranglerConfig {
   name: string
   main: string
+  compatibility_date?: string
+  compatibility_flags?: string[]
   workers_dev?: boolean
   preview_urls?: boolean
   route?: Route
   routes?: Route[]
   placement?: { region?: string; mode?: string }
+  triggers?: { crons?: string[] }
+  dev?: { upstream_protocol?: string }
   assets?: { directory?: string }
   services?: { binding: string; service: string }[]
   r2_buckets?: { binding: string; bucket_name: string }[]
@@ -44,14 +50,21 @@ const wranglerFile = (file: string) =>
       .join('\n'),
   ) as WranglerConfig
 
-const front = wranglerFile('wrangler.jsonc')
-const server = wranglerFile('wrangler.server.jsonc')
+const PAIRS = [
+  { pair: 'staging', front: wranglerFile('wrangler.jsonc'), server: wranglerFile('wrangler.server.jsonc') },
+  { pair: 'production', front: wranglerFile('wrangler.production.jsonc'), server: wranglerFile('wrangler.production.server.jsonc') },
+]
+// The hostnames a Worker may serve, written exactly: a wildcard or another spelling could cover production while
+// reading as a copy, so it fails until it is listed here.
+const PRODUCTION_HOSTS = ['earningsnerd.io', 'www.earningsnerd.io']
+const PRODUCTION_CANONICAL_HOST = 'www.earningsnerd.io'
+const COPY_HOSTS = ['staging.earningsnerd.io']
 const hostsOf = (config: WranglerConfig) =>
   [config.route, ...(config.routes ?? [])]
     .filter((route) => route !== undefined)
     .map((route) => (typeof route === 'string' ? route : route.pattern).split('/')[0])
 
-describe('the Cloudflare Workers build', () => {
+describe.each(PAIRS)('the Cloudflare Workers build, $pair', ({ front, server }) => {
   it('binds what open-next.config.ts reads, in both Workers, and each Worker names the other', () => {
     const openNext = read('open-next.config.ts')
 
@@ -88,6 +101,9 @@ describe('the Cloudflare Workers build', () => {
     for (const config of [front, server]) expect(existsSync(path.join(FRONTEND, config.main)), config.main).toBe(true)
     expect(front.assets?.directory).toBe('.open-next/assets')
     expect(read('public/_headers')).toMatch(/^\/_next\/static\/\*\n {2}Cache-Control: public,max-age=31536000,immutable$/m)
+    // A static file does not pass through the Worker, so the HSTS header cloudflare-browser.mjs sets is repeated here.
+    expect(read('public/_headers')).toMatch(/^\/\*\n {2}Strict-Transport-Security: max-age=63072000$/m)
+    expect(read('cloudflare-browser.mjs')).toContain("sent.headers.set('Strict-Transport-Security', 'max-age=63072000')")
   })
 
   it('keeps the Next server out of the front Worker, and loads it in the server Worker only once its globals are set', () => {
@@ -112,6 +128,60 @@ describe('the Cloudflare Workers build', () => {
     expect(front.placement, 'the front Worker answers cached pages where the reader is').toBeUndefined()
   })
 
+  it('keeps each on-demand page route loaded in the server Worker: every minute the front Worker asks it for one page of each', () => {
+    // An instance of the server Worker that has not yet served a company page loads that route's code on a reader's
+    // first one, which was most of the wait (docs/DEPLOYMENT.md). The schedule is the front Worker's; the server
+    // Worker has no trigger of its own and is reached over SERVER.
+    expect(front.triggers?.crons).toEqual(['* * * * *'])
+    expect(server.triggers, 'the server Worker is called by the front Worker only').toBeUndefined()
+    // A version deploy does not carry a Worker's triggers, so the deploy applies them, last: the schedule must
+    // not start on a front version that has no handler for it.
+    const deploy = read('scripts/cf-deploy.mjs')
+    const applied = deploy.indexOf("run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])")
+    expect(applied).toBeGreaterThan(deploy.lastIndexOf("run(['wrangler', 'versions', 'deploy', "))
+
+    const frontEntry = read(front.main)
+    expect(frontEntry).toMatch(/^ {2}async scheduled\(\) \{$/m)
+    const listed = frontEntry.match(/^const KEEP_WARM_PATHS = \[([^\]]+)\]$/m)?.[1] ?? ''
+    const paths = [...listed.matchAll(/'([^']+)'/g)].map((match) => match[1])
+
+    // The on-demand pages are the routes with a parameter anywhere in their path: the build prerenders none of
+    // their pages, so each is first rendered for a reader. Every such route has exactly one page in the list, and
+    // the list holds nothing else: a route added later is warmed from its first deploy, or this fails. A route
+    // group's folder, `(name)`, is not part of the address.
+    const onDemandRoutes = readdirSync(path.join(FRONTEND, 'app'), { recursive: true, encoding: 'utf8' })
+      .map((file) => file.split(path.sep))
+      .filter((parts) => /^page\.[jt]sx?$/.test(parts[parts.length - 1]) && parts.some((part) => /^\[.+\]$/.test(part)))
+      .map((parts) => `/${parts.slice(0, -1).filter((part) => !/^\(.+\)$/.test(part)).join('/')}`)
+    expect(onDemandRoutes.length).toBeGreaterThan(0)
+    const routeOf = (warmed: string) => onDemandRoutes.filter((route) => new RegExp(`^${route.replace(/\[[^/]+\]/g, '[^/]+')}$`).test(warmed))
+    expect(paths.map((warmed) => routeOf(warmed).join()).sort()).toEqual([...onDemandRoutes].sort())
+    // middleware.ts lets each through with the waitlist gate up or down, so the request is never redirected.
+    const allowedPrefixes = read('middleware.ts').match(/^const ALLOWED_PREFIXES = \[(.+)\]$/m)?.[1] ?? ''
+    for (const warmed of paths) expect(allowedPrefixes).toContain(`'/${warmed.split('/')[1]}'`)
+
+    // The request must pass the front Worker's cache, which would answer a cached page itself. OpenNext's cache
+    // layer passes on a request carrying Next's draft-mode cookie, by this test in the installed version; when an
+    // upgrade rewords it, check that the schedule still reaches the server Worker before changing this line.
+    expect(frontEntry).toContain("const KEEP_WARM_COOKIE = '__prerender_bypass=keep-warm'")
+    // Its hostname is the site's own where the Worker has one: a stale page's re-render is requested at the host
+    // the request named, through `fetch`, which redirects every hostname but that one.
+    expect(frontEntry).toContain('const host = env.CANONICAL_HOST || KEEP_WARM_HOST_WITHOUT_A_SITE')
+    expect(frontEntry).toContain('const request = new Request(`https://${host}${path}`, { headers: { cookie: KEEP_WARM_COOKIE, host } })')
+    expect(read('node_modules/@opennextjs/aws/dist/core/routing/cacheInterceptor.js')).toContain('cookies.includes("__prerender_bypass")')
+    // A run that stops in the front Worker, or that the server Worker fails, throws once every page has been asked
+    // for: Cloudflare records the run as failed. CI's worker-build job runs the schedule against a page the cache
+    // already holds, where a request that did not pass the cache fails the job.
+    expect(frontEntry).toContain('if (routed instanceof Response) {\n            throw new Error(`the front Worker answered ')
+    expect(frontEntry).toContain('if (response.status >= 500) throw new Error(`the server Worker answered ')
+    expect(frontEntry).toContain("if (failures.length > 0) throw new Error(`keep-warm: ${failures.join('; ')}`)")
+    // Its requests reach the server Worker the way a reader's do, through the one call that holds a front version
+    // to its own build's server version while a deploy rolls out.
+    expect(frontEntry.match(/env\.SERVER\.fetch\(/g)).toHaveLength(1)
+    expect(frontEntry).toContain('          const response = await askServer(routed, env)\n')
+    expect(read('../.github/workflows/ci.yml')).toContain(`-D cached.txt http://127.0.0.1:8788${paths[0]}\n`)
+  })
+
   it('states the waitlist gate, and marks a copy of the site noindex and production never', () => {
     // middleware.ts redirects every page to /waitlist unless WAITLIST_MODE is exactly "false". It runs in the front
     // Worker. Vercel takes the value from vercel.json; a Worker without it would serve nothing but the waitlist.
@@ -119,7 +189,7 @@ describe('the Cloudflare Workers build', () => {
 
     // The front Worker passes every response, its own and the server Worker's, through markNoindex, which is run
     // here as the Worker runs it.
-    expect(read(front.main)).toMatch(/^ {4}return markNoindex\(response, env\)$/m)
+    expect(read(front.main)).toMatch(/^ {4}return markNoindex\(forBrowser\(response\), env\)$/m)
     const rendered = () => new Response('page', { status: 404, headers: { 'X-Frame-Options': 'DENY' } })
     const marked = markNoindex(rendered(), { ROBOTS_NOINDEX: 'true' })
     expect(marked.headers.get('X-Robots-Tag')).toBe('noindex, nofollow')
@@ -130,11 +200,7 @@ describe('the Cloudflare Workers build', () => {
 
     // Either the Worker is a copy (staging, or a workers.dev address) and every response is noindex, or it serves
     // the production hostnames and none is: a noindex production site leaves search, and an indexable copy competes
-    // with it. Each hostname must be one this spec knows, written exactly: a wildcard or another spelling could
-    // cover production while reading as a copy, so it fails here until it is listed. wrangler takes a route as
-    // `route` or `routes`, a string or an object, and both are read.
-    const PRODUCTION_HOSTS = ['earningsnerd.io', 'www.earningsnerd.io']
-    const COPY_HOSTS = ['staging.earningsnerd.io']
+    // with it. wrangler takes a route as `route` or `routes`, a string or an object, and both are read.
     const hosts = hostsOf(front)
     for (const host of hosts) {
       expect([...PRODUCTION_HOSTS, ...COPY_HOSTS], 'a route names a production hostname or a known copy, exactly').toContain(host)
@@ -143,5 +209,102 @@ describe('the Cloudflare Workers build', () => {
     const servesACopy = front.workers_dev !== false || hosts.some((host) => COPY_HOSTS.includes(host))
     expect(servesProduction && servesACopy, 'one Worker serves production or a copy of it, never both').toBe(false)
     expect(front.vars?.ROBOTS_NOINDEX === 'true', `ROBOTS_NOINDEX for a Worker on ${hosts.join(', ') || 'workers.dev'}`).toBe(!servesProduction)
+
+    // A Worker with hostnames serves its pages at one of them, and cloudflare-browser.mjs redirects the rest there.
+    // Production's is `www`, as on Vercel, and it takes both hostnames together: the bare domain alone would have
+    // nowhere to redirect to, and `www` alone would leave the bare domain on the old host. A Worker on a workers.dev
+    // address names none, or every request to it would be sent to a site it does not serve.
+    if (hosts.length === 0) {
+      expect(front.vars?.CANONICAL_HOST, 'no hostname, so no canonical one').toBeUndefined()
+    } else {
+      expect(hosts).toContain(front.vars?.CANONICAL_HOST)
+    }
+    if (servesProduction) {
+      expect([...hosts].sort()).toEqual([...PRODUCTION_HOSTS].sort())
+      expect(front.vars?.CANONICAL_HOST).toBe(PRODUCTION_CANONICAL_HOST)
+    }
+    expect(read(front.main)).toMatch(/^ {6}canonicalRedirect\(request, env\) \?\?$/m)
+    // `wrangler dev` hands a Worker with a hostname its local requests at that hostname over HTTP, which the
+    // redirect would send to the deployed site: CI's worker-build job and `npm run cf:preview` would test nothing.
+    expect(front.dev).toEqual({ upstream_protocol: 'https' })
+  })
+})
+
+describe('the two pairs of Workers', () => {
+  const [staging, production] = PAIRS
+
+  it('share the code and nothing that holds state', () => {
+    // One build serves both, so each pair has the same entry points, runtime settings, schedule and placement.
+    const shape = ({ front, server }: (typeof PAIRS)[number]) => ({
+      mains: [front.main, server.main],
+      runtime: [front.compatibility_date, front.compatibility_flags, server.compatibility_date, server.compatibility_flags],
+      assets: front.assets,
+      triggers: front.triggers,
+      placement: server.placement,
+      waitlist: front.vars?.WAITLIST_MODE,
+    })
+    expect(shape(production)).toEqual(shape(staging))
+    // Each hostname belongs to one pair: staging's serves copies only, so no edit to its files, which the bare
+    // `npm run cf:deploy` deploys, can take a production hostname.
+    for (const host of hostsOf(staging.front)) expect(COPY_HOSTS, 'staging serves a copy, never production').toContain(host)
+    for (const host of hostsOf(production.front)) expect(PRODUCTION_HOSTS, 'production serves production, never a copy').toContain(host)
+    // And nothing one pair writes is read by the other: its Workers, and so its Durable Object, and its page cache.
+    const owned = ({ front, server }: (typeof PAIRS)[number]) => [front.name, server.name, front.r2_buckets?.[0].bucket_name]
+    for (const name of owned(production)) expect(owned(staging)).not.toContain(name)
+    expect(new Set([...owned(staging), ...owned(production)]).size).toBe(6)
+  })
+
+  it('are built without Vercel Web Analytics, whose script only Vercel serves', () => {
+    // Every Workers build goes through open-next.config.ts `buildCommand`: `npm run cf:build` and the deploy script
+    // both run `opennextjs-cloudflare build`, which runs it. The variable it sets is the one the flag reads, and
+    // tests/unit/privateAnalytics.spec.tsx renders the component under it.
+    expect(read('open-next.config.ts')).toContain("const config = { ...cloudflare, buildCommand: 'NEXT_PUBLIC_VERCEL_ANALYTICS=false npm run build' }")
+    expect(read('lib/featureFlags.ts')).toContain("export const ENABLE_VERCEL_ANALYTICS = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS !== 'false'")
+    expect(read('app/private-analytics.tsx')).toContain('return ENABLE_VERCEL_ANALYTICS && allowed ? <Analytics beforeSend={beforeSendVercel} /> : null')
+    expect((JSON.parse(read('package.json')).scripts as Record<string, string>)['cf:build']).toBe('opennextjs-cloudflare build')
+    expect(read('scripts/cf-deploy.mjs')).toContain("run(['opennextjs-cloudflare', 'build'])")
+    // Vercel's own build must not carry it: vercel.json sets build variables for production.
+    expect(read('vercel.json')).not.toContain('NEXT_PUBLIC_VERCEL_ANALYTICS')
+  })
+
+  it('are each deployed by their own script, and staging is the pair the bare commands mean', () => {
+    const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>
+    expect(scripts['cf:deploy']).toBe('node scripts/cf-deploy.mjs')
+    expect(read('scripts/cf-deploy.mjs')).toContain("const [frontConfig = 'wrangler.jsonc', serverConfig = 'wrangler.server.jsonc'] = process.argv.slice(2)")
+    expect(scripts['cf:deploy:production']).toBe('node scripts/cf-deploy.mjs wrangler.production.jsonc wrangler.production.server.jsonc')
+  })
+
+  it('are deployed from main only: the script refuses a changed checkout, or one whose frontend/ is not main\'s, before it builds', () => {
+    // The deploy's last step attaches the front Worker's hostnames, and wrangler replaces a hostname's existing DNS
+    // records without asking when it is not run at a terminal. A deploy from the branch that holds the cutover
+    // change would move production before the change was merged. Only a pair of files git does not track, with no
+    // hostname, passes: an experiment's.
+    const deploy = read('scripts/cf-deploy.mjs')
+    expect(deploy).toContain("if (git('status', '--porcelain') !== '') {\n    throw new Error(")
+    // What is compared is frontend/, which is everything the build reads: the deploy workflow runs on the commit
+    // that changed it, and main may since have moved on elsewhere.
+    expect(deploy).toContain("git('fetch', '--no-tags', '--quiet', 'origin', 'refs/heads/main')\n  if (git('rev-parse', 'HEAD:frontend') !== git('rev-parse', 'FETCH_HEAD:frontend')) {")
+    expect(read('scripts/vercel-ignore-build.sh')).toMatch(/^BUILD_INPUTS=\(\n {2}':\(top\)frontend'\n\)$/m)
+    expect(deploy).toContain('if (!tracked(frontConfig) && !tracked(serverConfig)) {\n    if (!namesAHostname) return\n    throw new Error(')
+    expect(deploy).toContain('const namesAHostname = front.route !== undefined || (front.routes ?? []).length > 0')
+    const refused = deploy.indexOf('\nrequireMain()\n')
+    expect(refused).toBeGreaterThan(-1)
+    for (const later of ['currentVersion(serverConfig)\n', "run(['opennextjs-cloudflare', 'build'])"]) {
+      expect(deploy.indexOf(later, refused), later).toBeGreaterThan(refused)
+      expect(deploy.slice(0, refused)).not.toContain(`= ${later}`)
+    }
+  })
+
+  it('can each be created from nothing: the front Worker first, without the binding Cloudflare would refuse', () => {
+    // Each Worker names the other, and Cloudflare creates neither while the other is missing (codes 10061 and
+    // 10143). scripts/cf-deploy.mjs creates a missing front Worker without its SERVER binding and with nothing that
+    // sends it a request, then the server, then deploys as usual.
+    const deploy = read('scripts/cf-deploy.mjs')
+    expect(deploy).toContain("services: front.services.filter((service) => service.binding !== 'SERVER'),")
+    expect(deploy).toContain('const { route: _route, routes: _routes, triggers: _triggers, $schema: _schema, ...front } = readConfig(config)')
+    expect(deploy).toMatch(/workers_dev: false,\n {4}preview_urls: false,\n {2}\}/)
+    const created = deploy.indexOf('const servingFront = servedFront ?? createFront(frontConfig)')
+    expect(created).toBeGreaterThan(-1)
+    expect(deploy.indexOf("const servingServer = servedServer ?? versionIn(run(['wrangler', 'deploy', '-c', serverConfig])")).toBeGreaterThan(created)
   })
 })

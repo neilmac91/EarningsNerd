@@ -2,9 +2,9 @@
 
 These tests PIN the orchestrator's behaviour on the paths where its own bookkeeping fails or a
 failure message has to be classified: a refund that cannot be written, a lease release that cannot
-be written, ``record_progress`` failing inside the timeout and generic failure handlers, which
-exception messages pass through to the client verbatim, and the generic failure path's progress
-and funnel records. Every assertion is on an observable: yielded event dicts, DB rows, mock call
+be written, ``record_progress`` failing inside the timeout and generic failure handlers, that no
+exception message passes through to the client, and the generic failure path's progress and
+funnel records (a fixed code, never the exception's text). Every assertion is on an observable: yielded event dicts, DB rows, mock call
 lists, the in-flight registry, the generation semaphore and the exact log text the code formats.
 The handlers' ``error`` writes name ``starts_run`` since E217: F3's follower and F6's leader, whose
 fetch stage has written, keep the row's clock.
@@ -20,6 +20,7 @@ from app.models import Base, Summary, UsageReservation, User, UserUsage
 from app.services import summary_pipeline
 from app.services.ai.provider_requests import signal_provider_start
 from app.services.subscription_service import get_current_month
+from app.services.summary_generation_service import progress_poll_answer
 from app.services.summary_pipeline import (
     EVENT_GENERATION_FAILED,
     EVENT_GENERATION_STARTED,
@@ -234,22 +235,22 @@ async def test_generic_handler_survives_a_failing_error_progress_write(caplog):
     assert filing_id not in summary_pipeline._inflight_generations
 
 
-# ------------------------------------------ F5: which failure messages reach the client verbatim
+# ------------------------------------------ F5: no failure message reaches the client verbatim
 
 @pytest.mark.parametrize(
-    "raised, expected",
+    "raised",
     [
-        ("Unable to complete this analysis right now", "Unable to complete this analysis right now"),
-        ("Unable to retrieve " + "x" * 231, ("Unable to retrieve " + "x" * 231)[:200]),
-        ("kaboom", GENERIC_FAILURE["message"]),
+        "Unable to complete this analysis right now",
+        "Unable to retrieve AWS region: {\"body\": \"https://internal.example.invalid/?token=secret\"}",
+        "kaboom",
     ],
-    ids=["unable_to_complete_passes_through", "unable_to_retrieve_is_cut_at_200", "anything_else_is_generic"],
+    ids=["unable_to_complete_is_generic", "unable_to_retrieve_is_generic", "anything_else_is_generic"],
 )
 @pytest.mark.asyncio
-async def test_failure_message_classification_and_the_failed_funnel_event(raised: str, expected: str):
-    """Messages that already read ``Unable to retrieve``/``Unable to complete`` reach the client
-    verbatim (cut at 200 characters); every other exception becomes the generic failure sentence.
-    The failed funnel event always carries the raw message cut at 200 plus the telemetry context."""
+async def test_failure_message_classification_and_the_failed_funnel_event(raised: str):
+    """Every exception becomes the generic failure sentence, one that reads ``Unable to retrieve``
+    or ``Unable to complete`` too (a third-party message so worded can carry a response body). The
+    failed funnel event carries the fixed code plus the telemetry context, never the exception's text."""
     filing_id = seed_company_filing()
     funnel = MagicMock()
     with stream_boundaries() as summarize, patch.object(summary_pipeline, "capture_funnel_event", funnel):
@@ -259,14 +260,14 @@ async def test_failure_message_classification_and_the_failed_funnel_event(raised
             telemetry_ctx={"surface": "filing_page"},
         )
 
-    assert events[-1] == {"type": "error", "message": expected}
-    assert len(expected) <= 200
+    assert events[-1] == GENERIC_FAILURE
     assert _terminals(events) == [events[-1]]
     assert funnel.call_args_list == [
         call("offline", EVENT_GENERATION_STARTED, entry_point="generate_button", surface="filing_page"),
         call("offline", EVENT_GENERATION_FAILED, duration_ms=ANY, result_type="error", entry_point="generate_button",
-             error=raised[:200], surface="filing_page"),
+             error="summary_generation_failed", surface="filing_page"),
     ]
+    assert raised not in repr(events)
     assert filing_id not in summary_pipeline._inflight_generations
 
 
@@ -275,8 +276,9 @@ async def test_failure_message_classification_and_the_failed_funnel_event(raised
 @pytest.mark.asyncio
 async def test_headless_provider_failure_records_error_progress_and_persists_nothing(caplog):
     """The background drain shape on a provider exception: the ``error`` progress write carries the
-    message, no Summary row exists, the ERROR log names the exception, the stream's non-progress
-    events are the single generic error, and (with no lease) nothing is refunded or released."""
+    fixed code, never the exception's text (``GET .../progress`` serves that row to any caller), no
+    Summary row exists, the ERROR log names the exception with its traceback, the stream's
+    non-progress events are the single generic error, and (with no lease) nothing is refunded or released."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     record_progress = MagicMock(wraps=summary_pipeline.record_progress)
@@ -290,8 +292,14 @@ async def test_headless_provider_failure_records_error_progress_and_persists_not
 
     assert events[0] == INITIALIZING
     assert [e for e in events if e["type"] != "progress"] == [GENERIC_FAILURE]
-    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error="kaboom", starts_run=False)
-    assert (logging.ERROR, f"[stream:{filing_id}] Error in streaming summary: kaboom") in _pipeline_logs(caplog)
+    assert record_progress.call_args_list[-1] == call(
+        ANY, filing_id, "error", error="summary_generation_failed", starts_run=False)
+    with SessionLocal() as db:
+        assert progress_poll_answer(db, filing_id)["error"] == "summary_generation_failed"
+    logged = [r for r in caplog.records
+              if r.name == LOGGER and r.getMessage() == f"[stream:{filing_id}] Error in streaming summary: kaboom"]
+    assert len(logged) == 1 and logged[0].levelno == logging.ERROR
+    assert logged[0].exc_info is not None and logged[0].exc_info[0] is RuntimeError
     refund.assert_not_called()
     release.assert_not_called()
     assert _summary_rows(filing_id) == 0

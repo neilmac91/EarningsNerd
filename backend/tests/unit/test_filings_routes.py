@@ -61,6 +61,8 @@ ACCEPTED_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K", "8-K/A", "20-F", "2
 OTHER_TYPES = [form for form in ACCEPTED_TYPES if form not in DEFAULT_TYPES]  # with ENABLE_FPI_FILINGS off
 UNAVAILABLE = "SEC EDGAR is temporarily unavailable. Please retry shortly."
 SLOW = "SEC EDGAR is slow to respond and no cached data is available. Please retry in a moment."
+COMPANY_FAILED = "We could not load this company. Please retry shortly."
+FILINGS_FAILED = "We could not load filings. Please retry shortly."
 
 
 def _archive(cik, accession):
@@ -137,12 +139,13 @@ _HIT = {"cik": "0000000042", "ticker": "MISS", "name": "Miss Co", "exchange": "N
     ("no_results", 404, "Company not found"),
     ("search_edgar_error", 503, UNAVAILABLE),
     ("primary_edgar_error", 503, UNAVAILABLE),
-    ("primary_runtime_error", 500, "Error fetching company: boom"),
-    ("persist_key_error", 500, "Error fetching company: 'name'"),
+    ("primary_runtime_error", 500, COMPANY_FAILED),
+    ("persist_key_error", 500, COMPANY_FAILED),
 ])
-def test_company_miss_maps_each_failure(client, sessions, monkeypatch, scenario, status, detail):
+def test_company_miss_maps_each_failure(client, sessions, monkeypatch, caplog, scenario, status, detail):
     """Each failure in the CIK-first miss path, including one raised while building the
-    persistence call, reaches the same handler and writes no Company row."""
+    persistence call, reaches the same handler and writes no Company row. An unexpected error's
+    500 carries a fixed detail, none of the error's text, and the error is logged with its traceback."""
     fetched = []
 
     async def search(_ticker):
@@ -169,10 +172,17 @@ def test_company_miss_maps_each_failure(client, sessions, monkeypatch, scenario,
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", primary)
     monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
 
-    resp = client.get("/api/filings/company/miss")
+    with caplog.at_level(logging.ERROR, logger=ROUTER_LOGGER):
+        resp = client.get("/api/filings/company/miss")
 
     assert resp.status_code == status
     assert resp.json() == {"detail": detail}
+    logged = [r for r in caplog.records if r.name == ROUTER_LOGGER and r.levelno == logging.ERROR]
+    if status == 500:
+        assert [r.getMessage() for r in logged] == ["Unexpected error fetching company MISS for its filings"]
+        assert type(logged[0].exc_info[1]) is (RuntimeError if scenario == "primary_runtime_error" else KeyError)
+    else:
+        assert logged == []
     assert fetched == []
     with sessions() as s:
         assert s.query(Company).count() == 0
@@ -270,7 +280,7 @@ _COLD_FAILURES = {
                 [(logging.WARNING, "SEC EDGAR timeout for COLD, returning cached filings")]),
     "edgar": (EdgarError("edgar down"), 503, UNAVAILABLE,
               [(logging.WARNING, "SEC EDGAR error for COLD: edgar down, attempting to return cached filings")]),
-    "unexpected": (RuntimeError("boom"), 500, "Error fetching filings: boom",
+    "unexpected": (RuntimeError("boom"), 500, FILINGS_FAILED,
                    [(logging.ERROR, "Unexpected error fetching filings for COLD")]),
 }
 
@@ -324,7 +334,7 @@ def test_cold_fetch_failure_serves_rows_persisted_meanwhile(client, sessions, mo
 
 def test_live_persistence_failure_rolls_back_and_maps_to_500(client, sessions, monkeypatch):
     """An error raised inside the live persistence (a bad SEC date) reaches the route's generic
-    handler: nothing is written, no stamp is recorded and the detail carries the error text."""
+    handler: nothing is written, no stamp is recorded and the detail is fixed, none of the error's text."""
     with sessions() as s:
         _seed_company(s)
     good = "0000000002-26-000001"
@@ -342,7 +352,7 @@ def test_live_persistence_failure_rolls_back_and_maps_to_500(client, sessions, m
     resp = client.get("/api/filings/company/cold")
 
     assert resp.status_code == 500
-    assert resp.json() == {"detail": "Error fetching filings: Invalid isoformat string: 'not-a-date'"}
+    assert resp.json() == {"detail": FILINGS_FAILED}
     with sessions() as s:
         assert s.query(Filing).count() == 0
     assert filing_list_service._filings_synced_at == {}
@@ -372,7 +382,7 @@ def test_live_persistence_failure_after_flush_is_rolled_back_before_the_fallback
         resp = client.get("/api/filings/company/cold")
 
     assert resp.status_code == 500
-    assert resp.json() == {"detail": "Error fetching filings: supersede failed"}
+    assert resp.json() == {"detail": FILINGS_FAILED}
     assert _router_records(caplog) == [(logging.ERROR, "Unexpected error fetching filings for COLD")]
     with sessions() as s:
         assert s.query(Filing).count() == 0

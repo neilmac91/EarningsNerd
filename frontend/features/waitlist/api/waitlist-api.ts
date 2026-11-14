@@ -8,17 +8,27 @@ export interface WaitlistJoinPayload {
   honeypot: string
 }
 
-export interface WaitlistJoinResult {
-  success?: boolean
+/** A join that landed: the only answer that carries a place and a referral code. */
+export interface WaitlistJoined {
+  success: true
+  message: string
+  position: number
+  referral_code: string
+  referral_link: string
+}
+
+/** A join the router did not take. An address already on the list gets its code and message only: never that
+ * signup's place, code or link, which would go to anyone who typed the address. */
+export interface WaitlistNotJoined {
+  success?: false
   /** The router's code for a join it did not take: already_registered (a 200) or invalid_referral (a 400). */
   error?: string
   message?: string
   /** The honeypot's 400 is an HTTPException: a `detail` in place of a message. */
   detail?: string
-  position: number
-  referral_code: string
-  referral_link: string
 }
+
+export type WaitlistJoinResult = WaitlistJoined | WaitlistNotJoined
 
 export interface WaitlistStats {
   total_signups: number

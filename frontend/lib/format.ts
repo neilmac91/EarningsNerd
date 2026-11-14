@@ -34,18 +34,31 @@ const getFormatter = (options: Intl.NumberFormatOptions): Intl.NumberFormat => {
   return formatterCache.get(key)!
 }
 
-/**
- * Parse a numeric string (e.g. "$1.2B", "3.4%", "(5,000)") into a number.
- */
-export const parseNumeric = (value: NumericInput): number | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
+/** The scale a figure may carry after its digits, as a letter or a word, in any case. The words are the ones the backend
+ *  reads in a figure (backend/app/services/ai/figure_trace.py, backend/app/services/copilot/figures.py). */
+const SCALES = new Map<string, number>([
+  ['k', 1e3],
+  ['thousand', 1e3],
+  ['m', 1e6],
+  ['mn', 1e6],
+  ['million', 1e6],
+  ['b', 1e9],
+  ['bn', 1e9],
+  ['billion', 1e9],
+  ['t', 1e12],
+  ['tn', 1e12],
+  ['trillion', 1e12],
+])
 
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
+/** What is left of one figure once its sign, currency sign, separators, unit and percent sign are read: a plain decimal
+ *  number. Anything more (a full stop, a footnote mark, a second number) makes the string more than one figure. */
+const PLAIN_NUMBER = /^[+-]?\s*(?:\d+(?:\.\d+)?|\.\d+)$/
 
+/** A served string read as a figure: its number with the sign applied, and the letters after it in lower case ('' when
+ *  none). Null when the string holds no figure. `whole` asks that the string be one figure and nothing else, which is
+ *  what a number read from it needs: "$81.6 billion." and "$3.2 billion (2024)" end in something other than their
+ *  unit, so their scale word is not found, and read loosely each gave its leading digits at the wrong scale. */
+const readFigure = (value: string, whole: boolean): { numeric: number; unit: string } | null => {
   const trimmed = value.trim()
   if (!trimmed) {
     return null
@@ -64,27 +77,59 @@ export const parseNumeric = (value: NumericInput): number | null => {
   let cleaned = trimmed.replace(/[(),]/g, '')
   cleaned = cleaned.replace(/[$]/g, '')
 
-  let multiplier = 1
+  let unit = ''
   const suffixMatch = cleaned.match(/([a-zA-Z]+)$/)
   if (suffixMatch) {
-    const suffix = suffixMatch[1].toLowerCase()
-    if (suffix === 'k') multiplier = 1e3
-    if (suffix === 'm') multiplier = 1e6
-    if (suffix === 'b') multiplier = 1e9
-    if (suffix === 't') multiplier = 1e12
-    cleaned = cleaned.slice(0, -suffix.length)
+    unit = suffixMatch[1].toLowerCase()
+    cleaned = cleaned.slice(0, -unit.length)
   }
 
-  cleaned = cleaned.replace(/%$/, '')
+  cleaned = cleaned.replace(/%$/, '').trim()
+  if (whole && !PLAIN_NUMBER.test(cleaned)) {
+    return null
+  }
 
-  const numeric = Number.parseFloat(cleaned)
+  const numeric = Number.parseFloat(cleaned.replace(/^([+-])\s+/, '$1'))
   if (!Number.isFinite(numeric)) {
     return null
   }
 
-  const result = (negative ? -numeric : numeric) * multiplier
+  return { numeric: negative ? -numeric : numeric, unit }
+}
+
+/**
+ * Parse a numeric string (e.g. "$1.2B", "$1.2 billion", "3.4%", "(5,000)") into a number. A figure whose unit is not
+ * a scale ("10x", "3 years", "250 bps") is null: read as a bare number it would lose its unit, as "$81.6 billion" once
+ * read 81.6, so the caller shows the served string instead. So is a string that is more than one figure
+ * ("$81.6 billion.", "$3.2 billion (2024)", "$81.6bn (+7%)"): its scale word is not where a unit is read.
+ */
+export const parseNumeric = (value: NumericInput): number | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  const figure = readFigure(value, true)
+  if (figure === null) {
+    return null
+  }
+
+  const multiplier = figure.unit ? SCALES.get(figure.unit) : 1
+  if (multiplier === undefined) {
+    return null
+  }
+
+  const result = figure.numeric * multiplier
   return Number.isFinite(result) ? result : null
 }
+
+/** Whether a served value is a figure at all, whatever follows its number ("$1.2B", "10x", "3 years", and
+ *  "$3.2 billion (2024)", which parseNumeric reads no number from and its field shows as served). */
+export const isFigure = (value: NumericInput): boolean =>
+  typeof value === 'number' ? Number.isFinite(value) : typeof value === 'string' && readFigure(value, false) !== null
 
 export const fmtScale = (value: NumericInput, options?: { digits?: number }): string => {
   const num = parseNumeric(value)

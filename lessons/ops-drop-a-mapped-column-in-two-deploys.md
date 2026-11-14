@@ -10,7 +10,7 @@ E46 (2).
 `deploy-backend` applies a merge's migrations before anything that runs its code: the task worker, the service and
 the job images (`ci.yml`: "Apply database migrations" runs first). Until those finish, the old code serves, and its
 model maps the column into every read and insert of the table. A drop in the same deploy that unmaps the column would
-fail those reads and writes for the window, `GET /api/waitlist/status/{email}` among them. A failed deploy is not
+fail those reads and writes for the window, `POST /api/waitlist/join` among them. A failed deploy is not
 retried, so a deploy that failed after its migrations would leave them failing until someone noticed.
 
 The unmapping step has a trap of its own. A NOT NULL column the model stops mapping needs a database default, or the

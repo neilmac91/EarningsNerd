@@ -122,7 +122,7 @@ def apply_checkout_completed(
     their authoritative state. Returns the affected user, or None for unknown/ignored checkouts.
     """
     metadata = session_obj.get("metadata") or {}
-    user_id = int(metadata["user_id"])  # KeyError/ValueError → caller maps to 400
+    user_id = int(metadata["user_id"])  # the webhook route checks this shape before processing (400)
     user = user or db.query(User).filter(User.id == user_id).first()
     if not user:
         return None
