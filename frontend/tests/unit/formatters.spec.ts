@@ -1,4 +1,5 @@
-import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence } from '@/lib/format'
+import { formatMetricValue } from '@/features/summaries/lib/metricValue'
+import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, inSentence, isFigure, parseNumeric } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -63,4 +64,67 @@ describe('numeric formatters', () => {
   })
 })
 
+// A summary can write a figure's scale as a word, and the server writes a filed figure that way ("$416,161 million").
+// Read as a bare number, "$81.6 billion" displayed as "$81.6".
+describe('a served figure whose scale or unit is a word', () => {
+  it('keeps its scale: a word or a two-letter form scales as the single letter does, in any case', () => {
+    expect(parseNumeric('$81.6 billion')).toBe(81_600_000_000)
+    expect(['$5.3bn', '$383.3 million', '4mn', '7 thousand', '1.5 TRILLION', '2tn'].map(parseNumeric)).toEqual([
+      5_300_000_000, 383_300_000, 4_000_000, 7_000, 1_500_000_000_000, 2_000_000_000_000,
+    ])
+    expect(parseNumeric('($1.2 billion)')).toBe(-1_200_000_000)
+    expect(parseNumeric('$391,035 million')).toBe(391_035_000_000)
+    // The single letters read as they did.
+    expect(['$1.2B', '5k', '3.4M', '2T'].map(parseNumeric)).toEqual([1_200_000_000, 5_000, 3_400_000, 2_000_000_000_000])
+  })
 
+  it('reads no number from a figure whose unit is not a scale, so the unit is never dropped', () => {
+    for (const served of ['10x', '3 years', '250 bps', '12 percent', '81.6B USD', '$81.6 billion in revenue']) {
+      expect(parseNumeric(served), served).toBeNull()
+    }
+  })
+
+  it('reads no number from a string that is more than one figure, so a scale word it cannot find is never dropped', () => {
+    // Each ends in something other than its unit. Read loosely, the first four gave 81.6, 3.2, 3 and 81.6.
+    const more = [
+      '$81.6 billion.', '$3.2 billion (2024)', '3 years.', '$81.6 billion, up 7%', '$81.6bn (+7%)', '$81.6B*',
+      '1 234', '1.2.3', '$5.3bn to $5.5bn',
+    ]
+    for (const served of more) {
+      expect(parseNumeric(served), served).toBeNull()
+      expect(formatMetricValue(served), served).toBe(served)
+    }
+    // One figure with its usual decoration reads as it did.
+    expect(['$1.2 B', '(5,000)', '3.4 %', '+8.3%', '-$5', '$-0.50', '.5', '- 5'].map(parseNumeric)).toEqual([
+      1_200_000_000, -5000, 3.4, 8.3, -5, -0.5, 0.5, -5,
+    ])
+    // A column of such strings is still a column of figures: the table keeps it and shows each as served.
+    expect(['$3.2 billion (2024)', '3 years.'].map(isFigure)).toEqual([true, true])
+  })
+
+  it('displays as its single-letter form does when the scale is known, and as served when the unit is not a scale', () => {
+    expect(formatMetricValue('$81.6 billion')).toBe('$81.6B')
+    for (const [worded, letter] of [
+      ['$5.3bn', '$5.3B'],
+      ['$383.3 million', '$383.3M'],
+      ['$391,035 million', '$391,035M'],
+      ['1.2 trillion', '1.2T'],
+      ['$7 thousand', '$7K'],
+      ['($1.2 billion)', '($1.2B)'],
+    ]) {
+      expect(formatMetricValue(worded), worded).toBe(formatMetricValue(letter))
+    }
+    for (const served of ['10x', '3 years', '250 bps', '12 percent']) {
+      expect(formatMetricValue(served), served).toBe(served)
+    }
+    // The figures a summary usually writes display as they did.
+    expect(['$416,161M', '$7.46', '61.2%'].map(formatMetricValue)).toEqual(['$416.2B', '$7.46', '61.2%'])
+  })
+
+  it('counts a number with any unit as a figure, and words or a missing value as none', () => {
+    expect(['$1.2B', '$81.6 billion', '10x', '3 years', 0].map(isFigure)).toEqual([true, true, true, true, true])
+    expect(
+      ['', '—', 'Not disclosed', 'Previously reported $987 before the reclassification', null, undefined, Number.NaN].map(isFigure),
+    ).toEqual([false, false, false, false, false, false, false])
+  })
+})

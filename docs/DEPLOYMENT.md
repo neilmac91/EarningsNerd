@@ -1894,7 +1894,10 @@ script location. Do not run it in CI or as part of the backend gate.
 wins. Confirm the effective value with the `describe-service` allow-list (`ops/describe/service.py`)
 before claiming production parity. This change neither rewrites old filing facts nor fills missing SIC.
 The SIC command goes through the EDGAR service limiter/circuit breaker and is resumable: by
-default it selects only companies with missing SIC and commits batches of 100.
+default it selects only companies with missing SIC and commits batches of 100. A companyfacts sync and
+the facts backfill's cross-check also fill a missing SIC for each company they reach
+(`backend/app/services/facts/sic_fill.py`); this command covers the companies neither has reached, and
+nothing schedules it.
 
 After the backend deployment and its `earningsnerd_job_runs` migration succeed, Neil runs:
 

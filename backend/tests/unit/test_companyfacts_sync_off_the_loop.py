@@ -39,6 +39,8 @@ from app.services import facts_service, logging_service
 from app.services.facts import ingest, sync_threads
 from tests.support.hang_guard import HANG_GUARD_S
 
+pytestmark = pytest.mark.usefixtures("sec_lists_no_sic")  # each test syncs a company whose SIC is NULL
+
 SYNC_THREAD = "companyfacts_sync"
 # Generous: the sync gets its slot as soon as the loop runs the holder, which a starved runner can stretch past a
 # second. Only a sync waiting in the default executor ever waits this long, and it then fails on the pool's timeout,
@@ -300,12 +302,12 @@ async def test_a_request_arriving_during_the_leaders_sync_follows_it(engine, inf
 def _persist_held_until(finish: threading.Event, persisting: threading.Event, *, fail: bool):
     real_persist = ingest._persist_companyfacts_payload
 
-    def held_persist(db, company, payload):
+    def held_persist(db, company, payload, sic=None):
         persisting.set()
         finish.wait(HANG_GUARD_S)
         if fail:
             raise RuntimeError("the bulk upsert failed")
-        return real_persist(db, company, payload)
+        return real_persist(db, company, payload, sic)
 
     return held_persist
 

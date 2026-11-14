@@ -3605,6 +3605,7 @@ _ANALYSIS_STATUS = {
     ("GET", "/api/analysis/export/999/pdf", None, "pdf_missing"),
     ("GET", "/api/analysis/export/1/pdf", None, "pdf_free"),
 ])
+@pytest.mark.usefixtures("sec_lists_no_sic")
 async def test_analysis_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, body, case):
     """Each analysis route runs its session work in thread-pool units and releases before it
     awaits anything else (the companyfacts sync, a render), a refusal of each included, so eight Pro

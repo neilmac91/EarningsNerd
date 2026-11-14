@@ -696,6 +696,7 @@ class TestBackfill:
         )
         db.close()
 
+    @pytest.mark.usefixtures("sec_lists_no_sic")
     def test_refresh_never_demotes_a_confirmed_flag_when_companyfacts_is_unavailable(self):
         """A row confirmed by the SEC cross-check within tolerance keeps `source=edgar_xbrl` and
         `reconciled=True` even when the local gate flags it; if the companyfacts fetch fails in
@@ -872,6 +873,7 @@ class TestCrossCheckFacts:
 
 @pytest.mark.requires_db
 class TestBackfillCrossCheck:
+    @pytest.mark.usefixtures("sec_lists_no_sic")
     def test_backfill_corrects_headline_via_companyfacts(self):
         from datetime import datetime
 
