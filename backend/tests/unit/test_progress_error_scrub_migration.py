@@ -28,15 +28,16 @@ FIXED = (
 )
 EARLIER = datetime(2026, 11, 14, 9, 0, tzinfo=timezone.utc)
 LAST_SECOND = datetime(2026, 11, 14, 15, 59, 59, tzinfo=timezone.utc)
-CUTOFF = datetime(2026, 11, 14, 16, 0, tzinfo=timezone.utc)
+FIRST_SECOND = datetime(2026, 11, 14, 16, 0, 1, tzinfo=timezone.utc)
 LATER = datetime(2026, 11, 15, 8, 0, tzinfo=timezone.utc)
 
 
 def test_the_scrub_replaces_exception_text_written_before_the_cutoff_and_nothing_else():
     """A row last written before the cutoff that holds anything but a fixed value gets the fixed code: raw exception
     text, and the empty text of an exception with no message. A fixed value, a row with no error, and a row written
-    at or after the cutoff keep what they hold; the replaced row keeps its stage, its clock and its coverage; and a
-    second run changes nothing more."""
+    after the cutoff keep what they hold; the replaced row keeps its stage, its clock and its coverage; and a second
+    run changes nothing more. The rows sit a second each side of the cutoff: SQLite compares the stored text with
+    the literal, so it cannot say which side the instant itself falls on, and no row was written at it."""
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     db = sessionmaker(bind=engine)()
@@ -45,7 +46,7 @@ def test_the_scrub_replaces_exception_text_written_before_the_cutoff_and_nothing
     db.commit()
     rows = {
         "raw": (RAW, EARLIER), "empty": ("", EARLIER), "raw at the last second": (RAW, LAST_SECOND),
-        "raw at the cutoff": (RAW, CUTOFF), "raw later": (RAW, LATER), "no error": (None, EARLIER),
+        "raw in the first second": (RAW, FIRST_SECOND), "raw later": (RAW, LATER), "no error": (None, EARLIER),
         **{f"fixed: {value}": (value, EARLIER) for value in FIXED},
     }
     filing_ids = {}
@@ -84,7 +85,7 @@ def test_the_scrub_replaces_exception_text_written_before_the_cutoff_and_nothing
 
     expected = {
         "raw": CODE, "empty": CODE, "raw at the last second": CODE,
-        "raw at the cutoff": RAW, "raw later": RAW, "no error": None,
+        "raw in the first second": RAW, "raw later": RAW, "no error": None,
         **{f"fixed: {value}": value for value in FIXED},
     }
     assert migrate() == expected

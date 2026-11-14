@@ -11,7 +11,9 @@ rows for them, and the scan that sends those alerts never fetched the forms
 For each row the job is one the jobs step updates, the module still reads the flag (so a row cannot outlive its
 reader), and the jobs' one map carries the service's value. A flag whose job has to differ from the service is
 listed in ``DIFFERENCES`` with why, and must then be absent from the jobs' map or differ there: the list is an
-equality (``lessons/test-allowlist-caps-are-equalities.md``), so a pair that starts to agree has to leave it.
+equality (``lessons/test-allowlist-caps-are-equalities.md``), so a pair that starts to agree has to leave it. Where
+the service's value is expanded when the deploy runs (``${VAR}``), the gate cannot know it, so a listed flag must
+be absent from the jobs' map: any value there might agree.
 
 Not covered: a flag a job's pass starts to read (add its row here; review-checked); ``ENABLE_SECTION_CHANGES``,
 which the scan and the digest also read and ``test_section_changes_flag_placement.py`` holds; the summary
@@ -21,6 +23,7 @@ deploy must not set (``test_summary_rollout_preservation.py``); a flag only the 
 executed by hand with ``--args``; and a key set on a job by hand that this map does not list
 (``--update-env-vars`` overwrites the keys it lists and keeps the rest).
 """
+import ast
 import re
 from pathlib import Path
 
@@ -71,6 +74,20 @@ def env_map(run: str) -> dict[str, str]:
     return dict(entries)
 
 
+def reads_setting(source: str, flag: str) -> bool:
+    """Whether a module's code reads ``settings.<flag>`` (or ``<module>.settings.<flag>``); a mention in a comment
+    or a docstring is not a read."""
+    def is_settings(node: ast.expr) -> bool:
+        return (isinstance(node, ast.Name) and node.id == "settings") or (
+            isinstance(node, ast.Attribute) and node.attr == "settings"
+        )
+
+    return any(
+        isinstance(node, ast.Attribute) and node.attr == flag and is_settings(node.value)
+        for node in ast.walk(ast.parse(source))
+    )
+
+
 def problems(
     service: dict[str, str], jobs: dict[str, str], flags: dict[str, tuple[str, str]], differences: dict[str, str],
 ) -> list[str]:
@@ -82,6 +99,9 @@ def problems(
         elif flag in differences:
             if jobs.get(flag) == service[flag]:
                 found.append(f"{flag} now agrees with the service ({service[flag]}); remove it from DIFFERENCES")
+            elif flag in jobs and service[flag].startswith("$"):
+                found.append(f"{flag} is {jobs[flag]} on the jobs, and the service's {service[flag]} is expanded when "
+                             "the deploy runs, so the two may agree; a listed difference stays off the jobs' map")
         elif flag not in jobs:
             found.append(f"{flag} is {service[flag]} on the service and absent from the jobs' map, so {job} reads "
                          "the Settings default")
@@ -104,8 +124,9 @@ def test_each_row_names_a_job_the_step_updates_and_a_module_that_still_reads_the
     updated = loop.group(1).split()
     for flag, (job, module) in JOB_FLAGS.items():
         assert job in updated, f"{job} is no longer updated by the jobs step, so its map is elsewhere"
-        source = (BACKEND / module).read_text(encoding="utf-8")
-        assert re.search(rf"\bsettings\.{flag}\b", source), f"{module} no longer reads {flag}; drop or move its row"
+        assert reads_setting((BACKEND / module).read_text(encoding="utf-8"), flag), (
+            f"{module} no longer reads {flag}; drop or move its row"
+        )
 
 
 def test_the_comparison_finds_each_wrong_placement():
@@ -120,3 +141,13 @@ def test_the_comparison_finds_each_wrong_placement():
     assert problems(service, {flag: "true", other: "false"}, flags, declared) == []
     assert "no longer set on the service" in problems({other: "true"}, {flag: "true"}, flags, declared)[0]
     assert "not in JOB_FLAGS" in problems(service, {flag: "true"}, flags, {**declared, "SOME_FLAG": "why"})[0]
+    expanded = {flag: "true", other: "${DIFFERING_FLAG}"}
+    assert problems(expanded, {flag: "true"}, flags, declared) == []
+    assert "the two may agree" in problems(expanded, {flag: "true", other: "true"}, flags, declared)[0]
+
+
+def test_a_mention_in_a_comment_or_a_docstring_is_not_a_read():
+    assert reads_setting("if settings.SOME_FLAG:\n    pass\n", "SOME_FLAG")
+    assert reads_setting("value = pipeline.settings.SOME_FLAG\n", "SOME_FLAG")
+    assert reads_setting("value = settings.OTHER_FLAG\n", "SOME_FLAG") is False
+    assert reads_setting('"""Gated on settings.SOME_FLAG."""\n# settings.SOME_FLAG\nx = 1\n', "SOME_FLAG") is False

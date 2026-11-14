@@ -5,7 +5,7 @@
 -- until its filing is generated again, and nothing purges it.
 --
 -- Replace the text with that code in every row last written before the cutoff whose error is not one of the
--- fixed values the application writes: its two failure codes, the two source-failure codes, the timeout and
+-- fixed values the application writes: its failure code, the two source-failure codes, the timeout and
 -- stall sentences, and the model layer's one sentence. Those rows are left as they are, so what they say
 -- about an old failure is kept. An empty error is replaced too: it is an exception that carried no message.
 --

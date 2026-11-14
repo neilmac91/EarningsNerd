@@ -1402,9 +1402,9 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
         # CI bumps the image and sets the DB pool and SEC budget keys, and each flag a job's own pass reads at
-        # the service's value: a job reads a flag from this map, not the service's (gate:
-        # tests/unit/test_job_flags_match_service.py). Skip each gracefully if it hasn't been created yet so
-        # CD never fails.
+        # the service's value, bar the differences its gate lists with their reasons: a job reads a flag from
+        # this map, not the service's (tests/unit/test_job_flags_match_service.py). Skip each gracefully if it
+        # hasn't been created yet so CD never fails.
         run: |
           for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge earningsnerd-feedback-media-cleanup; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
