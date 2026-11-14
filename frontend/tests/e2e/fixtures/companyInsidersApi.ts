@@ -52,6 +52,31 @@ export const SCANNING: InsiderActivityResponse = {
   scan: { status: 'scanning', filings_listed: 60, filings_read: 16, oldest_filed_date: '2026-09-04', refreshed_at: '2026-11-14T12:00:00Z', retry_after_seconds: 8 },
 }
 
+/** Every listed filing read, a year of sales: what the company's insider page shows once a scan is complete. The
+ *  window holds more trades than the answer carries (the endpoint sends the most recent), so the page says so. */
+export const COMPLETE: InsiderActivityResponse = {
+  ...SCANNING,
+  summary: {
+    window_days: 90, buy_count: 0, sell_count: 41, buy_shares: 0, sell_shares: 1284000, buy_value: null, sell_value: 297900000,
+    net_shares: -1284000, net_value: -297900000, discretionary_net_shares: -1054000, plan_10b5_1_sell_shares: 230000,
+    last_transaction_date: '2026-10-01',
+  },
+  transactions: Array.from({ length: 30 }, (_, i) =>
+    trade({
+      insider_name: ['Jane Doe', 'John Roe', 'Alexandria Montgomery-Fitzgerald'][i % 3],
+      insider_title: ['Chief Financial Officer', 'Director', 'Executive Vice President, Worldwide Operations'][i % 3],
+      transaction_date: `2026-${String(10 - Math.floor(i / 12)).padStart(2, '0')}-${String(28 - (i % 12) * 2).padStart(2, '0')}`,
+      transaction_code: 'S', transaction_label: 'Open-market sale', shares: 4000 + i * 750, price: 232.1, value: (4000 + i * 750) * 232.1,
+      acquired_disposed: 'D', is_10b5_1: i % 3 !== 1, accession: `0009999101-26-0000${String(40 - i).padStart(2, '0')}`,
+    }),
+  ),
+  total_transactions: 41,
+  scan: { status: 'complete', filings_listed: 60, filings_read: 60, oldest_filed_date: '2025-11-20', refreshed_at: '2026-11-14T12:00:00Z', retry_after_seconds: null },
+}
+
+/** The company's insider page, where the company page's card links. */
+export const INSIDERS_PATH = `/company/${TICKER}/insiders`
+
 /** Answers the page of TICKER for `reader`, its insider trades with `insiders`; counts the insider requests made. */
 export async function answerInsiders(page: Page, baseURL: string, insiders: InsiderActivityResponse, reader: CurrentUser | null = BETA_READER) {
   const asked = { insiders: 0 }
@@ -79,9 +104,10 @@ export async function answerInsiders(page: Page, baseURL: string, insiders: Insi
   return asked
 }
 
-/** Consent answered and the first-run coachmark seen (neither belongs to the panel), the theme chosen, then the page.
+/** Consent answered and the first-run coachmark seen (neither belongs to the panel), the theme chosen, then the page:
+ *  the company page unless `path` names another (INSIDERS_PATH).
  *  Given `doubled`, the page opens under 200% text (Chromium's own text setting, as reflow-200.spec.ts doubles it). */
-export async function openInsiders(page: Page, baseURL: string, theme: Theme, { insiders = SCANNING, reader = BETA_READER as CurrentUser | null, doubled = false } = {}) {
+export async function openInsiders(page: Page, baseURL: string, theme: Theme, { insiders = SCANNING, reader = BETA_READER as CurrentUser | null, doubled = false, path = `/company/${TICKER}` } = {}) {
   const asked = await answerInsiders(page, baseURL, insiders, reader)
   if (doubled) await (await page.context().newCDPSession(page)).send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
   await page.addInitScript((chosen: Theme) => {
@@ -91,6 +117,6 @@ export async function openInsiders(page: Page, baseURL: string, theme: Theme, { 
       localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
     } catch {}
   }, theme)
-  await page.goto(`/company/${TICKER}`)
+  await page.goto(path)
   return asked
 }

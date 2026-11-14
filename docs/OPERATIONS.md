@@ -285,7 +285,8 @@ turn it off within a minute, before that change merges, the founder runs
 that holds only until the next deploy re-asserts the `ci.yml` value, so the change above still
 follows. Confirm either with Ops `describe-service` and a signed-out
 `GET /api/companies/AAPL/insiders`, which answers 404 when off and 401 when on. Off, the endpoint
-answers 404 to everyone, the panel shows nothing and no visit starts a scan. The task worker does
+answers 404 to everyone, the company page shows no Insider activity card, the company's insider page
+(`/company/{ticker}/insiders`) says insider activity is not available right now, and no visit starts a scan. The task worker does
 not read the flag: a scan already queued reads its remaining filings (at most 60 an issuer, eight a
 step, three issuers at once), and one paused by SEC resumes after its pause (at most 6 h) and stops
 again at the first refusal. Do not pause the queue to stop them: it carries account mail. Turn the

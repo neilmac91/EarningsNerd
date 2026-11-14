@@ -208,9 +208,12 @@ describe('Company page lead', () => {
     const card = screen.getByRole('complementary', { name: 'Compare periods' })
     expect(await within(card).findByRole('link', { name: 'Open change report' })).toHaveAttribute('href', '/filing/11#what-changed')
     expect(api.getWhatChanged).toHaveBeenCalledWith(11)
-    // The aside and the filings share one grid: two tracks from 64rem (lg's 1024px at the default size, 2048px under
-    // 200% text, so the doubled text keeps one column), one below (E168).
-    const grid = card.parentElement as HTMLElement
+    // The side column (the aside, and under it the Insider activity card for a beta account) and the filings share
+    // one grid: two tracks from 64rem (lg's 1024px at the default size, 2048px under 200% text, so the doubled text
+    // keeps one column), one below (E168).
+    const column = card.parentElement as HTMLElement
+    expect(column.className).toMatch(/flex-col/)
+    const grid = column.parentElement as HTMLElement
     expect(grid.className).toMatch(/grid-cols-1/)
     expect(grid.className).toMatch(/\[@media\(min-width:64rem\)\]:grid-cols-\[minmax\(0,1fr\)_20rem\]/)
     expect(grid.className).not.toMatch(/(?:^|\s)lg:grid-cols-/)

@@ -19,7 +19,7 @@ export { DOQueueHandler } from './.open-next/.build/durable-objects/queue.js'
 // What the scheduled handler below asks the server Worker for each minute: one page of each kind the Next server
 // renders on demand. Answering one loads that route's code into the server Worker's instance, which is most of what
 // a reader waits for when theirs is the first such page the instance serves (docs/DEPLOYMENT.md).
-const KEEP_WARM_PATHS = ['/company/AAPL', '/filing/3']
+const KEEP_WARM_PATHS = ['/company/AAPL', '/company/AAPL/insiders', '/filing/3']
 // OpenNext's cache layer in this Worker answers a cached page itself, and then nothing reaches the server Worker.
 // It passes on a request that carries Next's draft-mode cookie. The Next server finds the value is not its own and
 // answers as it would any reader: the cached page, re-rendered in the background once it is stale.

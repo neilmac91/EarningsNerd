@@ -1,18 +1,11 @@
 'use client'
 
-import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useRef, useState, type ReactNode } from 'react'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
-import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import {
-  getInsiderActivity,
-  InsiderActivityResponse,
-  InsiderTransaction,
-} from '@/features/insiders/api/insiders-api'
-import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
-import { ApiError } from '@/lib/api/client'
+import type { InsiderActivityResponse, InsiderTransaction } from '@/features/insiders/api/insiders-api'
+import { insiderSignal, useInsiderActivity } from '@/features/insiders/hooks/useInsiderActivity'
+import { RetryButton } from '@/hooks/useRetainedFailure'
 import { fmtCurrency, fmtShares, formatLocalDate } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { ActivityLine, Badge, Card, DataTable, MissingValue, Notice, SegmentedControl, Skeleton, type Column } from '@/components/ui'
@@ -22,8 +15,6 @@ const WINDOWS: { days: number; label: string }[] = [
   { days: 180, label: '180D' },
   { days: 365, label: '1Y' },
 ]
-
-const MAX_ROWS = 8
 
 /** A dollar amount's size, compact ("$1.8M"); the panel states its direction beside it, in words or a sign. */
 const fmtMoney = (n: number): string => fmtCurrency(Math.abs(n), { compact: true })
@@ -87,16 +78,6 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
   { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? <MissingValue /> },
 ]
 
-/** A scan under way says when asking again can show more (`scan.retry_after_seconds`). The panel asks again then, never
- *  sooner than this floor, and for at most POLL_LIMIT_MS from its first request for the ticker, so a scan that is slow
- *  or paused does not keep a page open asking for good (ADR 0009, decision 7). */
-const POLL_FLOOR_MS = 5_000
-const POLL_LIMIT_MS = 3 * 60_000
-
-/** 401 (signed out), 403 (not a beta account) and 404 (the endpoint switched off, or a company it does not know): the
- *  panel is not for this reader here, so it renders nothing rather than an error. */
-const isRefusal = (error: unknown): boolean => error instanceof ApiError && [401, 403, 404].includes(error.status)
-
 const STATUS_TEXT = 'text-sm text-text-secondary-light dark:text-text-secondary-dark'
 
 /** What the stored scan behind an answer says of itself, in words: null once it is complete. The words carry the state,
@@ -151,6 +132,12 @@ function ScanProgress({ scan }: { scan: InsiderActivityResponse['scan'] }) {
   )
 }
 
+/**
+ * A company's insider (Form 4) activity in full, on its own page (/company/{ticker}/insiders): the window control, the
+ * net signal, the buy, sell and net tiles and every trade the answer carries, newest first. The company page shows the
+ * same read as a compact card that links here (InsiderActivityCard), so its filings keep the page. Only a beta account
+ * asks (useInsiderActivity); for any other reader the panel renders nothing and its page says who it is for.
+ */
 export default function InsiderActivityPanel({
   ticker,
   isFpi,
@@ -160,52 +147,7 @@ export default function InsiderActivityPanel({
 }) {
   const [windowDays, setWindowDays] = useState(90)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  // The current reader, from the page's own read of /me (the same query, so no request of its own). Only a beta
-  // account may ask (the endpoint answers 401 signed out and 403 to any other account): signed out, still loading
-  // or not beta, the panel asks nothing and renders nothing.
-  const { data: currentUser } = useQuery({
-    queryKey: queryKeys.currentUser(),
-    queryFn: getCurrentUserSafe,
-    retry: false,
-  })
-  const isBeta = currentUser?.is_beta === true
-  // When the panel mounted: the polling's three minutes run from it, whatever the window and whether the first answer
-  // came from a request or from the cache (a reader back from a filing within the answer's five minutes). The page
-  // keys the panel by ticker, so another company's panel is another mount.
-  const [startedAt] = useState(() => Date.now())
-  const insidersKey = queryKeys.insiders.byWindow(ticker, windowDays)
-  const query = useQuery<InsiderActivityResponse>({
-    queryKey: insidersKey,
-    queryFn: () => getInsiderActivity(ticker, windowDays),
-    // Foreign private issuers don't file Form 4s, so they are never asked about. While filings are still loading
-    // isFpi is undefined, so the query waits until the company is known not to be one (isFpi === false).
-    enabled: !!ticker && isFpi === false && isBeta,
-    // A failed read waits for the reader's Try again.
-    retry: false,
-    // The endpoint answers from the stored scan, at once; a scan under way is followed by the polling below.
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: (q) => {
-      const wait = q.state.data?.scan.retry_after_seconds
-      if (q.state.status === 'error' || wait == null) return false
-      const delay = Math.max(wait * 1000, POLL_FLOOR_MS)
-      return Date.now() + delay - startedAt <= POLL_LIMIT_MS ? delay : false
-    },
-  })
-  const { data } = query
-  const failure = useRetainedFailure(query, insidersKey)
-  // The three minutes are up: from then the panel asks nothing more by itself, and says so.
-  const [stopped, setStopped] = useState(false)
-  const pending = data?.scan.retry_after_seconds != null && !failure.failed
-  useEffect(() => {
-    if (!pending) return
-    const timer = setTimeout(() => setStopped(true), Math.max(0, startedAt + POLL_LIMIT_MS - Date.now()))
-    return () => clearTimeout(timer)
-  }, [pending, startedAt])
-  // The card shows itself with the endpoint's first answer (it answers at once, from the store) or a failure worth
-  // a retry, and stays: a reader the endpoint refuses, as every reader is while the backend's switch is off, never
-  // sees a card appear and go. After that a window still loading shows the skeleton inside it.
-  const [answered, setAnswered] = useState(false)
-  if (data && !answered) setAnswered(true)
+  const { isBeta, data, failure, refused, stopped } = useInsiderActivity(ticker, windowDays, isFpi)
 
   if (!isBeta) return null
 
@@ -214,7 +156,7 @@ export default function InsiderActivityPanel({
   // panel (the query is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
-      <Card as="section" className="mb-8 p-cap-6">
+      <Card as="section" className="p-cap-6">
         <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
@@ -223,18 +165,18 @@ export default function InsiderActivityPanel({
       </Card>
     )
   }
-  // Not known yet whether the company is a foreign private issuer: nothing is asked, and nothing shows.
-  if (isFpi !== false) return null
-  if (failure.failed && isRefusal(failure.error)) return null
-  if (!answered && !failure.failed) return null
+  // From here the card stands for a beta account, whatever the read says: bones while the company's filings or the
+  // first answer are still loading (nothing is asked until the company is known not to be a foreign private
+  // issuer), and a plain line for a refusal (the endpoint switched off, a company it does not know, a session that
+  // has ended), which is no failure a retry helps. The line claims nothing about the company: on its own page the
+  // panel cannot leave, as the company page's card does (ADR 0009, decision 7).
 
   const summary = data?.summary
   const hasTrades = !!data && data.total_transactions > 0
-  const statusLine = data ? scanLine(data.scan, stopped) : null
+  // A refusal takes an answer already held off the page with it: the line below stands alone.
+  const statusLine = data && !refused ? scanLine(data.scan, stopped) : null
   // Lead with net value when known, else net shares. The sign is the buy/sell signal.
-  const signalValue = summary ? (summary.net_value ?? summary.net_shares) : 0
-  const signalIsValue = !!summary && summary.net_value !== null
-  const direction = signalValue > 0 ? 'buy' : signalValue < 0 ? 'sell' : 'flat'
+  const { value: signalValue, isValue: signalIsValue, direction } = insiderSignal(summary)
   const planSells = summary?.plan_10b5_1_sell_shares ?? 0
 
   const SignalIcon = direction === 'buy' ? TrendUpIcon : direction === 'sell' ? TrendDownIcon : MinusIcon
@@ -250,7 +192,7 @@ export default function InsiderActivityPanel({
   const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
-    <Card as="section" className="mb-8 p-cap-6">
+    <Card as="section" className="p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">
           Insider activity
@@ -270,20 +212,25 @@ export default function InsiderActivityPanel({
       <div role="status" className={statusLine ? 'mb-4' : undefined}>
         {statusLine}
       </div>
-      {data && <ScanProgress scan={data.scan} />}
+      {data && !refused && <ScanProgress scan={data.scan} />}
 
-      {failure.failed && (
+      {refused && (
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+          Insider activity isn’t available here right now.
+        </p>
+      )}
+      {failure.failed && !refused && (
         <div className="mb-4">
           <Notice
             variant="error"
             title="Couldn’t load insider activity"
-            description="The rest of this page is unaffected."
+            description="Try again in a moment."
             action={<RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />}
           />
         </div>
       )}
 
-      {!data ? (
+      {refused ? null : !data ? (
         !failure.failed && (
           <div role="status" aria-label="Loading insider activity">
             <Skeleton className="h-48 w-full rounded-lg" />
@@ -353,13 +300,20 @@ export default function InsiderActivityPanel({
             </div>
           </div>
 
-          {/* Recent transactions */}
+          {/* Every trade the answer carries, newest first. The endpoint sends the most recent of a window's trades,
+              so where the window holds more, a line under the table says how many of them these are. */}
           <DataTable
             columns={TRANSACTION_COLUMNS}
-            rows={data.transactions.slice(0, MAX_ROWS)}
+            rows={data.transactions}
             rowKey={(t, i) => `${t.accession ?? ''}-${i}`}
             caption="Recent open-market insider transactions: insider, type, shares, value, and date"
           />
+          {data.total_transactions > data.transactions.length && (
+            <p className="mt-3 text-xs tnum text-text-tertiary-light dark:text-text-tertiary-dark">
+              The {data.transactions.length} most recent of {data.total_transactions} trades in this window. The totals
+              above count them all.
+            </p>
+          )}
         </>
       )}
 

@@ -20,12 +20,13 @@ import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_FINANCIAL_CHARTS, ENABLE_RECOMMENDED_FILING, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import { CompanyIdentity } from '@/features/companies/components/CompanyIdentity'
-import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
+import { InsiderActivityCard } from '@/features/insiders/components/InsiderActivityCard'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import SectorPeers from '@/features/peers/components/SectorPeers'
 import { queryKeys } from '@/lib/queryKeys'
 import { selectComparisonFiling, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
 import { groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
+import { isFpiFiler } from '@/features/filings/lib/fpi'
 // The filings list: one surface, hairline rows, one link per filing (design review 2026-10-08).
 // It owns the form/year filters and renders dates through formatLocalDate (filing dates are
 // UTC-midnight instants; local-TZ rendering would shift the day west of UTC and mismatch hydration).
@@ -36,10 +37,6 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 // How many filings to request once the visitor asks for the full backfilled history (vs the
 // backend's default recent cap). P1-6: deep 10-K/10-Q history since 2001 is well under this.
 const FULL_HISTORY_LIMIT = 300
-
-// Foreign private issuer forms — a company that files any of these is an FPI, which we use to show
-// the honest "insider reporting not required for FPIs" state instead of an empty insider panel.
-const FPI_FILING_TYPES = ['20-F', '40-F', '6-K']
 
 // The Sector peers panel's place under the filings, its chart-error card's too.
 const SECTOR_PEERS_SPACING = 'mt-8'
@@ -94,11 +91,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // A failed load keeps its card, and a focused Retry in it, through the Retry's refetch: the query has
   // no data, so the refetch goes back to pending, and the spinner would otherwise replace the card.
   const companyFailure = useRetainedFailure(companyQuery, companyKey)
-  // A first load paused offline (fetchStatus 'paused': the default networkMode 'online' holds the fetch until
-  // the network returns) is neither loading nor failed to TanStack, yet it has no answer, so it reads as loading
-  // and never as the not-found card. A paused refetch over data is not pending and keeps the page.
-  const companyPaused = companyQuery.isPending && companyQuery.fetchStatus === 'paused'
-  const companyLoading = (companyQuery.isLoading || companyPaused) && !companyFailure.failed
+  // A first load paused offline (the default networkMode 'online' holds the fetch until the network returns) is
+  // neither loading nor failed to TanStack, yet it has no answer, so it reads as loading and never as the not-found
+  // card: an enabled query with no answer yet is pending whether its fetch runs or waits. A paused refetch over data
+  // is not pending and keeps the page. The gate reads the query's status alone, never a fetch flag: the company's
+  // insider page observes the same query, and another observer's refetch must not change what this page shows
+  // (tests/unit/spinnerGateHoldsFailure.spec.ts).
+  const companyLoading = companyQuery.isPending && !!normalizedTicker && !companyFailure.failed
   // A 404 is an answer (no such ticker), not a failure: it gets the not-found card, without a Retry. It
   // reads the held error, not the query's own: a refetch (a reconnect, an invalidation) clears that to
   // null while it runs, and the 404 card would turn into the load-failure card until the answer lands.
@@ -234,9 +233,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
       recommendedFiling: selectRecommendedFiling(filings),
       // The newest annual report with an earlier annual period listed: the Compare periods card.
       comparisonFiling: selectComparisonFiling(filings),
-      isFpi: (filings ?? []).some((f) => FPI_FILING_TYPES.includes(f.filing_type)),
+      isFpi: isFpiFiler(filings),
     }
   }, [filings])
+
+  // Whether the company is a foreign private issuer, for the Insider activity card's read (below): known once a
+  // filings answer says so, and kept through a later load of the list (Show full history swaps the list for its
+  // skeleton), so the card does not leave and come back.
+  const [knownFpi, setKnownFpi] = useState<{ ticker: string; isFpi: boolean } | null>(null)
+  if (filings && (knownFpi?.ticker !== normalizedTicker || knownFpi.isFpi !== isFpi)) {
+    setKnownFpi({ ticker: normalizedTicker, isFpi })
+  }
+  const insiderFpi = knownFpi?.ticker === normalizedTicker ? knownFpi.isFpi : undefined
 
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
   // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
@@ -439,55 +447,65 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Insider (Form 4) activity — self-fetches from the stored Form 4 scan, for beta accounts only
-            (ADR 0009); off by default. FPIs are exempt from Form 4 reporting, so the panel shows an
-            honest note and asks nothing. */}
-        {ENABLE_INSIDER_ACTIVITY && (
-          <InsiderActivityPanel key={normalizedTicker} ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
-        )}
-
-        {/* SEC filings, and beside them from 64rem the Compare periods card when there is a pair of annual
-            periods to compare (2026-10 critique, 1b). Keyed on the ticker so the filters reset on a
+        {/* SEC filings, and beside them from 64rem a side column: the Compare periods card when there is a pair of
+            annual periods to compare (2026-10 critique, 1b), and under it the Insider activity card for a beta
+            account (ADR 0009). The filings lead the page; insider activity is a card that links to its own page
+            (/company/{ticker}/insiders), never a section above them. Keyed on the ticker so the filters reset on a
             soft navigation to another company. 64rem, a rem media query, is lg's 1024px at the default size and
             2048px under 200% text, where the card's 20rem column (640px) leaves the filings their room: at lg, px at any
             size, it left them 208px at 1024px under 200% text, and the Compare periods card covered their rows (E168). */}
-        <div className={cx('grid grid-cols-1 gap-6', comparisonFiling && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
-          <FilingIndex
-            key={normalizedTicker}
-            filings={filings}
-            status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
-            failure={filingsFailure}
-            headingRef={filingsHeadingRef}
-            latest={latestFiling}
-            expandedYears={expandedYears}
-            onToggleYear={toggleYear}
-            cik={company?.cik}
-            footerAction={
-              showFullHistory ? undefined : (
-                // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
-                // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
-                // (reconnect, invalidation) can start while this button holds focus, and a focused
-                // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
-                // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
-                // to the section heading first, not to <body>.
-                <Button
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={(e) => {
-                    // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
-                    if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
-                    setShowFullHistory(true)
-                  }}
-                  loading={filingsRefetching}
-                  loadingText="Loading full history…"
-                >
-                  Show full history
-                </Button>
-              )
-            }
-          />
-          {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
-        </div>
+        {/* The Insider activity card is mounted here, above the grid it sits in, and hands the grid its card or
+            null: so the page knows whether there is a card before it opens the side column for one. Only a beta
+            account asks (the endpoint answers no one else), and only once the filings say the company is no foreign
+            private issuer, which files no Form 4s. There is a card with the endpoint's first answer or a failure a
+            retry can help, and none for a refusal: a reader the endpoint refuses never sees a card appear and go,
+            and the backend's switch hides it when it is off. */}
+        <InsiderActivityCard key={normalizedTicker} ticker={normalizedTicker} isFpi={ENABLE_INSIDER_ACTIVITY ? insiderFpi : undefined} focusFallback={filingsHeadingRef}>
+          {(insiderCard) => (
+            <div className={cx('grid grid-cols-1 gap-6', Boolean(comparisonFiling || insiderCard) && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
+              <FilingIndex
+                key={normalizedTicker}
+                filings={filings}
+                status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
+                failure={filingsFailure}
+                headingRef={filingsHeadingRef}
+                latest={latestFiling}
+                expandedYears={expandedYears}
+                onToggleYear={toggleYear}
+                cik={company?.cik}
+                footerAction={
+                  showFullHistory ? undefined : (
+                    // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
+                    // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
+                    // (reconnect, invalidation) can start while this button holds focus, and a focused
+                    // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
+                    // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
+                    // to the section heading first, not to <body>.
+                    <Button
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={(e) => {
+                        // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
+                        if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
+                        setShowFullHistory(true)
+                      }}
+                      loading={filingsRefetching}
+                      loadingText="Loading full history…"
+                    >
+                      Show full history
+                    </Button>
+                  )
+                }
+              />
+              {(comparisonFiling || insiderCard) && (
+                <div className="flex min-w-0 flex-col gap-6">
+                  {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
+                  {insiderCard}
+                </div>
+              )}
+            </div>
+          )}
+        </InsiderActivityCard>
 
         {/* The company ranked against its sector on one metric (E251): self-fetching, it shows itself only once the
             endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31. Last in <main>, so its arrival

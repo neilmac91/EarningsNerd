@@ -305,7 +305,27 @@ describe('InsiderActivityPanel', () => {
     await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
     await settle()
     expect(getInsiderActivity).not.toHaveBeenCalled()
-    expect(screen.queryByText('Insider activity')).not.toBeInTheDocument()
+    // On its own page the card stands meanwhile, with its bones: the page is never blank under its lead.
+    expect(screen.getByRole('heading', { name: 'Insider activity' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading insider activity' })).toBeInTheDocument()
+  })
+
+  it('shows every trade the answer carries, and says how many the window holds when it holds more', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => txn({ insider_name: `Insider ${i + 1}`, accession: `0000000000-24-0000${i + 10}` }))
+    getInsiderActivity.mockResolvedValue({ ...RESP, transactions: many, total_transactions: 41 })
+    renderPanel()
+
+    expect(await screen.findByText('Insider 12')).toBeInTheDocument()
+    expect(screen.getAllByRole('row')).toHaveLength(13)   // the header and all twelve, none held back
+    expect(screen.getByText(/^The 12 most recent of 41 trades in this window\./)).toBeInTheDocument()
+  })
+
+  it('says nothing of a count when the answer carries every trade in the window', async () => {
+    getInsiderActivity.mockResolvedValue({ ...RESP, total_transactions: RESP.transactions.length })
+    renderPanel()
+
+    await screen.findByText('Jane Doe')
+    expect(screen.queryByText(/most recent of/)).not.toBeInTheDocument()
   })
 })
 
@@ -366,11 +386,13 @@ describe('InsiderActivityPanel: what the stored scan says', () => {
   /** The panel's status region: the one live region with no name of its own (the skeleton's is named). */
   const statusRegion = () => screen.getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
 
-  it('shows no card until the endpoint first answers, so a reader it refuses never sees one appear and go', async () => {
+  it('shows the card with its bones while the first answer loads: its page is never blank', async () => {
     getInsiderActivity.mockReturnValue(new Promise(() => {}))
-    const { container } = renderPanel()
+    renderPanel()
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledTimes(1))
-    expect(container).toBeEmptyDOMElement()
+    expect(screen.getByRole('heading', { name: 'Insider activity' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading insider activity' })).toBeInTheDocument()
   })
 
   it('shows the skeleton in the card, under its heading and window control, while another window loads', async () => {
@@ -528,13 +550,15 @@ describe('InsiderActivityPanel: a request that fails', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it.each([401, 403, 404])('a %i (signed out, not a beta account, or the endpoint off) renders nothing', async (status) => {
+  it.each([401, 403, 404])('a %i (a refusal: the endpoint off, or a company it does not know) is a plain line, not an error', async (status) => {
     getInsiderActivity.mockRejectedValue(new ApiError(status, 'Refused'))
-    const { container } = renderPanel('AAPL', false, retryingClient())
-    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalled())
-    await waitFor(() => expect(container).toBeEmptyDOMElement())
+    renderPanel('AAPL', false, retryingClient())
+    expect(await screen.findByText('Insider activity isn’t available here right now.')).toBeInTheDocument()
     await settle()
     expect(getInsiderActivity).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading insider activity' })).not.toBeInTheDocument()
   })
 })
 
@@ -570,6 +594,19 @@ describe('InsiderActivityPanel: asking again while a scan is under way', () => {
   }
   const scanning = (retryAfter: number) =>
     answer({ status: 'scanning', filings_listed: 60, filings_read: 12, retry_after_seconds: retryAfter })
+
+  it('a later read the endpoint refuses takes the stored trades off the page: the line stands alone, with no bar', async () => {
+    getInsiderActivity.mockResolvedValueOnce(scanning(10)).mockRejectedValue(new ApiError(404, 'Not Found'))
+    await start()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    await advance(10_001)
+    await advance(0)
+    expect(screen.getByText('Insider activity isn’t available here right now.')).toBeInTheDocument()
+    expect(screen.queryByText('Jane Doe')).toBeNull()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.queryByText(/Reading this company/)).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
 
   it('asks again after the interval the response gives, and stops once nothing is pending', async () => {
     answering(scanning(10), scanning(10), answer({ status: 'complete', retry_after_seconds: null }))

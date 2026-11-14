@@ -8,6 +8,7 @@ import { answerAnalysisApi, runAnalysis } from './fixtures/analysisLayoutApi'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
 import { asCompany, PEERS } from './fixtures/companyPeersApi'
+import { answerInsiders, COMPLETE as INSIDERS_COMPLETE, INSIDERS_PATH } from './fixtures/companyInsidersApi'
 import { answerSearch, runSearch } from './fixtures/searchApi'
 import { AUTH_ROUTES, isAuthRoute } from '../../lib/authShellRoutes'
 import { STATIC_ENTRIES } from '../../app/sitemap'
@@ -239,6 +240,20 @@ const ROUTES: Route[] = [
  * example loaded.
  */
 const PUBLIC_ROUTES: Route[] = [
+  {
+    // A company's insider page (ADR 0009), read as a beta account with a complete scan, so the census measures the
+    // panel painted: its tertiary lines (the count of trades, the footnote, each insider's role) in both themes,
+    // and its outline (the company as the h1, the panel's h2). fixtures/companyInsidersApi.ts answers its reads.
+    name: 'company insiders',
+    path: INSIDERS_PATH,
+    open: async (p, b) => {
+      await answerInsiders(p, b, INSIDERS_COMPLETE)
+    },
+    ready: async (p) => {
+      await expect(p.getByRole('heading', { level: 2, name: 'Insider activity', exact: true })).toBeVisible()
+      await expect(p.getByText(/^The 30 most recent of 41 trades in this window\./)).toBeVisible()
+    },
+  },
   { name: 'waitlist', path: '/waitlist', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByLabel('Email address')).toBeVisible() },
   { name: 'login', path: '/login', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'register', path: '/register', open: (p, b) => answerSiteApi(p, b, false), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
