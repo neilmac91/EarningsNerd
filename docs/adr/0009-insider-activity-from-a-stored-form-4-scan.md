@@ -167,6 +167,11 @@ beta user can ask.
   `ci.yml` and tests starts no deploy, so it also touches a deployable `backend/` path (`docs/OPERATIONS.md`,
   "Turning the insider endpoint off"). Off stops visits starting scans and hides the panel; a scan already
   queued finishes on the worker, which does not read the flag.
+- Where it shows (founder direction, 2026-11-14, after the first production scans): the filings keep the company
+  page. Insider activity there is a card in the side column, under Compare periods, saying the last 90 days in
+  three lines; it links to the company's insider page, `/company/{ticker}/insiders`, which holds the windows and
+  the trades. The section above the filings that steps 3 and 4 shipped is gone. The endpoint and the scan are
+  unchanged: one read, shown in two places, for beta accounts only.
 - The check on real filings came before the switch, not after it: the frontend build already had its flag on, so
   beta accounts see the panel as soon as the switch deploys. Where the two points above say the production
   trial reads the first real filings "before the panel is shown to anyone", the run of

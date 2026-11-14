@@ -92,9 +92,11 @@ export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0
 export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true'
 
 /**
- * Show the insider-activity (Form 4) panel on the company page. The backend endpoint answers at once from a
+ * Show insider (Form 4) activity: a card in the company page's side column, and the company's insider page
+ * (/company/{ticker}/insiders), which 404s while this is off. The backend endpoint answers at once from a
  * stored Form 4 scan that runs in the background on the task worker, and only to a signed-in beta account
- * (ADR 0009); the panel itself mounts only for one. This ships off by default.
+ * (ADR 0009); the card mounts only for one, and the page tells any other reader it is in beta. This ships off
+ * by default.
  * Flip NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY='true' to enable; the backend endpoint also needs
  * ENABLE_INSIDER_ACTIVITY=true (docs/CONFIGURATION.md), which production's deploy pins on.
  */

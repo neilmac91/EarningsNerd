@@ -102,6 +102,8 @@ const PRIVATE_ROUTES = [
   'delete-account', 'forgot-password', 'login', 'register', 'reset-password', 'verify-email',
   // An invitation email's own opt-out link: public, but nothing to find by search.
   'email/unsubscribe',
+  // A company's insider activity, read by a signed-in beta account (ADR 0009): a crawler sees a shell.
+  'company/[ticker]/insiders',
   // Default-off prototypes (lib/featureFlags.ts); each page sets its own robots.
   'labs/filing-redlines', 'labs/financial-refresh-review', 'labs/research-evidence-packs',
 ]

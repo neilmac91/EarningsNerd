@@ -333,7 +333,8 @@ describe('a trailing glyph keeps with its last word (DESIGN_SYSTEM.md §4, Trail
   })
 
   it('reads every TrailingArrowLabel caller, and sets none in a flex or grid row', () => {
-    // The twelve callers (E272, E274, E275, E276, E279; the filing viewer's drawer went with E280), so a reader that
+    // The thirteen callers (E272, E274, E275, E276, E279; the filing viewer's drawer went with E280; the company
+    // page's Insider activity card), so a reader that
     // finds no label fails here.
     expect([...new Set(parents.map((parent) => parent.file))].sort()).toEqual([
       'app/waitlist/page.tsx',
@@ -347,6 +348,7 @@ describe('a trailing glyph keeps with its last word (DESIGN_SYSTEM.md §4, Trail
       'features/filings/components/FilingsHistoryNote.tsx',
       'features/filings/components/copilot/CopilotMessage.tsx',
       'features/filings/components/copilot/FilingWorkspace.tsx',
+      'features/insiders/components/InsiderActivityCard.tsx',
       'features/marketing/components/HeroExample.tsx',
     ])
     expect(parents.filter((parent) => parent.rows.length > 0).map((parent) => `${parent.file}:${parent.line} <${parent.tag}> ${parent.rows.join(' ')}`)).toEqual([])

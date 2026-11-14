@@ -1739,7 +1739,8 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
 Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
                  Copilot's "Reading the filing…", the analysis page's history fetch, the trend analysis's "Assembling
                  the numbers…" and "Writing…" as it streams, /delete-account's "Checking whether you are logged
-                 in…", and the insider panel's "Reading this company's recent Form 4 filings." on a company's first
+                 in…", and the insider page's "Reading this company's recent Form 4 filings." (the company page's
+                 card says "Reading recent Form 4 filings.") on a company's first
                  visit, before any filing is listed. A run that reports how far it has got shows a bar instead, as the
                  summary's generating card does and the insider panel does once filings are listed ("12 of 60 filings
                  read, back to Sep 4, 2026" over its bar, the count and the date kept out of the status region so each
@@ -2477,6 +2478,24 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  (useWhatChanged). States in place: ledger bones, Notice + RetryButton, a plain line when
                  nothing is comparable (a wording comparison alone keeps the link, over the line that no
                  figures compare). No risk diff until the backend serves one again.
+                 The same side column holds <InsiderActivityCard ticker> under it (features/insiders, ADR
+                 0009; founder direction of 2026-11-14: the filings keep the company page, and anything
+                 beside them is a card that links to a page of its own, never a section above them). The
+                 same aside recipe: h2 18/600, a data-face line "Form 4 · last 90 days", three hairline
+                 rows (the net signal in words with a ▲/▼ glyph and its figure in its direction's ink;
+                 Buys and Sells, each its size in the data face and its count of trades, or "None"), and
+                 the sage text link "Open insider activity →" to /company/{ticker}/insiders, whose label
+                 carries no figure. The page mounts it only for a beta account on a company that is no
+                 foreign private issuer, and opens the column for it alone where there is no pair of
+                 annual periods, so the column never stands empty; the card always says something: ledger
+                 bones, the scan's own words in a status region with no count in it, a plain line for an
+                 empty window or a company the endpoint has no answer for, Notice + RetryButton. The
+                 insider page (app/company/[ticker]/insiders) holds the full panel
+                 (<InsiderActivityPanel>: the window control, the signal, the tiles, every trade the
+                 answer carries and a line saying how many the window holds) under the company's identity
+                 lead and a breadcrumb back to its filings; a reader who is not a beta account gets a
+                 GuidanceCard there that says so. Gates: tests/unit/company-insiders-placement.spec.tsx,
+                 tests/unit/insider-activity-card.spec.tsx, tests/e2e/insider-activity-panel.spec.ts.
 
 Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
                  surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
