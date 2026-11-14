@@ -777,7 +777,6 @@ SENDERS = {
     "app/services/data_quality_service.py": (1, "the data-quality report email_service builds, its page and text part"),
     "app/routers/contact.py": (2, "its own notice to the team and the confirmation email_service renders through the shell"),
     "app/routers/admin.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
-    "app/routers/email.py": (1, "an admin's test mail, a fragment, to the address the admin gives"),
     "app/routers/feedback.py": (1, "a notice of beta feedback to the team, a fragment"),
 }
 # The functions that send a page or hand one on to be sent, by the module that holds them: the transport's, the mail

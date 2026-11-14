@@ -55,6 +55,9 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
   // The code "Join without the code" dropped (joinWithoutCode), so a submit before the URL loses it sends none.
   const [droppedReferral, setDroppedReferral] = useState<string | null>(null)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
+  // The router's already_registered: the address is on the list. Its answer carries no place or referral link (they
+  // would go to anyone who typed the address), so the card says so and shows neither.
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   // The referral box's status line (see handleCopy), and the words it last said, kept as a render-time update of state
   // so they are there in the render that empties the line (as ResendShareModal keeps its own).
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -121,12 +124,7 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
       )
 
       if (data?.success === false && data?.error === 'already_registered') {
-        setSuccess({
-          message: data.message,
-          position: data.position,
-          referral_code: data.referral_code,
-          referral_link: data.referral_link,
-        })
+        setAlreadyRegistered(true)
         return
       }
 
@@ -195,7 +193,7 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
     }
   }
 
-  if (success) {
+  if (success || alreadyRegistered) {
     return (
       <Card className="p-cap-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
@@ -203,11 +201,13 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
           <span className="text-sm font-semibold">Waitlist request received</span>
         </div>
         <h2 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          You&apos;re on the waitlist.
+          {success ? <>You&apos;re on the waitlist.</> : <>You&apos;re already on the waitlist.</>}
         </h2>
-        <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
-        </p>
+        {success && (
+          <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
+          </p>
+        )}
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           This is not an account or an invitation yet. You can explore the live example while you wait.
         </p>
@@ -219,40 +219,44 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
           Read a live example while you wait
         </ExampleCtaLink>
 
-        <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-          <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
-            Your referral link
-          </div>
-          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* The data face: Inter's contextual alternates draw the x of a code such as p4x8n2wd as a
-                multiplication sign; Geist Mono has none, so the link reads as Copy copies it. */}
-            <span className="break-all font-data text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-              {success.referral_link}
-            </span>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleCopy}
-              leftIcon={showCheck ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
-              className="shrink-0"
-            >
-              Copy
-            </Button>
-          </div>
-          {/* In place with the card, so the line is a live region before a press fills it; empty before a first press, it
-              takes no room. While a repeat press empties it, it keeps the words it last said, invisible and hidden from
-              the accessibility tree, so it holds its room and the card holds still. */}
-          <p role="status" className={cx('text-sm text-text-secondary-light dark:text-text-secondary-dark', heldCopyState && 'mt-2')}>
-            {copyState !== 'idle'
-              ? referralCopyWords(copyState)
-              : heldCopyState && <span aria-hidden="true" className="invisible">{referralCopyWords(heldCopyState)}</span>}
-          </p>
-        </div>
+        {success && (
+          <>
+            <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
+              <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
+                Your referral link
+              </div>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* The data face: Inter's contextual alternates draw the x of a code such as p4x8n2wd as a
+                    multiplication sign; Geist Mono has none, so the link reads as Copy copies it. */}
+                <span className="break-all font-data text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+                  {success.referral_link}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCopy}
+                  leftIcon={showCheck ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+                  className="shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
+              {/* In place with the card, so the line is a live region before a press fills it; empty before a first press, it
+                  takes no room. While a repeat press empties it, it keeps the words it last said, invisible and hidden from
+                  the accessibility tree, so it holds its room and the card holds still. */}
+              <p role="status" className={cx('text-sm text-text-secondary-light dark:text-text-secondary-dark', heldCopyState && 'mt-2')}>
+                {copyState !== 'idle'
+                  ? referralCopyWords(copyState)
+                  : heldCopyState && <span aria-hidden="true" className="invisible">{referralCopyWords(heldCopyState)}</span>}
+              </p>
+            </div>
 
-        <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Each person who joins with your link moves you up {REFERRAL_BONUS} spots.
-        </div>
+            <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Each person who joins with your link moves you up {REFERRAL_BONUS} spots.
+            </div>
+          </>
+        )}
 
         {shareLinks && (
           <div className="mt-4 flex flex-wrap gap-3">
