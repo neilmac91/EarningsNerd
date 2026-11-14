@@ -27,8 +27,8 @@ FIXED = (
     "We could not generate this summary. Try again shortly.",
 )
 EARLIER = datetime(2026, 11, 14, 9, 0, tzinfo=timezone.utc)
-LAST_SECOND = datetime(2026, 11, 14, 11, 59, 59, tzinfo=timezone.utc)
-CUTOFF = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+LAST_SECOND = datetime(2026, 11, 14, 15, 59, 59, tzinfo=timezone.utc)
+CUTOFF = datetime(2026, 11, 14, 16, 0, tzinfo=timezone.utc)
 LATER = datetime(2026, 11, 15, 8, 0, tzinfo=timezone.utc)
 
 
