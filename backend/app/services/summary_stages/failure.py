@@ -21,6 +21,10 @@ if TYPE_CHECKING:  # pragma: no cover - annotations only; see the package docstr
 
 logger = logging.getLogger(pipeline.__name__)
 
+# What the generic handler stores and reports for any other failure: the durable job's code for a failed run.
+# The exception's own text can carry SQL, a provider's response body or a URL, so it stays in the server log.
+GENERATION_FAILED_CODE = "summary_generation_failed"
+
 
 def _source_failure_details(error: Exception) -> tuple[pipeline.ErrorCode, int | None, str, int | None]:
     """Read bounded exception metadata, including old generic Edgar wrappers during rollout.
@@ -166,7 +170,6 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
     the unit counted at provider start is refunded only for a failure the client did not cause."""
     filing_id = run.filing_id
     logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
-    error_msg = str(e)
     await run.refund_charge("pipeline failure")
     run.emit_funnel(
         run.telemetry_distinct_id,
@@ -174,7 +177,7 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
         duration_ms=run.elapsed_ms(),
         result_type="error",
         entry_point=run.telemetry_entry_point,
-        error=error_msg[:200],
+        error=GENERATION_FAILED_CODE,
         **run.telemetry_ctx,
     )
 
@@ -183,15 +186,10 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
 
     def record_stream_error_progress():
         with database.SessionLocal() as err_session:
-            pipeline.record_progress(err_session, filing_id, "error", error=error_msg[:200], starts_run=starts_run)
+            pipeline.record_progress(err_session, filing_id, "error", error=GENERATION_FAILED_CODE, starts_run=starts_run)
     try:
         await run.run_sync_db(record_stream_error_progress)
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Failed to record streaming error: {e}", exc_info=True)
 
-    if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
-        error_message = error_msg[:200]
-    else:
-        error_message = "We could not generate this summary. Try again shortly."
-
-    return {'type': 'error', 'message': error_message}
+    return {'type': 'error', 'message': "We could not generate this summary. Try again shortly."}

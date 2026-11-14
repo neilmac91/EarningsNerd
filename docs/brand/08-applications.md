@@ -143,7 +143,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   gate up or down, so a referral counts; the success card states the bonus once, from
   `REFERRAL_BONUS` (`features/waitlist/lib/referral.ts`, mirrored from the backend), and the "A
   numbered spot" card says your link moves you up without the number. The join answers "You're on
-  the waitlist." or "This email is already on the waitlist.", without an exclamation mark. A code no
+  the waitlist." or "This email is already on the waitlist.", without an exclamation mark. An address
+  already on the list gets that code and message only, never the signup's place, code or link, which
+  would go to anyone who typed the address; the form's card for it reads "You're already on the
+  waitlist." and shows no place, referral link or share links. A code no
   signup holds comes back as the router's `invalid_referral` (a 400 with no `detail`), which the form
   routes by its code to its own sentence, "We can't find this referral code on the waitlist. Check the
   link with whoever shared it.", where it printed axios's status line before. The first sentence is the

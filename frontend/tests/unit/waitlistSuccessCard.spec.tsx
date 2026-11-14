@@ -308,6 +308,30 @@ describe("the referral link's Copy", () => {
   })
 })
 
+describe('waitlist join of an address already on the list', () => {
+  // The router's already_registered (routers/watchlist.py, join_waitlist): a 200 with its code and message only. It
+  // never sends that signup's place, code or link, which would go to anyone who typed the address.
+  it('says the address is on the list and shows no place, referral link or share links', async () => {
+    api.joinWaitlist.mockResolvedValueOnce({
+      success: false, error: 'already_registered', message: 'This email is already on the waitlist.',
+    })
+    render(<WaitlistForm source="waitlist" />)
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
+
+    expect((await screen.findByRole('heading', { level: 2 })).textContent).toBe("You're already on the waitlist.")
+    expect(screen.getByText(/This is not an account or an invitation yet/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Read a live example while you wait' })).toBeInTheDocument()
+    expect(screen.queryByText(/current position/)).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/#|undefined/)
+    expect(screen.queryByText('Your referral link')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Share on/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/moves you up/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
 describe('waitlist join refused', () => {
   // The router's 400 (routers/watchlist.py, join_waitlist): its code and its own words, no `detail`. The real
   // joinWaitlist sends the join through the shared client, whose adapter answers here. Resolves to the alert.
