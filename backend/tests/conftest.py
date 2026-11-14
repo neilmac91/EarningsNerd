@@ -744,3 +744,18 @@ def _offline_stream_enrichment(request):
             # 9.2.0), so nothing is left behind on the shared xbrl_service singleton.
             stack.enter_context(patch.object(summary_pipeline.xbrl_service, seam, AsyncMock(return_value=None)))
         yield
+
+
+@pytest.fixture
+def sec_lists_no_sic(monkeypatch):
+    """The SEC boundary of the companyfacts sync's SIC lookup (``facts/sic_fill``), for tests that sync a company whose
+    ``sic`` is NULL without testing the lookup: SEC answers that it lists no SIC, so the facts are read as a
+    non-financial filer's, as before the lookup existed, and nothing reaches the network. A test of the lookup fakes
+    ``edgar.company_sic`` itself (``tests/unit/test_companyfacts_sic_fill.py``)."""
+    from app.services.edgar import company_sic
+
+    async def lists_none(_cik):
+        return None
+
+    monkeypatch.setattr(company_sic, "fetch_company_sic", lists_none)
+    monkeypatch.setattr(company_sic, "fetch_company_sic_sync", lambda _cik: None)

@@ -846,6 +846,7 @@ def test_metas_capture_is_the_one_reach_holds_to_its_places():
         "67c83050dfd78bab0dd379f3e98806e429dbde024f412574091d595b85e33cad")
 
 
+@pytest.mark.usefixtures("sec_lists_no_sic")
 def test_the_inert_gate_reads_quarterly_runs_that_print_every_place_the_seams_reach():
     # A quarterly run never carries evidence (D5), yet its files print every place of PLACES. Each run of REACH prints
     # exactly its places, so a reading of _places that finds too much fails wherever one of the four runs tells the two

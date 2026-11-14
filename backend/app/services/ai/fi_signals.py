@@ -30,8 +30,8 @@ def fi_components_present(xbrl_metrics: Optional[dict]) -> bool:
 
 def is_financial_sic(sic: Optional[str]) -> bool:
     """SIC-band FI signal (6000-6799); safe on None/blank/garbage. Belt-and-braces alongside
-    :func:`fi_components_present` — prod ``Company.sic`` is currently unpopulated, so this
-    branch is dormant until a SIC backfill runs (P1-7's rollout)."""
+    :func:`fi_components_present`. ``Company.sic`` is filled by a companyfacts sync of the company
+    (``facts/sic_fill``) or the manual SIC backfill, and is NULL for a company neither has reached."""
     if sic in (None, ""):
         return False
     try:

@@ -7,9 +7,10 @@ from typing import Any, Callable, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Company, Filing, FinancialFact, Watchlist
-from app.services.facts.concepts import AFFECTED_FINANCIAL_CONCEPTS, _is_financial_sic
+from app.services.facts.concepts import AFFECTED_FINANCIAL_CONCEPTS
 from app.services.facts.ingest import ingest_companyfacts
 from app.services.facts.reconcile import extract_authoritative_values
+from app.services.facts.sic_fill import fetch_with_sic_sync
 from app.services.facts.transport import _fetch_companyfacts_sync, logger
 from app.services.facts.upsert import process_filing_facts
 
@@ -210,15 +211,15 @@ def backfill_company_sic(
 ) -> dict[str, Any]:
     """Populate ``Company.sic`` (+ ``industry``) for companies missing it.
 
-    No ingestion path wrote ``Company.sic`` (the transformer used non-existent ``sic_code`` columns),
-    so it is NULL in prod — which collapses the Peers cohort (``peers_service`` falls back to the
-    subject alone) and makes the financial-remediation SIC-band selection match nothing. This fills
-    the blanks.
+    A companyfacts sync and the backfill's cross-check fill a NULL ``sic`` (``facts/sic_fill``); no
+    other path writes it, so a company neither has reached reads NULL, which collapses the Peers cohort
+    (``peers_service`` falls back to the subject alone) and keeps it out of the financial-remediation SIC band. This
+    fills those blanks; it is run by hand (``--backfill-company-sic``), and nothing schedules it.
 
     ``fetch_sic(company) -> (sic, industry) | None`` is injected so the core stays network-free and
     unit-testable; the CLI wires an EdgarTools lookup. Idempotent + resumable: by default only
-    companies with a NULL/empty ``sic`` are selected, so it can be re-run (and scheduled) to catch
-    newly-ingested rows. Pass ``tickers`` to (re)fill a specific set. Returns counts +
+    companies with a NULL/empty ``sic`` are selected (empty: SEC listed none when a sync asked), so it can be re-run
+    to catch rows nothing has filled. Pass ``tickers`` to (re)fill a specific set. Returns counts +
     ``updated_ids``/``skipped_ids``.
     """
     companies_q = db.query(Company)
@@ -358,10 +359,9 @@ def _backfill_rows(
         refresh_this_filing = refresh_flags
         if cross_check:
             if filing.company_id not in auth_by_company:
-                cik = getattr(filing.company, "cik", None)
-                fetched = fetch_companyfacts(cik) if cik else None
+                fetched, financial = fetch_with_sic_sync(fetch_companyfacts, filing.company, store=not flags_only)
                 auth_by_company[filing.company_id] = extract_authoritative_values(  # a financial filer: its total
-                    fetched, financial=_is_financial_sic(getattr(filing.company, "sic", None))) if fetched else {}
+                    fetched, financial=financial) if fetched else {}
                 if not fetched:
                     companyfacts_unavailable += 1
                     unauthorized_companies.add(filing.company_id)
