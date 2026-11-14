@@ -29,6 +29,7 @@ from app.models.account_agreement import AccountAgreement
 from app.models.complimentary_access import ComplimentaryAccessGrant
 from app.models.summary_job import SummaryJob, SummaryPreparationBudget
 from app.models.filing_source import FilingSourceBundle, FilingSourceMember, FilingSourceExtraction
+from app.models.insider import InsiderFiling, InsiderScan, InsiderTransaction
 from app.models.invite_mail import InviteDelivery, MailRecipient
 
 logger = logging.getLogger(__name__)

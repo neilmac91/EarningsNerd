@@ -49,6 +49,7 @@ POSTGRES_GATES = {
     "test_feedback_submission_transactions.py": "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL",
     "test_summary_progress_transactions.py": "PROGRESS_CONCURRENCY_TEST_DATABASE_URL",
     "test_sec_request_gate_transactions.py": "SEC_ADMISSION_TEST_DATABASE_URL",
+    "test_insider_scan_transactions.py": "INSIDER_SCAN_TEST_DATABASE_URL",
 }
 # Each gate home's PostgreSQL engine fixture: a case that takes it, directly or through another fixture, is one of
 # the home's PostgreSQL cases.

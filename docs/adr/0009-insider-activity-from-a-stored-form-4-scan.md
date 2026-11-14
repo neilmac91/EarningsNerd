@@ -58,10 +58,12 @@ beta user can ask.
 
 1. **Storage, per accession, in Postgres.** Three tables, each created by the models and by an idempotent
    migration (rule 3; the deploy applies migrations before new code serves):
-   - `earningsnerd_insider_filings`: one row per Form 4 accession of an issuer, with its filing date and its
-     state: `listed` when a scan has seen it and not fetched it yet, then an outcome (`ok`, `no_xml`,
-     `not_found`, `failed`), the parser's version and when it was attempted. A filing is immutable, so one with
-     an outcome is never fetched again.
+   - `earningsnerd_insider_filings`: one row per Form 4 accession in an issuer's listing, with its filing date
+     and its state: `listed` when a scan has seen it and not fetched it yet, then an outcome (`ok`,
+     `not_issuer`, `no_xml`, `not_found`, `failed`), the parser's version and when it was attempted. A filing
+     is immutable, so one with an outcome is never fetched again. SEC lists a Form 4 under its issuer and under
+     each reporting owner, and an owner can be a company with a scan of its own, so the row is unique per
+     issuer and accession, and only the issuer the document names stores its trades (`not_issuer` otherwise).
    - `earningsnerd_insider_transactions`: the open-market trades parsed from a stored filing.
    - `earningsnerd_insider_scans`: one row per issuer, with the scan's state, a lease, when the filings were last
      listed, and when a paused scan may resume.
@@ -75,18 +77,25 @@ beta user can ask.
 
 3. **Each Form 4 is fetched as a document and parsed offline.** The step fetches the filing's XML with
    `get_filing_document` (one attempt, a 10 s limit), and falls back once to the submission's text file when
-   the XML answers 404. Both addresses are built in `app/utils/sec_urls.py`, which gains a builder for a
+   the XML answers 404; a listing that names no usable XML file goes straight to the text file. A 200 whose
+   body is neither a Form 4 document nor a submission's text file (an error or throttle page, a cut-off answer)
+   concludes nothing the first time: the step stops as on pushback and the filing stays listed. The same answer
+   on the next attempt stores it as `failed`, so one bad filing cannot hold an issuer's scan for good. Both addresses are built in `app/utils/sec_urls.py`, which gains a builder for a
    document inside a filing's folder and one for the submission's text file beside it (rule 10: no address is
    assembled anywhere else). It parses with edgartools' own parts,
-   without the owner lookup, behind a check of the installed version and a test that parses recorded Form 4s
-   with the network closed. `insider_service` stops calling `obj()`, and its entry leaves the allow-list.
+   without the owner lookup, behind a check of the installed version and a test that parses Form 4 documents
+   with the network closed. The parse also reads the issuer the document names: a filing in a company's
+   listing that reports another issuer's shares (the company filed it as an owner) stores no trades. A
+   filing whose trades were not all read is `failed`, never stored as a filing with no trades. `insider_service` stops calling `obj()`, and its entry leaves the allow-list.
 
 4. **The scan stops itself on pushback.** A refusal (403 or any other unexpected status), a 429, a 5xx, a
    timeout of the request, or an open breaker ends the step at once, told apart by the error's type, code and
    status. The scan row records the reason and a time before which it will not run again: the `Retry-After`
    when SEC gave one, else a backoff that doubles from five minutes. The breaker would not have stopped a 403.
    A wait for the process's own limiter that runs out is not pushback: the step ends and the next one carries
-   on, with no pause.
+   on, with no pause. An issuer SEC does not know fails the scan, which then waits as a paused one does. An
+   installed edgartools the parser was not written for fails it before any request, with no wait, so the
+   deploy that fixes it carries straight on.
 
 5. **Steps run on the task worker, as a new task kind.** The scan spends the worker's SEC budget, not an API
    instance's, so it cannot delay a summary's fetches or open the breaker a summary depends on. Cloud Tasks
@@ -126,7 +135,12 @@ beta user can ask.
   up to its own ten seconds. Steps are separate tasks so that other work takes its turn between them. The
   queue's drain arithmetic (`tests/unit/test_filings_routes.py`) is redone with the step in it.
 - The offline parse reads edgartools internals that are not its public interface. The version check and the
-  recorded-filing test fail on an upgrade that moves them, before it ships.
+  parse test fail on an upgrade that moves them, before it ships.
+- The parse test's documents are written to SEC's ownership schema, not recorded from SEC: SEC refuses a client
+  that does not declare who it is, and the build ran without the production identity. The production trial
+  compares the first stored filings with the same filings on sec.gov before the panel is shown to anyone.
+- A company that files Form 4s as an owner of another issuer's shares no longer has those trades shown as its
+  own insider activity, which the live fetch did.
 - That SEC serves a Form 4's XML at the primary document's name without its stylesheet directory is SEC's
   convention, not something read from code. The text-file fallback covers a miss, and the production trial reads
   the first real fetches before the panel is shown to anyone.
@@ -140,8 +154,8 @@ beta user can ask.
 
 In order, each a reviewed pull request, each backend one deployed and healthy before the next merges:
 
-1. The tables, the offline parse, the fetch and the scan step, with nothing calling them. Tests: recorded
-   Form 4s parsed with the network closed (several owners, a derivative-only filing, a plan sale, garbage); a
+1. The tables, the offline parse, the fetch and the scan step, with nothing calling them. Tests: Form 4
+   documents parsed with the network closed (several owners, a derivative-only filing, a plan sale, garbage); a
    step's request count and its ceiling; a step interrupted at each point resumes without refetching; a 403,
    429, 5xx and timeout each stop the step and set the pause, and a limiter wait that runs out does not; two
    claims of one scan, on Postgres; migration and model parity.
