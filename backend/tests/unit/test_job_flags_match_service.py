@@ -15,6 +15,10 @@ equality (``lessons/test-allowlist-caps-are-equalities.md``), so a pair that sta
 the service's value is expanded when the deploy runs (``${VAR}``), the gate cannot know it, so a listed flag must
 be absent from the jobs' map: any value there might agree.
 
+The task worker runs two of those passes as well: with durable tasks on, the internal triggers hand the filing
+scan and the calendar refresh to it (``routers/internal.py``). ``WORKER_FLAGS`` names the flags those passes read,
+and the worker's map carries the service's value for each.
+
 Not covered: a flag a job's pass starts to read (add its row here; review-checked); ``ENABLE_SECTION_CHANGES``,
 which the scan and the digest also read and ``test_section_changes_flag_placement.py`` holds; the summary
 rollout's held controls, which ``summary_preparation`` reads beside ``DURABLE_TASKS_ENABLED`` and an ordinary
@@ -33,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[3]
 BACKEND = ROOT / "backend"
 SERVICE_STEP = "Deploy Cloud Run service"
 JOBS_STEP = "Update filing-scan + digest + calendar + alert + notable + retention job images"
+WORKER_STEP = "Update configured private task worker"
 
 # Flag -> (the scheduled job whose pass reads it, the module holding the read).
 JOB_FLAGS: dict[str, tuple[str, str]] = {
@@ -42,6 +47,8 @@ JOB_FLAGS: dict[str, tuple[str, str]] = {
     ),
     "DURABLE_TASKS_ENABLED": ("earningsnerd-filing-scan", "app/services/summary_preparation.py"),
 }
+# The flags of JOB_FLAGS whose pass the task worker also runs, on the durable path.
+WORKER_FLAGS = ("ENABLE_FPI_FILINGS", "CALENDAR_INDEX_FILTER_ENABLED")
 # Flag -> why its job does not carry the service's value.
 DIFFERENCES: dict[str, str] = {
     "DURABLE_TASKS_ENABLED": (
@@ -110,6 +117,16 @@ def test_each_job_flag_carries_the_services_value_or_is_a_listed_difference():
         "A scheduled job reads a flag from the jobs' own --update-env-vars map in ci.yml. Set it there at the "
         "service's value, or list the flag in DIFFERENCES with why its job differs:\n" + "\n".join(found)
     )
+
+
+def test_the_task_worker_carries_the_services_value_for_the_passes_it_also_runs():
+    service, worker = env_map(_step_run(SERVICE_STEP)), env_map(_step_run(WORKER_STEP))
+    for flag in WORKER_FLAGS:
+        assert flag in JOB_FLAGS, f"{flag} is in WORKER_FLAGS but not in JOB_FLAGS"
+        assert worker.get(flag) == service[flag], (
+            f"{flag} is {service[flag]} on the service and {worker.get(flag)} on the task worker, which runs the "
+            "same pass when durable tasks route it there"
+        )
 
 
 def test_each_row_names_a_job_the_step_updates_and_a_module_that_still_reads_the_flag():

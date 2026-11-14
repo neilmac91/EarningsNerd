@@ -85,7 +85,7 @@ def purge(session, *, dry_run: bool = True, members=None) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Delete earnings rows outside the S&P 500 / Nasdaq 100 universe."
+        description="Delete earnings rows outside the S&P 500 / Nasdaq 100 universe that nobody watches."
     )
     parser.add_argument("--execute", action="store_true",
                         help="Actually delete (default is dry run).")

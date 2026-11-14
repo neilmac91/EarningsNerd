@@ -668,8 +668,8 @@ def test_index_filter_on_a_2_02_hit_flips_a_watched_non_members_row_only(monkeyp
         )
         for t in ("WTCN.B", "UNWTCHN")
     ])
-    db.commit()
     try:
+        db.commit()
         hits = [
             SimpleNamespace(
                 items=["2.02"], ticker=t, filed_date="2031-05-02", accession_no=f"acc-{t}",
@@ -687,6 +687,7 @@ def test_index_filter_on_a_2_02_hit_flips_a_watched_non_members_row_only(monkeyp
         }
         assert statuses == {"WTCN.B": STATUS_REPORTED, "UNWTCHN": STATUS_ESTIMATED}
     finally:
+        db.rollback()
         db.query(Watchlist).filter(Watchlist.company_id == company.id).delete(synchronize_session=False)
         db.query(Company).filter(Company.id == company.id).delete(synchronize_session=False)
         db.query(User).filter(User.id == user.id).delete(synchronize_session=False)

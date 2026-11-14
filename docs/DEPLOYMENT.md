@@ -1742,7 +1742,9 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
   --args="scripts/purge_non_index_earnings.py,--execute" --wait
 # 2. Turn the filter on. The service's value decides what the public calendar serves; the scheduled
 #    refresh's ingest follows the jobs' map, which the deploy pins. Reversible: with the jobs' value
-#    false, the next daily refresh re-populates the rest (AV returns the full calendar).
+#    false, the next daily refresh re-populates the rest (AV returns the full calendar). A jobs' value
+#    that differs from the service's is listed, with why, in tests/unit/test_job_flags_match_service.py's
+#    DIFFERENCES in the same change, or CI fails.
 gcloud run services update earningsnerd-backend --region=us-west1 \
   --update-env-vars=CALENDAR_INDEX_FILTER_ENABLED=true
 # 3. Probe: peak days now show only large caps; spot-check BRK.B / GOOGL present.
