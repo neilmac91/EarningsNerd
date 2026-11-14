@@ -202,22 +202,85 @@ def test_the_route_no_longer_has_a_long_request_timeout():
     assert main.get_timeout_for_path("/api/companies/AAPL/insiders") == main.REQUEST_TIMEOUT_SECONDS["default"]
 
 
+def test_a_handoff_the_queue_did_not_take_is_asked_for_again_on_the_readers_next_request(client, company, handoffs, monkeypatch):
+    taken = []
+
+    async def request_scan(cik):
+        taken.append(cik)
+        return len(taken) > 1   # the queue is unavailable the first time
+
+    monkeypatch.setattr(insiders_mod.insider_scan_service, "request_scan", request_scan)
+    signed_in(beta=True)
+    for _ in range(3):
+        assert client.get(f"/api/companies/{company[0]}/insiders").status_code == 200
+    assert taken == [company[1], company[1]]   # asked again once, then remembered
+
+
+def test_the_memo_of_handoffs_is_bounded(client, company, handoffs, monkeypatch):
+    monkeypatch.setattr(insiders_mod, "_HANDED_OFF_ENTRIES", 2)
+    monkeypatch.setattr(insiders_mod, "_handed_off", {"1": 1e18, "2": 1e18})
+    signed_in(beta=True)
+    assert client.get(f"/api/companies/{company[0]}/insiders").status_code == 200
+    assert list(insiders_mod._handed_off) == ["2", company[1]]   # the oldest entry made room
+
+
+def test_the_requests_session_holds_no_connection_while_the_handoff_is_awaited(client, company, monkeypatch):
+    """The read finishes before the queue await: a connection held across it starves the pool under a burst
+    (lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    from sqlalchemy import event
+
+    from app.database import engine
+
+    out, during = [0], []
+
+    def checked_out(*args):
+        out[0] += 1
+
+    def checked_in(*args):
+        out[0] -= 1
+
+    async def request_scan(cik):
+        during.append(out[0])
+        return True
+
+    monkeypatch.setattr(settings, "ENABLE_INSIDER_ACTIVITY", True)
+    monkeypatch.setattr(insiders_mod, "_handed_off", {})
+    monkeypatch.setattr(insiders_mod, "_scan_handoffs", RateLimiter(limit=4, window_seconds=60))
+    monkeypatch.setattr(insiders_mod.insider_scan_service, "request_scan", request_scan)
+    signed_in(beta=True)
+    event.listen(engine, "checkout", checked_out)
+    event.listen(engine, "checkin", checked_in)
+    try:
+        assert client.get(f"/api/companies/{company[0]}/insiders").status_code == 200
+    finally:
+        event.remove(engine, "checkout", checked_out)
+        event.remove(engine, "checkin", checked_in)
+    assert during == [0]
+
+
 def test_a_scan_is_requested_only_by_the_insiders_route_behind_its_beta_check_and_budget():
     """``request_scan`` queues a task (exempt in test_durable_task_payloads_server_owned.py as a service-side
-    enqueue). Its one caller is the route that takes a signed-in beta account and spends the handoff budget."""
-    callers = []
-    for path in sorted(APP_DIR.rglob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for call in ast.walk(node):
-                    if isinstance(call, ast.Call) and getattr(call.func, "attr", getattr(call.func, "id", None)) == "request_scan":
-                        callers.append((path.relative_to(APP_DIR).as_posix(), node.name))
-    assert callers == [("routers/insiders.py", "get_company_insiders")]
+    enqueue). Its one caller is the route's handoff helper, which spends the process's budget first, and that
+    helper's one caller is the route that takes a signed-in beta account."""
+    def callers_of(name):
+        found = []
+        for path in sorted(APP_DIR.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    for call in ast.walk(node):
+                        if isinstance(call, ast.Call) and getattr(call.func, "attr", getattr(call.func, "id", None)) == name:
+                            found.append((path.relative_to(APP_DIR).as_posix(), node.name))
+        return found
 
-    route = next(node for node in ast.walk(ast.parse((APP_DIR / "routers/insiders.py").read_text(encoding="utf-8")))
-                 if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_company_insiders")
-    defaults = [ast.unparse(default) for default in route.args.defaults]
-    assert "Depends(require_beta)" in defaults
-    handoff = next(node for node in ast.walk(route) if isinstance(node, ast.If) and "request_scan" in ast.unparse(node))
-    assert ast.unparse(handoff.test) == "activity.pop('scan_due') and _hand_off_due(activity['cik'])"
+    assert callers_of("request_scan") == [("routers/insiders.py", "_hand_off")]
+    assert callers_of("_hand_off") == [("routers/insiders.py", "get_company_insiders")]
+
+    functions = {node.name: node for node in ast.walk(ast.parse((APP_DIR / "routers/insiders.py").read_text(encoding="utf-8")))
+                 if isinstance(node, ast.AsyncFunctionDef)}
+    assert "Depends(require_beta)" in [ast.unparse(default) for default in functions["get_company_insiders"].args.defaults]
+    handoff = next(node for node in ast.walk(functions["get_company_insiders"]) if isinstance(node, ast.If) and "_hand_off" in ast.unparse(node))
+    assert ast.unparse(handoff.test) == "activity.pop('scan_due')"
+    steps = [ast.unparse(statement) for statement in functions["_hand_off"].body]
+    budget = next(i for i, step in enumerate(steps) if "_scan_handoffs.allow('insider-scan')" in step)
+    asked = next(i for i, step in enumerate(steps) if "request_scan" in step)
+    assert budget < asked and steps[budget].startswith("if not _scan_handoffs.allow('insider-scan'):\n    return")

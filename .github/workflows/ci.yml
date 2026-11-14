@@ -1364,8 +1364,9 @@ jobs:
           # every machine, and each process carries two independent SEC buckets (the app's
           # SEC_RATE_LIMIT_PER_SECOND and edgartools' EDGAR_RATE_LIMIT_PER_SEC, defaults 10 and 9).
           # This service, the task worker above and every job update below pin both to 1; the insider
-          # endpoint, whose cold fetch cannot fit 1 req/s, is pinned off (ENABLE_INSIDER_ACTIVITY=false is
-          # re-asserted on every deploy, so a hand-set true does not survive the next one).
+          # endpoint, served from a stored scan since ADR 0009, stays off until its production trial
+          # (ENABLE_INSIDER_ACTIVITY=false is re-asserted on every deploy, so a hand-set true does not
+          # survive the next one).
           # tests/unit/test_sec_process_budgets.py and docs/OPERATIONS.md state the arithmetic and
           # what it does not guarantee.
           cpu_billing=--no-cpu-throttling

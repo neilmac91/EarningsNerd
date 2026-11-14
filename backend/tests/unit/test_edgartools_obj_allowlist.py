@@ -12,7 +12,8 @@ then ``loader()``) and the string form: any call that passes ``"obj"`` as an arg
 ``getattr(filing, "obj")`` and getattr wrappers such as ``sixk_extractor._safe(filing, "obj")``.
 Any literal way of reaching the accessor starts with one of those; a name built at runtime (held in a
 variable) is outside an AST walk, and review catches it. The (file, enclosing scope) pairs are
-compared against the two sites that predate the rule. The summary-section path left the list with
+compared against the one site that predates the rule (the insider feed's left with ADR 0009, which
+parses each Form 4 offline). The summary-section path left the list with
 E28: it parses the primary document the pipeline fetched and never calls ``obj()``. A NEW access
 anywhere fails with its file:line; a sanctioned site that disappears fails too, so the list cannot
 go stale.

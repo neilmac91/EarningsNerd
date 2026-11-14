@@ -36,16 +36,17 @@ _handed_off: dict[str, float] = {}
 _HANDED_OFF_ENTRIES = 512
 
 
-def _hand_off_due(cik: str) -> bool:
+async def _hand_off(cik: str) -> None:
     now = time.monotonic()
     if now < _handed_off.get(cik, 0.0):
-        return False
+        return
     if not _scan_handoffs.allow("insider-scan"):
-        return False   # left unrecorded, so the next request after the window hands it off
+        return   # left unrecorded, so the next request after the window hands it off
+    if not await insider_scan_service.request_scan(cik):
+        return   # the queue did not take it: unrecorded too, so the reader's next request asks again
     if len(_handed_off) >= _HANDED_OFF_ENTRIES:
         _handed_off.pop(next(iter(_handed_off)), None)
     _handed_off[cik] = now + insider_scan_service.VISIT_DEDUPE_SECONDS
-    return True
 
 
 def _require_insider_activity() -> None:
@@ -94,6 +95,6 @@ async def get_company_insiders(
     activity = await run_in_threadpool(read)
     if activity is None:
         raise HTTPException(status_code=404, detail="Company not found")
-    if activity.pop("scan_due") and _hand_off_due(activity["cik"]):
-        await insider_scan_service.request_scan(activity["cik"])
+    if activity.pop("scan_due"):
+        await _hand_off(activity["cik"])
     return activity

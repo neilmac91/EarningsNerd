@@ -348,9 +348,9 @@ REQUEST_TIMEOUT_SECONDS = {
 }
 
 # Suffix-matched timeouts for routes where a variable segment precedes the action
-# (e.g. /api/companies/{ticker}/insiders), which a prefix match can't reach.
-# Checked after the prefix table. Keep these above the corresponding service-level
-# timeout so the inner timeout fires first with a specific error.
+# (/api/companies/{ticker}/<action>), which a prefix match can't reach. Checked after the prefix
+# table. None today: the insider route, the one entry, reads the database since ADR 0009. Keep an
+# entry above the corresponding service-level timeout so the inner timeout fires first.
 REQUEST_TIMEOUT_SUFFIXES: dict[str, float] = {}
 
 

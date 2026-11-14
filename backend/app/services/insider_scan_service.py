@@ -109,6 +109,10 @@ MAX_POLL_SECONDS = 180
 VISIT_DEDUPE_SECONDS = 60
 # After a wait on the process's own limiter, the next step starts this much later.
 LIMITER_RETRY = timedelta(seconds=15)
+# A paused scan's resume is scheduled this long after its pause ends, so the task that arrives finds the pause
+# over by the database's clock too. One that arrived early would find the scan still waiting, ask for the resume
+# again under the name it just used, and the queue would drop it.
+RESUME_MARGIN = timedelta(seconds=5)
 # A scan whose row moved this recently is being carried on by its own chain of tasks: each step enqueues the next,
 # so a visit hands nothing off. Past it with filings still unread, the chain broke and a visit restarts it.
 CHAIN_QUIET = timedelta(seconds=45)
@@ -572,19 +576,25 @@ def _follow_up(db: Session, cik: str, stats: StepStats, now: datetime) -> Option
     """The task that continues the scan after this step, if any. Cloud Tasks keeps a task's name for a day after
     it ran and drops a second task of that name without an error, so every name carries the scan's step count,
     which moves with each step that held the lease."""
-    if stats.outcome != OUTCOME_RAN or stats.stopped == "lease_lost":
-        return None   # another step holds the scan, or it is paused: that step, or a visit, carries it on
+    if stats.outcome == OUTCOME_BUSY or stats.stopped == "lease_lost":
+        return None   # another step holds the scan and carries it on
     scan = db.query(InsiderScan).filter(InsiderScan.issuer_cik == cik).one()
     steps, status, paused_until = scan.steps or 0, scan.status, scan.paused_until
     db.commit()
+    resume = (_FollowUp(f"insider-scan:{cik}:resume:{steps}", ensure_utc(paused_until) + RESUME_MARGIN)
+              if status == SCAN_PAUSED and paused_until is not None else None)
+    if stats.outcome == OUTCOME_PAUSED:
+        # This task found the scan waiting. That includes the redelivery of the task whose step paused it and
+        # whose enqueue of the resume then failed, so the resume is asked for again: one name per pause, and
+        # the queue drops the second task of a name.
+        return resume
     if stats.stopped is None:
         return _FollowUp(f"insider-scan:{cik}:step:{steps}", None) if stats.remaining else None
     if stats.stopped == "limiter_wait":
         return _FollowUp(f"insider-scan:{cik}:step:{steps}", now + LIMITER_RETRY)
-    if status == SCAN_PAUSED and paused_until is not None:
-        # SEC pushed back: the scan resumes by itself when the pause is over, once per pause.
-        return _FollowUp(f"insider-scan:{cik}:resume:{steps}", ensure_utc(paused_until))
-    return None   # failed: a later visit asks again, nothing retries by itself
+    # SEC pushed back: the scan resumes by itself when the pause is over, once per pause. A failed scan is not
+    # resumed: a later visit asks again, nothing retries by itself.
+    return resume
 
 
 async def run_scan_task(payload: dict) -> None:

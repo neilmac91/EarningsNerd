@@ -792,7 +792,7 @@ async def test_a_step_that_left_filings_unread_enqueues_the_next_named_by_the_sc
 @pytest.mark.parametrize("stats, scan", [
     (scan_service.StepStats(stored=3, remaining=0), dict(status="idle")),                                      # done
     (scan_service.StepStats(outcome="busy", remaining=5), {}),                                                 # another step has it
-    (scan_service.StepStats(outcome="paused", remaining=5), dict(status="paused", paused_until=NOW + PAUSE_BASE)),
+    (scan_service.StepStats(outcome="paused"), dict(status="failed", paused_until=NOW + PAUSE_BASE)),            # waiting, failed
     (scan_service.StepStats(stopped="lease_lost", remaining=5), {}),
     (scan_service.StepStats(stopped="issuer_not_found"), dict(status="failed", paused_until=NOW + PAUSE_BASE)),   # no retry by itself
     (scan_service.StepStats(stopped="parser_unsupported", remaining=5), dict(status="failed")),
@@ -808,7 +808,31 @@ async def test_a_paused_scan_is_resumed_by_one_task_scheduled_for_the_end_of_its
     until = NOW + timedelta(minutes=20)
     a_step_that(monkeypatch, db, scan_service.StepStats(stopped="sec_429", remaining=6), status="paused", paused_until=until, steps=7)
     await scan_service.run_scan_task({"issuer_cik": CIK})
-    assert worker == [("insider_scan", {"issuer_cik": CIK}, f"insider-scan:{CIK}:resume:7", None, until)]
+    assert worker == [("insider_scan", {"issuer_cik": CIK}, f"insider-scan:{CIK}:resume:7", None, until + scan_service.RESUME_MARGIN)]
+
+
+@pytest.mark.asyncio
+async def test_a_resume_whose_enqueue_failed_is_asked_for_again_when_the_task_is_redelivered(db, worker, monkeypatch):
+    """The step commits the pause before its task enqueues the resume. When that enqueue fails the task is
+    redelivered, finds the scan waiting, and must ask for the same resume: otherwise nothing ever resumes it."""
+    from app.services import durable_tasks
+    from app.services.task_routing import TaskUnavailable
+
+    until = NOW + timedelta(minutes=20)
+    a_step_that(monkeypatch, db, scan_service.StepStats(stopped="sec_429", remaining=6), status="paused", paused_until=until, steps=7)
+    recorded = durable_tasks.enqueue_task
+
+    async def unavailable(*args, **kwargs):
+        raise TaskUnavailable("Durable task handoff failed")
+
+    monkeypatch.setattr(durable_tasks, "enqueue_task", unavailable)
+    with pytest.raises(TaskUnavailable):
+        await scan_service.run_scan_task({"issuer_cik": CIK})   # the worker answers 503 and the queue redelivers
+
+    monkeypatch.setattr(durable_tasks, "enqueue_task", recorded)
+    a_step_that(monkeypatch, db, scan_service.StepStats(outcome="paused", remaining=6), status="paused", paused_until=until, steps=7)
+    await scan_service.run_scan_task({"issuer_cik": CIK})
+    assert worker == [("insider_scan", {"issuer_cik": CIK}, f"insider-scan:{CIK}:resume:7", None, until + scan_service.RESUME_MARGIN)]
 
 
 @pytest.mark.asyncio

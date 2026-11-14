@@ -113,6 +113,16 @@ def test_no_step_is_due_for_a_further_issuer_while_enough_scans_are_under_way(db
     assert read_insider_activity(db, "AAPL", now=NOW)["scan_due"] is True
 
 
+@pytest.mark.parametrize("status", ["idle", "paused", "failed"])
+def test_only_scans_that_are_reading_filings_count_as_under_way(db, status):
+    """Three issuers that finished or paused a moment ago hold no place on the worker."""
+    for n in range(scan_service.MAX_SCANS_UNDER_WAY):
+        db.add(InsiderScan(issuer_cik=str(900 + n), status=status, pauses=0, steps=1, created_at=NOW,
+                           updated_at=NOW - timedelta(seconds=30)))
+    db.commit()
+    assert read_insider_activity(db, "AAPL", now=NOW)["scan_due"] is True
+
+
 def test_a_scan_of_this_issuer_does_not_count_against_itself(db):
     for cik in (CIK, "901", "902"):
         db.add(InsiderScan(issuer_cik=cik, status="scanning", pauses=0, steps=1, created_at=NOW - timedelta(hours=1),

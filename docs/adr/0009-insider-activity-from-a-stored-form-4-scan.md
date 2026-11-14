@@ -140,7 +140,10 @@ beta user can ask.
   ten seconds each, on a process summaries do not use.
 - The worker runs one task at a time, so a scan step delays the account mail and other tasks queued behind it by
   up to its own ten seconds. Steps are separate tasks so that other work takes its turn between them. The
-  queue's drain arithmetic (`tests/unit/test_filings_routes.py`) is redone with the step in it.
+  scan's share of the worker is bounded by the number of issuers scanning at once (decision 5) and a
+  per-process budget of on-visit handoffs, not by the queue's drain arithmetic
+  (`tests/unit/test_filings_routes.py`), which sums what requests without a login can queue: this route needs
+  a beta account.
 - The offline parse reads edgartools internals that are not its public interface. The version check and the
   parse test fail on an upgrade that moves them, before it ships.
 - The parse test's documents are written to SEC's ownership schema, not recorded from SEC: SEC refuses a client

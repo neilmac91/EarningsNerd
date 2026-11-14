@@ -9,7 +9,7 @@ emits ``Retry-After`` through ``enforce_rate_limit``.
 Allow-list gate, like the other structural specs: EVERY module-level assignment in
 ``app/routers/*.py`` whose value is a dict display, ``dict(...)``, ``defaultdict(...)`` or
 ``OrderedDict(...)``, or whose annotation is a mapping type, is an offender unless it is named in
-``ALLOWED`` (the two module caches that map to a scalar/tuple and are not limiter state). An
+``ALLOWED`` (the module caches that map to a scalar/tuple and are not limiter state). An
 unannotated ``_store = {}`` or a fixed-window ``dict[str, int]`` counter trips it just like the
 removed sliding-window shape; a non-empty literal (request headers, an opaque response body) is
 a constant and is not a store. A new legitimate cache is added to ``ALLOWED`` in the same PR,
