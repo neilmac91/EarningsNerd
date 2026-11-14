@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import logging
 import re
+import traceback
 import stripe
 from app.database import get_db
 from app.models import User
@@ -79,18 +80,21 @@ _STRIPE_EVENT_TYPE = re.compile(r"[a-z0-9_.]{1,100}")
 
 
 def _log_webhook_failure(event: dict, error: Exception) -> None:
-    """Log a verified event that failed processing: its id, its type, the error's class and the traceback.
+    """Log a verified event that failed processing: its id, its type, the error's class and its stack.
 
-    The line never carries the payload or the error's message; an id or type of another shape is left out (rule 9).
-    Called from an ``except`` block, so ``logger.exception`` attaches the traceback.
+    The record never carries the payload or the error's message, which can name a customer or quote a statement's
+    parameters (as ``_log_stripe_failure`` leaves Stripe's message out, E18): the stack's frames say where it was
+    raised, and the event id finds the payload in Stripe's dashboard. So the stack is formatted here, without the
+    message line that ``logger.exception`` would end it with. An id or type of another shape is left out (rule 9).
     """
     event_id, event_type = event.get("id"), event.get("type")
     if not (isinstance(event_id, str) and _STRIPE_EVENT_ID.fullmatch(event_id)):
         event_id = "unknown"
     if not (isinstance(event_type, str) and _STRIPE_EVENT_TYPE.fullmatch(event_type)):
         event_type = "unknown"
-    logger.exception(
-        "Stripe webhook processing failed (%s, event %s, type %s)", type(error).__name__, event_id, event_type,
+    logger.error(
+        "Stripe webhook processing failed (%s, event %s, type %s)\n%s",
+        type(error).__name__, event_id, event_type, "".join(traceback.format_tb(error.__traceback__)),
     )
 
 

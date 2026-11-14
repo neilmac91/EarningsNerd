@@ -551,8 +551,13 @@ async def test_invoice_shape_failure_is_retryable_and_preserves_evidence(sqlite_
     assert _payments(sqlite_engine) == (1, 1, 3900)
 
 
-# An exception's text can carry a customer, an email or a SQL statement's parameters; no answer or log line repeats it.
+# An exception's text can carry a customer, an email or a SQL statement's parameters; no answer repeats it, and the log
+# record carries the error's class and stack without it (``_shown`` reads the record as a handler would print it).
 _ERROR_TEXT = "cus_sentinel owner@example.com"
+
+
+def _shown(record):
+    return logging.Formatter().format(record)
 
 
 def _webhook_failures(caplog):
@@ -564,8 +569,8 @@ def _webhook_failures(caplog):
 @pytest.mark.parametrize("event_id,logged_id", [("evt_processing_bug", "evt_processing_bug"), ("evt bad\nid", "unknown")])
 async def test_a_processing_bug_answers_500_is_logged_and_echoes_nothing(
         sqlite_engine, monkeypatch, caplog, error, event_id, logged_id):
-    """A bug inside processing of a well-shaped event is a retried 500 with a fixed detail, logged with its traceback,
-    its class and the event's id and type. A KeyError, ValueError or TypeError there once answered an unlogged 400
+    """A bug inside processing of a well-shaped event is a retried 500 with a fixed detail, logged with its class, its
+    stack and the event's id and type. A KeyError, ValueError or TypeError there once answered an unlogged 400
     "Malformed webhook payload: <its text>", and any other exception a 500 that echoed its text."""
     user_id = _seed(sqlite_engine)
     _install_factory(monkeypatch, sqlite_engine)
@@ -580,10 +585,30 @@ async def test_a_processing_bug_answers_500_is_logged_and_echoes_nothing(
     assert (raised.value.status_code, raised.value.detail) == (500, "Error processing webhook")
     assert _billing(sqlite_engine, user_id) == (False, None, 0, 0)
     [record] = _webhook_failures(caplog)
-    assert record.exc_info[0] is error
-    assert record.getMessage() == (
+    line, *stack = record.getMessage().splitlines()
+    assert line == (
         f"Stripe webhook processing failed ({error.__name__}, event {logged_id}, type checkout.session.completed)")
-    assert _ERROR_TEXT not in repr(record.args)
+    assert any(frame.endswith(", in bug") for frame in stack)  # the stack says where it was raised
+    assert record.exc_info is None and _ERROR_TEXT not in _shown(record)
+
+
+@pytest.mark.asyncio
+async def test_an_event_type_of_another_shape_is_left_out_of_the_failure_log(sqlite_engine, monkeypatch, caplog):
+    """Rule 9: a type is the sender's text until it has Stripe's shape, so a failure on such an event logs "unknown"."""
+    _install_factory(monkeypatch, sqlite_engine)
+
+    def bug(event):
+        raise RuntimeError(_ERROR_TEXT)
+
+    monkeypatch.setattr(subscriptions, "process_stripe_event", bug)
+    caplog.set_level(logging.ERROR, logger="app.routers.subscriptions")
+    with pytest.raises(HTTPException) as raised:
+        await _deliver({"id": "evt_odd_type", "type": "invoice paid\nforged line", "data": {"object": {}}})
+    assert (raised.value.status_code, raised.value.detail) == (500, "Error processing webhook")
+    [record] = _webhook_failures(caplog)
+    assert record.getMessage().splitlines()[0] == (
+        "Stripe webhook processing failed (RuntimeError, event evt_odd_type, type unknown)")
+    assert "forged line" not in _shown(record) and _ERROR_TEXT not in _shown(record)
 
 
 @pytest.mark.asyncio
@@ -601,9 +626,10 @@ async def test_refused_payment_evidence_still_answers_400_and_is_logged(sqlite_e
     assert (raised.value.status_code, raised.value.detail) == (400, "Malformed webhook payload")
     assert _payments(sqlite_engine) == (0, 0, 0)
     [record] = _webhook_failures(caplog)
-    assert record.exc_info[0].__name__ == "InvalidPaymentEvidence" and issubclass(record.exc_info[0], ValueError)
-    assert record.getMessage() == (
+    line, *stack = record.getMessage().splitlines()
+    assert line == (
         "Stripe webhook processing failed (InvalidPaymentEvidence, event evt_refused_payment, type invoice_payment.paid)")
+    assert any(frame.endswith(", in payment_from_event") for frame in stack) and record.exc_info is None
 
 
 @pytest.mark.asyncio
@@ -621,7 +647,7 @@ async def test_conflicting_payment_evidence_still_answers_400_and_keeps_the_firs
     assert (raised.value.status_code, raised.value.detail) == (400, "Malformed webhook payload")
     assert _payments(sqlite_engine) == (1, 1, 3900)
     [record] = _webhook_failures(caplog)
-    assert record.exc_info[0].__name__ == "InvalidPaymentEvidence"
+    assert record.exc_info is None and record.getMessage().startswith("Stripe webhook processing failed (InvalidPaymentEvidence, ")
     assert "event evt_conflicting_payment, type invoice_payment.paid" in record.getMessage()
 
 

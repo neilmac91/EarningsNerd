@@ -5,17 +5,23 @@
 unauthenticated caller in every environment, past ``main.global_exception_handler``, which hides ``str(exc)`` in
 production. A route logs the error with ``logger.exception`` and answers a fixed detail.
 
-An AST walk over ``app/routers/**/*.py`` finds every ``HTTPException(...)`` inside an ``except ... as <name>:`` whose
-detail (the ``detail=`` keyword or the second positional argument) is built from ``<name>``: in an f-string, in a
-``+`` or ``%`` expression, as an argument to ``.format``, ``str()`` or ``repr()``, or the bare name. Each
-(file, enclosing function) holding such a site is listed below with its count and why it stays; the counts are
-equalities (lessons/test-allowlist-caps-are-equalities.md), so a new site fails and a removed one must lower its count.
+An AST walk over ``app/routers/**/*.py`` finds every call to ``HTTPException`` or a class named for it (any callee
+whose name ends in ``HTTPException``: ``CodedHTTPException``, which ``app/api_errors.py`` has routers raise in its
+place, takes its detail in the same second position) inside an ``except ... as <name>:`` whose detail (the ``detail=``
+keyword or the second positional argument) is built from ``<name>``: in an f-string, in a ``+`` or ``%`` expression (a
+tuple or dict on the right of ``%`` included), as an argument to ``.format``, ``str()`` or ``repr()``, or the bare
+name. Each (file, enclosing function) holding such a site is listed below with its count and why it stays; the counts
+are equalities (lessons/test-allowlist-caps-are-equalities.md), so a new site fails and a removed one must lower its
+count.
 
 Not covered: a detail built from the caught exception in a variable first, or from an attribute of it (``exc.detail``,
-``exc.args``); a 500 handled by ``JSONResponse`` rather than ``HTTPException``.
+``exc.args``); one built without naming it (``traceback.format_exc()``, ``sys.exc_info()``, a handler with no
+``as``); a 500 handled by ``JSONResponse`` rather than ``HTTPException``; an exception class whose name does not end
+in ``HTTPException``.
 """
-import ast
 from pathlib import Path
+
+from tests.support.caught_exception_text import calls_in, name_of, uses_caught_text
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
@@ -50,77 +56,23 @@ ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
     ("app/routers/internal.py", "_enqueue_durable"): (
         1, "high-risk file, cron token only: the 400 carries enqueue_internal_job's ValueError; not changed here",
     ),
+    ("app/routers/summaries.py", "generate_summary_stream"): (
+        1, "high-risk file: the coded refusal carries SummaryJobUnavailable's message, a sentence summary_job_store "
+           "writes for the reader (its docstring: a safe typed route refusal); not changed here",
+    ),
 }
 
 
-def _is_caught(node: ast.AST, name: str) -> bool:
-    return isinstance(node, ast.Name) and node.id == name
-
-
-def detail_uses_caught_text(detail: ast.expr, name: str) -> bool:
-    """Whether a detail expression puts the caught exception ``name`` into the text it builds."""
-    if _is_caught(detail, name):
-        return True
-    for node in ast.walk(detail):
-        if isinstance(node, ast.FormattedValue) and _is_caught(node.value, name):
-            return True
-        if isinstance(node, ast.BinOp) and (_is_caught(node.left, name) or _is_caught(node.right, name)):
-            return True
-        if isinstance(node, ast.Call):
-            arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
-            if not any(_is_caught(argument, name) for argument in arguments):
-                continue
-            if isinstance(node.func, ast.Name) and node.func.id in {"str", "repr"}:
-                return True
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
-                return True
-    return False
-
-
-def _is_http_exception(call: ast.Call) -> bool:
-    func = call.func
-    return (isinstance(func, ast.Name) and func.id == "HTTPException") or (
-        isinstance(func, ast.Attribute) and func.attr == "HTTPException"
-    )
-
-
-class _SiteFinder(ast.NodeVisitor):
-    """Collect (enclosing function, lineno) for each HTTPException whose detail is built from the caught exception."""
-
-    def __init__(self) -> None:
-        self.hits: list[tuple[str, int]] = []
-        self._functions: list[str] = []
-        self._caught: list[str] = []
-
-    def _scope(self) -> str:
-        return ".".join(self._functions) if self._functions else "<module>"
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._functions.append(node.name)
-        self.generic_visit(node)
-        self._functions.pop()
-
-    visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
-
-    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-        if node.name:
-            self._caught.append(node.name)
-        self.generic_visit(node)
-        if node.name:
-            self._caught.pop()
-
-    def visit_Call(self, node: ast.Call) -> None:
-        if self._caught and _is_http_exception(node):
-            details = [keyword.value for keyword in node.keywords if keyword.arg == "detail"] + node.args[1:2]
-            if any(detail_uses_caught_text(detail, name) for detail in details for name in self._caught):
-                self.hits.append((self._scope(), node.lineno))
-        self.generic_visit(node)
-
-
 def sites_in(source: str) -> list[tuple[str, int]]:
-    finder = _SiteFinder()
-    finder.visit(ast.parse(source))
-    return finder.hits
+    """(enclosing function, lineno) of each HTTPException in ``source`` whose detail is built from a caught exception."""
+    hits = []
+    for scope, caught, call in calls_in(source):
+        if not caught or not name_of(call.func).endswith("HTTPException"):
+            continue
+        details = [keyword.value for keyword in call.keywords if keyword.arg == "detail"] + call.args[1:2]
+        if any(uses_caught_text(detail, name) for detail in details for name in caught):
+            hits.append((scope, call.lineno))
+    return hits
 
 
 def test_router_details_built_from_a_caught_exception_match_the_allowlist():
@@ -151,6 +103,9 @@ def test_each_form_of_a_detail_built_from_the_caught_exception_is_found():
         'f"Error: {repr(exc)}"',
         '"Error: " + str(exc)',
         '"Error: %s" % exc',
+        '"Error: %s" % (exc,)',
+        '"%s: %s" % (label, exc)',
+        '"%(error)s" % {"error": exc}',
         '"Error: {}".format(exc)',
         '"Error: {e}".format(e=exc)',
         "str(exc)",
@@ -158,7 +113,10 @@ def test_each_form_of_a_detail_built_from_the_caught_exception_is_found():
         "exc",
     ]
     for form in forms:
-        for call in (f"HTTPException(status_code=500, detail={form})", f"HTTPException(500, {form})"):
+        for call in (
+            f"HTTPException(status_code=500, detail={form})", f"HTTPException(500, {form})",
+            f"CodedHTTPException(ErrorCode.JOB_UNAVAILABLE, {form})", f"status.HTTPException(500, detail={form})",
+        ):
             source = f"def route():\n    try:\n        pass\n    except Exception as exc:\n        raise {call} from exc\n"
             assert sites_in(source) == [("route", 5)], call
 
