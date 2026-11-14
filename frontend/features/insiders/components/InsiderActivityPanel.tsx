@@ -1,19 +1,21 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import {
   getInsiderActivity,
   InsiderActivityResponse,
   InsiderTransaction,
 } from '@/features/insiders/api/insiders-api'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { ApiError } from '@/lib/api/client'
-import { fmtCurrency, fmtShares } from '@/lib/format'
+import { fmtCurrency, fmtShares, formatLocalDate } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { Badge, Card, DataTable, MissingValue, SegmentedControl, Skeleton, type Column } from '@/components/ui'
+import { ActivityLine, Badge, Card, DataTable, MissingValue, Notice, SegmentedControl, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -85,6 +87,70 @@ const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
   { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? <MissingValue /> },
 ]
 
+/** A scan under way says when asking again can show more (`scan.retry_after_seconds`). The panel asks again then, never
+ *  sooner than this floor, and for at most POLL_LIMIT_MS from its first request for the ticker, so a scan that is slow
+ *  or paused does not keep a page open asking for good (ADR 0009, decision 7). */
+const POLL_FLOOR_MS = 5_000
+const POLL_LIMIT_MS = 3 * 60_000
+
+/** 401 (signed out), 403 (not a beta account) and 404 (the endpoint switched off, or a company it does not know): the
+ *  panel is not for this reader here, so it renders nothing rather than an error. */
+const isRefusal = (error: unknown): boolean => error instanceof ApiError && [401, 403, 404].includes(error.status)
+
+const STATUS_TEXT = 'text-sm text-text-secondary-light dark:text-text-secondary-dark'
+
+/** What the stored scan behind an answer says of itself, in words: null once it is complete. The words carry the state,
+ *  never a colour; the panel's status region announces them when they change, so they hold nothing that moves with
+ *  each answer: the count and the date the filings reach back to are the bar's to say (ScanProgress). Once the panel
+ *  has stopped asking (`stopped`), the words say how to see more, since they would otherwise stand still as if
+ *  nothing were left. */
+function scanLine(scan: InsiderActivityResponse['scan'], stopped: boolean): ReactNode {
+  if (scan.status === 'complete') return null
+  if (scan.status === 'failed') return <p className={STATUS_TEXT}>Insider activity is unavailable for this company right now.</p>
+  if (scan.status === 'paused') {
+    return (
+      <p className={STATUS_TEXT}>
+        Reading this company’s Form&nbsp;4 filings is paused and resumes on its own.{stopped && ' Reload the page later to see more.'}
+      </p>
+    )
+  }
+  if (stopped) return <p className={STATUS_TEXT}>Reading continues in the background. Reload the page to see more.</p>
+  // A run that reports how far it has got shows a bar, and one that does not yet is the Activity line
+  // (frontend/DESIGN_SYSTEM.md §4 › Activity line): nothing is listed on a company's first visit.
+  if (scan.filings_listed === 0) return <ActivityLine>Reading this company’s recent Form&nbsp;4 filings.</ActivityLine>
+  return <p className={STATUS_TEXT}>Reading this company’s recent Form&nbsp;4 filings.</p>
+}
+
+/** How far a scan under way has got: the count in words and a bar, as the summary's generating card draws its own
+ *  (app/filing/[id]/StreamingSummaryDisplay.tsx). Outside the status region, so each answer's new count is not read
+ *  out; the bar carries it for a reader who asks. */
+function ScanProgress({ scan }: { scan: InsiderActivityResponse['scan'] }) {
+  if (scan.filings_listed === 0 || (scan.status !== 'scanning' && scan.status !== 'paused')) return null
+  // The earliest filing read so far, whatever the window: how far back the scan has got, not how far the trades
+  // shown reach.
+  const reach = formatLocalDate(scan.oldest_filed_date, 'MMM d, yyyy')
+  return (
+    <div className="mb-4">
+      <p className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark">
+        {scan.filings_read} of {scan.filings_listed} filings read{reach && `, back to ${reach}`}
+      </p>
+      <div
+        className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-white/10"
+        role="progressbar"
+        aria-label="Form 4 filings read"
+        aria-valuemin={0}
+        aria-valuemax={scan.filings_listed}
+        aria-valuenow={scan.filings_read}
+      >
+        <div
+          className="h-full rounded-full bg-brand-strong transition-[width] duration-slow ease-standard motion-reduce:transition-none dark:bg-brand-dark"
+          style={{ width: `${Math.round((scan.filings_read / scan.filings_listed) * 100)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function InsiderActivityPanel({
   ticker,
   isFpi,
@@ -93,29 +159,59 @@ export default function InsiderActivityPanel({
   isFpi?: boolean
 }) {
   const [windowDays, setWindowDays] = useState(90)
-  const { data, isLoading, isError } = useQuery<InsiderActivityResponse>({
-    queryKey: queryKeys.insiders(ticker, windowDays),
-    queryFn: () => getInsiderActivity(ticker, windowDays),
-    // Foreign private issuers don't file Form 4s — skip the (slow) live SEC read entirely. While
-    // filings are still loading isFpi is undefined, so only enable the query once we KNOW the
-    // company is not an FPI (isFpi === false) — never fire a premature read on an as-yet-unknown FPI.
-    enabled: !!ticker && isFpi === false,
-    retry: (failureCount, err) =>
-      err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
-    staleTime: 60 * 60 * 1000, // Form 4 data changes slowly; the endpoint is a live SEC read
-    gcTime: 2 * 60 * 60 * 1000,
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  // The current reader, from the page's own read of /me (the same query, so no request of its own). Only a beta
+  // account may ask (the endpoint answers 401 signed out and 403 to any other account): signed out, still loading
+  // or not beta, the panel asks nothing and renders nothing.
+  const { data: currentUser } = useQuery({
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
+    retry: false,
   })
-
-  // Keep the panel mounted once it has shown trades, so switching to a quiet window shows an
-  // inline message instead of making the panel vanish.
-  const everHadData = useRef(false)
+  const isBeta = currentUser?.is_beta === true
+  // When the panel mounted: the polling's three minutes run from it, whatever the window and whether the first answer
+  // came from a request or from the cache (a reader back from a filing within the answer's five minutes). The page
+  // keys the panel by ticker, so another company's panel is another mount.
+  const [startedAt] = useState(() => Date.now())
+  const insidersKey = queryKeys.insiders.byWindow(ticker, windowDays)
+  const query = useQuery<InsiderActivityResponse>({
+    queryKey: insidersKey,
+    queryFn: () => getInsiderActivity(ticker, windowDays),
+    // Foreign private issuers don't file Form 4s, so they are never asked about. While filings are still loading
+    // isFpi is undefined, so the query waits until the company is known not to be one (isFpi === false).
+    enabled: !!ticker && isFpi === false && isBeta,
+    // A failed read waits for the reader's Try again.
+    retry: false,
+    // The endpoint answers from the stored scan, at once; a scan under way is followed by the polling below.
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: (q) => {
+      const wait = q.state.data?.scan.retry_after_seconds
+      if (q.state.status === 'error' || wait == null) return false
+      const delay = Math.max(wait * 1000, POLL_FLOOR_MS)
+      return Date.now() + delay - startedAt <= POLL_LIMIT_MS ? delay : false
+    },
+  })
+  const { data } = query
+  const failure = useRetainedFailure(query, insidersKey)
+  // The three minutes are up: from then the panel asks nothing more by itself, and says so.
+  const [stopped, setStopped] = useState(false)
+  const pending = data?.scan.retry_after_seconds != null && !failure.failed
   useEffect(() => {
-    if (data && data.total_transactions > 0) everHadData.current = true
-  }, [data])
+    if (!pending) return
+    const timer = setTimeout(() => setStopped(true), Math.max(0, startedAt + POLL_LIMIT_MS - Date.now()))
+    return () => clearTimeout(timer)
+  }, [pending, startedAt])
+  // The card shows itself with the endpoint's first answer (it answers at once, from the store) or a failure worth
+  // a retry, and stays: a reader the endpoint refuses, as every reader is while the backend's switch is off, never
+  // sees a card appear and go. After that a window still loading shows the skeleton inside it.
+  const [answered, setAnswered] = useState(false)
+  if (data && !answered) setAnswered(true)
+
+  if (!isBeta) return null
 
   // Foreign private issuers (20-F/6-K filers) are generally exempt from Section 16 insider
   // reporting, so there are no Form 4s to show. Render an honest note instead of an empty/absent
-  // panel (the live SEC read is disabled for FPIs via `enabled` above).
+  // panel (the query is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
       <Card as="section" className="mb-8 p-cap-6">
@@ -127,14 +223,14 @@ export default function InsiderActivityPanel({
       </Card>
     )
   }
-
-  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadData only flips false->true to keep the panel mounted once it has shown trades; reading it in render avoids re-render churn
-  if (isError && !everHadData.current) return null
-  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadData only flips false->true to keep the panel mounted once it has shown trades; reading it in render avoids re-render churn
-  if (!everHadData.current && (isLoading || !data || data.total_transactions === 0)) return null
+  // Not known yet whether the company is a foreign private issuer: nothing is asked, and nothing shows.
+  if (isFpi !== false) return null
+  if (failure.failed && isRefusal(failure.error)) return null
+  if (!answered && !failure.failed) return null
 
   const summary = data?.summary
   const hasTrades = !!data && data.total_transactions > 0
+  const statusLine = data ? scanLine(data.scan, stopped) : null
   // Lead with net value when known, else net shares. The sign is the buy/sell signal.
   const signalValue = summary ? (summary.net_value ?? summary.net_shares) : 0
   const signalIsValue = !!summary && summary.net_value !== null
@@ -156,7 +252,9 @@ export default function InsiderActivityPanel({
   return (
     <Card as="section" className="mb-8 p-cap-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider activity</h2>
+        <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark">
+          Insider activity
+        </h2>
         <SegmentedControl
           label="Time window"
           size="adaptive"
@@ -167,15 +265,38 @@ export default function InsiderActivityPanel({
         />
       </div>
 
-      {isLoading && !hasTrades ? (
-        <div role="status" aria-label="Loading insider activity">
-          <Skeleton className="h-48 w-full rounded-lg" />
-          <span className="sr-only">Loading…</span>
+      {/* The scan's state in words. The region is mounted with the card, so a change of its words (reading, paused,
+          stopped, gone once complete) is heard; the words it is created with are read in place, as the card's are. */}
+      <div role="status" className={statusLine ? 'mb-4' : undefined}>
+        {statusLine}
+      </div>
+      {data && <ScanProgress scan={data.scan} />}
+
+      {failure.failed && (
+        <div className="mb-4">
+          <Notice
+            variant="error"
+            title="Couldn’t load insider activity"
+            description="The rest of this page is unaffected."
+            action={<RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />}
+          />
         </div>
+      )}
+
+      {!data ? (
+        !failure.failed && (
+          <div role="status" aria-label="Loading insider activity">
+            <Skeleton className="h-48 w-full rounded-lg" />
+            <span className="sr-only">Loading…</span>
+          </div>
+        )
       ) : !hasTrades || !summary ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
-          No open-market insider trades in the last {windowDays} days.
-        </p>
+        // Only a complete scan has read everything there is: until then the status line above says how far it got.
+        data.scan.status === 'complete' && (
+          <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            No open-market insider trades in the last {windowDays} days.
+          </p>
+        )
       ) : (
         <>
           {/* Signal headline: the row wraps as a Notice's does (components/ui/Notice.tsx), so where the text cannot
@@ -235,7 +356,7 @@ export default function InsiderActivityPanel({
           {/* Recent transactions */}
           <DataTable
             columns={TRANSACTION_COLUMNS}
-            rows={data!.transactions.slice(0, MAX_ROWS)}
+            rows={data.transactions.slice(0, MAX_ROWS)}
             rowKey={(t, i) => `${t.accession ?? ''}-${i}`}
             caption="Recent open-market insider transactions: insider, type, shares, value, and date"
           />

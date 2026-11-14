@@ -55,7 +55,11 @@ export const queryKeys = {
     ['saved-summaries', 'status', userId, summaryId] as const,
 
   // ── Parametrized factories ───────────────────────────────────────────────────
-  insiders: (ticker: string, windowDays: number) => ['insiders', ticker, windowDays] as const,
+  // A beta account's insider activity (ADR 0009): account-owned, so the reset removes the family by all().
+  insiders: {
+    all: () => ['insiders'] as const,
+    byWindow: (ticker: string, windowDays: number) => ['insiders', ticker, windowDays] as const,
+  },
   // The company page's Sector peers panel: a company's sector cohort on one metric (features/peers).
   peers: (ticker: string, metric: string) => ['peers', ticker, metric] as const,
   calendar: (from: string, to: string) => ['calendar', from, to] as const,

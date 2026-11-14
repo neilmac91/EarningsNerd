@@ -1054,6 +1054,10 @@ jobs:
           # stored summary from tests/e2e/fixtures/filing3Api.ts meets it drawn, and filing-fundamentals-chart.spec.ts,
           # which holds its mount, fails on a build without it (E195 D).
           NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
+          # Production's build has the insider panel on too (the panel shows itself to beta accounts only, once the
+          # backend's ENABLE_INSIDER_ACTIVITY is on: ADR 0009), so the browser gates build it:
+          # insider-activity-panel.spec.ts holds its mount and fails on a build without it.
+          NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY: 'true'
       - name: Start frontend server
         if: needs.ci-scope.outputs.browser == 'true'
         run: npm run start &
@@ -1067,6 +1071,7 @@ jobs:
           NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH: 'true'
           NEXT_PUBLIC_ENABLE_QUALITY_BADGE: 'true'
           NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: 'true'
+          NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY: 'true'
       - name: Wait for frontend server
         if: needs.ci-scope.outputs.browser == 'true'
         run: npx wait-on http://localhost:3000 --timeout 60000
