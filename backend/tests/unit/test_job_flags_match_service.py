@@ -44,12 +44,6 @@ JOB_FLAGS: dict[str, tuple[str, str]] = {
 }
 # Flag -> why its job does not carry the service's value.
 DIFFERENCES: dict[str, str] = {
-    "CALENDAR_INDEX_FILTER_ENABLED": (
-        "with the filter on, the refresh stores no event for a watched company outside the index "
-        "(earnings_calendar_service._ingest_key admits index members only), so the dashboard's upcoming earnings "
-        "and the earnings-day alert would lose it; the job takes the service's value once the pass admits watched "
-        "companies"
-    ),
     "DURABLE_TASKS_ENABLED": (
         "the scan job reads it to decide whether to prepare summaries for the filings it alerts on and to recover "
         "their handoffs (summary_preparation); the jobs' map leaves it unset, so the job prepares none. Turning "

@@ -1421,7 +1421,7 @@ jobs:
               # for these serial jobs (operator --args overrides are outside this source audit).
               gcloud run jobs update "$job" --region=us-west1 \
                 --image="$IMAGE:${GITHUB_SHA::7}" \
-                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1,ENABLE_FPI_FILINGS=true \
+                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1,ENABLE_FPI_FILINGS=true,CALENDAR_INDEX_FILTER_ENABLED=true \
                 --quiet
             else
               echo "$job not found — create it once per DEPLOYMENT.md. Skipping."
