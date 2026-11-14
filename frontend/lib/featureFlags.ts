@@ -96,7 +96,7 @@ export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true
  * stored Form 4 scan that runs in the background on the task worker, and only to a signed-in beta account
  * (ADR 0009); the panel itself mounts only for one. This ships off by default.
  * Flip NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY='true' to enable; the backend endpoint also needs
- * ENABLE_INSIDER_ACTIVITY=true (docs/CONFIGURATION.md), which the deploy pins off.
+ * ENABLE_INSIDER_ACTIVITY=true (docs/CONFIGURATION.md), which production's deploy pins on.
  */
 export const ENABLE_INSIDER_ACTIVITY =
   process.env.NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY === 'true'

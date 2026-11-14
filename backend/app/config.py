@@ -503,11 +503,12 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
-    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders). A cold load is a live
-    # edgartools fan-out of about two SEC requests per Form 4 (up to 60 Form 4s), which cannot fit the
-    # deploy-pinned 1 req/s budget (CODE RED D3, docs/OPERATIONS.md), so the endpoint answers 404
-    # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
-    # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
+    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders): 404 for everyone unless this is
+    # set. Set, it answers a signed-in beta account from the stored Form 4 scan and makes no SEC request;
+    # the scan runs on the task worker, a few filings a step (ADR 0009, which replaced the live fetch that
+    # decision record 17 switched off). Off by default, since local development has no task worker to
+    # run a scan; production's deploy pins it on (ci.yml; docs/CONFIGURATION.md). Its company-page panel
+    # has a switch of its own (frontend NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY) and shows nothing on a 404.
     ENABLE_INSIDER_ACTIVITY: bool = False
 
     # "What changed" wording diff (the Change Report's `section_changes` block; tasks/todo.md E27).

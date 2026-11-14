@@ -13,8 +13,8 @@ isolated child at a time).
 Every process is pinned (CODE RED decision records 16 and 17 staged it: the jobs and the worker
 first, the API service once the two request paths that could not fit 1 req/s were removed — the
 insider endpoint's live fetch, since replaced by a stored scan on the task worker (ADR 0009), and company
-search's edgartools fallback; the deploy still pins ENABLE_INSIDER_ACTIVITY off, until the scan's
-production trial). The Monday arithmetic assumes the Cloud Scheduler crons,
+search's edgartools fallback; the deploy pins ENABLE_INSIDER_ACTIVITY on now that the endpoint makes no SEC
+request on the service). The Monday arithmetic assumes the Cloud Scheduler crons,
 time zones and job timeouts docs/DEPLOYMENT.md and the runbook document, which this gate pins.
 
 This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`` states. It does
@@ -138,10 +138,17 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
     for name, env in maps.items():
         for key in BUDGET_ENV:
             assert env.get(key) == str(PINNED_PER_BUCKET), f"{name} must pin {key}={PINNED_PER_BUCKET}"
-    # The insider endpoint stays off until the stored scan's production trial (ADR 0009; decision record 17
-    # turned it off when its live fetch could not fit the pin), so the deploy re-asserts the switch off;
-    # test_prod_flag_visibility pins the same value.
-    assert maps["service"].get("ENABLE_INSIDER_ACTIVITY") == "false"
+    # Decision record 17 turned the insider endpoint off when its live fetch (about 120 requests a cold load)
+    # could not fit the service's pin. It is on again because it no longer spends the service's budget at all:
+    # it reads a stored scan (ADR 0009; tests/unit/test_insiders_route.py runs it with the network closed), and
+    # the scan runs on the task worker, at most one listing and STEP_FILINGS documents (two requests each when a
+    # document is not at its listed name) a step, on that worker's own pinned buckets. The deploy re-asserts the
+    # switch on the service alone; test_prod_flag_visibility pins the same value.
+    assert maps["service"].get("ENABLE_INSIDER_ACTIVITY") == "true"
+    assert "ENABLE_INSIDER_ACTIVITY" not in maps[WORKER]   # the worker runs the tasks it is handed, flag or not
+    from app.services import insider_scan_service
+
+    assert (insider_scan_service.STEP_FILINGS, insider_scan_service.MAX_SCANS_UNDER_WAY) == (8, 3)
     assert _service_instances(service) == 2
     assert _service_instances(_run(WORKER_STEP)) == 1
 

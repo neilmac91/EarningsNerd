@@ -161,8 +161,9 @@ beta user can ask.
 - A 10b5-1 plan is still marked per filing, as today: a filing that ticks the box marks all its trades.
   Marking each trade from its own footnote is left for later.
 - Form 4/A, Form 3 and Form 5 stay out, as today.
-- Turning it on is still a flag: `ENABLE_INSIDER_ACTIVITY=true` in the deploy, which the budget and flag tests
-  pin and which the founder has approved. Turning it off is the same flag.
+- Turning it on is a flag: `ENABLE_INSIDER_ACTIVITY=true` on the API service in the deploy, which the budget and
+  flag tests pin and the founder approved (2026-11-14: "fine to use my contact for step 4. please manage it
+  yourself where possible"). Turning it off is the same value set to `false`.
 
 ## How it is built and proven
 
@@ -181,3 +182,9 @@ In order, each a reviewed pull request, each backend one deployed and healthy be
    who gets no request at all.
 4. The switch, its pinned tests and the operations doc, then the production trial: five named issuers from a
    beta account, reading the scan's counters, the breaker and summary latency; then a day of beta use.
+   Before the switch, on 2026-11-14, `backend/scripts/verify_insider_extraction.py` read 43 real Form 4s from
+   SEC (AAPL 3; NVDA, JPM, TSLA, BRK-B and META 8 each) at the pinned 1 request a second: every one gave the same
+   rows offline as through edgartools' own parse, every document was at its listing's file name (one request
+   each, no fallback), and six of Berkshire's eight were filings it made as an owner of another issuer's shares,
+   which the scan stores with no trades. The trial from a beta account is the founder's: a session cannot sign
+   in. What a session can read afterwards is the worker's log line for each step and the service's health.

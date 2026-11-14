@@ -116,7 +116,7 @@ pin: the insider endpoint's live fetch (about two edgartools requests per Form 4
 about 120) and company search's fuzzy fallback. The insider endpoint (`GET /api/companies/{ticker}/insiders`)
 now makes no request to SEC: it reads a stored scan that the task worker fills on its own 1 req/s, eight
 filings a step (ADR 0009), for signed-in beta accounts, and still answers 404 unless
-`ENABLE_INSIDER_ACTIVITY` is set (the deploy pins it `false`). Company search answers from the cached SEC ticker file only (its
+`ENABLE_INSIDER_ACTIVITY` is set (the deploy pins it `true` on the API service since 2026-11-14). Company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
 to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
