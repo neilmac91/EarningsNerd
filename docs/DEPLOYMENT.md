@@ -654,37 +654,50 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 Read it back with `curl -sI -H 'Origin: https://staging.earningsnerd.io' https://api.earningsnerd.io/health`, which
 answers `access-control-allow-origin: https://staging.earningsnerd.io` once it holds. It was applied on 2026-11-14; a service created again from step 6 carries it.
 
-**What was measured, 2026-11-13 and 14** (#2051, #2052 and the pull request that split the Workers hold the
-evidence). Every time is from one cloud vantage point, which is not a reader's.
+**What was measured, 2026-11-13 and 14** (#2051, #2052, #2053 and the pull request that added these figures hold
+the evidence). Every time is from one cloud vantage point, which is not a reader's. Staging is the two Workers.
 
-- Cached pages, served many times: median time to first byte for `/`, `/pricing`, `/company/AAPL`, `/filing/3` and
-  `/login` was 181 to 222 ms on staging against 178 to 190 ms on Vercel (30 samples each, one Worker; the edge
-  cache in front of R2 is what brought it from 50 to 75 ms behind).
-- A cached page on a fresh instance, after the connection is made: about 0.85 s as one Worker, about 0.2 s from the
-  front Worker.
-- A page rendered for the first time, by a server Worker already running: the server answered in about 450 ms
-  (two rounds of R2 reads at about 105 ms each, the API at 60 to 195 ms), against about 705 ms while the response
-  waited for its cache writes. Vercel answers such a page in about 0.3 to 0.6 s after the connection is made.
-- A page rendered for the first time by a server Worker that is not running: 1 to 3.7 s in six trials. This is
-  the cost that remains. Vercel showed no such step in the same trials.
-- Sentry received a thrown server error from the single Worker (issue `JAVASCRIPT-NEXTJS-2S`); from the server
-  Worker, three of three reached a test receiver once `lib/sentryOnWorkers.ts` was in place.
+| | Staging | Vercel |
+|---|---|---|
+| A cached page, served many times: median time to first byte for `/`, `/pricing`, `/company/AAPL`, `/filing/3`, `/login` (30 samples each) | 154 to 177 ms | 161 to 180 ms |
+| The same pages, first request after 45 idle minutes, after the connection is made | 102 to 508 ms, median 328 | 67 to 114 ms, median 84 |
+| A company page rendered for the first time, straight after others (8 pages; the connection included) | 0.64 to 1.69 s, median 0.80 | 0.47 to 0.79 s, median 0.55 |
+| A company page rendered for the first time, after 45 idle minutes (3 pages; the connection included) | 0.83, 1.29 and 2.38 s | 0.53, 0.55 and 0.56 s |
+
+- As one Worker, the first request to a cached page after idle took 0.77 to 1.38 s, the connection included, and a
+  cached page on a fresh instance about 0.85 s after it; the front Worker alone answers one in about 0.2 s. What
+  staging still adds on a first request is a fresh front instance and, where that location's edge cache holds no
+  copy, one read of R2.
+- A first render waits for a server Worker that is often not running, which is the 0.8 to 2.4 s above and the
+  cost that remains. Once it runs, the server answers in about 450 ms (two rounds of R2 reads at about 105 ms each, the
+  API at 60 to 195 ms), against about 705 ms while the response waited for its cache writes. For about a third of
+  a second after a first render, until its write lands, a request to the same page may be rendered again.
+- Sentry received a thrown server error from the single Worker (issue `JAVASCRIPT-NEXTJS-2S`), sent by the
+  middleware's copy of the SDK; from the server Worker, three of three reached a test receiver once
+  `lib/sentryOnWorkers.ts` was in place.
 - Revalidation: a page with a 30 second `revalidate` was re-rendered after each expiry, through both Workers and
   with the edge cache in front of R2; a location's copy trailed the re-render by one request.
-- The production smoke spec passes on staging. Shard 1 of 5 of the browser suite ran against a single Worker (253
-  passed, and the 5 that failed also failed against `next start` on the same machine); shards 2 to 5 have not run
-  against a Worker.
+- The production smoke spec passes on staging, and in a browser `/`, `/pricing`, `/company/AAPL`, `/filing/3` and
+  `/login` load what production loads, with the same answers from the API.
+- The whole browser suite, 1,303 tests, ran against the two Workers in the local Workers runtime with CI's build
+  flags: 1,268 passed and 17 were skipped. Seventeen 200%-text layout tests failed, and failed the same way against
+  `next start` on the same machine, whose Chromium is older than the one this Playwright pins. One test fails on
+  Workers only, `sitemap-cache.spec.ts`: the sitemap is served from the cache, but OpenNext marks a page it answers
+  before the Next server `x-opennext-cache: HIT`, where the test reads Next's `x-nextjs-cache`. CI runs the suite
+  against `next start`, not against a Worker.
 
-**Known limits.** The first render after the server Worker has been idle is slow (above), and at today's traffic
-it is idle often; a warming request from the front Worker was tried and did not help reliably. A bucket in
+**Known limits.** The first request after idle is slower than Vercel's, for a cached page by about a quarter of a
+second and for a first render by one to two seconds (above), and at today's traffic the Workers are idle often; a
+warming request from the front Worker was tried and did not help reliably. A bucket in
 western North America, beside the server Worker, was tried once and read and wrote more slowly than the eastern
 one, which was not explained. The Sentry SDK logs that its diagnostics-channel hooks cannot register in the Workers
 runtime, so some performance spans are missing. Google and Apple sign-in return to `FRONTEND_URL`, which is
 production, so a reader who signs in that way from staging lands on production; sign-in with a password works on
 staging, with `staging.earningsnerd.io` listed on the Turnstile widget.
 
-**Before any traffic moves:** all five browser shards against staging; the speed measured from real locations,
-the first render after idle above all; and the hostname-bound services checked (Logo.dev, PostHog). The cutover
+**Before any traffic moves:** the founder's decision on the first-request times above; the speed measured from
+real locations, the first request after idle above all; and the hostname-bound services checked (Logo.dev,
+PostHog). The cutover
 itself is two DNS records, the apex `A` and the `www` `CNAME`, a pair of Worker configurations for those hostnames
 with `ROBOTS_NOINDEX` unset, the production origin already in the API's CORS list, and Vercel left deployed as the
 rollback.
