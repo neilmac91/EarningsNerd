@@ -11,7 +11,7 @@ import { BETA_READER, openInsiders, SCANNING } from './fixtures/companyInsidersA
  *
  * On /company/INSX (fixtures/companyInsidersApi.ts's TICKER), answered by fixtures/companyInsidersApi.ts with a scan part-way through (16 of 60 filings read,
  * three trades stored), in both themes at 390 and 1280px: the heading, the scan's words in a status region, the bar
- * named "Form 4 filings read" at 16 of 60 with its count outside that region, the signal and the trades mount, and the
+ * named "Form 4 filings read" at 16 of 60 with its count and the date the scan reaches outside that region, the signal and the trades mount, and the
  * page does not scroll sideways; under 200% text at 390 and 320px the page still does not scroll sideways and the panel
  * keeps inside the viewport. A guest and an account that is not a beta tester see no panel and ask nothing of the
  * insider endpoint, with the page's filings rendered. CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md).
@@ -42,7 +42,7 @@ for (const theme of THEMES) {
 
       const card = panel(page)
       await expect(card).toBeVisible()
-      const words = card.getByText('Reading this company’s recent Form 4 filings. Trades shown so far go back to filings from Sep 4, 2026.')
+      const words = card.getByText('Reading this company’s recent Form 4 filings.', { exact: true })
       await expect(words).toBeVisible()
       const region = card.locator('[role="status"]').filter({ hasText: 'Reading this company’s recent Form 4 filings.' })
       await expect(region).toHaveCount(1)
@@ -50,9 +50,9 @@ for (const theme of THEMES) {
       const bar = card.getByRole('progressbar', { name: 'Form 4 filings read' })
       await expect(bar).toHaveAttribute('aria-valuenow', '16')
       await expect(bar).toHaveAttribute('aria-valuemax', '60')
-      const count = card.getByText('16 of 60 filings read', { exact: true })
+      const count = card.getByText('16 of 60 filings read, back to Sep 4, 2026', { exact: true })
       await expect(count).toBeVisible()
-      await expect(region.getByText('16 of 60 filings read')).toHaveCount(0)   // the count is not read out with each answer
+      await expect(region).toHaveText('Reading this company’s recent Form 4 filings.')   // no count, no date: neither is read out with each answer
       const fill = await bar.locator('div').first().boundingBox()
       const track = await bar.boundingBox()
       expect(fill!.width / track!.width).toBeGreaterThan(0.24)
@@ -78,7 +78,7 @@ for (const width of [390, 320]) {
 
     const card = panel(page)
     await expect(card.getByRole('progressbar', { name: 'Form 4 filings read' })).toBeVisible()
-    await expect(card.getByText('16 of 60 filings read', { exact: true })).toBeVisible()
+    await expect(card.getByText('16 of 60 filings read, back to Sep 4, 2026', { exact: true })).toBeVisible()
     const { scrollWidth, clientWidth } = await overflow(page)
     expect(scrollWidth, 'the page scrolls sideways').toBeLessThanOrEqual(clientWidth)
     const box = await card.boundingBox()

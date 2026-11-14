@@ -366,12 +366,22 @@ describe('InsiderActivityPanel: what the stored scan says', () => {
   /** The panel's status region: the one live region with no name of its own (the skeleton's is named). */
   const statusRegion = () => screen.getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
 
-  it('shows the skeleton in the card, under its heading and window control, on the first load', async () => {
+  it('shows no card until the endpoint first answers, so a reader it refuses never sees one appear and go', async () => {
     getInsiderActivity.mockReturnValue(new Promise(() => {}))
+    const { container } = renderPanel()
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledTimes(1))
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows the skeleton in the card, under its heading and window control, while another window loads', async () => {
+    getInsiderActivity.mockResolvedValueOnce(RESP).mockReturnValue(new Promise(() => {}))
     renderPanel()
+    await screen.findByText('Jane Doe')
+    fireEvent.click(screen.getByRole('button', { name: '180D' }))
     expect(await screen.findByRole('status', { name: 'Loading insider activity' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Insider activity' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Time window' })).toBeInTheDocument()
+    expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument()
   })
 
   it('a first visit (scanning, nothing listed yet) says the filings are being read, with no count and no empty-window line', async () => {
@@ -394,7 +404,7 @@ describe('InsiderActivityPanel: what the stored scan says', () => {
     expect(bar).toHaveAttribute('aria-valuemin', '0')
     expect(bar).toHaveAttribute('aria-valuemax', String(listed))
     expect(bar.firstElementChild).toHaveStyle({ width: `${Math.round((read / listed) * 100)}%` })
-    const count = screen.getByText(`${read} of ${listed} filings read`)
+    const count = screen.getByText(new RegExp(`^${read} of ${listed} filings read`))
     expect(statusRegion()).not.toContainElement(count)
     expect(statusRegion()).not.toContainElement(bar)
     expect(statusRegion()).not.toHaveTextContent(/\d+ of \d+/)
@@ -426,10 +436,12 @@ describe('InsiderActivityPanel: what the stored scan says', () => {
       answer({ status: 'scanning', filings_listed: 60, filings_read: 12, oldest_filed_date: '2024-03-02', retry_after_seconds: 10 }),
     )
     renderPanel()
-    const line = await screen.findByText('Reading this company’s recent Form 4 filings. Trades shown so far go back to filings from Mar 2, 2024.')
+    const line = await screen.findByText('Reading this company’s recent Form 4 filings.')
     expect(statusRegion()).toContainElement(line)
+    expect(statusRegion()).toHaveTextContent(/^Reading this company’s recent Form 4 filings\.$/)
     expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toHaveAttribute('aria-valuenow', '12')
-    expect(screen.getByText('12 of 60 filings read')).toBeInTheDocument()
+    // How far back the scan has read, beside the count and outside the status region: it moves with every answer.
+    expect(screen.getByText('12 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
     expect(screen.getByText(/Net insider buying/)).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     expect(screen.queryByText(/paused/)).not.toBeInTheDocument()
@@ -440,10 +452,9 @@ describe('InsiderActivityPanel: what the stored scan says', () => {
       answer({ status: 'paused', filings_listed: 60, filings_read: 12, oldest_filed_date: '2024-03-02', retry_after_seconds: 300 }),
     )
     renderPanel()
-    const line = await screen.findByText(
-      'Reading this company’s Form 4 filings is paused and resumes on its own. Trades shown so far go back to filings from Mar 2, 2024.',
-    )
+    const line = await screen.findByText('Reading this company’s Form 4 filings is paused and resumes on its own.')
     expect(statusRegion()).toContainElement(line)
+    expect(screen.getByText('12 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toHaveAttribute('aria-valuenow', '12')
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
   })
@@ -593,6 +604,71 @@ describe('InsiderActivityPanel: asking again while a scan is under way', () => {
     expect(times).toHaveLength(19) // the first request, then one every 10 s up to 3 minutes
     // The data the scan had stays on screen.
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('a reader who comes back to a scan still under way is asked for again, though the cached answer is fresh', async () => {
+    // Back from a filing within the answer's five minutes: the panel mounts over a cached "scanning" answer, so no
+    // request is due on mount. The polling must still run, or the words and the bar would stand still for good.
+    const client = newClient()
+    answering(scanning(10))
+    const first = renderPanel('AAPL', false, client)
+    await advance(0)
+    await advance(0)
+    expect(calls).toHaveLength(1)
+    first.unmount()
+    await advance(60_000)
+    expect(calls).toHaveLength(1) // nothing asks while no panel is mounted
+
+    renderPanel('AAPL', false, client)
+    await advance(0)
+    expect(screen.getByRole('progressbar', { name: 'Form 4 filings read' })).toBeInTheDocument() // the cached answer
+    expect(calls).toHaveLength(1)
+    await advance(10_000)
+    expect(calls).toHaveLength(2)
+    // And this mount's three minutes end like any other's.
+    await advance(10 * 60_000)
+    expect(Math.max(...calls.map((c) => c.at))).toBeLessThanOrEqual(60_000 + 180_000)
+    expect(screen.getByText(/^Reading continues in the background\. Reload the page to see more\./)).toBeInTheDocument()
+  })
+
+  it('announces nothing new while the scan only gets further: the status words stay the same from answer to answer', async () => {
+    const progress = (read: number, oldest: string) =>
+      answer({ status: 'scanning', filings_listed: 60, filings_read: read, oldest_filed_date: oldest, retry_after_seconds: 10 })
+    answering(progress(8, '2024-04-20'), progress(16, '2024-03-02'), progress(24, '2024-01-15'))
+    await start()
+    const region = () => screen.getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
+    const words = region().textContent
+    expect(screen.getByText('8 of 60 filings read, back to Apr 20, 2024')).toBeInTheDocument()
+    await advance(10_000)
+    await advance(1) // the answer lands, and React Query's batched notice of it renders
+    await advance(1)
+    expect(screen.getByText('16 of 60 filings read, back to Mar 2, 2024')).toBeInTheDocument()
+    expect(region().textContent).toBe(words)
+    await advance(10_000)
+    await advance(1)
+    await advance(1)
+    expect(screen.getByText('24 of 60 filings read, back to Jan 15, 2024')).toBeInTheDocument()
+    expect(region().textContent).toBe(words)
+    expect(words?.replace(/\u00a0/g, ' ')).toBe('Reading this company’s recent Form 4 filings.')
+  })
+
+  it('once it has stopped asking, a first visit that never listed a filing says so too, in place of the pulsing line', async () => {
+    answering(answer({ status: 'scanning', filings_listed: 0, filings_read: 0, oldest_filed_date: null, retry_after_seconds: 10 }, false))
+    await start()
+    expect(screen.getByText('Reading this company’s recent Form 4 filings.')).toBeInTheDocument()
+    await advance(180_000)
+    expect(screen.getByText('Reading continues in the background. Reload the page to see more.')).toBeInTheDocument()
+    expect(screen.queryByText('Reading this company’s recent Form 4 filings.')).not.toBeInTheDocument()
+  })
+
+  it('once it has stopped asking, a paused scan says to come back later', async () => {
+    answering(answer({ status: 'paused', filings_listed: 60, filings_read: 12, retry_after_seconds: 170 }))
+    await start()
+    expect(screen.getByText('Reading this company’s Form 4 filings is paused and resumes on its own.')).toBeInTheDocument()
+    await advance(180_000)
+    expect(
+      screen.getByText('Reading this company’s Form 4 filings is paused and resumes on its own. Reload the page later to see more.'),
+    ).toBeInTheDocument()
   })
 
   it('says so once it has stopped asking, and how to see more, in place of words that would stand still', async () => {

@@ -42,10 +42,11 @@ export const SCANNING: InsiderActivityResponse = {
   transactions: [
     trade({}),
     trade({ insider_name: 'John Roe', insider_title: 'Director', is_officer: false, is_director: true, transaction_date: '2026-09-18',
-            transaction_code: 'S', transaction_label: 'Sale', shares: 6000, price: 154.0, value: 924000, acquired_disposed: 'D', is_10b5_1: true }),
+            transaction_code: 'S', transaction_label: 'Sale', shares: 6000, price: 154.0, value: 924000, acquired_disposed: 'D', is_10b5_1: true,
+            filed_date: '2026-09-21' }),
     trade({ insider_name: 'Alexandria Montgomery-Fitzgerald', insider_title: 'Executive Vice President, Worldwide Operations',
             transaction_date: '2026-09-02', transaction_code: 'S', transaction_label: 'Sale', shares: 3500, price: 153.57, value: 537500,
-            acquired_disposed: 'D' }),
+            acquired_disposed: 'D', filed_date: '2026-09-04' }),
   ],
   total_transactions: 3,
   scan: { status: 'scanning', filings_listed: 60, filings_read: 16, oldest_filed_date: '2026-09-04', refreshed_at: '2026-11-14T12:00:00Z', retry_after_seconds: 8 },

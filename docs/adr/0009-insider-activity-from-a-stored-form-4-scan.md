@@ -123,10 +123,12 @@ beta user can ask.
    endpoint off for everyone.
 
 7. **The panel mounts for beta users and shows what it knows.** It asks only when `/api/auth/me` says the user
-   is a beta user. While the scan runs it shows the stored trades with a line saying how far back they reach,
-   and asks again at the interval the response gives, for at most three minutes. It shows a skeleton while it
-   loads, an error with a retry when a request fails, and does not retry on its own. Its cached answers are
-   cleared at sign-out.
+   is a beta user. While the scan runs it shows the stored trades, the scan's state in words, and a bar with how
+   many filings are read and the date they reach back to, and asks again at the interval the response gives, for
+   at most three minutes from its mount; after that it says reading continues in the background. Its card shows
+   with the endpoint's first answer, which comes at once, so a reader the endpoint refuses never sees a card
+   appear and go; a time window still loading shows a skeleton inside it. A request that fails shows an error
+   with a retry, and nothing retries on its own. Its cached answers are cleared at sign-out.
 
 8. **The scan reports itself.** Each step logs and counts the filings it listed, fetched, stored and failed, the
    refusals by status, and its duration, where the admin metrics and the job records can read them.

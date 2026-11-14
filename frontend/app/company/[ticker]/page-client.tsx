@@ -443,7 +443,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             (ADR 0009); off by default. FPIs are exempt from Form 4 reporting, so the panel shows an
             honest note and asks nothing. */}
         {ENABLE_INSIDER_ACTIVITY && (
-          <InsiderActivityPanel ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
+          <InsiderActivityPanel key={normalizedTicker} ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
         )}
 
         {/* SEC filings, and beside them from 64rem the Compare periods card when there is a pair of annual

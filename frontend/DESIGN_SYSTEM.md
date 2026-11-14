@@ -1742,7 +1742,8 @@ Activity line    <ActivityLine>  (components/ui) — a run in progress in words 
                  in…", and the insider panel's "Reading this company's recent Form 4 filings." on a company's first
                  visit, before any filing is listed. A run that reports how far it has got shows a bar instead, as the
                  summary's generating card does and the insider panel does once filings are listed ("12 of 60 filings
-                 read" over its bar, the count kept out of the status region so each answer is not read out), and the
+                 read, back to Sep 4, 2026" over its bar, the count and the date kept out of the status region so each
+                 answer is not read out), and the
                  loading lines elsewhere that show only words (the dashboard's "Checking your plan…"
                  among them) take no dot: the dot marks a run the reader waits on that nothing else in view shows.
                  The words are in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static

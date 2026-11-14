@@ -100,25 +100,25 @@ const isRefusal = (error: unknown): boolean => error instanceof ApiError && [401
 const STATUS_TEXT = 'text-sm text-text-secondary-light dark:text-text-secondary-dark'
 
 /** What the stored scan behind an answer says of itself, in words: null once it is complete. The words carry the state,
- *  never a colour; the panel's status region announces them as they change, so they hold no count: the count moves
- *  with every answer and is the bar's to say (ScanProgress). Once the panel has stopped asking (`stopped`), a scan
- *  still reading says so and how to see more, since the words would otherwise stand still as if nothing were left. */
-function scanLine(data: InsiderActivityResponse, stopped: boolean): ReactNode {
-  const { scan } = data
+ *  never a colour; the panel's status region announces them when they change, so they hold nothing that moves with
+ *  each answer: the count and the date the filings reach back to are the bar's to say (ScanProgress). Once the panel
+ *  has stopped asking (`stopped`), the words say how to see more, since they would otherwise stand still as if
+ *  nothing were left. */
+function scanLine(scan: InsiderActivityResponse['scan'], stopped: boolean): ReactNode {
   if (scan.status === 'complete') return null
   if (scan.status === 'failed') return <p className={STATUS_TEXT}>Insider activity is unavailable for this company right now.</p>
-  const reach = data.total_transactions > 0 ? formatLocalDate(scan.oldest_filed_date, 'MMM d, yyyy') : ''
-  const soFar = reach ? ` Trades shown so far go back to filings from ${reach}.` : ''
   if (scan.status === 'paused') {
-    return <p className={STATUS_TEXT}>Reading this company’s Form&nbsp;4 filings is paused and resumes on its own.{soFar}</p>
+    return (
+      <p className={STATUS_TEXT}>
+        Reading this company’s Form&nbsp;4 filings is paused and resumes on its own.{stopped && ' Reload the page later to see more.'}
+      </p>
+    )
   }
-  if (stopped) {
-    return <p className={STATUS_TEXT}>Reading continues in the background. Reload the page to see more.{soFar}</p>
-  }
+  if (stopped) return <p className={STATUS_TEXT}>Reading continues in the background. Reload the page to see more.</p>
   // A run that reports how far it has got shows a bar, and one that does not yet is the Activity line
   // (frontend/DESIGN_SYSTEM.md §4 › Activity line): nothing is listed on a company's first visit.
   if (scan.filings_listed === 0) return <ActivityLine>Reading this company’s recent Form&nbsp;4 filings.</ActivityLine>
-  return <p className={STATUS_TEXT}>Reading this company’s recent Form&nbsp;4 filings.{soFar}</p>
+  return <p className={STATUS_TEXT}>Reading this company’s recent Form&nbsp;4 filings.</p>
 }
 
 /** How far a scan under way has got: the count in words and a bar, as the summary's generating card draws its own
@@ -126,10 +126,13 @@ function scanLine(data: InsiderActivityResponse, stopped: boolean): ReactNode {
  *  out; the bar carries it for a reader who asks. */
 function ScanProgress({ scan }: { scan: InsiderActivityResponse['scan'] }) {
   if (scan.filings_listed === 0 || (scan.status !== 'scanning' && scan.status !== 'paused')) return null
+  // The earliest filing read so far, whatever the window: how far back the scan has got, not how far the trades
+  // shown reach.
+  const reach = formatLocalDate(scan.oldest_filed_date, 'MMM d, yyyy')
   return (
     <div className="mb-4">
       <p className="font-data text-xs tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark">
-        {scan.filings_read} of {scan.filings_listed} filings read
+        {scan.filings_read} of {scan.filings_listed} filings read{reach && `, back to ${reach}`}
       </p>
       <div
         className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-white/10"
@@ -166,15 +169,14 @@ export default function InsiderActivityPanel({
     retry: false,
   })
   const isBeta = currentUser?.is_beta === true
-  // When this mount first asked for this ticker: the polling's three minutes run from it, whatever the window.
-  const pollFrom = useRef<{ ticker: string; at: number } | null>(null)
+  // When the panel mounted: the polling's three minutes run from it, whatever the window and whether the first answer
+  // came from a request or from the cache (a reader back from a filing within the answer's five minutes). The page
+  // keys the panel by ticker, so another company's panel is another mount.
+  const [startedAt] = useState(() => Date.now())
   const insidersKey = queryKeys.insiders.byWindow(ticker, windowDays)
   const query = useQuery<InsiderActivityResponse>({
     queryKey: insidersKey,
-    queryFn: () => {
-      if (pollFrom.current?.ticker !== ticker) pollFrom.current = { ticker, at: Date.now() }
-      return getInsiderActivity(ticker, windowDays)
-    },
+    queryFn: () => getInsiderActivity(ticker, windowDays),
     // Foreign private issuers don't file Form 4s, so they are never asked about. While filings are still loading
     // isFpi is undefined, so the query waits until the company is known not to be one (isFpi === false).
     enabled: !!ticker && isFpi === false && isBeta,
@@ -184,23 +186,26 @@ export default function InsiderActivityPanel({
     staleTime: 5 * 60 * 1000,
     refetchInterval: (q) => {
       const wait = q.state.data?.scan.retry_after_seconds
-      const from = pollFrom.current
-      if (q.state.status === 'error' || wait == null || from?.ticker !== ticker) return false
+      if (q.state.status === 'error' || wait == null) return false
       const delay = Math.max(wait * 1000, POLL_FLOOR_MS)
-      return Date.now() + delay - from.at <= POLL_LIMIT_MS ? delay : false
+      return Date.now() + delay - startedAt <= POLL_LIMIT_MS ? delay : false
     },
   })
   const { data } = query
   const failure = useRetainedFailure(query, insidersKey)
-  // The ticker whose three minutes are up: from then the panel asks nothing more by itself, and says so.
-  const [stoppedFor, setStoppedFor] = useState<string | null>(null)
+  // The three minutes are up: from then the panel asks nothing more by itself, and says so.
+  const [stopped, setStopped] = useState(false)
   const pending = data?.scan.retry_after_seconds != null && !failure.failed
   useEffect(() => {
-    const from = pollFrom.current
-    if (!pending || from?.ticker !== ticker) return
-    const timer = setTimeout(() => setStoppedFor(ticker), Math.max(0, from.at + POLL_LIMIT_MS - Date.now()))
+    if (!pending) return
+    const timer = setTimeout(() => setStopped(true), Math.max(0, startedAt + POLL_LIMIT_MS - Date.now()))
     return () => clearTimeout(timer)
-  }, [pending, ticker, data])
+  }, [pending, startedAt])
+  // The card shows itself with the endpoint's first answer (it answers at once, from the store) or a failure worth
+  // a retry, and stays: a reader the endpoint refuses, as every reader is while the backend's switch is off, never
+  // sees a card appear and go. After that a window still loading shows the skeleton inside it.
+  const [answered, setAnswered] = useState(false)
+  if (data && !answered) setAnswered(true)
 
   if (!isBeta) return null
 
@@ -221,10 +226,11 @@ export default function InsiderActivityPanel({
   // Not known yet whether the company is a foreign private issuer: nothing is asked, and nothing shows.
   if (isFpi !== false) return null
   if (failure.failed && isRefusal(failure.error)) return null
+  if (!answered && !failure.failed) return null
 
   const summary = data?.summary
   const hasTrades = !!data && data.total_transactions > 0
-  const statusLine = data ? scanLine(data, stoppedFor === ticker) : null
+  const statusLine = data ? scanLine(data.scan, stopped) : null
   // Lead with net value when known, else net shares. The sign is the buy/sell signal.
   const signalValue = summary ? (summary.net_value ?? summary.net_shares) : 0
   const signalIsValue = !!summary && summary.net_value !== null
@@ -259,7 +265,8 @@ export default function InsiderActivityPanel({
         />
       </div>
 
-      {/* The scan's progress, in a status region mounted from the first render, so the words it gains are heard. */}
+      {/* The scan's state in words. The region is mounted with the card, so a change of its words (reading, paused,
+          stopped, gone once complete) is heard; the words it is created with are read in place, as the card's are. */}
       <div role="status" className={statusLine ? 'mb-4' : undefined}>
         {statusLine}
       </div>
