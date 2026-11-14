@@ -503,7 +503,8 @@ does not read the route.
 
 Vercel's GitHub integration deploys the `frontend/` app on a push to `main`, and creates a preview
 deployment on a push to any other branch, when the push changes something the frontend build reads.
-CI does **not** deploy the frontend.
+CI does **not** deploy the frontend to Vercel. Its copy on Cloudflare Workers is deployed by a workflow of its own
+("Frontend on Cloudflare Workers (staging)" below).
 
 > **Build filter.** Vercel bills each build, and most pushes change nothing the frontend build
 > reads. `frontend/vercel.json`'s `ignoreCommand` runs `frontend/scripts/vercel-ignore-build.sh`
@@ -577,7 +578,7 @@ A second build of the same app runs on Cloudflare Workers through the OpenNext a
 frontend off Vercel. It is at `https://staging.earningsnerd.io`: the code on `main`, built for Workers, calling the
 production API. It serves no production hostname, and production is still Vercel. A push to `main` that
 changes `frontend/` deploys it (`.github/workflows/deploy-frontend-workers.yml`), once that workflow's secrets and
-values are in the repository's Actions settings ("Deploying it" below); until then a run says so and deploys
+values are in the repository's settings ("The workflow" below); until then a run says so and deploys
 nothing, and staging is deployed by hand. Vercel's deployment differs in two small ways since the adapter arrived: its install also fetches
 the two build tools (dev dependencies), and it serves `public/_headers` as a static file at `/_headers`, which holds
 one caching rule and nothing private.
@@ -638,22 +639,30 @@ everything the build reads, so a commit that `main` has passed elsewhere still d
 **The workflow.** `deploy-frontend-workers.yml` runs on a push to `main` that changes `frontend/`, and by
 dispatch with a target, `staging` or `production`. A push deploys staging. Production's pair is deployed by
 dispatch only until the cutover, which adds it to the push. A run whose commit's `frontend/` is no longer
-`main`'s deploys nothing: a newer commit's run does. It has no pull request trigger, because the job holds the
-Cloudflare token. It needs, in the repository's Actions settings:
+`main`'s deploys nothing: a newer commit's run does, and waiting runs are all kept (`queue: max`). It has no pull
+request trigger, because the job holds the Cloudflare token, which can attach a hostname.
 
-| Kind | Name | Holds |
+The token is held by an environment, not by the repository. A dispatch runs the dispatched branch's own copy of
+the workflow and of the deploy script, and a repository-level secret is readable by any branch's workflow, so
+the checks in those two files guard nothing against a branch that edits them. The environment `frontend-workers`
+does: with its Deployment branches set to `main` only, GitHub refuses a run from any other branch before a step
+runs. That setting is GitHub's and no test can read it. The founder sets up, once:
+
+| Where | Name | Holds |
 |---|---|---|
-| Secret | `CLOUDFLARE_API_TOKEN` | The account-owned token described below |
-| Secret | `CLOUDFLARE_ACCOUNT_ID` | The account's id |
-| Variable | `FRONTEND_WORKERS_ENV_STAGING` | Staging's build values, one `KEY=value` a line |
-| Variable | `FRONTEND_WORKERS_ENV_PRODUCTION` | Production's, the same way |
+| Settings, Environments | `frontend-workers` | Deployment branches and tags: Selected branches, `main` only |
+| That environment's secrets | `CLOUDFLARE_API_TOKEN` | The account-owned token described below |
+| That environment's secrets | `CLOUDFLARE_ACCOUNT_ID` | The account's id |
+| Settings, Secrets and variables, Actions, Variables | `FRONTEND_WORKERS_ENV_STAGING` | Staging's build values, one `KEY=value` a line |
+| The same | `FRONTEND_WORKERS_ENV_PRODUCTION` | Production's, the same way |
 
 The two variables are not secrets: each line is a `NEXT_PUBLIC_*` value or `SENTRY_DSN`, which the build compiles
 into what browsers download. The workflow writes the target's lines to `frontend/.env.production.local`, which
 Next reads and git ignores, prints their names without their values, and sets `NEXT_PUBLIC_SENTRY_RELEASE` to the
-commit and `NEXT_PUBLIC_SENTRY_ENVIRONMENT` to the target itself. After a staging deploy it requests a page and
-checks its headers. `backend/tests/unit/test_frontend_workers_deploy_workflow.py` pins the workflow. It has not
-run with its secrets yet.
+commit and `NEXT_PUBLIC_SENTRY_ENVIRONMENT` to the target itself, over any copy of those two in the variable.
+After a staging deploy it requests a page and checks its headers, which shows staging answers, not which build
+answers. `backend/tests/unit/test_frontend_workers_deploy_workflow.py` pins the workflow and runs its decision
+step in real git. It has not run with its secrets yet.
 
 **Deploying it by hand.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`. It
@@ -684,8 +693,8 @@ entry point's `ROBOTS_NOINDEX` and `CANONICAL_HOST`. A variable missing from the
 `NEXT_PUBLIC_LOGO_DEV_TOKEN` every company logo falls back to initials. Take the names and values from the Vercel
 project's Environment Variables page; `frontend/lib/featureFlags.ts` and `next.config.js` are the list of what the
 code reads. Three differ from Vercel: `NEXT_PUBLIC_SENTRY_RELEASE` (the commit) and
-`NEXT_PUBLIC_SENTRY_ENVIRONMENT` (`staging`) are set by hand, because their fallbacks are Vercel's own
-`VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`, and `NEXT_PUBLIC_POSTHOG_KEY` is left unset, so staging's visits stay
+`NEXT_PUBLIC_SENTRY_ENVIRONMENT` (`staging`) are stated, by the workflow or by hand, because their fallbacks are
+Vercel's own `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`, and `NEXT_PUBLIC_POSTHOG_KEY` is left unset, so staging's visits stay
 out of production's analytics.
 
 **The API must allow the origin.** The browser's calls to `api.earningsnerd.io` succeed from staging only while
@@ -779,11 +788,11 @@ noindex: it can be deployed and checked without a reader reaching it.
 | A cached page reaches the browser as `Cache-Control: public, max-age=0, must-revalidate` | `cloudflare-browser.mjs`. OpenNext's own header is `s-maxage=<seconds>, stale-while-revalidate=2592000`, and staging sent it to browsers until this was added |
 | A year of immutable caching for `/_next/static/*` | `public/_headers` |
 | Functions run in `pdx1` (`vercel.json`) | The server Worker's `placement` |
-| `WAITLIST_MODE` and three flags from `vercel.json` `env`; the rest from the project's Environment Variables | `WAITLIST_MODE` in the wrangler file; every `NEXT_PUBLIC_*` value exported in the shell that builds |
-| The Sentry release and environment from `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV` | Set by hand at build: `NEXT_PUBLIC_SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT` |
+| `WAITLIST_MODE` and three flags from `vercel.json` `env`; the rest from the project's Environment Variables | `WAITLIST_MODE` in the wrangler file; every `NEXT_PUBLIC_*` value from the workflow's variable for the target, or exported in the shell of a build by hand |
+| The Sentry release and environment from `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV` | Stated at build, by the workflow from the commit and the target: `NEXT_PUBLIC_SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT` |
 | An `ETag` on each page, so a repeat visit can be answered 304 | None: the page is sent again |
 | Vercel Web Analytics, served at `/_vercel/insights/*` | Left out of the build: `open-next.config.ts` builds the app with `NEXT_PUBLIC_VERCEL_ANALYTICS=false`, and `app/private-analytics.tsx` then renders nothing. PostHog is the analytics on Workers |
-| A deploy on each push to `main`, and a preview for each pull request | A deploy by hand; no previews |
+| A deploy on each push to `main`, and a preview for each pull request | `deploy-frontend-workers.yml`: staging on each push to `main` that changes `frontend/`, production by dispatch until the cutover adds it to the push; not yet run with its secrets. No previews |
 
 **Open before a cutover.**
 
@@ -792,18 +801,18 @@ noindex: it can be deployed and checked without a reader reaching it.
    analytics there. Checked in a browser against the local Workers runtime with analytics allowed: no request for
    the script.
 2. Deploys: built, not yet run. `deploy-frontend-workers.yml` deploys staging on each push to `main` that
-   changes `frontend/` and production by dispatch, once the founder has added its two secrets and two variables
-   ("The workflow" above). The cutover adds production to the push. Until it has run green on staging, a deploy
+   changes `frontend/` and production by dispatch, once the founder has set up its environment, two secrets and
+   two variables ("The workflow" above). The cutover adds production to the push. Until it has run green on staging, a deploy
    on each push is not something production can rely on.
 3. The build's values. Production's `NEXT_PUBLIC_*` values live in the Vercel project. The workflow reads them
    from the variable `FRONTEND_WORKERS_ENV_PRODUCTION`, which the founder fills from the Vercel project's
    Environment Variables page, with the PostHog key that staging's leaves out. After the cutover a value changed
    in Vercel changes nothing: the variable is the place.
-4. Speed, and the founder's decision on it. From one cloud location a cached page is level with Vercel when the
-   Workers are in use, and the first request after idle is slower: for a cached page by about a quarter of a
-   second, and for a first render by 0.1 to 0.3 s in six of eight trials with the schedule and by 1.2 and 1.5 s in
-   the other two ("What was measured" above). Whether that is acceptable for production is the founder's call,
-   and it has not been measured from a reader's location.
+4. Speed: accepted. From one cloud location a cached page is level with Vercel when the Workers are in use, and
+   the first request after idle is slower: for a cached page by about a quarter of a second, and for a first
+   render by 0.1 to 0.3 s in six of eight trials with the schedule and by 1.2 and 1.5 s in the other two ("What
+   was measured" above). Decided 2026-11-14 (founder): good enough to move forward. It has not been measured from
+   a reader's location.
 5. Sentry. A thrown server error from a Workers build has reached a test receiver, not yet the Sentry project.
 6. The rollback below has not been run. Rehearse it on a hostname nobody uses before the day; that creates and
    removes DNS records in the zone.
