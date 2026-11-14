@@ -9,6 +9,7 @@
 import { WorkerEntrypoint } from 'cloudflare:workers'
 import { runWithCloudflareRequestContext } from './.open-next/cloudflare/init.js'
 import { handler as routeRequest } from './.open-next/middleware/handler.mjs'
+import { canonicalRedirect, forBrowser } from './cloudflare-browser.mjs'
 import { markNoindex } from './cloudflare-robots.mjs'
 
 // The Durable Object that re-renders stale pages (open-next.config.ts `queue`) lives in this Worker; the server
@@ -21,11 +22,12 @@ export { DOQueueHandler } from './.open-next/.build/durable-objects/queue.js'
 const KEEP_WARM_PATHS = ['/company/AAPL', '/filing/3']
 // OpenNext's cache layer in this Worker answers a cached page itself, and then nothing reaches the server Worker.
 // It passes on a request that carries Next's draft-mode cookie. The Next server finds the value is not its own and
-// answers as it would any reader: the cached page, re-rendered in the background once it is stale. The hostname is
-// never resolved, since the request goes over the SERVER binding; it is stated as a header because the server
-// Worker reads the host from there, and names a stale page's re-render by it.
-const KEEP_WARM_HOST = 'keep-warm.invalid'
-const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm', host: KEEP_WARM_HOST } }
+// answers as it would any reader: the cached page, re-rendered in the background once it is stale.
+const KEEP_WARM_COOKIE = '__prerender_bypass=keep-warm'
+// The request goes over the SERVER binding, so its hostname is never resolved. It is the site's own
+// (CANONICAL_HOST) where the Worker has one: the server Worker names a stale page's re-render by the Host header,
+// and that re-render comes back through `fetch` below, which redirects any other hostname.
+const KEEP_WARM_HOST_WITHOUT_A_SITE = 'keep-warm.invalid'
 
 // Sends a request the cache could not answer to the server Worker. The two Workers are built together and must run
 // together: scripts/cf-deploy.mjs gives each front version the server version of its own build, and this header
@@ -40,12 +42,14 @@ function askServer(routed, env) {
 export default class FrontWorker extends WorkerEntrypoint {
   async fetch(request) {
     const { env, ctx } = this
-    const response = await runWithCloudflareRequestContext(request, env, ctx, async () => {
-      const routed = await routeRequest(request, env, ctx)
-      // A Response is the answer already: a redirect, a refusal, or a page from the cache.
-      return routed instanceof Response ? routed : askServer(routed, env)
-    })
-    return markNoindex(response, env)
+    const response =
+      canonicalRedirect(request, env) ??
+      (await runWithCloudflareRequestContext(request, env, ctx, async () => {
+        const routed = await routeRequest(request, env, ctx)
+        // A Response is the answer already: a redirect, a refusal, or a page from the cache.
+        return routed instanceof Response ? routed : askServer(routed, env)
+      }))
+    return markNoindex(forBrowser(response), env)
   }
 
   // Cloudflare calls this once a minute (wrangler.jsonc `triggers`). Every page is asked for, and then a run in
@@ -54,8 +58,9 @@ export default class FrontWorker extends WorkerEntrypoint {
   async scheduled() {
     const { env, ctx } = this
     const failures = []
+    const host = env.CANONICAL_HOST || KEEP_WARM_HOST_WITHOUT_A_SITE
     for (const path of KEEP_WARM_PATHS) {
-      const request = new Request(`https://${KEEP_WARM_HOST}${path}`, KEEP_WARM_REQUEST)
+      const request = new Request(`https://${host}${path}`, { headers: { cookie: KEEP_WARM_COOKIE, host } })
       try {
         await runWithCloudflareRequestContext(request, env, ctx, async () => {
           const routed = await routeRequest(request, env, ctx)

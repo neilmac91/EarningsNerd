@@ -831,6 +831,12 @@ def test_the_workers_build_checks_staging_and_never_holds_a_backend_release():
     assert "grep -qi '^x-nextjs-cache: MISS' headers.txt" in check
     assert "grep -qi '^x-robots-tag: noindex, nofollow' headers.txt" in check
     assert "if grep -qE 'An error occurred while loading (the )?instrumentation hook' wrangler-dev.log; then" in check
+    # What Vercel's platform sends a browser for the app, the front Worker sends: HSTS on a page, and a cached page
+    # marked to be checked again each time. And wrangler accepts production's pair of files.
+    assert "grep -qi '^strict-transport-security: max-age=63072000' headers.txt" in check
+    assert "grep -qi '^cache-control: public, max-age=0, must-revalidate' cached.txt" in check
+    assert "for config in wrangler.production.jsonc wrangler.production.server.jsonc; do" in check
+    assert 'npx wrangler deploy --dry-run -c "$config" > "dry-run-$config.log" || { cat "dry-run-$config.log"; exit 1; }' in check
     # The front Worker's schedule is run, a reader's request then finds one of its pages in the front Worker's cache,
     # and the schedule is run again: a run that does not pass that cache to the server Worker answers 500. The build
     # names no backend, so none of this calls production.
