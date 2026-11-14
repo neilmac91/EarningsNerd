@@ -26,8 +26,9 @@ PROD_ENV_PINS = {
     # Founder-approved W3-1 observation: keep the live service filter, not the old plan's false.
     "CALENDAR_INDEX_FILTER_ENABLED": "true", "ENABLE_FPI_FILINGS": "true",
     "STREAM_SECTION_REVEAL": "true", "REGISTRATION_MODE": "invite_only",
-    # CODE RED D3 stage 2: the pinned service cannot carry the insider endpoint's cold fetch.
-    "ENABLE_INSIDER_ACTIVITY": "false",
+    # On since ADR 0009: the endpoint answers beta accounts from a stored scan and makes no SEC request on the
+    # service (CODE RED D3 stage 2 had turned it off for its live fetch).
+    "ENABLE_INSIDER_ACTIVITY": "true",
 }
 INTENTIONAL_PROD_OVERRIDES = {
     # Delegated Sep28 rollout: source-faithful labels and seven observed scheduled days.
@@ -38,6 +39,9 @@ INTENTIONAL_PROD_OVERRIDES = {
     # Founder armed evidence auto-snap on 2026-09-15 after the first complete strong-judge readout
     # (W3-7, D5); the code default stays off so local/dev keeps the advisory audit.
     "AI_EVIDENCE_SNAP",
+    # The founder turned the stored insider scan on for beta accounts on 2026-11-14 (ADR 0009). The code default
+    # stays off: local/dev has no task worker to run a scan, so the endpoint would only ever answer "scanning".
+    "ENABLE_INSIDER_ACTIVITY",
 }
 
 
