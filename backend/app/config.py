@@ -535,9 +535,10 @@ class Settings(BaseSettings):
     # (auditable, un-corruptable by a bad API response); the filter fails OPEN (serves unfiltered) if
     # that list is missing/short, so it can only ever hide tail names, never empty the calendar. Gates
     # BOTH serve and ingest, so flipping it off lets the next daily refresh re-populate non-members —
-    # fully reversible within ~1 day. A user's explicitly watchlisted company is NOT filtered (their
-    # dashboard "upcoming" + alerts still fire). Ships off; flip CALENDAR_INDEX_FILTER_ENABLED=true on
-    # the Cloud Run service after the one-time purge (scripts/purge_non_index_earnings.py).
+    # fully reversible within ~1 day. Ingest still stores every watchlisted company's events (dashboard
+    # "upcoming" + alerts fire; one first watched today gets its event at the next daily refresh). Ships
+    # off; flip CALENDAR_INDEX_FILTER_ENABLED=true on the Cloud Run service after the one-time purge
+    # (scripts/purge_non_index_earnings.py, which deletes by index membership alone, watched or not).
     CALENDAR_INDEX_FILTER_ENABLED: bool = False
 
     # Homepage "Notable filings" — market-wide EDGAR-native discovery surface (replaces the retired

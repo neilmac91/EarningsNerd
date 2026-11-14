@@ -155,9 +155,9 @@ class RefreshStats:
     skipped_non_earnings: int = 0
     # 2.02 hits with no prior calendar row — the market-wide sweep is flip-only, never insert.
     skipped_no_prior: int = 0
-    # Rows skipped because their ticker is outside the S&P 500 / Nasdaq 100 universe (only nonzero
-    # when CALENDAR_INDEX_FILTER_ENABLED is on). AV estimates for non-members are never inserted, and
-    # a stray non-member row is never flipped by the EDGAR sweep.
+    # Rows skipped because their ticker is outside both the S&P 500 / Nasdaq 100 universe and every
+    # watchlist (only nonzero when CALENDAR_INDEX_FILTER_ENABLED is on). AV estimates for these are
+    # never inserted, and a stray row of theirs is never flipped by the EDGAR sweep.
     skipped_non_member: int = 0
     # Past-dated estimates downgraded to low confidence by the staleness pass.
     stale_downgraded: int = 0
@@ -203,13 +203,24 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return counts
 
 
+def _admitted_tickers(db: Session) -> Optional[frozenset[str]]:
+    """The canonical tickers (``normalize_ticker``) the refresh stores and flips events for, or
+    ``None`` when it admits every ticker (index filter off or its list unhealthy: no query then).
+    With the filter on: the index members plus every watched company's ticker, since a reader's
+    dashboard "upcoming" and earnings-day alerts read stored events for the companies they watch."""
+    members = index_membership_service.active_member_filter()
+    if members is None:
+        return None
+    return members | frozenset(_watch_counts(db))
+
+
 _EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit
 
 _SKIP_NON_MEMBER = "non_member"
 
 
 def _ingest_key(
-    row: Any, *, members: Optional[frozenset[str]], today: date,
+    row: Any, *, admitted: Optional[frozenset[str]], today: date,
 ) -> tuple[Optional[tuple[str, date, date]], Optional[str]]:
     """``((ticker, fiscal_period_end, report_date), None)`` for an AV row ``ingest_alpha_vantage``
     upserts, or ``(None, reason)`` for one it skips. The pass and its prefetch both read rows
@@ -220,8 +231,8 @@ def _ingest_key(
     fpe = getattr(row, "fiscal_period_end", None)
     if not ticker or fpe is None:
         return None, "unkeyed"  # need a fiscal period to key on (uniqueness invariant)
-    if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
-        return None, _SKIP_NON_MEMBER  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
+    if admitted is not None and index_membership_service.normalize_ticker(ticker) not in admitted:
+        return None, _SKIP_NON_MEMBER  # outside the index and every watchlist (index filter on)
     new_date = getattr(row, "report_date", None)
     if new_date is None or new_date < today:
         return None, "past"
@@ -229,7 +240,7 @@ def _ingest_key(
 
 
 def _events_by_key(
-    db: Session, rows: list[Any], *, members: Optional[frozenset[str]], today: date,
+    db: Session, rows: list[Any], *, admitted: Optional[frozenset[str]], today: date,
 ) -> dict[tuple[str, date], EarningsEvent]:
     """The stored events ``ingest_alpha_vantage`` can key on, by ``(ticker, fiscal_period_end)``.
 
@@ -245,7 +256,7 @@ def _events_by_key(
     periods: set[date] = set()
     for row in rows:
         try:
-            keyed, _ = _ingest_key(row, members=members, today=today)
+            keyed, _ = _ingest_key(row, admitted=admitted, today=today)
         except Exception:  # noqa: BLE001 — the pass raises on this row; the prefetch only skips it
             continue
         if keyed is not None:
@@ -275,23 +286,23 @@ def ingest_alpha_vantage(
     """Upsert provider estimates. Reported rows are never touched (terminal); a changed date is
     recorded on the row. Past-dated provider rows are skipped — a stale snapshot date must not
     create or overwrite calendar rows (it would also be flip-bait for the EDGAR sweep's 100-day
-    attach window). When the index filter is on, tickers outside the S&P 500 / Nasdaq 100 universe
-    are skipped here (the only INSERT site) and counted on ``stats.skipped_non_member``. Returns the
-    number of rows created or updated."""
+    attach window). When the index filter is on, tickers outside both the S&P 500 / Nasdaq 100
+    universe and every watchlist are skipped here (the only INSERT site) and counted on
+    ``stats.skipped_non_member``. Returns the number of rows created or updated."""
     now = datetime.now(timezone.utc)
     if today is None:
         today = today_eastern()
     if stats is None:
         stats = RefreshStats()  # solo callers/tests: keep the counter bumps unconditional
-    members = index_membership_service.active_member_filter()
+    admitted = _admitted_tickers(db)
     rows = list(rows)
     # One chunked read of every existing event a row can key on, instead of one SELECT per row
     # (~6k a day), keyed by the same _ingest_key the loop reads rows through. The loop is unchanged
     # otherwise: each insert still flushes at once, so where an error stops the pass stays as before.
-    by_key = _events_by_key(db, rows, members=members, today=today)
+    by_key = _events_by_key(db, rows, admitted=admitted, today=today)
     upserted = 0
     for row in rows:
-        keyed, skipped = _ingest_key(row, members=members, today=today)
+        keyed, skipped = _ingest_key(row, admitted=admitted, today=today)
         if skipped == _SKIP_NON_MEMBER:
             stats.skipped_non_member += 1
         if keyed is None:
@@ -360,7 +371,7 @@ def ingest_edgar_reported(
     # query would otherwise look for that row at its old date and skip its hit as having no prior row,
     # also when the pass stopped at a row it could not read (E306).
     db.flush()
-    members = index_membership_service.active_member_filter()
+    admitted = _admitted_tickers(db)
     reported = 0
     for hit in hits:
         items = getattr(hit, "items", None) or []
@@ -371,9 +382,10 @@ def ingest_edgar_reported(
         if not ticker or filed is None:
             continue
         canonical = index_membership_service.normalize_ticker(ticker)  # a hit and an event may spell a class differently
-        if members is not None and canonical not in members:
-            # Non-member: never flip a stray legacy row, and skip the DB lookups entirely. AV ingest
-            # already keeps non-members out, so this is belt-and-suspenders + a cheap early-out.
+        if admitted is not None and canonical not in admitted:
+            # Outside the index and every watchlist: never flip a stray legacy row, and skip the DB
+            # lookups entirely. AV ingest already keeps these out, so this is belt-and-suspenders +
+            # a cheap early-out.
             stats.skipped_non_member += 1
             continue
         accession = getattr(hit, "accession_no", None)

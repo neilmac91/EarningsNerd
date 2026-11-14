@@ -5,7 +5,9 @@ A daily calendar CSV carries ~6k rows, and the per-row lookup cost one round tri
 row. The others pin what the prefetch and the loop around the lookup must keep doing:
 - a ticker's other stored periods, which the prefetch also loads, are never the row a CSV row updates;
 - stored rows under each of the file's periods are all found;
-- with the index filter on, a stored member row is updated and a non-member row is left alone;
+- with the index filter on, a stored member row is updated and a non-member row is left alone, while a
+  watched company outside the index is stored and updated in place, in either spelling of a class;
+- with the filter off, the ingest reads no watchlist;
 - rows given as a one-shot iterator are all ingested, though the prefetch walks them first;
 - an in-file duplicate updates the row it just inserted;
 - each insert is flushed at once, and a row that cannot be read stops the pass at that row, with the
@@ -320,3 +322,120 @@ def test_a_row_that_cannot_be_read_stops_the_pass_there_with_earlier_inserts_flu
     finally:
         db.rollback()
         db.close()
+
+
+@contextmanager
+def _watching(*company_tickers):
+    """One user watching a company under each of these tickers (SEC's spelling), committed so the
+    ingest's own query sees them; removed afterwards, since every watched ticker joins the refresh's
+    admitted set."""
+    import uuid
+
+    from app.models import Company, User, Watchlist
+
+    suffix = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        user = User(email=f"lkp-{suffix}@example.com", hashed_password="x")
+        companies = [Company(cik=f"lkp{suffix}{t}", ticker=t, name=f"{t} Inc") for t in company_tickers]
+        db.add_all([user, *companies])
+        db.flush()
+        db.add_all([Watchlist(user_id=user.id, company_id=c.id) for c in companies])
+        db.commit()
+        user_id, company_ids = user.id, [c.id for c in companies]
+    try:
+        yield
+    finally:
+        with SessionLocal() as db:
+            db.query(Watchlist).filter(Watchlist.company_id.in_(company_ids)).delete(synchronize_session=False)
+            db.query(Company).filter(Company.id.in_(company_ids)).delete(synchronize_session=False)
+            db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+            db.commit()
+
+
+def _filter_on(monkeypatch, members):
+    from app.config import settings
+    from app.services import index_membership_service as idx
+
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset(members))
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+
+
+@pytest.mark.requires_db
+def test_with_the_index_filter_on_a_watched_company_outside_the_index_is_stored_and_updated(monkeypatch):
+    """A reader's dashboard and earnings-day alert read stored events for the companies they watch, so
+    the refresh stores a watched company's event though it is outside the index. A second pass with a
+    moved date updates that row: the prefetch admits the watched ticker as the pass does, or the pass
+    would insert a second row for its key and fail the commit. A company nobody watches is still
+    skipped and counted, and the public calendar still serves the index alone."""
+    _filter_on(monkeypatch, {f"{PREFIX}0001"})
+    with _watching(f"{PREFIX}0002"):
+        stats = svc.RefreshStats()
+        with SessionLocal() as db:
+            rows = [_row(i, TODAY + timedelta(days=10)) for i in (1, 2, 3)]
+            assert svc.ingest_alpha_vantage(db, rows, today=TODAY, stats=stats) == 2
+            db.commit()
+        assert stats.skipped_non_member == 1  # LKP0003: outside the index, watched by nobody
+        assert {key[0] for key in _snapshot()} == {f"{PREFIX}0001", f"{PREFIX}0002"}
+
+        with SessionLocal() as db:
+            assert svc.ingest_alpha_vantage(db, [_row(2, TODAY + timedelta(days=12))], today=TODAY) == 1
+            db.commit()
+        after = _snapshot()
+        status, event_date, prior, _, _ = after[(f"{PREFIX}0002", FPE)]
+        assert (status, event_date, prior) == (STATUS_ESTIMATED, TODAY + timedelta(days=12), TODAY + timedelta(days=10))
+        assert len(after) == 2
+
+        with SessionLocal() as db:
+            served = {
+                e["ticker"] for e in svc.events_in_range(db, TODAY, TODAY + timedelta(days=30), today=TODAY)
+                if e["ticker"].startswith(PREFIX)
+            }
+        assert served == {f"{PREFIX}0001"}
+
+
+@pytest.mark.requires_db
+def test_with_the_index_filter_on_a_watched_dual_class_company_is_admitted_in_the_events_spelling(monkeypatch):
+    """The company's ticker is SEC's spelling (LKPX-A) and the Alpha Vantage row's the dot form
+    (LKPX.A); both sides are compared in the canonical form."""
+    _filter_on(monkeypatch, {f"{PREFIX}0001"})
+    with _watching(f"{PREFIX}X-A"):
+        stats = svc.RefreshStats()
+        row = SimpleNamespace(symbol=f"{PREFIX}X.A", company_name="X class A", report_date=TODAY + timedelta(days=10),
+                              fiscal_period_end=FPE, eps_estimate=1.5, currency="USD", event_time="amc")
+        with SessionLocal() as db:
+            assert svc.ingest_alpha_vantage(db, [row], today=TODAY, stats=stats) == 1
+            db.commit()
+        assert stats.skipped_non_member == 0
+        assert set(_snapshot()) == {(f"{PREFIX}X.A", FPE)}
+
+
+@contextmanager
+def _watchlist_selects():
+    """Counts the SELECTs that read the watchlist table while the block runs."""
+    reads = _Reads()
+
+    def count(conn, cursor, statement, parameters, context, executemany):
+        text = statement.lstrip().upper()
+        if text.startswith("SELECT") and "WATCHLIST" in text:
+            reads.statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", count)
+    try:
+        yield reads
+    finally:
+        event.remove(engine, "before_cursor_execute", count)
+
+
+@pytest.mark.requires_db
+def test_with_the_index_filter_off_the_ingest_reads_no_watchlist_and_stores_every_ticker(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
+    stats = svc.RefreshStats()
+    with SessionLocal() as db, _watchlist_selects() as watch_reads, _event_selects() as event_reads:
+        rows = [_row(i, TODAY + timedelta(days=10)) for i in (1, 2)]
+        assert svc.ingest_alpha_vantage(db, rows, today=TODAY, stats=stats) == 2
+        db.commit()
+        assert (watch_reads(), event_reads()) == (0, 1)
+    assert stats.skipped_non_member == 0
+    assert {key[0] for key in _snapshot()} == {f"{PREFIX}0001", f"{PREFIX}0002"}
