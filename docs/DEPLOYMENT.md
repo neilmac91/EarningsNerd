@@ -575,8 +575,10 @@ CI does **not** deploy the frontend.
 
 A second build of the same app runs on Cloudflare Workers through the OpenNext adapter, to evaluate moving the
 frontend off Vercel. It is at `https://staging.earningsnerd.io`: the code on `main`, built for Workers, calling the
-production API. It serves no production hostname, and production is still Vercel. Nothing deploys it
-automatically. Vercel's deployment differs in two small ways since the adapter arrived: its install also fetches
+production API. It serves no production hostname, and production is still Vercel. A push to `main` that
+changes `frontend/` deploys it (`.github/workflows/deploy-frontend-workers.yml`), once that workflow's secrets and
+values are in the repository's Actions settings ("Deploying it" below); until then a run says so and deploys
+nothing, and staging is deployed by hand. Vercel's deployment differs in two small ways since the adapter arrived: its install also fetches
 the two build tools (dev dependencies), and it serves `public/_headers` as a static file at `/_headers`, which holds
 one caching rule and nothing private.
 
@@ -630,9 +632,30 @@ and `deploy-backend` does not wait for it.
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
 must not be served on any `earningsnerd.io` hostname. `scripts/cf-deploy.mjs` refuses to deploy either pair from
-a checkout that has changes or is not at `main` as fetched at that moment.
+a checkout that has changes, or whose `frontend/` is not `main`'s as fetched at that moment. `frontend/` is
+everything the build reads, so a commit that `main` has passed elsewhere still deploys what `main` holds.
 
-**Deploying it.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
+**The workflow.** `deploy-frontend-workers.yml` runs on a push to `main` that changes `frontend/`, and by
+dispatch with a target, `staging` or `production`. A push deploys staging. Production's pair is deployed by
+dispatch only until the cutover, which adds it to the push. A run whose commit's `frontend/` is no longer
+`main`'s deploys nothing: a newer commit's run does. It has no pull request trigger, because the job holds the
+Cloudflare token. It needs, in the repository's Actions settings:
+
+| Kind | Name | Holds |
+|---|---|---|
+| Secret | `CLOUDFLARE_API_TOKEN` | The account-owned token described below |
+| Secret | `CLOUDFLARE_ACCOUNT_ID` | The account's id |
+| Variable | `FRONTEND_WORKERS_ENV_STAGING` | Staging's build values, one `KEY=value` a line |
+| Variable | `FRONTEND_WORKERS_ENV_PRODUCTION` | Production's, the same way |
+
+The two variables are not secrets: each line is a `NEXT_PUBLIC_*` value or `SENTRY_DSN`, which the build compiles
+into what browsers download. The workflow writes the target's lines to `frontend/.env.production.local`, which
+Next reads and git ignores, prints their names without their values, and sets `NEXT_PUBLIC_SENTRY_RELEASE` to the
+commit and `NEXT_PUBLIC_SENTRY_ENVIRONMENT` to the target itself. After a staging deploy it requests a page and
+checks its headers. `backend/tests/unit/test_frontend_workers_deploy_workflow.py` pins the workflow. It has not
+run with its secrets yet.
+
+**Deploying it by hand.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`. It
 builds, uploads a new version of each Worker, fills the cache with the build's prerendered pages, and then moves
 traffic in three steps (the new server version at 0%, the front Worker to its new version, the server Worker to
@@ -768,12 +791,14 @@ noindex: it can be deployed and checked without a reader reaching it.
    not-found page. Decided 2026-11-14 (founder): the Workers build leaves the component out, and PostHog is the
    analytics there. Checked in a browser against the local Workers runtime with analytics allowed: no request for
    the script.
-2. Deploys. Production on Workers needs what Vercel gives today: a deploy on each push to `main`. Decided
-   2026-11-14 (founder): a workflow that holds a Cloudflare token and the build's values. It does not exist yet,
-   and its secrets are the founder's to add. Without it production would trail `main` until someone deploys by
-   hand.
-3. The build's values. Production's `NEXT_PUBLIC_*` values live in the Vercel project. They need one place a
-   Workers build reads them from, with the PostHog key that staging's build leaves out.
+2. Deploys: built, not yet run. `deploy-frontend-workers.yml` deploys staging on each push to `main` that
+   changes `frontend/` and production by dispatch, once the founder has added its two secrets and two variables
+   ("The workflow" above). The cutover adds production to the push. Until it has run green on staging, a deploy
+   on each push is not something production can rely on.
+3. The build's values. Production's `NEXT_PUBLIC_*` values live in the Vercel project. The workflow reads them
+   from the variable `FRONTEND_WORKERS_ENV_PRODUCTION`, which the founder fills from the Vercel project's
+   Environment Variables page, with the PostHog key that staging's leaves out. After the cutover a value changed
+   in Vercel changes nothing: the variable is the place.
 4. Speed, and the founder's decision on it. From one cloud location a cached page is level with Vercel when the
    Workers are in use, and the first request after idle is slower: for a cached page by about a quarter of a
    second, and for a first render by 0.1 to 0.3 s in six of eight trials with the schedule and by 1.2 and 1.5 s in
@@ -790,8 +815,9 @@ noindex: it can be deployed and checked without a reader reaching it.
 **The steps.**
 
 1. Create the cache bucket, once: `npx wrangler r2 bucket create earningsnerd-frontend-cache`.
-2. First deploy, reaching no reader. From `frontend/` on a clean checkout of `main`, with production's build
-   values exported: `npm run cf:deploy:production`. The two Workers name each other and Cloudflare creates neither
+2. First deploy, reaching no reader: run the workflow by dispatch with the target `production` (or, by hand,
+   from `frontend/` on a clean checkout of `main` with production's build values exported, `npm run
+   cf:deploy:production`). The two Workers name each other and Cloudflare creates neither
    while the other is missing, so the script creates the front Worker first without its binding to the server and
    with no address or schedule, then the server Worker, then deploys as it always does; its last step gives the
    front Worker its workers.dev address and its schedule. This was run on 2026-11-14 on a pair of the same shape
@@ -811,8 +837,9 @@ noindex: it can be deployed and checked without a reader reaching it.
    216.198.79.1` and `CNAME www.earningsnerd.io 242405dc984b9982.vercel-dns-017.com` (both DNS-only, TTL 600, as
    read on 2026-11-14) become proxied records Cloudflare manages for the Worker. A resolver may keep the old
    answer for ten minutes, and Vercel still serves it. The zone's other records, mail among them, are not touched.
-   The script refuses to deploy a pair the repository holds from anything but a clean checkout of `main` as it is
-   now, so the pair cannot reach a production hostname before the cutover pull request is merged.
+   The script refuses to deploy a pair the repository holds from anything but an unchanged checkout whose
+   `frontend/` is `main`'s as it is now, so the pair cannot reach a production hostname before the cutover pull
+   request is merged.
 5. Check at once, on `https://www.earningsnerd.io`: `http://` and the bare domain answer 308 to it; a page carries
    no `X-Robots-Tag`; `/`, `/pricing`, a company page and a filing page answer 200; password sign-in with
    Turnstile; a Google sign-in round trip; a summary streams; the pricing page reaches Stripe checkout; a thrown

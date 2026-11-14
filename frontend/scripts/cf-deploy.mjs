@@ -20,8 +20,10 @@
 // the steps above run as for any deploy, and step 7 is what first makes the front reachable.
 //
 // Step 7 can move a hostname: wrangler replaces a hostname's existing DNS records without asking when it is not
-// run at a terminal, which is how this script runs it. So a pair the repository holds is deployed from `main`
-// only, as fetched now and with nothing changed, and the script refuses anything else before it builds.
+// run at a terminal, which is how this script runs it. So a pair the repository holds is deployed only from a
+// checkout with nothing changed whose frontend/ is main's as fetched now, and the script refuses anything else
+// before it builds. frontend/ is everything the build reads (scripts/vercel-ignore-build.sh), so a checkout
+// that main has passed with a commit elsewhere still deploys what main holds.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -111,10 +113,10 @@ function requireMain() {
   if (git('status', '--porcelain') !== '') {
     throw new Error('The checkout has changes. Deploy from a clean checkout of main: `git status` lists what differs.')
   }
-  git('fetch', '--quiet', 'origin', 'main')
-  const [head, main] = [git('rev-parse', 'HEAD'), git('rev-parse', 'FETCH_HEAD')]
-  if (head !== main) {
-    throw new Error(`This checkout is at ${head.slice(0, 9)} and main is at ${main.slice(0, 9)}. Deploy from main as it is now.`)
+  git('fetch', '--no-tags', '--quiet', 'origin', 'refs/heads/main')
+  if (git('rev-parse', 'HEAD:frontend') !== git('rev-parse', 'FETCH_HEAD:frontend')) {
+    const [head, main] = [git('rev-parse', '--short', 'HEAD'), git('rev-parse', '--short', 'FETCH_HEAD')]
+    throw new Error(`frontend/ at ${head}, this checkout, is not frontend/ at ${main}, main as it is now. Deploy main's.`)
   }
 }
 
