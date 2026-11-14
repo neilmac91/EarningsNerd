@@ -19,7 +19,7 @@ import pytest
 
 from app.schemas import summary as summary_schema
 from app.schemas.summary import attach_normalized_facts
-from app.services import fallback_summary
+from app.services import fallback_summary, summary_sections
 from app.services.ai import markdown_render
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
@@ -77,7 +77,8 @@ USD_OVERVIEW = (
     "- **Revenue**: $941.2B (Period: 2025-03-31)\n"
     "- **Net Income**: $12.5M (Period: 2025-03-31)\n"
     "- **EPS**: 6.42 (Period: 2025-03-31)\n\n"
-    "_Click 'Regenerate Analysis' for the full AI-powered insights._"
+    "_The full AI-powered analysis did not finish in time, so this partial summary shows data extracted from "
+    "the filing._"
 )
 
 
@@ -217,3 +218,81 @@ def test_every_writer_takes_its_money_label_from_the_shared_helper(module, write
         literals = [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
         copies = [s for s in literals if s.strip().upper() == "USD" or s.startswith("$")]
         assert not copies, f"{node.name} carries its own money-label rule: {copies}"
+
+
+def _strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+
+
+@pytest.mark.parametrize("metrics", [_metrics(), None], ids=["with_xbrl", "without_xbrl"])
+def test_the_fallback_names_no_control_a_reader_cannot_press(metrics):
+    """The page has no "Regenerate Analysis" or "Retry Full Analysis" control, and its one regenerate control
+    ("Regenerate summary") shows only to Pro readers, while every reader of the stored row reads this text. So the
+    fallback says what happened (the full analysis did not finish in time) and sends no reader to a control."""
+    out = generate_xbrl_summary(metrics, "Example Ltd", "2025-06-01", filing_type="10-K")
+    lowered = [text.lower() for text in _strings(out)]
+    offenders = [text for text in lowered
+                 if "click" in text or "regenerate analysis" in text or "retry full analysis" in text]
+    assert not offenders
+    if metrics is None:
+        assert out["business_overview"] == (
+            "## Example Ltd 10-K Summary\n\n_The full AI-powered analysis did not finish in time, and no revenue, "
+            "net income or EPS figure was extracted for this filing._")
+    else:
+        assert out["business_overview"].endswith(
+            "_The full AI-powered analysis did not finish in time, so this partial summary shows data extracted "
+            "from the filing._")
+    takeaway = out["raw_summary"]["sections"]["the_print"]["key_takeaways"][-1]
+    assert takeaway == (
+        "Complete AI-powered insights are not available because the full analysis did not finish in time")
+    # The rendered sections drop it as filler, as they dropped the sentence it replaced.
+    assert summary_sections.is_placeholder(takeaway)
+    if metrics is None:
+        assert out["financial_highlights"]["profitability"] == [
+            "Profitability metrics need the full analysis, which did not finish in time."]
+
+
+RISK_TEXT = (
+    "PART I\n\nItem 1A. Risk Factors\n\n"
+    "Our business is subject to a number of risks that could affect results.\n"
+    "• We depend on a small number of suppliers for key components and any interruption could delay production "
+    "for a quarter or more.\n"
+    "• Our international operations expose us to currency movements that could reduce reported revenue and "
+    "operating income.\n"
+    "\nItem 1B. Unresolved Staff Comments\n\nNone.\n"
+)
+
+
+def _shown(payload, metrics, source_text):
+    """What a reader of the stored row is shown: its body, and its sections as the page and the exports render them."""
+    _, raw_summary, _, _ = _finalize_summary_projection(payload, metrics, payload["status"], source_text=source_text)
+    rendered = summary_sections.sections_to_markdown(summary_sections.render_sections(raw_summary))
+    return payload["business_overview"] + "\n" + rendered
+
+
+@pytest.mark.parametrize("metrics", [_metrics(), None], ids=["with_xbrl", "without_xbrl"])
+@pytest.mark.parametrize("filing_text", [RISK_TEXT, ""], ids=["risks_extracted", "nothing_extracted"])
+def test_what_the_fallback_shows_a_reader_is_true_and_names_no_control(metrics, filing_text):
+    """The stored fallback, as rendered, tells no reader to regenerate or retry and claims no work in progress. It also
+    counts no risk factors: the pipeline's projection withholds the rows this fallback extracts (their evidence is a
+    label, not a passage), so "2 risk factors identified from filing" stood beside a Risks section showing none."""
+    out = generate_xbrl_summary(metrics, "Example Ltd", "2025-06-01", filing_text=filing_text, filing_type="10-K")
+    assert len(out["risk_factors"]) == (2 if filing_text else 1)  # two extracted rows, or the one stand-in row
+
+    shown = _shown(out, metrics, filing_text)
+
+    lowered = shown.lower()
+    assert not [word for word in ("click", "regenerate", "retry", "being processed", "identified") if word in lowered]
+    takeaways = [line for line in shown.splitlines() if line.startswith("- ") and "**" not in line]
+    if metrics is None:
+        assert shown.count("| — | — | — | No figure was extracted for this filing |") == 2
+        assert takeaways == []  # The Print keeps its headline and lists nothing the row cannot show
+    else:
+        assert takeaways == ["- Financial metrics extracted from XBRL data"]
