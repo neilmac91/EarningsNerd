@@ -1,0 +1,22 @@
+// The SERVER Worker of the Cloudflare Workers staging copy (cloudflare-server.mjs): the Next server. The front
+// Worker, wrangler.jsonc, calls it for a request the cache cannot answer; it has no hostname and no workers.dev
+// address. scripts/cf-deploy.mjs deploys the two together. docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers
+// (staging)". Keep each comment on a line of its own: tests/unit/cloudflareWorkerConfig.spec.ts drops those lines.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "earningsnerd-frontend-staging-server",
+  "main": "cloudflare-server.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  // Every page this Worker renders reads the API, which runs on Cloud Run in us-west1, so it runs beside it, as
+  // Vercel's functions do (vercel.json `regions`). One location also keeps its instances in use, and so loaded.
+  "placement": { "region": "gcp:us-west1" },
+  // A stale page's re-render is requested through the front Worker, which owns the Durable Object.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend-staging" }],
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "earningsnerd-frontend-staging-cache" }],
+  "durable_objects": {
+    "bindings": [{ "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler", "script_name": "earningsnerd-frontend-staging" }]
+  }
+}
