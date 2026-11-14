@@ -276,6 +276,22 @@ answers; Ops `describe-jobs` prints both pin values for each of the nine jobs an
 is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
 its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
+**Turning the insider endpoint off.** Set `ENABLE_INSIDER_ACTIVITY=false` in the service's `ci.yml`
+map and in the two gates that pin `true` (`tests/unit/test_sec_process_budgets.py`,
+`tests/unit/test_prod_flag_visibility.py`), in a change that also touches a deployable `backend/`
+path: `ci.yml` and `backend/tests/` alone start no deploy, and the service would keep `true`. To
+turn it off within a minute, before that change merges, the founder runs
+`gcloud run services update earningsnerd-backend --region=us-west1 --update-env-vars=ENABLE_INSIDER_ACTIVITY=false`;
+that holds only until the next deploy re-asserts the `ci.yml` value, so the change above still
+follows. Confirm either with Ops `describe-service` and a signed-out
+`GET /api/companies/AAPL/insiders`, which answers 404 when off and 401 when on. Off, the endpoint
+answers 404 to everyone, the panel shows nothing and no visit starts a scan. The task worker does
+not read the flag: a scan already queued reads its remaining filings (at most 60 an issuer, eight a
+step, three issuers at once), and one paused by SEC resumes after its pause (at most 6 h) and stops
+again at the first refusal. Do not pause the queue to stop them: it carries account mail. Turn the
+endpoint off whenever durable tasks are turned off (`docs/DEPLOYMENT.md`): scans start only through
+them, and without them a beta reader's panel says it is reading and never fills.
+
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
 Every provider attempt logs one JSON line, `ai_call {...}`, from `app/services/ai_metrics.py`

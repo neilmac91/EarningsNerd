@@ -1372,7 +1372,9 @@ jobs:
           # endpoint is on (ENABLE_INSIDER_ACTIVITY=true, re-asserted on every deploy): it answers beta
           # accounts from a stored scan and makes no SEC request on this service; the scan runs on the
           # task worker's own pinned buckets, eight filings a step, and stops itself when SEC pushes
-          # back (ADR 0009). Turning it off is this value set to false.
+          # back (ADR 0009). Turning it off is this value set to false in a change that also touches
+          # a deployable backend/ path: one confined to this file and tests deploys nothing
+          # (docs/OPERATIONS.md, "Turning the insider endpoint off").
           # tests/unit/test_sec_process_budgets.py and docs/OPERATIONS.md state the arithmetic and
           # what it does not guarantee.
           cpu_billing=--no-cpu-throttling

@@ -163,7 +163,14 @@ beta user can ask.
 - Form 4/A, Form 3 and Form 5 stay out, as today.
 - Turning it on is a flag: `ENABLE_INSIDER_ACTIVITY=true` on the API service in the deploy, which the budget and
   flag tests pin and the founder approved (2026-11-14: "fine to use my contact for step 4. please manage it
-  yourself where possible"). Turning it off is the same value set to `false`.
+  yourself where possible"). Turning it off is the same value set to `false`, deployed: a change confined to
+  `ci.yml` and tests starts no deploy, so it also touches a deployable `backend/` path (`docs/OPERATIONS.md`,
+  "Turning the insider endpoint off"). Off stops visits starting scans and hides the panel; a scan already
+  queued finishes on the worker, which does not read the flag.
+- The check on real filings came before the switch, not after it: the frontend build already had its flag on, so
+  beta accounts see the panel as soon as the switch deploys. Where the two points above say the production
+  trial reads the first real filings "before the panel is shown to anyone", the run of
+  `verify_insider_extraction.py` on 43 real Form 4s (step 4 below) is that check.
 
 ## How it is built and proven
 

@@ -146,7 +146,9 @@ any change to the worker's or the queue's configuration or the service's sizing,
 first whenever delivery is switched on again.
 
 For rollback of the broader background-delivery rollout, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
-with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
+with `--no-cpu-throttling`; keep the worker available to finish queued work. Turn the insider endpoint
+off in the same rollback (`docs/OPERATIONS.md`, "Turning the insider endpoint off"): its scans start only
+through durable tasks, and without them a beta reader's panel says it is reading and never fills. Do not pause the queue
 or delete it with unfinished tasks. CI pins the flag-off API back to always allocated CPU
 (`--no-cpu-throttling` unless the variable is `true`); confirm a rollback took with
 `describe-service`'s `Revision CPU allocation` line. A hand-rolled worker rollback by
