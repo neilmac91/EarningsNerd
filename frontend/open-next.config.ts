@@ -5,7 +5,7 @@ import doQueue from '@opennextjs/cloudflare/overrides/queue/do-queue'
 
 // How the app runs when it is built for Cloudflare Workers (`npm run cf:build`). Vercel's build does not read this
 // file. docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)", has the measurements behind each choice.
-export default defineCloudflareConfig({
+const cloudflare = defineCloudflareConfig({
   // Rendered pages (the ISR cache: /company/[ticker], /filing/[id], the static routes) are stored in R2, with a
   // copy in the edge cache of each Cloudflare location that serves them, kept for at most the page's `revalidate`
   // and refreshed from R2 in the background on each hit. Measured on staging: it took the median first byte from
@@ -19,3 +19,10 @@ export default defineCloudflareConfig({
   // median first byte of /pricing and /company/AAPL from about 500 ms to about 270 ms.
   enableCacheInterception: true,
 })
+
+// The Workers build leaves Vercel Web Analytics out of the app: only Vercel serves the script it loads
+// (lib/featureFlags.ts ENABLE_VERCEL_ANALYTICS). `npm run cf:build` and scripts/cf-deploy.mjs both build through
+// this command.
+const config = { ...cloudflare, buildCommand: 'NEXT_PUBLIC_VERCEL_ANALYTICS=false npm run build' }
+
+export default config

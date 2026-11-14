@@ -604,7 +604,7 @@ schedule (read on the experiment copy with the cookie broken: each run counted a
 
 | File (under `frontend/`) | What it sets |
 |---|---|
-| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server is reached |
+| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server is reached. It also builds the app without Vercel Web Analytics, whose script only Vercel serves |
 | `wrangler.jsonc`, `cloudflare-front.mjs` | The front Worker: its custom domain, the static files, the R2 bucket, the Durable Object, the binding to the server Worker, the once-a-minute schedule and what it requests, and `X-Robots-Tag: noindex, nofollow` on every response while `ROBOTS_NOINDEX` is `true` (`cloudflare-robots.mjs`) |
 | `wrangler.server.jsonc`, `cloudflare-server.mjs` | The server Worker: its placement, the same R2 bucket, and the front Worker's Durable Object by name |
 | `cloudflare-cache-writes.mjs` | A cache write is answered at once and finishes after the response. Next waits for each write, and a write to R2 took about 350 ms, twice on a page rendered for the first time |
@@ -759,14 +759,15 @@ noindex: it can be deployed and checked without a reader reaching it.
 | `WAITLIST_MODE` and three flags from `vercel.json` `env`; the rest from the project's Environment Variables | `WAITLIST_MODE` in the wrangler file; every `NEXT_PUBLIC_*` value exported in the shell that builds |
 | The Sentry release and environment from `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV` | Set by hand at build: `NEXT_PUBLIC_SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT` |
 | An `ETag` on each page, so a repeat visit can be answered 304 | None: the page is sent again |
-| Vercel Web Analytics, served at `/_vercel/insights/*` | Nothing serves that path: `app/private-analytics.tsx` requests a script that answers 404, for a visitor who allowed analytics |
+| Vercel Web Analytics, served at `/_vercel/insights/*` | Left out of the build: `open-next.config.ts` builds the app with `NEXT_PUBLIC_VERCEL_ANALYTICS=false`, and `app/private-analytics.tsx` then renders nothing. PostHog is the analytics on Workers |
 | A deploy on each push to `main`, and a preview for each pull request | A deploy by hand; no previews |
 
 **Open before a cutover.**
 
-1. Web Analytics. On Workers the Vercel script does not load, and each request for it renders the not-found page.
-   Decided 2026-11-14 (founder): the component is left out of the Workers build, and PostHog is the analytics
-   there. The code change is not made yet.
+1. Web Analytics: done. Nothing on Workers serves the Vercel script, and each request for it rendered the
+   not-found page. Decided 2026-11-14 (founder): the Workers build leaves the component out, and PostHog is the
+   analytics there. Checked in a browser against the local Workers runtime with analytics allowed: no request for
+   the script.
 2. Deploys. Production on Workers needs what Vercel gives today: a deploy on each push to `main`. Decided
    2026-11-14 (founder): a workflow that holds a Cloudflare token and the build's values. It does not exist yet,
    and its secrets are the founder's to add. Without it production would trail `main` until someone deploys by

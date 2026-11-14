@@ -254,6 +254,19 @@ describe('the two pairs of Workers', () => {
     expect(new Set([...owned(staging), ...owned(production)]).size).toBe(6)
   })
 
+  it('are built without Vercel Web Analytics, whose script only Vercel serves', () => {
+    // Every Workers build goes through open-next.config.ts `buildCommand`: `npm run cf:build` and the deploy script
+    // both run `opennextjs-cloudflare build`, which runs it. The variable it sets is the one the flag reads, and
+    // tests/unit/privateAnalytics.spec.tsx renders the component under it.
+    expect(read('open-next.config.ts')).toContain("const config = { ...cloudflare, buildCommand: 'NEXT_PUBLIC_VERCEL_ANALYTICS=false npm run build' }")
+    expect(read('lib/featureFlags.ts')).toContain("export const ENABLE_VERCEL_ANALYTICS = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS !== 'false'")
+    expect(read('app/private-analytics.tsx')).toContain('return ENABLE_VERCEL_ANALYTICS && allowed ? <Analytics beforeSend={beforeSendVercel} /> : null')
+    expect((JSON.parse(read('package.json')).scripts as Record<string, string>)['cf:build']).toBe('opennextjs-cloudflare build')
+    expect(read('scripts/cf-deploy.mjs')).toContain("run(['opennextjs-cloudflare', 'build'])")
+    // Vercel's own build must not carry it: vercel.json sets build variables for production.
+    expect(read('vercel.json')).not.toContain('NEXT_PUBLIC_VERCEL_ANALYTICS')
+  })
+
   it('are each deployed by their own script, and staging is the pair the bare commands mean', () => {
     const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>
     expect(scripts['cf:deploy']).toBe('node scripts/cf-deploy.mjs')
