@@ -363,7 +363,7 @@ def test_a_task_difference_is_named_by_its_field_alone(field):
     task = copy.deepcopy(expected)
     mutate(task)
     assert ops.task_differences(task, expected, ops.CLEANUP_ARGS) == named
-    assert not ops.matches_task(task, expected, ops.CLEANUP_ARGS)
+    assert ops.task_differences(task, expected, ops.CLEANUP_ARGS)
 
 
 def test_inspection_names_why_no_execution_is_current_evidence_and_shows_no_value(capsys):

@@ -98,6 +98,13 @@ describe('waitlist gate (WAITLIST_MODE=true, the rollback state)', () => {
       expect(middleware(reqFor(lookalike)).headers.get('location'), `${lookalike} stays gated`).toBe('https://earningsnerd.io/waitlist')
     }
   })
+
+  it("passes the fonts directory globals.css loads its figure-minus face from, not a look-alike path", () => {
+    expect(middleware(reqFor('/fonts/en-figure-minus.woff2')).headers.get('location')).toBeNull()
+    for (const lookalike of ['/fontsx', '/fontsx/en-figure-minus.woff2']) {
+      expect(middleware(reqFor(lookalike)).headers.get('location'), `${lookalike} stays gated`).toBe('https://earningsnerd.io/waitlist')
+    }
+  })
 })
 
 // The referral link the backend writes (/waitlist?ref=CODE, waitlist_service.build_referral_link)

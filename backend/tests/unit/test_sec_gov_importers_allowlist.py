@@ -7,7 +7,6 @@ filing documents can arrive as dynamic URLs. Review those transport paths separa
 CLAUDE rule 5.
 
 Sanctioned literal homes beyond ``services/edgar/**``:
-- ``integrations/sec_api.py`` — EFTS; existing shared limiter/backoff, no breaker.
 - ``utils/sec_urls.py`` — pure URL construction/validation, no I/O.
 - ``config.py`` — Settings URL defaults, not a call site.
 """
@@ -17,7 +16,6 @@ from pathlib import Path
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 
 ALLOWED_SEC_GOV_FILES = {
-    "integrations/sec_api.py",
     "utils/sec_urls.py",
     "config.py",
 }
@@ -76,6 +74,8 @@ def test_allowlisted_files_still_exist():
     """A stale allow-list entry is a smell (a sanctioned home moved without the gate following)."""
     missing = [rel for rel in ALLOWED_SEC_GOV_FILES if not (APP_DIR / rel).exists()]
     assert not missing, f"Prune ALLOWED_SEC_GOV_FILES: {missing}"
+    unused = [rel for rel in ALLOWED_SEC_GOV_FILES if not _sec_gov_string_sites(APP_DIR / rel)]
+    assert not unused, f"Prune ALLOWED_SEC_GOV_FILES (no sec.gov literal left): {unused}"
 
 
 # The two non-edgar files sanctioned for `sec.gov` literals are sanctioned as URL *text* only —

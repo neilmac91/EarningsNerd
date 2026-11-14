@@ -85,9 +85,9 @@ def _resolve_citations(
     This scans every ``[n]``/``[F n]``-shaped marker once, in the order it appears, resolves each
     against whichever candidate pool matches (declared text citations first, then tool-fetched
     facts), and assigns one continuous sequential number (1, 2, 3, ...) on first appearance — the
-    same number is substituted back into the returned answer text. A marker with no matching
-    candidate is left as literal text (the same "unmatched marker" contract the frontend already
-    implements, now enforced server-side too, uniformly for both citation kinds).
+    same number is substituted back into the returned answer text. A plain ``[n]`` with no matching
+    candidate is left as literal text (the "unmatched marker" contract the frontend implements); an
+    unmatched ``[F n]`` is stripped from the prose together with the spaces before it.
 
     FACT markers additionally pass a value-adjacency guard on EVERY occurrence (including
     repeat mentions): the figure stated just before the marker must match the fact's value, or

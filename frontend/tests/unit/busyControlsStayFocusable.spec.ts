@@ -978,12 +978,6 @@ const MAX_RETRY_LABEL_PINNED_SITES = 6
  * (lessons/test-allowlist-caps-are-equalities.md); a string a reader can see is never pinned here.
  */
 const ALLOW_RETRY_WORD: Record<string, { sites: string[]; reason: string }> = {
-  'lib/formatters.ts': {
-    sites: ['"retry"'],
-    reason:
-      "PLACEHOLDER_PATTERNS mirrors the backend's summary_sections.PLACEHOLDER_PATTERNS: a substring isPlaceholderText " +
-      'matches to hide filler text from the page, never text the page shows.',
-  },
   'features/summaries/lib/summaryPlaceholder.ts': {
     sites: ['"Summary temporarily unavailable. Please retry."'],
     reason:
@@ -992,8 +986,8 @@ const ALLOW_RETRY_WORD: Record<string, { sites: string[]; reason: string }> = {
       'its place, never this text.',
   },
 }
-const MAX_RETRY_WORD_FILES = 2
-const MAX_RETRY_WORD_SITES = 2
+const MAX_RETRY_WORD_FILES = 1
+const MAX_RETRY_WORD_SITES = 1
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

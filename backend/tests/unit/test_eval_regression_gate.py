@@ -13,7 +13,7 @@ from evals.regression_gate import (
     evaluate_report,
 )
 
-# A pinned-baseline stats block matching production: clean gates, ~1.0 precision/coverage.
+# A synthetic pinned-baseline stats block (not production's figures): clean gates, ~1.0 precision/coverage.
 BASELINE_STATS = {
     "gate_fail_rate": 0.0,
     "mean_numeric_precision": 1.0,

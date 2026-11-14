@@ -49,8 +49,7 @@ async def test_summarize_retries_on_empty_payload():
     
     # Mock internal helpers to isolate the loop logic
     service.get_model_for_filing = MagicMock(return_value="primary-model")
-    service._get_type_config = MagicMock(return_value={"ai_timeout": 1.0, "max_tokens": 100})
-    service._build_section_sample = MagicMock(return_value="Sample text")
+    service._get_type_config = MagicMock(return_value={"max_tokens": 100})
     service._clean_json_payload = lambda x: x.strip()
     # Mock finding empty sections to prevent post-processing modifications
     service._find_empty_sections = MagicMock(return_value={})

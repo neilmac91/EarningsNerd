@@ -21,8 +21,7 @@ Usage:
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
-from typing import Callable, TypeVar, ParamSpec, Awaitable
+from typing import Callable, TypeVar
 
 from app.services.request_work import run_executor_work
 
@@ -32,7 +31,6 @@ from .circuit_breaker import edgar_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
 T = TypeVar("T")
 
 # Dedicated thread pool for EdgarTools operations. Using a dedicated pool prevents EdgarTools from
@@ -199,56 +197,6 @@ async def run_with_circuit_breaker(
 
     async with edgar_circuit_breaker:
         return await run_in_executor_with_timeout(func, timeout)
-
-
-def async_edgar(func: Callable[P, T]) -> Callable[P, Awaitable[T]]:
-    """
-    Decorator to convert a synchronous EdgarTools function to async.
-
-    Usage:
-        @async_edgar
-        def get_company(ticker: str) -> Company:
-            return Company(ticker)
-
-        # Now can be awaited
-        company = await get_company("AAPL")
-    """
-    @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        return await run_in_executor(func, *args, **kwargs)
-    return wrapper
-
-
-class AsyncEdgarContext:
-    """
-    Context manager for batching EdgarTools operations.
-
-    This can be used to ensure proper cleanup and provide
-    a clean interface for multiple operations.
-
-    Usage:
-        async with AsyncEdgarContext() as ctx:
-            company = await ctx.run(Company, "AAPL")
-            filings = await ctx.run(lambda: company.get_filings(form="10-K"))
-    """
-
-    def __init__(self, timeout: float = EDGAR_DEFAULT_TIMEOUT_SECONDS):
-        self.timeout = timeout
-        self._operations_count = 0
-
-    async def __aenter__(self) -> "AsyncEdgarContext":
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        logger.debug(f"AsyncEdgarContext completed {self._operations_count} operations")
-
-    async def run(self, func: Callable[..., T], *args, **kwargs) -> T:
-        """Run a synchronous function within this context."""
-        self._operations_count += 1
-        return await run_in_executor_with_timeout(
-            lambda: func(*args, **kwargs),
-            timeout=self.timeout
-        )
 
 
 def get_executor_stats() -> dict:

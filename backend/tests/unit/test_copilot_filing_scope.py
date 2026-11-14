@@ -189,7 +189,7 @@ def test_yoy_52_53_week_source_windows_work_with_negative_prior(facts):
     assert call("compute_metric", kind="yoy_growth", concept="revenue").get("value") == .5
 
 
-def test_session_failure_is_sanitized_and_success_session_closes(monkeypatch):
+def test_session_failure_is_sanitized_and_its_session_closes(monkeypatch):
     class Broken:
         closed = False
 

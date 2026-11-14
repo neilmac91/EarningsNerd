@@ -54,9 +54,8 @@ export const getCalendar = async (from: string, to: string): Promise<CalendarRan
 }
 
 /** Tickers the signed-in user has earnings alerts enabled for.
-    ASSUMPTION (README §Assumptions): served from the Watchlist rows'
-    `earnings_alert` flag (strategy §3.7 models the subscription as
-    `Watchlist.earnings_alert BOOLEAN`). */
+    Served by `GET /api/watchlist/earnings-alerts` from the Watchlist rows'
+    `earnings_alert` flag (strategy §3.7). */
 export const getEarningsAlertTickers = async (): Promise<string[]> => {
   if (USE_CALENDAR_FIXTURES) {
     const fixtures = await import('./calendar-fixtures')

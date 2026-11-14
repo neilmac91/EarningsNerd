@@ -3,6 +3,11 @@
 // imports it, and calling one on the server fails the prerender (lessons/frontend-client-exports-need-next-build.md;
 // gate: tests/unit/serverCallsClientExport.spec.ts).
 
+/** The chip's shape as a static label, where a page shows what a label looks like (the landing page's legend and
+ *  receipt card): the same pill, ink and face, with nothing that reads as a control (no hover, no focus ring). */
+export const sourceTraceLabelClass = (): string =>
+  'inline-flex items-center gap-1 rounded-xl border border-border-light bg-panel-light px-2 py-px align-middle font-data text-xs font-medium leading-4 text-text-secondary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark'
+
 /**
  * The chip's full trigger className (2026-10 critique P-10): 12px/500 in the data face, 20px tall
  * (16px leading, 1px padding and a 1px hairline each side; no fixed or min height, so a long label
@@ -13,11 +18,6 @@
  * so the landing page's Trace-to-Source demo and the homepage example render a chip identical to the
  * product's.
  */
-/** The chip's shape as a static label, where a page shows what a label looks like (the landing page's legend and
- *  receipt card): the same pill, ink and face, with nothing that reads as a control (no hover, no focus ring). */
-export const sourceTraceLabelClass = (): string =>
-  'inline-flex items-center gap-1 rounded-xl border border-border-light bg-panel-light px-2 py-px align-middle font-data text-xs font-medium leading-4 text-text-secondary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark'
-
 export const sourceTraceChipClass = (selected = false): string => {
   const tone = selected
     ? 'border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark'

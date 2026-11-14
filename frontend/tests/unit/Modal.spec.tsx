@@ -109,8 +109,22 @@ describe('ui/Modal keyboard contract', () => {
     render(<Host dismissible={false} />)
     const { user, dialog } = await openFromOpener()
     await user.keyboard('{Escape}')
+    fireEvent.mouseDown(dialog.parentElement as HTMLElement)
     fireEvent.click(dialog.parentElement as HTMLElement)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('closes on a press made on the scrim, not on a drag from the panel released over it', async () => {
+    render(<Host />)
+    const { dialog } = await openFromOpener()
+    const scrim = dialog.parentElement as HTMLElement
+    // A text-selection drag: the press lands in the panel, and the click goes to the common ancestor, the scrim.
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'First action' }))
+    fireEvent.click(scrim)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.mouseDown(scrim)
+    fireEvent.click(scrim)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('owns Tab and Escape over a trap that armed first (the copilot sheet beneath it)', async () => {

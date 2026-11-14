@@ -56,7 +56,6 @@ const paddingCap = Object.fromEntries(PADDING_CAP_STEPS.map((n) => [`cap-${n}`, 
 
 module.exports = {
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     // Domain modules (the "Ask this Filing" Copilot, etc.) live here. Without this glob, Tailwind

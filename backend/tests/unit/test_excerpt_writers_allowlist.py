@@ -396,7 +396,7 @@ def test_the_scan_scores_every_planted_form():
 
 @pytest.mark.parametrize("path", [
     "backend/app", "backend/main.py", "backend/task_worker_main.py", "backend/scripts", "backend/evals",
-    "backend/migrations", "ops", "scripts", "tasks", ".github/workflows",
+    "backend/migrations", "ops", "tasks", ".github/workflows",
 ])
 def test_the_scan_reads_every_place_that_can_reach_the_database(path):
     files = [p.relative_to(REPO_DIR).as_posix() for p in _scanned_files()]

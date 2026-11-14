@@ -558,7 +558,7 @@ export const getSummary = async (filingId: number, signal?: AbortSignal): Promis
     }
     return response.data
   } catch (error: unknown) {
-    // If 404 or other error, return null instead of throwing
+    // A 404 means no summary yet: return null. Every other error is rethrown.
     if (isApiError(error) && getErrorStatus(error) === 404) {
       return null
     }
@@ -594,13 +594,6 @@ export const getSavedSummaryStatus = async (summaryId: number): Promise<{ is_sav
 
 export const deleteSavedSummary = async (savedSummaryId: number): Promise<void> => {
   await api.delete(`/api/saved-summaries/${savedSummaryId}`)
-}
-
-export const updateSavedSummary = async (savedSummaryId: number, notes: string): Promise<SavedSummary> => {
-  const response = await api.put(`/api/saved-summaries/${savedSummaryId}`, null, {
-    params: { notes },
-  })
-  return response.data
 }
 
 // --- A5: "What Changed" period-over-period change report ---

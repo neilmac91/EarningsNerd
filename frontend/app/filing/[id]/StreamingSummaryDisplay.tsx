@@ -327,7 +327,7 @@ export default function StreamingSummaryDisplay({
   const pctLabel = useCountUp(roundedProgress, { format: (v) => `${Math.round(v)}%` })
 
   if (!isClient) {
-    // SSR / pre-hydration: a quiet skeleton card (gates Math.random / Date below).
+    // SSR / pre-hydration: a quiet skeleton card; the failure heading's focus hand-off waits for isClient.
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="p-cap-8">

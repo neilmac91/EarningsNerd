@@ -53,4 +53,13 @@ describe('FilingFeed overflow link', () => {
     renderFeed(undefined)
     await screen.findByRole('link', { name: 'See all companies' })
   })
+
+  it('fetches one company past the six cards it shows, enough to tell whether more exist', async () => {
+    api.getDashboardFeed.mockReset()
+    api.getDashboardFeed.mockResolvedValue(Array.from({ length: 7 }, (_, i) => item(i + 1)))
+    renderFeed(undefined)
+    await screen.findByRole('link', { name: 'See all companies' })
+    expect(api.getDashboardFeed).toHaveBeenCalledWith(7)
+    expect(screen.getAllByRole('article')).toHaveLength(6)
+  })
 })

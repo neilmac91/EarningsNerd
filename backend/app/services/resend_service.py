@@ -71,7 +71,7 @@ async def send_email(
 ) -> dict:
     """Send one email. ``text`` is its plain-text part, sent only when given (an empty string asks for none).
     Given none, Resend builds one from the HTML: so it does for the mails the routers send (the contact form's
-    confirmation and its notice, the feedback notice and the admin's test mails), and for a delivery batch frozen
+    notice, the feedback notice and the admin's test mails), and for a delivery batch frozen
     before batches held their text part, whose replay must be the request its key was bound to (E110).
     Omitting ``reply_to`` uses the current setting; explicit ``None`` omits the header, so a durable
     batch can replay the omission it froze before Reply-To was introduced. A string overrides the setting;

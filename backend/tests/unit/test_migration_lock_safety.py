@@ -12,9 +12,9 @@
    no-op that takes no table lock. The allow-list can only shrink.
 
    The same trap in a smaller lock: plain `CREATE [UNIQUE] INDEX IF NOT EXISTS` opens the table with
-   a SHARE lock before the existence check, so it queues behind any open writer. Of the 40 index
-   statements in `backend/migrations/` today, 8 (in 7 files) target a table the file did not create;
-   those files form a second frozen, shrink-only list. New files guard with a `pg_indexes` check in
+   a SHARE lock before the existence check, so it queues behind any open writer. The index
+   statements in `backend/migrations/` that target a table the file did not create form a second
+   frozen, shrink-only list. New files guard with a `pg_indexes` check in
    a DO block, or use `CONCURRENTLY` outside a transaction block.
 
    A guarded `DROP COLUMN` must sit in a branch opened by the one drop guard, `IF EXISTS (SELECT 1
@@ -60,7 +60,7 @@
    rules explicitly.
 
 Known limits, by design: a table the same file CREATEs is exempt from both detectors, yet on deploy
-N+1 that table exists and its `CREATE INDEX IF NOT EXISTS` statements (32 today) still take SHARE
+N+1 that table exists and its `CREATE INDEX IF NOT EXISTS` statements still take SHARE
 locks; and that exemption is text-level, so a file that writes `CREATE TABLE IF NOT EXISTS <table
 that already exists>` before its ALTER/INDEX bypasses the gate (reviewers, not regexes, catch that).
 The migration ledger (WS-2, ADR-0007) removes re-application on deploys altogether; these detectors

@@ -4,8 +4,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, event, inspect as sa_inspect, text
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
 
 if TYPE_CHECKING:

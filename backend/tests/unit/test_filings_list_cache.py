@@ -68,3 +68,16 @@ def test_eviction_bounds_memory(monkeypatch):
     assert len(f._filings_synced_at) == 3
     assert ("T0", ("10-K",)) not in f._filings_synced_at
     assert ("T3", ("10-K",)) in f._filings_synced_at
+
+
+def test_restamp_at_capacity_evicts_nothing_and_refreshes_recency(monkeypatch):
+    monkeypatch.setattr(f, "MAX_FILINGS_SYNC_ENTRIES", 3)
+    for i in range(3):
+        f._mark_filings_synced(f"T{i}", ["10-K"], COMPANY_ID)
+    # Re-stamping an existing key at capacity keeps every key and makes the re-stamped one newest.
+    f._mark_filings_synced("T1", ["10-K"], COMPANY_ID)
+    assert list(f._filings_synced_at) == [("T0", ("10-K",)), ("T2", ("10-K",)), ("T1", ("10-K",))]
+    # The next new key then evicts T0, the oldest stamp, not the hot T1.
+    f._mark_filings_synced("T3", ["10-K"], COMPANY_ID)
+    assert ("T1", ("10-K",)) in f._filings_synced_at
+    assert ("T0", ("10-K",)) not in f._filings_synced_at

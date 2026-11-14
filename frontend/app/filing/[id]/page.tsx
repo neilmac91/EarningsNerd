@@ -11,6 +11,7 @@ import {
 } from '@/lib/serverApi'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { formatLocalDate } from '@/lib/format'
+import { jsonLdHtml } from '@/lib/jsonLd'
 import { SOCIAL_CARD } from '@/lib/socialCard'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -172,7 +173,7 @@ export default async function FilingPage({ params }: FilingPageProps) {
       {filing && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(filing)) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(buildJsonLd(filing)) }}
         />
       )}
       <FilingPageClient initialFiling={filing} initialSummary={summary} initialChangeReport={changeReport} />

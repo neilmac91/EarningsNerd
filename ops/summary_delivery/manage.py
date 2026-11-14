@@ -642,7 +642,7 @@ def main(argv: list[str] | None = None) -> int:
                 result = cleanup(cloud, manifest)
         write_private(args.output, result)
         print(json.dumps({"state": result.get("state", "completed"), "operation": args.operation,
-                          "artifact": args.output.name, "plan_sha256": result.get("sha256")}))
+                          "artifact": args.output.name, "plan_sha256": result.get("sha256") or args.expected_plan_sha256 or None}))
         return 1 if result.get("state") == "UNVERIFIED" else 0
     except Exception:
         # Provider bodies, credentials, auth headers and source text are never formatted.

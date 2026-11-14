@@ -285,7 +285,7 @@ describe('the teaser (anonymous and Free)', () => {
     expect(LABELS(screen.getAllByRole('listitem'))).toEqual(['Modified', 'Added', 'Removed'])
     expect(screen.getByText('2 more changes in this section. Pro shows every change.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login?redirect=%2Ffiling%2F42')
     expect(mockAnalytics.wordingChangesViewed).toHaveBeenCalledWith(expect.objectContaining({ access: 'teaser', itemsTotal: 5 }))
     expect(mockAnalytics.paywallPromptShown).toHaveBeenCalledTimes(1)
     expect(mockAnalytics.paywallPromptShown).toHaveBeenCalledWith({ filingId: 42, ticker: 'AAPL', filingType: '10-K', entryPoint: 'wording_changes' })

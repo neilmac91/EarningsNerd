@@ -22,9 +22,8 @@ import { useInvitedCohort } from '@/features/auth/hooks/useInvitedCohort'
 import { CollectionUnavailable } from '@/features/legal/components/CollectionGate'
 import { RegistrationLoading } from '@/features/legal/components/CollectionLoading'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
+import { legalLinkClass } from '@/features/legal/lib/legalLinkClass'
 import { ACCOUNT_TERMS_VERSION, ACCOUNT_ELIGIBILITY_VERSION, isAccountPolicyCurrent } from '@/features/legal/policy'
-
-const legalLinkClass = 'box-decoration-clone rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
 
 export interface RegisterFormProps {
   /**

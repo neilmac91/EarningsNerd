@@ -120,8 +120,3 @@ def evaluate_delivery(
     # ALWAYS digest-only — never realtime even for a Pro user with realtime on — to avoid spam.
     realtime = bool(ent.realtime_alerts and prefs.realtime and not _is_six_k(filing_type))
     return (True, realtime)
-
-
-def entitlements_for(user: User) -> Entitlements:
-    """Thin pass-through so callers don't import two modules."""
-    return get_entitlements(user)

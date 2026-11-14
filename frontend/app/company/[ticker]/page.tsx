@@ -6,6 +6,7 @@ import { fetchCompanyServer, fetchCompanyFilingsServer } from '@/lib/serverApi'
 import type { Company } from '@/features/companies/api/companies-api'
 import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
 import { LOGO_DEV_ENABLED } from '@/lib/featureFlags'
+import { jsonLdHtml } from '@/lib/jsonLd'
 import { SOCIAL_CARD } from '@/lib/socialCard'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -126,7 +127,7 @@ export default async function CompanyPage({ params }: CompanyPageProps) {
       {company && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(company)) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(buildJsonLd(company)) }}
         />
       )}
       <CompanyPageClient initialCompany={company} initialFilings={filings} />

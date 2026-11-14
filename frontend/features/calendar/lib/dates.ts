@@ -72,13 +72,23 @@ export function todayEasternIso(): string {
 
 // ---- NYSE full-closure holidays -------------------------------------------
 // Computed, not hardcoded, so month navigation is honest in any year.
-// Good Friday has no simple civil rule — table the nearby years.
-const GOOD_FRIDAY: Record<number, string> = {
-  2024: '2024-03-29',
-  2025: '2025-04-18',
-  2026: '2026-04-03',
-  2027: '2027-03-26',
-  2028: '2028-04-14',
+// Good Friday: two days before Western Easter (anonymous Gregorian computus).
+function goodFriday(y: number): string {
+  const a = y % 19
+  const b = Math.floor(y / 100)
+  const c = y % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return addDaysIso(toIso(y, month, day), -2)
 }
 
 function nthWeekday(y: number, m: number, weekday: number, n: number): string {
@@ -121,14 +131,14 @@ function holidaysForYear(y: number): Record<string, string> {
     [nthWeekday(y, 1, 1, 3)]: 'Martin Luther King Jr. Day',
     [nthWeekday(y, 2, 1, 3)]: "Washington's Birthday",
     [lastWeekday(y, 5, 1)]: 'Memorial Day',
-    [observed(toIso(y, 6, 19))]: 'Juneteenth',
     [observed(toIso(y, 7, 4))]: 'Independence Day',
     [nthWeekday(y, 9, 1, 1)]: 'Labor Day',
     [nthWeekday(y, 11, 4, 4)]: 'Thanksgiving Day',
     [observed(toIso(y, 12, 25))]: 'Christmas Day',
   }
-  const gf = GOOD_FRIDAY[y]
-  if (gf) map[gf] = 'Good Friday'
+  // NYSE first closed for Juneteenth in 2022.
+  if (y >= 2022) map[observed(toIso(y, 6, 19))] = 'Juneteenth'
+  map[goodFriday(y)] = 'Good Friday'
   holidayCache.set(y, map)
   return map
 }

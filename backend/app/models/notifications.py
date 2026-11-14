@@ -2,8 +2,9 @@
 
 `NotificationPreferences` is one row per user (form-type opt-ins, channel, digest cadence, and a
 Pro-gated realtime flag). `NotificationLog` has unique ``(user_id, filing_id, channel)``
-rows. The engine sends before inserting the log, so the constraint cannot prevent concurrent
-external sends. Existing logs, including failed attempts, currently suppress delivery retries.
+rows: the compatibility and in-app feed record, written only when the provider accepts the email.
+The durable send state lives in the delivery batches (``notification_delivery``, E11b-1). An
+existing row, historical ones included, suppresses re-selection of that filing for that channel.
 
 Kept portable like the rest of the schema: plain ``String`` not PG enums, ``DateTime(timezone=True)``
 so the same tables work on Postgres (prod) and SQLite (tests).
@@ -58,7 +59,7 @@ class NotificationLog(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     filing_id = Column(Integer, ForeignKey("filings.id", ondelete="CASCADE"), nullable=False, index=True)
     channel = Column(String(20), nullable=False, default=CHANNEL_EMAIL)
-    status = Column(String(20), nullable=False, default="sent")   # sent | failed | skipped
+    status = Column(String(20), nullable=False, default="sent")   # sent (the only value written; older rows may hold others)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="notification_logs")

@@ -1,16 +1,17 @@
 """Wave 0 anchors (T0) for the trend_analysis_service hot-module refactor.
 
-``tasks/refactor-plan-2026-10.md`` (M3) moves ``app/services/trend_analysis_service.py`` into a
-``trend_analysis/`` package behind a façade, then splits ``build_dataset``,
-``build_observation_catalogue`` and ``stream_trend_narrative`` into phases. Today's tests mostly
-assert membership; these pin exact values at the seams those cuts cross, so a move or split that
-changes behaviour fails here. Docstring line numbers are as of 76d45732.
+``tasks/refactor-plan-2026-10.md`` (M3) moved ``app/services/trend_analysis_service.py`` into the
+``trend_analysis/`` package behind a façade and split ``build_dataset``,
+``build_observation_catalogue`` and ``stream_trend_narrative`` into phases. These are the standing
+behaviour pins that survived that split: they hold exact values at the seams the cuts crossed, so a
+move or split that changes behaviour fails here. Line numbers cited in the docstrings below are
+those of the pre-split module; find the code by symbol name.
 
 Hermetic and order-independent: a test that needs a database gets a private SQLite file, bound
 where the module's lazy imports read it (``app.database.SessionLocal``, as
 ``test_data_completeness.py:25-33`` does), and the provider is faked on the shared
 ``openai_service`` singleton with ``patch.object``, which deletes the instance attribute again on
-exit. The only moved-namespace patch is ``_DETECTORS`` in T0.4; T1 points it to
+exit. The only moved-namespace patch is ``_DETECTORS`` in T0.4, which targets
 ``app.services.trend_analysis.detectors``.
 """
 import copy

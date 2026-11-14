@@ -76,5 +76,10 @@ if __name__ == "__main__":
     parser.add_argument("--tickers", type=str, default=None, help="Comma-separated tickers (default: all).")
     parser.add_argument("--limit", type=int, default=None, help="Max filings to process.")
     args = parser.parse_args()
-    parsed_tickers = [t.strip() for t in args.tickers.split(",") if t.strip()] if args.tickers else None
+    parsed_tickers = None
+    if args.tickers is not None:
+        parsed_tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+        if not parsed_tickers:
+            # An empty list reads as no filter: the pass would cover every filing, --apply included.
+            parser.error("--tickers names no ticker; omit the flag to audit every filing")
     _main(apply=args.apply, tickers=parsed_tickers, limit=args.limit)

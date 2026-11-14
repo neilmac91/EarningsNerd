@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 import { queryKeys } from '@/lib/queryKeys'
@@ -44,6 +44,30 @@ describe('analysis snapshot consistency', () => {
     vi.spyOn(api, method).mockRejectedValue(new ApiError(409, 'Request failed with status code 409'))
     fireEvent.click(screen.getByRole('button', { name: cached ? 'Export PDF' : 'Export Excel' }))
     expect(await screen.findByText('This report is out of date. Run analysis again before exporting.')).toBeInTheDocument()
+  })
+
+  it('sends one PDF request however often the button is clicked while the file is being built', async () => {
+    vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)
+    vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) => {
+      handlers.onComplete({ kind: 'analysis', analysis_id: 9, snapshot_id: dataset.snapshot_id, narrative: 'Commentary for the displayed source snapshot.', citations: [], grounded: 0, cached: true, n_periods: 2 })
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(queryKeys.currentUser(), { id: 7 })
+    client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
+    client.setQueryData(queryKeys.analysisCoverage('META'), { ticker: 'META', company_name: 'Meta', supported: true, annual: dataset.periods.map((period) => ({ ...period, has_core: true })), quarterly: [], limits: { annual: 10, quarterly: 12 } })
+    render(<QueryClientProvider client={client}><AnalysisPageClient /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Select Meta' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    await screen.findByText('Commentary for the displayed source snapshot.')
+    let finish: (value: { data: Blob }) => void = () => {}
+    const get = vi.spyOn(api, 'get').mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    const button = screen.getByRole('button', { name: 'Export PDF' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    await act(async () => { finish({ data: new Blob() }) })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Export PDF' })).not.toHaveAttribute('aria-busy'))
   })
 
   it.each(['changed-snapshot', undefined])('withholds commentary when the completed snapshot is %s', async (snapshot) => {

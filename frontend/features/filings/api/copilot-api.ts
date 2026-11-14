@@ -60,8 +60,6 @@ export interface CopilotTurn {
 
 export interface CopilotHandlers {
   onProgress?: (stage: string) => void
-  onToken: (text: string) => void
-  onNotDisclosed: (answer: string) => void
   onComplete: (completion: CopilotCompletion) => void
   /** `code` comes only when the server sent a code this client knows on its registered channel (E31,
    *  docs/audit/contracts/error-codes.md): the classifiers below decide on it first, and on the words without it. */

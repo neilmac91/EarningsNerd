@@ -135,7 +135,9 @@ async def main(tickers: list[str]) -> int:
     # Mirror the app's EdgarTools identity requirement.
     from edgar import set_identity
 
-    identity = os.environ.get("EDGAR_IDENTITY", "neil@earningsnerd.io")
+    from app.services.edgar.config import EDGAR_IDENTITY
+
+    identity = EDGAR_IDENTITY
     set_identity(identity)
     print(f"EdgarTools identity: {identity}")
 

@@ -169,7 +169,7 @@
      for numerals living inside prose and UI copy (a pricing line, a sentence
      quoting a figure). NOT the recipe for data tables or KPI tiles: money, %,
      tickers and data columns take the MONO evidence register (`.tabular` /
-     font-data — DataTable numeric cells and StatCard figures render mono).
+     font-data — DataTable numeric cells and the KPI strip's figures render mono).
      Data surfaces that are already mono add .tnum only for the tabular flag. */
   .tnum {
     font-variant-numeric: tabular-nums;
@@ -417,17 +417,9 @@
   border-radius: 16px;
   overflow: hidden;
 }
-.mockup-frame-titlebar {
-  background: rgba(16, 24, 40, 0.04);
-  border-bottom: 1px solid rgba(16, 24, 40, 0.08);
-}
 .dark .mockup-frame {
   background: #0B1120; /* background.dark */
   border-color: rgba(255, 255, 255, 0.1);
-}
-.dark .mockup-frame-titlebar {
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 /* ===== filing reader + markdown surfaces (v2.1 — retargeted) ================

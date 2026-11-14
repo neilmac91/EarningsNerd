@@ -70,8 +70,9 @@ period (`"2025-12-31 (FY)"`).
 
 ## Rollout & remediation sequencing (operational)
 
-1. **Enable the flag in prod FIRST:** set `USE_STATEMENT_FINANCIALS=true` on the Cloud Run service.
-   If it stays off, summary regeneration / the scheduled `backfill_facts` re-fetch via the generic
+1. **Confirm the flag is on in prod FIRST:** `USE_STATEMENT_FINANCIALS` defaults to `True` and the
+   Cloud Run service pins it `true`; check the service still reads `true` before any remediation.
+   If it is off, summary regeneration / the scheduled `backfill_facts` re-fetch via the generic
    (flag-off) path and **re-corrupt** the data — the single highest-impact sequencing risk.
 2. **Backfill `Company.sic` (prerequisite):** no ingestion path populated it, so it is NULL in prod —
    which makes the SIC-band remediation match **zero** companies (and collapses the Peers cohort).

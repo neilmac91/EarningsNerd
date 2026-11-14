@@ -21,15 +21,6 @@ def test_normalize_ticker_canonicalizes_dual_class():
     assert idx.normalize_ticker(None) == ""
 
 
-def test_is_member_matches_regardless_of_separator():
-    assert idx.is_member("AAPL")
-    assert idx.is_member("MSFT")
-    assert idx.is_member("BRK.B")
-    assert idx.is_member("BRK-B")  # dash form normalizes to the committed dot form
-    assert not idx.is_member("ZZZZ")
-    assert not idx.is_member("")
-
-
 def test_active_member_filter_off_returns_none(monkeypatch):
     monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
     assert idx.active_member_filter() is None

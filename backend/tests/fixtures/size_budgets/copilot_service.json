@@ -1,13 +1,13 @@
 {
   "files": {
-    "app/services/copilot_service.py": 619,
+    "app/services/copilot_service.py": 610,
     "app/services/copilot/__init__.py": 1,
     "app/services/copilot/claim_repair.py": 281,
     "app/services/copilot/envelope.py": 165,
     "app/services/copilot/exceptions.py": 14,
     "app/services/copilot/fact_guards.py": 238,
     "app/services/copilot/figures.py": 197,
-    "app/services/copilot/prompt.py": 316,
+    "app/services/copilot/prompt.py": 315,
     "app/services/copilot/quotations.py": 430,
     "app/services/copilot/resolution.py": 182
   },

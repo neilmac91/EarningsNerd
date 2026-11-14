@@ -8,6 +8,7 @@ Covers two fixes from the pre-beta security sweep:
 """
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 import jwt
@@ -45,35 +46,44 @@ def test_registration_mode_rejects_typos_fail_closed(bad):
 
 # ── JWT clock-skew leeway ─────────────────────────────────────────────────────
 
-def test_jwt_decode_honors_configured_leeway():
+@pytest.mark.asyncio
+async def test_auth_dependencies_honor_configured_leeway(monkeypatch):
+    from fastapi import HTTPException
+    from fastapi.security import HTTPAuthorizationCredentials
+    from starlette.requests import Request
+
+    from app.routers import auth as auth_module
+
     assert settings.JWT_LEEWAY_SECONDS > 0  # dead config would re-open the skew bug
 
+    # A skew of minutes under a leeway set wider than it, so the refusal below does not depend on how fast
+    # the test runs: with a skew inside the default leeway the token turned valid by itself seconds later.
+    skew = timedelta(minutes=5)
+    monkeypatch.setattr(settings, "JWT_LEEWAY_SECONDS", int(skew.total_seconds()) + 60)
     now = datetime.now(timezone.utc)
     skewed = {
         "sub": "skew@example.com",
-        "iat": now + timedelta(seconds=5),
-        "nbf": now + timedelta(seconds=5),
-        "exp": now + timedelta(minutes=5),
+        "iat": now + skew,
+        "nbf": now + skew,
+        "exp": now + skew + timedelta(minutes=5),
         "iss": settings.JWT_ISSUER,
         "aud": settings.JWT_AUDIENCE,
         "jti": "test-skew",
     }
     token = jwt.encode(skewed, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    require = ["exp", "sub", "iat", "iss", "aud"]
+    user = SimpleNamespace(id=1, email="skew@example.com", is_active=True, is_beta=False)
+    monkeypatch.setattr(auth_module.auth_account_service, "find_user_by_email",
+                        lambda _db, email: user if email == user.email else None)
+    request = Request({"type": "http", "headers": []})
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
-    # Without leeway, a token whose nbf/iat is in the (near) future is rejected.
-    with pytest.raises(jwt.PyJWTError):
-        jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
-            audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
-            options={"require": require},
-        )
+    # With the configured leeway, a token whose nbf/iat is in the future authenticates.
+    assert await auth_module.get_current_user(request, credentials, None) is user
+    assert await auth_module.get_current_user_optional(request, credentials, None) is user
 
-    # With the configured leeway (as get_current_user now passes), it decodes.
-    decoded = jwt.decode(
-        token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
-        audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
-        options={"require": require},
-        leeway=settings.JWT_LEEWAY_SECONDS,
-    )
-    assert decoded["sub"] == "skew@example.com"
+    # Without leeway, the same token is rejected as not yet valid.
+    monkeypatch.setattr(settings, "JWT_LEEWAY_SECONDS", 0)
+    with pytest.raises(HTTPException) as refused:
+        await auth_module.get_current_user(request, credentials, None)
+    assert refused.value.status_code == 401
+    assert await auth_module.get_current_user_optional(request, credentials, None) is None

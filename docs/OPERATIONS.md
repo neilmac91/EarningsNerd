@@ -648,7 +648,6 @@ Located in `backend/scripts/`:
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_mock.py` - Tests XBRL extraction with mock data
 - `verify_startup_config.py` - Detailed startup configuration verification
-- `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
   `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or

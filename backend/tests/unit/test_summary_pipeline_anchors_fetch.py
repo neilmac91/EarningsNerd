@@ -2,8 +2,8 @@
 
 These tests PIN the orchestrator's behaviour on its document-fetch branches (the SEC fetch
 heartbeat loop, the empty-document failure, and the 6-K exhibit/cover-page grounding path with its
-extractor-failure, no-text and success outcomes) exactly as it runs today, so the upcoming
-decomposition into stage modules can prove ZERO observable change. Every assertion is on an
+extractor-failure, no-text and success outcomes) exactly as it runs today, so the
+decomposition into stage modules proved ZERO observable change. Every assertion is on an
 observable: yielded event dicts, DB rows, mock call lists, the in-flight registry, the generation
 semaphore, and the exact log text the code formats.
 """

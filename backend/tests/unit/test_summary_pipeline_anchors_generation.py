@@ -3,8 +3,8 @@
 These tests PIN the orchestrator's behaviour across the provider/heartbeat stage exactly as it runs
 today — the in-stage 75s AI fallback, the section-preview queue behind ``STREAM_SECTION_REVEAL``, a
 provider task cancelled from outside the pipeline, the ``record_progress`` failure on the
-error-payload path, and the shape of the summarizing heartbeats — so the upcoming decomposition into
-stage modules can prove ZERO observable change. Every assertion is on an observable: yielded event
+error-payload path, and the shape of the summarizing heartbeats — so the decomposition into
+stage modules proved ZERO observable change. Every assertion is on an observable: yielded event
 dicts, DB rows, mock call args, the in-flight registry, the generation semaphore, and the exact log
 text the code formats.
 """

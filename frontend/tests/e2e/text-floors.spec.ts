@@ -225,7 +225,7 @@ const ROUTES: Route[] = [
 /**
  * The rest of the public pages (BG-29), each answered by answerSiteApi (no backend). With ROUTES, this list
  * covers every route the sitemap's static core names (STATIC_ENTRIES in app/sitemap.ts, which mirrors the
- * backend's STATIC_PAGES) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
+ * backend's STATIC_PAGES in sitemap_service.py) and every AuthShell route (AUTH_ROUTES in lib/authShellRoutes.ts: /login,
  * /register, /check-email, /verify-email, /forgot-password, /reset-password and /auth/complete, an OAuth login's
  * landing, read while its code exchange is held open), and the census cases below
  * hold it to both; beyond them it adds /waitlist, /delete-account (the public account-deletion page), /calendar

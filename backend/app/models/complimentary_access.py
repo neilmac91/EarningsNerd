@@ -43,7 +43,3 @@ class ComplimentaryAccessGrant(Base):
     revoke_reason = Column(String(200), nullable=True)
 
     user = relationship("User", back_populates="complimentary_access_grant")
-
-    @property
-    def is_active(self) -> bool:
-        return self.revoked_at is None

@@ -85,28 +85,3 @@ def estimate_call_cost_usd(model: Optional[str], usage: Mapping[str, Any], *, at
     multiplier = settings.AI_PEAK_PRICE_MULTIPLIER if peak else 1.0
     cost = (hit * hit_price + miss * miss_price + completion * out_price) * multiplier / 1_000_000
     return {"cost_usd": round(cost, 6), "peak": peak}
-
-
-def estimate_inference_cost_usd(
-    prompt_tokens: int | None,
-    completion_tokens: int | None,
-    *,
-    cache_hit_tokens: int | None = None,
-    cache_miss_tokens: int | None = None,
-) -> float:
-    """Estimate USD cost from token counts and the configured per-1M-token rates.
-
-    When ``cache_hit_tokens`` / ``cache_miss_tokens`` are provided (DeepSeek reports them), input is
-    priced per bucket, and a half left out is the rest of ``prompt_tokens`` (see ``_input_split``).
-    When the split is absent, all ``prompt_tokens`` are priced at the dearer cache-miss rate
-    (conservative). Returns 0.0 when there are no tokens. Rounded to 6 dp.
-    """
-    completion = completion_tokens or 0
-    split = _input_split(prompt_tokens, cache_hit_tokens, cache_miss_tokens)
-    hit, miss = split if split is not None else (cache_hit_tokens or 0, cache_miss_tokens or 0)
-    cost = (
-        hit * settings.AI_INPUT_CACHE_HIT_PRICE_PER_1M
-        + miss * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M
-        + completion * settings.AI_OUTPUT_PRICE_PER_1M_TOKENS
-    ) / 1_000_000
-    return round(cost, 6)

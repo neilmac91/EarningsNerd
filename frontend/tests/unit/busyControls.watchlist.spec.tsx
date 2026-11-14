@@ -243,6 +243,40 @@ describe('WatchlistAddSearch result option', () => {
     expect(input).toHaveValue('')
     expect(api.addToWatchlist).toHaveBeenCalledTimes(1)
   })
+
+  it("keeps a quick second add's confirmation for its full time, not the first add's remainder", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      api.searchCompanies.mockResolvedValue([
+        { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.' },
+        { id: 2, cik: '789019', ticker: 'MSFT', name: 'Microsoft Corp' },
+      ] satisfies Company[])
+      api.addToWatchlist.mockImplementation((ticker: string) => Promise.resolve(watchlistItem(ticker)))
+      renderWithClient(<WatchlistAddSearch />)
+      const input = screen.getByLabelText('Search for a company to add to your watchlist')
+      const confirmation = () => screen.queryByText(/to your watchlist\./)?.textContent
+
+      fireEvent.change(input, { target: { value: 'a' } })
+      fireEvent.click((await screen.findAllByRole('option'))[0])
+      await waitFor(() => expect(confirmation()).toBe('Added AAPL to your watchlist.'))
+
+      await act(async () => { vi.advanceTimersByTime(1500) })
+      fireEvent.change(input, { target: { value: 'm' } })
+      await act(async () => { vi.advanceTimersByTime(300) })
+      fireEvent.click((await screen.findAllByRole('option'))[1])
+      await waitFor(() => expect(confirmation()).toBe('Added MSFT to your watchlist.'))
+
+      // 2.8s after the first add, so past its 2.5s, with 1.5s of the second's still to run: the second
+      // confirmation is still shown. Real time moves this clock too, so the margins are kept wide.
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(confirmation()).toBe('Added MSFT to your watchlist.')
+
+      await act(async () => { vi.advanceTimersByTime(2000) })
+      expect(confirmation()).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('YourCompanies remove button', () => {

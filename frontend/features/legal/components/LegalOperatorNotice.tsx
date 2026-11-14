@@ -2,8 +2,7 @@
 
 import { useLegalReadiness } from '../hooks/useLegalReadiness'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
-
-const legalLinkClass = 'box-decoration-clone rounded-sm font-medium text-brand-strong underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
+import { legalLinkClass } from '../lib/legalLinkClass'
 
 /** Operator details come only from the backend's explicitly public disclosure, never bundled configuration. */
 export function LegalOperatorNotice() {

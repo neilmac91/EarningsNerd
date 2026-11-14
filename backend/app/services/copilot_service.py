@@ -25,18 +25,12 @@ context is the cached excerpt, capped to ``COPILOT_CONTEXT_CHAR_CAP`` chars. No 
 from __future__ import annotations
 
 import asyncio
-import html  # noqa: F401 - preserve the facade import surface
 import json
 import logging
-import math  # noqa: F401 - preserve the facade import surface
 import re
-import unicodedata  # noqa: F401 - preserve the facade import surface
-from datetime import date  # noqa: F401 - preserve the facade import surface
 from time import monotonic
 from types import SimpleNamespace  # noqa: F401 - call-time prompt seam
 from typing import Any, AsyncGenerator, Callable, Optional  # noqa: F401 - preserve the facade import surface
-
-from markdown_it import MarkdownIt  # noqa: F401 - preserve the facade import surface
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
@@ -47,10 +41,7 @@ from app.services.openai_service import (
     openai_service,
 )
 from app.services.provenance_service import (
-    _MIN_VERIFIABLE_LEN,  # noqa: F401 - preserve the facade import surface
-    build_text_fragment_url,  # noqa: F401 - preserve the facade import surface
     normalize_for_match,
-    strip_wrapping_quotes,  # noqa: F401 - preserve the facade import surface
     verify_whole_excerpt_in_text,  # noqa: F401 - preserve the facade import surface
 )
 

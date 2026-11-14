@@ -25,122 +25,35 @@ class _ExtractionMixin:
     """Filing section extraction + excerpt assembly, mixed into OpenAIService."""
 
     def _get_type_config(self, filing_type: str) -> Dict[str, Any]:
-        # INCREASED LIMITS: Previous limits were too aggressive and caused "Not Disclosed"
-        # responses because financial data was being truncated before reaching the AI
         base_config: Dict[str, Any] = {
-            "sample_length": 80000,  # Increased from 25000 to capture more content
-            "ai_timeout": 120.0,  # Increased for larger content processing
             "max_tokens": 8000,  # Large enough for the full multi-section JSON schema (avoids truncation)
-            "max_sections": 8,  # Increased from 6 to include all key sections
-            "section_priority": [
-                "financials",  # PRIORITY: Financial statements first
-                "mda",         # MD&A has key context
-                "risk_factors",
-                "business",
-                "liquidity",
-                "segments",
-                "guidance",
-                "footnotes"
-            ],
-            "section_limits": {
-                "financials": 40000,  # Increased from 12000 - CRITICAL for metrics
-                "mda": 35000,         # Increased from 15000
-                "risk_factors": 25000,  # Increased from 15000
-                "business": 20000,    # Increased from 15000
-                "liquidity": 20000,   # Increased from 12000
-                "segments": 15000,    # Increased from 10000
-                "guidance": 12000,    # Increased from 8000
-                "footnotes": 15000    # Increased from 8000
-            }
         }
 
         overrides = {
             "10-K": {
-                "ai_timeout": 150.0,  # More time for larger 10-K filings
                 "max_tokens": 12000,  # 10-K schema is largest; prevents mid-JSON truncation
-                "sample_length": 100000,  # 10-K filings are larger
-                "section_limits": {
-                    "financials": 50000,  # 10-K has more detailed financials
-                    "mda": 40000,
-                    "risk_factors": 30000,
-                    "business": 25000,
-                    "liquidity": 25000,
-                    "segments": 20000,
-                    "guidance": 15000,
-                    "footnotes": 20000
-                }
             },
             "10-Q": {
-                "sample_length": 70000,  # Increased from 22000
-                "ai_timeout": 100.0,  # Increased from 75
                 "max_tokens": 8000,  # Prevents mid-JSON truncation on the multi-section schema
-                "max_sections": 6,
-                "section_limits": {
-                    "financials": 35000,  # Increased from 10000 - CRITICAL
-                    "mda": 30000,         # Increased from 10000
-                    "risk_factors": 20000,  # Increased from 10000
-                    "business": 15000,    # Increased from 10000
-                    "liquidity": 15000,   # Increased from 8000
-                    "segments": 12000,    # Increased from 8000
-                    "guidance": 10000,    # Increased from 6000
-                    "footnotes": 10000    # Increased from 6000
-                }
             },
             # 20-F annual reports are as large and detailed as a 10-K — give them the same
-            # generous budget so financials/MD&A/risk aren't truncated before reaching the model.
+            # generous output budget.
             "20-F": {
-                "ai_timeout": 150.0,
                 "max_tokens": 12000,
-                "sample_length": 100000,
-                "section_limits": {
-                    "financials": 50000,
-                    "mda": 40000,
-                    "risk_factors": 30000,
-                    "business": 25000,
-                    "liquidity": 25000,
-                    "segments": 20000,
-                    "guidance": 15000,
-                    "footnotes": 20000
-                }
             },
             # A 6-K (FPI interim furnished report) is a short earnings release / notice, not a full
-            # report — a modest budget and faster timeout avoid over-spending on small filings. Its
-            # grounding text is supplied as a pre-extracted exhibit excerpt (no section sampling).
+            # report — a modest budget avoids over-spending on small filings.
             "6-K": {
-                "ai_timeout": 90.0,
                 "max_tokens": 5000,
-                "sample_length": 60000,
             }
         }
 
         key = filing_type.upper() if filing_type else ""
         config = base_config.copy()
         if key in overrides:
-            override = overrides[key]
-            for k, v in override.items():
-                if k == "section_limits":
-                    # Merge limits to avoid mutating base dict for other types
-                    merged_limits = config["section_limits"].copy()
-                    merged_limits.update(v)
-                    config["section_limits"] = merged_limits
-                else:
-                    config[k] = v
+            config.update(overrides[key])
         return config
 
-    def _build_section_sample(self, sections: Dict[str, str], config: Dict[str, Any], max_length: Optional[int] = None) -> str:
-        priority_order = config.get("section_priority", [])
-        parts = []
-        for key in priority_order:
-            content = sections.get(key)
-            if content:
-                header = key.replace("_", " ").title()
-                parts.append(f"{header}:\n{content}")
-        combined = "\n\n".join(parts).strip()
-        limit = max_length or config.get("sample_length", 25000)
-        if combined:
-            return combined[:limit]
-        return ""
-    
     @staticmethod
     def _looks_like_toc(text: str) -> bool:
         """Heuristic: does this captured span look like a table-of-contents entry rather than
@@ -235,7 +148,7 @@ class _ExtractionMixin:
                     if not self._accept_section(financial_text, 500):
                         logger.debug(f"10-K Item 8: skipping TOC-like/short match ({len(financial_text)} chars)")
                         continue
-                    # Increased limit to 40000 chars to capture full financial statements
+                    # 70000-char cap to capture full financial statements
                     critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:70000]}")
                     logger.info(f"10-K Item 8 extraction: captured {len(financial_text):,} chars")
                     break
@@ -255,7 +168,7 @@ class _ExtractionMixin:
                     if not self._accept_section(mda_text, 500):
                         logger.debug(f"10-K Item 7: skipping TOC-like/short match ({len(mda_text)} chars)")
                         continue
-                    # Increased limit to 35000 chars to capture full MD&A
+                    # 55000-char cap to capture full MD&A
                     critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:55000]}")
                     logger.info(f"10-K Item 7 extraction: captured {len(mda_text):,} chars")
                     break
@@ -274,7 +187,7 @@ class _ExtractionMixin:
                     if not self._accept_section(risk_text, 200):
                         logger.debug(f"10-K Item 1A: skipping TOC-like/short match ({len(risk_text)} chars)")
                         continue
-                    # Increased limit to 25000 chars for comprehensive risk coverage
+                    # 45000-char cap for comprehensive risk coverage
                     critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:45000]}")
                     logger.info(f"10-K Item 1A extraction: captured {len(risk_text):,} chars")
                     break
@@ -302,7 +215,7 @@ class _ExtractionMixin:
                     financial_text = match.group(1).strip()
                     # Verify this isn't a TOC entry (actual financial statements are long)
                     if len(financial_text) > 500:
-                        # 35000 chars to capture full condensed financial statements + notes
+                        # 50000 chars to capture full condensed financial statements + notes
                         critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:50000]}")
                         logger.info(f"10-Q Financial Statements extraction: captured {len(financial_text):,} chars")
                         break
@@ -346,7 +259,7 @@ class _ExtractionMixin:
                     mda_text = match.group(1).strip()
                     # Verify this isn't a TOC entry (TOC entries are short, actual content is long)
                     if len(mda_text) > 200:
-                        # Increased to 30000 chars for comprehensive MD&A coverage
+                        # 45000 chars for comprehensive MD&A coverage
                         critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:45000]}")
                         logger.info(f"10-Q MD&A extraction: captured {len(mda_text):,} chars")
                         break
@@ -373,7 +286,7 @@ class _ExtractionMixin:
                     risk_text = match.group(1).strip()
                     # Verify this isn't a TOC entry
                     if len(risk_text) > 100:
-                        # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
+                        # 25000 chars for 10-Q risk factors (usually shorter than 10-K)
                         critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
                         logger.info(f"10-Q Risk Factors extraction: captured {len(risk_text):,} chars")
                         break

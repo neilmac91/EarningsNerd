@@ -1,8 +1,8 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
+import { formatInstant } from '@/lib/format'
 import { useEffect, useId, useState } from 'react'
-import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon, PaperPlaneTiltIcon, ProhibitIcon } from '@/lib/icons'
@@ -17,15 +17,6 @@ import ResendShareModal from '@/features/admin/components/ResendShareModal'
 import AddressText from '@/features/auth/components/AddressText'
 
 const RESEND_COOLDOWN_SECONDS = 30
-
-/** A stored instant as its day, or null when there is none or it does not parse: the cell then shows MissingValue
- *  ("unavailable"), never a bare token. */
-function fmtDate(value: string | null): string | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return null
-  return format(d, 'MMM d, yyyy')
-}
 
 interface InviteRowProps {
   invite: InviteRecord
@@ -120,10 +111,10 @@ export default function InviteRow({ invite, linkHold, invitationEmailAvailable }
         <InviteDeliveryState delivery={invite.delivery} suppression={invite.email_suppression} />
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.created_at) ?? <MissingValue />}
+        {formatInstant(invite.created_at, 'MMM d, yyyy') || <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        {fmtDate(invite.expires_at) ?? <MissingValue />}
+        {formatInstant(invite.expires_at, 'MMM d, yyyy') || <MissingValue />}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm">
         <div className="flex items-center gap-2">

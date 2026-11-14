@@ -9,6 +9,8 @@ import asyncio
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from tests.support.hang_guard import HANG_GUARD_S
+
 # Import Redis service components
 from app.services.redis_service import (
     _reset_on_loop_change,
@@ -354,6 +356,25 @@ class TestConcurrentInitialization:
 
                 # All calls should return the same client
                 assert all(r is mock_client for r in results)
+
+    @pytest.mark.asyncio
+    async def test_client_first_use_builds_the_pool_without_deadlocking(self):
+        """get_redis_client before any get_redis_pool call must create both, not wait on its own lock."""
+        import app.services.redis_service as redis_module
+
+        with patch('app.services.redis_service.ConnectionPool') as mock_pool_class:
+            mock_pool = MagicMock()
+            mock_pool_class.from_url.return_value = mock_pool
+
+            with patch('app.services.redis_service.aioredis.Redis') as mock_redis_class:
+                mock_client = MagicMock()
+                mock_redis_class.return_value = mock_client
+
+                client = await asyncio.wait_for(get_redis_client(), timeout=HANG_GUARD_S)
+
+                assert client is mock_client
+                assert redis_module._pool is mock_pool
+                mock_redis_class.assert_called_once_with(connection_pool=mock_pool)
 
 
 # Marker for unit tests

@@ -292,13 +292,11 @@ class TestBackwardCompatibility:
         """Test that cache functions are exported correctly."""
         from app.services.edgar import get_xbrl_cache_stats, clear_xbrl_cache
 
-        # Both cache helpers must be exported
-        assert clear_xbrl_cache is not None
+        assert isinstance(clear_xbrl_cache(), int)
 
-        # Should not raise
         stats = get_xbrl_cache_stats()
-        assert "total_entries" in stats
-        assert "valid_entries" in stats
+        assert stats["total_entries"] == 0
+        assert stats["valid_entries"] == 0
 
     def test_compat_imports(self):
         """Test that compat module provides expected interfaces."""

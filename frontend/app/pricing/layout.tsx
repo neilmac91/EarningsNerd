@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ANALYSIS_LINES, shipped } from '@/lib/planLimits'
+import { jsonLdHtml } from '@/lib/jsonLd'
 import { PRICING_HINT_BOOTSTRAP } from '@/features/subscriptions/lib/pricingHint'
 import { PRO_PRICING } from './prices'
 
@@ -50,15 +51,10 @@ const pricingJsonLd = () => ({
   ],
 })
 
-// Escape `<` as the JSON-safe `<` so a `</script>` sequence inside the serialized JSON can
-// never terminate the tag (the existing JSON-LD sites serialize static, hand-written objects; this
-// one is the pattern to copy when the payload grows).
-const jsonLdHtml = () => JSON.stringify(pricingJsonLd()).replace(/</g, '\\u003c')
-
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml() }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(pricingJsonLd()) }} />
       {/* Before the plans, so it runs before they paint: it marks a returning reader's plan (E228). */}
       <script dangerouslySetInnerHTML={{ __html: PRICING_HINT_BOOTSTRAP }} />
       {children}

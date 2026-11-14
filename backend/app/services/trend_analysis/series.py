@@ -6,9 +6,6 @@ from typing import Any, Optional
 from app.services.trend_analysis.periods import parse_period_key
 
 
-# --- deterministic inflection signals ----------------------------------------------------------
-
-
 def _series_map(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {series["concept"]: series for series in dataset["series"]}
 

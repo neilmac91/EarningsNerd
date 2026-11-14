@@ -13,7 +13,7 @@ A1 is the eval tripwire for O2 and for every later prompt rider. Its fixtures un
 ``tests/fixtures/summarize_filing_anchors/`` hold each case's full ``create_kwargs`` (every message's
 content split into lines, so a diff shows the changed prompt line) plus the shape of the
 ``_request_content`` call. A byte change there is a RUNBOOK event (backend/evals/RUNBOOK.md, "Re-pinning
-the baseline", :530-535): it never rides a refactor PR. The default run only READS the fixtures. After a
+the baseline"): it never rides a refactor PR. The default run only READS the fixtures. After a
 deliberate prompt or model change, regenerate them with this one-off command:
 
     cd backend && SUMMARIZE_FILING_ANCHORS_REGENERATE=1 python -m pytest tests/unit/test_summarize_filing_anchors.py -k test_a1 -p no:cacheprovider
@@ -603,3 +603,17 @@ async def test_a6_sections_aliasing_and_private_keys(monkeypatch, extra, shape, 
     assert [key for key in raw["sections"] if key.startswith("_")] == ["_risk_source_projection"]
     if shape != "fallback-list":
         assert raw["evidence_snap_audit"]["checked"] == raw["evidence_snap_audit"]["exact"] == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("results", [["Revenue rose 13.6% to $1.25B."], "Revenue rose 13.6% to $1.25B."],
+                         ids=["list", "string"])
+async def test_wrong_shaped_results_that_matter_does_not_crash_finalization(monkeypatch, results):
+    """A results_that_matter the model returns as a list or a string, not an object, must not crash
+    finalization after the provider call has run."""
+    sections = _model_sections()
+    sections["results_that_matter"] = results
+    service = _streaming_service(monkeypatch, {"metadata": {}, "sections": sections})
+    result = await service.summarize_filing("Selected filing text.", "Anchor Co", "10-K", stream_cb=_receive)
+    assert result["status"] != "error"
+    assert "Financial Overview" not in [card["title"] for card in result["sections"]]

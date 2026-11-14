@@ -137,7 +137,10 @@ describe('AdminFeedbackPage', () => {
     expect(link.parentElement?.textContent).toBe(report.message)
     if (closePath === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
     else if (closePath === 'Close') fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
-    else fireEvent.click(dialog.parentElement!)
+    else {
+      fireEvent.mouseDown(dialog.parentElement!)
+      fireEvent.click(dialog.parentElement!)
+    }
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(opener).toHaveFocus()
     expect(screen.getByLabelText('Set status for feedback 1')).toBeInTheDocument()

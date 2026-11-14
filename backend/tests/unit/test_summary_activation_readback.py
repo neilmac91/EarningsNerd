@@ -194,10 +194,10 @@ def test_unverified_scheduler_never_masks_a_known_unsafe_runtime(resources):
     assert exit_ is not None and "describe-service: FAIL" in output and "describe-service: PASS" not in output
 
 
-def test_same_projection_covers_known_jobs_and_secret_duplicate_or_out_of_range_fields(tmp_path, monkeypatch, capfd):
-    from tests.unit.test_ops_describe_jobs import _container, _job, _literals, _run, _split, _step
+def test_same_projection_covers_known_jobs_and_secret_duplicate_or_out_of_range_fields(monkeypatch, capfd):
+    from tests.unit.test_ops_describe_jobs import MODULE, _container, _job, _literals, _run
 
-    fixtures = {name: _job(name, pool) for name, pool in _literals(_split(_step())[1])["expected_pools"].items()}
+    fixtures = {name: _job(name, pool) for name, pool in _literals(MODULE.read_text())["expected_pools"].items()}
     for job in fixtures.values():
         _container(job)["env"] += [
             {"name": "SUMMARY_DURABLE_GENERATION_ENABLED", "value": "true"},
@@ -207,7 +207,7 @@ def test_same_projection_covers_known_jobs_and_secret_duplicate_or_out_of_range_
             {"name": "FILING_SOURCE_ARTIFACTS_ENABLED", "value": "true"},
             {"name": "FILING_SOURCE_ARTIFACTS_BUCKET", "value": SENTINEL},
         ]
-    output, exit_ = _run(tmp_path, monkeypatch, capfd, fixtures)
+    output, exit_ = _run(monkeypatch, capfd, fixtures)
     assert exit_ is None and output.count('"SUMMARY_DURABLE_GENERATION_ENABLED": {"state": "literal", "value": true}') == 9
     assert output.count('"SUMMARY_JOB_MAX_ATTEMPTS": {"state": "invalid_withheld"}') == 9
     assert output.count('"SUMMARY_JOB_LEASE_SECONDS": {"state": "secret_ref_unresolved"}') == 9

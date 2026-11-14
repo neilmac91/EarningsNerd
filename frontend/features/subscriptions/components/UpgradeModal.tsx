@@ -10,8 +10,6 @@ interface UpgradeModalProps {
   onClose: () => void
   /** Short feature name, e.g. "PDF export" — used in the default copy. */
   feature?: string
-  title?: string
-  message?: string
 }
 
 /**
@@ -25,17 +23,16 @@ interface UpgradeModalProps {
  * overlay + z-modal tokens; actions are real <Button>s. Icon: Lightning — sparkle is reserved
  * for AI-generated-content markers (icon-split rule), and a paywall is commerce, not AI.
  */
-export default function UpgradeModal({ open, onClose, feature, title, message }: UpgradeModalProps) {
+export default function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
   const router = useRouter()
 
-  const heading = title ?? 'Upgrade to Pro'
   // The Pro list is shared and follows ENABLE_ANALYSIS (lib/planLimits.ts proIncludes).
-  const body = message ?? (feature ? `${feature} is a Pro feature. ${proIncludes()}` : proIncludes())
+  const body = feature ? `${feature} is a Pro feature. ${proIncludes()}` : proIncludes()
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="upgrade-modal-title" size="md">
       <ModalHeader id="upgrade-modal-title" onClose={onClose} icon={<LightningIcon className="h-5 w-5" />}>
-        {heading}
+        Upgrade to Pro
       </ModalHeader>
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{body}</p>

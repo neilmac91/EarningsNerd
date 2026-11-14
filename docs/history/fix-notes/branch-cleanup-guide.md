@@ -44,7 +44,11 @@ All were merged via PRs #1-11:
 
 ## Automated Cleanup
 
-### Option 1: Run the Script (Recommended)
+### Option 1: Run the Script (Removed)
+
+`scripts/cleanup-branches.sh` has been deleted: under `set -e` it exited after its first
+successful delete, and the branches it named are long gone. Use Option 2. The block below is
+kept as history.
 
 ```bash
 # Make sure you're in the repo root

@@ -116,12 +116,12 @@ def _get_or_create_company(db: Session, ticker: str) -> Company:
     return company
 
 
-def _watch_row_for_ticker(db: Session, user_id: int, ticker: str) -> Optional[Watchlist]:
+def _watch_rows_for_ticker(db: Session, user_id: int, ticker: str) -> list[Watchlist]:
     return (
         db.query(Watchlist)
         .join(Company, Watchlist.company_id == Company.id)
         .filter(Watchlist.user_id == user_id, func.upper(Company.ticker) == ticker)
-        .first()
+        .all()
     )
 
 
@@ -136,9 +136,12 @@ def set_earnings_alert(db: Session, user: User, ticker: str, enabled: bool) -> b
         # would leave the update matching no row.
         lock_watch_rows(db, user.id)
         with watch_row_lock:
-            row = _watch_row_for_ticker(db, user.id, ticker)
-            if row is not None and row.earnings_alert:
+            # Every row: duplicate watch rows or two companies sharing the ticker would otherwise
+            # leave one enabled, and the send would keep alerting.
+            rows = [row for row in _watch_rows_for_ticker(db, user.id, ticker) if row.earnings_alert]
+            for row in rows:
                 row.earnings_alert = False
+            if rows:
                 db.commit()
         return False
 

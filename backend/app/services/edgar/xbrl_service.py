@@ -2,17 +2,15 @@
 EdgarTools XBRL Service
 
 Provides XBRL financial data extraction using EdgarTools.
-This service maintains API compatibility with the legacy xbrl_service.py
-to enable gradual migration.
 
 Caching Strategy (Two-Tier):
 - L1: In-memory cache (fast, process-local, LRU eviction at 1000 entries)
-- L2: Redis cache (persistent, shared across instances)
+- L2: Redis cache, dev-only (production runs without Redis, ADR-0004, so L2 is a no-op there)
 
 Usage:
     from app.services.edgar.xbrl_service import edgar_xbrl_service
 
-    # Get XBRL data (compatible with legacy interface)
+    # Get XBRL data
     data = await edgar_xbrl_service.get_xbrl_data(accession_number, cik)
 
     # Extract standardized metrics
@@ -117,7 +115,7 @@ class EdgarXBRLService:
 
         Reads the persisted filing snapshot first, then uses two-tier caching:
         - L1: In-memory cache (fast, process-local)
-        - L2: Redis cache (persistent, shared across instances)
+        - L2: Redis cache (dev-only; production runs without Redis, ADR-0004)
 
         Args:
             accession_number: Filing accession number

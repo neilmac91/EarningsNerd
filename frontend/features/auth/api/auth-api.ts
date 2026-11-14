@@ -2,6 +2,7 @@ import api, { ApiError, sessionCookiesSettled, withSessionCookiesForPost, withou
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
+import { downloadBlob } from '@/lib/downloadBlob'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
 // nothing changes until Turnstile is configured on both ends.
@@ -22,9 +23,6 @@ export const register = async (
     { email, password, full_name: fullName, invite_code: inviteCode || undefined, ...agreement },
     turnstileConfig(turnstileToken),
   )
-  // Mark the session active so the API client may silently refresh an expired access token
-  // for this user. Guests stay unmarked and never attempt a (pointless) refresh.
-  markSessionActive()
   return response.data
 }
 
@@ -131,7 +129,7 @@ export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promis
   // A confirmed identity means there's a session — mark it so the client will silently
   // refresh an expired access token. This covers a session no login in this tab started: another tab's, or that of
   // an OAuth sign-in whose callback set the cookies on its redirect (only an API rolled back past E29 (5)'s handoff
-  // does), where the JS login()/register() path (which normally sets the marker) never runs. login() and
+  // does), where the JS login() path (which normally sets the marker) never runs. login() and
   // completeOAuthSignIn(), the OAuth landing page's exchange, set the marker themselves. A /me that a refresh replays
   // during a logout in this tab marks nothing: the logout is ending that session (session.ts's beginLogout).
   markSessionConfirmed()
@@ -265,16 +263,10 @@ export const exportUserData = async () => {
     responseType: 'blob', // Important for file downloads
   })
 
-  // Create download link
-  const blob = new Blob([response.data], { type: 'application/json' })
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `earningsnerd_data_export_${new Date().toISOString().split('T')[0]}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
+  downloadBlob(
+    new Blob([response.data], { type: 'application/json' }),
+    `earningsnerd_data_export_${new Date().toISOString().split('T')[0]}.json`,
+  )
 
   return { success: true }
 }

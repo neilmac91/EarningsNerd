@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ApiError } from '@/lib/api/client'
 import { getWaitlistStats } from '@/features/waitlist/api/waitlist-api'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCount } from '@/lib/format'
@@ -21,11 +20,7 @@ export default function WaitlistCounter({ className }: { className?: string }) {
         if (active) {
           setTarget(typeof data.total_signups === 'number' ? data.total_signups : 0)
         }
-      } catch (err) {
-        // Preserve prior behavior: a non-OK HTTP response leaves the placeholder (target stays null);
-        // only a network failure (no response, status 0) falls back to 0.
-        if (active && !(err instanceof ApiError && err.status !== 0)) setTarget(0)
-      }
+      } catch {}
     }
 
     loadStats()

@@ -8,9 +8,9 @@
    a spinner card hides layout; bones preserve it.
 
    NAMING (v2.1): shipped in v2 as ui/StateCard — renamed because the app
-   already owns components/StateCard.tsx (notice card, 10 importers) and both
-   sit one letter from StatCard (the KPI tile). The app's StateCard keeps its
-   name; this surface is the empty/error guidance card only.
+   then owned its own components/StateCard.tsx (a notice card, since replaced by
+   Notice) and both sat one letter from StatCard (the KPI tile). This surface is
+   the empty/error guidance card only.
 ============================================================================= */
 
 import { useId, type HTMLAttributes, type ReactNode, type Ref } from 'react'

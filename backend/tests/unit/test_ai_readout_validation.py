@@ -11,6 +11,7 @@ from app.services.ai_readout import DIMENSIONS, decode_readout, unavailable_read
 @pytest.mark.parametrize(
     "defect",
     [
+        "none",
         "schema",
         "version",
         "boolean-count",
@@ -70,5 +71,8 @@ def test_external_readout_rejects_invalid_measurement(defect):
     elif defect == "base64":
         encoded = "!not base64"
     result = decode_readout(encoded)
+    if defect == "none":
+        assert result["status"] == "complete" and result["scored"] == 24
+        return
     assert result["status"] == "unavailable" and result["scored"] == 0
     assert result["reason"] == "Weekly judged readout handoff invalid"

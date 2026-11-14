@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { apcaLc as apca } from './apca'
 
 /**
  * The analysis figure surfaces (the metrics table's sheet and the KPI cards; DESIGN_SYSTEM.md, Analysis table and
@@ -15,7 +16,7 @@ import { describe, expect, it } from 'vitest'
  *    only by the two surfaces; every other delta keeps directionText and the 700 level. The sheet, rule, figure and
  *    note tokens and the figure face are named only by the files that draw those surfaces. No mark takes warning ink
  *    (D-061): a note letter is the note ink, on the surfaces and in the data notes under the table.
- * 2. Contrast. Every pair the surfaces draw meets its APCA tier (apca-w3 0.1.9's SA98G constants, below): figures
+ * 2. Contrast. Every pair the surfaces draw meets its APCA tier (apca-w3's SA98G constants, in ./apca.ts): figures
  *    and metric names |Lc| >= 90; change lines, headings and labels >= 75; marks and the missing-value dash >= 60;
  *    rules >= 15 and a hovered row's rules >= 30. The app-wide secondary ink is held here too: it reads in dark as
  *    in light (|Lc| >= 75 on the dark panel and page), and tertiary's dark twin stays text-safe (4.5:1). So is the
@@ -57,24 +58,6 @@ const SOURCES = SCAN_DIRS.flatMap((dir) => walk(path.join(ROOT, dir))).map((file
   text: code(readFileSync(file, 'utf8')),
 }))
 
-// ---- APCA (apca-w3 0.1.9, SA98G) ------------------------------------------------------------------------------
-const luminance = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-  return 0.2126729 * r ** 2.4 + 0.7151522 * g ** 2.4 + 0.072175 * b ** 2.4
-}
-const soft = (y: number) => (y > 0.022 ? y : y + (0.022 - y) ** 1.414)
-/** Lc of text `fg` on ground `bg`: positive for dark text on a light ground, negative for light on dark. */
-function apca(fg: string, bg: string): number {
-  const text = soft(luminance(fg))
-  const ground = soft(luminance(bg))
-  if (Math.abs(ground - text) < 0.0005) return 0
-  if (ground > text) {
-    const sapc = (ground ** 0.56 - text ** 0.57) * 1.14
-    return sapc < 0.1 ? 0 : (sapc - 0.027) * 100
-  }
-  const sapc = (ground ** 0.65 - text ** 0.62) * 1.14
-  return sapc > -0.1 ? 0 : (sapc + 0.027) * 100
-}
 const wcag = (a: string, b: string) => {
   const rel = (hex: string) => {
     const [r, g, bl] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))

@@ -208,7 +208,6 @@ async def generate_summary_stream(
     force: bool = False,
     retry_failed: bool = False,
     entry_point: Optional[str] = None,
-    ph_id: Optional[str] = None,
     analytics_consent: bool = False,
     logical_request_id: Optional[UUID] = None,
     client_attempt: Annotated[Optional[int], Query(ge=1, le=2)] = None,
@@ -231,7 +230,6 @@ async def generate_summary_stream(
             A page-load or transport reconnect only observes it; this never bypasses admission.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
-        ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
         analytics_consent: Explicit client declaration; absent/false suppresses request/funnel events.
         logical_request_id: Client action label shared across automatic retries.
         client_attempt: Client outer attempt (untrusted correlation hint).
@@ -486,7 +484,7 @@ async def generate_summary_stream(
 
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
-        # Only the authenticated account owns server event identity. Client ph_id is not authority.
+        # Only the authenticated account owns server event identity.
         telemetry_distinct_id = str(user_id)
         telemetry_entry_point = (entry_point or "")[:64] or None
         telemetry_ctx = {

@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,7 +41,7 @@ import ResetPasswordPage from '@/app/reset-password/page'
 import LoginPage from '@/app/login/page'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
 import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
-import { getCurrentUserSafe, resendVerification, verifyEmail } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, resendVerification, resetPassword, verifyEmail } from '@/features/auth/api/auth-api'
 import { ApiError, EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
 import { VERIFY_EMAIL_REASONS, VERIFY_LINK_FALLBACK, VERIFY_UNANSWERED_DESCRIPTION } from '@/features/auth/lib/verifyEmailFailure'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -410,6 +410,34 @@ describe('reset password', () => {
     expect(screen.getByText(PASSWORD_RULE)).toBeInTheDocument()
     expect(screen.queryByText(/upper- and lowercase/i)).toBeNull()
     expect(screen.getByLabelText('New password')).toHaveAttribute('minLength', String(PASSWORD_MIN_LENGTH))
+  })
+
+  it('leaves for login 3 s after the reset, and not once the reader has left the page', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      useSearchParams.mockReturnValue(new URLSearchParams('token=t'))
+      vi.mocked(resetPassword).mockResolvedValue({})
+      const reset = async () => {
+        const page = render(<ResetPasswordPage />)
+        fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'a-long-password-1' } })
+        fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'a-long-password-1' } })
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reset password' })) })
+        expect(screen.getByText('Password updated')).toBeInTheDocument()
+        return page
+      }
+      const stayed = await reset()
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(push).toHaveBeenCalledWith('/login')
+      stayed.unmount()
+
+      push.mockReset()
+      const left = await reset()
+      left.unmount()
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(push).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

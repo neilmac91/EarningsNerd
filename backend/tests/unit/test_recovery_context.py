@@ -22,7 +22,6 @@ async def native_service(handler):
     service.model = 'deepseek-v4-pro'
     service.fallback_client = None
     service._task_models = {}
-    service._model_overrides = {}
     service._recovery_semaphore = asyncio.Semaphore(1)
     async with AsyncOpenAI(api_key='offline', base_url='https://api.deepseek.com/v1', max_retries=0,
                            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler))) as client:

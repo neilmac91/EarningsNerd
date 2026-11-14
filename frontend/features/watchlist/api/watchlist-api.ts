@@ -23,7 +23,6 @@ export interface WatchlistFilingInsight {
   needs_regeneration: boolean
   progress?: {
     stage?: string
-    elapsed?: number
     elapsedSeconds?: number
   } | null
 }

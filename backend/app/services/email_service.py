@@ -289,7 +289,6 @@ def render_welcome_email(
     *,
     name: str | None,
     position: int,
-    referral_link: str,
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
@@ -340,12 +339,10 @@ async def send_waitlist_welcome_email(
     to_email: str,
     name: str | None,
     position: int,
-    referral_link: str,
 ) -> None:
     page, text = render_welcome_email(
         name=name,
         position=position,
-        referral_link=referral_link,
     )
     await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=page, text=text)
 

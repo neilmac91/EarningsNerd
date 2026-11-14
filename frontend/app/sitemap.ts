@@ -19,7 +19,7 @@ const getBackendUrl = (): string => {
   return url.replace(/\/$/, '')
 }
 
-// Mirrors the backend's STATIC_PAGES (backend/app/routers/sitemap.py) so a backend outage
+// Mirrors the backend's STATIC_PAGES (backend/app/services/sitemap_service.py) so a backend outage
 // degrades to the same static core rather than a two-entry stub.
 export const STATIC_ENTRIES: MetadataRoute.Sitemap = [
   { url: `${SITE_URL}/`, changeFrequency: 'daily', priority: 1 },

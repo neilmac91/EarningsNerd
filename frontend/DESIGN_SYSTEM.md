@@ -484,7 +484,6 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  holds the delete button inside its card).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
-                 (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
 
 Button size      sm, md and lg keep a fixed height (h-8 / h-10 / h-12: 32, 40 and 48px) and one line
                  (whitespace-nowrap) unless `wrap` is set (the row above); icon-sm is a fixed 32px square.

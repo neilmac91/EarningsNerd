@@ -167,7 +167,3 @@ def audit_note(candidates: Sequence[Candidate], judged: Sequence[Candidate],
         counts[verdict] = counts.get(verdict, 0) + 1
     return {"flagged": len(candidates), "sent": len(judged), "decided": len(verdicts),
             "counts": counts, "error": error}
-
-
-def to_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True)
