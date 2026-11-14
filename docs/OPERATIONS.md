@@ -112,9 +112,11 @@ API service, every Cloud Run job and the private task worker (`ci.yml`; gate
 `tests/unit/test_sec_process_budgets.py`), and so does each Ops workflow step that runs a backend
 script on its runner (gate `tests/unit/test_ops_workflow_wiring.py`; CODE RED decision records 16
 and 17 staged it, the jobs and the worker first). Two request paths could not fit the service's 1 req/s and were removed with the
-pin: the insider endpoint (`GET /api/companies/{ticker}/insiders`, a cold load of about two edgartools
-requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENABLE_INSIDER_ACTIVITY` is
-set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
+pin: the insider endpoint's live fetch (about two edgartools requests per Form 4 for up to 60 Form 4s, so
+about 120) and company search's fuzzy fallback. The insider endpoint (`GET /api/companies/{ticker}/insiders`)
+now makes no request to SEC: it reads a stored scan that the task worker fills on its own 1 req/s, eight
+filings a step (ADR 0009), for signed-in beta accounts, and still answers 404 unless
+`ENABLE_INSIDER_ACTIVITY` is set (the deploy pins it `false`). Company search answers from the cached SEC ticker file only (its
 edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
 generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
 to companyfacts (its section parse makes no SEC request: parses run one at a time on their own
@@ -263,8 +265,9 @@ that also touches a deployable `backend/` path and updates the gate
 `tests/unit/test_data_completeness.py`); when adding `--remove-env-vars`, drop the keys from that
 update's map. `--update-env-vars` only sets keys, so deleting them from `ci.yml`, or reverting the
 change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all. A revert of stage 2 also
-restores the public insider endpoint and the edgartools search fallback while the service stays
-pinned, so in the same change remove the service pins or keep the insider switch and local-only search.
+restores the edgartools search fallback while the service stays
+pinned, so in the same change remove the service pins or keep local-only search. (The insider endpoint's
+live fetch is gone from the code since ADR 0009, so a revert of stage 2 no longer brings it back.)
 After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_LIMIT_PER_SECOND`,
 `EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
 job and the task worker's serving revision, and fails when either pin is not `1` on the service or
@@ -596,7 +599,6 @@ Per-endpoint timeouts configured in `backend/main.py`:
 | `/api/summaries/` | 120s |
 | `/api/filings/` | 60s |
 | `/health` | 5s |
-| `*/insiders` (suffix match, checked after the prefix entries) | 75s |
 | Default | 30s |
 
 Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middleware.
@@ -683,7 +685,8 @@ Located in `backend/scripts/`:
     The token-gated precompute endpoint still defaults to annual forms unless requested otherwise.
 - `seed_universe_companies.py` - Preview missing committed-universe Company identities; `--apply`
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
-- `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+- `run_insider_scan.py` - Run a stored company's insider (Form 4) scan in this process, step by step, where no task queue runs it (development); about 61 SEC requests for a company with 60 recent Form 4s
+- `verify_insider_extraction.py` - Compare the insider scan's offline Form 4 parse with edgartools' own parse on real filings from SEC (about 50 requests with its defaults); run it before the insider panel is shown to anyone and after an edgartools upgrade
 - `complimentary_access.py` - Grant or revoke complimentary Pro for invited private-beta accounts from a private
   manifest (PB-02): `fingerprint` and `check` run offline; `dry-run` writes nothing; `apply --confirm-digest`
   runs only the manifest its dry run reported; `readout` counts grants, reviews due and drift. Every report

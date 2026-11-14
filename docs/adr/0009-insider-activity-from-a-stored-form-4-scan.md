@@ -103,8 +103,15 @@ beta user can ask.
    every key carries something that moves: a step enqueued by the step before it is named by the issuer and the
    scan's step count, and one enqueued by a visit by the issuer and a short time bucket, so a second visitor in
    the same minute adds nothing and a visit an hour later is not swallowed. A paused scan's next step is
-   scheduled for the time its pause ends. With durable tasks off (development), the step runs after the response
-   in process.
+   scheduled for the time its pause ends; a failed one is not retried by itself. With durable tasks off
+   (development) a visit starts nothing: the request that asks is a GET, and a GET starts no work in its own
+   process (`tests/unit/test_read_only_get_endpoints.py`). `backend/scripts/run_insider_scan.py` runs a
+   company's scan there. A visit hands a step off only when the scan's
+   own chain is not carrying it (no step holds the lease and the scan row has been still for 45 seconds), and
+   only while fewer than three other issuers are scanning, read from the scan rows so it holds across
+   instances: the worker runs one task at a time and also sends account mail, so a mail queued behind the
+   scans waits about one ten-second step per scan under way. A reader of a further issuer is served what is
+   stored and told to ask again.
 
 6. **The endpoint requires a beta user and never waits for SEC.** A new dependency, `require_beta`, answers 401
    to a signed-out caller and 403 to a signed-in one who is not a beta user. It is not an entitlement: plans
@@ -133,7 +140,10 @@ beta user can ask.
   ten seconds each, on a process summaries do not use.
 - The worker runs one task at a time, so a scan step delays the account mail and other tasks queued behind it by
   up to its own ten seconds. Steps are separate tasks so that other work takes its turn between them. The
-  queue's drain arithmetic (`tests/unit/test_filings_routes.py`) is redone with the step in it.
+  scan's share of the worker is bounded by the number of issuers scanning at once (decision 5) and a
+  per-process budget of on-visit handoffs, not by the queue's drain arithmetic
+  (`tests/unit/test_filings_routes.py`), which sums what requests without a login can queue: this route needs
+  a beta account.
 - The offline parse reads edgartools internals that are not its public interface. The version check and the
   parse test fail on an upgrade that moves them, before it ships.
 - The parse test's documents are written to SEC's ownership schema, not recorded from SEC: SEC refuses a client
@@ -141,6 +151,8 @@ beta user can ask.
   compares the first stored filings with the same filings on sec.gov before the panel is shown to anyone.
 - A company that files Form 4s as an owner of another issuer's shares no longer has those trades shown as its
   own insider activity, which the live fetch did.
+- `backend/scripts/verify_insider_extraction.py` reads real Form 4s from SEC both ways, offline and through
+  edgartools' own parse, and prints any row that differs. It is the check the production trial runs first.
 - That SEC serves a Form 4's XML at the primary document's name without its stylesheet directory is SEC's
   convention, not something read from code. The text-file fallback covers a miss, and the production trial reads
   the first real fetches before the panel is shown to anyone.

@@ -85,6 +85,14 @@ EXEMPT = {
         "two-mail vocabulary; the routes' per-IP and per-address limits bound each caller and the process-wide "
         "account-mail cap bounds them all (callers pinned by the account-mail test below)"
     ),
+    ("services/insider_scan_service.py", "request_scan"): (
+        "the insider scan's on-visit step (ADR 0009): named by a stored company's CIK and a one-minute bucket, never "
+        "by the request's ticker; its one caller is the insiders route, behind a signed-in beta account, a "
+        "per-account limit and a process-wide handoff budget (pinned in test_insiders_route.py)"
+    ),
+    ("services/insider_scan_service.py", "run_scan_task"): (
+        "worker-side continuation of a scan: named by the issuer's CIK and the scan's own step count"
+    ),
 }
 # The account mail's callers (F60): the one helper that may name the exempt enqueue, the routes that may call
 # that helper, and the limits each must take first.
@@ -106,6 +114,8 @@ EXEMPT_PUBLIC_CAPS = {
     ("services/summary_jobs.py", "dispatch_job"): None,  # authenticated creation / private recovery only
     ("services/internal_task_runner.py", "enqueue_internal_job"): None,  # its routes take the internal token
     ("services/internal_task_runner.py", "run_internal_task"): None,  # the worker's fan-out of an operator job
+    ("services/insider_scan_service.py", "request_scan"): None,  # its one route takes a signed-in beta account
+    ("services/insider_scan_service.py", "run_scan_task"): None,  # the worker's continuation of a scan
     ("services/account_mail_service.py", "queue_account_mail"): (
         _module_of(ACCOUNT_MAIL_HELPER[0]), ACCOUNT_MAIL_CAP, ACCOUNT_MAIL_CAP_KEY,
     ),

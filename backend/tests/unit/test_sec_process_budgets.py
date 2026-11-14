@@ -12,8 +12,9 @@ isolated child at a time).
 
 Every process is pinned (CODE RED decision records 16 and 17 staged it: the jobs and the worker
 first, the API service once the two request paths that could not fit 1 req/s were removed — the
-insider endpoint is off unless ENABLE_INSIDER_ACTIVITY, and company search no longer falls back to
-edgartools; the deploy pins that switch off). The Monday arithmetic assumes the Cloud Scheduler crons,
+insider endpoint's live fetch, since replaced by a stored scan on the task worker (ADR 0009), and company
+search's edgartools fallback; the deploy still pins ENABLE_INSIDER_ACTIVITY off, until the scan's
+production trial). The Monday arithmetic assumes the Cloud Scheduler crons,
 time zones and job timeouts docs/DEPLOYMENT.md and the runbook document, which this gate pins.
 
 This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`` states. It does
@@ -137,8 +138,9 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
     for name, env in maps.items():
         for key in BUDGET_ENV:
             assert env.get(key) == str(PINNED_PER_BUCKET), f"{name} must pin {key}={PINNED_PER_BUCKET}"
-    # The pinned service cannot carry the insider endpoint's cold fetch (decision record 17), so the
-    # deploy re-asserts the switch off; test_prod_flag_visibility pins the same value.
+    # The insider endpoint stays off until the stored scan's production trial (ADR 0009; decision record 17
+    # turned it off when its live fetch could not fit the pin), so the deploy re-asserts the switch off;
+    # test_prod_flag_visibility pins the same value.
     assert maps["service"].get("ENABLE_INSIDER_ACTIVITY") == "false"
     assert _service_instances(service) == 2
     assert _service_instances(_run(WORKER_STEP)) == 1

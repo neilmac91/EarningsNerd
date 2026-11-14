@@ -27,7 +27,9 @@ from app.utils.datetimes import iso_z
 
 class TaskEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["filings", "history", "companyfacts", "account_mail", "internal_job", "summary", "probe"]
+    kind: Literal[
+        "filings", "history", "companyfacts", "account_mail", "internal_job", "summary", "insider_scan", "probe",
+    ]
     payload: dict
 
 
@@ -44,6 +46,12 @@ class SummaryTask(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     generation: int = Field(gt=0)
+
+
+class InsiderScanTask(BaseModel):
+    """One step of an issuer's Form 4 scan (ADR 0009): the issuer's CIK without leading zeros, nothing else."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    issuer_cik: str = Field(pattern=r"^[1-9][0-9]{0,9}$")
 
 
 AccountMail = Literal["password_reset", "verification"]
@@ -101,6 +109,8 @@ async def enqueue_task(
         AccountMailTask.model_validate(payload)
     elif kind == "summary":
         SummaryTask.model_validate(payload)
+    elif kind == "insider_scan":
+        InsiderScanTask.model_validate(payload)
     elif kind == "probe" and payload:
         raise ValueError("Probe tasks contain no business payload")
     body = json.dumps(envelope.model_dump(), sort_keys=True, separators=(",", ":"))

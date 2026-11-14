@@ -1,6 +1,6 @@
 """Response schemas for the insider-activity API (P4, Form 4)."""
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -43,6 +43,21 @@ class InsiderActivitySummary(BaseModel):
     last_transaction_date: Optional[str] = None
 
 
+class InsiderScanState(BaseModel):
+    """How far the background scan that fills the stored trades has got (ADR 0009)."""
+
+    # complete: every listed filing is read. scanning: filings are still being read. paused: SEC pushed back and
+    # the scan waits. failed: it cannot run (an issuer SEC does not know, or a parser the deploy must fix).
+    status: Literal["complete", "scanning", "paused", "failed"]
+    filings_listed: int
+    filings_read: int
+    # The earliest filing read so far: how far back the trades below reach.
+    oldest_filed_date: Optional[str] = None
+    refreshed_at: Optional[str] = None
+    # When asking again can show more; null when nothing is pending.
+    retry_after_seconds: Optional[int] = None
+
+
 class InsiderActivityResponse(BaseModel):
     ticker: str
     company_name: Optional[str] = None
@@ -51,3 +66,4 @@ class InsiderActivityResponse(BaseModel):
     summary: InsiderActivitySummary
     transactions: List[InsiderTransaction]
     total_transactions: int
+    scan: InsiderScanState
