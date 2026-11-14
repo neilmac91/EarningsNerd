@@ -11,11 +11,20 @@
 //   3. fill the cache with the build's prerendered pages;
 //   4. add the new server version to the server's deployment at 0%, so that the front may name it;
 //   5. move the front to its new version, which calls its own server version by name;
-//   6. move the server to its new version.
-// A Worker that does not exist yet is created by a plain deploy, which is also what applies the front's Durable
-// Object migration; such a first deploy has no earlier version to protect.
+//   6. move the server to its new version;
+//   7. apply the front's triggers (its hostname and its schedule), which a version deploy does not carry.
+// The first deploy of a pair has one more problem: each Worker names the other (the front binds the server; the
+// server binds the front and its Durable Object), and Cloudflare creates neither while the other is missing. So a
+// front Worker that does not exist is first created without its binding to the server, and with no hostname,
+// address or schedule, which is also what applies its Durable Object migration; then the server is created; then
+// the steps above run as for any deploy, and step 7 is what first makes the front reachable.
+//
+// Step 7 can move a hostname: wrangler replaces a hostname's existing DNS records without asking when it is not
+// run at a terminal, which is how this script runs it. So a pair the repository holds is deployed from `main`
+// only, as fetched now and with nothing changed, and the script refuses anything else before it builds.
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 
 const [frontConfig = 'wrangler.jsonc', serverConfig = 'wrangler.server.jsonc'] = process.argv.slice(2)
 
@@ -64,33 +73,71 @@ function versionIn(output, label) {
   return found[1]
 }
 
+/**
+ * Creates a front Worker that does not exist yet, and returns its version. The config is the front Worker's own
+ * without the SERVER binding, which Cloudflare refuses while the server Worker is missing, and without anything
+ * that would send it a request: it calls a server it does not have. It is written under .wrangler/, which git
+ * ignores, so its paths are made absolute.
+ */
+function createFront(config) {
+  const { route: _route, routes: _routes, triggers: _triggers, $schema: _schema, ...front } = readConfig(config)
+  const unreachable = {
+    ...front,
+    main: path.resolve(front.main),
+    assets: { ...front.assets, directory: path.resolve(front.assets.directory) },
+    services: front.services.filter((service) => service.binding !== 'SERVER'),
+    workers_dev: false,
+    preview_urls: false,
+  }
+  mkdirSync('.wrangler', { recursive: true })
+  const file = path.join('.wrangler', 'cf-deploy-first-front.json')
+  writeFileSync(file, JSON.stringify(unreachable, null, 2))
+  return versionIn(run(['wrangler', 'deploy', '-c', file]), 'Current Version ID')
+}
+
+/**
+ * Refuses a deploy of unreviewed code or configuration to a pair the repository holds, or to any hostname. A pair
+ * of files git does not track and that names no hostname, an experiment's on a workers.dev address, is let through.
+ */
+function requireMain() {
+  const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const tracked = (file) => git('ls-files', '--', file) !== ''
+  const front = readConfig(frontConfig)
+  const namesAHostname = front.route !== undefined || (front.routes ?? []).length > 0
+  if (!tracked(frontConfig) && !tracked(serverConfig)) {
+    if (!namesAHostname) return
+    throw new Error(`${frontConfig} is not in the repository and names a hostname; only a reviewed file may take one.`)
+  }
+  if (git('status', '--porcelain') !== '') {
+    throw new Error('The checkout has changes. Deploy from a clean checkout of main: `git status` lists what differs.')
+  }
+  git('fetch', '--quiet', 'origin', 'main')
+  const [head, main] = [git('rev-parse', 'HEAD'), git('rev-parse', 'FETCH_HEAD')]
+  if (head !== main) {
+    throw new Error(`This checkout is at ${head.slice(0, 9)} and main is at ${main.slice(0, 9)}. Deploy from main as it is now.`)
+  }
+}
+
+requireMain()
+
 const serverName = readConfig(serverConfig).name
-const servingServer = currentVersion(serverConfig)
-const servingFront = currentVersion(frontConfig)
+const servedServer = currentVersion(serverConfig)
+const servedFront = currentVersion(frontConfig)
 
 run(['opennextjs-cloudflare', 'build'])
 
-const newServer = servingServer
-  ? versionIn(run(['wrangler', 'versions', 'upload', '-c', serverConfig]), 'Worker Version ID')
-  : versionIn(run(['wrangler', 'deploy', '-c', serverConfig]), 'Current Version ID')
+const servingFront = servedFront ?? createFront(frontConfig)
+const servingServer = servedServer ?? versionIn(run(['wrangler', 'deploy', '-c', serverConfig]), 'Current Version ID')
 
+const newServer = versionIn(run(['wrangler', 'versions', 'upload', '-c', serverConfig]), 'Worker Version ID')
 const override = `SERVER_VERSION_OVERRIDE:${serverName}="${newServer}"`
-const newFront = servingFront
-  ? versionIn(run(['wrangler', 'versions', 'upload', '-c', frontConfig, '--var', override]), 'Worker Version ID')
-  : null
+const newFront = versionIn(run(['wrangler', 'versions', 'upload', '-c', frontConfig, '--var', override]), 'Worker Version ID')
 
 run(['opennextjs-cloudflare', 'populateCache', 'remote', '-c', frontConfig])
 
-if (servingServer) {
-  run(['wrangler', 'versions', 'deploy', `${servingServer}@100%`, `${newServer}@0%`, '-y', '-c', serverConfig])
-}
-if (newFront) {
-  run(['wrangler', 'versions', 'deploy', `${newFront}@100%`, '-y', '-c', frontConfig])
-} else {
-  run(['wrangler', 'deploy', '-c', frontConfig, '--var', override])
-}
-if (servingServer) {
-  run(['wrangler', 'versions', 'deploy', `${newServer}@100%`, '-y', '-c', serverConfig])
-}
+run(['wrangler', 'versions', 'deploy', `${servingServer}@100%`, `${newServer}@0%`, '-y', '-c', serverConfig])
+run(['wrangler', 'versions', 'deploy', `${newFront}@100%`, '-y', '-c', frontConfig])
+run(['wrangler', 'versions', 'deploy', `${newServer}@100%`, '-y', '-c', serverConfig])
+run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])
 
-console.log(`\nDeployed ${readConfig(frontConfig).name} with ${serverName} version ${newServer}.`)
+console.log(`\nDeployed ${readConfig(frontConfig).name} (was ${servingFront}) with ${serverName} version ${newServer}.`)
