@@ -80,7 +80,10 @@ review, on a push to `main` that deploys the backend, and once a night on `main`
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
 `frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
 charts and gallery, run as five `e2e-shard` jobs; it passes when every shard passes), `lighthouse` and
-`secret-scan` (gitleaks). The browser jobs (`e2e-shard`, `lighthouse`) skip their steps, and pass, when
+`secret-scan` (gitleaks). Two more run on a pull request: `price-agreement` (a change to
+`frontend/app/pricing/prices.ts` must not show less than production checkout charges; see
+[`docs/PRICING_OFFER.md`](./docs/PRICING_OFFER.md)) and `eval-baseline` (the AI eval against
+`backend/evals/baseline_scores.json`; advisory, not a required check). The browser jobs (`e2e-shard`, `lighthouse`) skip their steps, and pass, when
 a change touches no file they read: records, and `backend/` or `ops/` files other than the three the
 frontend reads (`ci-scope` in `ci.yml` names them). A push to a draft pull request runs no test job
 (`secret-scan` still runs): run the suites locally before each push, and mark the pull request ready to

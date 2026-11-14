@@ -74,9 +74,11 @@ rollout-preservation gate covers them. The optional CI step `Update configured s
 worker image` runs before the API deployment. With repository variable `GCP_SUMMARY_WORKER_URL`
 unset, it performs no cloud operation. Once that non-secret variable names the provisioned
 service's canonical URL, it requires the fixed `earningsnerd-summary-worker` service to exist
-and match that URL, then updates only its image and additive `SENTRY_RELEASE` marker. It moves
+and match that URL, to run a single container, and to pin `SEC_RATE_LIMIT_PER_SECOND` and
+`EDGAR_RATE_LIMIT_PER_SEC` each to the plain value `1` (no `valueFrom`). It then updates only its
+image and additive `SENTRY_RELEASE` marker. It moves
 traffic to the new revision and clears old revision tags. It does not create a service or change
-its role, feature controls, secrets or capacity. Lookup, identity mismatch or image-update
+its role, feature controls, secrets or capacity. Lookup, identity mismatch, an unpinned SEC budget or image-update
 failure stops the step before subsequent mutations; the API deployment follows only success.
 
 Run the bounded isolated actual-delivery rehearsal before directing user work to this queue.

@@ -47,7 +47,8 @@ DNS changes retain founder/mandate boundaries. Prepare concrete reviewable proce
 this brief does not authorize those operations. No invented backup bucket, retention period or
 monitoring threshold is an existing product guarantee.
 
-For authorized code changes, use pinned gates and proportional behavioral verification. Backend
-paths deploy even when only tests changed; follow actual migration, traffic and detailed-health
-verification and one-unverified-deploy sequencing. Report observations separately from suggested
+For authorized code changes, use pinned gates and proportional behavioral verification. Only a push
+changing `backend/` outside `backend/tests/` deploys; tests-only changes run every CI gate and skip
+deployment (see `devops-automator.md`). For a deploying change, follow actual migration, traffic and
+detailed-health verification and one-unverified-deploy sequencing. Report observations separately from suggested
 capacity actions, and update the owning operational document when implementation changes.

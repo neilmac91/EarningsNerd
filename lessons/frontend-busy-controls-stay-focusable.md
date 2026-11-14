@@ -96,8 +96,8 @@ its first substitution still marking its control a retry (an icon-only Button's 
 ${name}`}``), and RetryButton's definition must reserve the busy text it shows. On copy: every string, template
 text and JSX text in the .ts and .tsx modules under the same roots is read, and "retry", "retrying", "retries" or
 "retried" fails, outside console calls, imports, object keys, string types, code attributes and the header name
-Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the two backend tokens the app
-matches and never shows (PLACEHOLDER_PATTERNS' "retry" and SUMMARY_FALLBACK_MESSAGE). Its limit, planted as a gap:
+Retry-After; ALLOW_RETRY_WORD pins, with reasons and caps equal to the list, the one backend token the app
+matches and never shows (SUMMARY_FALLBACK_MESSAGE). Its limit, planted as a gap:
 a word split across JSX text and an expression (`Please re{''}try`) is read a part at a time, so neither clause
 sees it.
 

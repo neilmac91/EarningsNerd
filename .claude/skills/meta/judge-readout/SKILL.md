@@ -70,12 +70,12 @@ OUT=/tmp/weekly-<run_id>/judged
 PYTHONPYCACHEPREFIX=$(mktemp -d) nohup python -m evals.judge_readout /tmp/weekly-<run_id>/report.json \
   --output-dir "$OUT" --concurrency 2 > /tmp/weekly-<run_id>/judge.log 2>&1 &
 ```
-Expect about 24 subscription calls, each carrying up to roughly 340,000 characters of retained
-source, XBRL and summary, with a 300-second bound per call; the run takes minutes and writes its
+Expect about 24 subscription calls, each carrying up to roughly 540,000 characters of retained
+source, XBRL and summary (caps of 400,000, 40,000 and 100,000 in `evals/judge.py`), with a 300-second bound per call; the run takes minutes and writes its
 outputs only at the end, which is why it runs detached from the tool's own timeout. Wait for
 `Outputs:` in `judge.log` (poll the file; do not re-run while `pgrep -f evals.judge_readout`
-still finds it), then keep that log. A partial readout exits 1 by design (for example MELI's
-attempts over the excerpt bound); do not re-run for that reason. Do not raise the judge input
+still finds it), then keep that log. A partial readout exits 1 by design (for example an
+attempt over a judge input cap); do not re-run for that reason. Do not raise the judge input
 bounds or edit the golden set to make a verdict fit.
 
 ## 4. Report the result to the founder

@@ -6,4 +6,4 @@ Date: 2026-07-06   Area: ops
 
 **Rule**: When a plan/report cites a specific site (file:line, symbol, function) for a bug, fix and test THAT site — open the exact line and confirm the defect is gone there. A fix to a related/adjacent manifestation does not discharge the citation; if your investigation redirects to a different site, say so explicitly and confirm the original is either also fixed or provably not the bug. "I fixed a partial-handling bug" ≠ "I fixed the cited partial-handling bug."
 
-**Evidence**: `page-client.tsx:323` (the poll's `refetchInterval`); backend writes three terminal stages via `record_progress(..., "partial")`, the poll stopped on two; F2 / latent bug L1.
+**Evidence**: the poll's `refetchInterval` (`page-client.tsx:323` of the filing route when the plan was written; now `progressRefetchInterval` in `features/summaries/hooks/useSummaryGeneration.ts`); backend writes three terminal stages via `record_progress(..., "partial")`, the poll stopped on two; F2 / latent bug L1.

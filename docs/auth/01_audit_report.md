@@ -1,4 +1,7 @@
 # Auth Audit Report — EarningsNerd.io
+
+> Historical document. The design that shipped is in [`06_integration_notes.md`](06_integration_notes.md), which records where it departed from this one.
+
 **Date:** 2026-06-12  
 **Auditor:** Principal Security Review (Phase 1)  
 **Status:** Read-only discovery. No files modified.

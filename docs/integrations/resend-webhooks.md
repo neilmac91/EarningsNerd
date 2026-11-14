@@ -106,7 +106,8 @@ The following has been implemented in your backend:
 
 ✅ Webhook endpoint: `POST /api/webhooks/resend`
 ✅ Signature verification for security
-✅ Event handlers for all Resend events
+✅ Handlers for the nine events listed in Step 2 of the activation checklist
+✅ Delivery feedback recorded in the invitation ledger and suppression list
 ✅ Logging for monitoring
 ✅ Configuration for webhook secret
 
@@ -243,8 +244,7 @@ Check your backend logs for webhook events:
 Check your backend logs:
 
 ```bash
-# Development
-tail -f /var/log/your-app.log
+# Development: the terminal running `uvicorn`
 
 # Production (Cloud Run)
 gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend" AND ("Resend webhook" OR "RESEND_WEBHOOK_SECRET")' --limit=20
@@ -414,46 +414,6 @@ Handle duplicate webhook events gracefully (Resend may retry failed deliveries).
 3. **Check Logs**: Look for errors in event processing
 
 ## Next Steps
-
-### Database Integration (Optional)
-
-To track email events in your database:
-
-1. **Create Email Events Table**:
-```sql
-CREATE TABLE email_events (
-    id SERIAL PRIMARY KEY,
-    email_id VARCHAR(255) NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
-    recipient VARCHAR(255) NOT NULL,
-    data JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-2. **Update Event Handlers** in `backend/app/routers/webhooks.py`:
-```python
-async def handle_email_bounced(data: Dict[str, Any]):
-    email_id = data.get("email_id")
-    to = data.get("to")
-    bounce_type = (data.get("bounce") or {}).get("type")  # "Permanent" or "Temporary"
-
-    # Store in database
-    db_event = EmailEvent(
-        email_id=email_id,
-        event_type="bounced",
-        recipient=to,
-        data=data
-    )
-    # db.add(db_event)
-    # db.commit()
-
-    # Mark contact submission as bounced
-    # submission = db.query(ContactSubmission).filter_by(email=to).first()
-    # if submission:
-    #     submission.status = "bounced"
-    #     db.commit()
-```
 
 ### Email Tracking (Optional)
 

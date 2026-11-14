@@ -1,6 +1,6 @@
 # React Best Practices - Complete Rules Reference
 
-57 performance optimization rules for React and Next.js, organized by impact level.
+34 performance optimization rules for React and Next.js, organized by impact level.
 
 ---
 

@@ -72,7 +72,7 @@ remaining accepted policies and founder boundaries are in the [handover](handove
    - `duration_ms` p50/p90 on `generation_succeeded` (time-to-summary).
    - `quality_verdict` split (full vs partial) on `generation_succeeded`.
    - `example_cta_clicked` CTR by `placement` (hero / hero_visual /
-     hero_mobile_card / cta_banner / waitlist).
+     cta_banner / waitlist / waitlist_preview).
 10. **Google Search Console**: verify `www.earningsnerd.io`, submit
     `https://www.earningsnerd.io/sitemap.xml`, and request indexing of `/`.
 11. **Core Web Vitals**: watch Vercel Analytics (field data) against the

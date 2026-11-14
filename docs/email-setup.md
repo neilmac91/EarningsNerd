@@ -1,6 +1,6 @@
 # EarningsNerd email setup
 
-Reviewed **23 October 2026**. Public mail uses Google Workspace and routes to the existing primary mailbox. The proposed product changes are unmerged and undeployed. Account-specific addresses, mailbox details and verification records are maintained separately.
+Reviewed **23 October 2026**. Public mail uses Google Workspace and routes to the existing primary mailbox. The product changes are merged to main. Account-specific addresses, mailbox details and verification records are maintained separately.
 
 ## Addresses and routing
 
@@ -42,15 +42,15 @@ The [canonical address JSON](../backend/app/public_email_addresses.json) is cons
 | Setting | Source default or later release action |
 | --- | --- |
 | `RESEND_FROM_EMAIL` | Existing default: `EarningsNerd <hello@inbound.earningsnerd.io>`. The verified root domain can support `EarningsNerd <support@earningsnerd.io>` during a later approved release. |
-| `RESEND_REPLY_TO_EMAIL` | New code default: `support@earningsnerd.io` |
-| `CONTACT_NOTIFICATION_EMAIL` | New code default: `support@earningsnerd.io`, independent of From |
-| `FEEDBACK_NOTIFICATION_EMAIL` | New code default: `support@earningsnerd.io`, independent of From |
-| `SEC_USER_AGENT` | New code default: `EarningsNerd/1.0 (support@earningsnerd.io)` |
+| `RESEND_REPLY_TO_EMAIL` | Code default: `support@earningsnerd.io` |
+| `CONTACT_NOTIFICATION_EMAIL` | Code default: `support@earningsnerd.io`, independent of From |
+| `FEEDBACK_NOTIFICATION_EMAIL` | Code default: `support@earningsnerd.io`, independent of From |
+| `SEC_USER_AGENT` | Code default: `EarningsNerd/1.0 (support@earningsnerd.io)` |
 | `EDGAR_IDENTITY` | Same reachable support contact for the bootstrap default or an explicitly reviewed override |
 
 Live environment values have not changed. Before release, review each service/job's existing overrides and record previous values privately; a source default does not replace an override. Preserve unrelated recipients, credentials, webhook settings and billing configuration. No new frontend email environment variable is required.
 
-Contact and feedback notifications use the submitter's email as Reply-To; confirmations and newly selected transactional mail use support. Durable filing deliveries persist Reply-To with the rest of their provider-key envelope: a configuration change cannot alter it on retry. Existing batches keep a missing Reply-To, their original payload hash and key; the additive nullable migration does not backfill them. Review this source change and migration before the later backend release. Keep inbound public mail in Workspace. Resend's root domain is verified for sending only, with receiving disabled and tracking off; preserve the existing inbound subdomain. See [Resend sender configuration](https://resend.com/docs/knowledge-base/how-do-I-create-an-email-address-or-sender-in-resend).
+Contact and feedback notifications use the submitter's email as Reply-To; confirmations and newly selected transactional mail use support. Durable filing deliveries persist Reply-To with the rest of their provider-key envelope: a configuration change cannot alter it on retry. Existing batches keep a missing Reply-To, their original payload hash and key; the additive nullable migration does not backfill them. The source change and migration are merged to main. Keep inbound public mail in Workspace. Resend's root domain is verified for sending only, with receiving disabled and tracking off; preserve the existing inbound subdomain. See [Resend sender configuration](https://resend.com/docs/knowledge-base/how-do-I-create-an-email-address-or-sender-in-resend).
 
 New batches with a frozen Reply-To use `reply_to:ready`, `reply_to:claimed`, `reply_to:sending` and `reply_to:retryable`. The persisted status identifies the protocol throughout claims, retries, re-keying and lease recovery; the current configuration or a changed/null Reply-To cannot downgrade it. Older workers ignore all four states, including their stale-lease cleanup, while compatible workers can finish both protocols. Legacy NULL Reply-To batches retain their legacy states and unchanged wire payload, hash and key. Terminal states remain shared.
 
@@ -101,5 +101,5 @@ For a shared role, arrange an approved mailbox for the teammate, record the curr
 | DMARC/CNAME | Obtain fresh DNS approval and restore an approved valid policy/record state. Do not recreate the former duplicate DMARC policies. |
 | Resend root sender | Restore a recorded prior runtime From before disabling a later sender. Preserve the existing subdomain; irreversible domain deletion needs approval. |
 | Runtime overrides | Restore each recorded prior value or remove only new overrides through an approved release; do not expose credentials. |
-| Product code/security.txt | Close the unmerged PR or use a reviewed revert PR after a release. Do not merge/deploy automatically. Keep the additive nullable delivery `reply_to` column and `reply_to:*` states during a code rollback; new-protocol batches wait for a compatible worker. Never backfill legacy envelopes, relabel/re-key/release pending batches with SQL, or drop a column still read by deployed code. |
+| Product code/security.txt | Use a reviewed revert PR. Do not merge/deploy automatically. Keep the additive nullable delivery `reply_to` column and `reply_to:*` states during a code rollback; new-protocol batches wait for a compatible worker. Never backfill legacy envelopes, relabel/re-key/release pending batches with SQL, or drop a column still read by deployed code. |
 | Alias-to-Group migration | Restore the recorded alias/send-as configuration and retest. Preserve any Group history unless its deletion is approved. |

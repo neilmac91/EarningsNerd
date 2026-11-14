@@ -8,7 +8,7 @@ source: https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-
 
 # React Best Practices
 
-This skill provides 57 performance optimization rules for React and Next.js applications, organized by impact level. Consult the relevant categories when investigating or improving performance; routine component edits do not require a full performance review.
+This skill provides 34 performance optimization rules for React and Next.js applications, organized by impact level. Consult the relevant categories when investigating or improving performance; routine component edits do not require a full performance review.
 
 ## Rule Categories by Impact
 
@@ -33,7 +33,7 @@ This skill provides 57 performance optimization rules for React and Next.js appl
 4. **Dynamic imports** - Lazy-load heavy components
 5. **Use React.cache()** - Deduplicate per-request data
 
-See [rules.md](./rules.md) for the complete 57-rule reference with code examples.
+See [rules.md](./rules.md) for the complete 34-rule reference with code examples.
 
 ## When to Apply
 

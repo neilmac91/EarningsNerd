@@ -6,4 +6,4 @@ Date: 2026-06-23   Area: sec
 
 **Rule**: Any access/gating requirement (waitlist, invite-only, beta cohort, role) must be enforced in the backend at the mutation endpoint — frontend middleware/redirect is UX only and trivially bypassed. Before trusting an existing gate, grep for where the server validates it; if the check lives only in `middleware.ts`/route guards, treat the resource as ungated.
 
-**Evidence**: `frontend/middleware.ts` (redirects `/`→`/waitlist`); `backend/app/routers/auth.py:608-676` accepts anyone.
+**Evidence**: `frontend/middleware.ts` (redirects `/`→`/waitlist`); on 2026-06-23 the register endpoint in `backend/app/routers/auth.py` accepted anyone. It is now gated server-side by `REGISTRATION_MODE=invite_only` (`app/config.py`, enforced in `/api/auth/register`).

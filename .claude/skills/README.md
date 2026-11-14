@@ -12,7 +12,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 | **Meta** | [karpathy-guidelines](./meta/karpathy-guidelines/) | Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution |
 | **Payments** | [stripe-best-practices](./payments/stripe-best-practices/) | Stripe API integration patterns and best practices |
 | **Infrastructure** | [cloudflare-agents-sdk](./infrastructure/cloudflare-agents-sdk/) | Building AI agents on Cloudflare Workers |
-| **Frontend** | [react-best-practices](./frontend/react-best-practices/) | React/Next.js performance optimization (57 rules) |
+| **Frontend** | [react-best-practices](./frontend/react-best-practices/) | React/Next.js performance optimization (34 rules) |
 | **Frontend** | [web-design-guidelines](./frontend/web-design-guidelines/) | UI code review against design standards |
 | **Deployment** | [vercel-deploy](./deployment/vercel-deploy/) | Deploy applications to Vercel |
 | **Subagents** | [voltagent](./subagents/voltagent/) | 126+ specialized Claude Code subagents |
@@ -21,7 +21,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 
 ### Meta (`/meta`)
 Skills for reasoning and decision-making workflows:
-- **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this". Transcripts go to `~/.claude/earningsnerd/council/`, never into the repository.
+- **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Trigger: "council this". Transcripts go to `~/.claude/earningsnerd/council/`, never into the repository.
 - **judge-readout** - In a fresh chat, download the Monday `data-quality-weekly` generation artifact, judge its 24 retained attempts with `evals.judge_readout` over the subscription CLI, report and record the readout, and deliver it only after asking. Manual invocation only (`disable-model-invocation: true`).
 - **design-docs-maintenance** - Opened for any UI change: its "Which sections to read" says which design-doc parts the change reads (`DESIGN_SYSTEM.md` §4 by recipe for route-specific content or layout built from existing components and tokens). The rest is the design-document parity procedure (sidecar, Impeccable `document`, panel harness) for a change that touches the documented design system.
 - **karpathy-guidelines** - Baseline coding behaviour; `CLAUDE.md` names it.

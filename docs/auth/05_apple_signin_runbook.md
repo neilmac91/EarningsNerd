@@ -1,8 +1,11 @@
 # Apple Sign In — Configuration Runbook (Increment 4)
 
-Status: **blocked on Apple Developer membership approval.** Run this the moment your
-account shows **Active** (not "Pending"). Everything below is split into *what you do*
-and *what I build*.
+Status: **the code has shipped.** The backend exchange (`/api/auth/apple`, `/apple/start`,
+`/apple/callback`) and the button's wiring are on main; the button shows only where
+`NEXT_PUBLIC_ENABLE_APPLE_SIGNIN` is set. Whether production holds the Apple credentials is not
+recorded in this repository. This runbook is the reference for the setup (a new environment, a key
+rotation). Everything below is split into *what you do*
+and *what the code does*.
 
 Once it is set up, the check of what a person sees before signing in with Apple (or Google) is
 [`07_oauth_provider_check.md`](07_oauth_provider_check.md) (F38).
@@ -50,14 +53,15 @@ the verification email, but other mail — receipts, security notices — still 
 
 ---
 
-## Part 2 — Send me
+## Part 2 — The values (keep them out of chat)
 
 ```
 APPLE_TEAM_ID=...
 APPLE_KEY_ID=...
 APPLE_CLIENT_ID=io.earningsnerd.web
 ```
-Plus the **full contents of the `.p8`** (starts with `-----BEGIN PRIVATE KEY-----`).
+Plus the **full contents of the `.p8`** (starts with `-----BEGIN PRIVATE KEY-----`). These go to
+Secret Manager only (Part 4). Never paste them, or the `.p8`, into a chat, an issue or the repository.
 
 ---
 
@@ -119,7 +123,7 @@ as an env var of the same name. `APPLE_REDIRECT_URI` defaults to the prod callba
 
 ---
 
-## Part 5 — What I build (world-class implementation notes)
+## Part 5 — What the code does (implementation notes)
 
 - **Dynamic client secret (zero manual rotation).** Apple's "client secret" is an ES256 JWT
   signed with the `.p8`, valid ≤ 6 months. I generate it *at runtime* from `APPLE_PRIVATE_KEY`
@@ -143,5 +147,5 @@ as an env var of the same name. `APPLE_REDIRECT_URI` defaults to the prod callba
   URL: request logs record query strings); the callback validates and redeems it in the same
   transaction as the insert. Private-relay
   emails are treated as that user's email.
-- **Tests + frontend wiring.** Apple button (HIG-compliant) ships with the design work; the
-  backend exchange + the button's live wiring land in this increment once credentials arrive.
+- **Tests + frontend wiring.** The Apple button (HIG-compliant) shipped with the design work, and the
+  backend exchange and the button's live wiring have shipped too.
