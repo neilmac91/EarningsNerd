@@ -1,0 +1,64 @@
+# Repository rules for CI's secret-scan and .claude/hooks/secret_scan_guard.py, on top of gitleaks'
+# built-in set. Each rule covers a key this stack holds or once held that gitleaks 8.24.3 has no rule
+# for. Without them a key reached the scan only through generic-api-key, which needs a key-like name
+# and `=` or `:` before the value, so a bare key on a line of its own passed. GitHub's secret
+# scanning raised alerts 1 to 4 on four such shapes (OpenRouter, Supabase, two `whsec_` values).
+# Gate: backend/tests/unit/test_gitleaks_repo_rules.py. Global path allowlists skip this file itself.
+
+title = "EarningsNerd gitleaks rules"
+
+[extend]
+useDefault = true
+
+# [extend] carries the built-in global paths and regexes but not its stopwords, so they are restated
+# here to keep the built-in rules' verdicts as they were.
+[allowlist]
+description = "gitleaks 8.24.3 built-in global stopwords"
+stopwords = [
+    "abcdefghijklmnopqrstuvwxyz",
+    "014df517-39d1-4453-b7b3-9930c563627c",
+]
+
+[[rules]]
+id = "deepseek-api-key"
+description = "DeepSeek API key: production's OPENAI_API_KEY (ADR-0008)"
+regex = '''\b(sk-[0-9a-f]{32})\b'''
+entropy = 3.0
+keywords = ["sk-"]
+
+[[rules]]
+id = "openrouter-api-key"
+description = "OpenRouter API key: the AI provider until 2026-01-20 (secret-scanning alert 1)"
+regex = '''\b(sk-or-v1-[0-9a-f]{64})\b'''
+entropy = 3.0
+keywords = ["sk-or-v1-"]
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret key: bypasses row-level security (secret-scanning alert 2)"
+regex = '''\b(sb_secret_[A-Za-z0-9_-]{24,})'''
+entropy = 3.5
+keywords = ["sb_secret_"]
+[[rules.allowlists]]
+stopwords = ["your", "example", "placeholder", "replace", "change"]
+
+[[rules]]
+id = "webhook-signing-secret"
+description = "Stripe or Svix (Resend) webhook signing secret (secret-scanning alerts 3 and 4)"
+regex = '''\b(whsec_[A-Za-z0-9+/]{24,}={0,2})'''
+entropy = 3.5
+keywords = ["whsec_"]
+
+[[rules]]
+id = "resend-api-key"
+description = "Resend API key"
+regex = '''\b(re_[A-Za-z0-9]{8,}_[A-Za-z0-9]{16,})\b'''
+entropy = 3.5
+keywords = ["re_"]
+
+[[rules]]
+id = "google-oauth-client-secret"
+description = "Google OAuth client secret (GOOGLE_CLIENT_SECRET)"
+regex = '''\b(GOCSPX-[A-Za-z0-9_-]{28})'''
+entropy = 3.5
+keywords = ["gocspx-"]
