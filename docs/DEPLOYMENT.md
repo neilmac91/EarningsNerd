@@ -571,32 +571,43 @@ CI does **not** deploy the frontend.
 > plugin logs a warning and skips the upload — the build still succeeds (CI builds run without
 > them), but production stack traces stay minified.
 
-### Frontend on Cloudflare Workers (preview)
+### Frontend on Cloudflare Workers (staging)
 
 A second build of the same app runs on Cloudflare Workers through the OpenNext adapter, to evaluate moving the
-frontend off Vercel. It is a copy at the Worker `earningsnerd-frontend-poc` on the account's workers.dev subdomain: it has no custom
-domain and takes no production traffic. Nothing deploys it automatically, and CI does not build it. Vercel's
-deployment changes in two small ways: its install also fetches the two build tools (dev dependencies), and it serves
-`public/_headers` as a static file at `/_headers`, which holds one caching rule and nothing private.
+frontend off Vercel. It is the Worker `earningsnerd-frontend-staging` at `https://staging.earningsnerd.io`: the code
+on `main`, built for Workers, calling the production API. It serves no production hostname, and production is
+still Vercel. Nothing deploys it automatically. Vercel's deployment differs in two small ways since the adapter
+arrived: its install also fetches the two build tools (dev dependencies), and it serves `public/_headers` as a
+static file at `/_headers`, which holds one caching rule and nothing private.
 
 | File (under `frontend/`) | What it sets |
 |---|---|
-| `open-next.config.ts` | Rendered pages are cached in R2, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server loads |
-| `wrangler.jsonc` | The Worker's name, its R2 bucket, Durable Object and self-reference bindings, and its two runtime variables |
+| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server loads |
+| `wrangler.jsonc` | The Worker's name, its custom domain, its R2 bucket, Durable Object and self-reference bindings, and its two runtime variables |
 | `cloudflare-worker.mjs`, `cloudflare-robots.mjs` | The entry point: OpenNext's handler, plus `X-Robots-Tag: noindex, nofollow` on every response it renders while `ROBOTS_NOINDEX` is `true` |
 | `public/_headers` | A year of immutable browser caching for `/_next/static/*`; without it Cloudflare serves those files `max-age=0` |
 
-`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires `WAITLIST_MODE` to be
-stated (a Worker without it redirects every page to `/waitlist`), and keeps a workers.dev deployment noindex and
-without a route.
+`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires
+`WAITLIST_MODE` to be stated (a Worker without it redirects every page to `/waitlist`), and requires a Worker to be
+either a noindex copy or the production site, never an indexable copy or a noindex production. CI's
+`worker-build` job builds the app for Workers, refuses a Worker of 8 MiB or more gzipped (Cloudflare's limit is
+10 MiB) and requests a page from the built Worker in the local Workers runtime; it uses no Cloudflare credential,
+and `deploy-backend` does not wait for it.
 
-**Deploying it.** From `frontend/`, with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment and
-the build-time variables below exported: `npm run cf:deploy`. `npm run cf:preview` serves the same build locally in
-the Workers runtime. The token is an account-owned one (Workers Scripts, Workers R2 Storage: Edit), which verifies
-at `/accounts/<id>/tokens/verify`, not at `/user/tokens/verify`. R2 was enabled once in the dashboard, and the bucket
-`earningsnerd-frontend-poc-cache` was created once with `npx wrangler r2 bucket create`. During a deploy, the step
-that uploads the prerendered pages prints "no such Durable Object class is exported from the worker"; it comes from
-that step's local reader of the config, and the deployed Worker does export the class.
+**Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
+browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
+must not be served on any `earningsnerd.io` hostname. Review-checked: nothing enforces it while deploys are by hand.
+
+**Deploying it.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`.
+`npm run cf:preview` serves the same build locally in the Workers runtime. The token is an account-owned one
+(Workers Scripts and Workers R2 Storage: Edit, and on the zone Workers Routes and DNS: Edit, which the custom
+domain needs), and it verifies at `/accounts/<id>/tokens/verify`, not at `/user/tokens/verify`. R2 was enabled once
+in the dashboard, and the bucket `earningsnerd-frontend-staging-cache` was created once with
+`npx wrangler r2 bucket create`. The first deploy created the hostname's DNS record (a proxied record Cloudflare
+manages for the Worker) and its certificate. During a deploy, the step that uploads the prerendered pages prints "no
+such Durable Object class is exported from the worker"; it comes from that step's local reader of the config, and
+the deployed Worker does export the class.
 
 **Variables are build inputs.** Next compiles every `NEXT_PUBLIC_*` value, and `SENTRY_DSN` (`next.config.js`
 `env`), into the bundle, so they are exported in the shell that runs the build; a value in `wrangler.jsonc` `vars`
@@ -604,32 +615,50 @@ reaches only code that reads `process.env` on the server at request time, which 
 entry point's `ROBOTS_NOINDEX`. A variable missing from the build fails silently: without
 `NEXT_PUBLIC_LOGO_DEV_TOKEN` every company logo falls back to initials. Take the names and values from the Vercel
 project's Environment Variables page; `frontend/lib/featureFlags.ts` and `next.config.js` are the list of what the
-code reads. Two differ from Vercel: `NEXT_PUBLIC_SENTRY_RELEASE` and `NEXT_PUBLIC_SENTRY_ENVIRONMENT` must be set
-by hand, because their fallbacks are Vercel's own `VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`.
+code reads. Three differ from Vercel: `NEXT_PUBLIC_SENTRY_RELEASE` (the commit) and
+`NEXT_PUBLIC_SENTRY_ENVIRONMENT` (`staging`) are set by hand, because their fallbacks are Vercel's own
+`VERCEL_GIT_COMMIT_SHA` and `VERCEL_ENV`, and `NEXT_PUBLIC_POSTHOG_KEY` is left unset, so staging's visits stay
+out of production's analytics.
 
-**What was measured, 2026-11-13, on commit `14d1828`** (#2051 holds the evidence):
+**The API must allow the origin.** The browser's calls to `api.earningsnerd.io` succeed from staging only while
+the service's `CORS_ORIGINS_STR` lists `https://staging.earningsnerd.io`. The deploy does not set that variable
+(step 6 below sets it at bootstrap), so it is applied once to the running service, which starts a new revision:
 
-- The Worker is 3.31 MiB gzipped against the paid plan's 10 MiB limit, and starts in about 30 ms.
-- The production smoke spec passes. Shard 1 of 5 of the browser suite ran 253 passed, 5 failed, 5 skipped, and the
-  same five fail against `next start` on the same machine; shards 2 to 5 were not run.
-- A page with a 30 second `revalidate` was served stale once and then fresh, twice, with the Durable Object invoked.
-- Sentry received a thrown server error from the Worker (issue `JAVASCRIPT-NEXTJS-2S`).
-- Median time to first byte from one cloud vantage point, 15 samples: 237 to 267 ms on the Worker against 173 to
-  190 ms on Vercel, for `/`, `/pricing` and `/company/AAPL`. Smart Placement is left off because it roughly doubled
-  the Worker's figure for cached pages.
+```bash
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-env-vars="^@^CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io,https://staging.earningsnerd.io"
+```
 
-**Known limits of the preview.** The browser's calls to `api.earningsnerd.io` are refused by CORS from a workers.dev
-origin, so anything loaded in the browser (the session, registration state, the company page's live data) is
-absent. The speed gap above is the R2 read on every request; Cloudflare's edge cache, which could remove it, works
-only on a custom domain. The latency of pages that are not cached, which without Smart Placement render near the
-reader and call the API in `us-west1`, was not measured. The Sentry SDK logs that its diagnostics-channel hooks
-cannot register in the Workers runtime, so some performance spans are missing; error capture works.
+Read it back with `curl -sI -H 'Origin: https://staging.earningsnerd.io' https://api.earningsnerd.io/health`, which
+answers `access-control-allow-origin: https://staging.earningsnerd.io` once it holds. Until then staging renders
+what the server renders and nothing the browser loads: no session, no registration state, no live company data.
 
-**Before any traffic moves:** a staging hostname on `earningsnerd.io` allowed by the API's CORS list, with the edge
-cache in front of R2 and the speed re-measured from real locations; all five browser shards against the Worker; a
-CI job that builds it; and the hostname-bound services checked (session cookies, Google and Apple sign-in
-redirects, Turnstile, Logo.dev, PostHog). The cutover itself is two DNS records, the apex `A` and the `www`
-`CNAME`, and Vercel stays deployed as the rollback.
+**What was measured, 2026-11-13** (#2051 and the pull request that added this section hold the evidence):
+
+- The Worker is 3.31 MiB gzipped against the paid plan's 10 MiB limit, and starts in 20 to 37 ms.
+- On the workers.dev preview that preceded staging: the production smoke spec passed; shard 1 of 5 of the browser
+  suite ran 253 passed, 5 failed, 5 skipped, and the same five failed against `next start` on the same machine;
+  shards 2 to 5 were not run against a Worker. Sentry received a thrown server error from the Worker (issue
+  `JAVASCRIPT-NEXTJS-2S`).
+- On staging, a page with a 30 second `revalidate` was re-rendered after each expiry, with the edge cache in
+  front of R2; a location's copy trailed the re-render by one request.
+- Median time to first byte from one cloud vantage point, 15 samples, for `/`, `/pricing` and `/company/AAPL`:
+  226, 185 and 192 ms on staging against 216, 168 and 181 ms on Vercel. Without the edge cache staging measured
+  284, 230 and 241 ms; on workers.dev with Smart Placement on, 631, 504 and 542 ms. Smart Placement is left off
+  because it roughly doubled the figure for cached pages.
+
+**Known limits.** One vantage point is not a reader's: the speed figures want a measurement from real locations
+before a decision. The latency of pages that are not cached, which without Smart Placement render near the reader
+and call the API in `us-west1`, was not measured. The Sentry SDK logs that its diagnostics-channel hooks cannot
+register in the Workers runtime, so some performance spans are missing; error capture works. Google and Apple
+sign-in return to `FRONTEND_URL`, which is production, so a reader who signs in that way from staging lands on
+production. Turnstile was not exercised on staging: if the widget's hostname list is restricted, sign-in there
+needs `staging.earningsnerd.io` added to the widget in the Cloudflare dashboard.
+
+**Before any traffic moves:** the origin allowed and a signed-in session checked on staging; all five browser
+shards against staging; the speed re-measured from real locations; and the hostname-bound services checked
+(Turnstile, Logo.dev, PostHog). The cutover itself is two DNS records, the apex `A` and the `www` `CNAME`, a Worker
+configuration for those hostnames with `ROBOTS_NOINDEX` unset, and Vercel left deployed as the rollback.
 
 ---
 
@@ -704,7 +733,7 @@ gcloud run deploy earningsnerd-backend \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io,https://staging.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
 ### 7. Verify

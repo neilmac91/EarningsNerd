@@ -806,6 +806,25 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     }
 
 
+def test_the_workers_build_checks_staging_and_never_holds_a_backend_release():
+    # Staging's Worker is built, sized and requested by worker-build (docs/DEPLOYMENT.md, "Frontend on Cloudflare
+    # Workers (staging)"). It runs when the test jobs run, and deploy-backend does not wait for it: a fault in the
+    # Workers toolchain must not stop a backend release, which is not retried.
+    jobs = workflow()["jobs"]
+    job = jobs["worker-build"]
+    assert job["needs"] == ["ci-scope"] and job["if"] == TESTS_IF and "continue-on-error" not in job
+    assert "worker-build" not in jobs["deploy-backend"]["needs"]
+    runs = [step.get("run", "") for step in job["steps"]]
+    assert "npm run cf:build" in runs
+    check = runs[-1]
+    # The size is refused from 8 MiB (Cloudflare's limit is 10), and a size the step cannot read is refused too.
+    assert '=~ ^[0-9]+$ ]] || [ "$gzip_kib" -ge 8192 ]' in check and "npx wrangler deploy --dry-run" in check
+    assert "npx wrangler dev" in check and "grep -qi '^x-robots-tag: noindex, nofollow' headers.txt" in check
+    assert all("if" not in step and "continue-on-error" not in step for step in job["steps"])
+    # No step may reach a Cloudflare account: the job holds no credential.
+    assert "CLOUDFLARE" not in str(job) and "secrets." not in str(job)
+
+
 def test_the_ready_mark_starts_the_run_that_tests_the_head_and_the_paid_eval():
     # A draft's pushes run no test job, and drafts draw no eval-baseline (F55; test_eval_parity.py runs its scope
     # shell against the live draft flag), so the ready mark must start a run of its own: the first to test the head.
