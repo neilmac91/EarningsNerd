@@ -18,8 +18,8 @@ from typing import Any, Optional
 
 from app.services.ownership_extractor import extract_form4_transactions
 
-# Bump when the rows this module produces for the same document change: stored filings parsed by an older
-# version are then parsed again.
+# Recorded on each stored filing. Bump it when the rows this module produces for the same document change; no code
+# parses a stored filing again, so the change that needs that resets the rows in its own migration.
 PARSER_VERSION = 1
 # The edgartools release whose internals this was checked against (backend/requirements.txt pins it).
 SUPPORTED_EDGARTOOLS = "5.62.1"
@@ -53,6 +53,12 @@ def ownership_document_in(text: str) -> Optional[str]:
     return found.group(0) if found else None
 
 
+def _officer_title(filed: Optional[str], remarks: str) -> Optional[str]:
+    """A title filed as "See Remarks" is the document's remarks, as edgartools reads it
+    (``ReportingOwners.from_reporting_owner_tags``)."""
+    return remarks if filed and "see remarks" in filed.lower() else filed
+
+
 def _build_form4(xml: str) -> Any:
     # Lazy: edgartools is heavy, and this module must stay importable where it is not installed.
     from edgar._party import Address
@@ -81,6 +87,7 @@ def _build_form4(xml: str) -> Any:
     if form != "4":
         raise Form4ParseError(f"documentType is {form!r}, not 4")
 
+    remarks = child_text(root, "remarks") or ""
     owners = []
     for tag in find_all_elements(root, "reportingOwner"):
         identity = find_element(tag, "reportingOwnerId")
@@ -102,7 +109,8 @@ def _build_form4(xml: str) -> Any:
                 is_officer=flag("isOfficer"),
                 is_other=flag("isOther"),
                 is_ten_pct_owner=flag("isTenPercentOwner"),
-                officer_title=child_text(relationship, "officerTitle") if relationship is not None else None,
+                officer_title=_officer_title(child_text(relationship, "officerTitle"), remarks)
+                if relationship is not None else None,
             )
         )
     if not owners:
@@ -132,7 +140,7 @@ def _build_form4(xml: str) -> Any:
         ),
         signatures=OwnerSignatures([]),
         reporting_period=child_text(root, "periodOfReport"),
-        remarks=child_text(root, "remarks") or "",
+        remarks=remarks,
         no_securities=child_text(root, "noSecuritiesOwned") == "1",
         aff10b5_one=_parse_aff10b5_one(child_text(root, "aff10b5One")),
     )
@@ -157,15 +165,19 @@ def parse_form4(xml: str, *, accession: str, filed_date: Optional[str] = None) -
         raise Form4ParserUnsupported(f"edgartools {version('edgartools')} is not {SUPPORTED_EDGARTOOLS}")
     try:
         form4 = _build_form4(xml)
+        trades = form4.market_trades
+        expected = 0 if trades is None else len(trades)
     except Form4ParseError:
         raise
     except Exception as exc:
         raise Form4ParseError(f"unreadable ownership document: {type(exc).__name__}") from exc
+    transactions = extract_form4_transactions(form4, accession=accession, filed_date=filed_date)
+    if len(transactions) != expected:
+        # The extractor answers [] for whatever it cannot read, which a live fetch may show for an hour and a
+        # stored filing would keep for good: a filing whose trades were not all read is not "no trades".
+        raise Form4ParseError(f"{expected} open-market trades, {len(transactions)} read")
     issuer_cik = str(getattr(form4.issuer, "cik", "") or "").strip().lstrip("0")
-    return ParsedForm4(
-        issuer_cik=issuer_cik if issuer_cik.isdigit() else None,
-        transactions=extract_form4_transactions(form4, accession=accession, filed_date=filed_date),
-    )
+    return ParsedForm4(issuer_cik=issuer_cik if issuer_cik.isdigit() else None, transactions=transactions)
 
 
 def parse_form4_transactions(xml: str, *, accession: str, filed_date: Optional[str] = None) -> list[dict]:

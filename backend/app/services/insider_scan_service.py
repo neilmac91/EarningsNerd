@@ -11,6 +11,7 @@ The step stops itself the moment SEC pushes back, because nothing else will: the
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -31,7 +32,12 @@ from app.services.insider_form4 import (
     parser_supported,
 )
 from app.utils.datetimes import ensure_utc, utcnow
-from app.utils.sec_urls import build_sec_document_url, build_sec_submission_text_url, normalize_cik
+from app.utils.sec_urls import (
+    build_sec_document_url,
+    build_sec_submission_text_url,
+    normalize_accession,
+    normalize_cik,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +59,12 @@ FILING_LISTED, FILING_OK, FILING_NO_XML, FILING_NOT_FOUND, FILING_FAILED = "list
 # SEC lists a Form 4 under its issuer and under each reporting owner. A company that owns another issuer's shares
 # has those filings in its own listing: they report the other issuer's shares, and are no insider activity here.
 FILING_NOT_ISSUER = "not_issuer"
+# A 200 whose body is neither a Form 4 document nor a submission's text file (an error or throttle page, a
+# truncated answer). Nothing permanent is concluded from it the first time: the step stops as on pushback and the
+# filing stays listed with this as its error. The same answer on the next attempt stores the filing as failed, so
+# one bad filing cannot hold an issuer's scan for good.
+UNEXPECTED_BODY = "unexpected_body"
+_SUBMISSION_TEXT_RE = re.compile(r"<(?:SEC|IMS)-(?:DOCUMENT|HEADER)>|BEGIN PRIVACY-ENHANCED MESSAGE")
 
 # What a step did: ran (it held the lease), busy (another step holds it), paused (not before paused_until).
 OUTCOME_RAN, OUTCOME_BUSY, OUTCOME_PAUSED = "ran", "busy", "paused"
@@ -86,6 +98,10 @@ class StepStats:
 
 Lister = Callable[[str], Awaitable[list[ListedFiling]]]
 FetchDocument = Callable[[str], Awaitable[str]]
+
+
+class _UnexpectedBody(Exception):
+    """SEC answered 200 with something that is not the document asked for."""
 
 
 class _Stop(Exception):
@@ -192,6 +208,13 @@ def _store_listing(db: Session, cik: str, listed: list[ListedFiling], now: datet
     for filing in listed:
         if filing.accession in known:
             continue
+        try:   # the listing is SEC's data: an accession no address can be built from is left out here (rule 9)
+            normalize_accession(filing.accession)
+        except ValueError:
+            logger.warning("Insider scan for CIK %s: a listed accession is not one, left out", cik)
+            continue
+        if len(filing.accession) > 25:
+            continue
         known.add(filing.accession)
         db.add(InsiderFiling(
             accession=filing.accession, issuer_cik=cik, filed_date=filing.filed_date,
@@ -225,8 +248,10 @@ def _document_name(primary_document: Optional[str]) -> Optional[str]:
 
 
 async def _fetch_document(cik: str, filing: InsiderFiling, fetch: FetchDocument, stats: StepStats) -> Optional[str]:
-    """The filing's ownership XML, or None when SEC has the filing but no such document in it. Raises
-    ``EdgarNotFoundError`` when the filing itself is not there, and whatever the transport raises otherwise."""
+    """The filing's ownership document, or None when SEC has the filing but no such document in it. The XML is
+    asked for at the listing's file name; a 404 there, or a listing that names no usable XML, goes to the
+    submission's text file. Raises ``EdgarNotFoundError`` when the filing itself is not there, ``_UnexpectedBody``
+    for a 200 that is neither, and whatever the transport raises otherwise."""
     from app.services.edgar.exceptions import EdgarNotFoundError
 
     name = _document_name(filing.primary_document)
@@ -237,11 +262,20 @@ async def _fetch_document(cik: str, filing: InsiderFiling, fetch: FetchDocument,
     if url is not None:
         stats.requests += 1
         try:
-            return await fetch(url)
+            body = await fetch(url)
         except EdgarNotFoundError:
             pass  # not at that name: the submission's text file holds every document
+        else:
+            document = ownership_document_in(body)
+            if document is None:
+                raise _UnexpectedBody()
+            return document
     stats.requests += 1
-    return ownership_document_in(await fetch(build_sec_submission_text_url(cik, filing.accession)))
+    text = await fetch(build_sec_submission_text_url(cik, filing.accession))
+    document = ownership_document_in(text)
+    if document is None and not _SUBMISSION_TEXT_RE.search(text or ""):
+        raise _UnexpectedBody()
+    return document
 
 
 def _store_outcome(db: Session, cik: str, token: str, filing_id: int, accession: str, status: str, now: datetime,
@@ -319,13 +353,20 @@ async def run_scan_step(
     token = uuid.uuid4().hex
 
     scan = get_or_create_scan(db, cik, now)
-    paused_until, last_listed_at, pauses = scan.paused_until, scan.last_listed_at, scan.pauses or 0
+    paused_until = scan.paused_until
     db.commit()
     if not _claim(db, cik, token, now):
         stats.outcome = OUTCOME_PAUSED if paused_until is not None and ensure_utc(paused_until) > now else OUTCOME_BUSY
         stats.remaining = _remaining(db, cik)
         db.commit()
         return stats
+
+    # Read again now that the lease is held: a step that released between the read above and the claim may have
+    # listed, paused or cleared a pause, and only the holder's view decides a listing or a backoff.
+    last_listed_at, pauses = db.query(InsiderScan.last_listed_at, InsiderScan.pauses).filter(
+        InsiderScan.issuer_cik == cik).one()
+    pauses = pauses or 0
+    db.commit()
 
     prior_expire_on_commit = db.expire_on_commit
     db.expire_on_commit = False
@@ -362,6 +403,13 @@ async def run_scan_step(
                 if not _store_outcome(db, cik, token, filing_id, accession, FILING_NOT_FOUND, clock()):
                     raise _Stop("lease_lost", pause=False)
                 continue
+            except _UnexpectedBody as exc:
+                again = filing.error_type == UNEXPECTED_BODY
+                stats.failed += int(again)
+                if not _store_outcome(db, cik, token, filing_id, accession, FILING_FAILED if again else FILING_LISTED,
+                                      clock(), error_type=UNEXPECTED_BODY):
+                    raise _Stop("lease_lost", pause=False) from exc
+                raise _Stop("sec_unexpected_body", pause=True) from exc
             except Exception as exc:
                 raise _stop_for(exc) from exc
             if document is None:
@@ -402,7 +450,7 @@ async def run_scan_step(
     elif stop.pause:
         stats.stopped = stop.code
         release.update(status=SCAN_FAILED if failed_code else SCAN_PAUSED, error_code=stop.code, pauses=pauses + 1,
-                       paused_until=_pause_until(now, pauses, stop.retry_after))
+                       paused_until=_pause_until(clock(), pauses, stop.retry_after))   # from the refusal
     elif failed_code is not None:
         stats.stopped = failed_code
         release.update(status=SCAN_FAILED, error_code=failed_code)

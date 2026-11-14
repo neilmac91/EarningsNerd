@@ -54,12 +54,15 @@ CREATE TABLE IF NOT EXISTS earningsnerd_insider_scans (
     updated_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uq_earningsnerd_insider_scans_issuer_cik UNIQUE (issuer_cik)
 );
--- Catalog guards so ledger-reset replays never take a lock on these now-live tables.
+-- Catalog guards so ledger-reset replays never take a lock on these now-live tables. Each looks in the schema the
+-- statement would write to: pg_indexes lists every schema, and an index of that name elsewhere is not this one.
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_earningsnerd_insider_filings_issuer_status') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = current_schema()
+                   AND indexname = 'ix_earningsnerd_insider_filings_issuer_status') THEN
         CREATE INDEX ix_earningsnerd_insider_filings_issuer_status ON earningsnerd_insider_filings (issuer_cik, status);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_earningsnerd_insider_transactions_issuer_date') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = current_schema()
+                   AND indexname = 'ix_earningsnerd_insider_transactions_issuer_date') THEN
         CREATE INDEX ix_earningsnerd_insider_transactions_issuer_date ON earningsnerd_insider_transactions (issuer_cik, transaction_date);
     END IF;
 END $$;

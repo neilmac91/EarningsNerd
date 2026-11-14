@@ -77,12 +77,16 @@ beta user can ask.
 
 3. **Each Form 4 is fetched as a document and parsed offline.** The step fetches the filing's XML with
    `get_filing_document` (one attempt, a 10 s limit), and falls back once to the submission's text file when
-   the XML answers 404. Both addresses are built in `app/utils/sec_urls.py`, which gains a builder for a
+   the XML answers 404; a listing that names no usable XML file goes straight to the text file. A 200 whose
+   body is neither a Form 4 document nor a submission's text file (an error or throttle page, a cut-off answer)
+   concludes nothing the first time: the step stops as on pushback and the filing stays listed. The same answer
+   on the next attempt stores it as `failed`, so one bad filing cannot hold an issuer's scan for good. Both addresses are built in `app/utils/sec_urls.py`, which gains a builder for a
    document inside a filing's folder and one for the submission's text file beside it (rule 10: no address is
    assembled anywhere else). It parses with edgartools' own parts,
    without the owner lookup, behind a check of the installed version and a test that parses Form 4 documents
    with the network closed. The parse also reads the issuer the document names: a filing in a company's
-   listing that reports another issuer's shares (the company filed it as an owner) stores no trades. `insider_service` stops calling `obj()`, and its entry leaves the allow-list.
+   listing that reports another issuer's shares (the company filed it as an owner) stores no trades. A
+   filing whose trades were not all read is `failed`, never stored as a filing with no trades. `insider_service` stops calling `obj()`, and its entry leaves the allow-list.
 
 4. **The scan stops itself on pushback.** A refusal (403 or any other unexpected status), a 429, a 5xx, a
    timeout of the request, or an open breaker ends the step at once, told apart by the error's type, code and

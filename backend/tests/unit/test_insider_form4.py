@@ -113,3 +113,30 @@ def test_the_document_says_whose_shares_it_reports(filed, read):
                          accession="0000999999-26-000001")
     assert parsed.issuer_cik == read
     assert len(parsed.transactions) == 1
+
+
+def test_a_title_filed_as_see_remarks_is_the_remarks_as_the_live_parse_read_it():
+    document = form4(owners=[owner("Doe Jane", officer=True, title="See Remarks")],
+                     trades=[trade("S", "10", "1.00", "2026-10-01")]).replace(
+        "<footnotes>", "<remarks>Chief Legal Officer and Secretary</remarks><footnotes>")
+    assert rows(document)[0]["insider_title"] == "Chief Legal Officer and Secretary"
+
+
+def test_trades_the_extractor_did_not_read_fail_the_parse_and_are_not_stored_as_none(monkeypatch):
+    """The extractor answers [] for whatever it cannot read. A stored filing keeps its outcome for good, so a
+    filing with trades that came back with none is unreadable, not empty."""
+    document = form4(trades=[trade("P", "10", "1.00", "2026-10-01"), trade("S", "5", "2.00", "2026-10-02")])
+    monkeypatch.setattr(insider_form4, "extract_form4_transactions", lambda *args, **kwargs: [])
+    with pytest.raises(Form4ParseError, match="2 open-market trades, 0 read"):
+        parse_form4(document, accession="0000999999-26-000001")
+
+
+def test_a_trades_table_edgartools_cannot_build_fails_the_parse(monkeypatch):
+    from edgar.ownership import Form4
+
+    def broken(self):
+        raise KeyError("AcquiredDisposed")
+
+    monkeypatch.setattr(Form4, "market_trades", property(broken))
+    with pytest.raises(Form4ParseError, match="unreadable ownership document: KeyError"):
+        parse_form4(form4(trades=[trade("P", "10", "1.00", "2026-10-01")]), accession="0000999999-26-000001")

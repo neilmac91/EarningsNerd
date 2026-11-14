@@ -24,6 +24,7 @@ from app.services.edgar.exceptions import (
     EdgarNotFoundError,
     EdgarRateLimitError,
     EdgarTimeoutError,
+    translate_edgartools_exception,
 )
 from app.services.insider_scan_service import (
     LEASE,
@@ -220,6 +221,82 @@ async def test_an_unreadable_form_4_is_recorded_and_the_step_carries_on(db):
     assert scan_row(db).status == "idle"
 
 
+THROTTLE_PAGE = "<html><head><title>SEC.gov | Request Rate Threshold Exceeded</title></head><body></body></html>"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("where", ["at the XML's address", "at the text file's address"])
+async def test_a_200_that_is_not_the_document_stops_the_step_and_only_a_second_one_fails_the_filing(db, where):
+    """An error or throttle page served with a 200, or a cut-off answer, says nothing lasting about the filing."""
+    sec = Sec(listing(3, document="xslF345X05/form4.xml" if where.startswith("at the XML") else None))
+    bad = xml_url(3) if where.startswith("at the XML") else text_url(3)
+    sec.answers = {text_url(n): submission_text(sec.document, accession=accession(n)) for n in (1, 2, 3)}
+    sec.answers[bad] = THROTTLE_PAGE
+    first = await step(db, sec)
+
+    assert (first.stopped, first.stored, first.failed, sec.fetched) == ("sec_unexpected_body", 0, 0, [bad])
+    row = db.query(InsiderFiling).filter_by(accession=accession(3)).one()
+    assert (row.status, row.error_type) == ("listed", "unexpected_body")
+    scan = scan_row(db)
+    assert (scan.status, scan.error_code, utc(scan.paused_until)) == ("paused", "sec_unexpected_body", NOW + PAUSE_BASE)
+
+    second = await step(db, sec, now=NOW + PAUSE_BASE)   # the same answer again: this filing is given up
+    assert (second.stopped, second.failed, second.remaining, len(sec.fetched)) == ("sec_unexpected_body", 1, 2, 2)
+    assert statuses(db)[accession(3)] == "failed"
+
+    third = await step(db, sec, now=NOW + PAUSE_BASE * 3)   # and the issuer's other filings are reached
+    assert (third.stopped, third.stored, third.remaining) == (None, 2, 0)
+
+
+@pytest.mark.asyncio
+async def test_a_good_answer_after_an_unexpected_one_stores_the_filing(db):
+    sec = Sec(listing(1))
+    sec.answers = {xml_url(1): "   "}
+    await step(db, sec)
+    sec.answers = {}
+    stats = await step(db, sec, now=NOW + PAUSE_BASE)
+
+    row = db.query(InsiderFiling).filter_by(accession=accession(1)).one()
+    db.refresh(row)
+    assert (stats.stored, row.status, row.error_type) == (1, "ok", None)
+
+
+@pytest.mark.asyncio
+async def test_a_listed_accession_no_address_can_be_built_from_is_left_out(db):
+    good = listing(2)
+    sec = Sec([ListedFiling("not-an-accession", date(2026, 3, 1), "form4.xml"),
+               ListedFiling("0000999999-26-0000011", date(2026, 3, 1), "form4.xml"), *good])
+    stats = await step(db, sec)
+
+    assert (stats.listed, stats.stored, stats.stopped, stats.remaining) == (2, 2, None, 0)
+    assert set(statuses(db)) == {accession(1), accession(2)}
+    assert scan_row(db).status == "idle"
+
+
+@pytest.mark.asyncio
+async def test_the_holder_of_the_lease_decides_from_the_row_as_it_stands_after_the_claim(db, monkeypatch):
+    """Another step can list and release between this step's first read and its claim."""
+    sec = Sec(listing(2))
+    real_claim = scan_service._claim
+
+    def another_step_listed_just_before(session, cik, token, now):
+        session.query(InsiderScan).update({"last_listed_at": now, "pauses": 3})
+        session.commit()
+        return real_claim(session, cik, token, now)
+
+    monkeypatch.setattr(scan_service, "_claim", another_step_listed_just_before)
+    stats = await step(db, sec)
+    assert (sec.listings, stats.requests) == (0, 0)   # no second listing within the hour
+
+    db.add(InsiderFiling(accession=accession(1), issuer_cik=CIK, filed_date=date(2026, 1, 2),
+                         primary_document="form4.xml", status="listed", created_at=NOW, updated_at=NOW))
+    db.commit()
+    sec.answers = {xml_url(1): refused(403)}
+    await step(db, sec, now=NOW + timedelta(minutes=1))
+    scan = scan_row(db)
+    assert (scan.pauses, utc(scan.paused_until)) == (4, NOW + timedelta(minutes=1) + PAUSE_BASE * 8)
+
+
 @pytest.mark.asyncio
 async def test_a_filing_stored_twice_holds_its_trades_once(db):
     sec = Sec(listing(1), document=form4(trades=[trade("P", "1", "1.00", "2026-10-01"), trade("S", "2", "2.00", "2026-10-02")]))
@@ -323,7 +400,11 @@ async def test_each_pushback_in_a_row_doubles_the_wait_up_to_its_ceiling(db):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("error, code", [
-    pytest.param(refused(403), "sec_403", id="403"),
+    # The listing's errors are edgartools' own, translated by their text (translate_edgartools_exception): a
+    # refusal arrives as a plain EdgarError with no status.
+    pytest.param(translate_edgartools_exception(RuntimeError("403 Client Error: Forbidden")), "sec_refused", id="403"),
+    pytest.param(translate_edgartools_exception(RuntimeError("429 Too Many Requests")), "sec_429", id="429"),
+    pytest.param(translate_edgartools_exception(RuntimeError("Connection reset by peer")), "sec_unavailable", id="network"),
     pytest.param(CircuitOpenError("edgar", "open", 30.0), "breaker_open", id="breaker"),
     pytest.param(EdgarTimeoutError(timeout_seconds=20), "sec_timeout", id="timeout"),
 ])
@@ -476,3 +557,73 @@ async def test_the_default_fetch_is_one_attempt_through_the_shared_transport(mon
     monkeypatch.setattr(compat.sec_edgar_service, "get_filing_document", get_filing_document)
     assert await scan_service._default_fetch(xml_url(1)) == "text"
     assert calls == [(xml_url(1), scan_service.FETCH_TIMEOUT_SECONDS, 1)]
+
+
+# --- the real transport's errors ---------------------------------------------------------------------------------
+
+
+def through_the_real_transport(monkeypatch, respond):
+    """``_default_fetch`` over ``sec_edgar_service.get_filing_document`` itself, with SEC played by a mock
+    transport: what the scan concludes from a status is tied to how the transport reports that status."""
+    import httpx
+
+    from app.services.edgar import compat
+    from app.services.edgar.circuit_breaker import CircuitBreaker
+
+    real_client = httpx.AsyncClient
+
+    async def execute(fn):
+        return await fn()
+
+    monkeypatch.setattr(compat, "edgar_circuit_breaker", CircuitBreaker("insider-scan-test"))
+    monkeypatch.setattr(compat.sec_rate_limiter, "execute", execute)
+    monkeypatch.setattr(compat.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(respond)))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status, headers, code, pause", [
+    (403, {}, "sec_403", PAUSE_BASE),
+    (429, {"Retry-After": "1800"}, "sec_429", timedelta(minutes=30)),
+    (429, {}, "sec_429", PAUSE_BASE),
+    (503, {}, "sec_unavailable", PAUSE_BASE),
+    (500, {}, "sec_unavailable", PAUSE_BASE),
+    (401, {}, "sec_401", PAUSE_BASE),
+])
+async def test_each_refusing_status_from_the_real_transport_stops_and_pauses_the_scan(db, monkeypatch, status, headers, code, pause):
+    import httpx
+
+    requests = []
+
+    def respond(request):
+        requests.append(str(request.url))
+        return httpx.Response(status, headers=headers, text="refused")
+
+    through_the_real_transport(monkeypatch, respond)
+    sec = Sec(listing(3))
+    stats = await run_scan_step(db, CIK, now=NOW, list_filings=sec.list_filings)
+
+    assert requests == [xml_url(3)]   # one attempt, no retry, no text fallback, nothing after it
+    assert (stats.stopped, stats.stored, stats.remaining) == (code, 0, 3)
+    scan = scan_row(db)
+    assert (scan.status, scan.error_code, utc(scan.paused_until)) == ("paused", code, NOW + pause)
+
+
+@pytest.mark.asyncio
+async def test_a_404_from_the_real_transport_falls_back_to_the_text_file_and_a_second_404_is_not_found(db, monkeypatch):
+    import httpx
+
+    document = form4(trades=[trade("P", "100", "10.00", "2026-10-01")])
+
+    def respond(request):
+        url = str(request.url)
+        if url == text_url(2):
+            return httpx.Response(200, text=submission_text(document, accession=accession(2)))
+        return httpx.Response(404, text="not here")
+
+    through_the_real_transport(monkeypatch, respond)
+    sec = Sec(listing(2))
+    stats = await run_scan_step(db, CIK, now=NOW, list_filings=sec.list_filings)
+
+    assert (stats.stopped, stats.stored, stats.not_found, stats.requests) == (None, 1, 1, 5)
+    assert statuses(db) == {accession(2): "ok", accession(1): "not_found"}
+    assert scan_row(db).status == "idle"

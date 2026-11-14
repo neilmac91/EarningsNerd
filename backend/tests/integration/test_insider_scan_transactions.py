@@ -161,7 +161,9 @@ def _schema_contract(engine):
     inspector = inspect(engine)
     return {
         name: {
-            "columns": [(row["name"], str(row["type"]), row["nullable"], row["default"]) for row in inspector.get_columns(name)],
+            # A reflected TIMESTAMP prints the same with and without a time zone, so the zone is read on its own.
+            "columns": [(row["name"], str(row["type"]), getattr(row["type"], "timezone", None), row["nullable"], row["default"])
+                        for row in inspector.get_columns(name)],
             "primary_key": inspector.get_pk_constraint(name)["constrained_columns"],
             "unique": sorted((row["name"], tuple(row["column_names"])) for row in inspector.get_unique_constraints(name)),
             "checks": sorted(row["sqltext"] for row in inspector.get_check_constraints(name)),
@@ -186,12 +188,22 @@ def test_the_migration_builds_what_the_models_build_and_replays_over_stored_rows
     with _session(postgres_engine) as db:
         assert db.query(InsiderFiling).count() == 1
 
-    # Production gets these tables from the migration alone, never from create_all.
-    with postgres_engine.begin() as connection:
-        for table in (InsiderTransaction.__table__, InsiderFiling.__table__, InsiderScan.__table__):
-            table.drop(connection)
-        connection.exec_driver_sql(MIGRATION.read_text())
-    assert _schema_contract(postgres_engine) == from_models
+    # Production gets these tables from the migration alone, never from create_all. Indexes of the same names in
+    # another schema of the database, as CI's own has in public by this step, are not these tables' indexes.
+    elsewhere = "insider_scan_elsewhere_" + uuid4().hex
+    try:
+        with postgres_engine.begin() as connection:
+            connection.execute(CreateSchema(elsewhere))
+            connection.exec_driver_sql(f"CREATE TABLE {elsewhere}.other (a integer, b integer)")
+            for index in ("ix_earningsnerd_insider_filings_issuer_status", "ix_earningsnerd_insider_transactions_issuer_date"):
+                connection.exec_driver_sql(f"CREATE INDEX {index} ON {elsewhere}.other (a, b)")
+            for table in (InsiderTransaction.__table__, InsiderFiling.__table__, InsiderScan.__table__):
+                table.drop(connection)
+            connection.exec_driver_sql(MIGRATION.read_text())
+        assert _schema_contract(postgres_engine) == from_models
+    finally:
+        with postgres_engine.begin() as connection:
+            connection.execute(DropSchema(elsewhere, cascade=True, if_exists=True))
     with _session(postgres_engine) as db:
         scan = scan_service.get_or_create_scan(db, CIK, NOW)
         assert (scan.pauses, scan.steps) == (0, 0)
