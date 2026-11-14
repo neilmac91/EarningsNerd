@@ -572,40 +572,62 @@ CI does **not** deploy the frontend.
 ### Frontend on Cloudflare Workers (staging)
 
 A second build of the same app runs on Cloudflare Workers through the OpenNext adapter, to evaluate moving the
-frontend off Vercel. It is the Worker `earningsnerd-frontend-staging` at `https://staging.earningsnerd.io`: the code
-on `main`, built for Workers, calling the production API. It serves no production hostname, and production is
-still Vercel. Nothing deploys it automatically. Vercel's deployment differs in two small ways since the adapter
-arrived: its install also fetches the two build tools (dev dependencies), and it serves `public/_headers` as a
-static file at `/_headers`, which holds one caching rule and nothing private.
+frontend off Vercel. It is at `https://staging.earningsnerd.io`: the code on `main`, built for Workers, calling the
+production API. It serves no production hostname, and production is still Vercel. Nothing deploys it
+automatically. Vercel's deployment differs in two small ways since the adapter arrived: its install also fetches
+the two build tools (dev dependencies), and it serves `public/_headers` as a static file at `/_headers`, which holds
+one caching rule and nothing private.
+
+**Two Workers.** A Worker's script is loaded whole when a fresh instance starts, and the Next server is 15 MB of
+it. As one Worker, a cached page on a fresh instance took about 0.85 s after the connection was made; a site with
+little traffic meets fresh instances on most visits. So the app is split as OpenNext documents:
+
+- the **front Worker**, `earningsnerd-frontend-staging` (771 KiB, 183 KiB gzipped), receives every request, runs
+  `middleware.ts` and the redirects, answers a cached page itself, and serves the static files. On a fresh instance
+  a cached page took about 0.2 s. It runs where the reader is.
+- the **server Worker**, `earningsnerd-frontend-staging-server` (3.1 MiB gzipped), holds the Next server. The front
+  Worker calls it for a request the cache cannot answer. It has no hostname, and runs beside the API
+  (`placement.region` `gcp:us-west1`), as Vercel's functions do.
 
 | File (under `frontend/`) | What it sets |
 |---|---|
-| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server loads |
-| `wrangler.jsonc` | The Worker's name, its custom domain, its R2 bucket, Durable Object and self-reference bindings, and its two runtime variables |
-| `cloudflare-worker.mjs`, `cloudflare-robots.mjs` | The entry point: OpenNext's handler, plus `X-Robots-Tag: noindex, nofollow` on every response it renders while `ROBOTS_NOINDEX` is `true` |
+| `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server is reached |
+| `wrangler.jsonc`, `cloudflare-front.mjs` | The front Worker: its custom domain, the static files, the R2 bucket, the Durable Object, the binding to the server Worker, and `X-Robots-Tag: noindex, nofollow` on every response while `ROBOTS_NOINDEX` is `true` (`cloudflare-robots.mjs`) |
+| `wrangler.server.jsonc`, `cloudflare-server.mjs` | The server Worker: its placement, the same R2 bucket, and the front Worker's Durable Object by name |
+| `cloudflare-cache-writes.mjs` | A cache write is answered at once and finishes after the response. Next waits for each write, and a write to R2 took about 350 ms, twice on a page rendered for the first time |
+| `lib/sentryOnWorkers.ts` | What `instrumentation.ts` adds to Sentry for the Next server on Workers: a `fetch` transport, and the defaults without `ContextLines`. With the SDK's defaults the server Worker delivered none of three errors, and with these all three; on one Worker the fault was hidden, because the middleware's copy of the SDK reported for both |
+| `scripts/cf-deploy.mjs` | The deploy: both Workers from one build, each front version held to the server version of its own build |
 | `public/_headers` | A year of immutable browser caching for `/_next/static/*`; without it Cloudflare serves those files `max-age=0` |
 
-`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires
-`WAITLIST_MODE` to be stated (a Worker without it redirects every page to `/waitlist`), and requires a Worker to be
-either a noindex copy or the production site, never an indexable copy or a noindex production. CI's
-`worker-build` job builds the app for Workers, refuses a Worker of 8 MiB or more gzipped (Cloudflare's limit is
-10 MiB) and requests a page from the built Worker in the local Workers runtime; it uses no Cloudflare credential,
-and `deploy-backend` does not wait for it.
+`frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds these to each other, keeps the Next server out of the
+front Worker, runs the noindex marking, requires `WAITLIST_MODE` to be stated (a Worker without it redirects every
+page to `/waitlist`), and requires a Worker to be either a noindex copy or the production site.
+`cloudflareCacheWrites.spec.ts` and `sentryOnWorkers.spec.ts` run the two modules. CI's `worker-build` job builds
+the app for Workers, refuses a front Worker of 512 KiB or more gzipped and a server Worker of 8 MiB or more
+(Cloudflare's limit is 10 MiB), requests a page through both in the local Workers runtime, and fails if the Next
+server's instrumentation did not load; it uses no Cloudflare credential, and `deploy-backend` does not wait for it.
 
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
 must not be served on any `earningsnerd.io` hostname. Review-checked: nothing enforces it while deploys are by hand.
 
 **Deploying it.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`.
-`npm run cf:preview` serves the same build locally in the Workers runtime. The token is an account-owned one
-(Workers Scripts and Workers R2 Storage: Edit, and on the zone Workers Routes and DNS: Edit, which the custom
-domain needs), and it verifies at `/accounts/<id>/tokens/verify`, not at `/user/tokens/verify`. R2 was enabled once
-in the dashboard, and the bucket `earningsnerd-frontend-staging-cache` was created once with
-`npx wrangler r2 bucket create`. The first deploy created the hostname's DNS record (a proxied record Cloudflare
-manages for the Worker) and its certificate. During a deploy, the step that uploads the prerendered pages prints "no
-such Durable Object class is exported from the worker"; it comes from that step's local reader of the config, and
-the deployed Worker does export the class.
+`CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`. It
+builds, uploads a new version of each Worker, fills the cache with the build's prerendered pages, and then moves
+traffic in three steps (the new server version at 0%, the front Worker to its new version, the server Worker to
+its own), so that no front version ever calls another build's server: a page rendered by one build names scripts
+only that build's front Worker holds. A failure before the three steps changes nothing that serves. A failure
+between them leaves the old front Worker on the old server version, or the new on the new; `wrangler deployments
+status -c <file>` shows each Worker's versions, and the script refuses to start while one is split.
+`npm run cf:preview` serves the same build locally in the Workers runtime.
+
+The token is an account-owned one (Workers Scripts and Workers R2 Storage: Edit, and on the zone Workers Routes and
+DNS: Edit, which the custom domain needs), and it verifies at `/accounts/<id>/tokens/verify`, not at
+`/user/tokens/verify`. R2 was enabled once in the dashboard, and the bucket `earningsnerd-frontend-staging-cache`
+was created once with `npx wrangler r2 bucket create`; it is in eastern North America, where it was created from.
+The first deploy created the hostname's DNS record (a proxied record Cloudflare manages for the Worker) and its
+certificate. While it fills the cache, a deploy prints "no such Durable Object class is exported from the worker";
+that comes from the step's local reader of the config, and the deployed front Worker does export the class.
 
 **Variables are build inputs.** Next compiles every `NEXT_PUBLIC_*` value, and `SENTRY_DSN` (`next.config.js`
 `env`), into the bundle, so they are exported in the shell that runs the build; a value in `wrangler.jsonc` `vars`
@@ -628,35 +650,42 @@ gcloud run services update earningsnerd-backend --region=us-west1 \
 ```
 
 Read it back with `curl -sI -H 'Origin: https://staging.earningsnerd.io' https://api.earningsnerd.io/health`, which
-answers `access-control-allow-origin: https://staging.earningsnerd.io` once it holds. Until then staging renders
-what the server renders and nothing the browser loads: no session, no registration state, no live company data.
+answers `access-control-allow-origin: https://staging.earningsnerd.io` once it holds. It was applied on 2026-11-14; a service created again from step 6 carries it.
 
-**What was measured, 2026-11-13** (#2051 and the pull request that added this section hold the evidence):
+**What was measured, 2026-11-13 and 14** (#2051, #2052 and the pull request that split the Workers hold the
+evidence). Every time is from one cloud vantage point, which is not a reader's.
 
-- The Worker is 3.31 MiB gzipped against the paid plan's 10 MiB limit, and starts in 20 to 37 ms.
-- On the workers.dev preview that preceded staging: the production smoke spec passed; shard 1 of 5 of the browser
-  suite ran 253 passed, 5 failed, 5 skipped, and the same five failed against `next start` on the same machine;
-  shards 2 to 5 were not run against a Worker. Sentry received a thrown server error from the Worker (issue
-  `JAVASCRIPT-NEXTJS-2S`).
-- On staging, a page with a 30 second `revalidate` was re-rendered after each expiry, with the edge cache in
-  front of R2; a location's copy trailed the re-render by one request.
-- Median time to first byte from one cloud vantage point, 15 samples, for `/`, `/pricing` and `/company/AAPL`:
-  226, 185 and 192 ms on staging against 216, 168 and 181 ms on Vercel. Without the edge cache staging measured
-  284, 230 and 241 ms; on workers.dev with Smart Placement on, 631, 504 and 542 ms. Smart Placement is left off
-  because it roughly doubled the figure for cached pages.
+- Cached pages, served many times: median time to first byte for `/`, `/pricing`, `/company/AAPL`, `/filing/3` and
+  `/login` was 181 to 222 ms on staging against 178 to 190 ms on Vercel (30 samples each, one Worker; the edge
+  cache in front of R2 is what brought it from 50 to 75 ms behind).
+- A cached page on a fresh instance, after the connection is made: about 0.85 s as one Worker, about 0.2 s from the
+  front Worker.
+- A page rendered for the first time, by a server Worker already running: the server answered in about 450 ms
+  (two rounds of R2 reads at about 105 ms each, the API at 60 to 195 ms), against about 705 ms while the response
+  waited for its cache writes. Vercel answers such a page in about 0.3 to 0.6 s after the connection is made.
+- A page rendered for the first time by a server Worker that is not running: 1 to 3.7 s in six trials. This is
+  the cost that remains. Vercel showed no such step in the same trials.
+- Sentry received a thrown server error from the single Worker (issue `JAVASCRIPT-NEXTJS-2S`); from the server
+  Worker, three of three reached a test receiver once `lib/sentryOnWorkers.ts` was in place.
+- Revalidation: a page with a 30 second `revalidate` was re-rendered after each expiry, through both Workers and
+  with the edge cache in front of R2; a location's copy trailed the re-render by one request.
+- The production smoke spec passes on staging. Shard 1 of 5 of the browser suite ran against a single Worker (253
+  passed, and the 5 that failed also failed against `next start` on the same machine); shards 2 to 5 have not run
+  against a Worker.
 
-**Known limits.** One vantage point is not a reader's: the speed figures want a measurement from real locations
-before a decision. The latency of pages that are not cached, which without Smart Placement render near the reader
-and call the API in `us-west1`, was not measured. The Sentry SDK logs that its diagnostics-channel hooks cannot
-register in the Workers runtime, so some performance spans are missing; error capture works. Google and Apple
-sign-in return to `FRONTEND_URL`, which is production, so a reader who signs in that way from staging lands on
-production. Turnstile was not exercised on staging: if the widget's hostname list is restricted, sign-in there
-needs `staging.earningsnerd.io` added to the widget in the Cloudflare dashboard.
+**Known limits.** The first render after the server Worker has been idle is slow (above), and at today's traffic
+it is idle often; a warming request from the front Worker was tried and did not help reliably. A bucket in
+western North America, beside the server Worker, was tried once and read and wrote more slowly than the eastern
+one, which was not explained. The Sentry SDK logs that its diagnostics-channel hooks cannot register in the Workers
+runtime, so some performance spans are missing. Google and Apple sign-in return to `FRONTEND_URL`, which is
+production, so a reader who signs in that way from staging lands on production; sign-in with a password works on
+staging, with `staging.earningsnerd.io` listed on the Turnstile widget.
 
-**Before any traffic moves:** the origin allowed and a signed-in session checked on staging; all five browser
-shards against staging; the speed re-measured from real locations; and the hostname-bound services checked
-(Turnstile, Logo.dev, PostHog). The cutover itself is two DNS records, the apex `A` and the `www` `CNAME`, a Worker
-configuration for those hostnames with `ROBOTS_NOINDEX` unset, and Vercel left deployed as the rollback.
+**Before any traffic moves:** all five browser shards against staging; the speed measured from real locations,
+the first render after idle above all; and the hostname-bound services checked (Logo.dev, PostHog). The cutover
+itself is two DNS records, the apex `A` and the `www` `CNAME`, a pair of Worker configurations for those hostnames
+with `ROBOTS_NOINDEX` unset, the production origin already in the API's CORS list, and Vercel left deployed as the
+rollback.
 
 ---
 

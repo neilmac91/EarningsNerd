@@ -15,13 +15,14 @@ import { RAW_FETCH_ALLOWLIST } from '../../eslint.rawFetchAllowlist.mjs'
  * (eslint.rawFetchAllowlist.mjs — one source of truth):
  *   (a) every allow-listed file still exists and still contains at least one raw fetch call;
  *   (b) each file's raw fetch call count equals its pinned `fetchCalls` — adding a call fails until
- *       the pin is bumped AND the PR justifies it (SSE reader or Next server/ISR fetch only);
+ *       the pin is bumped AND the PR justifies it (SSE reader, Next server/ISR fetch, or a telemetry
+ *       SDK's transport on Cloudflare Workers, only);
  *   (c) the list is shrink-only (MAX_ALLOWLIST_SIZE equals its size: lower it in the commit that
  *       removes a file, never raise it).
  * Call sites are counted with the TypeScript AST using exactly the shapes the ESLint selectors
  * forbid — `fetch(...)` and `<expr>.fetch(...)` — so comments and `refetch()` never count.
  */
-const MAX_ALLOWLIST_SIZE = 5
+const MAX_ALLOWLIST_SIZE = 6
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
