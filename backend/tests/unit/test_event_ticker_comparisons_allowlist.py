@@ -19,7 +19,8 @@ counts are equalities (lessons/test-allowlist-caps-are-equalities.md), so a new 
 its count.
 
 Not covered: the model reached under another name (an import alias, ``aliased(...)``, ``models.EarningsEvent``); raw
-SQL text; a ticker compared in Python after the read (``counts.get(ev.ticker)``, ``ev.ticker in some_set``), which is
+SQL text; a comparison written without an operator or one of the listed methods (``filter_by(ticker=...)``,
+``.op("=")(...)``, ``.__eq__(...)``), none of which the app uses; a ticker compared in Python after the read (``counts.get(ev.ticker)``, ``ev.ticker in some_set``), which is
 how ``_watch_counts``' reader and the dashboard calendar's name lookup compare, and they are pinned by behaviour tests
 instead (``test_earnings_calendar_engine.py``, ``test_calendar_service.py``); a company matched to a ticker that came
 from an event through a request (the alert toggle), pinned by ``test_earnings_alerts.py``; ``backend/scripts``; and
@@ -33,7 +34,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 APP_DIR = BACKEND_DIR / "app"
 
 _CANONICAL = "canonical_ticker_sql"
-_MATCHERS = {"in_", "notin_", "like", "ilike"}
+_MATCHERS = {"in_", "notin_", "not_in", "like", "ilike", "startswith", "endswith", "contains", "is_", "is_not", "isnot"}
 
 # (file relative to backend/, enclosing scope) -> (sites, why the event ticker is compared raw).
 ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
@@ -165,6 +166,9 @@ def test_each_raw_form_is_found():
         "EarningsEvent.ticker.notin_(tickers)",
         "func.upper(EarningsEvent.ticker).in_(tickers)",
         "EarningsEvent.ticker.like(prefix)",
+        "EarningsEvent.ticker.startswith(prefix)",
+        "EarningsEvent.ticker.contains(part)",
+        "EarningsEvent.ticker.is_(ticker)",
     ]
     for form in forms:
         source = f"class S:\n    def read(self, db):\n        return db.query(EarningsEvent).filter({form})\n"

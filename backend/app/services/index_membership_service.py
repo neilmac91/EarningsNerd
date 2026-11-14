@@ -43,7 +43,9 @@ def normalize_ticker(raw: str) -> str:
 
 
 def canonical_ticker_sql(column: ColumnElement[str]) -> ColumnElement[str]:
-    """``normalize_ticker`` as a SQL expression (trim, upper, ``-`` -> ``.``; SQLite and Postgres).
+    """``normalize_ticker`` as a SQL expression (trim, upper, ``-`` -> ``.``; SQLite and Postgres). SQL's ``trim``
+    takes spaces only, where ``str.strip`` takes any whitespace: the two agree on every ticker that holds no tab or
+    line break, which is every ticker a source writes.
 
     A company's ticker is SEC's spelling (``BRK-B``) and an earnings event's is Alpha Vantage's
     (``BRK.B``), and nothing normalizes either at write time, so every query that matches one to the
