@@ -3,7 +3,8 @@
    -----------------------------------------------------------------------------
    A run in progress in words beside one sage pulse dot, the words in the
    secondary ink (a run that reports how far it has got shows a bar instead, as
-   the summary's generating card does). Activity is never a Notice, of any
+   the summary's generating card does, and the insider panel once its scan has
+   listed filings). Activity is never a Notice, of any
    variant (DESIGN_SYSTEM.md §4 › Inline notice): the Copilot rail's "Reading
    the filing…", the analysis page's history fetch, the trend analysis's
    "Assembling the numbers…" and "Writing…", and /delete-account's "Checking

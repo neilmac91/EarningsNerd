@@ -1738,9 +1738,12 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
 
 Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
                  Copilot's "Reading the filing…", the analysis page's history fetch, the trend analysis's "Assembling
-                 the numbers…" and "Writing…" as it streams, and /delete-account's "Checking whether you are logged
-                 in…". A run that reports how far it has got shows a bar instead, as the summary's generating card
-                 does, and the loading lines elsewhere that show only words (the dashboard's "Checking your plan…"
+                 the numbers…" and "Writing…" as it streams, /delete-account's "Checking whether you are logged
+                 in…", and the insider panel's "Reading this company's recent Form 4 filings." on a company's first
+                 visit, before any filing is listed. A run that reports how far it has got shows a bar instead, as the
+                 summary's generating card does and the insider panel does once filings are listed ("12 of 60 filings
+                 read" over its bar, the count kept out of the status region so each answer is not read out), and the
+                 loading lines elsewhere that show only words (the dashboard's "Checking your plan…"
                  among them) take no dot: the dot marks a run the reader waits on that nothing else in view shows.
                  The words are in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static
                  under reduced motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line

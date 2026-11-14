@@ -38,6 +38,26 @@ export interface InsiderActivitySummary {
   last_transaction_date: string | null
 }
 
+/** How far the stored Form 4 scan behind the answer has got (backend `InsiderScanState`, ADR 0009). The endpoint reads
+ *  only the database, so a company's first visit answers `scanning` with nothing read yet, and trades arrive over the
+ *  next minute or so, newest first. */
+export interface InsiderScan {
+  // complete: every listed filing is read. scanning: filings are still being read. paused: SEC pushed back and the
+  // scan waits, then resumes on its own. failed: it cannot run for this company.
+  status: 'complete' | 'scanning' | 'paused' | 'failed'
+  /** Form 4 filings the scan knows of. */
+  filings_listed: number
+  /** Of those, how many have been read so far. */
+  filings_read: number
+  /** ISO date of the earliest filing read: how far back the stored trades reach. */
+  oldest_filed_date: string | null
+  /** ISO timestamp of the last listing. */
+  refreshed_at: string | null
+  /** When asking again can show more; null when nothing is pending. A `complete` scan can carry one (an hourly
+   *  refresh under way behind complete data): the data still reads as complete. */
+  retry_after_seconds: number | null
+}
+
 export interface InsiderActivityResponse {
   ticker: string
   company_name: string | null
@@ -46,6 +66,7 @@ export interface InsiderActivityResponse {
   summary: InsiderActivitySummary
   transactions: InsiderTransaction[]
   total_transactions: number
+  scan: InsiderScan
 }
 
 export const getInsiderActivity = async (
