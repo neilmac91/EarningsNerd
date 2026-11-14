@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""One-time purge: delete earnings_events rows outside the S&P 500 / Nasdaq 100 universe.
+"""One-time purge: delete earnings_events rows outside the S&P 500 / Nasdaq 100 universe that nobody watches.
 
 When the calendar index filter (``CALENDAR_INDEX_FILTER_ENABLED``) is turned on, the serve path
-already hides non-member tickers and daily ingest stops storing them — but the table still holds the
-thousands of long-tail rows accumulated before the filter existed. This script removes them so the
-DB is lean and the served universe matches the stored universe. Run it once at rollout, before (or
-just after) flipping the flag.
+already hides non-member tickers and daily ingest stops storing them, a watched company's aside — but
+the table still holds the thousands of long-tail rows accumulated before the filter existed. This
+script removes them so the DB is lean and holds what the refresh keeps storing: the index plus every
+watched company (a reader's dashboard and earnings-day alerts read those rows). Run it once at
+rollout, before (or just after) flipping the flag.
 
 Membership comes from the committed app/data/index_membership.json via index_membership_service.
 HARD SAFETY: if that list is missing/short (< SANITY_FLOOR), the script REFUSES to run — purging
@@ -27,13 +28,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.models import EarningsEvent
-from app.services import index_membership_service
+from app.services import earnings_calendar_service, index_membership_service
 
 logger = logging.getLogger(__name__)
 
 
 def purge(session, *, dry_run: bool = True, members=None) -> dict:
-    """Delete EarningsEvent rows whose ticker is not in the index universe.
+    """Delete EarningsEvent rows whose ticker is neither in the index universe nor on a watchlist.
 
     Returns ``{"total": n, "deleted": n, "kept": n}`` (``deleted`` is the would-delete count on a dry
     run). Mutates/commits only when ``dry_run=False``. Raises ValueError if the member set is too
@@ -48,42 +49,43 @@ def purge(session, *, dry_run: bool = True, members=None) -> dict:
             "index_membership.json first."
         )
 
-    total = session.query(EarningsEvent).count()
-    to_delete = (
-        session.query(EarningsEvent).filter(EarningsEvent.ticker.notin_(members)).count()
+    # What the refresh keeps storing with the filter on (earnings_calendar_service._admitted_tickers),
+    # compared in one spelling: an event's ticker is Alpha Vantage's (BRK.B), a company's is SEC's (BRK-B).
+    kept_tickers = (
+        frozenset(index_membership_service.normalize_ticker(t) for t in members)
+        | earnings_calendar_service.watched_tickers(session)
     )
+    outside = index_membership_service.canonical_ticker_sql(EarningsEvent.ticker).notin_(kept_tickers)
+    total = session.query(EarningsEvent).count()
+    to_delete = session.query(EarningsEvent).filter(outside).count()
     kept = total - to_delete
     sample = [
         t for (t,) in session.query(EarningsEvent.ticker)
-        .filter(EarningsEvent.ticker.notin_(members))
+        .filter(outside)
         .distinct()
         .order_by(EarningsEvent.ticker.asc())
         .limit(40)
         .all()
     ]
     logger.info(
-        "earnings_events: total=%d  member=%d  non-member=%d  (members in universe: %d)",
-        total, kept, to_delete, len(members),
+        "earnings_events: total=%d  kept=%d  to delete=%d  (members in universe: %d, kept tickers with the watched: %d)",
+        total, kept, to_delete, len(members), len(kept_tickers),
     )
-    logger.info("sample non-member tickers to delete: %s", ", ".join(sample) or "-")
+    logger.info("sample tickers to delete (outside the index, unwatched): %s", ", ".join(sample) or "-")
 
     if dry_run:
         logger.info("Dry run complete. Run with --execute to delete %d rows.", to_delete)
         return {"total": total, "deleted": to_delete, "kept": kept}
 
-    deleted = (
-        session.query(EarningsEvent)
-        .filter(EarningsEvent.ticker.notin_(members))
-        .delete(synchronize_session=False)
-    )
+    deleted = session.query(EarningsEvent).filter(outside).delete(synchronize_session=False)
     session.commit()
-    logger.info("Purge applied: deleted %d non-member rows, kept %d.", deleted, kept)
+    logger.info("Purge applied: deleted %d rows outside the index that nobody watches, kept %d.", deleted, kept)
     return {"total": total, "deleted": int(deleted or 0), "kept": kept}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Delete earnings rows outside the S&P 500 / Nasdaq 100 universe."
+        description="Delete earnings rows outside the S&P 500 / Nasdaq 100 universe that nobody watches."
     )
     parser.add_argument("--execute", action="store_true",
                         help="Actually delete (default is dry run).")

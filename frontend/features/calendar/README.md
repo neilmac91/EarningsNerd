@@ -12,7 +12,7 @@ per-company earnings-day alerts.
 | `api/calendar-fixtures.ts` | ⚠ Isolated mock (dynamic-import only, `NEXT_PUBLIC_CALENDAR_FIXTURES='true'`); exercises both cap 403s |
 | `lib/dates.ts` | ET-honest calendar-day math + computed NYSE holidays (no `new Date(iso)` shift bug) |
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
-| `lib/tickers.ts` | `canonicalTicker`: the one form a bell compares tickers in (an event says BRK.B, the alert list BRK-B) |
+| `lib/tickers.ts` | `canonicalTicker`: the one form a bell compares tickers in (an event says BRK.B, the alert list BRK-B); `secTicker`: SEC's spelling (BRK-B) a company-page link needs |
 | `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback, and today from the reader's browser (`useTodayEasternIso`; the range query and its retained failure live in the page, beside its `RetryButton`) |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
 | `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
@@ -92,7 +92,7 @@ Weighed three layouts:
   "No reports" / "Market closed" over the holiday's name (desktop column),
   "Market closed · {holiday}" (mobile list).
 - **A11y:** semantic day `<section>`s + `<ul>` rows; rows are real links to
-  `/company/[ticker]`; bell is a sibling button (never a link-in-link); native
+  `/company/[ticker]` in SEC's spelling (`secTicker`); bell is a sibling button (never a link-in-link); native
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
   the bell's popover is a non-modal `role="group"` on `z-overlay` (no dialog
   role: nothing is inert and Tab is not trapped — its transparent catcher only

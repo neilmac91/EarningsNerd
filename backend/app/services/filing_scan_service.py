@@ -43,9 +43,10 @@ logger = logging.getLogger(__name__)
 
 SCAN_FORM_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K"]
 # FPI forms added to the scan only behind ENABLE_FPI_FILINGS — the roadmap warns against a blanket
-# global default (each extra form is one more SEC get_filings call per watched company per tick, and
-# the watched universe is overwhelmingly domestic). Per-form alert eligibility is still gated by the
-# user's notify_20f / notify_6k prefs in evaluate_delivery, and 6-K is forced digest-only.
+# global default (the watched universe is overwhelmingly domestic; the scan's one bounded fetch per
+# watched company asks for them too, so they share its per-company limit with the domestic forms).
+# Per-form alert eligibility is still gated by the user's notify_20f / notify_6k prefs in
+# evaluate_delivery, and 6-K is forced digest-only.
 SCAN_FPI_FORM_TYPES = ["20-F", "6-K", "40-F"]
 DEFAULT_PER_COMPANY_LIMIT = 10
 DEFAULT_CADENCE_MINUTES = 60

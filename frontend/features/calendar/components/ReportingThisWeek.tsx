@@ -6,6 +6,7 @@ import { TrailingArrowLabel } from '@/components/ui/TrailingArrowLabel'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import type { ReportingThisWeekResponse } from '@/lib/serverApi'
 import { isoDayOfWeek } from '../lib/dates'
+import { secTicker } from '../lib/tickers'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
@@ -53,7 +54,7 @@ export default function ReportingThisWeek({
             {/* The ticker and its day share a line while both fit, and the day drops beneath the ticker when they
                 do not (a phone under a 200% text setting); the name truncates on its own line. */}
             <Link
-              href={`/company/${company.ticker}`}
+              href={`/company/${secTicker(company.ticker)}`}
               className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-3 transition-colors duration-fast hover:bg-white dark:hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               data-testid={`reporting-this-week-${company.ticker}`}
             >

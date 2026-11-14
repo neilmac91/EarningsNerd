@@ -65,6 +65,60 @@ def test_purge_dry_run_then_execute_removes_only_non_members():
 
 
 @pytest.mark.requires_db
+def test_purge_keeps_a_watched_company_outside_the_index_in_either_spelling():
+    """With the index filter on, the refresh keeps storing a watched company's events, so the purge keeps its
+    rows too, whichever side spells the share class with a dash: one company is stored under SEC's spelling
+    (PWATCH-A) with its event under Alpha Vantage's (PWATCH.A), and another's event is itself stored with the
+    dash (PDASH-B), as a row from an earlier source can be. A company outside the index that nobody watches is
+    still deleted."""
+    import uuid
+
+    from app.database import SessionLocal
+    from app.models import Company, EarningsEvent, User, Watchlist
+    from app.services import index_membership_service as idx
+
+    suffix = uuid.uuid4().hex[:8]
+    sentinels = ["PWATCH.A", "PDASH-B", "PTAILB"]
+    db = SessionLocal()
+    user_id, company_ids = None, []
+    try:
+        db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(sentinels)).delete(synchronize_session=False)
+        user = User(email=f"purge-{suffix}@example.com", hashed_password="x")
+        companies = [
+            Company(cik=f"purgea{suffix}", ticker="PWATCH-A", name="Watched Outside The Index"),
+            Company(cik=f"purgeb{suffix}", ticker="PDASH-B", name="Watched, Its Event Stored With A Dash"),
+        ]
+        db.add_all([user, *companies])
+        db.flush()
+        user_id, company_ids = user.id, [company.id for company in companies]
+        db.add_all([Watchlist(user_id=user_id, company_id=company_id) for company_id in company_ids])
+        for ticker in sentinels:
+            _seed(db, ticker)
+        db.commit()
+
+        # Members = every ticker present except the two sentinels, with the real universe (the sanity floor).
+        present = {t for (t,) in db.query(EarningsEvent.ticker).distinct() if t not in sentinels}
+        members = frozenset(present | idx.member_tickers())
+
+        assert purge(db, dry_run=True, members=members)["deleted"] == 1
+        assert db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(sentinels)).count() == 3
+
+        assert purge(db, dry_run=False, members=members)["deleted"] == 1
+        left = {t for (t,) in db.query(EarningsEvent.ticker).filter(EarningsEvent.ticker.in_(sentinels))}
+        assert left == {"PWATCH.A", "PDASH-B"}
+    finally:
+        db.rollback()
+        db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(sentinels)).delete(synchronize_session=False)
+        if company_ids:
+            db.query(Watchlist).filter(Watchlist.company_id.in_(company_ids)).delete(synchronize_session=False)
+            db.query(Company).filter(Company.id.in_(company_ids)).delete(synchronize_session=False)
+        if user_id is not None:
+            db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+        db.commit()
+        db.close()
+
+
+@pytest.mark.requires_db
 def test_purge_refuses_to_run_against_a_short_member_set():
     """The critical guard: purging against an empty/short member set would delete the whole calendar,
     so it must raise instead of running."""

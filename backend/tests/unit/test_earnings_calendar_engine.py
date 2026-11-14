@@ -638,6 +638,64 @@ def test_index_filter_off_is_a_noop(monkeypatch):
     _clear("TAILONLY")
 
 
+@pytest.mark.requires_db
+def test_index_filter_on_a_2_02_hit_flips_a_watched_non_members_row_only(monkeypatch):
+    """With the filter on, a watched company outside the index is reported like a member (its company
+    in SEC's spelling WTCN-B, its event in Alpha Vantage's WTCN.B); a row nobody watches is never
+    flipped, and its hit is counted."""
+    import uuid
+
+    from app.config import settings
+    from app.database import SessionLocal
+    from app.models import Company, EarningsEvent, User, Watchlist
+    from app.services import index_membership_service as idx
+
+    _clear("WTCN.B", "UNWTCHN")
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset({"MEMBERX"}))
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+    suffix = uuid.uuid4().hex[:8]
+    fpe = date(2031, 3, 31)
+    db = SessionLocal()
+    user = User(email=f"wtcn-{suffix}@example.com", hashed_password="x")
+    company = Company(cik=f"wtcn{suffix}", ticker="WTCN-B", name="WTCN class B")
+    db.add_all([user, company])
+    db.flush()
+    db.add(Watchlist(user_id=user.id, company_id=company.id))
+    db.add_all([
+        EarningsEvent(
+            ticker=t, company_name="x", fiscal_period_end=fpe, event_date=date(2031, 5, 2),
+            status=STATUS_ESTIMATED, confidence=CONFIDENCE_MEDIUM, source=SOURCE_ALPHA_VANTAGE,
+        )
+        for t in ("WTCN.B", "UNWTCHN")
+    ])
+    try:
+        db.commit()
+        hits = [
+            SimpleNamespace(
+                items=["2.02"], ticker=t, filed_date="2031-05-02", accession_no=f"acc-{t}",
+                cik=None, company=f"{t} Inc", acceptance_datetime=None,
+            )
+            for t in ("WTCN-B", "UNWTCHN")
+        ]
+        stats = svc.RefreshStats()
+        assert svc.ingest_edgar_reported(db, hits, stats=stats) == 1
+        db.commit()
+        assert stats.skipped_non_member == 1
+        statuses = {
+            e.ticker: e.status
+            for e in db.query(EarningsEvent).filter(EarningsEvent.ticker.in_(["WTCN.B", "UNWTCHN"]))
+        }
+        assert statuses == {"WTCN.B": STATUS_REPORTED, "UNWTCHN": STATUS_ESTIMATED}
+    finally:
+        db.rollback()
+        db.query(Watchlist).filter(Watchlist.company_id == company.id).delete(synchronize_session=False)
+        db.query(Company).filter(Company.id == company.id).delete(synchronize_session=False)
+        db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
+        db.commit()
+        db.close()
+        _clear("WTCN.B", "UNWTCHN")
+
+
 # ---- dual-class tickers ---------------------------------------------------
 # A company's ticker is SEC's spelling of a share class (BRK-B) and an event's Alpha Vantage's (BRK.B);
 # an EFTS hit's may be either. Every match compares the canonical form, whichever side holds which.

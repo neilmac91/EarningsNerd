@@ -299,3 +299,29 @@ describe('the Notable filings line keeps Reporting this week’s line anatomy', 
     expect(notable.name).toContain('truncate')
   })
 })
+
+describe("Reporting this week links to the company page in SEC's spelling", () => {
+  // Its tickers are earnings events', Alpha Vantage's spelling of a share class (BRK.B); the company page binds SEC's
+  // (BRK-B) by exact match. Only the link changes: the test id, the mark and the visible ticker keep the event's.
+  it('a BRK.B line links to /company/BRK-B, and a plain ticker links as it reads', () => {
+    render(
+      <ReportingThisWeek
+        data={{
+          companies: [
+            { ticker: 'BRK.B', name: 'BERKSHIRE HATHAWAY INC', earnings_date: '2026-07-07', time: 'amc' },
+            { ticker: 'SMPR', name: 'SAMPLE RETAIL R INC', earnings_date: '2026-07-08', time: 'bmo' },
+          ],
+          week_start: '2026-07-06',
+          week_end: '2026-07-10',
+          status: 'ok',
+          timestamp: '2026-07-06T00:00:00+00:00',
+        }}
+      />,
+    )
+    const dual = screen.getByTestId('reporting-this-week-BRK.B')
+    expect(dual).toHaveAttribute('href', '/company/BRK-B')
+    expect(within(dual).getByText('BRK.B')).toBeInTheDocument()
+    expect(within(dual).getByTestId('logo-BRK.B')).toBeInTheDocument()
+    expect(screen.getByTestId('reporting-this-week-SMPR')).toHaveAttribute('href', '/company/SMPR')
+  })
+})

@@ -25,6 +25,7 @@ import { fmtCurrency } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import type { CalendarEvent } from '../api/calendar-api'
 import { habitualSlotNote, laneOf } from '../lib/lanes'
+import { secTicker } from '../lib/tickers'
 import type { EarningsAlertsApi } from '../hooks/useCalendar'
 import { AlertBell } from './AlertBell'
 import { LANE_ICON } from './laneHeader'
@@ -117,7 +118,7 @@ export function EventRow({
       )}
     >
       <Link
-        href={`/company/${ev.ticker}`}
+        href={`/company/${secTicker(ev.ticker)}`}
         className={cx(
           'block rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
           roomy

@@ -1725,18 +1725,26 @@ on the verified #704 images. The founder approved preserving that service overri
 W3-2 makes service=true and pregenerate=false explicit in `ci.yml` (the task worker pins true too)
 without changing Settings. This filter does not activate the Calendar UI or authorize a data purge.
 W3-2 is merged: those pins are in `ci.yml` and `tests/unit/test_prod_flag_visibility.py` locks them;
-verify effective values after each deploy. The earlier rollout
-recipe below remains founder-operated and is not a new instruction to toggle the approved state:
+verify effective values after each deploy. Since 2026-11-14 the scheduled jobs' map pins true as well
+(`tests/unit/test_job_flags_match_service.py`), so the daily refresh job filters as the service does: it
+stores and reports the index plus every watched company and skips the rest. The public calendar still
+shows the index alone, and a company first watched today gets its event at the next daily refresh. The
+earlier rollout recipe below remains founder-operated and is not a new instruction to toggle the approved
+state:
 
 ```bash
 # 1. Purge the long-tail rows already in the table (dry-run first; add ,--execute to apply). The
-#    purge REFUSES to run if the committed list is short — it can never delete the whole calendar.
+#    purge REFUSES to run if the committed list is short — it can never delete the whole calendar —
+#    and keeps a watched company's rows, as the refresh does.
 gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
   --args="scripts/purge_non_index_earnings.py" --wait           # dry run: prints what it would delete
 gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
   --args="scripts/purge_non_index_earnings.py,--execute" --wait
-# 2. Turn the filter on (serve + ingest). Instantly reversible: set it back to false and the next
-#    daily refresh re-populates non-members (AV returns the full calendar).
+# 2. Turn the filter on. The service's value decides what the public calendar serves; the scheduled
+#    refresh's ingest follows the jobs' map, which the deploy pins. Reversible: with the jobs' value
+#    false, the next daily refresh re-populates the rest (AV returns the full calendar). A jobs' value
+#    that differs from the service's is listed, with why, in tests/unit/test_job_flags_match_service.py's
+#    DIFFERENCES in the same change, or CI fails.
 gcloud run services update earningsnerd-backend --region=us-west1 \
   --update-env-vars=CALENDAR_INDEX_FILTER_ENABLED=true
 # 3. Probe: peak days now show only large caps; spot-check BRK.B / GOOGL present.

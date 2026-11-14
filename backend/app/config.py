@@ -534,10 +534,13 @@ class Settings(BaseSettings):
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
     # (auditable, un-corruptable by a bad API response); the filter fails OPEN (serves unfiltered) if
     # that list is missing/short, so it can only ever hide tail names, never empty the calendar. Gates
-    # BOTH serve and ingest, so flipping it off lets the next daily refresh re-populate non-members —
-    # fully reversible within ~1 day. A user's explicitly watchlisted company is NOT filtered (their
-    # dashboard "upcoming" + alerts still fire). Ships off; flip CALENDAR_INDEX_FILTER_ENABLED=true on
-    # the Cloud Run service after the one-time purge (scripts/purge_non_index_earnings.py).
+    # serve and ingest, each in the process that runs it: the service's value decides what the public
+    # calendar serves, and the refresh's decides what it stores (the scheduled job reads the jobs' deploy
+    # map), so with the refresh's value off its next daily run re-populates non-members — reversible
+    # within ~1 day. Ingest still stores every watchlisted company's events (dashboard "upcoming" +
+    # alerts fire; one first watched today gets its event at the next daily refresh). Ships off; the
+    # deploy maps in ci.yml set it. The one-time purge (scripts/purge_non_index_earnings.py) keeps a
+    # watched company's rows as the ingest does.
     CALENDAR_INDEX_FILTER_ENABLED: bool = False
 
     # Homepage "Notable filings" — market-wide EDGAR-native discovery surface (replaces the retired
