@@ -81,8 +81,10 @@ export function useInsiderActivity(ticker: string, windowDays: number, isFpi: bo
     refused,
     stopped,
     /** There is something to show: an answer, or a failure a retry can help. False while the first answer is out
-     *  and for a refusal, so a surface that waits for it never shows a card to a reader the endpoint refuses. */
-    hasContent: !!data || (failure.failed && !refused),
+     *  and for a refusal, so a surface that waits for it never shows a card to a reader the endpoint refuses. A
+     *  refusal outranks an answer already held: a later read the endpoint refuses (its switch turned off, a session
+     *  that has ended) takes the earlier answer off the page, as the switch is meant to. */
+    hasContent: !refused && (!!data || failure.failed),
   }
 }
 

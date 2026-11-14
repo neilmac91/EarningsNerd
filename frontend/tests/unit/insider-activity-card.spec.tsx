@@ -229,6 +229,21 @@ describe('InsiderActivityCard: while a scan is under way', () => {
     }
   })
 
+  it.each([401, 404])('a later read the endpoint refuses (%i: a session ended, its switch turned off) takes the card away, answer and all', async (status) => {
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+    try {
+      getInsiderActivity.mockResolvedValueOnce({ ...BUYING, scan: scanning() }).mockRejectedValue(new ApiError(status, 'Refused'))
+      renderCard()
+      await land()
+      expect(within(card()).getByText('Net buying')).toBeInTheDocument()
+      await act(async () => { await vi.advanceTimersByTimeAsync(8_001) })
+      noCard()
+      expect(screen.queryByText('Net buying')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('another company starts its own three minutes: the read is keyed by ticker', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false })
     try {

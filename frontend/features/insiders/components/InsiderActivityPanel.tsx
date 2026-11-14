@@ -173,7 +173,8 @@ export default function InsiderActivityPanel({
 
   const summary = data?.summary
   const hasTrades = !!data && data.total_transactions > 0
-  const statusLine = data ? scanLine(data.scan, stopped) : null
+  // A refusal takes an answer already held off the page with it: the line below stands alone.
+  const statusLine = data && !refused ? scanLine(data.scan, stopped) : null
   // Lead with net value when known, else net shares. The sign is the buy/sell signal.
   const { value: signalValue, isValue: signalIsValue, direction } = insiderSignal(summary)
   const planSells = summary?.plan_10b5_1_sell_shares ?? 0
@@ -211,7 +212,7 @@ export default function InsiderActivityPanel({
       <div role="status" className={statusLine ? 'mb-4' : undefined}>
         {statusLine}
       </div>
-      {data && <ScanProgress scan={data.scan} />}
+      {data && !refused && <ScanProgress scan={data.scan} />}
 
       {refused && (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
@@ -229,7 +230,7 @@ export default function InsiderActivityPanel({
         </div>
       )}
 
-      {!data ? (
+      {refused ? null : !data ? (
         !failure.failed && (
           <div role="status" aria-label="Loading insider activity">
             <Skeleton className="h-48 w-full rounded-lg" />

@@ -595,6 +595,19 @@ describe('InsiderActivityPanel: asking again while a scan is under way', () => {
   const scanning = (retryAfter: number) =>
     answer({ status: 'scanning', filings_listed: 60, filings_read: 12, retry_after_seconds: retryAfter })
 
+  it('a later read the endpoint refuses takes the stored trades off the page: the line stands alone, with no bar', async () => {
+    getInsiderActivity.mockResolvedValueOnce(scanning(10)).mockRejectedValue(new ApiError(404, 'Not Found'))
+    await start()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    await advance(10_001)
+    await advance(0)
+    expect(screen.getByText('Insider activity isn’t available here right now.')).toBeInTheDocument()
+    expect(screen.queryByText('Jane Doe')).toBeNull()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.queryByText(/Reading this company/)).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('asks again after the interval the response gives, and stops once nothing is pending', async () => {
     answering(scanning(10), scanning(10), answer({ status: 'complete', retry_after_seconds: null }))
     await start()
