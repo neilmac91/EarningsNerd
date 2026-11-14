@@ -84,6 +84,8 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`, `brand
 - ops-stripe-calls-wait-on-threads-of-their-own.md — Run calls through Stripe's global client on the Stripe threads, never on the event loop or anyio's default worker threads, since one such call can wait minutes (partly gated by `backend/tests/unit/test_stripe_threads_allowlist.py`; the forms its Gate leaves out of reach are review-checked)
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 - ops-when-every-ci-job-slows-at-once-read-the-runner.md — When every CI job slows at once, read the runner's worker counts and the repository's visibility before calling a cancellation a flake; a record of a setting is a dated observation, so ask the founder before calling its change a mistake
+- ops-measure-a-host-on-fresh-instances-not-only-warm.md — Measure a serverless host on a fresh instance and after an idle period, beside the warm median: a site with little traffic lives on the cold path
+- ops-prove-an-error-reaches-a-receiver-you-control.md — Prove error reporting by receiving the error at an address you control, on the build and layout that will serve; a client that exists, a flush that returns and one event seen are not delivery (partly gated by CI's `worker-build` job and `frontend/tests/unit/sentryOnWorkers.spec.ts`)
 
 ## Evals, judging, paid runs and the founder's machine (read for that work)
 
