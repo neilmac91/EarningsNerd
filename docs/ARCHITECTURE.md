@@ -390,8 +390,9 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory
   per entity, prefix-invalidation via `all()`/`list(filters)` pairs.
 - **Shared HTTP** via `lib/api/client.ts` (axios: auth-refresh interceptor,
-  `withCredentials`). Raw `fetch` is sanctioned only for SSE stream readers and the
-  server-side Next ISR fetches (`lib/serverApi.ts`, `app/sitemap.ts`).
+  `withCredentials`). Raw `fetch` is sanctioned only for SSE stream readers, the
+  server-side Next ISR fetches (`lib/serverApi.ts`, `app/sitemap.ts`), and Sentry's transport for the Next
+  server on Cloudflare Workers (`lib/sentryOnWorkers.ts`).
 - **Feature flags** in `lib/featureFlags.ts`; error boundaries: `GlobalErrorBoundary`
   (Sentry) + `ChartErrorBoundary`; chrome: `CompanyLogo` (Logo.dev + monogram fallback),
   `CookieConsent`, Header/Footer/Theme*.

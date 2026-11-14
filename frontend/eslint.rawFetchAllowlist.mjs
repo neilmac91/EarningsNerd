@@ -5,7 +5,7 @@
 //   - tests/unit/rawFetchAllowlist.spec.ts: each file here must STILL contain exactly `fetchCalls`
 //     raw call sites (a new call inside a sanctioned file fails until the pin is updated and
 //     justified in the PR; a file that stops using fetch fails until it is removed), and the list
-//     itself is shrink-only.
+//     itself is shrink-only. It was raised once, from five to six, for the third reason below.
 // The sanctioned reasons, and the only ones: SSE stream readers (axios rides XHR and cannot
 // read a response body incrementally), Next server/ISR fetches (Next extends `fetch` with
 // `next: { revalidate }` + per-render dedupe; axios has neither), and, since the Cloudflare Workers

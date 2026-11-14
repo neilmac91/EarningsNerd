@@ -18,7 +18,8 @@ import { RAW_FETCH_ALLOWLIST } from '../../eslint.rawFetchAllowlist.mjs'
  *       the pin is bumped AND the PR justifies it (SSE reader, Next server/ISR fetch, or a telemetry
  *       SDK's transport on Cloudflare Workers, only);
  *   (c) the list is shrink-only (MAX_ALLOWLIST_SIZE equals its size: lower it in the commit that
- *       removes a file, never raise it).
+ *       removes a file). It was raised once, from 5 to 6, when the Cloudflare Workers build needed a
+ *       transport for Sentry; a raise is a change of the rule, stated to the founder in its PR.
  * Call sites are counted with the TypeScript AST using exactly the shapes the ESLint selectors
  * forbid — `fetch(...)` and `<expr>.fetch(...)` — so comments and `refetch()` never count.
  */
@@ -66,7 +67,7 @@ describe('raw fetch allow-list (two-directional rule-12 gate)', () => {
     expect(
       RAW_FETCH_ALLOWLIST.length,
       `RAW_FETCH_ALLOWLIST has ${RAW_FETCH_ALLOWLIST.length} entries and MAX_ALLOWLIST_SIZE is ${MAX_ALLOWLIST_SIZE}. ` +
-        'Raw fetch is sanctioned only for SSE readers and Next server/ISR fetches — route new HTTP through ' +
+        'Raw fetch is sanctioned only for SSE readers, Next server/ISR fetches and a telemetry transport on Workers — route new HTTP through ' +
         'lib/api/client.ts instead of adding an entry.',
     ).toBe(MAX_ALLOWLIST_SIZE)
   })
@@ -74,7 +75,7 @@ describe('raw fetch allow-list (two-directional rule-12 gate)', () => {
   it('every entry names an existing file with a stated reason', () => {
     for (const entry of RAW_FETCH_ALLOWLIST) {
       expect(existsSync(path.join(frontendRoot, entry.file)), `${entry.file} is allow-listed but does not exist`).toBe(true)
-      expect(entry.reason.trim().length, `${entry.file} needs a reason (SSE reader or Next server/ISR fetch)`).toBeGreaterThan(0)
+      expect(entry.reason.trim().length, `${entry.file} needs a reason (SSE reader, Next server/ISR fetch, or a telemetry transport on Workers)`).toBeGreaterThan(0)
       expect(entry.fetchCalls, `${entry.file} pins fewer than 1 fetch call — remove it from the allow-list instead`).toBeGreaterThanOrEqual(1)
     }
   })

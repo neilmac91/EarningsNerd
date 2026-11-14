@@ -1,4 +1,7 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /**
@@ -20,6 +23,16 @@ afterEach(() => {
 })
 
 describe('Sentry options for the Next server on Cloudflare Workers', () => {
+  it('are what instrumentation.ts passes to Sentry.init, with no integrations or transport of its own', () => {
+    // Nothing else notices if instrumentation.ts stops using them: the hook still loads, Vercel is unchanged, and
+    // the server Worker goes back to reporting nothing.
+    const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+    const source = readFileSync(path.join(frontend, 'instrumentation.ts'), 'utf8')
+    const init = source.slice(source.indexOf('Sentry.init({'), source.indexOf('export const onRequestError'))
+    expect(init).toContain('...sentryOptionsOnWorkers([')
+    expect(init).not.toMatch(/^\s*(integrations|transport):/m)
+  })
+
   it('passes the integrations through untouched on Vercel (Node) and in the edge runtime', async () => {
     for (const runtime of [
       { nextRuntime: 'nodejs', userAgent: 'Node.js/22' },

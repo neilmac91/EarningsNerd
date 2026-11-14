@@ -35,15 +35,23 @@ function run(args, { quiet = false } = {}) {
   return output
 }
 
-/** The version serving 100% of a Worker's traffic, or null when the Worker has never been deployed. */
+/**
+ * The version serving 100% of a Worker's traffic, or null when the Worker has never been deployed. Only wrangler
+ * saying so counts as "never deployed": any other failure (the API unreachable, a rate limit) stops the deploy here,
+ * before anything is built or uploaded, since a Worker wrongly taken for new would be deployed outright, past the
+ * steps that keep the two Workers on one build.
+ */
 function currentVersion(config) {
-  let status
+  console.log(`\n$ npx wrangler deployments status --json -c ${config}`)
+  let output
   try {
-    status = JSON.parse(run(['wrangler', 'deployments', 'status', '--json', '-c', config], { quiet: true }))
-  } catch {
-    return null
+    output = execFileSync('npx', ['wrangler', 'deployments', 'status', '--json', '-c', config], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  } catch (error) {
+    const said = `${error.stdout ?? ''}${error.stderr ?? ''}`
+    if (/This Worker does not exist on your account|has no deployments/.test(said)) return null
+    throw new Error(`${config}: could not read the Worker's deployment, so nothing was deployed.\n${said}`)
   }
-  const versions = status.versions ?? []
+  const versions = JSON.parse(output).versions ?? []
   if (versions.length !== 1 || versions[0].percentage !== 100) {
     throw new Error(`${config}: a deploy is half-way (${JSON.stringify(versions)}); finish or roll it back with \`wrangler versions deploy\` first`)
   }

@@ -173,7 +173,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   gone). Map: `docs/ARCHITECTURE.md`.
 - **Frontend:** `features/<domain>/` = domain code; `components/` = `ui/` + app chrome ONLY
   (`componentsAllowlist.spec.ts`); query keys from `lib/queryKeys.ts` (ESLint-enforced); all HTTP
-  through `lib/api/client.ts` (raw `fetch` only for SSE readers and Next ISR/server fetches);
+  through `lib/api/client.ts` (raw `fetch` only for SSE readers, Next ISR/server fetches, and Sentry's transport on
+  Cloudflare Workers, each listed in `eslint.rawFetchAllowlist.mjs`);
   blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (conftest sets a hermetic mock
   env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars — registers

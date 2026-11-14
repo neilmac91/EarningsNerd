@@ -820,13 +820,17 @@ def test_the_workers_build_checks_staging_and_never_holds_a_backend_release():
     # Each size is refused from its limit, and a size the step cannot read is refused too. The front Worker's limit
     # is what keeps the Next server out of it (512 KiB; the server alone is over 3 MiB); the server's is 8 MiB, under
     # Cloudflare's 10.
+    assert 'npx wrangler deploy --dry-run -c "$1" > "dry-run-$1.log"' in check
+    assert "sed -n 's/.*gzip: \\([0-9]*\\)\\.[0-9]* KiB.*/\\1/p' \"dry-run-$1.log\"" in check
     assert "front_kib=$(gzip_kib wrangler.jsonc)" in check and "server_kib=$(gzip_kib wrangler.server.jsonc)" in check
     assert 'if ! [[ "$front_kib" =~ ^[0-9]+$ ]] || [ "$front_kib" -ge 512 ]; then' in check
     assert 'if ! [[ "$server_kib" =~ ^[0-9]+$ ]] || [ "$server_kib" -ge 8192 ]; then' in check
-    # One page through both Workers, with the copy's headers, and with Sentry's instrumentation loaded.
+    # One page through both Workers, rendered by the server Worker, with the copy's headers, and with Sentry's
+    # instrumentation loaded: Next words a failed load and a throwing register() differently, and both are refused.
     assert "npx wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc" in check
+    assert "grep -qi '^x-nextjs-cache: MISS' headers.txt" in check
     assert "grep -qi '^x-robots-tag: noindex, nofollow' headers.txt" in check
-    assert "if grep -q 'An error occurred while loading the instrumentation hook' wrangler-dev.log; then" in check
+    assert "if grep -qE 'An error occurred while loading (the )?instrumentation hook' wrangler-dev.log; then" in check
     assert all("if" not in step and "continue-on-error" not in step for step in job["steps"])
     # No step may reach a Cloudflare account: the job holds no credential.
     assert "CLOUDFLARE" not in str(job) and "secrets." not in str(job)

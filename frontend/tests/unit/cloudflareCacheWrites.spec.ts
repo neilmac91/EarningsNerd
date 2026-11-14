@@ -49,17 +49,26 @@ describe('deferred cache writes', () => {
     expect(bucket.get, 'once landed, reads go to the bucket again').toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the newer of two writes to one key readable until it lands, whichever lands first', async () => {
-    const { bucket, landing } = bucketOf()
+  it('lands two writes to one key in the order they were made, and reads the newer one throughout', async () => {
+    const { bucket, stored, landing } = bucketOf()
     const kept: Promise<unknown>[] = []
     const cache = deferCacheWrites(bucket, (write: Promise<unknown>) => kept.push(write), new Map())
 
     await cache.put('page', '"first"')
     await cache.put('page', '"second"')
     await settled()
+    expect(bucket.put, 'the second write waits for the first, so it cannot land before it').toHaveBeenCalledTimes(1)
+    expect(await (await cache.get('page')).json()).toBe('second')
+
     landing[0].land()
     await kept[0]
+    await settled()
+    expect(bucket.put).toHaveBeenCalledTimes(2)
     expect(await (await cache.get('page')).json(), 'the first landing does not drop the second from memory').toBe('second')
+
+    landing[1].land()
+    await kept[1]
+    expect(stored.get('page'), 'the newer write is what the bucket keeps').toBe('"second"')
   })
 
   it('drops a failed write without throwing, so the next read misses and the page is rendered again', async () => {
@@ -77,16 +86,20 @@ describe('deferred cache writes', () => {
     failures.mockRestore()
   })
 
-  it('lets a write in flight land before a delete of the same key, so the delete is the last word', async () => {
+  it('lets every write in flight land before a delete of the same key, so the delete is the last word', async () => {
     const { bucket, stored, landing } = bucketOf()
     const cache = deferCacheWrites(bucket, () => {}, new Map())
 
     await cache.put('page', '"stale"')
+    await cache.put('page', '"staler"')
     await settled()
     const deleted = cache.delete('page')
     await settled()
-    expect(bucket.delete, 'the delete waits for the write').not.toHaveBeenCalled()
     landing[0].land()
+    await settled()
+    await settled()
+    expect(bucket.delete, 'the delete waits for both writes').not.toHaveBeenCalled()
+    landing[1].land()
     await deleted
     expect(stored.has('page')).toBe(false)
     expect(await cache.get('page')).toBeNull()

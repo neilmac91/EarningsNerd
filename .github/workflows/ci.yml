@@ -571,7 +571,7 @@ jobs:
         run: |
           set -euo pipefail
           gzip_kib() {
-            npx wrangler deploy --dry-run -c "$1" > "dry-run-$1.log"
+            npx wrangler deploy --dry-run -c "$1" > "dry-run-$1.log" || echo "::error::wrangler deploy --dry-run failed for $1" >&2
             cat "dry-run-$1.log" >&2
             sed -n 's/.*gzip: \([0-9]*\)\.[0-9]* KiB.*/\1/p' "dry-run-$1.log"
           }
@@ -590,13 +590,16 @@ jobs:
           # The local cache starts empty, so this page is routed by the front Worker and rendered by the server Worker.
           curl -fsS -o /dev/null -D headers.txt http://127.0.0.1:8788/pricing || { cat wrangler-dev.log; exit 1; }
           cat headers.txt
+          # The server Worker rendered it: only a render loads the Next server, which the last check below is about.
+          grep -qi '^x-nextjs-cache: MISS' headers.txt
           # wrangler.jsonc sets ROBOTS_NOINDEX for staging, and next.config.js sets the frame header on every page.
           grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
           grep -qi '^x-frame-options: DENY' headers.txt
-          # The Next server logs this when instrumentation.ts cannot load, and then runs without Sentry.
-          if grep -q 'An error occurred while loading the instrumentation hook' wrangler-dev.log; then
+          # The Next server logs one of two lines when instrumentation.ts cannot load or its register() throws, and
+          # then runs without Sentry.
+          if grep -qE 'An error occurred while loading (the )?instrumentation hook' wrangler-dev.log; then
             cat wrangler-dev.log
-            echo "::error::The Next server's instrumentation hook failed to load in the Workers runtime, so Sentry is off."
+            echo "::error::The Next server's instrumentation hook failed in the Workers runtime, so Sentry is off."
             exit 1
           fi
         working-directory: frontend
