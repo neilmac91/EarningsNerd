@@ -8,9 +8,10 @@ import { markNoindex } from '../../cloudflare-robots.mjs'
 /**
  * The Cloudflare Workers build is wired across files that nothing compiles together: open-next.config.ts picks
  * the cache and the queue, wrangler.jsonc binds what they read, cloudflare-worker.mjs is the entry point, and
- * public/_headers sets the static files' caching. CI builds the app for Vercel only, so a name changed in one of
- * them is not seen until a deploy, where it fails at request time. This spec holds them to each other, and holds the
- * two properties a deployed copy of the site needs (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)").
+ * public/_headers sets the static files' caching. CI's worker-build job builds them and requests one page, which
+ * exercises neither the R2 cache nor the Durable Object, so a binding renamed in one file would first fail on
+ * staging, at request time. This spec holds them to each other, and holds the two properties a deployed copy of the
+ * site needs (docs/DEPLOYMENT.md, "Frontend on Cloudflare Workers (staging)").
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (file: string) => readFileSync(path.join(FRONTEND, file), 'utf8')
@@ -19,7 +20,8 @@ interface WranglerConfig {
   name: string
   main: string
   workers_dev?: boolean
-  routes?: { pattern: string; custom_domain?: boolean }[]
+  route?: string | { pattern: string }
+  routes?: (string | { pattern: string })[]
   assets?: { directory?: string }
   services?: { binding: string; service: string }[]
   r2_buckets?: { binding: string }[]
@@ -75,11 +77,19 @@ describe('the Cloudflare Workers build', () => {
     }
     // Either the Worker is a copy (staging, or a workers.dev address) and every response is noindex, or it serves
     // the production hostnames and none is: a noindex production site leaves search, and an indexable copy competes
-    // with it.
+    // with it. Each hostname must be one this spec knows, written exactly: a wildcard or another spelling could
+    // cover production while reading as a copy, so it fails here until it is listed. wrangler takes a route as
+    // `route` or `routes`, a string or an object, and both are read.
     const PRODUCTION_HOSTS = ['earningsnerd.io', 'www.earningsnerd.io']
-    const hosts = (wrangler.routes ?? []).map((route) => route.pattern.split('/')[0])
+    const COPY_HOSTS = ['staging.earningsnerd.io']
+    const hosts = [wrangler.route, ...(wrangler.routes ?? [])]
+      .filter((route) => route !== undefined)
+      .map((route) => (typeof route === 'string' ? route : route.pattern).split('/')[0])
+    for (const host of hosts) {
+      expect([...PRODUCTION_HOSTS, ...COPY_HOSTS], 'a route names a production hostname or a known copy, exactly').toContain(host)
+    }
     const servesProduction = hosts.some((host) => PRODUCTION_HOSTS.includes(host))
-    const servesACopy = wrangler.workers_dev !== false || hosts.some((host) => !PRODUCTION_HOSTS.includes(host))
+    const servesACopy = wrangler.workers_dev !== false || hosts.some((host) => COPY_HOSTS.includes(host))
     expect(servesProduction && servesACopy, 'one Worker serves production or a copy of it, never both').toBe(false)
     expect(wrangler.vars?.ROBOTS_NOINDEX === 'true', `ROBOTS_NOINDEX for a Worker on ${hosts.join(', ') || 'workers.dev'}`).toBe(!servesProduction)
   })

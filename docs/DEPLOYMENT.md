@@ -588,8 +588,9 @@ static file at `/_headers`, which holds one caching rule and nothing private.
 `frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds them to each other, runs the noindex marking, requires
 `WAITLIST_MODE` to be stated (a Worker without it redirects every page to `/waitlist`), and requires a Worker to be
 either a noindex copy or the production site, never an indexable copy or a noindex production. CI's
-`frontend-tests` job builds the app for Workers, refuses a Worker of 8 MiB or more gzipped (Cloudflare's limit is
-10 MiB) and requests a page from the built Worker in the local Workers runtime; it uses no Cloudflare credential.
+`worker-build` job builds the app for Workers, refuses a Worker of 8 MiB or more gzipped (Cloudflare's limit is
+10 MiB) and requests a page from the built Worker in the local Workers runtime; it uses no Cloudflare credential,
+and `deploy-backend` does not wait for it.
 
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
