@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useId, useRef, type ReactElement, type ReactNode } from 'react'
+import { useId, useMemo, useRef, type ReactElement, type ReactNode, type RefObject } from 'react'
 
 import { ActivityLine, Card, Notice, TrailingArrowLabel, cx } from '@/components/ui'
 import { insiderSignal, useInsiderActivity } from '@/features/insiders/hooks/useInsiderActivity'
@@ -55,14 +55,22 @@ export const insidersHref = (ticker: string): string => `/company/${encodeURICom
 export function InsiderActivityCard({
   ticker,
   isFpi,
+  focusFallback,
   children,
 }: {
   ticker: string
   isFpi: boolean | undefined
+  /** Where the card's Try again hands focus if the card itself leaves: a retry the endpoint refuses takes the card
+   *  away, heading and all. The page gives its filings heading. */
+  focusFallback: RefObject<HTMLElement | null>
   children: (card: ReactElement | null) => ReactNode
 }) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  // The card's heading while the card stands, the page's fallback once it has gone. Resolved after the commit.
+  const retryTarget = useMemo(() => ({
+    get current() { return headingRef.current ?? focusFallback.current },
+  }), [focusFallback])
   const { isBeta, data, failure, refused, stopped, hasContent } = useInsiderActivity(ticker, WINDOW_DAYS, isFpi)
   if (!isBeta || isFpi !== false || !hasContent) return children(null)
 
@@ -100,7 +108,7 @@ export function InsiderActivityCard({
             variant="error"
             title="Couldn’t load insider activity"
             description="The rest of this page is unaffected."
-            action={<RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />}
+            action={<RetryButton size="sm" failures={[failure]} focusTarget={retryTarget} />}
           />
         </div>
       )}

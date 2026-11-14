@@ -345,6 +345,24 @@ describe('the insider page: the company’s insider activity in full', () => {
     expect(api.getInsiderActivity).not.toHaveBeenCalled()
   })
 
+  it('a company load that fails and then loads on Try again hands focus to the page’s heading', async () => {
+    api.getCompany.mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockResolvedValue(COMPANY)
+    api.getCompanyFilings.mockResolvedValue([QUARTER, ANNUAL])
+    api.getCurrentUserSafe.mockResolvedValue(reader())
+    api.getInsiderActivity.mockResolvedValue(ACTIVITY)
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <InsidersPageClient />
+      </QueryClientProvider>,
+    )
+    // The company read retries once on its own (a second apart) before it shows a failure.
+    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 4000 })
+    retry.focus()
+    fireEvent.click(retry)
+    const lead = await screen.findByRole('heading', { level: 1, name: /Apple Inc\./ }, { timeout: 4000 })
+    await waitFor(() => expect(lead).toHaveFocus())
+  })
+
   it('shows a beta account the foreign private issuer’s note, and asks nothing', async () => {
     insidersPage([FOREIGN_ANNUAL])
     expect(await screen.findByText(/not generally required for foreign private issuers/)).toBeInTheDocument()

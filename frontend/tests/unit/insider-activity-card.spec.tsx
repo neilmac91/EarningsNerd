@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import type { InsiderActivityResponse } from '@/features/insiders/api/insiders-api'
 import { ApiError } from '@/lib/api/client'
 
@@ -55,10 +55,15 @@ const scanning = (over: Partial<InsiderActivityResponse['scan']> = {}): InsiderA
 
 /** The company page's mount, with nothing around the card. */
 function Mount({ ticker }: { ticker: string }) {
+  // The page's filings heading stands in: where the card's Try again hands focus if the card itself leaves.
+  const fallback = useRef<HTMLHeadingElement>(null)
   return (
-    <InsiderActivityCard key={ticker} ticker={ticker} isFpi={false}>
-      {(card) => card}
-    </InsiderActivityCard>
+    <>
+      <h2 ref={fallback} tabIndex={-1}>SEC filings</h2>
+      <InsiderActivityCard key={ticker} ticker={ticker} isFpi={false} focusFallback={fallback}>
+        {(card) => card}
+      </InsiderActivityCard>
+    </>
   )
 }
 function renderCard(ticker = 'NVDA', queries: Record<string, unknown> = { retry: false }) {
@@ -197,6 +202,27 @@ describe('InsiderActivityCard', () => {
     await userEvent.setup().click(within(alert).getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Net selling')).toBeInTheDocument()
     expect(getInsiderActivity).toHaveBeenCalledTimes(2)
+  })
+
+  it('Try again hands focus to the card’s heading when the retry loads, and to the page’s fallback when it is refused and the card leaves', async () => {
+    const user = userEvent.setup()
+    getInsiderActivity.mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockResolvedValueOnce(SELLING)
+    const first = renderCard()
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    retry.focus()
+    await user.keyboard('{Enter}')
+    await screen.findByText('Net selling')
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Insider activity' })).toHaveFocus())
+    first.unmount()
+
+    getInsiderActivity.mockReset()
+    getInsiderActivity.mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockRejectedValue(new ApiError(404, 'Not Found'))
+    renderCard()
+    const again = await screen.findByRole('button', { name: 'Try again' })
+    again.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(noCard)
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'SEC filings' })).toHaveFocus())
   })
 
   it.each([401, 403, 404])('a %i (a refusal: the endpoint switched off, or a company it does not know) shows no card and asks once', async (status) => {

@@ -460,7 +460,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             private issuer, which files no Form 4s. There is a card with the endpoint's first answer or a failure a
             retry can help, and none for a refusal: a reader the endpoint refuses never sees a card appear and go,
             and the backend's switch hides it when it is off. */}
-        <InsiderActivityCard key={normalizedTicker} ticker={normalizedTicker} isFpi={ENABLE_INSIDER_ACTIVITY ? insiderFpi : undefined}>
+        <InsiderActivityCard key={normalizedTicker} ticker={normalizedTicker} isFpi={ENABLE_INSIDER_ACTIVITY ? insiderFpi : undefined} focusFallback={filingsHeadingRef}>
           {(insiderCard) => (
             <div className={cx('grid grid-cols-1 gap-6', Boolean(comparisonFiling || insiderCard) && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
               <FilingIndex

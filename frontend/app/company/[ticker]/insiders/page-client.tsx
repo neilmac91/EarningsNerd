@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import CompanyLogo from '@/components/CompanyLogo'
@@ -44,6 +44,15 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
   const params = useParams()
   const ticker = ((params?.ticker as string | undefined) ?? '').toUpperCase()
   const companyCardHeadingRef = useRef<HTMLHeadingElement>(null)
+  // The page's own heading: it stands whenever the page does, so it is where a Try again hands focus when its
+  // card leaves (the account check's, and the company's once its retry succeeds).
+  const leadHeadingRef = useRef<HTMLHeadingElement>(null)
+  // Where the company Retry's focus goes when its card leaves: the page's heading when the retry loads the company,
+  // or the card's own title when it stays (a retry that finds no such ticker). Resolved after the commit, as the
+  // company page's is.
+  const companyRetryTarget = useMemo(() => ({
+    get current() { return leadHeadingRef.current ?? companyCardHeadingRef.current },
+  }), [])
 
   const companyKey = queryKeys.company(ticker)
   const companyQuery = useQuery<Company>({
@@ -85,8 +94,6 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
   const currentUser = userQuery.data
   const userFailure = useRetainedFailure(userQuery, userKey)
   const userSettled = currentUser !== undefined || userFailure.failed
-  // Where the account check's Try again hands focus when its card leaves: the page's own heading, which stays.
-  const leadHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // The server names no company (the shell is one per ticker and fetches nothing), so the tab's title takes the
   // company's name here, in the form the company page's title has.
@@ -111,7 +118,7 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
             }
             action={
               loadFailed ? (
-                <RetryButton failures={[companyFailure]} focusTarget={companyCardHeadingRef} />
+                <RetryButton failures={[companyFailure]} focusTarget={companyRetryTarget} />
               ) : (
                 <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
                   Go back home
