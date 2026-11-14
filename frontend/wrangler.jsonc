@@ -19,6 +19,10 @@
   "workers_dev": false,
   "preview_urls": false,
   // No "placement": this Worker answers cached pages, so it runs where the reader is.
+  // Each minute cloudflare-front.mjs `scheduled` asks the server Worker for one page of each route it renders on
+  // demand, so a reader's first such page does not wait for the route's code to load. scripts/cf-deploy.mjs applies
+  // this with `wrangler triggers deploy`.
+  "triggers": { "crons": ["* * * * *"] },
   "services": [
     { "binding": "WORKER_SELF_REFERENCE", "service": "earningsnerd-frontend-staging" },
     { "binding": "SERVER", "service": "earningsnerd-frontend-staging-server" }

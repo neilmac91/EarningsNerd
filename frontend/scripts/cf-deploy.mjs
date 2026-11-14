@@ -11,7 +11,8 @@
 //   3. fill the cache with the build's prerendered pages;
 //   4. add the new server version to the server's deployment at 0%, so that the front may name it;
 //   5. move the front to its new version, which calls its own server version by name;
-//   6. move the server to its new version.
+//   6. move the server to its new version;
+//   7. apply the front's triggers (its hostname and its schedule), which a version deploy does not carry.
 // A Worker that does not exist yet is created by a plain deploy, which is also what applies the front's Durable
 // Object migration; such a first deploy has no earlier version to protect.
 import { execFileSync } from 'node:child_process'
@@ -91,6 +92,9 @@ if (newFront) {
 }
 if (servingServer) {
   run(['wrangler', 'versions', 'deploy', `${newServer}@100%`, '-y', '-c', serverConfig])
+}
+if (newFront) {
+  run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])
 }
 
 console.log(`\nDeployed ${readConfig(frontConfig).name} with ${serverName} version ${newServer}.`)

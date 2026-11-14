@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -26,6 +26,7 @@ interface WranglerConfig {
   route?: Route
   routes?: Route[]
   placement?: { region?: string; mode?: string }
+  triggers?: { crons?: string[] }
   assets?: { directory?: string }
   services?: { binding: string; service: string }[]
   r2_buckets?: { binding: string; bucket_name: string }[]
@@ -110,6 +111,46 @@ describe('the Cloudflare Workers build', () => {
     expect([server.workers_dev, server.preview_urls]).toEqual([false, false])
     expect(server.placement).toEqual({ region: 'gcp:us-west1' })
     expect(front.placement, 'the front Worker answers cached pages where the reader is').toBeUndefined()
+  })
+
+  it('keeps each on-demand page route loaded in the server Worker: every minute the front Worker asks it for one page of each', () => {
+    // An instance of the server Worker that has not yet served a company page loads that route's code on a reader's
+    // first one, which was most of the wait (docs/DEPLOYMENT.md). The schedule is the front Worker's; the server
+    // Worker has no trigger of its own and is reached over SERVER.
+    expect(front.triggers?.crons).toEqual(['* * * * *'])
+    expect(server.triggers, 'the server Worker is called by the front Worker only').toBeUndefined()
+    // A version deploy does not carry a Worker's triggers, so the deploy applies them.
+    expect(read('scripts/cf-deploy.mjs')).toContain("run(['wrangler', 'triggers', 'deploy', '-c', frontConfig])")
+
+    const frontEntry = read(front.main)
+    expect(frontEntry).toMatch(/^ {2}async scheduled\(\) \{$/m)
+    const listed = frontEntry.match(/^const KEEP_WARM_PATHS = \[([^\]]+)\]$/m)?.[1] ?? ''
+    const paths = [...listed.matchAll(/'([^']+)'/g)].map((match) => match[1])
+
+    // The on-demand pages are the routes with a parameter: the build prerenders none of their pages, so each is
+    // first rendered for a reader. Every such route has exactly one page in the list, and the list holds nothing
+    // else: a route added later is warmed from its first deploy, or this fails.
+    const onDemandRoutes = readdirSync(path.join(FRONTEND, 'app'), { recursive: true, encoding: 'utf8' })
+      .filter((file) => /\[[^/]+\][/\\]page\.tsx$/.test(file))
+      .map((file) => `/${path.dirname(file).split(path.sep).join('/')}`)
+    expect(onDemandRoutes.length).toBeGreaterThan(0)
+    const routeOf = (warmed: string) => onDemandRoutes.filter((route) => new RegExp(`^${route.replace(/\[[^/]+\]/g, '[^/]+')}$`).test(warmed))
+    expect(paths.map((warmed) => routeOf(warmed).join()).sort()).toEqual([...onDemandRoutes].sort())
+    // middleware.ts lets each through with the waitlist gate up or down, so the request is never redirected.
+    const allowedPrefixes = read('middleware.ts').match(/^const ALLOWED_PREFIXES = \[(.+)\]$/m)?.[1] ?? ''
+    for (const warmed of paths) expect(allowedPrefixes).toContain(`'/${warmed.split('/')[1]}'`)
+
+    // The request must pass the front Worker's cache, which would answer a cached page itself. OpenNext's cache
+    // layer passes on a request carrying Next's draft-mode cookie, by this test in the installed version; when an
+    // upgrade rewords it, check that the schedule still reaches the server Worker before changing this line.
+    expect(frontEntry).toContain("const KEEP_WARM_REQUEST = { headers: { cookie: '__prerender_bypass=keep-warm' } }")
+    expect(read('node_modules/@opennextjs/aws/dist/core/routing/cacheInterceptor.js')).toContain('cookies.includes("__prerender_bypass")')
+    // A run that stops in the front Worker, or that the server Worker fails, throws: Cloudflare records the run as
+    // failed. CI's worker-build job runs the schedule against a page the cache already holds, where a request
+    // that did not pass the cache fails the job.
+    expect(frontEntry).toContain('if (routed instanceof Response) {\n          throw new Error(`keep-warm ${path}: ')
+    expect(frontEntry).toContain('if (response.status >= 500) throw new Error(`keep-warm ${path}: ')
+    expect(read('../.github/workflows/ci.yml')).toContain(`-D cached.txt http://127.0.0.1:8788${paths[0]}\n`)
   })
 
   it('states the waitlist gate, and marks a copy of the site noindex and production never', () => {

@@ -568,6 +568,9 @@ jobs:
       - name: Build for Cloudflare Workers
         run: npm run cf:build
         working-directory: frontend
+        env:
+          # No backend, as in the other frontend builds here: the schedule's pages below must not call production.
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
       - name: Both Workers fit their size limits and answer in the Workers runtime
         timeout-minutes: 5
         run: |
@@ -587,7 +590,7 @@ jobs:
             echo "::error::The server Worker is '${server_kib}' KiB gzipped; the build must report one size, under 8192 KiB (Cloudflare refuses a Worker over 10 MiB)."
             exit 1
           fi
-          npx wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc --port 8788 > wrangler-dev.log 2>&1 &
+          npx wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc --test-scheduled --port 8788 > wrangler-dev.log 2>&1 &
           npx wait-on --timeout 90000 http-get://127.0.0.1:8788/robots.txt || { cat wrangler-dev.log; exit 1; }
           # The local cache starts empty, so this page is routed by the front Worker and rendered by the server Worker.
           curl -fsS -o /dev/null -D headers.txt http://127.0.0.1:8788/pricing || { cat wrangler-dev.log; exit 1; }
@@ -597,6 +600,21 @@ jobs:
           # wrangler.jsonc sets ROBOTS_NOINDEX for staging, and next.config.js sets the frame header on every page.
           grep -qi '^x-robots-tag: noindex, nofollow' headers.txt
           grep -qi '^x-frame-options: DENY' headers.txt
+          # The front Worker's schedule (cloudflare-front.mjs `scheduled`), run as Cloudflare runs it each minute. The
+          # first run renders its pages, which the server Worker caches; with no backend here they are the pages'
+          # client-fetching shells.
+          run_schedule() {
+            curl -fsS -o /dev/null 'http://127.0.0.1:8788/__scheduled?cron=*+*+*+*+*' || { cat wrangler-dev.log; exit 1; }
+          }
+          run_schedule
+          sleep 2
+          # A reader now gets one of those pages from the front Worker's cache.
+          curl -fsS -o /dev/null -D cached.txt http://127.0.0.1:8788/company/AAPL
+          cat cached.txt
+          grep -qi '^x-opennext-cache: HIT' cached.txt
+          # The schedule's request must pass that cache to reach the server Worker: a run the front Worker answers
+          # itself throws, and this answers 500.
+          run_schedule
           # The Next server logs one of two lines when instrumentation.ts cannot load or its register() throws, and
           # then runs without Sentry.
           if grep -qE 'An error occurred while loading (the )?instrumentation hook' wrangler-dev.log; then
