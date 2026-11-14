@@ -244,6 +244,10 @@ describe('the two pairs of Workers', () => {
       waitlist: front.vars?.WAITLIST_MODE,
     })
     expect(shape(production)).toEqual(shape(staging))
+    // Each hostname belongs to one pair: staging's serves copies only, so no edit to its files, which the bare
+    // `npm run cf:deploy` deploys, can take a production hostname.
+    for (const host of hostsOf(staging.front)) expect(COPY_HOSTS, 'staging serves a copy, never production').toContain(host)
+    for (const host of hostsOf(production.front)) expect(PRODUCTION_HOSTS, 'production serves production, never a copy').toContain(host)
     // And nothing one pair writes is read by the other: its Workers, and so its Durable Object, and its page cache.
     const owned = ({ front, server }: (typeof PAIRS)[number]) => [front.name, server.name, front.r2_buckets?.[0].bucket_name]
     for (const name of owned(production)) expect(owned(staging)).not.toContain(name)
@@ -255,6 +259,24 @@ describe('the two pairs of Workers', () => {
     expect(scripts['cf:deploy']).toBe('node scripts/cf-deploy.mjs')
     expect(read('scripts/cf-deploy.mjs')).toContain("const [frontConfig = 'wrangler.jsonc', serverConfig = 'wrangler.server.jsonc'] = process.argv.slice(2)")
     expect(scripts['cf:deploy:production']).toBe('node scripts/cf-deploy.mjs wrangler.production.jsonc wrangler.production.server.jsonc')
+  })
+
+  it('are deployed from main only: the script refuses a changed or unmerged checkout before it builds', () => {
+    // The deploy's last step attaches the front Worker's hostnames, and wrangler replaces a hostname's existing DNS
+    // records without asking when it is not run at a terminal. A deploy from the branch that holds the cutover
+    // change would move production before the change was merged. Only a pair of files git does not track, with no
+    // hostname, passes: an experiment's.
+    const deploy = read('scripts/cf-deploy.mjs')
+    expect(deploy).toContain("if (git('status', '--porcelain') !== '') {\n    throw new Error(")
+    expect(deploy).toContain("git('fetch', '--quiet', 'origin', 'main')\n  const [head, main] = [git('rev-parse', 'HEAD'), git('rev-parse', 'FETCH_HEAD')]\n  if (head !== main) {\n    throw new Error(")
+    expect(deploy).toContain('if (!tracked(frontConfig) && !tracked(serverConfig)) {\n    if (!namesAHostname) return\n    throw new Error(')
+    expect(deploy).toContain('const namesAHostname = front.route !== undefined || (front.routes ?? []).length > 0')
+    const refused = deploy.indexOf('\nrequireMain()\n')
+    expect(refused).toBeGreaterThan(-1)
+    for (const later of ['currentVersion(serverConfig)\n', "run(['opennextjs-cloudflare', 'build'])"]) {
+      expect(deploy.indexOf(later, refused), later).toBeGreaterThan(refused)
+      expect(deploy.slice(0, refused)).not.toContain(`= ${later}`)
+    }
   })
 
   it('can each be created from nothing: the front Worker first, without the binding Cloudflare would refuse', () => {

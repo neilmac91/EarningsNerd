@@ -629,7 +629,8 @@ and `deploy-backend` does not wait for it.
 
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
-must not be served on any `earningsnerd.io` hostname. Review-checked: nothing enforces it while deploys are by hand.
+must not be served on any `earningsnerd.io` hostname. `scripts/cf-deploy.mjs` refuses to deploy either pair from
+a checkout that has changes or is not at `main` as fetched at that moment.
 
 **Deploying it.** From `frontend/` on a clean checkout of `main`, with `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` in the environment and the build-time variables below exported: `npm run cf:deploy`. It
@@ -701,6 +702,13 @@ the evidence). Every time is from one cloud vantage point, which is not a reader
   second instance starting. The server Worker's own time was 0.29 to 0.50 s on all sixteen first renders timed that
   way, on instances up to 19 minutes old. Asking only for a small route (`/.well-known/security.txt`) did not help:
   the instance was running, and the first company page on it still took 1.8 s.
+- Staging itself with the schedule, two rounds of four first renders after 15 and 30 idle minutes: 0.54 to 0.80 s
+  after the connection for six, and 1.65 and 1.93 s for two, against 0.39 to 0.47 s on Vercel for the same eight
+  pages. In the minute of the 1.93 s render the server Worker's slowest request used 494 ms of CPU where its others
+  used about 50, which is what an instance that has not loaded the route costs: the schedule's one run a minute
+  does not reach every instance. Timed inside both Workers on a pair made for the purpose, a first render after
+  30 idle minutes spent 0.07 to 0.08 s in the front Worker, 0.34 to 0.48 s rendering in the server Worker, and 0.2
+  to 0.4 s between the two; each of the four requests met a front Worker instance that had served nothing before.
 - Sentry received a thrown server error from the single Worker (issue `JAVASCRIPT-NEXTJS-2S`), sent by the
   middleware's copy of the SDK; from the server Worker, three of three reached a test receiver once
   `lib/sentryOnWorkers.ts` was in place.
@@ -717,8 +725,8 @@ the evidence). Every time is from one cloud vantage point, which is not a reader
 
 **Known limits.** The first request after idle is slower than Vercel's: for a cached page by about a quarter of a
 second, and for a first render by 0.3, 0.7 and 1.9 s in the three trials in the table, taken before the schedule
-existed, and by about half a second with it on the experiment copy. At today's traffic the front Worker is idle
-often, and the schedule does not reach it: it runs where each reader is. A first render also reads R2 three times
+existed, and with it by 0.1 to 0.3 s in six of eight trials on staging and by 1.2 and 1.5 s in the other two. At
+today's traffic the front Worker is idle often, and the schedule does not reach it: it runs where each reader is. A first render also reads R2 three times
 before it has anything to show, once in the front Worker and twice in the server Worker, about 0.1 s each. A warming
 request started by a reader's own request was tried earlier, on the single Worker, and did not help reliably. A
 bucket in
@@ -743,7 +751,7 @@ noindex: it can be deployed and checked without a reader reaching it.
 
 | On Vercel | On Workers |
 |---|---|
-| `earningsnerd.io` answers 308 to `www.earningsnerd.io`, and HTTP answers 308 to HTTPS | `cloudflare-browser.mjs`, from `CANONICAL_HOST`; one redirect where Vercel makes two |
+| `earningsnerd.io` answers 308 to `www.earningsnerd.io`, and HTTP answers 308 to HTTPS | `cloudflare-browser.mjs`, from `CANONICAL_HOST`, for everything the Worker answers; one redirect where Vercel makes two. A static file (`public/`, `/_next/static/`) is served without the Worker and answers 200 at the bare domain and over HTTP |
 | `Strict-Transport-Security: max-age=63072000` on every response | `cloudflare-browser.mjs`, and `public/_headers` for the static files, which do not pass through the Worker |
 | A cached page reaches the browser as `Cache-Control: public, max-age=0, must-revalidate` | `cloudflare-browser.mjs`. OpenNext's own header is `s-maxage=<seconds>, stale-while-revalidate=2592000`, and staging sent it to browsers until this was added |
 | A year of immutable caching for `/_next/static/*` | `public/_headers` |
@@ -757,20 +765,26 @@ noindex: it can be deployed and checked without a reader reaching it.
 **Open before a cutover.**
 
 1. Web Analytics. On Workers the Vercel script does not load, and each request for it renders the not-found page.
-   Either the component is left out of the Workers build, with PostHog as the only analytics, or another product
-   replaces it. A founder decision, then a code change.
-2. Deploys. Production on Workers needs what Vercel gives today: a deploy on each push to `main`. That is a
-   workflow holding a Cloudflare token and the build's values, which does not exist. Without it production would
-   trail `main` until someone deploys by hand.
+   Decided 2026-11-14 (founder): the component is left out of the Workers build, and PostHog is the analytics
+   there. The code change is not made yet.
+2. Deploys. Production on Workers needs what Vercel gives today: a deploy on each push to `main`. Decided
+   2026-11-14 (founder): a workflow that holds a Cloudflare token and the build's values. It does not exist yet,
+   and its secrets are the founder's to add. Without it production would trail `main` until someone deploys by
+   hand.
 3. The build's values. Production's `NEXT_PUBLIC_*` values live in the Vercel project. They need one place a
    Workers build reads them from, with the PostHog key that staging's build leaves out.
-4. Speed. From one cloud location a cached page is level with Vercel when the Workers are in use, and the first
-   request after idle is slower ("What was measured" above). Not measured from a reader's location.
+4. Speed, and the founder's decision on it. From one cloud location a cached page is level with Vercel when the
+   Workers are in use, and the first request after idle is slower: for a cached page by about a quarter of a
+   second, and for a first render by 0.1 to 0.3 s in six of eight trials with the schedule and by 1.2 and 1.5 s in
+   the other two ("What was measured" above). Whether that is acceptable for production is the founder's call,
+   and it has not been measured from a reader's location.
 5. Sentry. A thrown server error from a Workers build has reached a test receiver, not yet the Sentry project.
-6. The rollback below has not been run. Rehearse it on a hostname nobody uses before the day.
-7. What is bound to a hostname and does not change, to confirm on the day: the Turnstile widget lists
-   `www.earningsnerd.io`; the API's CORS list holds the production origin; the session cookies are set for
-   `.earningsnerd.io`; Google and Apple sign-in return to `FRONTEND_URL`.
+6. The rollback below has not been run. Rehearse it on a hostname nobody uses before the day; that creates and
+   removes DNS records in the zone.
+7. What is bound to a hostname, to confirm on the day: the Turnstile widget lists `www.earningsnerd.io`; the
+   API's CORS list holds the production origin; the session cookies are set for `.earningsnerd.io`; Google and
+   Apple sign-in return to `FRONTEND_URL`; the Logo.dev token and the PostHog project accept the production
+   hostname, which does not change.
 
 **The steps.**
 
@@ -787,29 +801,35 @@ noindex: it can be deployed and checked without a reader reaching it.
 3. The cutover change, one pull request to `wrangler.production.jsonc`:
    `"workers_dev": false`; `"routes": [{ "pattern": "www.earningsnerd.io", "custom_domain": true }, { "pattern":
    "earningsnerd.io", "custom_domain": true }]`; `"CANONICAL_HOST": "www.earningsnerd.io"` in `vars`; and
-   `ROBOTS_NOINDEX` removed. `cloudflareWorkerConfig.spec.ts` refuses every state between the two: a production
-   hostname with noindex, one hostname without the other, a canonical host the Worker does not serve.
+   `ROBOTS_NOINDEX` removed. `cloudflareWorkerConfig.spec.ts` refuses a production hostname with noindex, one
+   hostname without the other, a canonical host the Worker does not serve, and a production hostname in staging's
+   files. The one partial edit it passes is `"workers_dev": false` alone, which leaves a Worker with no address.
 4. The cutover is the deploy of that change, `npm run cf:deploy:production` from `main`. Its last step attaches
    the two hostnames, and **wrangler replaces a hostname's existing DNS records without asking when it is not run
    at a terminal**, which is how the script runs it. So that step is the DNS change: `A earningsnerd.io
    216.198.79.1` and `CNAME www.earningsnerd.io 242405dc984b9982.vercel-dns-017.com` (both DNS-only, TTL 600, as
    read on 2026-11-14) become proxied records Cloudflare manages for the Worker. A resolver may keep the old
    answer for ten minutes, and Vercel still serves it. The zone's other records, mail among them, are not touched.
-   Until the cutover pull request is merged, no deploy of this pair can reach a production hostname.
+   The script refuses to deploy a pair the repository holds from anything but a clean checkout of `main` as it is
+   now, so the pair cannot reach a production hostname before the cutover pull request is merged.
 5. Check at once, on `https://www.earningsnerd.io`: `http://` and the bare domain answer 308 to it; a page carries
    no `X-Robots-Tag`; `/`, `/pricing`, a company page and a filing page answer 200; password sign-in with
    Turnstile; a Google sign-in round trip; a summary streams; the pricing page reaches Stripe checkout; a thrown
    error reaches Sentry under the production environment; the schedule's runs succeed.
-6. Rollback, in minutes and not yet rehearsed: detach both hostnames from `earningsnerd-frontend` (dashboard:
-   the Worker's Settings, Domains & Routes; or `DELETE /accounts/<account>/workers/domains/<domain id>` for each,
-   ids from `GET /accounts/<account>/workers/domains`), which removes the records Cloudflare made, then create the
-   two records above again, DNS-only. Vercel must still be deployed and still building `main` for this to be a
+6. Rollback, in minutes and not yet rehearsed. First stop the next deploy from undoing it: revert the cutover
+   pull request on `main`, or deploy nothing from this pair until it is reverted, because every deploy of the
+   cutover file attaches the hostnames again and replaces the restored records. Then detach both hostnames from
+   `earningsnerd-frontend` (dashboard: the Worker's Settings, Domains & Routes; or `DELETE
+   /accounts/<account>/workers/domains/<domain id>` for each, ids from `GET /accounts/<account>/workers/domains`),
+   which removes the records Cloudflare made, and create the two records above again, DNS-only. Vercel must still
+   be deployed and still building `main` for this to be a
    rollback, so the Vercel project and `vercel.json` stay as they are until the Workers have served production for
    a period the founder sets. Its certificate for the two hostnames stops renewing while DNS points away.
 7. After that period: remove the Vercel project, `vercel.json`, `scripts/vercel-ignore-build.sh` and
    `@vercel/analytics`, and move the "Frontend — continuous deployment" section above to Workers.
 
-**The rule staging has holds here too:** production's pair is deployed from `main` only.
+**The rule staging has holds here too:** production's pair is deployed from `main` only, and
+`scripts/cf-deploy.mjs` now enforces it for both pairs.
 
 ---
 

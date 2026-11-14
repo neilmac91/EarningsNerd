@@ -18,6 +18,10 @@
 // front Worker that does not exist is first created without its binding to the server, and with no hostname,
 // address or schedule, which is also what applies its Durable Object migration; then the server is created; then
 // the steps above run as for any deploy, and step 7 is what first makes the front reachable.
+//
+// Step 7 can move a hostname: wrangler replaces a hostname's existing DNS records without asking when it is not
+// run at a terminal, which is how this script runs it. So a pair the repository holds is deployed from `main`
+// only, as fetched now and with nothing changed, and the script refuses anything else before it builds.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -90,6 +94,31 @@ function createFront(config) {
   writeFileSync(file, JSON.stringify(unreachable, null, 2))
   return versionIn(run(['wrangler', 'deploy', '-c', file]), 'Current Version ID')
 }
+
+/**
+ * Refuses a deploy of unreviewed code or configuration to a pair the repository holds, or to any hostname. A pair
+ * of files git does not track and that names no hostname, an experiment's on a workers.dev address, is let through.
+ */
+function requireMain() {
+  const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const tracked = (file) => git('ls-files', '--', file) !== ''
+  const front = readConfig(frontConfig)
+  const namesAHostname = front.route !== undefined || (front.routes ?? []).length > 0
+  if (!tracked(frontConfig) && !tracked(serverConfig)) {
+    if (!namesAHostname) return
+    throw new Error(`${frontConfig} is not in the repository and names a hostname; only a reviewed file may take one.`)
+  }
+  if (git('status', '--porcelain') !== '') {
+    throw new Error('The checkout has changes. Deploy from a clean checkout of main: `git status` lists what differs.')
+  }
+  git('fetch', '--quiet', 'origin', 'main')
+  const [head, main] = [git('rev-parse', 'HEAD'), git('rev-parse', 'FETCH_HEAD')]
+  if (head !== main) {
+    throw new Error(`This checkout is at ${head.slice(0, 9)} and main is at ${main.slice(0, 9)}. Deploy from main as it is now.`)
+  }
+}
+
+requireMain()
 
 const serverName = readConfig(serverConfig).name
 const servedServer = currentVersion(serverConfig)
