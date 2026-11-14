@@ -238,8 +238,7 @@ def test_the_fallback_names_no_control_a_reader_cannot_press(metrics):
     fallback says what happened (the full analysis did not finish in time) and sends no reader to a control."""
     out = generate_xbrl_summary(metrics, "Example Ltd", "2025-06-01", filing_type="10-K")
     lowered = [text.lower() for text in _strings(out)]
-    offenders = [text for text in lowered
-                 if "click" in text or "regenerate analysis" in text or "retry full analysis" in text]
+    offenders = [text for text in lowered if "click" in text or "regenerate" in text or "retry" in text]
     assert not offenders
     if metrics is None:
         assert out["business_overview"] == (
@@ -254,9 +253,25 @@ def test_the_fallback_names_no_control_a_reader_cannot_press(metrics):
         "Complete AI-powered insights are not available because the full analysis did not finish in time")
     # The rendered sections drop it as filler, as they dropped the sentence it replaced.
     assert summary_sections.is_placeholder(takeaway)
-    if metrics is None:
-        assert out["financial_highlights"]["profitability"] == [
-            "Profitability metrics need the full analysis, which did not finish in time."]
+    assert out["financial_highlights"]["profitability"] == [
+        "Profitability metrics need the full analysis, which did not finish in time."]
+    # The stand-ins for what was not extracted stay filler to the renderer, so no section starts showing them.
+    assert out["raw_summary"]["sections"]["forward_signals"]["guidance"] == out["key_changes"]
+    assert summary_sections.is_placeholder(out["key_changes"])
+    assert summary_sections.is_placeholder(out["management_discussion"])
+    assert summary_sections.is_placeholder(out["risk_factors"][0]["summary"])
+    assert out["raw_summary"]["sections"]["earnings_quality"] == {}
+
+
+def test_a_filer_whose_only_figure_is_zero_is_not_told_that_none_was_extracted():
+    """A zero is a figure (``has_valid_xbrl_data``): the table shows it, so the body does not say none was extracted."""
+    metrics = {"revenue": {"current": {"value": 0.0, "period": "2025-03-31"}}}
+    out = generate_xbrl_summary(metrics, "Example Ltd", "2025-06-01", filing_type="10-K")
+
+    assert "no revenue, net income or EPS figure was extracted" not in out["business_overview"]
+    assert out["business_overview"].endswith("so this partial summary shows data extracted from the filing._")
+    assert out["raw_summary"]["sections"]["the_print"]["key_takeaways"][0] == "Financial metrics extracted from XBRL data"
+    assert out["financial_highlights"]["table"][0]["metric"] == "Revenue"
 
 
 RISK_TEXT = (

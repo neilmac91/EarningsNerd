@@ -210,6 +210,7 @@ def generate_xbrl_summary(
     # Build business overview text
     if metrics_summary:
         business_overview += "### Financial Snapshot (XBRL)\n" + "\n".join(metrics_summary) + "\n\n"
+    if has_xbrl_data:
         business_overview += "_The full AI-powered analysis did not finish in time, so this partial summary shows data extracted from the filing._"
     else:
         business_overview += "_The full AI-powered analysis did not finish in time, and no revenue, net income or EPS figure was extracted for this filing._"
@@ -262,9 +263,9 @@ def generate_xbrl_summary(
 
         financial_highlights = {
             "table": table_rows,
-            "profitability": ["Profitability metrics available in full analysis."],
-            "cash_flow": ["Cash flow analysis available in full analysis."],
-            "balance_sheet": ["Balance sheet metrics available in full analysis."]
+            "profitability": ["Profitability metrics need the full analysis, which did not finish in time."],
+            "cash_flow": ["Cash flow data needs the full analysis, which did not finish in time."],
+            "balance_sheet": ["Balance sheet metrics need the full analysis, which did not finish in time."]
         }
     else:
         # Show clear "Not available" messaging
@@ -309,7 +310,7 @@ def generate_xbrl_summary(
         risk_factors = [
             {
                 "summary": f"Risk factors for {company_name} are available in the full SEC filing.",
-                "supporting_evidence": "Retry generation for AI-powered risk analysis.",
+                "supporting_evidence": "The AI-powered risk analysis did not finish in time.",
                 "materiality": "pending"
             }
         ]
@@ -330,14 +331,13 @@ def generate_xbrl_summary(
     if not management_discussion:
         management_discussion = (
             f"**{company_name}** management discussion is available in the full SEC filing. "
-            "Retry generation for AI-powered MD&A analysis covering business operations, "
-            "financial condition, and management's perspective on future outlook."
+            "The AI-powered MD&A analysis did not finish in time."
         )
 
     # Key changes - always placeholder since this requires AI analysis
     key_changes = (
-        "Key changes and notable developments require AI analysis to identify. "
-        "Retry generation for detailed change analysis comparing to prior periods."
+        "Key changes and notable developments are not available: "
+        "the AI-powered analysis that identifies them did not finish in time."
     )
 
     # Build the raw_summary.sections structure that frontend expects
@@ -367,7 +367,7 @@ def generate_xbrl_summary(
         } if (management_discussion and "From the SEC Filing" in management_discussion) else {},
         # Guidance excerpt → forward_signals.
         "forward_signals": {
-            "guidance": key_changes or "Forward-looking analysis requires full AI processing. Please retry.",
+            "guidance": key_changes,
             "known_trends": [],
             "subsequent_events": [],
             "quotes": [],
