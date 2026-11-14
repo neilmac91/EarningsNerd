@@ -79,7 +79,7 @@ def _duration_penalty(item: Dict) -> int:
     Companyfacts reports several durations sharing one period end
     (Q4 + FY both end on the fiscal year end; Q3 + 9-month YTD both
     end on the quarter end). The standard statement value is the
-    12-month figure for a 10-K and the 3-month figure for a 10-Q.
+    12-month figure for an annual report (10-K, 20-F, 40-F) and the 3-month figure for a 10-Q.
     Instant facts (no start) have a single duration; penalty 0.
     """
     start, end = item.get("start"), item.get("end")
@@ -89,7 +89,7 @@ def _duration_penalty(item: Dict) -> int:
         days = (date.fromisoformat(end) - date.fromisoformat(start)).days
     except (ValueError, TypeError):
         return 0
-    target_days = 365 if (item.get("form") or "").startswith("10-K") else 91
+    target_days = 365 if (item.get("form") or "").startswith(("10-K", "20-F", "40-F")) else 91
     return abs(days - target_days)
 
 
