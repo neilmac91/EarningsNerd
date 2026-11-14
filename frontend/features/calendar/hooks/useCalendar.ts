@@ -28,6 +28,7 @@ import {
   EARNINGS_ALERT_LIMIT_CODE,
 } from '../api/calendar-api'
 import { todayEasternIso } from '../lib/dates'
+import { canonicalTicker } from '../lib/tickers'
 import { FREE_EARNINGS_ALERT_LIMIT } from '@/lib/planLimits'
 
 export const FREE_ALERT_LIMIT = FREE_EARNINGS_ALERT_LIMIT
@@ -52,6 +53,7 @@ export interface CalendarViewer {
   identityPending: boolean
   signedIn: boolean
   isPro: boolean
+  /** In `canonicalTicker` form: the API names the company's spelling (BRK-B), a bell the event's (BRK.B). */
   alertTickers: Set<string>
   alertCount: number
 }
@@ -70,7 +72,7 @@ export function useViewer(): CalendarViewer {
     enabled: signedIn,
     staleTime: 60_000,
   })
-  const alertTickers = useMemo(() => new Set(alerts.data ?? []), [alerts.data])
+  const alertTickers = useMemo(() => new Set((alerts.data ?? []).map(canonicalTicker)), [alerts.data])
   return {
     identityPending,
     signedIn,
@@ -105,6 +107,7 @@ export interface EarningsAlertsApi {
 
 export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   const queryClient = useQueryClient()
+  // optimistic and pending are keyed by canonicalTicker, as viewer.alertTickers is.
   const [optimistic, setOptimistic] = useState<Record<string, boolean>>({})
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const [blocked, setBlocked] = useState<BlockedState | null>(null)
@@ -117,7 +120,10 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   })
 
   const isOn = useCallback(
-    (ticker: string) => optimistic[ticker] ?? viewer.alertTickers.has(ticker),
+    (ticker: string) => {
+      const key = canonicalTicker(ticker)
+      return optimistic[key] ?? viewer.alertTickers.has(key)
+    },
     [optimistic, viewer.alertTickers],
   )
 
@@ -139,14 +145,14 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
     onSettled: (_data, _err, vars) => {
       setPending((p) => {
         const next = { ...p }
-        delete next[vars.ticker]
+        delete next[canonicalTicker(vars.ticker)]
         return next
       })
       queryClient.invalidateQueries({ queryKey: queryKeys.earningsAlertTickers() })
     },
     onError: (err, vars, _ctx) => {
       // Roll the optimistic flip back before surfacing anything.
-      setOptimistic((o) => ({ ...o, [vars.ticker]: !vars.enabling }))
+      setOptimistic((o) => ({ ...o, [canonicalTicker(vars.ticker)]: !vars.enabling }))
       // Read at failure: scrolling can move or hide the bell while the request runs. A removed,
       // hidden or fully offscreen bell has no useful placement; keep its feedback in the viewport.
       const trigger = vars.trigger.isConnected ? vars.trigger : null
@@ -174,7 +180,8 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
         setBlocked({ kind: 'signin', ticker, message: '', anchor: rect, trigger: el })
         return
       }
-      if (pending[ticker]) return
+      const key = canonicalTicker(ticker)
+      if (pending[key]) return
       const enabling = !isOn(ticker)
       // FREE cap: a deliberate, visible conversion surface — surface the upsell
       // instead of sending a doomed request. (PRO deliberately has no such check.)
@@ -188,8 +195,8 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
         })
         return
       }
-      setPending((p) => ({ ...p, [ticker]: true }))
-      setOptimistic((o) => ({ ...o, [ticker]: enabling }))
+      setPending((p) => ({ ...p, [key]: true }))
+      setOptimistic((o) => ({ ...o, [key]: enabling }))
       mutation.mutate({ ticker, enabling, trigger: el })
     },
     [currentCount, isOn, mutation, pending],
@@ -198,7 +205,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
   return {
     identityPending: viewer.identityPending,
     isOn,
-    isPending: (t) => !!pending[t],
+    isPending: (t) => !!pending[canonicalTicker(t)],
     toggle,
     blocked,
     clearBlocked: () => setBlocked(null),

@@ -112,6 +112,29 @@ def test_only_watched_tickers_returned_sorted():
 
 
 @pytest.mark.requires_db
+def test_dual_class_companies_are_listed_with_their_names():
+    """A watched company stored under SEC's ticker (BRK-B) is listed for its event stored under Alpha
+    Vantage's (BRK.B), named as the company is; the reverse spelling pair (BF.B against BF-B) too."""
+    from app.database import SessionLocal
+
+    today = date.today()
+    _clear_events("BRK.B", "BF-B", "AAPL")
+    _seed_event("BRK.B", today + timedelta(days=1))
+    _seed_event("BF-B", today + timedelta(days=2))
+    _seed_event("AAPL", today + timedelta(days=3))
+    try:
+        with _user_watching(["BRK-B", "BF.B", "AAPL"]) as uid:
+            db = SessionLocal()
+            events = upcoming_for_user(db, uid, days_ahead=30)
+            db.close()
+        assert [(e["ticker"], e["company_name"]) for e in events] == [
+            ("BRK.B", "BRK-B Inc"), ("BF-B", "BF.B Inc"), ("AAPL", "AAPL Inc"),
+        ]
+    finally:
+        _clear_events("BRK.B", "BF-B", "AAPL")
+
+
+@pytest.mark.requires_db
 def test_out_of_window_excluded():
     from app.database import SessionLocal
 

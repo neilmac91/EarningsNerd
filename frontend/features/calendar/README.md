@@ -12,6 +12,7 @@ per-company earnings-day alerts.
 | `api/calendar-fixtures.ts` | ⚠ Isolated mock (dynamic-import only, `NEXT_PUBLIC_CALENDAR_FIXTURES='true'`); exercises both cap 403s |
 | `lib/dates.ts` | ET-honest calendar-day math + computed NYSE holidays (no `new Date(iso)` shift bug) |
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
+| `lib/tickers.ts` | `canonicalTicker`: the one form a bell compares tickers in (an event says BRK.B, the alert list BRK-B) |
 | `hooks/useCalendar.ts` | Viewer (session/plan/alert count), optimistic alert toggle with rollback, and today from the reader's browser (`useTodayEasternIso`; the range query and its retained failure live in the page, beside its `RetryButton`) |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
 | `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
@@ -121,7 +122,10 @@ Weighed three layouts:
 
 1. `GET /api/calendar` responds `{ events: CalendarEvent[], universe }`.
 2. Alert subscriptions are read via `GET /api/watchlist/earnings-alerts` →
-   `{ tickers: string[] }` (`getEarningsAlertTickers`).
+   `{ tickers: string[] }` (`getEarningsAlertTickers`). Those are the companies'
+   tickers (SEC's BRK-B) while an event carries Alpha Vantage's (BRK.B), so the
+   bell compares both through `lib/tickers.canonicalTicker`; the toggle sends the
+   event's ticker and the backend matches it in the same form.
 3. Cap 403 body: `{ detail: string, code?: 'earnings_alert_limit' }`. The
    shared axios interceptor collapses errors to `ApiError(status, detail)`,
    so the toggle uses per-request `validateStatus` to read the body itself —

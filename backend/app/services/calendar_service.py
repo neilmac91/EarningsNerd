@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Company, EarningsEvent, Watchlist
 from app.services.earnings_calendar_service import today_eastern
+from app.services.index_membership_service import canonical_ticker_sql, normalize_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,9 @@ def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> lis
     )
     if not rows:
         return []
-    name_by_ticker = {t.upper(): n for t, n in rows if t}
+    # Keyed by the canonical form: a company's ticker is SEC's (BRK-B), an event's Alpha Vantage's
+    # (BRK.B).
+    name_by_ticker = {normalize_ticker(t): n for t, n in rows if t}
     tickers = list(name_by_ticker.keys())
 
     # ET calendar day, matching event_date semantics — UTC date.today() is a day ahead of the US
@@ -45,7 +48,7 @@ def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> lis
         events = (
             db.query(EarningsEvent)
             .filter(
-                EarningsEvent.ticker.in_(tickers),
+                canonical_ticker_sql(EarningsEvent.ticker).in_(tickers),
                 EarningsEvent.event_date >= today,
                 EarningsEvent.event_date <= horizon,
             )
@@ -61,7 +64,7 @@ def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14) -> lis
         eps = ev.eps_estimate
         out.append({
             "ticker": ev.ticker,
-            "company_name": name_by_ticker.get(ev.ticker, ev.company_name or ev.ticker),
+            "company_name": name_by_ticker.get(normalize_ticker(ev.ticker), ev.company_name or ev.ticker),
             "earnings_date": ev.event_date.isoformat() if ev.event_date else None,
             "time": ev.event_time,
             "eps_estimated": float(eps) if eps is not None else None,
