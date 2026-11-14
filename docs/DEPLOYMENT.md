@@ -591,10 +591,21 @@ little traffic meets fresh instances on most visits. So the app is split as Open
   Worker calls it for a request the cache cannot answer. It has no hostname, and runs beside the API
   (`placement.region` `gcp:us-west1`), as Vercel's functions do.
 
+**Kept loaded.** The Next server loads a route's code the first time an instance serves that route, and a server
+Worker instance that had served no company page took about 1.8 s over a reader's first one, against 0.3 to 0.5 s
+afterwards. So once a minute the front Worker's schedule asks the server Worker for one page of each route that is
+rendered on demand, `/company/AAPL` and `/filing/3`. The request carries Next's draft-mode cookie with a value that
+is not the build's: OpenNext's cache layer in the front Worker passes such a request on instead of answering it,
+and the Next server, finding the value is not its own, answers the cached page as it would for any reader and
+re-renders it in the background once it is stale. That is about 130,000 requests a month, where the Workers plan
+includes 10 million, and a handful of API calls an hour for the two pages' re-renders. A run that does not reach
+the server Worker throws once it has asked for every page, and Cloudflare records it as a failed run of the
+schedule (read on the experiment copy with the cookie broken: each run counted as `scriptThrewException`).
+
 | File (under `frontend/`) | What it sets |
 |---|---|
 | `open-next.config.ts` | Rendered pages are cached in R2 with a copy in each Cloudflare location's edge cache, a stale page is re-rendered through a Durable Object, and a cached page is answered before the Next server is reached |
-| `wrangler.jsonc`, `cloudflare-front.mjs` | The front Worker: its custom domain, the static files, the R2 bucket, the Durable Object, the binding to the server Worker, and `X-Robots-Tag: noindex, nofollow` on every response while `ROBOTS_NOINDEX` is `true` (`cloudflare-robots.mjs`) |
+| `wrangler.jsonc`, `cloudflare-front.mjs` | The front Worker: its custom domain, the static files, the R2 bucket, the Durable Object, the binding to the server Worker, the once-a-minute schedule and what it requests, and `X-Robots-Tag: noindex, nofollow` on every response while `ROBOTS_NOINDEX` is `true` (`cloudflare-robots.mjs`) |
 | `wrangler.server.jsonc`, `cloudflare-server.mjs` | The server Worker: its placement, the same R2 bucket, and the front Worker's Durable Object by name |
 | `cloudflare-cache-writes.mjs` | A cache write is answered at once and finishes after the response. Next waits for each write, and a write to R2 took about 350 ms, twice on a page rendered for the first time |
 | `lib/sentryOnWorkers.ts` | What `instrumentation.ts` adds to Sentry for the Next server on Workers: a `fetch` transport, and the defaults without `ContextLines`. With the SDK's defaults the server Worker delivered none of three errors, and with these all three; on one Worker the fault was hidden, because the middleware's copy of the SDK reported for both |
@@ -603,11 +614,16 @@ little traffic meets fresh instances on most visits. So the app is split as Open
 
 `frontend/tests/unit/cloudflareWorkerConfig.spec.ts` holds these to each other, keeps the Next server out of the
 front Worker, runs the noindex marking, requires `WAITLIST_MODE` to be stated (a Worker without it redirects every
-page to `/waitlist`), and requires a Worker to be either a noindex copy or the production site.
+page to `/waitlist`), requires a Worker to be either a noindex copy or the production site, and holds the
+schedule's list to the app's on-demand routes: a route with a parameter anywhere in its path that the list leaves
+out fails it.
 `cloudflareCacheWrites.spec.ts` and `sentryOnWorkers.spec.ts` run the two modules. CI's `worker-build` job builds
 the app for Workers, refuses a front Worker of 512 KiB or more gzipped and a server Worker of 8 MiB or more
-(Cloudflare's limit is 10 MiB), requests a page through both in the local Workers runtime, and fails if the Next
-server's instrumentation did not load; it uses no Cloudflare credential, and `deploy-backend` does not wait for it.
+(Cloudflare's limit is 10 MiB), requests a page through both in the local Workers runtime, fails if the Next
+server's instrumentation did not load, and runs the schedule before and after a reader's request has found one of
+its pages in the front Worker's cache, where a run that did not pass that cache fails, and then requires the Next
+server to answer the schedule's request from its own cache; it uses no Cloudflare credential and names no backend,
+and `deploy-backend` does not wait for it.
 
 **Deploy staging from `main` only.** The session cookies are set for `.earningsnerd.io`, so a signed-in reader's
 browser sends them to the API from staging as it does from production. Code that has not been reviewed and merged
@@ -618,7 +634,11 @@ must not be served on any `earningsnerd.io` hostname. Review-checked: nothing en
 builds, uploads a new version of each Worker, fills the cache with the build's prerendered pages, and then moves
 traffic in three steps (the new server version at 0%, the front Worker to its new version, the server Worker to
 its own), so that no front version ever calls another build's server: a page rendered by one build names scripts
-only that build's front Worker holds. A failure before the three steps changes nothing that serves. A failure
+only that build's front Worker holds. Last, it applies the front Worker's triggers, the hostname and the schedule,
+which a version deploy does not carry; if that step fails, both Workers already serve the new build with the
+triggers they had, and `npx wrangler triggers deploy -c wrangler.jsonc` applies them. The schedule belongs to the
+Worker, not to a version: after a rollback to a front version from before the schedule existed, each run fails
+until the trigger is removed. A failure before the three steps changes nothing that serves. A failure
 between them leaves the old front Worker on the old server version, or the new on the new; `wrangler deployments
 status -c <file>` shows each Worker's versions, and the script refuses to start while one is split.
 `npm run cf:preview` serves the same build locally in the Workers runtime.
@@ -672,6 +692,13 @@ the evidence). Every time is from one cloud vantage point, which is not a reader
   cost that remains. Once it runs, the server answers in about 450 ms (two rounds of R2 reads at about 105 ms each, the
   API at 60 to 195 ms), against about 705 ms while the response waited for its cache writes. For about a third of
   a second after a first render, until its write lands, a request to the same page may be rendered again.
+- With the schedule above, on the experiment copy (`earningsnerd-frontend-poc`, the same two Workers on a
+  workers.dev address), a company page rendered for the first time after 30 idle minutes took 0.94 s after the
+  connection, against 2.36 s on staging without it in the same minute and 0.49 s for the one page Vercel had not
+  cached. The next three took 1.22, 0.73 and 0.70 s against staging's 0.52, 1.44 and 0.55 s, where 1.44 s was a
+  second instance starting. The server Worker's own time was 0.29 to 0.50 s on all sixteen first renders timed that
+  way, on instances up to 19 minutes old. Asking only for a small route (`/.well-known/security.txt`) did not help:
+  the instance was running, and the first company page on it still took 1.8 s.
 - Sentry received a thrown server error from the single Worker (issue `JAVASCRIPT-NEXTJS-2S`), sent by the
   middleware's copy of the SDK; from the server Worker, three of three reached a test receiver once
   `lib/sentryOnWorkers.ts` was in place.
@@ -686,9 +713,13 @@ the evidence). Every time is from one cloud vantage point, which is not a reader
   before the Next server `x-opennext-cache: HIT`, where the test reads Next's `x-nextjs-cache`. CI runs the suite
   against `next start`, not against a Worker.
 
-**Known limits.** The first request after idle is slower than Vercel's, for a cached page by about a quarter of a
-second and for a first render by 0.3, 0.7 and 1.9 s in the three trials above, and at today's traffic the Workers
-are idle often; a warming request from the front Worker was tried and did not help reliably. A bucket in
+**Known limits.** The first request after idle is slower than Vercel's: for a cached page by about a quarter of a
+second, and for a first render by 0.3, 0.7 and 1.9 s in the three trials in the table, taken before the schedule
+existed, and by about half a second with it on the experiment copy. At today's traffic the front Worker is idle
+often, and the schedule does not reach it: it runs where each reader is. A first render also reads R2 three times
+before it has anything to show, once in the front Worker and twice in the server Worker, about 0.1 s each. A warming
+request started by a reader's own request was tried earlier, on the single Worker, and did not help reliably. A
+bucket in
 western North America, beside the server Worker, was tried once and read and wrote more slowly than the eastern
 one, which was not explained. The Sentry SDK logs that its diagnostics-channel hooks cannot register in the Workers
 runtime, so some performance spans are missing. Google and Apple sign-in return to `FRONTEND_URL`, which is
