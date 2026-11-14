@@ -687,8 +687,8 @@ the evidence). Every time is from one cloud vantage point, which is not a reader
   against `next start`, not against a Worker.
 
 **Known limits.** The first request after idle is slower than Vercel's, for a cached page by about a quarter of a
-second and for a first render by one to two seconds (above), and at today's traffic the Workers are idle often; a
-warming request from the front Worker was tried and did not help reliably. A bucket in
+second and for a first render by 0.3, 0.7 and 1.9 s in the three trials above, and at today's traffic the Workers
+are idle often; a warming request from the front Worker was tried and did not help reliably. A bucket in
 western North America, beside the server Worker, was tried once and read and wrote more slowly than the eastern
 one, which was not explained. The Sentry SDK logs that its diagnostics-channel hooks cannot register in the Workers
 runtime, so some performance spans are missing. Google and Apple sign-in return to `FRONTEND_URL`, which is

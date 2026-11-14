@@ -13,8 +13,8 @@ delivered none. `Sentry.getClient()` returned a client with its DSN set througho
 `Sentry.flush` had returned true, on the layout where the other copy was doing the work.
 
 What found it was a receiver: a ten-line Worker that logged each request it got, with the build's DSN pointed at it.
-One Worker delivered three error events for three throws; two Workers delivered none; dropping `ContextLines` alone
-delivered two of two. Without the receiver each of those was a guess about what Sentry's dashboard would show hours
+One Worker delivered three error events for three throws; two Workers delivered none; the server Worker with a
+`fetch` transport and without `ContextLines` delivered every one. Without the receiver each of those was a guess about what Sentry's dashboard would show hours
 later.
 
 **Rule**:

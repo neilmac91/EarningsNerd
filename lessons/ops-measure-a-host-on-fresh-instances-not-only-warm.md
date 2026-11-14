@@ -5,11 +5,13 @@ Date: 2026-11-14   Area: ops, hosting, performance
 **Context**: Comparing Cloudflare Workers with Vercel for the frontend, the first three rounds of timing took a
 warm-up request and then the median of 10 to 30 samples per page. By that measure staging came within 10 to 30 ms of
 production, and the report said the move was close to neutral. The same pages requested once after forty idle
-minutes took 0.8 to 1.4 s on staging against 0.25 to 0.8 s on production. A Worker's script is loaded whole when an
+minutes, on the single Worker of #2052 and with the connection counted, took 0.8 to 1.4 s on staging against 0.25
+to 0.8 s on production. A Worker's script is loaded whole when an
 instance starts, the Next server was 15 MB of it, and the product has almost no traffic yet, so nearly every real
 visit would have met a fresh instance. The warm median described a state the site is rarely in. Splitting the
 Worker (#2053) was found only after the cold path was measured: the Worker's own report of its time (274 ms) beside
-the visitor's (0.85 s after the connection) showed where the rest went.
+the visitor's (0.85 s after the connection) showed where the rest went. The figures for the two Workers, after 45
+idle minutes, are in `docs/DEPLOYMENT.md`.
 
 Two measurements also went wrong in ways worth knowing. A trial that deployed and then timed the next request was
 measuring Cloudflare replacing instances, not a cold start. And two requests on separate connections reached
