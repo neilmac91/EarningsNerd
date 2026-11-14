@@ -18,6 +18,9 @@
   "routes": [{ "pattern": "staging.earningsnerd.io", "custom_domain": true }],
   "workers_dev": false,
   "preview_urls": false,
+  // `wrangler dev` hands the Worker each local request as if it had come to the hostname above, and over HTTP
+  // unless told otherwise; cloudflare-browser.mjs would redirect that to HTTPS, as it must a real one.
+  "dev": { "upstream_protocol": "https" },
   // No "placement": this Worker answers cached pages, so it runs where the reader is.
   // Each minute cloudflare-front.mjs `scheduled` asks the server Worker for one page of each route it renders on
   // demand, so a reader's first such page does not wait for the route's code to load. scripts/cf-deploy.mjs applies
@@ -35,6 +38,8 @@
     "WAITLIST_MODE": "false",
     // cloudflare-front.mjs marks every response noindex while this is "true": a copy of the site must not be indexed.
     "ROBOTS_NOINDEX": "true",
+    // The one hostname pages are served at: cloudflare-browser.mjs redirects a request at any other, or over HTTP.
+    "CANONICAL_HOST": "staging.earningsnerd.io",
     // scripts/cf-deploy.mjs sets this on each deploy to the server version built with this front version.
     "SERVER_VERSION_OVERRIDE": ""
   }

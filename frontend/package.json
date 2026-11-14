@@ -18,6 +18,7 @@
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare build && wrangler dev -c wrangler.jsonc -c wrangler.server.jsonc",
     "cf:deploy": "node scripts/cf-deploy.mjs",
+    "cf:deploy:production": "node scripts/cf-deploy.mjs wrangler.production.jsonc wrangler.production.server.jsonc",
     "clean": "rimraf .next",
     "clean:all": "rimraf .next node_modules/.cache",
     "dev:clean": "npm run clean && npm run dev",
