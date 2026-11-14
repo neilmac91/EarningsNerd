@@ -11,6 +11,7 @@ and deleting a granted account removes its ledger row through the foreign key.
 """
 import asyncio
 import json
+import logging
 import os
 import re
 import threading
@@ -548,6 +549,94 @@ async def test_invoice_shape_failure_is_retryable_and_preserves_evidence(sqlite_
     monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: _payment_invoice())
     assert await _deliver(_payment_event()) == {"status": "success"}
     assert _payments(sqlite_engine) == (1, 1, 3900)
+
+
+# An exception's text can carry a customer, an email or a SQL statement's parameters; no answer or log line repeats it.
+_ERROR_TEXT = "cus_sentinel owner@example.com"
+
+
+def _webhook_failures(caplog):
+    return [r for r in caplog.records if r.name == "app.routers.subscriptions" and r.levelno == logging.ERROR]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [KeyError, ValueError, TypeError, RuntimeError])
+@pytest.mark.parametrize("event_id,logged_id", [("evt_processing_bug", "evt_processing_bug"), ("evt bad\nid", "unknown")])
+async def test_a_processing_bug_answers_500_is_logged_and_echoes_nothing(
+        sqlite_engine, monkeypatch, caplog, error, event_id, logged_id):
+    """A bug inside processing of a well-shaped event is a retried 500 with a fixed detail, logged with its traceback,
+    its class and the event's id and type. A KeyError, ValueError or TypeError there once answered an unlogged 400
+    "Malformed webhook payload: <its text>", and any other exception a 500 that echoed its text."""
+    user_id = _seed(sqlite_engine)
+    _install_factory(monkeypatch, sqlite_engine)
+
+    def bug(db, obj, *, user=None):
+        raise error(_ERROR_TEXT)
+
+    monkeypatch.setattr(subscription_sync, "apply_checkout_completed", bug)
+    caplog.set_level(logging.ERROR, logger="app.routers.subscriptions")
+    with pytest.raises(HTTPException) as raised:
+        await _deliver(_event(user_id, event_id=event_id))
+    assert (raised.value.status_code, raised.value.detail) == (500, "Error processing webhook")
+    assert _billing(sqlite_engine, user_id) == (False, None, 0, 0)
+    [record] = _webhook_failures(caplog)
+    assert record.exc_info[0] is error
+    assert record.getMessage() == (
+        f"Stripe webhook processing failed ({error.__name__}, event {logged_id}, type checkout.session.completed)")
+    assert _ERROR_TEXT not in repr(record.args)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", [{"amount_paid": -1}, {"currency": "USD"}, {"status": "open"}, {"invoice": ""}])
+async def test_refused_payment_evidence_still_answers_400_and_is_logged(sqlite_engine, monkeypatch, caplog, change):
+    """payment_from_event's deliberate refusal stays a permanent 400, now with a fixed detail and a log line."""
+    _seed(sqlite_engine)
+    _install_factory(monkeypatch, sqlite_engine)
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: pytest.fail("refused evidence read Stripe"))
+    event = _payment_event("evt_refused_payment")
+    event["data"]["object"].update(change)
+    caplog.set_level(logging.ERROR, logger="app.routers.subscriptions")
+    with pytest.raises(HTTPException) as raised:
+        await _deliver(event)
+    assert (raised.value.status_code, raised.value.detail) == (400, "Malformed webhook payload")
+    assert _payments(sqlite_engine) == (0, 0, 0)
+    [record] = _webhook_failures(caplog)
+    assert record.exc_info[0].__name__ == "InvalidPaymentEvidence" and issubclass(record.exc_info[0], ValueError)
+    assert record.getMessage() == (
+        "Stripe webhook processing failed (InvalidPaymentEvidence, event evt_refused_payment, type invoice_payment.paid)")
+
+
+@pytest.mark.asyncio
+async def test_conflicting_payment_evidence_still_answers_400_and_keeps_the_first(sqlite_engine, monkeypatch, caplog):
+    """record_payment's refusal of a second event that rewrites a recorded payment's money stays a permanent 400."""
+    _seed(sqlite_engine)
+    _install_factory(monkeypatch, sqlite_engine)
+    monkeypatch.setattr(service, "retrieve_invoice_snapshot", lambda _: _payment_invoice())
+    assert await _deliver(_payment_event()) == {"status": "success"}
+    conflicting = _payment_event("evt_conflicting_payment")
+    conflicting["data"]["object"]["amount_paid"] = 7800
+    caplog.set_level(logging.ERROR, logger="app.routers.subscriptions")
+    with pytest.raises(HTTPException) as raised:
+        await _deliver(conflicting)
+    assert (raised.value.status_code, raised.value.detail) == (400, "Malformed webhook payload")
+    assert _payments(sqlite_engine) == (1, 1, 3900)
+    [record] = _webhook_failures(caplog)
+    assert record.exc_info[0].__name__ == "InvalidPaymentEvidence"
+    assert "event evt_conflicting_payment, type invoice_payment.paid" in record.getMessage()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [
+    [], {"data": {"object": {}}}, {"type": 1, "data": {"object": {}}}, {"type": "x", "data": {"object": []}},
+    {"type": "checkout.session.completed", "data": {"object": {"metadata": {}}}},
+    {"type": "checkout.session.completed", "data": {"object": {"metadata": {"user_id": f"x{_ERROR_TEXT}"}}}},
+])
+async def test_a_malformed_payload_answers_a_fixed_400_before_processing(monkeypatch, payload):
+    """A verified payload of the wrong shape never reaches processing and its answer repeats no exception text."""
+    monkeypatch.setattr(subscriptions, "process_stripe_event", lambda event: pytest.fail("malformed payload processed"))
+    with pytest.raises(HTTPException) as raised:
+        await _deliver(payload)
+    assert (raised.value.status_code, raised.value.detail) == (400, "Malformed webhook payload")
 
 
 @pytest.mark.asyncio
