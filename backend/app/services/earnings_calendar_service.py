@@ -187,14 +187,20 @@ class RefreshStats:
 # --------------------------------------------------------------------------- ingest
 
 def _watch_counts(db: Session) -> dict[str, int]:
-    """company.ticker(upper) -> number of users watching it. One grouped query, no N+1."""
+    """Canonical ticker (``normalize_ticker``) -> number of watch rows on companies with it. One
+    grouped query, no N+1; spellings of one ticker (BRK-B, BRK.B) add into one count."""
     rows = (
         db.query(Company.ticker, func.count(Watchlist.id))
         .join(Watchlist, Watchlist.company_id == Company.id)
         .group_by(Company.ticker)
         .all()
     )
-    return {(t or "").upper(): int(n) for t, n in rows if t}
+    counts: dict[str, int] = {}
+    for t, n in rows:
+        if t:
+            key = index_membership_service.normalize_ticker(t)
+            counts[key] = counts.get(key, 0) + int(n)
+    return counts
 
 
 _EVENT_LOOKUP_CHUNK = 500  # tickers per IN list: well under any driver's bind limit
@@ -364,7 +370,8 @@ def ingest_edgar_reported(
         filed = _as_date(getattr(hit, "filed_date", None))
         if not ticker or filed is None:
             continue
-        if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+        canonical = index_membership_service.normalize_ticker(ticker)  # a hit and an event may spell a class differently
+        if members is not None and canonical not in members:
             # Non-member: never flip a stray legacy row, and skip the DB lookups entirely. AV ingest
             # already keeps non-members out, so this is belt-and-suspenders + a cheap early-out.
             stats.skipped_non_member += 1
@@ -376,7 +383,7 @@ def ingest_edgar_reported(
         target = (
             db.query(EarningsEvent)
             .filter(
-                EarningsEvent.ticker == ticker,
+                index_membership_service.canonical_ticker_sql(EarningsEvent.ticker) == canonical,
                 EarningsEvent.status != STATUS_REPORTED,
                 EarningsEvent.fiscal_period_end <= filed,
                 EarningsEvent.event_date >= filed - timedelta(days=100),
@@ -390,7 +397,7 @@ def ingest_edgar_reported(
             dup = (
                 db.query(EarningsEvent)
                 .filter(
-                    EarningsEvent.ticker == ticker,
+                    index_membership_service.canonical_ticker_sql(EarningsEvent.ticker) == canonical,
                     EarningsEvent.fiscal_period_end == most_recent_quarter_end(filed),
                 )
                 .first()
@@ -474,7 +481,7 @@ def recompute_scores(db: Session, *, only_from: Optional[date] = None) -> int:
     for ev in q.all():
         ev.anticipation_score = compute_anticipation_score(
             is_curated=ev.ticker in CURATED_TICKERS,
-            watch_count=counts.get(ev.ticker, 0),
+            watch_count=counts.get(index_membership_service.normalize_ticker(ev.ticker), 0),
             has_estimate=ev.eps_estimate is not None,
         )
         scored += 1

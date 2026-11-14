@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app.models import Company, EarningsAlertLog, EarningsEvent, User, Watchlist
 from app.models.notifications import CHANNEL_EMAIL
 from app.services.entitlements import Plan, get_entitlements
+from app.services.index_membership_service import canonical_ticker_sql, normalize_ticker
 from app.services.watchlist_service import lock_watch_rows, watch_row_lock
 
 logger = logging.getLogger(__name__)
@@ -88,14 +89,17 @@ def _alerting_company_ids(db: Session, user: User) -> set[int]:
 def _get_or_create_company(db: Session, ticker: str) -> Company:
     """Resolve a ticker to a Company row, borrowing CIK/name from a known earnings_event when the
     company hasn't been persisted yet (companies are created on-demand). Raises CompanyNotResolvable
-    when there is no CIK to satisfy the NOT NULL/unique constraint."""
+    when there is no CIK to satisfy the NOT NULL/unique constraint. The calendar sends an event's
+    ticker (``BRK.B``) for a company stored under SEC's (``BRK-B``), so both lookups compare the
+    canonical form."""
     ticker = ticker.upper()
-    company = db.query(Company).filter(func.upper(Company.ticker) == ticker).first()
+    canonical = normalize_ticker(ticker)
+    company = db.query(Company).filter(canonical_ticker_sql(Company.ticker) == canonical).first()
     if company is not None:
         return company
     ev = (
         db.query(EarningsEvent)
-        .filter(EarningsEvent.ticker == ticker, EarningsEvent.cik.isnot(None))
+        .filter(canonical_ticker_sql(EarningsEvent.ticker) == canonical, EarningsEvent.cik.isnot(None))
         .order_by(EarningsEvent.event_date.desc())
         .first()
     )
@@ -120,7 +124,7 @@ def _watch_rows_for_ticker(db: Session, user_id: int, ticker: str) -> list[Watch
     return (
         db.query(Watchlist)
         .join(Company, Watchlist.company_id == Company.id)
-        .filter(Watchlist.user_id == user_id, func.upper(Company.ticker) == ticker)
+        .filter(Watchlist.user_id == user_id, canonical_ticker_sql(Company.ticker) == normalize_ticker(ticker))
         .all()
     )
 
@@ -201,7 +205,7 @@ async def send_earnings_day_alerts(
         db.query(User, Watchlist.company_id, Company.ticker, EarningsEvent)
         .join(Watchlist, Watchlist.user_id == User.id)
         .join(Company, Watchlist.company_id == Company.id)
-        .join(EarningsEvent, func.upper(Company.ticker) == EarningsEvent.ticker)
+        .join(EarningsEvent, canonical_ticker_sql(Company.ticker) == canonical_ticker_sql(EarningsEvent.ticker))
         .filter(
             Watchlist.earnings_alert.is_(True),
             EarningsEvent.event_date == today,

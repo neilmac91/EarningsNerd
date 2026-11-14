@@ -21,6 +21,18 @@ def test_normalize_ticker_canonicalizes_dual_class():
     assert idx.normalize_ticker(None) == ""
 
 
+def test_canonical_ticker_sql_agrees_with_normalize_ticker():
+    """The SQL form a query compares tickers in is the Python form, value for value."""
+    from sqlalchemy import String, literal, select
+
+    from app.database import engine
+
+    raws = ["brk-b", "BRK.B", "  bf-b ", "AAPL", "aapl", "A-B-C", ""]
+    with engine.connect() as conn:
+        got = [conn.execute(select(idx.canonical_ticker_sql(literal(r, String)))).scalar_one() for r in raws]
+    assert got == [idx.normalize_ticker(r) for r in raws]
+
+
 def test_active_member_filter_off_returns_none(monkeypatch):
     monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
     assert idx.active_member_filter() is None
