@@ -972,8 +972,11 @@ send alerts (real-time for Pro, daily digest for Free): `earningsnerd-filing-sca
 and `earningsnerd-filing-digest` (the `--digest` pass). They are **separate jobs** on purpose — a
 plain Cloud Run Jobs `:run` POST cannot override `--args`, so baking `--digest` into its own job is
 the simplest robust way to schedule the digest. The CD pipeline keeps both job images in sync **once
-they exist** (each step skips gracefully otherwise). Create them once, with one Cloud Scheduler
-trigger each (hourly scan + once-daily digest):
+they exist** (each step skips gracefully otherwise), and on every backend deploy sets
+`ENABLE_FPI_FILINGS=true` on the scheduled jobs' shared map: a job reads a flag from its own map, so
+without it the scan would fetch 10-K, 10-Q and 8-K only while the service lists a foreign issuer's 20-F,
+6-K and 40-F (gate: `tests/unit/test_job_flags_match_service.py`). Create them once, with one Cloud
+Scheduler trigger each (hourly scan + once-daily digest):
 
 ```bash
 # Same connector + scheduler SA the rest of this runbook uses.
@@ -983,7 +986,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=DEEPSEEK_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_FPI_FILINGS=true"
 
 # Real-time scan job
 gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \

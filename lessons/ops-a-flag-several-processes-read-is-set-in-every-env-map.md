@@ -30,3 +30,7 @@ worker and jobs steps; self-tested on the bad shapes); `backend/app/services/int
 (the durable path runs `run_filing_scan` and `run_daily_digest` on the worker);
 `backend/scripts/filing_scan.py` (the extraction batch under `section-extraction`);
 `docs/CONFIGURATION.md` (the `ENABLE_SECTION_CHANGES` row); `backend/app/services/job_run_service.py::JOB_CADENCES`.
+The same gap, found by the 2026-11 audit: `ENABLE_FPI_FILINGS` was set on the service, the task worker and the
+pregenerate job but not on the jobs' map, so the hourly scan never fetched the 20-F, 6-K and 40-F filings the
+service listed and Filing alerts offered. Gate `backend/tests/unit/test_job_flags_match_service.py` holds each
+flag a scheduled job's own pass reads to the service's value, or lists why its job differs.
