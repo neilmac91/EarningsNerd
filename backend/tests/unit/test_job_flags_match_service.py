@@ -13,9 +13,12 @@ reader), and the jobs' one map carries the service's value. A flag whose job has
 listed in ``DIFFERENCES`` with why, and must then be absent from the jobs' map or differ there: the list is an
 equality (``lessons/test-allowlist-caps-are-equalities.md``), so a pair that starts to agree has to leave it.
 
-Not covered: a flag a job's pass starts to read (add its row here; review-checked); a flag only the serve path
-reads, such as ``NOTABLE_FILINGS_ENABLED`` (``get_notable_filings``: the notable-filings job populates without
-it); a job executed by hand with ``--args``; and a key set on a job by hand that this map does not list
+Not covered: a flag a job's pass starts to read (add its row here; review-checked); ``ENABLE_SECTION_CHANGES``,
+which the scan and the digest also read and ``test_section_changes_flag_placement.py`` holds; the summary
+rollout's held controls, which ``summary_preparation`` reads beside ``DURABLE_TASKS_ENABLED`` and an ordinary
+deploy must not set (``test_summary_rollout_preservation.py``); a flag only the serve path reads, such as
+``NOTABLE_FILINGS_ENABLED`` (``get_notable_filings``: the notable-filings job populates without it); a job
+executed by hand with ``--args``; and a key set on a job by hand that this map does not list
 (``--update-env-vars`` overwrites the keys it lists and keeps the rest).
 """
 import re
@@ -34,6 +37,7 @@ JOB_FLAGS: dict[str, tuple[str, str]] = {
     "CALENDAR_INDEX_FILTER_ENABLED": (
         "earningsnerd-earnings-calendar-refresh", "app/services/index_membership_service.py",
     ),
+    "DURABLE_TASKS_ENABLED": ("earningsnerd-filing-scan", "app/services/summary_preparation.py"),
 }
 # Flag -> why its job does not carry the service's value.
 DIFFERENCES: dict[str, str] = {
@@ -42,6 +46,12 @@ DIFFERENCES: dict[str, str] = {
         "(earnings_calendar_service._ingest_key admits index members only), so the dashboard's upcoming earnings "
         "and the earnings-day alert would lose it; the job takes the service's value once the pass admits watched "
         "companies"
+    ),
+    "DURABLE_TASKS_ENABLED": (
+        "the scan job reads it to decide whether to prepare summaries for the filings it alerts on and to recover "
+        "their handoffs (summary_preparation); the jobs' map leaves it unset, so the job prepares none. Turning "
+        "that on is the summary rollout's activation, which sets this beside the held controls an ordinary deploy "
+        "must not pin (test_summary_rollout_preservation.py)"
     ),
 }
 
@@ -61,25 +71,27 @@ def env_map(run: str) -> dict[str, str]:
     return dict(entries)
 
 
-def problems(service: dict[str, str], jobs: dict[str, str], differences: dict[str, str]) -> list[str]:
-    """Why the jobs' map does not carry each listed flag as ``JOB_FLAGS`` and ``differences`` say it should."""
+def problems(
+    service: dict[str, str], jobs: dict[str, str], flags: dict[str, tuple[str, str]], differences: dict[str, str],
+) -> list[str]:
+    """Why the jobs' map does not carry each flag of ``flags`` as its row and ``differences`` say it should."""
     found = []
-    for flag in JOB_FLAGS:
+    for flag, (job, _module) in flags.items():
         if flag not in service:
             found.append(f"{flag} is no longer set on the service; drop its row or restore the pin")
         elif flag in differences:
             if jobs.get(flag) == service[flag]:
                 found.append(f"{flag} now agrees with the service ({service[flag]}); remove it from DIFFERENCES")
         elif flag not in jobs:
-            found.append(f"{flag} is {service[flag]} on the service and absent from the jobs' map, so "
-                         f"{JOB_FLAGS[flag][0]} reads the Settings default")
+            found.append(f"{flag} is {service[flag]} on the service and absent from the jobs' map, so {job} reads "
+                         "the Settings default")
         elif jobs[flag] != service[flag]:
             found.append(f"{flag} is {service[flag]} on the service and {jobs[flag]} on the jobs")
-    return found + [f"{flag} is in DIFFERENCES but not in JOB_FLAGS" for flag in differences if flag not in JOB_FLAGS]
+    return found + [f"{flag} is in DIFFERENCES but not in JOB_FLAGS" for flag in differences if flag not in flags]
 
 
 def test_each_job_flag_carries_the_services_value_or_is_a_listed_difference():
-    found = problems(env_map(_step_run(SERVICE_STEP)), env_map(_step_run(JOBS_STEP)), DIFFERENCES)
+    found = problems(env_map(_step_run(SERVICE_STEP)), env_map(_step_run(JOBS_STEP)), JOB_FLAGS, DIFFERENCES)
     assert not found, (
         "A scheduled job reads a flag from the jobs' own --update-env-vars map in ci.yml. Set it there at the "
         "service's value, or list the flag in DIFFERENCES with why its job differs:\n" + "\n".join(found)
@@ -97,13 +109,14 @@ def test_each_row_names_a_job_the_step_updates_and_a_module_that_still_reads_the
 
 
 def test_the_comparison_finds_each_wrong_placement():
-    flag, other = "ENABLE_FPI_FILINGS", "CALENDAR_INDEX_FILTER_ENABLED"
+    flag, other = "PINNED_FLAG", "DIFFERING_FLAG"
+    flags = {flag: ("a-job", "a/module.py"), other: ("another-job", "another/module.py")}
     service = {flag: "true", other: "true"}
     declared = {other: "why"}
-    assert problems(service, {flag: "true"}, declared) == []
-    assert "absent from the jobs' map" in problems(service, {}, declared)[0]
-    assert "true on the service and false on the jobs" in problems(service, {flag: "false"}, declared)[0]
-    assert "remove it from DIFFERENCES" in problems(service, {flag: "true", other: "true"}, declared)[0]
-    assert problems(service, {flag: "true", other: "false"}, declared) == []
-    assert "no longer set on the service" in problems({other: "true"}, {flag: "true"}, declared)[0]
-    assert "not in JOB_FLAGS" in problems(service, {flag: "true"}, {**declared, "SOME_FLAG": "why"})[0]
+    assert problems(service, {flag: "true"}, flags, declared) == []
+    assert "absent from the jobs' map, so a-job reads" in problems(service, {}, flags, declared)[0]
+    assert "true on the service and false on the jobs" in problems(service, {flag: "false"}, flags, declared)[0]
+    assert "remove it from DIFFERENCES" in problems(service, {flag: "true", other: "true"}, flags, declared)[0]
+    assert problems(service, {flag: "true", other: "false"}, flags, declared) == []
+    assert "no longer set on the service" in problems({other: "true"}, {flag: "true"}, flags, declared)[0]
+    assert "not in JOB_FLAGS" in problems(service, {flag: "true"}, flags, {**declared, "SOME_FLAG": "why"})[0]
