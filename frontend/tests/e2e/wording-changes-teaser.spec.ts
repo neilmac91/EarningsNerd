@@ -150,7 +150,8 @@ test.describe('the risk factor wording block of the change report', () => {
     await expect(block.getByText(/5 paragraphs changed: 2 modified, 1 added, 1 removed and 1 moved; 4 unchanged/)).toBeVisible()
     await expect(block.getByRole('listitem')).toHaveCount(3)
     await expect(block.getByText('2 more changes in this section. Pro shows every change.')).toBeVisible()
-    await expect(block.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login')
+    // The sign-in link brings the reader back to this filing, as the generate gate's does.
+    await expect(block.getByRole('link', { name: 'Already Pro? Log in' })).toHaveAttribute('href', '/login?redirect=%2Ffiling%2F3')
 
     // The redline: the later text with the removed words beside it, both named for assistive tech,
     // underlined and struck through in the rendered CSS.
