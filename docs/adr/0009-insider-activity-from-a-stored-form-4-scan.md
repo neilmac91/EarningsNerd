@@ -165,13 +165,18 @@ beta user can ask.
   flag tests pin and the founder approved (2026-11-14: "fine to use my contact for step 4. please manage it
   yourself where possible"). Turning it off is the same value set to `false`, deployed: a change confined to
   `ci.yml` and tests starts no deploy, so it also touches a deployable `backend/` path (`docs/OPERATIONS.md`,
-  "Turning the insider endpoint off"). Off stops visits starting scans and hides the panel; a scan already
+  "Turning the insider endpoint off"). Off stops visits starting scans, hides the company page's card and leaves the company's insider page
+  saying insider activity is not available right now; a scan already
   queued finishes on the worker, which does not read the flag.
 - Where it shows (founder direction, 2026-11-14, after the first production scans): the filings keep the company
   page. Insider activity there is a card in the side column, under Compare periods, saying the last 90 days in
   three lines; it links to the company's insider page, `/company/{ticker}/insiders`, which holds the windows and
   the trades. The section above the filings that steps 3 and 4 shipped is gone. The endpoint and the scan are
-  unchanged: one read, shown in two places, for beta accounts only.
+  unchanged: one read, shown in two places, for beta accounts only. Decision 7's rule for when the card shows
+  holds for the company page's card: it shows with the endpoint's first answer, or a failure a retry can help,
+  and a reader the endpoint refuses sees none. The insider page is where a reader chose to be, so its panel
+  stands from the first paint, with bones while it loads and, for a refusal, a line that insider activity is not
+  available right now; a reader who is not a beta account is told there that it is in beta.
 - The check on real filings came before the switch, not after it: the frontend build already had its flag on, so
   beta accounts see the panel as soon as the switch deploys. Where the two points above say the production
   trial reads the first real filings "before the panel is shown to anyone", the run of

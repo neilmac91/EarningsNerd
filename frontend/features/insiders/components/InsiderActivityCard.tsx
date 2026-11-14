@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useId, useRef } from 'react'
+import { useId, useRef, type ReactElement, type ReactNode } from 'react'
 
-import { ActivityLine, Card, Notice, Skeleton, TrailingArrowLabel, cx } from '@/components/ui'
+import { ActivityLine, Card, Notice, TrailingArrowLabel, cx } from '@/components/ui'
 import { insiderSignal, useInsiderActivity } from '@/features/insiders/hooks/useInsiderActivity'
 import { RetryButton } from '@/hooks/useRetainedFailure'
 import { directionText } from '@/lib/financialTone'
@@ -42,15 +42,29 @@ export const insidersHref = (ticker: string): string => `/company/${encodeURICom
  * page, which holds the windows and the trades. The same read and query key as that page (useInsiderActivity), so
  * following the link renders it from cache.
  *
- * The page mounts it only for a beta account on a company known not to be a foreign private issuer, so the card
- * always has something to say and its column never stands empty: bones while the first answer loads, the scan's own
- * words while Form 4 filings are still being read, a plain line where the window holds no trades or the endpoint has
- * no answer for this company, and a Notice with Try again on a failure.
+ * It wraps what the page lays out around it and hands that the card, or null: the page mounts it above its filings
+ * grid, so the page knows whether there is a card before it opens the side column for one. There is a card only
+ * once there is something to show: for a beta account, on a company known not to be a foreign private issuer
+ * (`isFpi` is undefined until the filings say, and nothing is asked until then), with the endpoint's first answer or
+ * a failure a retry can help. So a reader the endpoint refuses never sees a card appear and go, the backend's switch
+ * hides the card when it is off (ADR 0009, decision 7), and the side column never stands empty. What the card then
+ * says: the scan's own words while Form 4 filings are still being read, a plain line where the window holds no
+ * trades, and a Notice with Try again on a failure, over the answer it already has. The page keys it by ticker, so
+ * the read's three minutes of polling start again for another company.
  */
-export function InsiderActivityCard({ ticker }: { ticker: string }) {
+export function InsiderActivityCard({
+  ticker,
+  isFpi,
+  children,
+}: {
+  ticker: string
+  isFpi: boolean | undefined
+  children: (card: ReactElement | null) => ReactNode
+}) {
   const headingId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const { data, failure, refused, stopped } = useInsiderActivity(ticker, WINDOW_DAYS, false)
+  const { isBeta, data, failure, refused, stopped, hasContent } = useInsiderActivity(ticker, WINDOW_DAYS, isFpi)
+  if (!isBeta || isFpi !== false || !hasContent) return children(null)
 
   const summary = data?.summary
   const scan = data?.scan
@@ -73,14 +87,14 @@ export function InsiderActivityCard({ ticker }: { ticker: string }) {
             : 'Reading recent Form\u00a04 filings.'
           : null
 
-  return (
+  return children(
     <Card as="aside" aria-labelledby={headingId} className="p-cap-5">
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-lg font-semibold outline-none', INK)}>
         Insider activity
       </h2>
       <p className={cx('mt-1 font-data text-xs tabular-nums', MUTED)}>Form 4 · last {WINDOW_DAYS} days</p>
 
-      {failure.failed && !refused ? (
+      {failure.failed && !refused && (
         <div className="mt-4">
           <Notice
             variant="error"
@@ -89,21 +103,8 @@ export function InsiderActivityCard({ ticker }: { ticker: string }) {
             action={<RetryButton size="sm" failures={[failure]} focusTarget={headingRef} />}
           />
         </div>
-      ) : refused ? (
-        <p className={cx('mt-4 text-sm', MUTED)}>No insider activity is available for this company.</p>
-      ) : !data ? (
-        <div role="status" aria-label="Loading insider activity" className="mt-4">
-          <div aria-hidden="true" className={cx('border-t', HAIRLINE)}>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className={cx('flex items-center justify-between gap-3 border-b py-3', HAIRLINE)}>
-                <Skeleton className="h-3.5 w-20" />
-                <Skeleton className="h-3.5 w-24" />
-              </div>
-            ))}
-          </div>
-          <span className="sr-only">Loading insider activity…</span>
-        </div>
-      ) : (
+      )}
+      {data && (
         <>
           {/* The scan's state in words. The region is mounted with the answer, so a change of its words (reading,
               paused, stopped, gone once complete) is heard. It holds no count: the insider page's bar carries that. */}
@@ -162,6 +163,6 @@ export function InsiderActivityCard({ ticker }: { ticker: string }) {
           </Link>
         </>
       )}
-    </Card>
+    </Card>,
   )
 }

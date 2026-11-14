@@ -8,9 +8,9 @@ import { ApiError } from '@/lib/api/client'
 
 /**
  * The company page's Insider activity card (ADR 0009): the last 90 days in three lines and a link to the company's
- * insider page. The page mounts it only for a beta account on a company known not to be a foreign private issuer
- * (tests/unit/company-page-insider-card.spec.tsx), so every state here leaves the card standing with something to
- * say: its column never stands empty.
+ * insider page. The component wraps what the page lays out and hands it the card, or null until there is something
+ * to show (tests/unit/company-insiders-placement.spec.tsx holds that on the page itself); the harness below renders
+ * what it is handed, so a case that expects no card proves it was handed null.
  */
 
 const getInsiderActivity = vi.fn()
@@ -53,14 +53,25 @@ const NONE: InsiderActivityResponse = {
 }
 const scanning = (over: Partial<InsiderActivityResponse['scan']> = {}): InsiderActivityResponse['scan'] => ({ ...SCAN, status: 'scanning', filings_read: 16, retry_after_seconds: 8, ...over })
 
+/** The company page's mount, with nothing around the card. */
+function Mount({ ticker }: { ticker: string }) {
+  return (
+    <InsiderActivityCard key={ticker} ticker={ticker} isFpi={false}>
+      {(card) => card}
+    </InsiderActivityCard>
+  )
+}
 function renderCard(ticker = 'NVDA', queries: Record<string, unknown> = { retry: false }) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries } })}>
-      <InsiderActivityCard ticker={ticker} />
+      <Mount ticker={ticker} />
     </QueryClientProvider>,
   )
 }
 const card = () => screen.getByRole('complementary', { name: 'Insider activity' })
+const noCard = () => expect(screen.queryByRole('complementary', { name: 'Insider activity' })).toBeNull()
+/** Let the reader's read and anything it enables settle. */
+const settle = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
 const rows = () => within(card()).getAllByRole('listitem').map((li) => li.textContent?.replace(/\s+/g, ' ').trim())
 /** The card's status region: the one live region with no name of its own (the bones' is named). */
 const statusRegion = () => within(card()).getAllByRole('status').find((el) => !el.getAttribute('aria-label'))!
@@ -76,13 +87,26 @@ describe('InsiderActivityCard', () => {
     getInsiderActivity.mockResolvedValue(SELLING)
     renderCard()
     await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledWith('NVDA', 90))
-    expect(within(card()).getByText('Form 4 · last 90 days')).toBeInTheDocument()
+    expect(await screen.findByText('Form 4 · last 90 days')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['a guest', null],
+    ['an account that is not a beta tester', { ...BETA, is_beta: false }],
+  ])('%s: nothing is asked and there is nothing to show', async (_, reader) => {
+    getCurrentUserSafe.mockResolvedValue(reader)
+    getInsiderActivity.mockResolvedValue(SELLING)
+    renderCard()
+    await waitFor(() => expect(getCurrentUserSafe).toHaveBeenCalled())
+    await settle()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
+    noCard()
   })
 
   it('says net selling in words, a glyph and the loss ink, then each side with its trades', async () => {
     getInsiderActivity.mockResolvedValue(SELLING)
     renderCard()
-    await within(card()).findByText('Net selling')
+    await screen.findByText('Net selling')
     expect(rows()).toEqual(['Net selling▼ $297.9M', 'BuysNone', 'Sells$297.9M41 trades'])
     const figure = within(within(card()).getAllByRole('listitem')[0]).getByText('$297.9M', { exact: false })
     expect(figure.className).toMatch(/text-loss-text/)
@@ -93,7 +117,7 @@ describe('InsiderActivityCard', () => {
   it('says net buying with an up glyph in the gain ink, and counts one trade in the singular', async () => {
     getInsiderActivity.mockResolvedValue(BUYING)
     renderCard()
-    await within(card()).findByText('Net buying')
+    await screen.findByText('Net buying')
     expect(rows()).toEqual(['Net buying▲ $341.5K', 'Buys$1.8M1 trade', 'Sells$1.5M2 trades'])
     expect(within(within(card()).getAllByRole('listitem')[0]).getByText('$341.5K', { exact: false }).className).toMatch(/text-gain-text/)
   })
@@ -101,29 +125,29 @@ describe('InsiderActivityCard', () => {
   it('falls back to shares where a side has no dollar value, and to a share count for the net', async () => {
     getInsiderActivity.mockResolvedValue({ ...SELLING, summary: { ...SELLING.summary, sell_value: null, net_value: null } })
     renderCard()
-    await within(card()).findByText('Net selling')
+    await screen.findByText('Net selling')
     expect(rows()).toEqual(['Net selling▼ 1.3M shares', 'BuysNone', 'Sells1.3M sh41 trades'])
   })
 
   it('links to the company’s insider page, in a label with no figure', async () => {
     getInsiderActivity.mockResolvedValue(SELLING)
     renderCard('BRK-B')
-    const link = await within(card()).findByRole('link', { name: 'Open insider activity' })
+    const link = await screen.findByRole('link', { name: 'Open insider activity' })
     expect(link).toHaveAttribute('href', '/company/BRK-B/insiders')
     expect(insidersHref('BRK-B')).toBe('/company/BRK-B/insiders')
   })
 
-  it('shows its bones under the heading while the first answer loads', async () => {
+  it('has nothing to show until the endpoint first answers, so a reader it refuses never sees a card appear and go', async () => {
     getInsiderActivity.mockReturnValue(new Promise(() => {}))
     renderCard()
-    expect(await within(card()).findByRole('status', { name: 'Loading insider activity' })).toBeInTheDocument()
-    expect(within(card()).queryByRole('link')).not.toBeInTheDocument()
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalledTimes(1))
+    noCard()
   })
 
   it('says a complete scan found no trades, and still links to the other windows', async () => {
     getInsiderActivity.mockResolvedValue(NONE)
     renderCard()
-    expect(await within(card()).findByText('No open-market insider trades in the last 90 days.')).toBeInTheDocument()
+    expect(await screen.findByText('No open-market insider trades in the last 90 days.')).toBeInTheDocument()
     expect(within(card()).queryByRole('listitem')).not.toBeInTheDocument()
     expect(within(card()).getByRole('link', { name: 'Open insider activity' })).toBeInTheDocument()
   })
@@ -131,7 +155,7 @@ describe('InsiderActivityCard', () => {
   it('a first visit says the filings are being read, in the status region, and claims no empty window', async () => {
     getInsiderActivity.mockResolvedValue({ ...NONE, scan: scanning({ filings_listed: 0, filings_read: 0, oldest_filed_date: null }) })
     renderCard()
-    await within(card()).findByText('Reading recent Form 4 filings.')
+    await screen.findByText('Reading recent Form 4 filings.')
     expect(statusRegion()).toHaveTextContent('Reading recent Form 4 filings.')
     expect(within(card()).queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
     expect(within(card()).queryByRole('progressbar')).not.toBeInTheDocument()   // the count is the insider page's
@@ -140,7 +164,7 @@ describe('InsiderActivityCard', () => {
   it('a scan part-way through shows what is stored so far under the words', async () => {
     getInsiderActivity.mockResolvedValue({ ...BUYING, scan: scanning() })
     renderCard()
-    await within(card()).findByText('Net buying')
+    await screen.findByText('Net buying')
     // The words alone: no count and no date, so nothing that moves with each answer is read out.
     expect(statusRegion()).toHaveTextContent(/^Reading recent Form 4 filings\.$/)
   })
@@ -148,14 +172,14 @@ describe('InsiderActivityCard', () => {
   it('a paused scan says it resumes on its own', async () => {
     getInsiderActivity.mockResolvedValue({ ...NONE, scan: scanning({ status: 'paused', retry_after_seconds: 300 }) })
     renderCard()
-    expect(await within(card()).findByText('Reading Form 4 filings is paused and resumes on its own.')).toBeInTheDocument()
+    expect(await screen.findByText('Reading Form 4 filings is paused and resumes on its own.')).toBeInTheDocument()
     expect(within(card()).queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
   })
 
   it('a failed scan says insider activity is unavailable, and claims no empty window', async () => {
     getInsiderActivity.mockResolvedValue({ ...NONE, scan: { ...SCAN, status: 'failed' } })
     renderCard()
-    expect(await within(card()).findByText('Insider activity is unavailable for this company right now.')).toBeInTheDocument()
+    expect(await screen.findByText('Insider activity is unavailable for this company right now.')).toBeInTheDocument()
     expect(within(card()).queryByText(/No open-market insider trades/)).not.toBeInTheDocument()
   })
 
@@ -165,25 +189,67 @@ describe('InsiderActivityCard', () => {
   ])('%s: a Notice whose Try again asks again, and no retry of its own', async (_, error) => {
     getInsiderActivity.mockRejectedValueOnce(error).mockResolvedValue(SELLING)
     renderCard('NVDA', { retry: 3, retryDelay: 0 })
-    const alert = await within(card()).findByRole('alert')
+    const alert = await screen.findByRole('alert')
+    expect(within(card()).getByRole('alert')).toBe(alert)
     expect(alert).toHaveTextContent('Couldn’t load insider activity')
     expect(getInsiderActivity).toHaveBeenCalledTimes(1)
 
     await userEvent.setup().click(within(alert).getByRole('button', { name: 'Try again' }))
-    expect(await within(card()).findByText('Net selling')).toBeInTheDocument()
+    expect(await screen.findByText('Net selling')).toBeInTheDocument()
     expect(getInsiderActivity).toHaveBeenCalledTimes(2)
   })
 
-  it.each([401, 403, 404])('a %i keeps the card, with a plain line and no error', async (status) => {
+  it.each([401, 403, 404])('a %i (a refusal: the endpoint switched off, or a company it does not know) shows no card and asks once', async (status) => {
     getInsiderActivity.mockRejectedValue(new ApiError(status, 'Refused'))
-    renderCard()
-    expect(await within(card()).findByText('No insider activity is available for this company.')).toBeInTheDocument()
-    expect(within(card()).queryByRole('alert')).not.toBeInTheDocument()
-    expect(within(card()).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    renderCard('NVDA', { retry: 3, retryDelay: 0 })
+    await waitFor(() => expect(getInsiderActivity).toHaveBeenCalled())
+    await settle()
+    noCard()
+    expect(getInsiderActivity).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('InsiderActivityCard: while a scan is under way', () => {
+  /** Under fake timers: let the reader's read, then the insider read it enables, land. */
+  const land = async () => { for (let i = 0; i < 4; i++) await act(async () => { await vi.advanceTimersByTimeAsync(5) }) }
+
+  it('a poll that fails keeps the answer it already has, under the Notice', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+    try {
+      getInsiderActivity.mockResolvedValueOnce({ ...BUYING, scan: scanning() }).mockRejectedValue(new ApiError(500, 'Internal Server Error'))
+      renderCard()
+      await land()
+      expect(within(card()).getByText('Net buying')).toBeInTheDocument()
+      await act(async () => { await vi.advanceTimersByTimeAsync(8_001) })
+      expect(within(card()).getByRole('alert')).toHaveTextContent('Couldn’t load insider activity')
+      expect(within(card()).getByText('Net buying')).toBeInTheDocument()
+      expect(within(card()).getByRole('link', { name: 'Open insider activity' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('another company starts its own three minutes: the read is keyed by ticker', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+    try {
+      getInsiderActivity.mockResolvedValue({ ...BUYING, scan: scanning() })
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const view = render(<QueryClientProvider client={client}><Mount ticker="NVDA" /></QueryClientProvider>)
+      await land()
+      await act(async () => { await vi.advanceTimersByTimeAsync(3 * 60_000 + 10) })
+      expect(statusRegion()).toHaveTextContent('Reading continues in the background. Reload the page to see more.')
+
+      view.rerender(<QueryClientProvider client={client}><Mount ticker="TSLA" /></QueryClientProvider>)
+      await land()
+      expect(statusRegion()).toHaveTextContent(/^Reading recent Form 4 filings\.$/)
+      const asked = getInsiderActivity.mock.calls.filter(([t]) => t === 'TSLA').length
+      await act(async () => { await vi.advanceTimersByTimeAsync(8_001) })
+      expect(getInsiderActivity.mock.calls.filter(([t]) => t === 'TSLA').length).toBe(asked + 1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('asks again at the interval the answer gives, then stops and says how to see more', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false })
     try {

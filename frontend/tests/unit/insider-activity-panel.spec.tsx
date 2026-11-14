@@ -553,7 +553,7 @@ describe('InsiderActivityPanel: a request that fails', () => {
   it.each([401, 403, 404])('a %i (a refusal: the endpoint off, or a company it does not know) is a plain line, not an error', async (status) => {
     getInsiderActivity.mockRejectedValue(new ApiError(status, 'Refused'))
     renderPanel('AAPL', false, retryingClient())
-    expect(await screen.findByText('No insider activity is available for this company.')).toBeInTheDocument()
+    expect(await screen.findByText('Insider activity isn’t available here right now.')).toBeInTheDocument()
     await settle()
     expect(getInsiderActivity).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

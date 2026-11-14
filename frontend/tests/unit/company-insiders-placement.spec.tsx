@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -7,6 +7,7 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import CompanyPageClient from '@/app/company/[ticker]/page-client'
 import InsidersPageClient from '@/app/company/[ticker]/insiders/page-client'
 import { ApiError } from '@/lib/api/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * Where insider activity lives (founder direction, 2026-11-14): the company page's filings keep the page, and insider
@@ -160,6 +161,39 @@ describe('the company page: insider activity is a card in the side column', () =
     expect((list.parentElement as HTMLElement).className).not.toMatch(/grid-cols-\[minmax/)
   })
 
+  it.each([401, 403, 404])('a %i from the endpoint (its switch off, or a company it does not know) leaves no card and no column', async (status) => {
+    companyPage([QUARTER, ANNUAL])
+    api.getInsiderActivity.mockRejectedValue(new ApiError(status, 'Refused'))
+    await waitFor(() => expect(api.getInsiderActivity).toHaveBeenCalled())
+    await settle()
+    expect(screen.queryByRole('complementary', { name: 'Insider activity' })).toBeNull()
+    const list = screen.getByRole('region', { name: 'SEC filings' })
+    expect((list.parentElement as HTMLElement).className).not.toMatch(/grid-cols-\[minmax/)
+    expect(api.getInsiderActivity).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no card, and opens no column, until the endpoint first answers', async () => {
+    companyPage([QUARTER, ANNUAL])
+    api.getInsiderActivity.mockReturnValue(new Promise(() => {}))
+    await waitFor(() => expect(api.getInsiderActivity).toHaveBeenCalled())
+    await settle()
+    expect(screen.queryByRole('complementary', { name: 'Insider activity' })).toBeNull()
+    const list = screen.getByRole('region', { name: 'SEC filings' })
+    expect((list.parentElement as HTMLElement).className).not.toMatch(/grid-cols-\[minmax/)
+  })
+
+  it('keeps the card while Show full history loads the longer list', async () => {
+    companyPage([QUARTER, ANNUAL])
+    const card = await screen.findByRole('complementary', { name: 'Insider activity' })
+    await within(card).findByText('Net selling')
+    api.getCompanyFilings.mockReturnValue(new Promise(() => {}))   // the full history never lands
+    fireEvent.click(screen.getByRole('button', { name: 'Show full history' }))
+    await settle()
+    expect(screen.getByRole('complementary', { name: 'Insider activity' })).toBe(card)
+    expect(within(card).getByText('Net selling')).toBeInTheDocument()
+    expect(api.getInsiderActivity).toHaveBeenCalledTimes(1)
+  })
+
   it('a foreign private issuer gets no card and no request, even for a beta account', async () => {
     companyPage([FOREIGN_ANNUAL])
     await waitFor(() => expect(api.getCurrentUserSafe).toHaveBeenCalled())
@@ -222,17 +256,45 @@ describe('the insider page: the company’s insider activity in full', () => {
     expect(api.getInsiderActivity).not.toHaveBeenCalled()
   })
 
-  it('an account check that fails outright settles as a reader not known to be a beta account', async () => {
+  it('an account check that fails outright says so, with Try again, and never tells the reader to log in', async () => {
     api.getCompany.mockResolvedValue(COMPANY)
     api.getCompanyFilings.mockResolvedValue([QUARTER, ANNUAL])
-    api.getCurrentUserSafe.mockRejectedValue(new ApiError(500, 'Internal Server Error'))
+    api.getCurrentUserSafe.mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockResolvedValue(reader())
+    api.getInsiderActivity.mockResolvedValue(ACTIVITY)
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <InsidersPageClient initialCompany={COMPANY} initialFilings={[QUARTER, ANNUAL]} />
       </QueryClientProvider>,
     )
-    expect(await screen.findByRole('heading', { level: 2, name: 'Insider activity is in beta' })).toBeInTheDocument()
+    const title = await screen.findByRole('heading', { level: 2, name: 'Couldn’t check your account' })
+    const main = within(screen.getByRole('main'))
+    expect(main.queryByRole('link', { name: 'Log in' })).toBeNull()
+    expect(screen.queryByText('Insider activity is in beta')).toBeNull()
     expect(api.getInsiderActivity).not.toHaveBeenCalled()
+
+    fireEvent.click(main.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(title).not.toBeInTheDocument()
+  })
+
+  it('holds that card through another observer’s refetch of the account check: the bones never come back over it', async () => {
+    api.getCompany.mockResolvedValue(COMPANY)
+    api.getCompanyFilings.mockResolvedValue([QUARTER, ANNUAL])
+    api.getCurrentUserSafe.mockRejectedValueOnce(new ApiError(500, 'Internal Server Error')).mockReturnValue(new Promise(() => {}))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <InsidersPageClient initialCompany={COMPANY} initialFilings={[QUARTER, ANNUAL]} />
+      </QueryClientProvider>,
+    )
+    await screen.findByRole('heading', { level: 2, name: 'Couldn’t check your account' })
+    // The site header observes the same query and refetches it when the window regains focus.
+    await act(async () => {
+      void client.refetchQueries({ queryKey: queryKeys.currentUser() })
+      await settle()
+    })
+    expect(screen.getByRole('heading', { level: 2, name: 'Couldn’t check your account' })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading insider activity' })).toBeNull()
   })
 
   it('stands from the first paint, named by the ticker over the card’s bones, and never as a full-page spinner', async () => {

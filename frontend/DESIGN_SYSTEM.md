@@ -2485,11 +2485,14 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  rows (the net signal in words with a ▲/▼ glyph and its figure in its direction's ink;
                  Buys and Sells, each its size in the data face and its count of trades, or "None"), and
                  the sage text link "Open insider activity →" to /company/{ticker}/insiders, whose label
-                 carries no figure. The page mounts it only for a beta account on a company that is no
-                 foreign private issuer, and opens the column for it alone where there is no pair of
-                 annual periods, so the column never stands empty; the card always says something: ledger
-                 bones, the scan's own words in a status region with no count in it, a plain line for an
-                 empty window or a company the endpoint has no answer for, Notice + RetryButton. The
+                 carries no figure. The component is mounted above the grid and hands it the card, or null
+                 until it has something to show: for a beta account, on a company that is no foreign
+                 private issuer, with the endpoint's first answer or a failure a retry can help. A
+                 refusal (401, 403, 404: the backend's switch off among them) shows no card, so the
+                 column, which opens for the card alone where there is no pair of annual periods, never
+                 stands empty and no card appears and goes. The card then says the scan's own words in a
+                 status region with no count in it, a plain line for an empty window, or Notice +
+                 RetryButton over the answer it already has. The
                  insider page (app/company/[ticker]/insiders) holds the full panel
                  (<InsiderActivityPanel>: the window control, the signal, the tiles, every trade the
                  answer carries and a line saying how many the window holds) under the company's identity

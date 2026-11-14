@@ -599,11 +599,13 @@ little traffic meets fresh instances on most visits. So the app is split as Open
 **Kept loaded.** The Next server loads a route's code the first time an instance serves that route, and a server
 Worker instance that had served no company page took about 1.8 s over a reader's first one, against 0.3 to 0.5 s
 afterwards. So once a minute the front Worker's schedule asks the server Worker for one page of each route that is
-rendered on demand, `/company/AAPL` and `/filing/3`. The request carries Next's draft-mode cookie with a value that
+rendered on demand: `/company/AAPL`, `/company/AAPL/insiders` and `/filing/3`. The request carries Next's draft-mode cookie with a value that
 is not the build's: OpenNext's cache layer in the front Worker passes such a request on instead of answering it,
 and the Next server, finding the value is not its own, answers the cached page as it would for any reader and
 re-renders it in the background once it is stale. That is about 130,000 requests a month, where the Workers plan
-includes 10 million, and a handful of API calls an hour for the two pages' re-renders. A run that does not reach
+includes 10 million (about 43,000 a month for each page asked for), and a handful of API calls an hour for the
+company and filing pages' re-renders; the insider page is a shell that calls no API on the server, and answers 404
+on a build without `NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY`, which the schedule counts as an answer. A run that does not reach
 the server Worker throws once it has asked for every page, and Cloudflare records it as a failed run of the
 schedule (read on the experiment copy with the cookie broken: each run counted as `scriptThrewException`).
 

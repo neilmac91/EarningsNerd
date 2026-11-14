@@ -167,7 +167,9 @@ export default function InsiderActivityPanel({
   }
   // From here the card stands for a beta account, whatever the read says: bones while the company's filings or the
   // first answer are still loading (nothing is asked until the company is known not to be a foreign private
-  // issuer), and a plain line where the endpoint has no answer for this company (a refusal, not a failure).
+  // issuer), and a plain line for a refusal (the endpoint switched off, a company it does not know, a session that
+  // has ended), which is no failure a retry helps. The line claims nothing about the company: on its own page the
+  // panel cannot leave, as the company page's card does (ADR 0009, decision 7).
 
   const summary = data?.summary
   const hasTrades = !!data && data.total_transactions > 0
@@ -213,7 +215,7 @@ export default function InsiderActivityPanel({
 
       {refused && (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
-          No insider activity is available for this company.
+          Insider activity isn’t available here right now.
         </p>
       )}
       {failure.failed && !refused && (

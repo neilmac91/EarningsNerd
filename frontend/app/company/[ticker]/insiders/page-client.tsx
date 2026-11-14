@@ -73,15 +73,20 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
   // a foreign issuer's stored scan simply holds no trades.
   const isFpi = filingsQuery.data ? isFpiFiler(filingsQuery.data) : filingsQuery.isError ? false : undefined
 
-  // The reader: a user, null (signed out), or no answer. A check that failed outright has settled too, as a reader
-  // who is not known to be a beta account, so the page never waits on it for good.
+  // The reader: a user, null (signed out), or no answer yet. A check that failed outright has settled too, and says
+  // so with a Try again: the failure is held (useRetainedFailure), because the site header observes the same query
+  // and refetches it on focus, and that refetch must not put the bones back over the card.
+  const userKey = queryKeys.currentUser()
   const userQuery = useQuery({
-    queryKey: queryKeys.currentUser(),
+    queryKey: userKey,
     queryFn: getCurrentUserSafe,
     retry: false,
   })
   const currentUser = userQuery.data
-  const userSettled = currentUser !== undefined || userQuery.isError
+  const userFailure = useRetainedFailure(userQuery, userKey)
+  const userSettled = currentUser !== undefined || userFailure.failed
+  // Where the account check's Try again hands focus when its card leaves: the page's own heading, which stays.
+  const leadHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // The server names no company (the shell is one per ticker and fetches nothing), so the tab's title takes the
   // company's name here, in the form the company page's title has.
@@ -155,7 +160,7 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
             </nav>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <CompanyLogo decorative ticker={ticker} name={name} size={36} priority />
-              <h1 className={cx('min-w-0 break-words text-2xl font-semibold sm:text-3xl', INK)}>
+              <h1 ref={leadHeadingRef} tabIndex={-1} className={cx('min-w-0 break-words text-2xl font-semibold outline-none sm:text-3xl', INK)}>
                 {name} <span className="sr-only">insider activity</span>
               </h1>
               <TickerPill ticker={ticker} />
@@ -185,6 +190,18 @@ export default function InsidersPageClient({ initialCompany, initialFilings }: I
           </Card>
         ) : currentUser?.is_beta ? (
           <InsiderActivityPanel key={ticker} ticker={ticker} isFpi={foreign} />
+        ) : currentUser === undefined ? (
+          // The account check failed (not a signed-out answer): the page cannot say who is reading, so it says that,
+          // never that the reader must log in.
+          <div className="mx-auto max-w-md">
+            <GuidanceCard
+              variant="error"
+              headingLevel="h2"
+              title="Couldn’t check your account"
+              description="Insider activity is shown to beta testers. Try again in a moment."
+              action={<RetryButton failures={[userFailure]} focusTarget={leadHeadingRef} />}
+            />
+          </div>
         ) : (
           // Insider activity is read by beta accounts only (the endpoint answers no one else): say so, with the way
           // back to the filings and, signed out, the way in.

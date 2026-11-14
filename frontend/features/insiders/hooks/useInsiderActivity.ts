@@ -30,9 +30,9 @@ export const isInsiderRefusal = (error: unknown): boolean =>
  * so it is never asked about either; while that is unknown (`isFpi` undefined) the query waits.
  *
  * A scan under way is followed by polling at the interval the answer gives, for three minutes from the mount,
- * whatever the window and whether the first answer came from a request or from the cache. A caller keys its
- * component by ticker, so another company is another mount. After the three minutes `stopped` is true and the
- * surface says how to see more.
+ * whatever the window and whether the first answer came from a request or from the cache. The component that calls
+ * the hook is keyed by ticker (the insider page's panel; the company page's card), so another company is
+ * another mount and starts its own three minutes. After them `stopped` is true and the surface says how to see more.
  */
 export function useInsiderActivity(ticker: string, windowDays: number, isFpi: boolean | undefined) {
   const { data: currentUser } = useQuery({
@@ -68,6 +68,8 @@ export function useInsiderActivity(ticker: string, windowDays: number, isFpi: bo
     const timer = setTimeout(() => setStopped(true), Math.max(0, startedAt + POLL_LIMIT_MS - Date.now()))
     return () => clearTimeout(timer)
   }, [pending, startedAt])
+  const refused = failure.failed && isInsiderRefusal(failure.error)
+
   return {
     /** The reader's account state: undefined while /me is still loading, null signed out. */
     currentUser,
@@ -76,8 +78,11 @@ export function useInsiderActivity(ticker: string, windowDays: number, isFpi: bo
     data,
     failure,
     /** The failure is a refusal (401, 403, 404), not something a retry helps. */
-    refused: failure.failed && isInsiderRefusal(failure.error),
+    refused,
     stopped,
+    /** There is something to show: an answer, or a failure a retry can help. False while the first answer is out
+     *  and for a refusal, so a surface that waits for it never shows a card to a reader the endpoint refuses. */
+    hasContent: !!data || (failure.failed && !refused),
   }
 }
 

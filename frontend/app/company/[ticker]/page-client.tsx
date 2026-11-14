@@ -237,6 +237,15 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     }
   }, [filings])
 
+  // Whether the company is a foreign private issuer, for the Insider activity card's read (below): known once a
+  // filings answer says so, and kept through a later load of the list (Show full history swaps the list for its
+  // skeleton), so the card does not leave and come back.
+  const [knownFpi, setKnownFpi] = useState<{ ticker: string; isFpi: boolean } | null>(null)
+  if (filings && (knownFpi?.ticker !== normalizedTicker || knownFpi.isFpi !== isFpi)) {
+    setKnownFpi({ ticker: normalizedTicker, isFpi })
+  }
+  const insiderFpi = knownFpi?.ticker === normalizedTicker ? knownFpi.isFpi : undefined
+
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
   // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
   // for a company whose latest filing is last year. Runs once on load; the user controls it after.
@@ -380,12 +389,6 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // The lead's latest filing and its one primary action (the flag drops both, and the "Latest" row).
   const latestFiling = ENABLE_RECOMMENDED_FILING ? recommendedFiling : null
 
-  // The Insider activity card, in the side column: for a beta account (the endpoint answers no one else), once the
-  // filings say the company is no foreign private issuer, which files no Form 4s. Decided here, not inside the card,
-  // so the column exists only when it will hold something.
-  const showInsiderCard =
-    ENABLE_INSIDER_ACTIVITY && currentUser?.is_beta === true && !filingsLoading && !filingsFailure.failed && !isFpi
-
   const toggleYear = (year: string) => {
     const newExpanded = new Set(expandedYears)
     if (newExpanded.has(year)) {
@@ -451,48 +454,58 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
             soft navigation to another company. 64rem, a rem media query, is lg's 1024px at the default size and
             2048px under 200% text, where the card's 20rem column (640px) leaves the filings their room: at lg, px at any
             size, it left them 208px at 1024px under 200% text, and the Compare periods card covered their rows (E168). */}
-        <div className={cx('grid grid-cols-1 gap-6', (comparisonFiling || showInsiderCard) && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
-          <FilingIndex
-            key={normalizedTicker}
-            filings={filings}
-            status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
-            failure={filingsFailure}
-            headingRef={filingsHeadingRef}
-            latest={latestFiling}
-            expandedYears={expandedYears}
-            onToggleYear={toggleYear}
-            cik={company?.cik}
-            footerAction={
-              showFullHistory ? undefined : (
-                // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
-                // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
-                // (reconnect, invalidation) can start while this button holds focus, and a focused
-                // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
-                // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
-                // to the section heading first, not to <body>.
-                <Button
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={(e) => {
-                    // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
-                    if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
-                    setShowFullHistory(true)
-                  }}
-                  loading={filingsRefetching}
-                  loadingText="Loading full history…"
-                >
-                  Show full history
-                </Button>
-              )
-            }
-          />
-          {(comparisonFiling || showInsiderCard) && (
-            <div className="flex min-w-0 flex-col gap-6">
-              {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
-              {showInsiderCard && <InsiderActivityCard key={normalizedTicker} ticker={normalizedTicker} />}
+        {/* The Insider activity card is mounted here, above the grid it sits in, and hands the grid its card or
+            null: so the page knows whether there is a card before it opens the side column for one. Only a beta
+            account asks (the endpoint answers no one else), and only once the filings say the company is no foreign
+            private issuer, which files no Form 4s. There is a card with the endpoint's first answer or a failure a
+            retry can help, and none for a refusal: a reader the endpoint refuses never sees a card appear and go,
+            and the backend's switch hides it when it is off. */}
+        <InsiderActivityCard key={normalizedTicker} ticker={normalizedTicker} isFpi={ENABLE_INSIDER_ACTIVITY ? insiderFpi : undefined}>
+          {(insiderCard) => (
+            <div className={cx('grid grid-cols-1 gap-6', Boolean(comparisonFiling || insiderCard) && '[@media(min-width:64rem)]:grid-cols-[minmax(0,1fr)_20rem] [@media(min-width:64rem)]:items-start')}>
+              <FilingIndex
+                key={normalizedTicker}
+                filings={filings}
+                status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
+                failure={filingsFailure}
+                headingRef={filingsHeadingRef}
+                latest={latestFiling}
+                expandedYears={expandedYears}
+                onToggleYear={toggleYear}
+                cik={company?.cik}
+                footerAction={
+                  showFullHistory ? undefined : (
+                    // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
+                    // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
+                    // (reconnect, invalidation) can start while this button holds focus, and a focused
+                    // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
+                    // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
+                    // to the section heading first, not to <body>.
+                    <Button
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={(e) => {
+                        // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
+                        if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
+                        setShowFullHistory(true)
+                      }}
+                      loading={filingsRefetching}
+                      loadingText="Loading full history…"
+                    >
+                      Show full history
+                    </Button>
+                  )
+                }
+              />
+              {(comparisonFiling || insiderCard) && (
+                <div className="flex min-w-0 flex-col gap-6">
+                  {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
+                  {insiderCard}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </InsiderActivityCard>
 
         {/* The company ranked against its sector on one metric (E251): self-fetching, it shows itself only once the
             endpoint answers a cohort, as production has since the SIC backfill of 2026-10-31. Last in <main>, so its arrival
