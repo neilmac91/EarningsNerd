@@ -28,6 +28,7 @@ We use a lightweight [MADR](https://adr.github.io/madr/)-style template:
 | [0006](./0006-gemini-to-deepseek.md) | Standardize on DeepSeek V4 via the OpenAI-compatible client | Model choice superseded by 0008 |
 | [0007](./0007-schema-migrations-ledger.md) | Track applied SQL migrations in a `migration_ledger` table | Accepted |
 | [0008](./0008-deepseek-v4-pro-to-v41-flash.md) | Move to DeepSeek V4.1 Flash (`deepseek-flash`) on the retirement of `deepseek-v4-pro` | Accepted |
+| [0009](./0009-insider-activity-from-a-stored-form-4-scan.md) | Serve insider activity from a stored, budget-aware Form 4 scan, to beta users | Accepted |
 
 ## Adding an ADR
 
