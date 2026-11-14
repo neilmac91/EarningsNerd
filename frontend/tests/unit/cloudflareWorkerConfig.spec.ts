@@ -254,6 +254,19 @@ describe('the two pairs of Workers', () => {
     expect(new Set([...owned(staging), ...owned(production)]).size).toBe(6)
   })
 
+  it('are built without Vercel Web Analytics, whose script only Vercel serves', () => {
+    // Every Workers build goes through open-next.config.ts `buildCommand`: `npm run cf:build` and the deploy script
+    // both run `opennextjs-cloudflare build`, which runs it. The variable it sets is the one the flag reads, and
+    // tests/unit/privateAnalytics.spec.tsx renders the component under it.
+    expect(read('open-next.config.ts')).toContain("const config = { ...cloudflare, buildCommand: 'NEXT_PUBLIC_VERCEL_ANALYTICS=false npm run build' }")
+    expect(read('lib/featureFlags.ts')).toContain("export const ENABLE_VERCEL_ANALYTICS = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS !== 'false'")
+    expect(read('app/private-analytics.tsx')).toContain('return ENABLE_VERCEL_ANALYTICS && allowed ? <Analytics beforeSend={beforeSendVercel} /> : null')
+    expect((JSON.parse(read('package.json')).scripts as Record<string, string>)['cf:build']).toBe('opennextjs-cloudflare build')
+    expect(read('scripts/cf-deploy.mjs')).toContain("run(['opennextjs-cloudflare', 'build'])")
+    // Vercel's own build must not carry it: vercel.json sets build variables for production.
+    expect(read('vercel.json')).not.toContain('NEXT_PUBLIC_VERCEL_ANALYTICS')
+  })
+
   it('are each deployed by their own script, and staging is the pair the bare commands mean', () => {
     const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>
     expect(scripts['cf:deploy']).toBe('node scripts/cf-deploy.mjs')
@@ -261,14 +274,17 @@ describe('the two pairs of Workers', () => {
     expect(scripts['cf:deploy:production']).toBe('node scripts/cf-deploy.mjs wrangler.production.jsonc wrangler.production.server.jsonc')
   })
 
-  it('are deployed from main only: the script refuses a changed or unmerged checkout before it builds', () => {
+  it('are deployed from main only: the script refuses a changed checkout, or one whose frontend/ is not main\'s, before it builds', () => {
     // The deploy's last step attaches the front Worker's hostnames, and wrangler replaces a hostname's existing DNS
     // records without asking when it is not run at a terminal. A deploy from the branch that holds the cutover
     // change would move production before the change was merged. Only a pair of files git does not track, with no
     // hostname, passes: an experiment's.
     const deploy = read('scripts/cf-deploy.mjs')
     expect(deploy).toContain("if (git('status', '--porcelain') !== '') {\n    throw new Error(")
-    expect(deploy).toContain("git('fetch', '--quiet', 'origin', 'main')\n  const [head, main] = [git('rev-parse', 'HEAD'), git('rev-parse', 'FETCH_HEAD')]\n  if (head !== main) {\n    throw new Error(")
+    // What is compared is frontend/, which is everything the build reads: the deploy workflow runs on the commit
+    // that changed it, and main may since have moved on elsewhere.
+    expect(deploy).toContain("git('fetch', '--no-tags', '--quiet', 'origin', 'refs/heads/main')\n  if (git('rev-parse', 'HEAD:frontend') !== git('rev-parse', 'FETCH_HEAD:frontend')) {")
+    expect(read('scripts/vercel-ignore-build.sh')).toMatch(/^BUILD_INPUTS=\(\n {2}':\(top\)frontend'\n\)$/m)
     expect(deploy).toContain('if (!tracked(frontConfig) && !tracked(serverConfig)) {\n    if (!namesAHostname) return\n    throw new Error(')
     expect(deploy).toContain('const namesAHostname = front.route !== undefined || (front.routes ?? []).length > 0')
     const refused = deploy.indexOf('\nrequireMain()\n')

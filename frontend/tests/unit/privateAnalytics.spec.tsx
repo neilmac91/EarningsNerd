@@ -48,6 +48,7 @@ afterEach(() => {
   delete w.vam
   localStorage.clear()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   clearCookiePreferences()
   mounts.live = 0
   mounts.total = 0
@@ -106,6 +107,29 @@ describe('Vercel Web Analytics waits for analytics consent', () => {
     expect(beforeSendVercel(pageview)).toBeNull()
     // The library's limit: no unload, so its script tag remains in this page.
     expect(vercelScripts()).toHaveLength(1)
+  })
+
+  it('renders nothing in a build Vercel does not serve, whatever the visitor chose', async () => {
+    // Only Vercel answers /_vercel/insights/script.js. The Cloudflare Workers build sets the variable 'false'
+    // (open-next.config.ts `buildCommand`), and Next compiles it into the module, which is loaded afresh here.
+    vi.stubEnv('NEXT_PUBLIC_VERCEL_ANALYTICS', 'false')
+    vi.resetModules()
+    const { PrivateAnalytics: BuiltForWorkers } = await import('@/app/private-analytics')
+    localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: true, sessionRecording: false, timestamp: '2026-10-01T00:00:00.000Z', version: CONSENT_VERSION }))
+    const { container } = render(<BuiltForWorkers />)
+    choose(true)
+    expect(container).toBeEmptyDOMElement()
+    expect(mounts.total).toBe(0)
+    expect(vercelScripts()).toHaveLength(0)
+    expect((window as VercelWindow).va).toBeUndefined()
+  })
+
+  it('is on in every build that does not say otherwise, Vercel\'s among them', async () => {
+    for (const value of [undefined, '', 'true']) {
+      vi.stubEnv('NEXT_PUBLIC_VERCEL_ANALYTICS', value as unknown as string)
+      vi.resetModules()
+      expect((await import('@/lib/featureFlags')).ENABLE_VERCEL_ANALYTICS, String(value)).toBe(true)
+    }
   })
 
   it.each(['failed-write', 'cross-tab-clear'] as const)('stops the loaded SDK component and its send hook on %s', mode => {

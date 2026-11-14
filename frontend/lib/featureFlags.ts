@@ -102,6 +102,15 @@ export const ENABLE_INSIDER_ACTIVITY =
   process.env.NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY === 'true'
 
 /**
+ * Vercel Web Analytics (app/private-analytics.tsx), on unless the build says 'false'. Only Vercel serves the
+ * script it loads, /_vercel/insights/script.js: anywhere else the request answers 404, and on Cloudflare Workers
+ * each one renders the not-found page. So the Workers build sets NEXT_PUBLIC_VERCEL_ANALYTICS='false'
+ * (open-next.config.ts `buildCommand`), and PostHog is the analytics there (founder, 2026-11-14). Vercel's build
+ * and every other build leave it unset.
+ */
+export const ENABLE_VERCEL_ANALYTICS = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS !== 'false'
+
+/**
  * Show the in-dashboard beta feedback widget (floating "Feedback" launcher for logged-in users).
  * On by default so beta testers can report bugs/ideas from anywhere; set
  * NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET='false' to hide it (e.g. post-beta).
