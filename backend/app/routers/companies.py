@@ -380,7 +380,8 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             # handler below would otherwise wrap them as a 500.
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
+            logger.exception("Unexpected error fetching company %s", ticker)
+            raise HTTPException(status_code=500, detail="We could not load this company. Please retry shortly.") from e
 
     # Fetch stock quote
     stock_quote = await get_stock_quote(company_row["ticker"])

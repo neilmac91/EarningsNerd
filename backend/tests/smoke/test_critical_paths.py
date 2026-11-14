@@ -350,3 +350,11 @@ class TestAnalysisEndpoints:
         assert client.get("/api/trending_tickers/refresh-prices?symbols=AAPL").status_code == 404
         assert client.get("/api/hot_filings").status_code == 404
         assert client.post("/api/hot_filings/refresh").status_code == 404
+
+    def test_waitlist_status_and_public_test_mail_routes_are_gone(self, client):
+        # No caller: the status read answered membership by email from the URL path, and the test mail duplicated
+        # the admin-gated /api/admin/email/test. Starlette's own 404 ("Not Found") means no route matched.
+        status_read = client.get("/api/waitlist/status/reader@example.com")
+        assert (status_read.status_code, status_read.json()) == (404, {"detail": "Not Found"})
+        test_mail = client.post("/api/email/test", json={})
+        assert (test_mail.status_code, test_mail.json()) == (404, {"detail": "Not Found"})

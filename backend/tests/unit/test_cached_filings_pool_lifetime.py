@@ -119,8 +119,6 @@ POOL_TIMEOUT = 5.0
     ("/api/companies/CACHED/peers", "peers"),
     ("/api/companies/NOSUCH/peers", "missing_company"),
     ("/api/waitlist/stats", "waitlist_stats"),
-    ("/api/waitlist/status/reader@example.com", "waitlist_status"),
-    ("/api/waitlist/status/nobody@example.com", "waitlist_missing"),
     ("/api/notable_filings", "notable"),
     ("/api/reporting_this_week", "reporting"),
 ])
@@ -219,8 +217,6 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(filings.sec_edgar_service, "get_filings", unexpected_upstream)
-    # The status read's per-IP limiter is process-wide; each burst starts with a fresh window.
-    monkeypatch.setattr(watchlist, "WAITLIST_STATUS_LIMITER", RateLimiter(limit=100, window_seconds=60))
     if payload_kind == "notable":
         from app.config import settings
 
@@ -247,7 +243,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
         ) as client:
             responses = await asyncio.gather(*[client.get(path) for _ in range(8)])
-        not_found = payload_kind in ("missing", "missing_company", "waitlist_missing")
+        not_found = payload_kind in ("missing", "missing_company")
         assert [response.status_code for response in responses] == [404 if not_found else 200] * 8
         for response in responses:
             payload = response.json()
@@ -297,10 +293,6 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                 assert payload == {"detail": "Company not found"}
             elif payload_kind == "waitlist_stats":
                 assert payload == {"total_signups": 2}
-            elif payload_kind == "waitlist_status":
-                assert payload == {"position": 2, "referrals_count": 1, "positions_gained": 5}
-            elif payload_kind == "waitlist_missing":
-                assert payload == {"detail": "Email not found on the waitlist."}
             elif payload_kind == "notable":
                 # The feed: its window and summary reads and the release in one unit off the event loop.
                 assert [(row["ticker"], row["form"]) for row in payload["filings"]] == [("CACHED", "10-K")]
@@ -3023,8 +3015,9 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         if case in ("join", "join_referred"):
             assert [(payload["success"], payload["email_sent"]) for payload in payloads] == [(True, True)] * 8
         elif case == "join_existing":
-            assert [(payload["error"], payload["referral_code"]) for payload in payloads] == [
-                ("already_registered", f"joincod{i}") for i in range(8)]
+            assert payloads == [{
+                "success": False, "error": "already_registered", "message": "This email is already on the waitlist.",
+            }] * 8
         else:
             assert payloads == [{
                 "success": False, "error": "invalid_referral", "message": "Referral code not recognized.",
