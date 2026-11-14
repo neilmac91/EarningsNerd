@@ -114,9 +114,10 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
 
 
 def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -> None:
-    """Populate Company.sic/industry from EdgarTools for companies missing it. No ingestion path
-    wrote it, so it was NULL in prod — which collapses the Peers cohort and makes the financial
-    remediation's SIC-band selection match nothing. Idempotent (only fills blanks by default)."""
+    """Populate Company.sic/industry from EdgarTools for companies missing it. A companyfacts sync and
+    the backfill's cross-check fill a NULL sic (``facts/sic_fill``); a company neither has reached
+    reads NULL, which collapses the Peers cohort and keeps it out of the financial remediation's
+    SIC band. Idempotent (only fills blanks by default)."""
     from app.database import SessionLocal
     from app.services import facts_service
     from app.services.edgar.company_sic import fetch_company_sic_sync

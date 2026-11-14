@@ -245,8 +245,10 @@ def test_the_backfill_cross_check_fills_the_sic_and_keeps_a_banks_total(sessions
         with sessions() as db:
             db.query(Company).filter_by(id=company_id).update({"sic": None})
             db.commit()
-            facts_service.backfill_facts(db, extract=_bank_extract, companyfacts_fetcher=lambda _cik: BANK,
-                                         tickers=[ticker], refresh_flags=True, flags_only=True)
+            audit = facts_service.backfill_facts(db, extract=_bank_extract, companyfacts_fetcher=lambda _cik: BANK,
+                                                 tickers=[ticker], refresh_flags=True, flags_only=True)
+        # Read as a non-financial filer, the audit would hold the stored 450 against the 50 fee line.
+        assert (audit["value_mismatch"], audit["companyfacts_unavailable"]) == (0, 0)
 
     sic, revenue, _ = _stored(sessions, company_id)
     assert revenue == [450.0]
