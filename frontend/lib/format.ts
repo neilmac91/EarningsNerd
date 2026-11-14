@@ -34,18 +34,25 @@ const getFormatter = (options: Intl.NumberFormatOptions): Intl.NumberFormat => {
   return formatterCache.get(key)!
 }
 
-/**
- * Parse a numeric string (e.g. "$1.2B", "3.4%", "(5,000)") into a number.
- */
-export const parseNumeric = (value: NumericInput): number | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
+/** The scale a figure may carry after its digits, as a letter or a word, in any case. The words are the ones the backend
+ *  reads in a figure (backend/app/services/ai/figure_trace.py, backend/app/services/copilot/figures.py). */
+const SCALES = new Map<string, number>([
+  ['k', 1e3],
+  ['thousand', 1e3],
+  ['m', 1e6],
+  ['mn', 1e6],
+  ['million', 1e6],
+  ['b', 1e9],
+  ['bn', 1e9],
+  ['billion', 1e9],
+  ['t', 1e12],
+  ['tn', 1e12],
+  ['trillion', 1e12],
+])
 
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
-
+/** A served string read as a figure: its number with the sign applied, and the letters after it in lower case ('' when
+ *  none). Null when the string holds no figure. */
+const readFigure = (value: string): { numeric: number; unit: string } | null => {
   const trimmed = value.trim()
   if (!trimmed) {
     return null
@@ -64,15 +71,11 @@ export const parseNumeric = (value: NumericInput): number | null => {
   let cleaned = trimmed.replace(/[(),]/g, '')
   cleaned = cleaned.replace(/[$]/g, '')
 
-  let multiplier = 1
+  let unit = ''
   const suffixMatch = cleaned.match(/([a-zA-Z]+)$/)
   if (suffixMatch) {
-    const suffix = suffixMatch[1].toLowerCase()
-    if (suffix === 'k') multiplier = 1e3
-    if (suffix === 'm') multiplier = 1e6
-    if (suffix === 'b') multiplier = 1e9
-    if (suffix === 't') multiplier = 1e12
-    cleaned = cleaned.slice(0, -suffix.length)
+    unit = suffixMatch[1].toLowerCase()
+    cleaned = cleaned.slice(0, -unit.length)
   }
 
   cleaned = cleaned.replace(/%$/, '')
@@ -82,9 +85,40 @@ export const parseNumeric = (value: NumericInput): number | null => {
     return null
   }
 
-  const result = (negative ? -numeric : numeric) * multiplier
+  return { numeric: negative ? -numeric : numeric, unit }
+}
+
+/**
+ * Parse a numeric string (e.g. "$1.2B", "$1.2 billion", "3.4%", "(5,000)") into a number. A figure whose unit is not
+ * a scale ("10x", "3 years", "250 bps") is null: read as a bare number it would lose its unit, as "$81.6 billion" once
+ * read 81.6, so the caller shows the served string instead.
+ */
+export const parseNumeric = (value: NumericInput): number | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  const figure = readFigure(value)
+  if (figure === null) {
+    return null
+  }
+
+  const multiplier = figure.unit ? SCALES.get(figure.unit) : 1
+  if (multiplier === undefined) {
+    return null
+  }
+
+  const result = figure.numeric * multiplier
   return Number.isFinite(result) ? result : null
 }
+
+/** Whether a served value is a figure at all, whatever unit follows its number ("$1.2B", "10x", "3 years"). */
+export const isFigure = (value: NumericInput): boolean =>
+  typeof value === 'number' ? Number.isFinite(value) : typeof value === 'string' && readFigure(value) !== null
 
 export const fmtScale = (value: NumericInput, options?: { digits?: number }): string => {
   const num = parseNumeric(value)

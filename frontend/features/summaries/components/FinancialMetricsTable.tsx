@@ -2,7 +2,7 @@
 
 import { useId, type ReactNode } from 'react'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
-import { parseNumeric } from '@/lib/format'
+import { isFigure } from '@/lib/format'
 import { directionText, type Direction } from '@/lib/financialTone'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
@@ -244,7 +244,7 @@ export default function FinancialMetricsTable({
   // layout (a phone rotated across 768px). Per instance, so two tables on a page never pair.
   const twin = (row: FinancialMetric, field: 'name' | 'takeaway') => `${twinBase}${metrics.indexOf(row)}-${field}`
 
-  const hasComparatives = metrics.some((metric) => parseNumeric(metric.prior_period) !== null)
+  const hasComparatives = metrics.some((metric) => isFigure(metric.prior_period))
   const caption =
     label ??
     (hasComparatives
