@@ -74,10 +74,11 @@ period (`"2025-12-31 (FY)"`).
    Cloud Run service pins it `true`; check the service still reads `true` before any remediation.
    If it is off, summary regeneration / the scheduled `backfill_facts` re-fetch via the generic
    (flag-off) path and **re-corrupt** the data — the single highest-impact sequencing risk.
-2. **Backfill `Company.sic` (prerequisite):** no ingestion path populated it, so it is NULL in prod —
-   which makes the SIC-band remediation match **zero** companies (and collapses the Peers cohort).
+2. **Backfill `Company.sic` (prerequisite):** a companyfacts sync and the facts backfill's cross-check fill a
+   NULL SIC for each company they reach (`app/services/facts/sic_fill.py`); a company neither has reached is
+   still NULL, which keeps it out of the SIC-band remediation (and collapses its Peers cohort).
    Run `python scripts/backfill_facts.py --backfill-company-sic --dry-run` then without `--dry-run`.
-   Idempotent (fills only blanks); re-run periodically to catch new companies.
+   Idempotent (fills only blanks, an empty SIC included: SEC listed none when a sync asked).
 3. **Dry-run scope:** `python scripts/backfill_facts.py --remediate-financials --dry-run` — should now
    report a non-zero `companies` count (blank-SIC financials, e.g. some BDCs, still aren't
    auto-selected — pass them via `--tickers`).

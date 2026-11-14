@@ -137,6 +137,7 @@ def _messages(caplog, prefix):
     return [r.getMessage() for r in caplog.records if r.getMessage().startswith(prefix)]
 
 
+@pytest.mark.usefixtures("sec_lists_no_sic")
 def test_f0_1_backfill_default_fetcher_fetches_once_per_company_and_caches(sessions, app_loop, monkeypatch):
     """F0.1 — ``backfill_facts(db)``, the call shape of the internal trigger's flag-off run
     (``app/routers/internal.py::_run_backfill_facts``, through ``job_sessions.run_in_own_session_sync``), resolves the
@@ -336,6 +337,7 @@ def test_f0_3_remediate_rolls_back_a_filing_whose_reprocess_raises_after_the_del
     assert _messages(caplog, "remediate:") == [f"remediate: write failed for filing {older_id}"]
 
 
+@pytest.mark.usefixtures("sec_lists_no_sic")
 def test_f0_4_sync_companyfacts_batch_isolates_each_company_failure(sessions, inflight, monkeypatch, caplog):
     """F0.4 — one company's failure never stops ``sync_companyfacts_batch`` (facts_service.py:2125-2153):
     an exception is logged, ROLLED BACK (so none of that company's staged writes ride a later

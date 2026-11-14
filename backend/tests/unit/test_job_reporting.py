@@ -211,6 +211,7 @@ def facts_job_sessions(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("available", [True, False], ids=["available", "unavailable"])
 @pytest.mark.parametrize("expire", [True, False], ids=["expire", "keep-loaded"])
+@pytest.mark.usefixtures("sec_lists_no_sic")
 def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, monkeypatch, available, expire):
     from scripts import backfill_facts
     from app.services import facts_service

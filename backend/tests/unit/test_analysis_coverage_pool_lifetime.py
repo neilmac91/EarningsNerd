@@ -48,6 +48,7 @@ def _companyfacts_payload():
 
 
 @pytest.mark.parametrize("successful_fetch", [False, True])
+@pytest.mark.usefixtures("sec_lists_no_sic")
 @pytest.mark.asyncio
 async def test_stalled_coverage_leader_and_follower_release_pool_for_filings(
     monkeypatch, tmp_path, successful_fetch,

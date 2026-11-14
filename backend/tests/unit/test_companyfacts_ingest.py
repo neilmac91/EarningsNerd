@@ -573,6 +573,7 @@ def _calendar_fetcher(calls=None):
 
 
 @pytest.mark.requires_db
+@pytest.mark.usefixtures("sec_lists_no_sic")
 class TestIngestCompanyfacts:
     @pytest.mark.asyncio
     async def test_first_sync_inserts_and_stamps(self):
