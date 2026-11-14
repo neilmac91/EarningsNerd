@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useViewer, useEarningsAlerts } from '@/features/calendar/hooks/useCalendar'
 import { AlertBell } from '@/features/calendar/components/AlertBell'
-import { canonicalTicker } from '@/features/calendar/lib/tickers'
+import { canonicalTicker, secTicker } from '@/features/calendar/lib/tickers'
 
 // The alert list names the companies' tickers (SEC's BRK-B); a calendar event carries Alpha Vantage's (BRK.B).
 const mockAlertTickers = vi.fn()
@@ -54,6 +54,13 @@ describe('a dual-class company on the calendar', () => {
     expect(canonicalTicker(' brk-b ')).toBe('BRK.B')
     expect(canonicalTicker('BRK.B')).toBe('BRK.B')
     expect(canonicalTicker('aapl')).toBe('AAPL')
+  })
+
+  it("spells a ticker as SEC does for the company page's link", () => {
+    expect(secTicker(' brk.b ')).toBe('BRK-B')
+    expect(secTicker('BRK-B')).toBe('BRK-B')
+    expect(secTicker('aapl')).toBe('AAPL')
+    expect(secTicker('A.B.C')).toBe('A-B-C')
   })
 
   it('reads its bell on when the alert list names the company and turns it off', async () => {

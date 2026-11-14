@@ -127,3 +127,27 @@ describe('the calendar event row wraps and shows what it carries', () => {
     expect(name.parentElement).toHaveClass('flex-wrap')
   })
 })
+
+describe("the calendar event row links to the company page in SEC's spelling", () => {
+  // An event carries Alpha Vantage's spelling of a share class (BRK.B); the company page binds SEC's (BRK-B) by exact
+  // match, so /company/BRK.B is a not-found page.
+  it.each([true, false])('a BRK.B event links to /company/BRK-B and still shows BRK.B (roomy: %s)', (roomy) => {
+    render(
+      <ul>
+        <EventRow ev={{ ...EVENT, ticker: 'BRK.B', company_name: 'Berkshire Hathaway' }} alerts={ALERTS} signedIn={false} roomy={roomy} />
+      </ul>,
+    )
+    const link = within(screen.getByRole('listitem')).getByRole('link')
+    expect(link).toHaveAttribute('href', '/company/BRK-B')
+    expect(within(link).getByText('BRK.B')).toBeInTheDocument()
+  })
+
+  it('a plain ticker links as it reads', () => {
+    render(
+      <ul>
+        <EventRow ev={EVENT} alerts={ALERTS} signedIn={false} roomy />
+      </ul>,
+    )
+    expect(within(screen.getByRole('listitem')).getByRole('link')).toHaveAttribute('href', '/company/AAPL')
+  })
+})
